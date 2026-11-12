@@ -60,6 +60,14 @@ Values are Fontconfig patterns, for example `"Inter:weight=medium"` or
 Restart after changing fonts. Check resolution with `fc-match 'Inter'` if the
 chosen family does not appear.
 
+Glyphs are drawn the way GTK (Pango) and Qt draw them: the interface family's
+Fontconfig `antialias`, `hinting`, `hintstyle` and `autohint` settings choose the
+hinting and antialiasing, glyphs are placed in quarter pixels, and fonts with
+size-dependent tracking (an AAT `trak` table) get it for the point size. Full
+hinting and disabled antialiasing keep glyphs on whole pixels. Check the settings
+with `fc-match -v sans-serif | grep -E 'hint|antialias'`; they apply at the next
+start.
+
 ## Icon themes
 
 ```toml
