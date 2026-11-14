@@ -2,9 +2,9 @@
 
 [Project overview](../README.md)
 
-These guides describe rummage's current source. The version remains 0.5.0 while
-this fork develops beyond upstream Nordend's release. Use the source commit and
-package identity when reporting behavior. See [installation](install.md),
+These guides describe rummage's 0.5.1 development sources, building on upstream
+Nordend. Use the source commit and package identity when reporting behavior.
+See [installation](install.md),
 [release history](releases.md) and [package validation](ci-packaging.md).
 
 ## Get started

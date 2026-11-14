@@ -1,3 +1,10 @@
+rummage (0.5.1-1) unstable; urgency=medium
+
+  * Bump the source and package versions to 0.5.1.
+  * Add configurable Details columns and sortable filesystem properties.
+
+ -- rummage fork maintainers <barrulus@users.noreply.github.com>  Sat, 14 Nov 2026 20:35:09 +0000
+
 rummage (0.5.0-1) unstable; urgency=medium
 
   * Package the rummage fork; CI replaces this version with its source snapshot.

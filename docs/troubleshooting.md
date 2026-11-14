@@ -11,8 +11,8 @@ rummage --about
 rummage --check-config
 ```
 
-An installed release and this checkout can both say 0.5.0 while exposing different
-features. Include the commit and whether the source has local changes in reports.
+Development builds can share a version number while exposing different features.
+Include the commit and whether the source has local changes in reports.
 
 ## The build fails or tests are missing
 
