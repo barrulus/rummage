@@ -5,6 +5,7 @@
 #include <format>
 #include <sstream>
 #include <toml++/toml.hpp>
+#include <unordered_set>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/config_edit.hpp"
@@ -44,6 +45,7 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
     fields_.clear();
     buttons_.clear();
     new_actions_ = 0;
+    new_bindings_ = 0;
     change_section(0);
     job_ = pool_.submit(
         core::Priority::visible,
@@ -162,19 +164,75 @@ void SettingsDialog::add_action() {
     redraw_();
 }
 
+void SettingsDialog::add_keybinding() {
+    if (busy_ || !valid_)
+        return;
+    const auto table = std::format("binding:{}", new_bindings_++);
+    fields_.push_back({1,
+                       table,
+                       "target",
+                       "Target: action:ID or go:/path (also go:~/path)",
+                       {},
+                       false,
+                       ui::TextField{},
+                       {},
+                       {}});
+    fields_.push_back({1,
+                       table,
+                       "chord",
+                       "New keybinding — chord, e.g. Ctrl+Alt+J",
+                       {},
+                       false,
+                       ui::TextField{},
+                       {},
+                       {}});
+    section_ = 1;
+    focus_ = "f" + std::to_string(fields_.size() - 2);
+    reveal_focus();
+    if (list_.height >= 144)
+        scroller_.jump_to(scroller_.max_offset());
+    redraw_();
+}
+
 void SettingsDialog::save() {
     if (busy_ || !valid_ || path_.empty())
         return;
     std::vector<core::ConfigEdit> edits;
     std::string appended;
     for (const auto& field : fields_) {
-        if (field.table.starts_with("new:"))
+        if (field.table.starts_with("new:") || field.table.starts_with("binding:"))
             continue;
         if (field.input.text() != field.original)
             edits.push_back(
                 {field.table, field.key,
                  field.raw ? field.input.text() : core::quote_config_string(field.input.text()),
                  field.table == "keybindings" && field.input.text() == "Default"});
+    }
+    std::unordered_set<std::string> targets;
+    for (const auto& field : fields_)
+        if (field.table == "keybindings")
+            targets.insert(field.key);
+    for (std::size_t i = 0; i < new_bindings_; ++i) {
+        std::string target, chord;
+        for (const auto& field : fields_) {
+            if (field.table != std::format("binding:{}", i))
+                continue;
+            (field.key == "target" ? target : chord) = field.input.text();
+        }
+        // An untouched draft can be ignored when saving unrelated settings.
+        if (target.empty() && chord.empty())
+            continue;
+        if (target.empty() || chord.empty() || chord == "Default")
+            error_ = "New keybindings need a target and a chord.";
+        else if (!targets.insert(target).second)
+            error_ = "Keybinding target already exists. Edit its existing entry.";
+        else
+            error_.clear();
+        if (!error_.empty()) {
+            redraw_();
+            return;
+        }
+        edits.push_back({"keybindings", target, core::quote_config_string(chord)});
     }
     for (std::size_t i = 0; i < new_actions_; ++i) {
         appended += "\n[[actions]]\n";
@@ -243,22 +301,26 @@ void SettingsDialog::save() {
 
 void SettingsDialog::change_section(int section) {
     section_ = section;
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
     focus_ = "section" + std::to_string(section);
     redraw_();
 }
 
 void SettingsDialog::reveal_focus() {
+    const auto count = std::ranges::count_if(
+        fields_, [this](const Field& field) { return field.section == section_; });
+    scroller_.set_extent(static_cast<float>(count) * 72, list_.height);
     std::size_t row = 0;
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         if (fields_[i].section != section_)
             continue;
         if (focus_ == "f" + std::to_string(i)) {
             const float y = static_cast<float>(row) * 72;
-            if (y < scroll_)
-                scroll_ = y;
-            if (y + 72 > scroll_ + list_.height)
-                scroll_ = std::max(0.0F, y + 72 - list_.height);
+            if (y < scroller_.offset())
+                scroller_.jump_to(y);
+            if (y + 72 > scroller_.offset() + list_.height)
+                scroller_.jump_to(std::max(0.0F, y + 72 - list_.height));
             return;
         }
         ++row;
@@ -276,6 +338,8 @@ void SettingsDialog::activate(std::string_view id) {
         open_file_();
     else if (id == "add")
         add_action();
+    else if (id == "add_binding")
+        add_keybinding();
     else if (id.starts_with("section"))
         change_section(id.back() - '0');
     else {
@@ -318,6 +382,8 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
                 order.push_back("f" + std::to_string(i));
         if (section_ == 2)
             order.push_back("add");
+        if (section_ == 1)
+            order.push_back("add_binding");
         order.insert(order.end(), {"file", "close", "save"});
         auto found = std::ranges::find(order, focus_);
         const auto at = found == order.end() ? 0 : static_cast<std::size_t>(found - order.begin());
@@ -382,6 +448,8 @@ void SettingsDialog::paste(std::string_view text) {
 ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
     if (busy_)
         return ui::CursorShape::standard;
+    if (scrollbar_.dragging() || scrollbar_.hit(scroller_, x, y))
+        return ui::CursorShape::pointer;
     for (const auto& button : buttons_)
         if (button.bounds.contains(x, y))
             return ui::CursorShape::pointer;
@@ -395,9 +463,13 @@ ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
 void SettingsDialog::pointer(const ui::PointerEvent& event) {
     if (!open_ || busy_)
         return;
+    if (scrollbar_.pointer(event, scroller_)) {
+        redraw_();
+        return;
+    }
     if (event.kind == ui::PointerEvent::Kind::scroll && list_.contains(event.x, event.y)) {
         const float distance = event.wheel_y != 0 ? event.wheel_y * 48.0F : event.scroll_y;
-        scroll_ = std::clamp(scroll_ + distance, 0.0F, max_scroll_);
+        scroller_.jump_to(scroller_.offset() + distance);
         redraw_();
         return;
     }
@@ -466,23 +538,23 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         : section_ == 1 ? "Enter a chord (Ctrl+J), Default to reset, or empty to disable."
                         : "Edit custom actions here. Open config for filters and advanced options.";
     renderer.draw_text(hint, left, card.y + 88, 12, palette.on_surface_variant, room);
-    list_ = {left, card.y + 112, room, std::max(0.0F, height - (section_ == 2 ? 236 : 188))};
+    list_ = {left, card.y + 112, room, std::max(0.0F, height - (section_ != 0 ? 236 : 188))};
     const auto count = std::ranges::count_if(
         fields_, [this](const Field& field) { return field.section == section_; });
-    max_scroll_ = std::max(0.0F, static_cast<float>(count) * 72 - list_.height);
-    scroll_ = std::clamp(scroll_, 0.0F, max_scroll_);
+    scroller_.set_extent(static_cast<float>(count) * 72, list_.height);
+    scrollbar_.layout(list_);
     renderer.push_clip(list_);
     if (section_ == 2 && count == 0 && !busy_ && valid_)
         renderer.draw_text("No custom actions yet. Choose Add action to create one.", left,
                            list_.y + 8, 13, palette.on_surface_variant, room);
-    float y = list_.y - scroll_;
+    float y = list_.y - scroller_.offset();
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
         if (field.section != section_)
             continue;
         if (y + 72 > list_.y && y < list_.bottom()) {
-            renderer.draw_text(field.label, left, y, 13, palette.on_surface_variant, room - 10);
-            field.bounds = {left, y + 22, room - 10, 32};
+            renderer.draw_text(field.label, left, y, 13, palette.on_surface_variant, room - 22);
+            field.bounds = {left, y + 22, room - 22, 32};
             const bool focused = focus_ == "f" + std::to_string(i);
             if (field.choices.empty())
                 field.input.draw(
@@ -508,21 +580,18 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 else if (label == "false")
                     label = "Off";
                 renderer.draw_text(label + "  ↔", left + 6, y + 30, 13, palette.on_surface,
-                                   room - 28);
+                                   room - 40);
             }
         }
         y += 72;
     }
-    if (max_scroll_ > 0 && list_.height > 0) {
-        const float thumb =
-            std::max(18.0F, list_.height * list_.height / (max_scroll_ + list_.height));
-        renderer.fill_rect(
-            {list_.right() - 4, list_.y + (list_.height - thumb) * scroll_ / max_scroll_, 3, thumb},
-            palette.outline);
-    }
+    renderer.fill_rect(scrollbar_.thumb(scroller_), palette.outline);
     renderer.pop_clip();
     if (section_ == 2)
         button("add", "Add action", {left, card.bottom() - 114, std::min(116.0F, room), 32});
+    if (section_ == 1)
+        button("add_binding", "New keybinding",
+               {left, card.bottom() - 114, std::min(152.0F, room), 32});
     if (!error_.empty())
         renderer.draw_text(error_, left, card.bottom() - 72, 12, palette.error, room);
     const float footer = (room - 12) / 3;

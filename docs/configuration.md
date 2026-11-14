@@ -5,14 +5,18 @@
 Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Appearance includes colour and icon themes, opacity, fonts and
 preview placement. Keybindings lets you replace a default with a chord (for example
-`Ctrl+J`), type `Default` to reset it, or clear a field to disable it. Actions lets
+`Ctrl+J`), type `Default` to reset it, or clear a field to disable it. **New keybinding**
+adds a chord for an action (`action:ID`) or folder (`go:/path` or `go:~/path`).
+Create custom commands in Actions first; you can save the action and its binding together.
+Actions lets
 you add commands and edit custom action labels, argument arrays and enabled state. Advanced options remain
 available through **Open config**.
 
 **Save** validates changes and applies live settings; fonts require a restart.
 **Cancel** or **Escape** discards edits. Use Tab/Shift+Tab to move between controls,
 Alt+1/2/3 to switch sections, and Ctrl+S to save. Scroll within a section for more
-controls. Existing comments and unrelated configuration are retained. If another
+controls using the wheel or by dragging the scrollbar; clicking its track jumps to that position.
+Existing comments and unrelated configuration are retained. If another
 editor changes the file while Settings is open, saving stops; reopen Settings to
 load that version. Invalid files and save failures display an error. Settings uses the active `--config` file when specified.
 
