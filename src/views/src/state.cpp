@@ -231,15 +231,16 @@ StartupLocation startup_location(const core::Config::Startup& startup, const Sta
     return {.folder = std::move(folder)};
 }
 
-std::filesystem::path default_state_path() {
+std::filesystem::path default_state_path(bool picker) {
+    const char* filename = picker ? "picker.toml" : "state.toml";
     const char* xdg = std::getenv("XDG_STATE_HOME");  // NOLINT(concurrency-mt-unsafe)
     // The XDG base directory spec ignores relative paths.
     if (xdg != nullptr && xdg[0] == '/') {
-        return std::filesystem::path{xdg} / "rummage" / "state.toml";
+        return std::filesystem::path{xdg} / "rummage" / filename;
     }
     const char* home = std::getenv("HOME");  // NOLINT(concurrency-mt-unsafe)
     if (home != nullptr && home[0] != '\0') {
-        return std::filesystem::path{home} / ".local" / "state" / "rummage" / "state.toml";
+        return std::filesystem::path{home} / ".local" / "state" / "rummage" / filename;
     }
     return {};
 }
@@ -266,6 +267,7 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     read.flag("info.visible", s.info_visible);
     read.number("info.width", kInfoMin, kInfoMax, s.info_width);
     read.flag("info.expanded", s.info_expanded);
+    read.number("info.sidebar_ratio", 0.15F, 0.85F, s.sidebar_preview_ratio);
     read.word("details.sort", kSortKeys, s.sort_key);
     read.flag("details.descending", s.sort_descending);
     read.number("details.size_width", kColumnMin, kColumnMax, s.details_widths[0]);
@@ -570,6 +572,7 @@ std::string format_state(const State& s) {
                "visible = {}\n"
                "width = {}\n"
                "expanded = {}\n"
+               "sidebar_ratio = {}\n"
                "\n"
                "[details]\n"
                "sort = \"{}\"\n"
@@ -588,9 +591,9 @@ std::string format_state(const State& s) {
                word_of(kModes, s.mode), flag(s.show_hidden), word_of(kListSizeWords, s.list_size),
                s.grid_icon, word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible),
                s.sidebar_width, flag(s.info_visible), s.info_width, flag(s.info_expanded),
-               word_of(kSortKeys, s.sort_key), flag(s.sort_descending), s.details_widths[0],
-               s.details_widths[1], s.details_widths[2], s.window_width, s.window_height,
-               flag(s.maximized), recent) +
+               s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
+               s.details_widths[0], s.details_widths[1], s.details_widths[2], s.window_width,
+               s.window_height, flag(s.maximized), recent) +
            std::format(
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,

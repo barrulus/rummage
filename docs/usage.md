@@ -16,7 +16,7 @@ permissions, owner/group, links and folder counts.
 
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
-**Ctrl+I** toggles the information pane in grid/details views. Drag its edge to
+**Ctrl+I** toggles the information pane. Drag its edge to
 resize it (240–720 logical pixels).
 
 ## Choose a view
@@ -102,9 +102,24 @@ window. New tabs initially inherit view/zoom/sort/hidden settings and start with
 filter. Saved folder preferences take precedence when navigating: view mode, sort,
 zoom and details-column widths are remembered for up to 512 recent locations. Pane/tab restoration is described in [saved state](configuration.md#saved-state).
 
+## Settings and preview placement
+
+The existing filter toolbar contains **View** and a **cog** for Settings; pane
+controls no longer occupy a separate row. View includes display modes, pane
+commands, preview/sidebar visibility and Settings. Pane commands also remain in
+the right-click menu and command palette, with configurable shortcuts.
+
+In **Settings → Appearance**, set **Preview placement** to **Below Places** to
+share the sidebar with the active pane's preview. Drag the horizontal divider to
+adjust the space; double-click to reset it. Places and preview scroll independently,
+and the divider is remembered between launches. **Ctrl+I** hides either placement.
+If Places is hidden or the window is too short, the preview uses its normal right
+side location. **Right side** remains the default. The file picker retains its
+existing layout.
+
 ## Two persistent browsing panes
 
-- **F3** or **Two panes** splits the browser. On first use, the second pane starts at the current
+- **F3** or **View → Show Two Panes** splits the browser. On first use, the second pane starts at the current
   location and receives focus. Each pane has its own tabs, breadcrumb, selections, history,
   scrolling, view modes, zoom, sort order, hidden-file setting and filename filters.
 - **Tab** switches panes while browsing. Clicking a pane's header focuses it without disturbing
@@ -113,8 +128,8 @@ zoom and details-column widths are remembered for up to 512 recent locations. Pa
 - **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab**, **Ctrl+Shift+Tab** and **Alt+1…9** operate in the active
   pane. The last tab in each pane stays open. New tabs inherit view, zoom, sorting and hidden-file
   visibility, and start with an empty filename filter.
-- Drag the divider to resize; double-click it to equalize. **Top / bottom** changes orientation,
-  and **Swap panes** exchanges their positions while keeping focus with the same content.
+- Drag the divider to resize; double-click it to equalize. **View → Arrange Top / Bottom** changes orientation,
+  and **View → Swap Panes** exchanges their positions while keeping focus with the same content.
   Column view works inside either pane, just like Grid and Details.
 - **Ctrl+F5** copies selected files to the other pane's current folder; **Ctrl+F6** moves them.
   The command palette and **Panes** context submenu show the destination path and direction.

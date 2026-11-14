@@ -16,6 +16,8 @@
 
 namespace rummage::views {
 
+class Thumbnails;
+
 // Single-item properties and a staged folder-icon chooser. All disk work runs on workers.
 class PropertiesDialog {
 public:
@@ -41,6 +43,8 @@ public:
 
     [[nodiscard]] std::uint64_t generation() const { return generation_; }
 
+    [[nodiscard]] const ui::Rect& card_bounds() const { return card_; }
+
     [[nodiscard]] bool can_edit_icon() const;
 
     [[nodiscard]] bool dirty() const { return draft_ != original_; }
@@ -54,7 +58,7 @@ public:
     void paste(std::string_view text);
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons);
+              ui::IconSet& icons, Thumbnails* thumbnails = nullptr);
 
 private:
     struct Data {
@@ -94,6 +98,7 @@ private:
     std::vector<Control> controls_;
     ui::Rect grid_{};
     ui::Rect content_{};
+    ui::Rect card_{};
     float scroll_{0}, max_scroll_{0};
     std::uint64_t generation_{0};
     std::unique_ptr<ui::IconSet> preview_icons_;

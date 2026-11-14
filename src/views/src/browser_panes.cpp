@@ -151,6 +151,62 @@ void Browser::transfer_to_other_pane(bool move) {
     transfer_paths(destination->path(), paths, move, std::nullopt);
 }
 
+void Browser::open_settings() {
+    if (!panes_enabled_)
+        return;
+    menu_.close();
+    palette_.close();
+    filter_focused_ = false;
+    settings_.open(config_path_.empty() ? core::default_config_path() : config_path_, open_config_,
+                   settings_applied_);
+}
+
+void Browser::open_view_menu(float x, float y, bool keyboard) {
+    std::vector<MenuItem> items;
+    for (const auto& [command, label] : {std::pair{Command::columns_view, "Columns"},
+                                         {Command::grid_view, "Grid"},
+                                         {Command::details_view, "Details"}}) {
+        MenuItem item;
+        item.label = label;
+        item.keys = keys_for(command);
+        item.radio = true;
+        item.checked = (command == Command::columns_view && mode() == Mode::columns) ||
+                       (command == Command::grid_view && mode() == Mode::grid) ||
+                       (command == Command::details_view && mode() == Mode::details);
+        item.action = [this, command] { run(command, Clock::now()); };
+        items.push_back(std::move(item));
+    }
+    auto panes = pane_items();
+    if (!panes.empty()) {
+        panes.front().separator = true;
+        items.insert(items.end(), std::make_move_iterator(panes.begin()),
+                     std::make_move_iterator(panes.end()));
+    }
+    items.push_back({.id = "toggle_info",
+                     .label = "Preview",
+                     .keys = keys_for(Command::toggle_info),
+                     .separator = true,
+                     .checked = info_visible_,
+                     .empty_text = {},
+                     .children = {},
+                     .action = [this] { set_info_visible(!info_visible_); }});
+    items.push_back({.id = "toggle_sidebar",
+                     .label = "Places sidebar",
+                     .keys = keys_for(Command::toggle_sidebar),
+                     .checked = sidebar_visible_,
+                     .empty_text = {},
+                     .children = {},
+                     .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
+    items.push_back({.id = "settings",
+                     .label = "Settings…",
+                     .keys = keys_for(Command::show_settings),
+                     .separator = true,
+                     .empty_text = {},
+                     .children = {},
+                     .action = [this] { open_settings(); }});
+    menu_.open(x, y, std::move(items), keyboard);
+}
+
 std::vector<MenuItem> Browser::pane_items() {
     if (!panes_enabled_)
         return {};

@@ -42,7 +42,9 @@ struct Config {
     };
 
     struct Appearance {
-        float background_opacity{1.0F};  // background only; foreground content stays solid
+        float background_opacity{1.0F};         // background only; foreground content stays solid
+        std::string color_scheme{"system"};     // system (desktop / colors.toml), light, dark
+        std::string preview_position{"right"};  // right or sidebar
     };
 
     struct StatusBar {

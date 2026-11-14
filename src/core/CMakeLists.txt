@@ -7,6 +7,7 @@ configure_file(config_template.hpp.in generated/config_template.hpp @ONLY)
 add_library(rummage_core
     src/actions.cpp
     src/config.cpp
+    src/config_edit.cpp
     src/event_loop.cpp
     src/file.cpp
     src/file_picker.cpp

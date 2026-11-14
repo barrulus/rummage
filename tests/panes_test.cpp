@@ -576,7 +576,11 @@ TEST_CASE("panes: split toolbars and status bar respect configured font metrics"
                 const auto pane = f.browser.pane_bounds(index);
                 const auto field = f.browser.filter_bounds();
                 const auto button = f.browser.new_folder_bounds();
-                CHECK(field.x >= pane.x + 10 + fonts.layout("Filter", 13, scale).width / scale + 9);
+                if (pane.width >= 300)
+                    CHECK(field.x >=
+                          pane.x + 10 + fonts.layout("Filter", 13, scale).width / scale + 9);
+                else
+                    CHECK(field.x >= pane.x + 10);
                 CHECK(field.width >= 48);
                 CHECK(field.right() <= pane.right() - 10);
                 if (!button.empty()) {
@@ -834,4 +838,100 @@ TEST_CASE("panes: unchanged views of the same folder share saved preferences acr
     CHECK(focused.folders.find(f.a)->mode == rummage::views::State::Mode::grid);
     draw();
     CHECK(&f.browser.state().folders.entries() == &focused.folders.entries());
+}
+
+TEST_CASE("panes: preview below Places follows the active pane and retains its divider") {
+    Fixture f;
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+    f.browser.set_preview_in_sidebar(true);
+    f.browser.set_mode(Browser::Mode::grid);
+    draw();
+    auto preview = f.browser.shared_preview_bounds();
+    CHECK(preview.x == 0);
+    CHECK(preview.width == f.browser.sidebar().width());
+    CHECK(preview.height > 100);
+    CHECK_FALSE(f.browser.grid().info_visible());
+    CHECK(f.browser.pane_bounds(0).y == 0);  // no dedicated pane-controls row
+    const auto divider = f.browser.sidebar_preview_divider_bounds();
+    const auto now = Browser::Clock::now();
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = 80,
+                       .y = divider.y + 2,
+                       .button = PointerButton::left},
+                      now);
+    f.browser.pointer({.kind = PointerEvent::Kind::motion, .x = 80, .y = 270}, now);
+    f.browser.pointer(
+        {.kind = PointerEvent::Kind::release, .x = 80, .y = 270, .button = PointerButton::left},
+        now);
+    draw();
+    CHECK(f.browser.shared_preview_bounds().y < preview.y);
+    const auto saved = f.browser.state();
+    CHECK(saved.sidebar_preview_ratio == doctest::Approx(270.0F / kHeight));
+    const auto restored = rummage::views::parse_state(rummage::views::format_state(saved), "state");
+    CHECK(restored.problems.empty());
+    CHECK(restored.state.sidebar_preview_ratio == saved.sidebar_preview_ratio);
+    f.browser.toggle_split();
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    draw();
+    CHECK(f.browser.shared_preview_bounds().x == 0);
+    CHECK(f.browser.grid().folder()->path() == f.b);
+    f.browser.set_stacked(true);
+    draw();
+    CHECK(f.browser.shared_preview_bounds().x == 0);
+    f.browser.set_sidebar_visible(false);
+    draw();
+    CHECK(f.browser.shared_preview_bounds().x > 0);  // falls back to the right
+    CHECK(f.browser.sidebar_preview_divider_bounds().empty());
+    f.browser.set_info_visible(false);
+    draw();
+    CHECK(f.browser.shared_preview_bounds().empty());
+}
+
+TEST_CASE("panes: compact View menu and Settings remain accessible without the controls row") {
+    Fixture f;
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    f.browser.set_settings_handler(f.dir.path / "config.toml", [] {}, {});
+    renderer.begin_frame(kWidth, kHeight, 1, {});
+    f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                   Browser::Clock::now());
+    renderer.end_frame();
+    const auto view = f.browser.view_menu_bounds();
+    REQUIRE_FALSE(view.empty());
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = view.x + 10,
+                       .y = view.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = view.x + 10,
+                       .y = view.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    REQUIRE(f.browser.context_menu().is_open());
+    const auto& items = f.browser.context_menu().items();
+    const auto split = std::ranges::find(items, "toggle_split", &rummage::views::MenuItem::id);
+    REQUIRE(split != items.end());
+    CHECK(split->keys == "F3");
+    f.browser.context_menu().close();
+    CHECK(f.press(key(XKB_KEY_comma, kCtrl)));
+    CHECK(f.browser.settings_dialog().is_open());
+    CHECK(f.press(key(XKB_KEY_Escape)));
+    CHECK_FALSE(f.browser.settings_dialog().is_open());
 }

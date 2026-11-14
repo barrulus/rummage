@@ -49,7 +49,16 @@ std::optional<Color> Theme::accent() const {
 
 Palette Theme::fallback() const { return desktop_ ? desktop_palette(*desktop_) : Palette{}; }
 
+void Theme::set_dark_override(std::optional<bool> dark) {
+    if (dark == dark_override_)
+        return;
+    dark_override_ = dark;
+    changed();
+}
+
 void Theme::changed() {
+    if (dark_override_)
+        override_palette_ = desktop_palette({.dark = *dark_override_, .accent = accent()});
     if (change_handler_) {
         change_handler_();
     }

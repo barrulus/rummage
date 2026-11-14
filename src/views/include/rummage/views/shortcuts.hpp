@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <xkbcommon/xkbcommon.h>
 
@@ -68,6 +69,7 @@ enum class Command : std::uint8_t {
     command_palette,
     find_files,
     filter_names,
+    show_settings,
     toggle_split,
     switch_pane,
     swap_panes,
@@ -99,7 +101,10 @@ struct Shortcut {
 // Replaces command bindings atomically. Errors leave the current bindings intact.
 // Empty strings disable a binding; an empty map restores defaults.
 [[nodiscard]] std::vector<std::string> configure_shortcuts(
-    const std::map<std::string, std::string>& bindings, std::span<const core::Action> custom = {});
+    const std::map<std::string, std::string>& bindings, std::span<const core::Action> custom = {},
+    bool apply = true);
+// Configurable built-in names and their user-facing labels.
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> binding_settings();
 [[nodiscard]] ui::KeyEvent view_key_event(const ui::KeyEvent& event);
 
 // Every shortcut, in the overlay's order. The browser runs its commands from here and passes a

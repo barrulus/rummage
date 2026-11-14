@@ -365,7 +365,7 @@ TEST_CASE("toolbar: font metrics keep labels and fields apart at every scale") {
                     f.renderer->end_frame();
                     const float label_width = f.fonts->layout("Filter", 13, scale).width / scale;
                     const auto field = f.browser.filter_bounds();
-                    CHECK(field.x >= 10 + label_width + 9);
+                    CHECK(field.x >= (width >= 300 ? 10 + label_width + 9 : 10));
                     CHECK(field.width >= 48);
                     CHECK(field.right() <= width - 10);
                     CHECK(f.browser.cursor_at(field.x + 2, field.y + 2) == CursorShape::text);

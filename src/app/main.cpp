@@ -499,6 +499,10 @@ int main(int argc, char** argv) {
         startup.mark("fonts");
         theme::Theme theme{theme::default_colors_path()};
         theme.watch(loop);
+        theme.set_dark_override(
+            config.appearance.color_scheme == "system"
+                ? std::nullopt
+                : std::optional<bool>{config.appearance.color_scheme == "dark"});
         // Without colors.toml, the desktop's light/dark and accent (ROADMAP 7.4).
         std::unique_ptr<platform::DesktopPortal> portal;
         const auto follow_desktop = [&] {
@@ -518,8 +522,12 @@ int main(int argc, char** argv) {
         follow_desktop();
         startup.mark("portal");
         // How rummage was left (ROADMAP 7.5a).
-        const std::filesystem::path state_path = views::default_state_path();
-        const views::StateResult remembered = views::load_state(state_path);
+        const std::filesystem::path state_path =
+            views::default_state_path(picker_request.has_value());
+        views::StateResult remembered = views::load_state(state_path);
+        if (std::error_code error; picker_request && !std::filesystem::exists(state_path, error)) {
+            remembered.state.mode = views::State::Mode::grid;
+        }
         for (const std::string& problem : remembered.problems) {
             log::warn("state: {}", problem);
         }
@@ -533,7 +541,7 @@ int main(int argc, char** argv) {
              .app_id = "rummage",
              .width = remembered.state.window_width,
              .height = remembered.state.window_height,
-             .maximized = !picker_request && remembered.state.maximized,
+             .maximized = remembered.state.maximized,
              .background = theme.palette().surface,
              .force_client_decorations = client_decorations_forced(),
              .background_opacity = config.appearance.background_opacity,
@@ -586,6 +594,7 @@ int main(int argc, char** argv) {
             const auto& fresh = loaded.config;
             if (columns) {
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
+                columns->set_preview_in_sidebar(fresh.appearance.preview_position == "sidebar");
             }
             if (loaded.actions_valid && loaded.context_menu_valid) {
                 const auto problems = views::configure_shortcuts(fresh.keybindings, fresh.actions);
@@ -601,6 +610,10 @@ int main(int argc, char** argv) {
                 log::warn("config: keeping previous actions, keybindings and menus");
             }
             window.request_redraw();
+            theme.set_dark_override(
+                fresh.appearance.color_scheme == "system"
+                    ? std::nullopt
+                    : std::optional<bool>{fresh.appearance.color_scheme == "dark"});
             icons.set_theme(fresh.icon.theme);
             icons.set_place_icons(fresh.icon.places);
             window.set_background_opacity(fresh.appearance.background_opacity);
@@ -615,9 +628,6 @@ int main(int argc, char** argv) {
         std::int32_t restored_width = remembered.state.window_width;
         std::int32_t restored_height = remembered.state.window_height;
         const auto note_state = [&] {
-            if (picker_request) {
-                return;
-            }
             const ui::WindowState& shown = window.state();
             if (!shown.maximized && !shown.fullscreen && !shown.tiled_left && !shown.tiled_right &&
                 !shown.tiled_top && !shown.tiled_bottom) {
@@ -628,6 +638,10 @@ int main(int argc, char** argv) {
             state.window_width = restored_width;
             state.window_height = restored_height;
             state.maximized = shown.maximized;
+            if (picker_request) {
+                state.tabs.clear();
+                state.shown_tab = 0;
+            }
             keeper.note(state);
         };
         // Files open with their default applications (ROADMAP 6.1).
@@ -651,6 +665,7 @@ int main(int argc, char** argv) {
                 });
             columns->set_actions(configured_actions);
             columns->status_bar().set_text_size(config.status_bar.text_size);
+            columns->set_preview_in_sidebar(config.appearance.preview_position == "sidebar");
             columns->set_context_menu(config.context_menu);
             action_handoff = std::make_unique<platform::ActionHandoff>(
                 loop, platform::Environment::from_environment(),
@@ -697,6 +712,14 @@ int main(int argc, char** argv) {
                     std::string app_id) {
                     opener->open(directory, std::move(files), std::move(app_id));
                 });
+            columns->set_settings_handler(
+                config_path,
+                [&] {
+                    opener->open(
+                        config_path.parent_path(),
+                        {{.name = config_path.filename().string(), .kind = fs::EntryKind::file}});
+                },
+                apply_config);
             columns->set_terminal_handler(
                 [&](const std::filesystem::path& directory) { opener->open_terminal(directory); });
             columns->set_quit_handler([&] {
@@ -760,7 +783,10 @@ int main(int argc, char** argv) {
             const auto launch_location =
                 views::startup_location(config.startup, remembered.state, start_dir);
             if (picker_request) {
-                columns->open(start_folder(start_dir));
+                // An application-provided folder wins; otherwise use the picker's last folder.
+                const auto location = views::startup_location(
+                    {.mode = core::Config::Startup::Mode::last}, remembered.state, start_dir);
+                columns->open(start_folder(location.folder));
             } else if (!launch_location.restore_tabs ||
                        !columns->restore_session(remembered.state)) {
                 columns->open(start_folder(launch_location.folder));
@@ -1030,10 +1056,8 @@ int main(int argc, char** argv) {
             });
         }
         const int code = loop.run();
-        if (!picker_request) {
-            note_state();
-            keeper.flush();
-        }
+        note_state();
+        keeper.flush();
         if (picker_request) {
             if (picker_channel) {
                 core::write_picker_result(4, picker_result);
