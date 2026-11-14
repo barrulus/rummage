@@ -8,6 +8,7 @@
 #include "rummage/core/config.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/theme/palette.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
 
 namespace rummage::views {
@@ -38,6 +39,7 @@ public:
     // Shared by controls and focused tests.
     bool edit(std::string_view table, std::string_view key, std::string value);
     void add_action();
+    void add_keybinding();
 
 private:
     struct Field {
@@ -66,12 +68,13 @@ private:
     std::string original_, error_;
     bool open_{false}, busy_{false}, existed_{false}, valid_{false};
     std::uint64_t generation_{0};
-    std::size_t action_count_{0}, new_actions_{0};
+    std::size_t action_count_{0}, new_actions_{0}, new_bindings_{0};
     std::vector<Field> fields_;
     std::vector<Button> buttons_;
     int section_{0};
     std::string focus_{"section0"};
-    float scroll_{0}, max_scroll_{0};
+    ui::Scroller scroller_;
+    ui::Scrollbar scrollbar_;
     ui::Rect list_{};
 };
 }  // namespace rummage::views

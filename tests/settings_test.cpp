@@ -200,3 +200,132 @@ TEST_CASE("settings: mouse wheel and keyboard reach fields in a short window") {
     draw();
     CHECK(f.dialog.cursor_at(100, 160) == rummage::ui::CursorShape::pointer);
 }
+
+TEST_CASE("settings: scrollbar drags outside the list and releases capture") {
+    Fixture f;
+    f.open();
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{400, 360};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(400, 360, 1, {});
+        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{});
+        renderer.end_frame();
+    };
+    draw();
+    CHECK(f.dialog.cursor_at(365, 135) == ui::CursorShape::pointer);
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 365,
+                      .y = 135,
+                      .button = ui::PointerButton::left});
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 500, .y = 500});
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::release,
+                      .x = 500,
+                      .y = 500,
+                      .button = ui::PointerButton::left});
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 365, .y = 120});
+    draw();
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 100,
+                      .y = 160,
+                      .button = ui::PointerButton::left});
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    CHECK(f.dialog.copy_selection(false) == "monospace");
+    // Click the track above the thumb to return to the start.
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 365,
+                      .y = 121,
+                      .button = ui::PointerButton::left});
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::release,
+                      .x = 365,
+                      .y = 121,
+                      .button = ui::PointerButton::left});
+    draw();
+    CHECK(f.dialog.cursor_at(100, 160) == ui::CursorShape::pointer);
+    // Switching sections cancels an in-progress drag.
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 365,
+                      .y = 135,
+                      .button = ui::PointerButton::left});
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
+    f.dialog.key({.keysym = XKB_KEY_1, .text = {}, .modifiers = {.alt = true}});
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 500, .y = 500});
+    draw();
+    CHECK(f.dialog.cursor_at(100, 160) == ui::CursorShape::pointer);
+}
+
+TEST_CASE(
+    "settings: new keybinding button is keyboard accessible and saves action and folder bindings") {
+    Fixture f;
+    f.open();
+    f.dialog.add_action();
+    REQUIRE(f.dialog.edit("new:0", "id", "hello"));
+    REQUIRE(f.dialog.edit("new:0", "argv", "['echo', '{file}']"));
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{800, 700};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 700, 1, {});
+        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{});
+        renderer.end_frame();
+    };
+    draw();
+    for (int i = 0; i < 5; ++i)
+        f.dialog.key({.keysym = XKB_KEY_ISO_Left_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    draw();
+    f.dialog.paste("action:hello");
+    // Both new fields are visible immediately, including the chord below the target.
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 100,
+                      .y = 515,
+                      .button = ui::PointerButton::left});
+    f.dialog.paste("Ctrl+Alt+J");
+    f.dialog.add_keybinding();
+    REQUIRE(f.dialog.edit("binding:1", "target", "go:~/Projects"));
+    REQUIRE(f.dialog.edit("binding:1", "chord", "Ctrl+Alt+Y"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    const auto config = core::load_config(f.path);
+    REQUIRE(config.problems.empty());
+    CHECK(config.config.keybindings.at("action:hello") == "Ctrl+Alt+J");
+    CHECK(config.config.keybindings.at("go:~/Projects") == "Ctrl+Alt+Y");
+    f.open();
+    CHECK(f.dialog.edit("keybindings", "action:hello", "Default"));
+    CHECK(f.dialog.edit("keybindings", "go:~/Projects", "Default"));
+}
+
+TEST_CASE(
+    "settings: new bindings reject invalid targets, duplicate targets and conflicting chords") {
+    Fixture f;
+    const std::string original = "# unchanged\n[keybindings]\n'go:~/Projects' = 'Ctrl+Alt+Y'\n";
+    REQUIRE_FALSE(core::write_file_atomically(f.path, original));
+    f.open();
+    f.dialog.add_keybinding();
+    for (const auto& [target, chord] :
+         std::vector<std::pair<std::string, std::string>>{{"", "F8"},
+                                                          {"action:missing", "F8"},
+                                                          {"go:relative", "F8"},
+                                                          {"go:~/Projects", "F8"},
+                                                          {"go:/tmp", "Ctrl+Q"}}) {
+        REQUIRE(f.dialog.edit("binding:0", "target", target));
+        REQUIRE(f.dialog.edit("binding:0", "chord", chord));
+        f.dialog.save();
+        CHECK_FALSE(f.dialog.error().empty());
+        CHECK_FALSE(f.dialog.busy());
+        CHECK(core::read_text_file(f.path).text == original);
+    }
+    REQUIRE(f.dialog.edit("binding:0", "target", "go:/tmp"));
+    REQUIRE(f.dialog.edit("binding:0", "chord", "F8"));
+    f.dialog.add_keybinding();
+    REQUIRE(f.dialog.edit("binding:1", "target", "go:/tmp"));
+    REQUIRE(f.dialog.edit("binding:1", "chord", "F9"));
+    f.dialog.save();
+    CHECK_FALSE(f.dialog.error().empty());
+    f.dialog.close();
+    CHECK(core::read_text_file(f.path).text == original);
+}
