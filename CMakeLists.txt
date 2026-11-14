@@ -107,8 +107,8 @@ else()
 endif()
 option(RUMMAGE_PDF "Build the optional PDFium document preview helper" OFF)
 if(RUMMAGE_PDF)
-    # PDFiumConfig.cmake ships with the pdfium-binaries packages (PDFium_DIR or
-    # CMAKE_PREFIX_PATH); otherwise look for the header and library directly.
+    # Prefer the installed PDFium CMake package (PDFium_DIR or CMAKE_PREFIX_PATH);
+    # otherwise look for the header and library directly.
     find_package(PDFium QUIET)
     if(NOT TARGET pdfium)
         find_path(PDFIUM_INCLUDE_DIR fpdfview.h PATH_SUFFIXES pdfium REQUIRED)

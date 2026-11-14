@@ -36,8 +36,7 @@
   withTests ? false,
   withMedia ? false,
   withPdf ? false,
-  # Not nixpkgs' pdfium, a source build that pulls in ICU, abseil and libyuv: one file instead.
-  rummage-pdfium ? callPackage ./pdfium-binaries.nix { },
+  rummage-pdfium ? callPackage ./pdfium.nix { },
 }:
 
 stdenv.mkDerivation {

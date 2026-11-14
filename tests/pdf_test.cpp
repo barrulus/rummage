@@ -1,7 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <doctest/doctest.h>
 
@@ -64,6 +68,40 @@ TEST_CASE("pdf: damaged files fail without killing the helper") {
     CHECK(
         helpers.load({.path = fixtures / "red.pdf", .max_width = 128, .max_height = 128}).failure ==
         picture::Failure::none);
+}
+
+TEST_CASE("pdf: saved text fields and selected checkbox appearances are drawn") {
+    isolate::Helpers helpers{{.program = RUMMAGE_PDF_HELPER, .args = {}}};
+    for (const char* name : {"form.pdf", "form-rotated.pdf"}) {
+        INFO(name);
+        const auto loaded =
+            helpers.load({.path = fixtures / name, .max_width = 200, .max_height = 200});
+        INFO(loaded.detail);
+        REQUIRE(loaded.failure == picture::Failure::none);
+        const auto& image = loaded.image;
+        CHECK(image.width * image.height == 200 * 120);
+        std::size_t red = 0;
+        std::size_t black = 0;
+        std::size_t blue = 0;
+        std::size_t green = 0;
+        for (std::size_t i = 0; i < image.rgba.size(); i += 4) {
+            const auto r = image.rgba[i];
+            const auto g = image.rgba[i + 1];
+            const auto b = image.rgba[i + 2];
+            red += r > 220 && g < 30 && b < 30 ? 1U : 0U;
+            black += r < 30 && g < 30 && b < 30 ? 1U : 0U;
+            blue += r < 30 && g < 30 && b > 220 ? 1U : 0U;
+            green += r < 30 && g > 220 && b < 30 ? 1U : 0U;
+        }
+        // No page contents: all ink comes from the widgets. The text field has
+        // a red background and black APPROVED; the checked state is blue, off green.
+        CHECK(red > 4000);
+        CHECK(black > 200);
+        CHECK(blue > 300);
+        CHECK(green == 0);
+        // The fixtures also contain an endless document-open JS action: it must
+        // never run when initializing the form environment or drawing appearances.
+    }
 }
 
 TEST_CASE("pdf: MIME routes to its own helper, thumbnails and Quick Look use it") {
@@ -164,7 +202,74 @@ void still_works(isolate::Helpers& helpers) {
         helpers.load({.path = fixtures / "red.pdf", .max_width = 64, .max_height = 64});
     CHECK(red.failure == picture::Failure::none);
 }
+
+// A sparse file exercises the real 512 MiB limit without storing/reading half a
+// gigabyte in the fixture corpus. Cover both page contents and image data: PDFium
+// versions may read streams eagerly or defer them to rendering. Neither may
+// return partial success.
+fs::path budget_pdf(const TempDir& dir, bool image) {
+    const auto path = dir.path / (image ? "large-image.pdf" : "large-contents.pdf");
+    std::ofstream file{path, std::ios::binary};
+    file << "%PDF-1.4\n";
+    std::vector<std::streamoff> offsets{0};
+    const auto object = [&](std::string_view body) {
+        offsets.push_back(file.tellp());
+        file << offsets.size() - 1 << " 0 obj\n" << body << "\nendobj\n";
+    };
+    object("<</Type /Catalog /Pages 2 0 R>>");
+    object("<</Type /Pages /Count 1 /Kids [3 0 R]>>");
+    object(image ? "<</Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 5 0 R "
+                   "/Resources <</XObject <</Im 4 0 R>>>>>>"
+                 : "<</Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 4 0 R "
+                   "/Resources <<>>>>");
+    offsets.push_back(file.tellp());
+    constexpr std::streamoff length = 513LL * 1024 * 1024;
+    file << "4 0 obj\n<</Length " << length;
+    if (image) {
+        file << " /Type /XObject /Subtype /Image /Width 1 /Height 1 "
+                "/ColorSpace /DeviceRGB /BitsPerComponent 8";
+    }
+    file << ">>\nstream\n";
+    const auto start = file.tellp();
+    // In page contents the sparse bytes belong to a comment. In an image the
+    // first three bytes are one red pixel and the trailing bytes are ignored.
+    file.put(image ? static_cast<char>(255) : '%');
+    const std::string tail = image ? "\n" : "\n1 0 0 rg 0 0 200 100 re f\n";
+    file.seekp(start + length - static_cast<std::streamoff>(tail.size()));
+    file << tail << "endstream\nendobj\n";
+    if (image) {
+        const std::string contents = "q 200 0 0 100 0 0 cm /Im Do Q\n";
+        object("<</Length " + std::to_string(contents.size()) + ">>\nstream\n" + contents +
+               "endstream");
+    }
+    const auto xref = file.tellp();
+    file << "xref\n0 " << offsets.size() << "\n0000000000 65535 f \n";
+    for (std::size_t i = 1; i < offsets.size(); ++i) {
+        file << std::setfill('0') << std::setw(10) << offsets[i] << " 00000 n \n";
+    }
+    file << "trailer\n<</Size " << offsets.size() << " /Root 1 0 R>>\nstartxref\n"
+         << xref << "\n%%EOF\n";
+    file.close();
+    REQUIRE(file.good());
+    return path;
+}
 }  // namespace
+
+TEST_CASE("pdf security: exhausted reads never return a successful partial preview") {
+    TempDir dir;
+    isolate::Helpers helpers{
+        {.program = RUMMAGE_PDF_HELPER, .args = {}, .timeout = std::chrono::seconds{8}}};
+    for (const bool image : {false, true}) {
+        INFO((image ? "image stream" : "page contents"));
+        const auto run = timed_load(helpers, budget_pdf(dir, image));
+        INFO(run.loaded.detail);
+        CHECK(run.loaded.failure == picture::Failure::unavailable);
+        CHECK(run.loaded.detail == "pdf reading budget exhausted");
+        CHECK(run.loaded.image.empty());
+        CHECK(run.seconds < seconds(7.0));
+        still_works(helpers);
+    }
+}
 
 TEST_CASE("pdf security: decompression bombs hit the memory budget, quickly") {
     isolate::Helpers helpers{

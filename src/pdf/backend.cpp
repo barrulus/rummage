@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <fpdf_formfill.h>
 #include <fpdf_progressive.h>
 #include <fpdf_sysfontinfo.h>
 #include <fpdfview.h>
@@ -147,19 +148,46 @@ struct Bitmap {
     }
 };
 
+// The page renderer excludes widgets, even with FPDF_ANNOT. Draw their saved
+// appearances through the form API, without running document/page actions or JS.
+// This object must die before its page and document, and info must outlive handle.
+struct Forms {
+    FPDF_FORMFILLINFO info{};
+    FPDF_FORMHANDLE handle{nullptr};
+    FPDF_PAGE page{nullptr};
+
+    Forms(FPDF_DOCUMENT document, FPDF_PAGE loaded_page) : page(loaded_page) {
+        info.version = 1;
+        handle = FPDFDOC_InitFormFillEnvironment(document, &info);
+        if (handle != nullptr) {
+            FORM_OnAfterLoadPage(page, handle);
+        }
+    }
+
+    Forms(const Forms&) = delete;
+    Forms& operator=(const Forms&) = delete;
+
+    ~Forms() {
+        if (handle != nullptr) {
+            FORM_OnBeforeClosePage(page, handle);
+            FPDFDOC_ExitFormFillEnvironment(handle);
+        }
+    }
+};
+
 picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std::uint32_t height) {
     FPDF_FILEACCESS access{};
     access.m_FileLen = static_cast<unsigned long>(size);
     access.m_GetBlock = get_block;
     access.m_Param = &source;
     const Document document{FPDF_LoadCustomDocument(&access, nullptr)};
+    if (source.exhausted) {
+        return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
+    }
     if (document.handle == nullptr) {
         const unsigned long error = FPDF_GetLastError();
         if (error == FPDF_ERR_PASSWORD) {
             return failure(picture::Failure::locked, "pdf is password protected");
-        }
-        if (source.exhausted) {
-            return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
         }
         return failure(picture::Failure::damaged, "unreadable pdf");
     }
@@ -167,9 +195,19 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std
         return failure(picture::Failure::damaged, "pdf without pages");
     }
     const Page page{FPDF_LoadPage(document.handle, 0)};
+    // PDFium can recover a failed stream read by returning an empty page.
+    if (source.exhausted) {
+        return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
+    }
     if (page.handle == nullptr) {
-        return failure(source.exhausted ? picture::Failure::unavailable : picture::Failure::damaged,
-                       "unreadable pdf page");
+        return failure(picture::Failure::damaged, "unreadable pdf page");
+    }
+    const Forms forms{document.handle, page.handle};
+    if (source.exhausted) {
+        return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
+    }
+    if (forms.handle == nullptr) {
+        return failure(picture::Failure::damaged, "unreadable pdf forms");
     }
     // The size as shown, with the page's own rotation.
     const double page_width = FPDF_GetPageWidthF(page.handle);
@@ -212,11 +250,24 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std
         status = FPDF_RenderPage_Continue(page.handle, &pause);
     }
     FPDF_RenderPage_Close(page.handle);
+    if (source.exhausted) {
+        return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
+    }
     if (status != FPDF_RENDER_DONE) {
         return failure(status == FPDF_RENDER_TOBECONTINUED ? picture::Failure::unavailable
                                                            : picture::Failure::damaged,
                        status == FPDF_RENDER_TOBECONTINUED ? "pdf drawing took too long"
                                                            : "pdf drawing failed");
+    }
+    // Same coordinates and byte order as the page. This call is not progressive;
+    // the parent helper timeout also bounds form rendering.
+    FPDF_FFLDraw(forms.handle, bitmap.handle, page.handle, 0, 0, static_cast<int>(w),
+                 static_cast<int>(h), 0, FPDF_ANNOT | FPDF_REVERSE_BYTE_ORDER);
+    if (source.exhausted) {
+        return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
+    }
+    if (Clock::now() >= source.deadline) {
+        return failure(picture::Failure::unavailable, "pdf drawing took too long");
     }
     for (std::size_t i = 3; i < image.rgba.size(); i += 4) {
         image.rgba[i] = 255;

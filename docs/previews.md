@@ -145,9 +145,15 @@ list, so it opens no files inside the same seccomp/Landlock isolation as the oth
 engines. PDFium parses only PDF: other formats named `.pdf` are refused. The build
 has no JavaScript engine (no V8, no XFA), and stream data in external files is never
 read. Memory is bounded by the helper's 4 GiB address-space limit, reading is bounded
-in bytes and time, drawing is progressive and stops at a deadline, pages are drawn at
+in bytes and time; exhausted reads discard the preview, even when PDFium recovers from
+the read error. Page drawing is progressive and stops at a deadline. Saved AcroForm
+text fields and checkbox appearances are drawn afterwards without executing form actions;
+this step is bounded by the parent helper timeout. Pages are drawn at
 most 2048 pixels per side, and requests get the media engine's 8 second timeout and
 smaller pool. JPEG 2000 scans decode only the resolution the thumbnail needs.
+
+The built-in fonts do not cover all scripts: PDFs with non-embedded CJK fonts may have
+missing text. Embedded fonts are supported. XFA forms are not supported.
 
 A password-protected PDF keeps its icon with a lock badge and Quick Look says so; a
 PDF with an empty user password (owner restrictions only) previews normally. A
