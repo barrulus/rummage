@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,7 @@
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/cut_marks.hpp"
+#include "rummage/views/details_columns.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
 #include "rummage/views/folder.hpp"
@@ -32,7 +34,7 @@
 
 namespace rummage::views {
 
-// A folder tree as a table: expandable rows with name, size, date and type under a header.
+// A folder tree as a table: expandable rows with configurable property columns.
 // Only the rows inside the viewport are drawn. A click on a column's title sorts by it, a second
 // click reverses the order; dragging the line on a column's left edge makes it wider or narrower
 // (the name takes what is left). The order is the view's: every folder it shows is sorted that
@@ -48,7 +50,7 @@ class DetailsView {
 public:
     using Clock = ui::Scroller::Clock;
 
-    enum class Field : std::uint8_t { name, size, modified, type };
+    using Field = fs::SortKey;
 
     static constexpr float kRowHeight = kListSizes[kUsualListSize].row;  // at the usual size
     static constexpr float kHeaderHeight = 30.0F;
@@ -109,12 +111,25 @@ public:
     // Ctrl+plus/minus/0 and Ctrl+wheel changed the size: the window makes it every list's.
     void set_zoom_handler(std::function<void(std::size_t)> zoomed) { zoomed_ = std::move(zoomed); }
 
-    // The widths of size, modified and type, as dragged; set_widths keeps each column's minimum.
-    [[nodiscard]] std::array<float, 3> widths() const noexcept {
-        return {widths_[1], widths_[2], widths_[3]};
+    // Name stays visible at the left; the remaining columns can be toggled and reordered.
+    [[nodiscard]] const std::vector<Field>& columns() const { return columns_; }
+
+    void set_columns(std::vector<Field> columns);
+    [[nodiscard]] bool column_visible(Field field) const;
+    void set_column_visible(Field field, bool visible);
+    void move_column(Field field, int direction);
+
+    void set_header_menu_handler(std::function<void(float, float, std::optional<Field>)> menu) {
+        header_menu_ = std::move(menu);
     }
 
-    void set_widths(const std::array<float, 3>& widths);
+    [[nodiscard]] DetailsWidths widths() const noexcept {
+        DetailsWidths result{};
+        std::copy(widths_.begin() + 1, widths_.end(), result.begin());
+        return result;
+    }
+
+    void set_widths(const DetailsWidths& widths);
 
     // Lays out and draws into bounds at time now (advancing the scroll animation).
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
@@ -163,12 +178,12 @@ private:
     [[nodiscard]] float shown_width(std::size_t column) const;
     void right_click(float x, float y);
 
-    // Where each column starts, from the last layout; a narrow table leaves out the type, then
-    // the date, then the size, so that the name keeps its minimum width.
+    // Where each column starts, from the last layout; a narrow table leaves out rightmost
+    // enabled columns so that the name keeps its minimum width.
     struct Layout {
-        std::array<float, 4> left{};
-        std::array<float, 4> width{};
-        std::array<bool, 4> shown{true, true, true, true};
+        std::array<float, kDetailsColumnCount> left{};
+        std::array<float, kDetailsColumnCount> width{};
+        std::array<bool, kDetailsColumnCount> shown{};
     };
 
     struct TreeRow {
@@ -234,8 +249,10 @@ private:
     ListSize size_{kListSizes[kUsualListSize]};
     ui::Scroller scroller_;
     ui::Scrollbar scrollbar_;
-    // Widths of size, modified and type; the name takes the rest.
-    std::array<float, 4> widths_{0.0F, 96.0F, 150.0F, 220.0F};
+    // Widths indexed by field; the name takes the rest.
+    std::array<float, kDetailsColumnCount> widths_{};
+    std::vector<Field> columns_{kDefaultDetailsColumns};
+    std::function<void(float, float, std::optional<Field>)> header_menu_;
     Layout layout_;
 
     struct Drag {

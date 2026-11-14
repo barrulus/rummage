@@ -160,3 +160,35 @@ TEST_CASE("Listing: hidden entries left out and back, in order, kept up to date"
     CHECK(listing.hidden().empty());
     CHECK(listing.entries()[1].size == 10);
 }
+
+TEST_CASE("sort: filesystem properties compare values then names in both directions") {
+    Entry a = file("z");
+    Entry b = file("a");
+    a.created_ns = 100;
+    b.created_ns = 200;
+    a.accessed_ns = 300;
+    b.accessed_ns = 400;
+    a.owner = "user2";
+    b.owner = "user10";
+    a.group = "group2";
+    b.group = "group10";
+    a.permissions = "-rw-------";
+    b.permissions = "-rwx------";
+    a.link_target = "file2";
+    b.link_target = "file10";
+    for (const auto key : {SortKey::created, SortKey::accessed, SortKey::owner, SortKey::group,
+                           SortKey::permissions, SortKey::link_target}) {
+        CAPTURE(key);
+        CHECK(SortOrder{.key = key}(a, b));
+        CHECK_FALSE(SortOrder{.key = key}(b, a));
+        CHECK(SortOrder{.key = key, .descending = true}(b, a));
+        Entry same = a;
+        same.name = "a";
+        CHECK(SortOrder{.key = key}(same, a));
+        CHECK_FALSE(SortOrder{.key = key}(a, a));
+    }
+    Entry unknown = file("unknown");
+    CHECK(SortOrder{.key = SortKey::created}(unknown, a));
+    CHECK(SortOrder{.key = SortKey::created, .descending = true}(a, unknown));
+    CHECK(SortOrder{.key = SortKey::location}(b, a));
+}

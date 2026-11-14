@@ -206,22 +206,18 @@ std::vector<PaletteItem> Browser::palette_items() {
             pane().show_hidden ? "Hide Hidden Files" : "Show Hidden Files");
     const fs::SortOrder& order = sort_order();
 
-    struct SortChoice {
-        fs::SortKey key;
-        const char* id;
-        const char* label;
-    };
-
-    constexpr std::array<SortChoice, 4> sort_keys{{
-        {.key = fs::SortKey::name, .id = "sort:name", .label = "Sort by Name"},
-        {.key = fs::SortKey::size, .id = "sort:size", .label = "Sort by Size"},
-        {.key = fs::SortKey::modified, .id = "sort:modified", .label = "Sort by Modified"},
-        {.key = fs::SortKey::type, .id = "sort:type", .label = "Sort by Type"},
-    }};
-    for (const SortChoice& choice : sort_keys) {
-        if (order.key != choice.key) {
-            add(choice.id, choice.label, "",
-                [this, key = choice.key] { set_sort(key, sort_order().descending); });
+    for (const auto& column : kDetailsColumns) {
+        if (order.key != column.field) {
+            add("sort:" + std::string{column.id}, "Sort by " + std::string{column.title}, "",
+                [this, key = column.field] { set_sort(key, sort_order().descending); });
+        }
+        if (pane().mode == Mode::details && column.field != DetailsView::Field::name) {
+            add("column:" + std::string{column.id},
+                std::string{pane().details.column_visible(column.field) ? "Hide " : "Show "} +
+                    std::string{column.title} + " column",
+                "", [this, field = column.field] {
+                    pane().details.set_column_visible(field, !pane().details.column_visible(field));
+                });
         }
     }
     if (order.descending) {

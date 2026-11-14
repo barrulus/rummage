@@ -318,6 +318,8 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
     REQUIRE(sort.id == "sort");
     CHECK(sort.submenu);
     CHECK(ids(sort.children) == Names{"sort:name", "sort:size", "sort:modified", "sort:type",
+                                      "sort:created", "sort:accessed", "sort:owner", "sort:group",
+                                      "sort:permissions", "sort:location", "sort:link_target",
                                       "sort:ascending", "sort:descending"});
     const auto checked = [](const MenuItem& submenu) {
         Names out;

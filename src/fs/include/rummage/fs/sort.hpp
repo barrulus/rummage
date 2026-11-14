@@ -17,7 +17,19 @@ namespace rummage::fs {
 // the order is total and stable across runs.
 [[nodiscard]] int natural_compare(std::string_view a, std::string_view b) noexcept;
 
-enum class SortKey : std::uint8_t { name, size, modified, type };
+enum class SortKey : std::uint8_t {
+    name,
+    size,
+    modified,
+    type,
+    created,
+    accessed,
+    owner,
+    group,
+    permissions,
+    location,
+    link_target
+};
 
 struct SortOrder {
     SortKey key{SortKey::name};

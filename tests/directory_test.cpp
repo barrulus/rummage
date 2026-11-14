@@ -152,3 +152,38 @@ TEST_CASE("load_directory: chunks on the loop thread, then done, into a sorted L
     CHECK(listing.entries().front().name == "IMG_0.ORF");
     CHECK(listing.entries().back().name == "IMG_299.ORF");
 }
+
+TEST_CASE(
+    "read_directory: property columns include permissions, identities, dates and link targets") {
+    const TempDir dir;
+    dir.write("file", "contents");
+    std::filesystem::permissions(dir.path / "file", std::filesystem::perms::owner_read |
+                                                        std::filesystem::perms::owner_write |
+                                                        std::filesystem::perms::set_uid);
+    std::filesystem::create_symlink("file", dir.path / "link");
+    std::filesystem::create_symlink("missing", dir.path / "dangling");
+    ReadResult result;
+    const auto entries = read_all(dir.path, result);
+    REQUIRE_FALSE(result.error);
+    const auto* file = find(entries, "file");
+    REQUIRE(file);
+    CHECK(file->permissions == "-rwS------");
+    CHECK_FALSE(file->owner.empty());
+    CHECK_FALSE(file->group.empty());
+    REQUIRE(file->accessed_ns);
+    CHECK(*file->accessed_ns > 0);
+    const auto* link = find(entries, "link");
+    REQUIRE(link);
+    CHECK(link->link_target == "file");
+    CHECK(link->permissions == file->permissions);
+    const auto* dangling = find(entries, "dangling");
+    REQUIRE(dangling);
+    CHECK(dangling->link_target == "missing");
+    CHECK(dangling->permissions.starts_with('l'));
+    // Reloads use the same metadata path as the initial directory chunks.
+    std::filesystem::permissions(dir.path / "file", std::filesystem::perms::owner_read);
+    const auto refreshed = rummage::fs::read_entries(dir.path, {"file"}, {});
+    REQUIRE(refreshed[0]);
+    CHECK(refreshed[0]->permissions == "-r--------");
+    CHECK(refreshed[0]->owner == file->owner);
+}

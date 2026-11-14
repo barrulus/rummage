@@ -14,6 +14,7 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/sort.hpp"
+#include "rummage/views/details_columns.hpp"
 #include "rummage/views/grid_size.hpp"
 
 // What rummage remembers from one start to the next (ROADMAP 7.5a): how the window was left, not
@@ -33,10 +34,11 @@ struct State {
     float info_width{300.0F};
     float sidebar_preview_ratio{0.55F};
     bool info_expanded{false};
-    // The details' order and the widths of size, modified and type (the name takes the rest).
+    // Details sorting, column order/visibility and widths (the name takes the rest).
     fs::SortKey sort_key{fs::SortKey::name};
     bool sort_descending{false};
-    std::array<float, 3> details_widths{96.0F, 150.0F, 220.0F};
+    DetailsWidths details_widths{kDetailsWidths};
+    std::vector<fs::SortKey> details_columns{kDefaultDetailsColumns};
     // The lists' row size (an index into kListSizes, 1 the usual) and the grid's icon size in
     // pixels (one of kGridIconSizes).
     std::size_t list_size{1};
@@ -46,7 +48,8 @@ struct State {
         Mode mode{Mode::columns};
         fs::SortKey sort_key{fs::SortKey::name};
         bool sort_descending{false};
-        std::array<float, 3> details_widths{96.0F, 150.0F, 220.0F};
+        DetailsWidths details_widths{kDetailsWidths};
+        std::vector<fs::SortKey> details_columns{kDefaultDetailsColumns};
         std::size_t list_size{1};
         std::int32_t grid_icon{96};
         bool operator==(const FolderSettings&) const = default;
@@ -95,6 +98,8 @@ struct State {
         std::size_t pane{0};
         std::optional<fs::SortKey> sort_key{};
         bool sort_descending{false};
+        std::optional<DetailsWidths> details_widths{};
+        std::optional<std::vector<fs::SortKey>> details_columns{};
         std::optional<bool> show_hidden{};
         std::string filter{};
 

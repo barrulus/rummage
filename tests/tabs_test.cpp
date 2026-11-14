@@ -537,14 +537,14 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     f.browser.set_sort(rummage::fs::SortKey::modified, true);
     f.browser.set_grid_size(4);
     f.browser.set_list_size(3);
-    f.browser.details().set_widths({80, 170, 240});
+    f.browser.details().set_widths({80, 170, 240, 150, 150, 110, 110, 130, 220, 220});
     f.browser.open(f.b);
     REQUIRE(f.settle());
     f.browser.set_mode(Browser::Mode::details);
     f.browser.set_sort(rummage::fs::SortKey::size, false);
     f.browser.set_grid_size(0);
     f.browser.set_list_size(0);
-    f.browser.details().set_widths({90, 180, 250});
+    f.browser.details().set_widths({90, 180, 250, 150, 150, 110, 110, 130, 220, 220});
     f.browser.back();
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::grid);
@@ -552,7 +552,8 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     CHECK(f.browser.sort_order().descending);
     CHECK(f.browser.grid().size_index() == 4);
     CHECK(f.browser.details().list_size() == 3);
-    CHECK(f.browser.details().widths() == std::array<float, 3>{80, 170, 240});
+    CHECK(f.browser.details().widths() ==
+          rummage::views::DetailsWidths{80, 170, 240, 150, 150, 110, 110, 130, 220, 220});
     f.browser.forward();
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::details);
@@ -560,7 +561,8 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     CHECK_FALSE(f.browser.sort_order().descending);
     CHECK(f.browser.grid().size_index() == 0);
     CHECK(f.browser.details().list_size() == 0);
-    CHECK(f.browser.details().widths() == std::array<float, 3>{90, 180, 250});
+    CHECK(f.browser.details().widths() ==
+          rummage::views::DetailsWidths{90, 180, 250, 150, 150, 110, 110, 130, 220, 220});
     const auto saved =
         rummage::views::parse_state(rummage::views::format_state(f.browser.state()), "state.toml");
     REQUIRE(saved.problems.empty());
@@ -599,4 +601,27 @@ TEST_CASE("folders: closing a tab retains its settings and reveals preserve the 
     CHECK(f.browser.mode() == Browser::Mode::grid);
     CHECK(f.browser.grid().size_index() == 5);
     CHECK(f.browser.grid().folder()->path() == f.a);
+}
+
+TEST_CASE("tabs: independent column choices in the same folder survive restart") {
+    using Field = rummage::views::DetailsView::Field;
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.details().set_columns({Field::name, Field::owner, Field::permissions});
+    f.browser.new_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.details().columns() ==
+          std::vector<Field>{Field::name, Field::owner, Field::permissions});
+    f.browser.details().set_columns({Field::name, Field::created, Field::link_target});
+    const auto state = f.browser.state();
+    Browser again{
+        f.loop, f.pool, f.watcher, rummage::fs::MimeDatabase::load(), [] {}, [](CursorShape) {}};
+    again.apply(state);
+    REQUIRE(again.restore_tabs(state.tabs, state.shown_tab));
+    REQUIRE(run_until(f.loop, [&again] { return !again.loading(); }));
+    CHECK(again.details().columns() ==
+          std::vector<Field>{Field::name, Field::created, Field::link_target});
+    again.select_tab(0);
+    CHECK(again.details().columns() ==
+          std::vector<Field>{Field::name, Field::owner, Field::permissions});
 }

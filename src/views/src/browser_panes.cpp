@@ -51,6 +51,8 @@ void Browser::toggle_split() {
         const auto list = pane().details.list_size();
         const auto grid = pane().grid.size_index();
         const auto order = pane().details.order();
+        const auto columns = pane().details.columns();
+        const auto widths = pane().details.widths();
         const bool hidden = pane().show_hidden;
         areas_[1] = std::make_unique<BrowsingArea>(*this);
         context_area_ = active_area_ = 1;
@@ -59,6 +61,8 @@ void Browser::toggle_split() {
         set_list_size(list);
         set_grid_size(grid);
         set_sort(order.key, order.descending);
+        pane().details.set_columns(columns);
+        pane().details.set_widths(widths);
         set_show_hidden(hidden, false);
         open(path);
     }
@@ -176,6 +180,8 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         item.action = [this, command] { run(command, Clock::now()); };
         items.push_back(std::move(item));
     }
+    if (mode() == Mode::details)
+        items.push_back(details_columns_menu());
     auto panes = pane_items();
     if (!panes.empty()) {
         panes.front().separator = true;

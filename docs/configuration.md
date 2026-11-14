@@ -131,7 +131,7 @@ info-pane settings, the divider below Places and command-palette history. Each p
 locations, active tab, views, zoom, sorting, hidden visibility and filename filters.
 Back/forward history and details-tree expansion are not saved across restarts.
 
-View mode, sort key/direction, row size, grid icon size and details-column widths
+View mode, sort key/direction, row size, grid icon size and details-column choices, order and widths
 are remembered per folder. Revisiting a folder restores them; a folder without
 saved settings initially inherits the current view. Sorting one tab does not
 change other tabs. Existing tabs retain their own view and zoom until navigation;

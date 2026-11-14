@@ -426,7 +426,8 @@ follow_accent = true
 #   new_file   New File: empty_file (Empty File), then a separator and template entries.
 #   actions    Actions: applicable custom actions with placement = "actions", in config order.
 #   sort       Sort By: sort:name (Name), sort:size (Size), sort:modified (Modified),
-#              sort:type (Type), a separator, sort:ascending (Ascending),
+#              sort:type (Type), sort:created, sort:accessed, sort:owner, sort:group,
+#              sort:permissions, sort:location, sort:link_target, then sort:ascending (Ascending),
 #              sort:descending (Descending). The current key and direction are checked.
 # Actions disappears when empty. The default registry puts Copy Location, Extract Here
 # and Extract To at the top level; extraction only appears for applicable archive selections.
@@ -487,7 +488,8 @@ follow_accent = true
 # Built-in IDs (only shown where applicable):
 # open, open_with, open_tab, open_terminal, add_bookmark, copy, cut, paste, rename, trash,
 # erase, restore, empty_trash, properties, new_folder, new_file, empty_file, sort, sort:name, sort:size,
-# sort:modified, sort:type, sort:ascending, sort:descending, actions,
+# sort:modified, sort:type, sort:created, sort:accessed, sort:owner, sort:group,
+# sort:permissions, sort:location, sort:link_target, sort:ascending, sort:descending, actions,
 # panes, toggle_split, switch_pane, swap_panes, orient_panes, open_other_pane,
 # same_other_pane, copy_other_pane, move_other_pane,
 # action:copy_location, action:extract_here, action:extract_to,

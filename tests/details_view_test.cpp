@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -14,6 +15,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
 
@@ -260,4 +262,95 @@ TEST_CASE("info pane: its width stays within limits and leaves the view room") {
     CHECK(pane.width_in(2000.0F) == 500.0F);
     CHECK(pane.width_in(700.0F) == 700.0F - InfoPane::kMinContent);  // narrowed for the view
     CHECK(pane.width_in(500.0F) == 0.0F);  // not even the narrowest fits: left out
+}
+
+TEST_CASE("details: choosing and ordering columns keeps the selection and restores per folder") {
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_3, {.ctrl = true});
+    f.press(XKB_KEY_End);
+    const auto folder = f.details.folder();
+    const auto selection = folder->selected_names();
+    f.details.set_column_visible(Field::type, false);
+    f.details.set_column_visible(Field::owner, true);
+    f.details.move_column(Field::owner, -1);
+    CHECK(f.details.columns() ==
+          std::vector<Field>{Field::name, Field::size, Field::owner, Field::modified});
+    f.details.set_column_visible(Field::name, false);
+    CHECK(f.details.column_visible(Field::name));
+    f.details.set_columns(f.details.columns());  // Safe even with its own list.
+    CHECK(f.details.column_visible(Field::owner));
+    CHECK(folder->selected_names() == selection);
+    const auto chosen = f.details.columns();
+    const auto saved = f.browser.state();
+    f.browser.open(f.root / "alpha");
+    REQUIRE(f.settle());
+    f.details.set_columns({Field::name, Field::permissions});
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    CHECK(f.details.columns() == chosen);
+    const auto parsed = rummage::views::parse_state(rummage::views::format_state(saved), "test");
+    REQUIRE(parsed.problems.empty());
+    f.browser.apply(parsed.state);
+    CHECK(f.details.columns() == chosen);
+}
+
+TEST_CASE("details: header chooser and sorting use the visible column layout") {
+    rummage::ui::Offscreen gl{1200, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_3, {.ctrl = true});
+    f.press(XKB_KEY_End);
+    f.details.set_info_visible(false);
+    const auto selection = f.details.folder()->selected_names();
+    const auto draw = [&](float width) {
+        renderer.begin_frame(1200, 640, 1, rummage::ui::Color::rgb(0));
+        f.details.draw(renderer, {0, 0, width, 640}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+    const auto click = [&](float x, rummage::ui::PointerButton button) {
+        rummage::ui::PointerEvent event;
+        event.kind = rummage::ui::PointerEvent::Kind::press;
+        event.button = button;
+        event.x = x;
+        event.y = 15;
+        f.details.pointer(event, Browser::Clock::now());
+    };
+    draw(1200);
+    click(1100, rummage::ui::PointerButton::right);
+    auto& menu = f.browser.context_menu();
+    REQUIRE(menu.is_open());
+    const auto& items = menu.items();
+    const auto type = std::ranges::find(items, "column:type", &rummage::views::MenuItem::id);
+    REQUIRE(type != items.end());
+    CHECK(type->checked);
+    CHECK(type->checkable);
+    auto hide_type = type->action;
+    menu.close();
+    hide_type();
+    CHECK_FALSE(f.details.column_visible(Field::type));
+    CHECK(f.details.folder()->selected_names() == selection);
+    f.details.set_columns({Field::name, Field::permissions, Field::owner});
+    draw(1200);
+    click(1140, rummage::ui::PointerButton::left);
+    CHECK(f.details.order().key == SortKey::owner);
+    click(1140, rummage::ui::PointerButton::left);
+    CHECK(f.details.order().descending);
+    CHECK(f.details.folder()->selected_names() == selection);
+    draw(240);  // Optional columns temporarily do not fit; click sorts by Name.
+    click(210, rummage::ui::PointerButton::left);
+    CHECK(f.details.order().key == SortKey::name);
+    CHECK(f.details.column_visible(Field::owner));
+    draw(1200);
+    click(1140, rummage::ui::PointerButton::left);
+    CHECK(f.details.order().key == SortKey::owner);
+    f.browser.open_view_menu(0, 0, true);
+    const auto columns =
+        std::ranges::find(menu.items(), "details_columns", &rummage::views::MenuItem::id);
+    REQUIRE(columns != menu.items().end());
+    CHECK(columns->children.size() == rummage::views::kDetailsColumnCount + 1);
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "rummage/fs/mime.hpp"
@@ -27,9 +28,23 @@ struct Entry {
     // Resolved on the directory worker: theme name or absolute local icon path.
     std::string folder_icon{};
 
+    // Collected on directory workers, never during drawing. Missing stat data stays empty.
+    std::optional<std::int64_t> created_ns{};
+    std::optional<std::int64_t> accessed_ns{};
+    std::string owner{};
+    std::string group{};
+    std::string permissions{};
+    std::string link_target{};
+
     [[nodiscard]] bool hidden() const noexcept { return !name.empty() && name.front() == '.'; }
 
     [[nodiscard]] bool is_directory() const noexcept { return kind == EntryKind::directory; }
 };
+
+// File metadata presentation shared by directory listings and Properties. Identity lookups
+// may consult NSS: call on a worker and cache by ID when reading a whole directory.
+[[nodiscard]] std::string file_permissions(std::uint32_t mode);
+[[nodiscard]] std::string owner_name(std::uint32_t uid);
+[[nodiscard]] std::string group_name(std::uint32_t gid);
 
 }  // namespace rummage::fs
