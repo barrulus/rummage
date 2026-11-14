@@ -1,0 +1,14 @@
+diff --git a/core/fpdfapi/parser/cpdf_syntax_parser.cpp b/core/fpdfapi/parser/cpdf_syntax_parser.cpp
+--- a/core/fpdfapi/parser/cpdf_syntax_parser.cpp
++++ b/core/fpdfapi/parser/cpdf_syntax_parser.cpp
+@@ -849,7 +849,9 @@ RetainPtr<CPDF_Stream> CPDF_SyntaxParser::ReadStream(
+     // copy of the data here.
+     auto data = FixedSizeDataVector<uint8_t>::Uninit(substream->GetSize());
+     bool did_read = substream->ReadBlockAtOffset(data.span(), 0);
+-    CHECK(did_read);
++    if (!did_read) {
++      return nullptr;
++    }
+     auto data_as_stream =
+         pdfium::MakeRetain<CFX_ReadOnlyFixedSizeDataVectorStream>(
+             std::move(data));

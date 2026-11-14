@@ -27,8 +27,9 @@ windows, its contents scroll while the action buttons remain visible.
 | Camera raw | Embedded previews; some DNGs developed by rummage | Support depends on the file's container, preview and compression |
 | Text | Isolated decoding, syntax colours and selectable text | Bounded reads; not an editor or rendered Markdown viewer |
 | Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
+| PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
 | SVG theme icons | rummage's in-process icon renderer | Not a Quick Look SVG-document provider |
-| Other formats | File information and external application opening | No built-in PDF, audio player, archive-content or font preview |
+| Other formats | File information and external application opening | No built-in audio player, archive-content or font preview |
 
 The [base engine manifest](../data/engines/base.toml) registers MIME families.
 Registration is not a guarantee that every subtype/sample can decode. The image
@@ -132,6 +133,33 @@ The core works without the helper and can still reuse valid cached thumbnails.
 Missing helper/libraries do not create permanent failure entries. Restart after
 installing or changing engines. See [optional media installation](install.md#optional-video-previews)
 for CMake, Nix and `RUMMAGE_ENGINE_PATH` registration.
+
+## Optional PDF previews
+
+Install the matching `rummage-pdf` package for PDF thumbnails and first-page stills in
+the information pane and Quick Look. Enter still opens the document in its default
+application; this is a preview of page one, not a viewer.
+
+The helper links PDFium and uses PDFium's built-in fonts with an empty system font
+list, so it opens no files inside the same seccomp/Landlock isolation as the other
+engines. PDFium parses only PDF: other formats named `.pdf` are refused. The build
+has no JavaScript engine (no V8, no XFA), and stream data in external files is never
+read. Memory is bounded by the helper's 4 GiB address-space limit, reading is bounded
+in bytes and time; exhausted reads discard the preview, even when PDFium recovers from
+the read error. Page drawing is progressive and stops at a deadline. Saved AcroForm
+text fields and checkbox appearances are drawn afterwards without executing form actions;
+this step is bounded by the parent helper timeout. Pages are drawn at
+most 2048 pixels per side, and requests get the media engine's 8 second timeout and
+smaller pool. JPEG 2000 scans decode only the resolution the thumbnail needs.
+
+The built-in fonts do not cover all scripts: PDFs with non-embedded CJK fonts may have
+missing text. Embedded fonts are supported. XFA forms are not supported.
+
+A password-protected PDF keeps its icon with a lock badge and Quick Look says so; a
+PDF with an empty user password (owner restrictions only) previews normally. A
+damaged PDF keeps its icon with a cross badge. The reason is remembered with the
+cached failure until the file changes. See
+[optional PDF installation](install.md#optional-pdf-previews).
 
 Thumbnails use the shared freedesktop cache under `$XDG_CACHE_HOME/thumbnails`
 (normally `~/.cache/thumbnails`). Entries are associated with file URI and

@@ -19,8 +19,17 @@
 
       packages = forEachSystem (system: {
         rummage = nixpkgs.legacyPackages.${system}.callPackage ./nix/package.nix { };
+        # Expose the source-built renderer for standalone builds and dependency inspection.
+        pdfium = nixpkgs.legacyPackages.${system}.callPackage ./nix/pdfium.nix { };
         rummage-with-media = self.packages.${system}.rummage.override { withMedia = true; };
         rummage-media = self.packages.${system}.rummage-with-media.media;
+        rummage-with-pdf = self.packages.${system}.rummage.override { withPdf = true; };
+        rummage-pdf = self.packages.${system}.rummage-with-pdf.pdf;
+        # Both optional preview engines: video stills and PDF pages.
+        rummage-with-previews = self.packages.${system}.rummage.override {
+          withMedia = true;
+          withPdf = true;
+        };
         default = self.packages.${system}.rummage;
       });
 
@@ -28,6 +37,7 @@
         tests = self.packages.${system}.rummage.override {
           withTests = true;
           withMedia = true;
+          withPdf = true;
         };
         nixos-module = import ./nix/module-check.nix { inherit self nixpkgs system; };
         smoke = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {

@@ -128,6 +128,47 @@ helper; `.#rummage-media` selects its separate helper output. The normal default
 FFmpeg. Separate custom prefixes can be registered through `RUMMAGE_ENGINE_PATH`, a colon-separated
 list of absolute `share/rummage/engines` directories. Restart after changing the installed engines.
 
+
+## Optional PDF previews
+
+Install the matching `rummage-pdf` package for PDF thumbnails and first-page stills in the
+information pane and Space Quick Look. Password-protected PDFs get a lock on their icon,
+damaged ones a cross; see [previews](previews.md#optional-pdf-previews).
+
+The helper links PDFium. Nix builds it from the source recipe in the Nixpkgs revision
+pinned by `flake.lock` (currently PDFium 8110), including its upstream unit and embedder
+tests. `nix/pdfium.nix` builds for size without V8, XFA, Skia, Fontations, experimental
+Brotli or PartitionAlloc. ICU is limited to its common Unicode/bidi code and upstream
+stub data: no locale bundles, i18n library, tools or plugins. ICU, Abseil, libyuv and
+OpenJPEG are built as private static archives; unused code is discarded when linking
+PDFium. This retains SIMD pixel conversions and JPEG 2000 resolution reduction without
+pulling in their complete shared-library packages. Font and colour libraries already
+used by rummage remain shared. The embedded components' licenses are installed with
+PDFium; output checks reject accidental runtime references to the private archives.
+No third-party precompiled PDFium release is downloaded. The default application
+package does not depend on PDFium. Without the helper, PDFs keep their file icons and
+information cards.
+
+For a source build, add `-DRUMMAGE_PDF=ON` and point CMake at a source-built PDFium
+installation using `PDFium_DIR` or `CMAKE_PREFIX_PATH`, or install `fpdfview.h` and
+`libpdfium.so` on the usual search paths. The library and its runtime dependencies must
+also be installed where the dynamic linker can find them. PDF support defaults to OFF.
+`cmake --install build --component pdf` installs only the helper and its
+manifest. For Nix, `.#rummage-with-pdf` builds the application with the helper, `.#rummage-pdf`
+selects its separate output, and `.#rummage-with-previews` includes both optional engines.
+Restart after changing the installed engines.
+
+`nix build .#pdfium` builds the renderer separately. Update `flake.lock` to update its
+source pins and build recipe, then rerun the PDF tests and package preflight. Revisit
+`nix/pdfium-read-error.patch` on updates: it makes PDFium 8110 propagate a refused
+custom-file read instead of terminating the helper on an assertion. Cached Nix
+build outputs may be substituted as usual; the derivation is a source build, not a binary
+release download. The native distro recipes currently leave PDF support disabled, so
+their CI passes do not validate the optional engine. When changing the recipe, measure
+the complete added closure against `.#rummage`, not just `libpdfium.so`, and compare
+rendering output as well as speed. Earlier measurements of other slim or prebuilt
+PDFium configurations are not measurements of this build.
+
 ## Nix
 
 With flakes enabled, from this checkout:
