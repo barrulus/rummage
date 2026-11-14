@@ -4,6 +4,7 @@
 #include <chrono>
 #include <filesystem>
 #include <string>
+#include <sys/stat.h>
 #include <vector>
 
 #include <doctest/doctest.h>
@@ -158,8 +159,7 @@ TEST_CASE(
     const TempDir dir;
     dir.write("file", "contents");
     std::filesystem::permissions(dir.path / "file", std::filesystem::perms::owner_read |
-                                                        std::filesystem::perms::owner_write |
-                                                        std::filesystem::perms::set_uid);
+                                                        std::filesystem::perms::owner_write);
     std::filesystem::create_symlink("file", dir.path / "link");
     std::filesystem::create_symlink("missing", dir.path / "dangling");
     ReadResult result;
@@ -167,7 +167,7 @@ TEST_CASE(
     REQUIRE_FALSE(result.error);
     const auto* file = find(entries, "file");
     REQUIRE(file);
-    CHECK(file->permissions == "-rwS------");
+    CHECK(file->permissions == "-rw-------");
     CHECK_FALSE(file->owner.empty());
     CHECK_FALSE(file->group.empty());
     REQUIRE(file->accessed_ns);
@@ -186,4 +186,17 @@ TEST_CASE(
     REQUIRE(refreshed[0]);
     CHECK(refreshed[0]->permissions == "-r--------");
     CHECK(refreshed[0]->owner == file->owner);
+}
+
+TEST_CASE("file_permissions: special bits format without changing filesystem permissions") {
+    // Nix builds forbid creating setuid/setgid files. Exercise their display directly,
+    // while the directory test above verifies real metadata with ordinary permissions.
+    using rummage::fs::file_permissions;
+    CHECK(file_permissions(S_IFREG | S_IRUSR | S_IWUSR | S_ISUID) == "-rwS------");
+    CHECK(file_permissions(S_IFREG | S_IRWXU | S_ISUID) == "-rws------");
+    CHECK(file_permissions(S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_ISGID) == "-rw-r-S---");
+    CHECK(file_permissions(S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IXGRP | S_ISGID) ==
+          "-rw-r-s---");
+    CHECK(file_permissions(S_IFDIR | S_IRWXU | S_ISVTX) == "drwx-----T");
+    CHECK(file_permissions(S_IFDIR | S_IRWXU | S_IXOTH | S_ISVTX) == "drwx-----t");
 }
