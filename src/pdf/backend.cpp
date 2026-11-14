@@ -160,10 +160,10 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width,
                        "unreadable pdf page");
     }
     // The size as shown, with the page's own rotation.
-    const float page_width = FPDF_GetPageWidthF(page.handle);
-    const float page_height = FPDF_GetPageHeightF(page.handle);
-    if (!std::isfinite(page_width) || !std::isfinite(page_height) || page_width < 1.0F ||
-        page_height < 1.0F) {
+    const double page_width = FPDF_GetPageWidthF(page.handle);
+    const double page_height = FPDF_GetPageHeightF(page.handle);
+    if (!std::isfinite(page_width) || !std::isfinite(page_height) || page_width < 1.0 ||
+        page_height < 1.0) {
         return failure(picture::Failure::damaged, "empty pdf page");
     }
     double scale = std::min(static_cast<double>(width) / page_width,
