@@ -12,15 +12,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <fpdf_progressive.h>
+#include <fpdf_sysfontinfo.h>
+#include <fpdfview.h>
 #include <limits>
 #include <string_view>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
-
-#include <fpdf_progressive.h>
-#include <fpdf_sysfontinfo.h>
-#include <fpdfview.h>
 
 namespace rummage::isolate::backend {
 namespace {
@@ -48,8 +47,8 @@ int get_block(void* param, unsigned long position, unsigned char* buffer, unsign
     }
     unsigned long done = 0;
     while (done < size) {
-        const ssize_t got = ::pread(source.fd, buffer + done, size - done,
-                                    static_cast<off_t>(position + done));
+        const ssize_t got =
+            ::pread(source.fd, buffer + done, size - done, static_cast<off_t>(position + done));
         if (got < 0 && errno == EINTR) {
             continue;
         }
@@ -73,21 +72,27 @@ FPDF_BOOL need_to_pause(IFSDK_PAUSE* pause) {
 
 // No system fonts: every lookup finds nothing, so PDFium uses its built-in fonts.
 void enum_fonts(FPDF_SYSFONTINFO*, void*) {}
+
 void* map_font(FPDF_SYSFONTINFO*, int, FPDF_BOOL, int, int, const char*, FPDF_BOOL*) {
     return nullptr;
 }
+
 void* get_font(FPDF_SYSFONTINFO*, const char*) { return nullptr; }
-unsigned long get_font_data(FPDF_SYSFONTINFO*, void*, unsigned int, unsigned char*,
-                            unsigned long) {
+
+unsigned long get_font_data(FPDF_SYSFONTINFO*, void*, unsigned int, unsigned char*, unsigned long) {
     return 0;
 }
+
 unsigned long get_face_name(FPDF_SYSFONTINFO*, void*, char*, unsigned long) { return 0; }
+
 int get_font_charset(FPDF_SYSFONTINFO*, void*) { return 0; }
+
 void delete_font(FPDF_SYSFONTINFO*, void*) {}
+
 void release(FPDF_SYSFONTINFO*) {}
 
-FPDF_SYSFONTINFO no_system_fonts{1,          release,       enum_fonts,       map_font,
-                                 get_font,   get_font_data, get_face_name,    get_font_charset,
+FPDF_SYSFONTINFO no_system_fonts{1,          release,       enum_fonts,    map_font,
+                                 get_font,   get_font_data, get_face_name, get_font_charset,
                                  delete_font};
 
 picture::Loaded failure(picture::Failure reason, const char* detail) {
@@ -99,9 +104,12 @@ picture::Loaded failure(picture::Failure reason, const char* detail) {
 
 struct Document {
     FPDF_DOCUMENT handle{nullptr};
+
     explicit Document(FPDF_DOCUMENT document) : handle(document) {}
+
     Document(const Document&) = delete;
     Document& operator=(const Document&) = delete;
+
     ~Document() {
         if (handle != nullptr) {
             FPDF_CloseDocument(handle);
@@ -111,9 +119,12 @@ struct Document {
 
 struct Page {
     FPDF_PAGE handle{nullptr};
+
     explicit Page(FPDF_PAGE page) : handle(page) {}
+
     Page(const Page&) = delete;
     Page& operator=(const Page&) = delete;
+
     ~Page() {
         if (handle != nullptr) {
             FPDF_ClosePage(handle);
@@ -123,9 +134,12 @@ struct Page {
 
 struct Bitmap {
     FPDF_BITMAP handle{nullptr};
+
     explicit Bitmap(FPDF_BITMAP bitmap) : handle(bitmap) {}
+
     Bitmap(const Bitmap&) = delete;
     Bitmap& operator=(const Bitmap&) = delete;
+
     ~Bitmap() {
         if (handle != nullptr) {
             FPDFBitmap_Destroy(handle);
@@ -133,8 +147,7 @@ struct Bitmap {
     }
 };
 
-picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width,
-                     std::uint32_t height) {
+picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std::uint32_t height) {
     FPDF_FILEACCESS access{};
     access.m_FileLen = static_cast<unsigned long>(size);
     access.m_GetBlock = get_block;
@@ -155,8 +168,7 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width,
     }
     const Page page{FPDF_LoadPage(document.handle, 0)};
     if (page.handle == nullptr) {
-        return failure(source.exhausted ? picture::Failure::unavailable
-                                        : picture::Failure::damaged,
+        return failure(source.exhausted ? picture::Failure::unavailable : picture::Failure::damaged,
                        "unreadable pdf page");
     }
     // The size as shown, with the page's own rotation.
@@ -193,8 +205,8 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width,
     pause.version = 1;
     pause.NeedToPauseNow = need_to_pause;
     pause.deadline = source.deadline;
-    int status = FPDF_RenderPageBitmap_Start(bitmap.handle, page.handle, 0, 0,
-                                             static_cast<int>(w), static_cast<int>(h), 0,
+    int status = FPDF_RenderPageBitmap_Start(bitmap.handle, page.handle, 0, 0, static_cast<int>(w),
+                                             static_cast<int>(h), 0,
                                              FPDF_ANNOT | FPDF_REVERSE_BYTE_ORDER, &pause);
     while (status == FPDF_RENDER_TOBECONTINUED && Clock::now() < pause.deadline) {
         status = FPDF_RenderPage_Continue(page.handle, &pause);
@@ -234,8 +246,7 @@ void warm_up() {
     started = true;
     // Draw once before the cage closes: whatever PDFium sets up on first use (the built-in font,
     // colour management) is set up now.
-    const Document document{
-        FPDF_LoadMemDocument64(kWarmUpPdf.data(), kWarmUpPdf.size(), nullptr)};
+    const Document document{FPDF_LoadMemDocument64(kWarmUpPdf.data(), kWarmUpPdf.size(), nullptr)};
     if (document.handle != nullptr) {
         const Page page{FPDF_LoadPage(document.handle, 0)};
         if (page.handle != nullptr) {
