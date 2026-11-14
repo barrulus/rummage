@@ -274,6 +274,13 @@ constexpr std::array kShortcuts{
              .scope = scope::kViews,
              .keysyms = {XKB_KEY_Escape}},
 
+    Shortcut{.group = "General",
+             .keys = "Ctrl+,",
+             .action = "Settings",
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_comma},
+             .command = Command::show_settings},
     // Panes
     Shortcut{.group = "Panes",
              .keys = "F3",
@@ -570,6 +577,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::swap_panes;
     if (name == "switch_pane")
         command = Command::switch_pane;
+    if (name == "show_settings")
+        command = Command::show_settings;
     if (name == "toggle_split")
         command = Command::toggle_split;
     if (name == "columns_view")
@@ -703,7 +712,7 @@ bool Shortcut::matches(const ui::KeyEvent& event) const {
 }
 
 std::vector<std::string> configure_shortcuts(const std::map<std::string, std::string>& bindings,
-                                             std::span<const core::Action> custom) {
+                                             std::span<const core::Action> custom, bool apply) {
     Bindings next;
     for (const auto& action : core::action_registry(custom)) {
         const bool bundled = action.id == "copy_location" || action.id == "extract_here" ||
@@ -812,9 +821,85 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
                                              existing.action));
         }
     }
-    if (errors.empty())
+    if (errors.empty() && apply)
         active = std::move(next);
     return errors;
+}
+
+std::vector<std::pair<std::string, std::string>> binding_settings() {
+    std::vector<std::pair<std::string, std::string>> result;
+    for (const auto* name : {"show_settings",
+                             "move_other_pane",
+                             "copy_other_pane",
+                             "same_other_pane",
+                             "open_other_pane",
+                             "orient_panes",
+                             "swap_panes",
+                             "switch_pane",
+                             "toggle_split",
+                             "columns_view",
+                             "grid_view",
+                             "details_view",
+                             "toggle_info",
+                             "scroll_preview_up",
+                             "scroll_preview_down",
+                             "scroll_preview_page_up",
+                             "scroll_preview_page_down",
+                             "toggle_sidebar",
+                             "focus_sidebar",
+                             "quick_look",
+                             "show_shortcuts",
+                             "rename",
+                             "new_folder",
+                             "copy",
+                             "cut",
+                             "paste",
+                             "trash",
+                             "erase",
+                             "undo",
+                             "redo",
+                             "context_menu",
+                             "properties",
+                             "back",
+                             "forward",
+                             "toggle_hidden",
+                             "add_bookmark",
+                             "open_terminal",
+                             "new_tab",
+                             "close_tab",
+                             "next_tab",
+                             "previous_tab",
+                             "command_palette",
+                             "filter_names",
+                             "find_files",
+                             "go_to",
+                             "select_all",
+                             "toggle_selection"}) {
+        if (const auto index = binding_index(name)) {
+            const auto& entry = kShortcuts[*index];
+            std::string chord;
+            if (entry.keysyms[0] != XKB_KEY_NoSymbol) {
+                if (entry.modifiers.ctrl)
+                    chord += "Ctrl+";
+                if (entry.modifiers.alt)
+                    chord += "Alt+";
+                if (entry.modifiers.shift)
+                    chord += "Shift+";
+                if (entry.modifiers.super)
+                    chord += "Super+";
+                std::array<char, 64> key{};
+                xkb_keysym_get_name(entry.keysyms[0], key.data(), key.size());
+                chord += key.data();
+            }
+            result.emplace_back(
+                name, std::format("{} · {}", entry.action,
+                                  chord.empty() ? "Unbound by default" : "Default: " + chord));
+        }
+    }
+    std::ranges::sort(result, [](const auto& a, const auto& b) {
+        return binding_index(a.first) < binding_index(b.first);
+    });
+    return result;
 }
 
 ui::KeyEvent view_key_event(const ui::KeyEvent& event) {

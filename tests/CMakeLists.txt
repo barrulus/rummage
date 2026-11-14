@@ -9,6 +9,7 @@ add_executable(rummage-tests
     column_view_test.cpp
     command_palette_test.cpp
     config_test.cpp
+    settings_test.cpp
     desktop_palette_test.cpp
     context_menu_test.cpp
     details_view_test.cpp

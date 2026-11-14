@@ -29,11 +29,15 @@ public:
     // What the desktop says about its look; nullopt when it says nothing (no portal). Used while
     // there is no colors.toml.
     void set_desktop(std::optional<Desktop> desktop);
+    // A Settings preference. nullopt restores the live desktop / colors.toml palette.
+    void set_dark_override(std::optional<bool> dark);
 
     // Called after the palette changed through a reload or the desktop.
     void set_change_handler(ChangeHandler handler) { change_handler_ = std::move(handler); }
 
-    [[nodiscard]] const Palette& palette() const noexcept { return palette_; }
+    [[nodiscard]] const Palette& palette() const noexcept {
+        return dark_override_ ? override_palette_ : palette_;
+    }
 
     // The accent the palette follows: colors.toml's primary, else the desktop's own accent;
     // nullopt with the default palette or a desktop that gives none (ROADMAP 9.2).
@@ -51,6 +55,8 @@ private:
     bool from_file_{false};
     std::optional<Desktop> desktop_;
     Palette palette_;
+    Palette override_palette_;
+    std::optional<bool> dark_override_;
     ChangeHandler change_handler_;
     std::unique_ptr<core::FileWatcher> watcher_;
 };

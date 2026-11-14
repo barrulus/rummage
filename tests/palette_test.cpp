@@ -160,3 +160,27 @@ TEST_CASE("Theme::reload: new colors, broken file keeps them, removed file resto
     CHECK(changes == 2);
     CHECK(same(theme.palette().primary, Palette{}.primary));
 }
+
+TEST_CASE("settings: colour overrides preserve the live source palette") {
+    TempDir dir;
+    const auto file = dir.write("colors.toml", kNord);
+    Theme theme{file};
+    const auto source = theme.palette();
+    theme.set_dark_override(false);
+    CHECK_FALSE(theme.palette().dark);
+    theme.set_dark_override(true);
+    CHECK(theme.palette().dark);
+    dir.write("colors.toml", "[colors]\nprimary = \"#123456\"\n");
+    theme.reload();
+    CHECK(theme.palette().dark);
+    theme.set_dark_override(std::nullopt);
+    CHECK(same(theme.palette().primary, Color::rgb(0x123456)));
+    CHECK_FALSE(same(theme.palette().primary, source.primary));
+    std::filesystem::remove(file);
+    theme.reload();
+    theme.set_desktop(rummage::theme::Desktop{.dark = false, .accent = std::nullopt});
+    theme.set_dark_override(true);
+    CHECK(theme.palette().dark);
+    theme.set_dark_override(std::nullopt);
+    CHECK_FALSE(theme.palette().dark);
+}

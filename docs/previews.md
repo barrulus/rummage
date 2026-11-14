@@ -9,7 +9,9 @@ Opening a file with Enter uses its desktop application, independent of preview s
 
 **Alt+Enter** opens Properties with a compact metadata card and an image or video
 thumbnail beside the filename when available. Unsupported files use their file-type
-icon. The dialog grows for folder-icon controls, link targets and errors; in short
+icon. Its width follows the filename and metadata instead of reserving an empty
+right-hand column; long values are ellipsized within the window. The dialog grows
+for folder-icon controls, link targets and errors; in short
 windows, its contents scroll while the action buttons remain visible.
 
 ## Format support in this source tree

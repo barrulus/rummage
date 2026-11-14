@@ -229,6 +229,8 @@ int main(int argc, char** argv) {
     int bench_frames = 0;
     int walk_frames = 0;  // --walk N: Down once per frame, N frames, workers' results between
     bool info_expanded = false;
+    bool preview_sidebar = false;
+    std::filesystem::path settings_config;
     bool memory = false;
     bool fake_disks = false;
     bool trim = false;
@@ -250,6 +252,16 @@ int main(int argc, char** argv) {
         const std::string_view option{args[1]};
         if (option == "--icon-theme" && args.size() >= 3) {
             icon_theme = args[2];
+            args = args.subspan(2);
+            continue;
+        }
+        if (option == "--preview-sidebar") {
+            preview_sidebar = true;
+            args = args.subspan(1);
+            continue;
+        }
+        if (option == "--settings-config" && args.size() >= 3) {
+            settings_config = args[2];
             args = args.subspan(2);
             continue;
         }
@@ -494,6 +506,9 @@ int main(int argc, char** argv) {
                          .disk = {.volume = "sdc1", .mounted = true, .ejectable = true}});
                 }
                 columns->status_bar().set_text_size(status_text_size);
+                columns->set_preview_in_sidebar(preview_sidebar);
+                if (!settings_config.empty())
+                    columns->set_settings_handler(settings_config, [] {}, {});
                 columns->set_places(std::move(places));
                 opener = std::make_unique<rummage::platform::Opener>(
                     loop, pool, mime, rummage::platform::Environment::from_environment(),
@@ -540,6 +555,10 @@ int main(int argc, char** argv) {
                                         "utf8"}};
                     picker = std::make_unique<views::FilePicker>(
                         *columns, request, mime, [] {}, [](auto) {});
+                }
+                if (!settings_config.empty()) {
+                    columns->open_settings();
+                    run_until(loop, [&] { return !columns->loading(); });
                 }
                 columns->info_pane().set_expanded(info_expanded);
                 if (info_width > 0.0F) {

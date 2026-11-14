@@ -31,6 +31,7 @@ struct State {
     std::size_t sidebar_size{1};  // independent sidebar zoom, usual by default
     bool info_visible{true};
     float info_width{300.0F};
+    float sidebar_preview_ratio{0.55F};
     bool info_expanded{false};
     // The details' order and the widths of size, modified and type (the name takes the rest).
     fs::SortKey sort_key{fs::SortKey::name};

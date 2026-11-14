@@ -2,17 +2,30 @@
 
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
-rummage uses TOML files rather than a settings window. Every configuration key is
-optional. The first normal launch creates the complete reference when no config
-exists. Existing files are never replaced. You can keep a small file with only
-your changes, or copy the
+Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or the
+command palette. Appearance includes colour and icon themes, opacity, fonts and
+preview placement. Keybindings lets you replace a default with a chord (for example
+`Ctrl+J`), type `Default` to reset it, or clear a field to disable it. Actions lets
+you add commands and edit custom action labels, argument arrays and enabled state. Advanced options remain
+available through **Open config**.
+
+**Save** validates changes and applies live settings; fonts require a restart.
+**Cancel** or **Escape** discards edits. Use Tab/Shift+Tab to move between controls,
+Alt+1/2/3 to switch sections, and Ctrl+S to save. Scroll within a section for more
+controls. Existing comments and unrelated configuration are retained. If another
+editor changes the file while Settings is open, saving stops; reopen Settings to
+load that version. Invalid files and save failures display an error. Settings uses the active `--config` file when specified.
+
+rummage stores settings in TOML. Every configuration key is optional. The first
+normal launch creates the complete reference when no config exists. First-run setup
+never replaces existing files. You can keep a small file with only your changes, or copy the
 [annotated example](config.example.toml) from this checkout.
 
 ## Files and locations
 
 | File or directory | Default location | Ownership |
 | --- | --- | --- |
-| Settings | `~/.config/rummage/config.toml` | Edited by you |
+| Settings | `~/.config/rummage/config.toml` | Edited by you or Settings |
 | Palette | `~/.config/rummage/colors.toml` | Written by Noctalia or edited by you |
 | Window/tab/folder state | `~/.local/state/rummage/state.toml` | Written by rummage |
 | Picker window/view/last folder | `~/.local/state/rummage/picker.toml` | Written by the file picker |
@@ -53,6 +66,8 @@ rename = "Ctrl+r"
 | --- | --- | --- |
 | `startup.mode` | `"session"` | `"home"`, `"folder"`, `"last"`, or `"session"`; next launch |
 | `startup.folder` | `"~"` | Absolute path or `~/` path, used with mode `"folder"` |
+| `appearance.color_scheme` | `"system"` | `"system"` (desktop / colors.toml), `"light"`, or `"dark"`; live |
+| `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |
 | `appearance.background_opacity` | `1.0` | Number from 0 to 1; background only |
 | `status_bar.text_size` | `12.0` | Number from 8 to 32 logical pixels; applies live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |
@@ -108,7 +123,7 @@ copy are not automatically synchronized by updates.
 ## Saved state
 
 rummage remembers window size/maximization, pane layout and divider, sidebar zoom,
-info-pane settings and command-palette history. Each pane retains its tabs,
+info-pane settings, the divider below Places and command-palette history. Each pane retains its tabs,
 locations, active tab, views, zoom, sorting, hidden visibility and filename filters.
 Back/forward history and details-tree expansion are not saved across restarts.
 
