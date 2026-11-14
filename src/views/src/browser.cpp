@@ -135,6 +135,28 @@ Pane& Browser::add_pane(std::size_t at) {
     wire(added.columns);
     wire(added.grid);
     wire(added.details);
+    added.details.set_header_menu_handler(
+        [this](float x, float y, std::optional<DetailsView::Field> field) {
+            auto items = details_columns_menu().children;
+            if (field && *field != DetailsView::Field::name) {
+                const auto& columns = pane().details.columns();
+                const auto column_at = std::ranges::find(columns, *field);
+                MenuItem left;
+                left.id = "column_left";
+                left.label = "Move column left";
+                left.separator = true;
+                left.enabled = column_at != columns.end() && column_at > columns.begin() + 1;
+                left.action = [this, field] { pane().details.move_column(*field, -1); };
+                items.push_back(std::move(left));
+                MenuItem right;
+                right.id = "column_right";
+                right.label = "Move column right";
+                right.enabled = column_at != columns.end() && column_at + 1 < columns.end();
+                right.action = [this, field] { pane().details.move_column(*field, 1); };
+                items.push_back(std::move(right));
+            }
+            menu_.open(x, y, std::move(items), false);
+        });
     // A zoom is the tab's: its two lists take the size (the grid has its own).
     Pane* const zoomed = &added;
     const auto lists = [zoomed](std::size_t index) {
@@ -155,6 +177,7 @@ Pane& Browser::add_pane(std::size_t at) {
         added.columns.set_order(added.details.order());
         added.grid.set_order(added.details.order());
         added.details.set_widths(from.details.widths());
+        added.details.set_columns(from.details.columns());
         added.columns.set_list_size(from.details.list_size());
         added.details.set_list_size(from.details.list_size());
         added.grid.set_size_index(from.grid.size_index());
@@ -1908,6 +1931,7 @@ State::FolderSettings Browser::folder_settings(const Pane& each) {
             .sort_key = each.details.order().key,
             .sort_descending = each.details.order().descending,
             .details_widths = each.details.widths(),
+            .details_columns = each.details.columns(),
             .list_size = each.details.list_size(),
             .grid_icon = static_cast<std::int32_t>(each.grid.icon_size())};
 }
@@ -1939,6 +1963,7 @@ void Browser::restore_folder(const std::filesystem::path& path) {
         set_list_size(settings.list_size);
         set_grid_size(grid_index(settings.grid_icon));
         pane().details.set_widths(settings.details_widths);
+        pane().details.set_columns(settings.details_columns);
         set_mode(static_cast<Mode>(settings.mode));
     }
     const auto settings = folder_settings(pane());
@@ -2053,6 +2078,36 @@ void Browser::set_sort(fs::SortKey key, bool descending) {
     pane().grid.set_order(pane().details.order());
 }
 
+MenuItem Browser::details_columns_menu() {
+    MenuItem menu;
+    menu.id = "details_columns";
+    menu.label = "Show columns";
+    menu.submenu = true;
+    menu.separator = true;
+    for (const auto& column : kDetailsColumns) {
+        MenuItem item;
+        item.id = "column:" + std::string{column.id};
+        item.label = column.title;
+        item.checkable = true;
+        item.checked = pane().details.column_visible(column.field);
+        item.enabled = column.field != DetailsView::Field::name;
+        item.action = [this, field = column.field] {
+            pane().details.set_column_visible(field, !pane().details.column_visible(field));
+        };
+        menu.children.push_back(std::move(item));
+    }
+    MenuItem reset;
+    reset.id = "columns_reset";
+    reset.label = "Reset columns";
+    reset.separator = true;
+    reset.action = [this] {
+        pane().details.set_columns(kDefaultDetailsColumns);
+        pane().details.set_widths(kDetailsWidths);
+    };
+    menu.children.push_back(std::move(reset));
+    return menu;
+}
+
 MenuItem Browser::sort_menu() {
     const fs::SortOrder& now = sort_order();
     MenuItem sort;
@@ -2072,22 +2127,10 @@ MenuItem Browser::sort_menu() {
         return item;
     };
 
-    struct Key {
-        fs::SortKey key;
-        const char* id;
-        const char* label;
-    };
-
-    constexpr std::array<Key, 4> sort_keys{{
-        {.key = fs::SortKey::name, .id = "sort:name", .label = "Name"},
-        {.key = fs::SortKey::size, .id = "sort:size", .label = "Size"},
-        {.key = fs::SortKey::modified, .id = "sort:modified", .label = "Modified"},
-        {.key = fs::SortKey::type, .id = "sort:type", .label = "Type"},
-    }};
-    for (const Key& choice_of : sort_keys) {
-        sort.children.push_back(
-            choice(choice_of.id, choice_of.label, now.key == choice_of.key,
-                   [this, key = choice_of.key] { set_sort(key, sort_order().descending); }));
+    for (const auto& column : kDetailsColumns) {
+        sort.children.push_back(choice(
+            "sort:" + std::string{column.id}, std::string{column.title}, now.key == column.field,
+            [this, key = column.field] { set_sort(key, sort_order().descending); }));
     }
     sort.children.push_back(choice(
         "sort:ascending", "Ascending", !now.descending,
@@ -2181,6 +2224,7 @@ State Browser::state() {
     state.sort_key = pane().details.order().key;
     state.sort_descending = pane().details.order().descending;
     state.details_widths = pane().details.widths();
+    state.details_columns = pane().details.columns();
     state.list_size = pane().details.list_size();
     state.grid_icon = static_cast<std::int32_t>(pane().grid.icon_size());
     state.palette_recent = palette_recent_;
@@ -2218,6 +2262,8 @@ State Browser::state() {
             tab.grid_icon = static_cast<std::int32_t>(each.grid.icon_size());
             tab.pane = side;
             tab.sort_key = each.details.order().key;
+            tab.details_columns = each.details.columns();
+            tab.details_widths = each.details.widths();
             tab.sort_descending = each.details.order().descending;
             tab.show_hidden = each.show_hidden;
             tab.filter = each.filter_field.text();
@@ -2262,6 +2308,7 @@ bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t show
         if (const auto* settings = folder_settings_.find(pane().settings_folder)) {
             set_sort(settings->sort_key, settings->sort_descending);
             pane().details.set_widths(settings->details_widths);
+            pane().details.set_columns(settings->details_columns);
         }
         const std::filesystem::path relative = tab.folder.lexically_relative(tab.root);
         if (pane().mode == Mode::columns && folder_there(tab.root) && !relative.empty() &&
@@ -2279,6 +2326,10 @@ bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t show
         set_sort(tab.sort_key.value_or(pane().details.order().key),
                  tab.sort_key ? tab.sort_descending : pane().details.order().descending);
         set_show_hidden(tab.show_hidden.value_or(pane().show_hidden), false);
+        if (tab.details_columns)
+            pane().details.set_columns(*tab.details_columns);
+        if (tab.details_widths)
+            pane().details.set_widths(*tab.details_widths);
         set_name_filter(tab.filter);
         note_location();
         if (i == shown) {
@@ -2306,6 +2357,7 @@ void Browser::apply(const State& state) {
         each->grid.set_show_hidden(state.show_hidden);
         each->details.set_show_hidden(state.show_hidden);
         each->details.set_widths(state.details_widths);
+        each->details.set_columns(state.details_columns);
     }
     set_sidebar_visible(state.sidebar_visible);
     sidebar_.set_width(state.sidebar_width);

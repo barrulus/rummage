@@ -104,6 +104,25 @@ bool SortOrder::operator()(const Entry& a, const Entry& b) const noexcept {
             }
             break;
         }
+        case SortKey::created:
+            result = three_way(a.created_ns, b.created_ns);
+            break;
+        case SortKey::accessed:
+            result = three_way(a.accessed_ns, b.accessed_ns);
+            break;
+        case SortKey::owner:
+            result = natural_compare(a.owner, b.owner);
+            break;
+        case SortKey::group:
+            result = natural_compare(a.group, b.group);
+            break;
+        case SortKey::permissions:
+            result = natural_compare(a.permissions, b.permissions);
+            break;
+        case SortKey::link_target:
+            result = natural_compare(a.link_target, b.link_target);
+            break;
+        case SortKey::location:  // Siblings share a location; use their names to break the tie.
         case SortKey::name:
             break;
     }

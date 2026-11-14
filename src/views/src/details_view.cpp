@@ -28,26 +28,11 @@ constexpr float kIconGap = 10.0F;
 constexpr float kTitleSize = 12.0F;
 constexpr float kSortIcon = 12.0F;
 constexpr float kDividerGrab = 4.0F;  // either side of a divider, for the pointer
-constexpr float kItemSlack = 8.0F;  // past the end of a name, still the entry (a press drags it)
-// The least a column can be made: the name keeps room for a short file name.
-constexpr std::array<float, 4> kMinWidths{160.0F, 64.0F, 96.0F, 80.0F};
-constexpr std::array<std::string_view, 4> kTitles{"Name", "Size", "Modified", "Type"};
+constexpr float kItemSlack = 8.0F;    // past the end of a name, still the entry (a press drags it)
 
 constexpr std::size_t index(Field field) { return static_cast<std::size_t>(field); }
 
-fs::SortKey sort_key(Field field) {
-    switch (field) {
-        case Field::size:
-            return fs::SortKey::size;
-        case Field::modified:
-            return fs::SortKey::modified;
-        case Field::type:
-            return fs::SortKey::type;
-        case Field::name:
-            break;
-    }
-    return fs::SortKey::name;
-}
+constexpr fs::SortKey sort_key(Field field) { return field; }
 
 bool same_order(const fs::SortOrder& a, const fs::SortOrder& b) {
     return a.key == b.key && a.descending == b.descending &&
@@ -68,11 +53,14 @@ DetailsView::DetailsView(core::EventLoop& loop, core::WorkerPool& pool,
       set_cursor_{std::move(set_cursor)},
       info_pane_{info_pane} {
     order_.mime = mime_.get();
+    std::copy(kDetailsWidths.begin(), kDetailsWidths.end(), widths_.begin() + 1);
 }
 
 void DetailsView::show(std::shared_ptr<Folder> folder) {
     scrollbar_ = ui::Scrollbar{};
-    if (folder) { folder->set_entry_filter(entry_filter_); }
+    if (folder) {
+        folder->set_entry_filter(entry_filter_);
+    }
     expanded_.clear();
     tree_rows_.clear();
     root_ = folder;
@@ -251,8 +239,12 @@ void DetailsView::band_scroll(const Folder& folder, float pixels) {
 
 void DetailsView::set_entry_filter(fs::Listing::Predicate filter) {
     entry_filter_ = std::move(filter);
-    if (root_) { root_->set_entry_filter(entry_filter_); }
-    for (auto& [path, child] : expanded_) { child->set_entry_filter(entry_filter_); }
+    if (root_) {
+        root_->set_entry_filter(entry_filter_);
+    }
+    for (auto& [path, child] : expanded_) {
+        child->set_entry_filter(entry_filter_);
+    }
     rebuild_rows();
     redraw_();
 }
@@ -331,11 +323,51 @@ void DetailsView::zoom(std::size_t index) {
     }
 }
 
-void DetailsView::set_widths(const std::array<float, 3>& widths) {
+void DetailsView::set_widths(const DetailsWidths& widths) {
     for (std::size_t i = 0; i < widths.size(); ++i) {
-        widths_.at(i + 1) = std::max(widths.at(i), kMinWidths.at(i + 1));
+        widths_.at(i + 1) =
+            std::isfinite(widths.at(i))
+                ? std::clamp(widths.at(i), kDetailsColumns.at(i + 1).minimum, 800.0F)
+                : kDetailsColumns.at(i + 1).width;
     }
     redraw_();
+}
+
+bool DetailsView::column_visible(Field field) const {
+    return std::ranges::find(columns_, field) != columns_.end();
+}
+
+void DetailsView::set_columns(std::vector<Field> columns) {
+    columns_ = {Field::name};
+    for (const auto field : columns) {
+        if (index(field) < kDetailsColumnCount && !column_visible(field))
+            columns_.push_back(field);
+    }
+    drag_.reset();
+    lay_out();
+    update_hover();
+    redraw_();
+}
+
+void DetailsView::set_column_visible(Field field, bool visible) {
+    auto columns = columns_;
+    if (visible)
+        columns.push_back(field);
+    else
+        std::erase(columns, field);
+    set_columns(columns);
+}
+
+void DetailsView::move_column(Field field, int direction) {
+    auto columns = columns_;
+    const auto at = std::ranges::find(columns, field);
+    if (at == columns.end() || at == columns.begin())
+        return;
+    if (direction < 0 && at > columns.begin() + 1)
+        std::iter_swap(at, at - 1);
+    if (direction > 0 && at + 1 < columns.end())
+        std::iter_swap(at, at + 1);
+    set_columns(columns);
 }
 
 void DetailsView::apply_order() {
@@ -367,36 +399,30 @@ float DetailsView::shown_width(std::size_t column) const {
 }
 
 void DetailsView::lay_out() {
-    // What fits: the fixed columns are left out, last first, while the name would be narrower
-    // than its minimum.
+    layout_ = {};
     float fixed = 0.0F;
-    for (const Field field : {Field::size, Field::modified, Field::type}) {
+    for (const auto field : columns_) {
         layout_.shown.at(index(field)) = true;
-        fixed += shown_width(index(field));
+        if (field != Field::name)
+            fixed += shown_width(index(field));
     }
     const float table = rows_.width - (2.0F * kPadding);
-    for (const Field field : {Field::type, Field::modified, Field::size}) {
-        if (table - fixed >= kMinWidths.at(index(Field::name))) {
+    // Leave out rightmost enabled columns until the name has room. Preferences stay intact.
+    for (auto it = columns_.rbegin(); it != columns_.rend() && *it != Field::name; ++it) {
+        if (table - fixed >= kDetailsColumns[0].minimum)
             break;
-        }
-        layout_.shown.at(index(field)) = false;
-        fixed -= shown_width(index(field));
+        layout_.shown.at(index(*it)) = false;
+        fixed -= shown_width(index(*it));
     }
-    // The fixed columns from the right edge; the name takes what is left.
-    float right = rows_.right() - kPadding;
-    for (const Field field : {Field::type, Field::modified, Field::size}) {
-        const std::size_t i = index(field);
-        if (!layout_.shown.at(i)) {
-            layout_.width.at(i) = 0.0F;
-            layout_.left.at(i) = right;
+    float left = rows_.x + kPadding;
+    for (const auto field : columns_) {
+        const auto i = index(field);
+        layout_.left.at(i) = left;
+        if (!layout_.shown.at(i))
             continue;
-        }
-        layout_.width.at(i) = shown_width(i);
-        layout_.left.at(i) = right - shown_width(i);
-        right = layout_.left.at(i);
+        layout_.width.at(i) = field == Field::name ? std::max(1.0F, table - fixed) : shown_width(i);
+        left += layout_.width.at(i);
     }
-    layout_.left.at(index(Field::name)) = rows_.x + kPadding;
-    layout_.width.at(index(Field::name)) = std::max(1.0F, right - (rows_.x + kPadding));
 }
 
 void DetailsView::enter() {
@@ -462,7 +488,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     renderer.fill_rect({header_.x, header_.bottom() - 1.0F, header_.width, 1.0F},
                        palette.outline_variant);
     const fs::SortOrder& order = folder_->order();
-    for (const Field field : {Field::name, Field::size, Field::modified, Field::type}) {
+    for (const Field field : columns_) {
         const std::size_t i = index(field);
         if (!layout_.shown.at(i)) {
             continue;
@@ -471,7 +497,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const float width = layout_.width.at(i);
         const bool sorted = sort_key(field) == order.key;
         const ui::Color color = sorted ? palette.on_surface : palette.on_surface_variant;
-        const std::string_view title = kTitles.at(i);
+        const std::string_view title = kDetailsColumns.at(i).title;
         const float title_width = text_width(renderer, title, kTitleSize);
         const float text_y = header_.y + ((kHeaderHeight - kTitleSize) / 2.0F) - 2.0F;
         // Sizes are numbers: right-aligned, title included.
@@ -595,6 +621,16 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         }
         cell(Field::size, size_text, true);
         cell(Field::modified, format_time(entry.modified_ns), false);
+        if (layout_.shown.at(index(Field::created)))
+            cell(Field::created, entry.created_ns ? format_time(*entry.created_ns) : "—", false);
+        if (layout_.shown.at(index(Field::accessed)))
+            cell(Field::accessed, entry.accessed_ns ? format_time(*entry.accessed_ns) : "—", false);
+        cell(Field::owner, entry.owner, false);
+        cell(Field::group, entry.group, false);
+        cell(Field::permissions, entry.permissions, false);
+        if (layout_.shown.at(index(Field::location)))
+            cell(Field::location, owner->path().string(), false);
+        cell(Field::link_target, entry.link_target, false);
         cell(Field::type,
              child != expanded_.end() && child->second->model().error()
                  ? child->second->model().error().message()
@@ -664,8 +700,8 @@ std::optional<Field> DetailsView::divider_at(float x, float y) const {
     if (y < header_.y || y >= header_.bottom()) {
         return std::nullopt;
     }
-    for (const Field field : {Field::size, Field::modified, Field::type}) {
-        if (layout_.shown.at(index(field)) &&
+    for (const Field field : columns_) {
+        if (field != Field::name && layout_.shown.at(index(field)) &&
             std::abs(x - layout_.left.at(index(field))) <= kDividerGrab) {
             return field;
         }
@@ -677,7 +713,7 @@ std::optional<Field> DetailsView::title_at(float x, float y) const {
     if (y < header_.y || y >= header_.bottom()) {
         return std::nullopt;
     }
-    for (const Field field : {Field::name, Field::size, Field::modified, Field::type}) {
+    for (const Field field : columns_) {
         const float left = layout_.left.at(index(field));
         if (layout_.shown.at(index(field)) && x >= left &&
             x < left + layout_.width.at(index(field))) {
@@ -736,15 +772,19 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
                 // The divider follows the pointer: the column on its right grows to the left.
                 const std::size_t i = index(drag_->field);
                 float others = 0.0F;
-                for (const Field field : {Field::size, Field::modified, Field::type}) {
-                    others += field == drag_->field ? 0.0F : shown_width(index(field));
+                for (const Field field : columns_) {
+                    if (field != Field::name && field != drag_->field &&
+                        layout_.shown.at(index(field)))
+                        others += shown_width(index(field));
                 }
                 // Dragged in pixels as shown; kept as at the usual size, so a zoom scales it.
-                const float most = rows_.width - (2.0F * kPadding) - others - kMinWidths.at(0);
-                const float shown = std::clamp(drag_->start_width + (drag_->start_x - event.x),
-                                               kMinWidths.at(i) * width_scale(),
-                                               std::max(kMinWidths.at(i) * width_scale(), most));
-                widths_.at(i) = shown / width_scale();
+                const float most =
+                    rows_.width - (2.0F * kPadding) - others - kDetailsColumns.at(0).minimum;
+                const float shown =
+                    std::clamp(drag_->start_width + (drag_->start_x - event.x),
+                               kDetailsColumns.at(i).minimum * width_scale(),
+                               std::max(kDetailsColumns.at(i).minimum * width_scale(), most));
+                widths_.at(i) = std::min(800.0F, shown / width_scale());
                 redraw_();
             }
             update_hover();
@@ -980,6 +1020,11 @@ bool DetailsView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
 
 void DetailsView::right_click(float x, float y) {
     if (!folder_) {
+        return;
+    }
+    if (header_.contains(x, y)) {
+        if (header_menu_)
+            header_menu_(x, y, title_at(x, y));
         return;
     }
     if (x < header_.right()) {  // the pane keeps the selection it shows

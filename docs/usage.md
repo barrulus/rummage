@@ -25,19 +25,30 @@ resize it (240–720 logical pixels).
 | --- | --- | --- |
 | Columns | Ctrl+1 | Selecting a folder opens the next column; Left returns through the hierarchy |
 | Grid | Ctrl+2 | Icons/thumbnails with labels; useful for pictures and videos |
-| Details | Ctrl+3 | Name, size, modified date and type; folders can expand inline |
+| Details | Ctrl+3 | Configurable property columns; folders can expand inline |
 
 Switching views keeps the current location and selection. Columns can be resized
 by dragging their edges; double-click an edge to reset its width. In details,
 drag header dividers to resize columns and click a header to sort by it; click
-again to reverse.
+again to reverse. Right-click a header or use **View → Show columns** to toggle
+columns, including Type. Name always stays visible. The header menu also moves
+an optional column left or right and resets the columns and widths.
+
+Available columns are Name, Size, Modified, Type (MIME), Created, Accessed, Owner,
+Group, Permissions, Location and Link target. Creation time shows a dash when
+unavailable; permissions use `ls -l` notation. Links show their target's metadata,
+or their own when dangling. Location is the row's parent folder, useful in an
+expanded tree; sorting it orders siblings by name. The rightmost enabled columns
+are temporarily left out when the pane is too narrow and return when widened.
+Column choices, order and widths are remembered per folder and tab. The command
+palette also offers **Show/Hide … column** commands in Details view.
 
 Drag a scrollbar thumb to move quickly through a long folder without changing the
 selection. Each column, grid and details pane has its own vertical scrollbar;
 columns also have a horizontal scrollbar when they extend beyond the pane. Click
 the scrollbar track to jump to that position, then keep dragging to adjust.
 
-In every view, right-click and use **Sort By** for name, size, modified or type and
+In every view, right-click and use **Sort By** for any of these properties and
 ascending/descending order. Sort order belongs to the current tab and is saved. Folders
 are kept together; size sorting keeps folder names ordered, and unknown types
 sort after known types in ascending type order.
@@ -100,7 +111,7 @@ Each tab keeps its location, view, zoom, sort order, hidden visibility, filename
 filter and session history. The sidebar and information pane are shared by the
 window. New tabs initially inherit view/zoom/sort/hidden settings and start with an empty
 filter. Saved folder preferences take precedence when navigating: view mode, sort,
-zoom and details-column widths are remembered for up to 512 recent locations. Pane/tab restoration is described in [saved state](configuration.md#saved-state).
+zoom and details-column choices, order and widths are remembered for up to 512 recent locations. Pane/tab restoration is described in [saved state](configuration.md#saved-state).
 
 ## Settings and preview placement
 

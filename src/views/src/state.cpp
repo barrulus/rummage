@@ -24,9 +24,17 @@ constexpr std::array kListSizeWords{
     std::pair{"small", std::size_t{0}}, std::pair{"usual", std::size_t{1}},
     std::pair{"large", std::size_t{2}}, std::pair{"larger", std::size_t{3}},
     std::pair{"largest", std::size_t{4}}};
-constexpr std::array kSortKeys{
-    std::pair{"name", fs::SortKey::name}, std::pair{"size", fs::SortKey::size},
-    std::pair{"modified", fs::SortKey::modified}, std::pair{"type", fs::SortKey::type}};
+constexpr std::array kSortKeys{std::pair{"name", fs::SortKey::name},
+                               std::pair{"size", fs::SortKey::size},
+                               std::pair{"modified", fs::SortKey::modified},
+                               std::pair{"type", fs::SortKey::type},
+                               std::pair{"created", fs::SortKey::created},
+                               std::pair{"accessed", fs::SortKey::accessed},
+                               std::pair{"owner", fs::SortKey::owner},
+                               std::pair{"group", fs::SortKey::group},
+                               std::pair{"permissions", fs::SortKey::permissions},
+                               std::pair{"location", fs::SortKey::location},
+                               std::pair{"link_target", fs::SortKey::link_target}};
 
 // The limits the views themselves keep (Sidebar, InfoPane, DetailsView, WindowOptions).
 constexpr float kSidebarMin = 140.0F;
@@ -102,6 +110,40 @@ public:
             }
             bad(*node, key, "one of " + choices);
         }
+    }
+
+    void details(std::string_view prefix, DetailsWidths& widths,
+                 std::vector<fs::SortKey>& columns) {
+        for (std::size_t i = 1; i < kDetailsColumns.size(); ++i) {
+            number(std::string{prefix} + std::string{kDetailsColumns[i].id} + "_width", kColumnMin,
+                   kColumnMax, widths[i - 1]);
+        }
+        const auto key = std::string{prefix} + "columns";
+        const auto* node = find(key);
+        if (!node)
+            return;
+        const auto* list = node->as_array();
+        std::vector<fs::SortKey> chosen;
+        bool valid = list != nullptr;
+        if (list) {
+            for (const auto& item : *list) {
+                const auto name = item.value<std::string>();
+                const auto field =
+                    name ? std::ranges::find(kDetailsColumns, *name, &DetailsColumn::id)
+                         : kDetailsColumns.end();
+                if (field == kDetailsColumns.end() ||
+                    std::ranges::find(chosen, field->field) != chosen.end()) {
+                    valid = false;
+                    break;
+                }
+                chosen.push_back(field->field);
+            }
+        }
+        if (!valid || chosen.empty() || chosen.front() != fs::SortKey::name) {
+            bad(*node, key, "unique column names starting with name");
+            return;
+        }
+        columns = std::move(chosen);
     }
 
     [[nodiscard]] std::vector<std::string> take() { return std::move(problems_); }
@@ -190,6 +232,22 @@ const char* word_of(const std::array<std::pair<const char*, T>, N>& words, T val
     return words.front().first;
 }
 
+std::string format_columns(const DetailsWidths& widths, const std::vector<fs::SortKey>& columns) {
+    std::string out;
+    for (std::size_t i = 1; i < kDetailsColumns.size(); ++i) {
+        out += std::format("{}_width = {}\n", kDetailsColumns[i].id, widths[i - 1]);
+    }
+    out += "columns = [";
+    bool first = true;
+    for (const auto field : columns) {
+        if (!first)
+            out += ", ";
+        out += toml_string(word_of(kSortKeys, field));
+        first = false;
+    }
+    return out + "]\n";
+}
+
 }  // namespace
 
 const State::FolderSettings* State::Folders::find(const std::filesystem::path& path) const {
@@ -270,9 +328,7 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     read.number("info.sidebar_ratio", 0.15F, 0.85F, s.sidebar_preview_ratio);
     read.word("details.sort", kSortKeys, s.sort_key);
     read.flag("details.descending", s.sort_descending);
-    read.number("details.size_width", kColumnMin, kColumnMax, s.details_widths[0]);
-    read.number("details.modified_width", kColumnMin, kColumnMax, s.details_widths[1]);
-    read.number("details.type_width", kColumnMin, kColumnMax, s.details_widths[2]);
+    read.details("details.", s.details_widths, s.details_columns);
     read.size("window.width", s.window_width);
     read.size("window.height", s.window_height);
     read.flag("window.maximized", s.maximized);
@@ -328,12 +384,7 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                 folder_read.word("sort", kSortKeys, settings.sort_key);
                 folder_read.flag("descending", settings.sort_descending);
                 folder_read.word("list_size", kListSizeWords, settings.list_size);
-                folder_read.number("size_width", kColumnMin, kColumnMax,
-                                   settings.details_widths[0]);
-                folder_read.number("modified_width", kColumnMin, kColumnMax,
-                                   settings.details_widths[1]);
-                folder_read.number("type_width", kColumnMin, kColumnMax,
-                                   settings.details_widths[2]);
+                folder_read.details("", settings.details_widths, settings.details_columns);
                 auto problems = folder_read.take();
                 result.problems.insert(result.problems.end(), problems.begin(), problems.end());
                 if (const auto* grid = table->get("grid_icon")) {
@@ -461,6 +512,14 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                     if (found != kSortKeys.end())
                         tab.sort_key = found->second;
                 }
+                if (table->contains("columns")) {
+                    Reader tab_read{*table, source};
+                    tab.details_widths = kDetailsWidths;
+                    tab.details_columns = kDefaultDetailsColumns;
+                    tab_read.details("", *tab.details_widths, *tab.details_columns);
+                    auto problems = tab_read.take();
+                    result.problems.insert(result.problems.end(), problems.begin(), problems.end());
+                }
                 tab.sort_descending = (*table)["descending"].value_or(false);
                 tab.show_hidden = (*table)["show_hidden"].value<bool>();
                 tab.filter = (*table)["filter"].value_or(std::string{});
@@ -527,6 +586,9 @@ std::string format_state(const State& s) {
         if (tab.sort_key)
             tabs += std::format("sort = \"{}\"\ndescending = {}\n",
                                 word_of(kSortKeys, *tab.sort_key), flag(tab.sort_descending));
+        if (tab.details_columns)
+            tabs +=
+                format_columns(tab.details_widths.value_or(kDetailsWidths), *tab.details_columns);
         if (tab.show_hidden)
             tabs += std::format("show_hidden = {}\n", flag(*tab.show_hidden));
         if (!tab.filter.empty() && valid_utf8(tab.filter))
@@ -547,12 +609,11 @@ std::string format_state(const State& s) {
             continue;
         folders += std::format(
             "\n[[folder]]\npath = {}\nmode = \"{}\"\nsort = \"{}\"\ndescending = {}\n"
-            "list_size = \"{}\"\ngrid_icon = {}\nsize_width = {}\nmodified_width = {}\ntype_width "
-            "= {}\n",
+            "list_size = \"{}\"\ngrid_icon = {}\n{}",
             toml_string(path.string()), word_of(kModes, settings.mode),
             word_of(kSortKeys, settings.sort_key), flag(settings.sort_descending),
             word_of(kListSizeWords, settings.list_size), settings.grid_icon,
-            settings.details_widths[0], settings.details_widths[1], settings.details_widths[2]);
+            format_columns(settings.details_widths, settings.details_columns));
     }
     return std::format(
                "# How rummage was left, read at start. Written by rummage: no need to edit it.\n"
@@ -577,9 +638,7 @@ std::string format_state(const State& s) {
                "[details]\n"
                "sort = \"{}\"\n"
                "descending = {}\n"
-               "size_width = {}\n"
-               "modified_width = {}\n"
-               "type_width = {}\n"
+               "{}"
                "\n"
                "[window]\n"
                "width = {}\n"
@@ -592,8 +651,8 @@ std::string format_state(const State& s) {
                s.grid_icon, word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible),
                s.sidebar_width, flag(s.info_visible), s.info_width, flag(s.info_expanded),
                s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
-               s.details_widths[0], s.details_widths[1], s.details_widths[2], s.window_width,
-               s.window_height, flag(s.maximized), recent) +
+               format_columns(s.details_widths, s.details_columns), s.window_width, s.window_height,
+               flag(s.maximized), recent) +
            std::format(
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,

@@ -24,6 +24,7 @@ struct MenuItem {       // NOLINT(misc-no-recursion): a submenu's items are Menu
     bool separator{false};  // a line above it
     bool submenu{false};    // opens children instead of running action
     bool radio{false};      // one of a choice ("Sort By": Name, Size…): a dot when checked
+    bool checkable{false};  // independent toggle, drawn as a checkbox
     bool checked{false};
     std::string empty_text;  // a submenu without children shows it, dimmed ("Loading…")
     std::vector<MenuItem> children;
