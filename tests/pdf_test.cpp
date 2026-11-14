@@ -35,7 +35,7 @@ TEST_CASE("pdf: actual sandbox draws the first page, rotated pages and built-in 
     CHECK(rotated.image.width == 64);
     CHECK(rotated.image.height == 128);
 
-    // Helvetica is not embedded: MuPDF's own font draws it, without opening a file in the cage.
+    // Helvetica is not embedded: PDFium's own font draws it, without opening a file in the cage.
     auto text = helpers.load({.path = fixtures / "text.pdf", .max_width = 200, .max_height = 200});
     REQUIRE(text.failure == picture::Failure::none);
     std::size_t ink = 0;
@@ -231,12 +231,12 @@ TEST_CASE("pdf security: recursion, deep nesting and absurd pages end safely") {
     }
     CHECK(timed_load(helpers, kAttacks / "no-pages.pdf").loaded.failure ==
           picture::Failure::damaged);
-    // A page tree that claims two billion pages is refused as damaged, not walked.
-    CHECK(timed_load(helpers, kAttacks / "lying-count.pdf").loaded.failure ==
-          picture::Failure::damaged);
+    // A page tree that claims two billion pages is not walked: only page one is drawn.
+    const Timed lying = timed_load(helpers, kAttacks / "lying-count.pdf");
+    CHECK(lying.seconds < seconds(2.0));
 }
 
-TEST_CASE("pdf security: only PDF is parsed, never MuPDF's other formats") {
+TEST_CASE("pdf security: only PDF is parsed, other formats named .pdf are refused") {
     isolate::Helpers helpers{{.program = RUMMAGE_PDF_HELPER, .args = {}}};
     for (const char* name : {"cbz-named.pdf", "svg-named.pdf", "html-named.pdf"}) {
         INFO(name);

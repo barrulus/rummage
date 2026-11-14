@@ -16,7 +16,7 @@
   tomlplusplus,
   libwebp,
   ffmpeg,
-  mupdf,
+  callPackage,
   libjxl,
   libheif,
   libde265,
@@ -36,6 +36,8 @@
   withTests ? false,
   withMedia ? false,
   withPdf ? false,
+  # Not nixpkgs' pdfium, a source build that pulls in ICU, abseil and libyuv: one file instead.
+  rummage-pdfium ? callPackage ./pdfium-binaries.nix { },
 }:
 
 stdenv.mkDerivation {
@@ -97,7 +99,7 @@ stdenv.mkDerivation {
     sdbus-cpp_2
   ]
   ++ lib.optional withMedia ffmpeg
-  ++ lib.optional withPdf mupdf;
+  ++ lib.optional withPdf rummage-pdfium;
 
   cmakeFlags = [
     "-DRUMMAGE_WERROR=OFF"

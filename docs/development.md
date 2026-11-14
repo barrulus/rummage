@@ -32,7 +32,7 @@ working EGL/GLES and fonts even without a compositor. CMake generates
 | `RUMMAGE_SANITIZER` | Empty | e.g. `address,undefined` or `thread` |
 | `RUMMAGE_CLANG_TIDY` | `OFF` | Run clang-tidy while compiling |
 | `RUMMAGE_MEDIA` | `OFF` | Build the optional sandboxed FFmpeg helper |
-| `RUMMAGE_PDF` | `OFF` | Build the optional sandboxed MuPDF helper |
+| `RUMMAGE_PDF` | `OFF` | Build the optional sandboxed PDFium helper |
 | `RUMMAGE_FUZZ` | `OFF` | Build libFuzzer targets; requires Clang |
 
 Tests are silently absent from a later `ctest` run if configure skipped them;

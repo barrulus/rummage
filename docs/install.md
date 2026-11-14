@@ -135,12 +135,14 @@ Install the matching `rummage-pdf` package for PDF thumbnails and first-page sti
 information pane and Space Quick Look. Password-protected PDFs get a lock on their icon,
 damaged ones a cross; see [previews](previews.md#optional-pdf-previews).
 
-The helper links MuPDF (1.24 or newer, `mupdf.pc`). MuPDF is AGPL-3.0; that license applies
-to the `rummage-pdf` binary, while the main package does not link MuPDF. Without the helper,
-PDFs keep their file icons and information cards.
+The helper links PDFium (BSD-3-Clause). The tested build is the single-file library from
+[pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (`pdfium-linux-x64.tgz` or
+`-arm64`, without V8 and XFA), which needs only glibc. The main package does not link PDFium.
+Without the helper, PDFs keep their file icons and information cards.
 
-For a source build, add `-DRUMMAGE_PDF=ON` with MuPDF's development files installed. It
-defaults to OFF. `cmake --install build --component pdf` installs only the helper and its
+For a source build, add `-DRUMMAGE_PDF=ON` and point CMake at PDFium: `PDFium_DIR` (or
+`CMAKE_PREFIX_PATH`) to an unpacked pdfium-binaries archive, or a PDFium installation with
+`fpdfview.h` and `libpdfium.so` on the usual search paths. It defaults to OFF. `cmake --install build --component pdf` installs only the helper and its
 manifest. For Nix, `.#rummage-with-pdf` builds the application with the helper, `.#rummage-pdf`
 selects its separate output, and `.#rummage-with-previews` includes both optional engines.
 Restart after changing the installed engines.
