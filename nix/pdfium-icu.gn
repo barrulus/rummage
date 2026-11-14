@@ -1,0 +1,19 @@
+# ICU common is sufficient for PDFium without V8/XFA/Skia. Do not evaluate
+# Chromium's unused icu-i18n pkg-config target or introduce a locale-data library.
+import("//build/config/linux/pkg_config.gni")
+
+pkg_config("system_icuuc") {
+  packages = [ "icu-uc" ]
+}
+
+config("icu_config") {
+  defines = [ "USE_SYSTEM_ICUUC=1", "USING_SYSTEM_ICU=1", "U_STATIC_IMPLEMENTATION" ]
+}
+
+source_set("icuuc") {
+  public_configs = [ ":system_icuuc", ":icu_config" ]
+}
+
+group("icuuc_public") {
+  public_deps = [ ":icuuc" ]
+}

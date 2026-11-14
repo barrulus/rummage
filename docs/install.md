@@ -137,9 +137,15 @@ damaged ones a cross; see [previews](previews.md#optional-pdf-previews).
 
 The helper links PDFium. Nix builds it from the source recipe in the Nixpkgs revision
 pinned by `flake.lock` (currently PDFium 8110), including its upstream unit and embedder
-tests. `nix/pdfium.nix` explicitly disables XFA; the recipe also disables V8 and
-PartitionAlloc. It uses shared system libraries, including ICU, rather than downloading
-a third-party PDFium binary or replacing ICU's Unicode data. The default application
+tests. `nix/pdfium.nix` builds for size without V8, XFA, Skia, Fontations, experimental
+Brotli or PartitionAlloc. ICU is limited to its common Unicode/bidi code and upstream
+stub data: no locale bundles, i18n library, tools or plugins. ICU, Abseil, libyuv and
+OpenJPEG are built as private static archives; unused code is discarded when linking
+PDFium. This retains SIMD pixel conversions and JPEG 2000 resolution reduction without
+pulling in their complete shared-library packages. Font and colour libraries already
+used by rummage remain shared. The embedded components' licenses are installed with
+PDFium; output checks reject accidental runtime references to the private archives.
+No third-party precompiled PDFium release is downloaded. The default application
 package does not depend on PDFium. Without the helper, PDFs keep their file icons and
 information cards.
 
@@ -158,8 +164,10 @@ source pins and build recipe, then rerun the PDF tests and package preflight. Re
 custom-file read instead of terminating the helper on an assertion. Cached Nix
 build outputs may be substituted as usual; the derivation is a source build, not a binary
 release download. The native distro recipes currently leave PDF support disabled, so
-their CI passes do not validate the optional engine. Earlier measurements of the slim
-ICU build or prebuilt PDFium library are not size/performance measurements of this build.
+their CI passes do not validate the optional engine. When changing the recipe, measure
+the complete added closure against `.#rummage`, not just `libpdfium.so`, and compare
+rendering output as well as speed. Earlier measurements of other slim or prebuilt
+PDFium configurations are not measurements of this build.
 
 ## Nix
 
