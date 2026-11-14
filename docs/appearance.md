@@ -2,6 +2,14 @@
 
 [Documentation](README.md) · [Configuration](configuration.md)
 
+## Quick settings
+
+Open the toolbar cog or press **Ctrl+,** for **Settings → Appearance**. Choose
+Desktop/Noctalia, light, or dark colours; an icon theme; opacity; fonts; and preview
+placement. Light/dark overrides retain the source accent without changing
+`colors.toml`. Selecting Desktop/Noctalia resumes its current palette. Font changes
+apply at the next start; the other appearance changes apply when saved.
+
 ## Colours
 
 rummage uses `$XDG_CONFIG_HOME/rummage/colors.toml` (normally

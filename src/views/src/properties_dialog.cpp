@@ -434,15 +434,60 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
+    const std::string name = path_.filename().empty() ? path_.string() : path_.filename().string();
+    const std::string type = loading_ ? "Loading…" : std::string{mime_->name(data_.entry.mime)};
+    const std::vector<std::pair<std::string, std::string>> rows{
+        {"Location", path_.parent_path().string()},
+        {data_.entry.is_directory() ? "Contents" : "Size",
+         loading_ ? "…"
+         : data_.entry.is_directory()
+             ? (data_.info.items ? std::format("{} {} ({} hidden)", *data_.info.items,
+                                               *data_.info.items == 1 ? "item" : "items",
+                                               data_.info.hidden_items)
+                                 : "Unavailable")
+             : std::format("{} ({} bytes)", format_size(data_.entry.size), data_.entry.size)},
+        {"Modified", loading_ ? "…" : format_time(data_.entry.modified_ns)},
+        {"Created", data_.info.created_ns ? format_time(*data_.info.created_ns) : "Unavailable"},
+        {"Owner", data_.info.owner},
+        {"Group", data_.info.group},
+        {"Permissions", data_.info.permissions},
+    };
+    const auto measure = [&](std::string_view value, float size) {
+        return renderer.fonts().layout(value, size, renderer.scale()).width / renderer.scale();
+    };
+    float label_width = measure("Link target", 12);
+    float value_width = measure(data_.info.link_target, 12);
+    for (const auto& [label, value] : rows) {
+        label_width = std::max(label_width, measure(label, 12));
+        value_width = std::max(value_width, measure(value, 12));
+    }
+    const float value_offset = label_width + 16;
+    float natural_width = 48 + std::max(value_offset + value_width,
+                                        (preview ? 144.0F : 56.0F) + 20 +
+                                            std::max(measure(name, 16), measure(type, 12)));
+    if (folder_controls)
+        natural_width = std::max(
+            natural_width, 48 + 256 + measure(draft_.empty() ? "Default folder icon" : draft_, 12));
+    if (folder_hint)
+        natural_width = std::max(
+            natural_width, 48 + measure(icons.selected_theme() == "builtin"
+                                            ? "Custom icons appear when using a system icon theme."
+                                            : "Changing this icon affects the linked folder.",
+                                        12));
+    if (!message.empty())
+        natural_width = std::max(natural_width, 48 + measure(message, 12));
     const float natural_height =
         picking_ ? 550.0F
                  : rows_top + (data_.info.link_target.empty() ? 7.0F : 8.0F) * row_height +
                        (folder_controls ? 44.0F : 0.0F) + (folder_hint ? 26.0F : 0.0F) +
                        (message.empty() ? 0.0F : 26.0F) + 70.0F;
-    const float width = std::min(picking_ ? 640.0F : 560.0F, bounds.width - 24.0F);
+    const float width =
+        std::min(picking_ ? 640.0F : std::clamp(std::ceil(natural_width), 320.0F, 560.0F),
+                 std::max(0.0F, bounds.width - 24.0F));
     const float height = std::min(natural_height, bounds.height - 24.0F);
     const ui::Rect card{bounds.x + (bounds.width - width) / 2,
                         bounds.y + (bounds.height - height) / 2, width, height};
+    card_ = card;
     renderer.draw_box(card, {.fill = palette.surface_container_high,
                              .radius = {},
                              .border_width = 1,
@@ -560,30 +605,16 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         }
         const float name_left = left + preview_width + 20;
         const float name_top = top + 60 + (header_height - 56) / 2;
-        text(path_.filename().empty() ? path_.string() : path_.filename().string(), name_left,
-             name_top, 16, room - preview_width - 20);
-        text(loading_ ? "Loading…" : std::string{mime_->name(data_.entry.mime)}, name_left,
-             name_top + 27, 12, room - preview_width - 20, true);
+        text(name, name_left, name_top, 16, room - preview_width - 20);
+        text(type, name_left, name_top + 27, 12, room - preview_width - 20, true);
         float y = top + rows_top;
         const auto row = [&](std::string_view label, const std::string& value) {
-            text(label, left, y, 12, 90, true);
-            text(value, left + 102, y, 12, room - 102);
+            text(label, left, y, 12, label_width, true);
+            text(value, left + value_offset, y, 12, room - value_offset);
             y += row_height;
         };
-        row("Location", path_.parent_path().string());
-        row(data_.entry.is_directory() ? "Contents" : "Size",
-            loading_ ? "…"
-            : data_.entry.is_directory()
-                ? (data_.info.items ? std::format("{} {} ({} hidden)", *data_.info.items,
-                                                  *data_.info.items == 1 ? "item" : "items",
-                                                  data_.info.hidden_items)
-                                    : "Unavailable")
-                : std::format("{} ({} bytes)", format_size(data_.entry.size), data_.entry.size));
-        row("Modified", loading_ ? "…" : format_time(data_.entry.modified_ns));
-        row("Created", data_.info.created_ns ? format_time(*data_.info.created_ns) : "Unavailable");
-        row("Owner", data_.info.owner);
-        row("Group", data_.info.group);
-        row("Permissions", data_.info.permissions);
+        for (const auto& [label, value] : rows)
+            row(label, value);
         if (!data_.info.link_target.empty())
             row("Link target", data_.info.link_target);
         if (folder_controls) {

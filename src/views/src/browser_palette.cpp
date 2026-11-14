@@ -177,6 +177,9 @@ std::vector<PaletteItem> Browser::palette_items() {
         add("command:" + item.id, item.label, item.keys, std::move(item.action));
     }
 
+    if (panes_enabled_)
+        command(Command::show_settings, "show_settings", "Settings…");
+
     // Views.
     if (pane().mode != Mode::columns) {
         command(Command::columns_view, "columns_view", "Show Columns");

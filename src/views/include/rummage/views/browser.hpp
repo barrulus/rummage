@@ -47,6 +47,7 @@
 #include "rummage/views/password_dialog.hpp"
 #include "rummage/views/properties_dialog.hpp"
 #include "rummage/views/quick_look.hpp"
+#include "rummage/views/settings_dialog.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "rummage/views/shortcuts_overlay.hpp"
 #include "rummage/views/sidebar.hpp"
@@ -266,6 +267,26 @@ public:
     // false when none is left: open() the start folder then.
     bool restore_session(const State& state);
     void toggle_split();
+
+    void set_preview_in_sidebar(bool enabled) {
+        preview_in_sidebar_ = enabled;
+        redraw_();
+    }
+
+    bool preview_in_sidebar() const { return preview_in_sidebar_; }
+
+    void set_settings_handler(std::filesystem::path path, std::function<void()> open_file,
+                              std::function<void(const core::ConfigResult&)> applied) {
+        config_path_ = std::move(path);
+        open_config_ = std::move(open_file);
+        settings_applied_ = std::move(applied);
+    }
+
+    void open_settings();
+
+    SettingsDialog& settings_dialog() { return settings_; }
+
+    void open_view_menu(float x, float y, bool keyboard = false);
     void focus_pane(std::size_t index);
     void switch_pane();
     void swap_panes();
@@ -293,6 +314,16 @@ public:
     }
 
     [[nodiscard]] ui::Rect divider_bounds() const { return divider_; }
+
+    [[nodiscard]] ui::Rect shared_preview_bounds() const { return shared_info_bounds_; }
+
+    [[nodiscard]] ui::Rect sidebar_preview_divider_bounds() const {
+        return sidebar_preview_divider_;
+    }
+
+    [[nodiscard]] ui::Rect view_menu_bounds() const { return area().view_menu_bounds; }
+
+    [[nodiscard]] ui::Rect settings_bounds() const { return area().settings_bounds; }
 
     bool restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown);
 
@@ -808,6 +839,7 @@ private:
         TabBar tab_bar;
         ui::Rect bounds{}, header{}, view_area{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
+        ui::Rect view_menu_bounds{}, settings_bounds{};
     };
 
     State::Folders folder_settings_;
@@ -825,7 +857,10 @@ private:
     bool stacked_{false};
     bool panes_enabled_{true};
     float split_ratio_{0.5F};
-    ui::Rect split_bounds_{}, divider_{}, split_button_{}, orientation_button_{}, swap_button_{};
+    ui::Rect split_bounds_{}, divider_{};
+    bool preview_in_sidebar_{false}, preview_below_places_{false}, resizing_sidebar_preview_{false};
+    float sidebar_preview_ratio_{0.55F};
+    ui::Rect sidebar_preview_divider_{}, sidebar_bounds_{};
     ui::Rect shared_info_bounds_{};
     bool resizing_split_{false};
     bool resizing_info_{false};
@@ -848,6 +883,10 @@ private:
     LocationDialog location_;
     ErrorDialog errors_;
     PropertiesDialog properties_;
+    SettingsDialog settings_;
+    std::filesystem::path config_path_;
+    std::function<void()> open_config_;
+    std::function<void(const core::ConfigResult&)> settings_applied_;
     ContextMenu menu_;
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;

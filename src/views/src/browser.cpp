@@ -74,6 +74,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       location_{redraw},
       errors_{redraw, [this](std::string text) { copy_text(std::move(text)); }},
       properties_{pool, mime, redraw},
+      settings_{pool, redraw},
       menu_{std::move(redraw)},
       palette_{redraw_},
       trash_model_{loop, pool, watcher, std::move(mime)},
@@ -564,6 +565,8 @@ void Browser::paste_text() {
     const std::vector<std::string> types = system_.types();
     const bool for_password = password_.is_open();
     const auto password_generation = password_.generation();
+    const bool for_settings = settings_.is_open();
+    const auto settings_generation = settings_.generation();
     const bool for_properties = properties_.is_open();
     const auto properties_generation = properties_.generation();
     for (const std::string_view type : kTextTypes) {
@@ -571,40 +574,46 @@ void Browser::paste_text() {
             continue;
         }
         ++operations_;
-        system_.read(std::string{type}, [this, alive = alive_, for_password, password_generation,
-                                         for_properties, properties_generation](
-                                            const std::optional<std::string>& text) {
-            if (!*alive) {
-                return;
-            }
-            --operations_;
-            if (!text) {
-                return;
-            }
-            if (for_password) {
-                if (password_.is_open() && password_.generation() == password_generation)
-                    password_.paste(*text);
-                return;
-            }
-            if (for_properties) {
-                if (properties_.is_open() && properties_.generation() == properties_generation)
-                    properties_.paste(*text);
-                return;
-            }
-            if (mount_password_.is_open()) {
-                mount_password_.paste(*text);
-            } else if (location_.is_open()) {
-                location_.paste(*text);
-            } else if (palette_.is_open()) {
-                palette_.paste(*text);
-            } else if (filter_focused_) {
-                pane().filter_field.insert(
-                    std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
-                apply_filters();
-            } else {
-                editor_.paste(*text);
-            }
-        });
+        system_.read(
+            std::string{type}, [this, alive = alive_, for_password, password_generation,
+                                for_properties, properties_generation, for_settings,
+                                settings_generation](const std::optional<std::string>& text) {
+                if (!*alive) {
+                    return;
+                }
+                --operations_;
+                if (!text) {
+                    return;
+                }
+                if (for_password) {
+                    if (password_.is_open() && password_.generation() == password_generation)
+                        password_.paste(*text);
+                    return;
+                }
+                if (for_settings) {
+                    if (settings_.is_open() && settings_.generation() == settings_generation)
+                        settings_.paste(*text);
+                    return;
+                }
+                if (for_properties) {
+                    if (properties_.is_open() && properties_.generation() == properties_generation)
+                        properties_.paste(*text);
+                    return;
+                }
+                if (mount_password_.is_open()) {
+                    mount_password_.paste(*text);
+                } else if (location_.is_open()) {
+                    location_.paste(*text);
+                } else if (palette_.is_open()) {
+                    palette_.paste(*text);
+                } else if (filter_focused_) {
+                    pane().filter_field.insert(
+                        std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
+                    apply_filters();
+                } else {
+                    editor_.paste(*text);
+                }
+            });
         return;
     }
 }
@@ -2167,6 +2176,7 @@ State Browser::state() {
     state.sidebar_size = sidebar_.list_size();
     state.info_visible = info_visible_;
     state.info_width = info_pane_.width();
+    state.sidebar_preview_ratio = sidebar_preview_ratio_;
     state.info_expanded = info_pane_.expanded();
     state.sort_key = pane().details.order().key;
     state.sort_descending = pane().details.order().descending;
@@ -2302,6 +2312,7 @@ void Browser::apply(const State& state) {
     sidebar_.set_list_size(state.sidebar_size);
     set_info_visible(state.info_visible);
     info_pane_.set_width(state.info_width);
+    sidebar_preview_ratio_ = state.sidebar_preview_ratio;
     info_pane_.set_expanded(state.info_expanded);
     set_sort(state.sort_key, state.sort_descending);
     set_list_size(state.list_size);
@@ -2356,6 +2367,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            const theme::Palette& palette) {
     area().toolbar_bounds = bounds;
     area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
+    area().view_menu_bounds = area().settings_bounds = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -2367,11 +2379,16 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     const auto width_of = [&](std::string_view text) {
         return renderer.fonts().layout(text, 13, renderer.scale()).width / renderer.scale();
     };
-    const float label_width = width_of("Filter");
+    const float label_width = bounds.width >= 300 ? width_of("Filter") : -10;
     const float button_width = std::max(104.0F, width_of("New Folder") + 20.0F);
     const float clear_width = std::max(64.0F, width_of("Clear") + 20.0F);
     const float field_x = bounds.x + 10 + label_width + 10;
     float field_right = bounds.right() - 10;
+    if (panes_enabled_) {
+        area().settings_bounds = {field_right - 34, bounds.y + 6, 34, 32};
+        area().view_menu_bounds = {area().settings_bounds.x - 66, bounds.y + 6, 60, 32};
+        field_right = area().view_menu_bounds.x - 8;
+    }
     // Keep the filter usable in a narrow pane; Ctrl+Shift+N still creates a folder.
     if (field_right - field_x >= button_width + 8 + 48) {
         area().new_folder_bounds = {field_right - button_width, bounds.y + 6, button_width, 32};
@@ -2389,7 +2406,9 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         const float height = (line.ascent + line.descent) / renderer.scale();
         renderer.draw_layout(line, rect.x, rect.y + (rect.height - height) / 2, color);
     };
-    text_in("Filter", {bounds.x + 10, area().filter_bounds.y, label_width, 32}, palette.on_surface);
+    if (label_width > 0)
+        text_in("Filter", {bounds.x + 10, area().filter_bounds.y, label_width, 32},
+                palette.on_surface);
     pane().filter_field.draw(
         renderer, area().filter_bounds, 14,
         {.background = palette.surface,
@@ -2410,6 +2429,10 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_box(rect, {.fill = palette.surface_container_highest, .radius = {}});
         text_in(label, {rect.x + 10, rect.y, rect.width - 20, rect.height}, palette.on_surface);
     };
+    if (!area().view_menu_bounds.empty()) {
+        button(area().view_menu_bounds, "View");
+        button(area().settings_bounds, "⚙");
+    }
     if (!area().clear_filter_bounds.empty()) {
         button(area().clear_filter_bounds, "Clear");
     }
@@ -2422,7 +2445,11 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     if (event.kind != ui::PointerEvent::Kind::press || event.button != ui::PointerButton::left) {
         return;
     }
-    if (area().filter_bounds.contains(event.x, event.y)) {
+    if (area().view_menu_bounds.contains(event.x, event.y)) {
+        open_view_menu(area().view_menu_bounds.x, area().view_menu_bounds.bottom());
+    } else if (area().settings_bounds.contains(event.x, event.y)) {
+        open_settings();
+    } else if (area().filter_bounds.contains(event.x, event.y)) {
         filter_focused_ = true;
         pane().filter_field.click(event.x, event.modifiers.shift);
     } else if (area().clear_filter_bounds.contains(event.x, event.y)) {
@@ -2441,12 +2468,25 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     const float sidebar_width = sidebar_visible_ ? sidebar_.width_in(bounds.width) : 0.0F;
     sidebar_drawn_ = sidebar_width > 0.0F;
     info_pane_.forget_layout();
+    shared_info_bounds_ = {};
+    sidebar_preview_divider_ = {};
+    sidebar_bounds_ = {bounds.x, bounds.y, sidebar_width, bounds.height};
+    preview_below_places_ = panes_enabled_ && preview_in_sidebar_ && sidebar_drawn_ &&
+                            info_visible_ && bounds.height >= 240;
     if (!sidebar_drawn_ && sidebar_.focused())
         sidebar_.set_focused(false);
     settle_found(now);
     const auto folder = current_folder();
     if (sidebar_drawn_) {
-        sidebar_.draw(renderer, {bounds.x, bounds.y, sidebar_width, bounds.height}, palette, icons,
+        float places_height = bounds.height;
+        if (preview_below_places_) {
+            places_height =
+                std::clamp(bounds.height * sidebar_preview_ratio_, 100.0F, bounds.height - 120);
+            sidebar_preview_divider_ = {bounds.x, bounds.y + places_height, sidebar_width, 6};
+            shared_info_bounds_ = {bounds.x, sidebar_preview_divider_.bottom(), sidebar_width,
+                                   bounds.height - places_height - 6};
+        }
+        sidebar_.draw(renderer, {bounds.x, bounds.y, sidebar_width, places_height}, palette, icons,
                       folder ? folder->path() : std::filesystem::path{}, now);
     } else
         sidebar_.not_drawn();
@@ -2457,30 +2497,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         status_bar_.draw(renderer, {content.x, content.bottom() - bar, content.width, bar}, palette,
                          icons, *folder, static_cast<std::size_t>(pane().mode));
     content.height -= bar;
-    split_button_ = orientation_button_ = swap_button_ = {};
-    if (panes_enabled_ && content.height >= 30) {
-        const ui::Rect controls{content.x, content.y, content.width, 30};
-        renderer.fill_background(controls, palette.surface_container);
-        const auto button = [&](ui::Rect& rect, float x, float width, const char* label) {
-            rect = {x, controls.y + 2, width, 26};
-            renderer.draw_box(rect, {.fill = palette.surface_container_highest, .radius = {}});
-            renderer.draw_text(label, x + 8, rect.y + 6, 12, palette.on_surface, width - 16);
-        };
-        std::string split_label = split_visible_ ? "One pane" : "Two panes";
-        if (const auto keys = keys_for(Command::toggle_split); !keys.empty())
-            split_label += " · " + keys;
-        button(split_button_, controls.x + 4, std::min(112.0F, std::max(1.0F, controls.width - 8)),
-               split_label.c_str());
-        if (split_visible_ && controls.width >= 360) {
-            button(orientation_button_, split_button_.right() + 6, 130,
-                   stacked_ ? "Side by side" : "Top / bottom");
-            button(swap_button_, orientation_button_.right() + 6, 90, "Swap panes");
-        }
-        content.y += 30;
-        content.height -= 30;
-    }
-    shared_info_bounds_ = {};
-    if (split_visible_ && info_visible_) {
+    if (split_visible_ && info_visible_ && !preview_below_places_) {
         const float width =
             info_pane_.width_in(content.width - (stacked_ ? 0.0F : InfoPane::kMinContent));
         if (width > 0) {
@@ -2532,6 +2549,8 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     context_area_ = active_area_;
     if (folder && shared_info_bounds_.width > 0)
         info_pane_.draw(renderer, shared_info_bounds_, palette, icons, *folder, now);
+    if (!sidebar_preview_divider_.empty())
+        renderer.fill_background(sidebar_preview_divider_, palette.outline_variant);
     draw_band(renderer, palette);
     editor_.draw(renderer, palette);
     if (quick_look_.is_open())
@@ -2541,6 +2560,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     menu_.draw(renderer, bounds, palette);
     palette_.draw(renderer, bounds, palette);
     properties_.draw(renderer, bounds, palette, icons, thumbnails_.get());
+    settings_.draw(renderer, bounds, palette);
     conflict_.draw(renderer, bounds, palette);
     confirm_.draw(renderer, bounds, palette);
     errors_.draw(renderer, bounds, palette);
@@ -2605,10 +2625,11 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
     draw_toolbar(renderer, {view.x, view.y + kTitleHeight, view.width, toolbar_height}, palette);
     area().view_area = {view.x, view.y + kTitleHeight + toolbar_height, view.width,
                         std::max(0.0F, view.height - kTitleHeight - toolbar_height - bar)};
-    pane().columns.set_info_visible(!split_visible_ && info_visible_);
-    pane().grid.set_info_visible(!split_visible_ && info_visible_);
-    if (pane().details.info_visible() != (!split_visible_ && info_visible_))
-        pane().details.set_info_visible(!split_visible_ && info_visible_);
+    pane().columns.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
+    pane().grid.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
+    if (pane().details.info_visible() !=
+        (!split_visible_ && info_visible_ && !preview_below_places_))
+        pane().details.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
     draw_view(renderer, area().view_area, palette, icons, now);
     renderer.pop_clip();
 }
@@ -2646,7 +2667,7 @@ bool Browser::loading() const {
         return true;
     if (operations_ > 0 || menu_loads_ > 0 || transfers_.pending() > 0 || quick_look_.loading() ||
         info_pane_.loading() || status_bar_.loading() || properties_.loading() ||
-        properties_.saving() || (thumbnails_ && thumbnails_->loading()))
+        properties_.saving() || settings_.busy() || (thumbnails_ && thumbnails_->loading()))
         return true;
     for (const auto& owner : areas_) {
         if (!owner)
@@ -2718,6 +2739,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (location_.is_open()) {
         return location_.field_at(x, y) ? Shape::text : hand(location_.clickable_at(x, y));
     }
+    if (settings_.is_open())
+        return settings_.cursor_at(x, y);
     if (properties_.is_open())
         return properties_.cursor_at(x, y);
     if (palette_.is_open()) {
@@ -2734,18 +2757,18 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     }
     if (divider_.contains(x, y))
         return stacked_ ? Shape::ns_resize : Shape::ew_resize;
-    if (shared_info_bounds_.width > 0 &&
+    if (sidebar_preview_divider_.contains(x, y))
+        return Shape::ns_resize;
+    if (!preview_below_places_ && shared_info_bounds_.width > 0 &&
         std::abs(x - shared_info_bounds_.x) <= InfoPane::kEdgeGrab && y >= shared_info_bounds_.y &&
         y < shared_info_bounds_.bottom())
         return Shape::ew_resize;
-    if (split_button_.contains(x, y) || orientation_button_.contains(x, y) ||
-        swap_button_.contains(x, y))
-        return Shape::pointer;
     if (const auto index = area_at(x, y)) {
         const auto& owner = *areas_[*index];
         if (owner.filter_bounds.contains(x, y))
             return Shape::text;
-        if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y))
+        if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
+            owner.view_menu_bounds.contains(x, y) || owner.settings_bounds.contains(x, y))
             return Shape::pointer;
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
@@ -2774,8 +2797,8 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     if (event.kind == ui::PointerEvent::Kind::release &&
         (errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
          location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
-         properties_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
-         quick_look_.is_open())) {
+         properties_.is_open() || settings_.is_open() || palette_.is_open() || menu_.is_open() ||
+         shortcuts_.is_open() || quick_look_.is_open())) {
         // Taken by what the press opened (a menu from a right click): the button is up all the
         // same, and the next press finds its target again.
         button_held_ = false;
@@ -2804,6 +2827,10 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     }
     if (location_.is_open()) {
         location_.pointer(event);
+        return;
+    }
+    if (settings_.is_open()) {
+        settings_.pointer(event);
         return;
     }
     if (properties_.is_open()) {
@@ -2871,6 +2898,19 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
 
 void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point now) {
     using Kind = ui::PointerEvent::Kind;
+    if (resizing_sidebar_preview_) {
+        if (event.kind == Kind::motion && sidebar_bounds_.height > 0) {
+            sidebar_preview_ratio_ =
+                std::clamp((event.y - sidebar_bounds_.y) / sidebar_bounds_.height, 0.15F, 0.85F);
+            resize_cursor_ = ui::CursorShape::ns_resize;
+            redraw_();
+        }
+        if (event.kind == Kind::release || event.kind == Kind::leave) {
+            resizing_sidebar_preview_ = false;
+            resize_cursor_ = ui::CursorShape::standard;
+        }
+        return;
+    }
     if (resizing_split_) {
         if (event.kind == Kind::motion) {
             const float length = (stacked_ ? split_bounds_.height : split_bounds_.width) - 6;
@@ -2897,16 +2937,12 @@ void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point 
         return;
     }
     if (!button_held_ && event.kind == Kind::press && event.button == ui::PointerButton::left) {
-        if (split_button_.contains(event.x, event.y)) {
-            toggle_split();
-            return;
-        }
-        if (orientation_button_.contains(event.x, event.y)) {
-            set_stacked(!stacked_);
-            return;
-        }
-        if (swap_button_.contains(event.x, event.y)) {
-            swap_panes();
+        if (sidebar_preview_divider_.contains(event.x, event.y)) {
+            if (event.click_count == 2)
+                sidebar_preview_ratio_ = 0.55F;
+            else
+                resizing_sidebar_preview_ = true;
+            redraw_();
             return;
         }
         if (divider_.contains(event.x, event.y)) {
@@ -2918,7 +2954,7 @@ void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point 
             }
             return;
         }
-        if (shared_info_bounds_.width > 0 &&
+        if (!preview_below_places_ && shared_info_bounds_.width > 0 &&
             std::abs(event.x - shared_info_bounds_.x) <= InfoPane::kEdgeGrab &&
             event.y >= shared_info_bounds_.y && event.y < shared_info_bounds_.bottom()) {
             if (event.click_count == 2) {
@@ -4031,6 +4067,21 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         }
         return location_.key(event);
     }
+    if (settings_.is_open()) {
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V))
+            paste_text();
+        else if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+                 (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C ||
+                  event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X)) {
+            const auto text =
+                settings_.copy_selection(event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X);
+            if (!text.empty())
+                copy_text(text);
+        } else
+            settings_.key(event);
+        return true;
+    }
     if (properties_.is_open()) {
         if (event.modifiers == ui::Modifiers{.ctrl = true} &&
             (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V))
@@ -4214,6 +4265,9 @@ void Browser::run(Command command, Clock::time_point now) {
         }
     }
     switch (command) {
+        case Command::show_settings:
+            open_settings();
+            break;
         case Command::toggle_split:
             toggle_split();
             break;

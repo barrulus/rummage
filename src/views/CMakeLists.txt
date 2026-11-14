@@ -36,6 +36,7 @@ add_library(rummage_views
     src/pane.cpp
     src/password_dialog.cpp
     src/properties_dialog.cpp
+    src/settings_dialog.cpp
     src/shortcuts.cpp
     src/shortcuts_overlay.cpp
     src/sidebar.cpp

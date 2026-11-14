@@ -499,6 +499,10 @@ int main(int argc, char** argv) {
         startup.mark("fonts");
         theme::Theme theme{theme::default_colors_path()};
         theme.watch(loop);
+        theme.set_dark_override(
+            config.appearance.color_scheme == "system"
+                ? std::nullopt
+                : std::optional<bool>{config.appearance.color_scheme == "dark"});
         // Without colors.toml, the desktop's light/dark and accent (ROADMAP 7.4).
         std::unique_ptr<platform::DesktopPortal> portal;
         const auto follow_desktop = [&] {
@@ -590,6 +594,7 @@ int main(int argc, char** argv) {
             const auto& fresh = loaded.config;
             if (columns) {
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
+                columns->set_preview_in_sidebar(fresh.appearance.preview_position == "sidebar");
             }
             if (loaded.actions_valid && loaded.context_menu_valid) {
                 const auto problems = views::configure_shortcuts(fresh.keybindings, fresh.actions);
@@ -605,6 +610,10 @@ int main(int argc, char** argv) {
                 log::warn("config: keeping previous actions, keybindings and menus");
             }
             window.request_redraw();
+            theme.set_dark_override(
+                fresh.appearance.color_scheme == "system"
+                    ? std::nullopt
+                    : std::optional<bool>{fresh.appearance.color_scheme == "dark"});
             icons.set_theme(fresh.icon.theme);
             icons.set_place_icons(fresh.icon.places);
             window.set_background_opacity(fresh.appearance.background_opacity);
@@ -656,6 +665,7 @@ int main(int argc, char** argv) {
                 });
             columns->set_actions(configured_actions);
             columns->status_bar().set_text_size(config.status_bar.text_size);
+            columns->set_preview_in_sidebar(config.appearance.preview_position == "sidebar");
             columns->set_context_menu(config.context_menu);
             action_handoff = std::make_unique<platform::ActionHandoff>(
                 loop, platform::Environment::from_environment(),
@@ -702,6 +712,14 @@ int main(int argc, char** argv) {
                     std::string app_id) {
                     opener->open(directory, std::move(files), std::move(app_id));
                 });
+            columns->set_settings_handler(
+                config_path,
+                [&] {
+                    opener->open(
+                        config_path.parent_path(),
+                        {{.name = config_path.filename().string(), .kind = fs::EntryKind::file}});
+                },
+                apply_config);
             columns->set_terminal_handler(
                 [&](const std::filesystem::path& directory) { opener->open_terminal(directory); });
             columns->set_quit_handler([&] {

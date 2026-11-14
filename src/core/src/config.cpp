@@ -324,8 +324,25 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
         } else if (key.str() == "appearance") {
             reader.read_section(
                 node, "appearance",
-                {{"background_opacity", [&](const toml::node& value, const std::string& path) {
+                {{"background_opacity",
+                  [&](const toml::node& value, const std::string& path) {
                       reader.read_opacity(value, path, config.appearance.background_opacity);
+                  }},
+                 {"color_scheme",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto scheme = value.value<std::string>();
+                      if (scheme &&
+                          (*scheme == "system" || *scheme == "light" || *scheme == "dark"))
+                          config.appearance.color_scheme = *scheme;
+                      else
+                          reader.report(value.source(), path + " must be system, light, or dark");
+                  }},
+                 {"preview_position", [&](const toml::node& value, const std::string& path) {
+                      const auto position = value.value<std::string>();
+                      if (position && (*position == "right" || *position == "sidebar"))
+                          config.appearance.preview_position = *position;
+                      else
+                          reader.report(value.source(), path + " must be right or sidebar");
                   }}});
         } else if (key.str() == "keybindings") {
             if (const auto* table = node.as_table()) {
