@@ -2,12 +2,12 @@
 
 [Documentation](README.md) · [Roadmap](roadmap.md) · [Development log](devlog.md)
 
-rummage is a fork of Nordend. The project version remains 0.5.0 while fork work
-continues; the source commit identifies behavior more precisely than that number.
+rummage is a fork of Nordend. The current source version is 0.5.1; the source
+commit identifies development builds more precisely than that number.
 The development download tag is a moving snapshot, not a new upstream release.
 See [installation](install.md#development-downloads) for package/source identity.
 
-## Current rummage additions
+## 0.5.1 — in development
 
 The fork includes system icon themes and SVG rendering, HEIC/HEIF still previews,
 visibility of unmounted internal partitions, optional isolated video
@@ -15,7 +15,9 @@ previews, configurable shortcuts/actions/menus, destination pickers and completi
 notifications, archive password handling, expandable details, two persistent panes,
 filename filtering, properties/folder icons, independent sidebar zoom, status text
 settings, the file-picker portal and NixOS integration. Packages and public names
-use rummage. See [current features](features.md).
+use rummage. Details columns can be shown, hidden and reordered, with sortable
+creation/access times, owner, group, permissions, location and link target. Column
+layouts are saved per folder and tab. See [current features](features.md).
 
 ## Upstream release history
 

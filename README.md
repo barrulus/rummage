@@ -24,8 +24,8 @@ follows desktop colours and icon themes, with a Noctalia palette integration.
 
 rummage is a fork of [Nordend](https://github.com/pankaspe/nordend-fm), created by
 [pankaspe](https://github.com/pankaspe). It retains the upstream MIT license and
-copyright. These docs describe this fork's current source; the 0.5.0 version
-number alone does not identify its feature set. See [release history](docs/releases.md)
+copyright. These docs describe rummage's 0.5.1 development sources; include the
+source commit when identifying a development build. See [release history](docs/releases.md)
 and [upgrading from Nordend](docs/install.md#upgrading-from-nordend).
 
 ## Start here

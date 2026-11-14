@@ -41,7 +41,7 @@
 
 stdenv.mkDerivation {
   pname = "rummage";
-  version = "0.5.0";
+  version = "0.5.1";
   outputs = [ "out" ] ++ lib.optional withMedia "media" ++ lib.optional withPdf "pdf";
 
   src = lib.fileset.toSource {
