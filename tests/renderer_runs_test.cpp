@@ -171,6 +171,50 @@ TEST_CASE("renderer: adjacent translucent panels meet at fractional pixel bounda
     }
 }
 
+TEST_CASE("renderer: bitmap glyphs round the original pen position once") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    ui::FontSystem fonts{"sans-serif:antialias=true:hinting=false"};
+    REQUIRE(fonts.subpixel_positioning());
+    const auto font =
+        fonts.add_font_file(std::string{RUMMAGE_TEST_DATA} + "/fonts/positioning.bdf");
+    if (!font.has_value()) {
+        FAIL("could not load the bitmap font fixture");
+        return;
+    }
+    // The fixture's only encoded glyph is index 1. Use a layout directly: BDF has no
+    // OpenType tables for HarfBuzz to shape.
+    ui::TextLayout layout;
+    layout.pixel_size = 8.0F;
+    layout.ascent = 8.0F;
+    layout.glyphs.push_back(
+        {.font = *font, .glyph = 1, .cluster = 0, .x = 0.0F, .y = 0.0F, .advance = 8.0F});
+    REQUIRE(fonts.rasterize(*font, 1, layout.pixel_size).width > 0);
+    ui::Renderer renderer{fonts};
+    const auto draw = [&](float pen, float scale) {
+        layout.glyphs.front().x = pen;
+        renderer.begin_frame(kWidth, kHeight, scale, ui::Color::rgb(0x000000));
+        renderer.draw_layout(layout, 4.0F, 4.0F, ui::Color::rgb(0xFFFFFF));
+        renderer.end_frame();
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(kWidth) * kHeight * 4);
+        glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        return pixels;
+    };
+    for (const float scale : {1.0F, 1.25F, 1.5F, 2.0F}) {
+        CAPTURE(scale);
+        const auto zero = draw(0.0F, scale);
+        const auto one = draw(1.0F, scale);
+        REQUIRE(zero != one);
+        // Exercise both halves of the same cached quarter (0.5), in both orders.
+        for (const float pen : {0.375F, 0.4F, 0.49F, 0.5F, 0.6F, 0.49F, 0.9F}) {
+            CAPTURE(pen);
+            CHECK((draw(pen, scale) == (pen < 0.5F ? zero : one)));
+        }
+    }
+}
+
 TEST_CASE("folder icons: rendered override, missing or broken artwork, and builtin fallback") {
     const auto gl = offscreen(32, 32);
     if (!gl)

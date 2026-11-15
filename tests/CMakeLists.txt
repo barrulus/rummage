@@ -52,6 +52,7 @@ add_executable(rummage-tests
     info_pane_test.cpp
     quick_look_test.cpp
     rename_test.cpp
+    glyph_test.cpp
     renderer_runs_test.cpp
     scrollbar_test.cpp
     scroller_test.cpp
