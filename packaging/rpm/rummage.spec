@@ -8,6 +8,12 @@ Source0:        rummage-source.tar.gz
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
+BuildRequires:  python3
+BuildRequires:  patch
+BuildRequires:  pkgconfig(glib-2.0)
+BuildRequires:  pkgconfig(libjpeg)
+BuildRequires:  pkgconfig(libpng)
+BuildRequires:  pkgconfig(libtiff-4)
 %if 0%{?suse_version}
 # openSUSE packages the GLES 3 headers separately from pkgconfig(glesv2).
 BuildRequires:  Mesa-libGLESv3-devel
@@ -60,6 +66,26 @@ Requires:       %{name} = %{version}-%{release}
 Isolated video decoding using system FFmpeg shared libraries. No command-line
 FFmpeg tools are required. This package does not provide playback.
 
+%package pdf
+Summary:        Optional PDF thumbnails and first-page previews for rummage
+License:        BSD-3-Clause AND BSD-2-Clause AND Apache-2.0 AND MIT AND Unicode-3.0
+Requires:       %{name} = %{version}-%{release}
+# The library is private to this helper, not a public ABI for other packages.
+%global __provides_exclude_from ^%{_libexecdir}/rummage/libpdfium\.so$
+%global __requires_exclude ^libpdfium\.so.*$
+
+%description pdf
+Isolated PDF rendering with a private, source-built PDFium library.
+This package provides still previews, not a document viewer.
+
+%package previews
+Summary:        All optional preview engines for rummage
+Requires:       %{name}-media = %{version}-%{release}
+Requires:       %{name}-pdf = %{version}-%{release}
+
+%description previews
+Convenience package installing video and PDF preview helpers.
+
 %prep
 %autosetup -n rummage-checkout
 
@@ -67,11 +93,11 @@ FFmpeg tools are required. This package does not provide playback.
 %if 0%{?suse_version}
 %define __builder ninja
 %endif
-%cmake -G Ninja -DRUMMAGE_MEDIA=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+%cmake -G Ninja -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
 %if 0%{?suse_version}
-%cmake_build rummage rummage-preview rummage-media
+%cmake_build rummage rummage-preview rummage-media rummage-pdf
 %else
-%cmake_build --target rummage rummage-preview rummage-media
+%cmake_build --target rummage rummage-preview rummage-media rummage-pdf
 %endif
 
 %install
@@ -91,6 +117,7 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_libexecdir}/rummage/rummage-preview
 %{_datadir}/rummage/
 %exclude %{_datadir}/rummage/engines/media.toml
+%exclude %{_datadir}/rummage/engines/pdf.toml
 %{_datadir}/applications/rummage.desktop
 %{_datadir}/icons/hicolor/scalable/apps/rummage.svg
 %{_datadir}/xdg-desktop-portal/portals/rummage.portal
@@ -100,3 +127,13 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %license LICENSE
 %{_libexecdir}/rummage/rummage-media
 %{_datadir}/rummage/engines/media.toml
+
+%files pdf
+%license LICENSE
+%license %{_datadir}/licenses/rummage-pdf/
+%{_libexecdir}/rummage/rummage-pdf
+%{_libexecdir}/rummage/libpdfium.so
+%{_datadir}/rummage/engines/pdf.toml
+
+%files previews
+%license LICENSE

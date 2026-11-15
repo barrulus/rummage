@@ -5,6 +5,9 @@ target_include_directories(rummage-pdf PRIVATE ../isolate/src)
 target_link_libraries(rummage-pdf PRIVATE rummage::picture rummage::text pdfium
     rummage::warnings)
 set_target_properties(rummage-pdf PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+if(RUMMAGE_PRIVATE_PDFIUM)
+    set_target_properties(rummage-pdf PROPERTIES INSTALL_RPATH "$ORIGIN")
+endif()
 install(TARGETS rummage-pdf RUNTIME DESTINATION libexec/rummage COMPONENT pdf)
 configure_file("${PROJECT_SOURCE_DIR}/data/engines/pdf.toml"
     "${PROJECT_BINARY_DIR}/engines/pdf.toml" COPYONLY)

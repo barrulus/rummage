@@ -93,6 +93,16 @@ def prepare(artifacts, output, commit, repository, run_id, readme):
         'rummage-media-arch-x86_64.pkg.tar.zst': only(roots['arch'] / 'packages', 'rummage-media-[0-9]*-x86_64.pkg.tar.zst'),
         'rummage-media-tumbleweed-x86_64.rpm': only(roots['tumbleweed'] / 'packages', 'rummage-media-[0-9]*.x86_64.rpm'),
     }
+    for feature in ('pdf', 'previews'):
+        only(roots['void'] / 'packages', f'rummage-{feature}-*.x86_64.xbps')
+        for kind, suffix, pattern in (
+            ('deb', 'debian13-amd64.deb', '_*_amd64.deb'),
+            ('rpm', 'fedora44-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
+            ('arch', 'arch-x86_64.pkg.tar.zst', '-[0-9]*-x86_64.pkg.tar.zst'),
+            ('tumbleweed', 'tumbleweed-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
+        ):
+            media_assets[f'rummage-{feature}-{suffix}'] = only(
+                roots[kind] / 'packages', f'rummage-{feature}{pattern}')
     index = roots['void'] / 'packages/x86_64-repodata'
     if not index.is_file() or index.stat().st_size == 0:
         raise ValueError('Void repository index is missing')

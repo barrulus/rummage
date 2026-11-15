@@ -6,6 +6,6 @@ export PYTHONDONTWRITEBYTECODE=1
 git diff --check
 git diff --cached --check
 actionlint .github/workflows/ci.yml
-shellcheck -x scripts/ci/*.sh
+shellcheck -x scripts/ci/*.sh packaging/pdfium/*.sh
 python3 -m unittest discover -s scripts/ci/tests -v
 python3 scripts/check-docs.py

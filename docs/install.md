@@ -106,6 +106,36 @@ These source packages are unsigned development snapshots. The
 [generic source archive](https://github.com/barrulus/rummage/releases/download/development/rummage-source.tar.gz)
 is also available; it is distinct from the Debian source package.
 
+## Optional preview packages
+
+Native builds provide `rummage-media` for video, `rummage-pdf` for PDF, and
+`rummage-previews` as a convenience package depending on both. Install helpers
+from the same development snapshot as the application, then restart rummage;
+no engine-path configuration is needed. The file picker uses the same helpers.
+
+For Debian, download the matching `rummage-media-debian13-amd64.deb`,
+`rummage-pdf-debian13-amd64.deb` and `rummage-previews-debian13-amd64.deb`
+from the development release alongside the base package, then install together:
+
+```sh
+sudo apt install ./rummage-debian13-amd64.deb ./rummage-media-debian13-amd64.deb \
+  ./rummage-pdf-debian13-amd64.deb ./rummage-previews-debian13-amd64.deb
+```
+
+For Fedora, Arch and Tumbleweed, use the corresponding four packages with
+`dnf install`, `pacman -U`, or `zypper install --allow-unsigned-rpm`.
+These are local downloads, so pass all required package files in the same command;
+the convenience package cannot fetch sibling packages from an online repository.
+For Void, all packages are included in the indexed bundle:
+
+```sh
+sudo xbps-install -R "$PWD/rummage-void-x86_64/packages" rummage-previews
+```
+
+Installing only `rummage` keeps both optional engines and their dependencies out
+of the installation. Install either helper individually when only that format
+is needed.
+
 ## Optional video previews
 
 Install the matching `rummage-media` package for video thumbnails and still previews in the
@@ -168,8 +198,12 @@ source pins and build recipe, then rerun the PDF tests and package preflight. Re
 `nix/pdfium-read-error.patch` on updates: it makes PDFium 8110 propagate a refused
 custom-file read instead of terminating the helper on an assertion. Cached Nix
 build outputs may be substituted as usual; the derivation is a source build, not a binary
-release download. The native distro recipes currently leave PDF support disabled, so
-their CI passes do not validate the optional engine. When changing the recipe, measure
+release download. Native distro recipes build the same pinned renderer sources with their own
+compiler. `rummage-pdf` includes a private `libpdfium.so` beside its helper;
+it does not replace a system PDFium library. Clean-install checks render first
+pages, rotated pages, built-in fonts and form appearances through the sandboxed
+helper. Source archives include the renderer dependencies and build tool sources,
+so rebuilding them needs no Nix installation or source downloads. When changing the recipe, measure
 the complete added closure against `.#rummage`, not just `libpdfium.so`, and compare
 rendering output as well as speed. Earlier measurements of other slim or prebuilt
 PDFium configurations are not measurements of this build.
@@ -257,7 +291,16 @@ outputs = { nixpkgs, rummage, ... }: {
     modules = [
       ./configuration.nix
       rummage.nixosModules.default
-      { programs.rummage.enable = true; }
+      {
+        programs.rummage = {
+          enable = true;
+          preview = {
+            thumbnails = true;
+            pdf = true;
+          };
+          filePicker.enable = true;
+        };
+      }
     ];
   };
 };
@@ -270,7 +313,16 @@ host name. Apply from your configuration directory:
 sudo nixos-rebuild switch --flake .#my-host
 ```
 
-`programs.rummage.package` can select another package. Enabling the application
+Both `preview` options default to `false`. `preview.thumbnails` adds video
+thumbnails and still previews; image thumbnails and image/text previews are
+always included. `preview.pdf` adds PDF thumbnails and first-page previews.
+The module configures the matching helpers for both the file manager and picker,
+so you do not need to select a `rummage-with-*` package or install helpers separately.
+
+`programs.rummage.package` can select another package. Enabled preview options
+override that package's `withMedia` / `withPdf` arguments, which custom packages
+must support. Features already enabled in the selected package are preserved.
+Enabling the application
 alone does not change portal preferences. For Open/Save dialogs also enable
 `programs.rummage.filePicker.enable`; see the [picker guide](file-picker.md) for
 desktop selection and preserving other portal backends.

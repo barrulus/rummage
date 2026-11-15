@@ -49,7 +49,7 @@ def main(argv=None):
     required = {"nix"} if any(t in ("lint", "nix") for t in targets) else set()
     containers = any(t not in ("lint", "nix") for t in targets)
     if containers:
-        required.update(("docker", "bash", "python3", "tar", "gzip", "realpath"))
+        required.update(("nix", "docker", "bash", "python3", "tar", "gzip", "realpath"))
     for tool in sorted(required):
         if not shutil.which(tool):
             parser.error(f"required tool not found: {tool}")

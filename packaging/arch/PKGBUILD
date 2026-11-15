@@ -1,5 +1,5 @@
 # Build from the checksum-verified checkout archive supplied by scripts/ci/native.sh.
-pkgname=('rummage' 'rummage-media')
+pkgname=('rummage' 'rummage-media' 'rummage-pdf' 'rummage-previews')
 pkgver=0.5.1
 pkgrel=1
 pkgdesc='Native Wayland file manager'
@@ -9,7 +9,7 @@ license=('MIT' 'Apache-2.0')
 depends=('glibc' 'gcc-libs' 'wayland' 'libglvnd' 'libxkbcommon' 'harfbuzz'
          'freetype2' 'fontconfig' 'tomlplusplus' 'libwebp' 'libjxl' 'libheif>=1.23' 'lcms2' 'zlib'
          'sdbus-cpp>=2' 'shared-mime-info' 'hicolor-icon-theme')
-makedepends=('ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols')
+makedepends=('ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
 source=('rummage-source.tar.gz')
 # The checkout builder sets this to the verified source SHA-256, never SKIP.
 sha256sums=('CHECKOUT_SHA256')
@@ -17,12 +17,14 @@ sha256sums=('CHECKOUT_SHA256')
 build() {
     cmake -S rummage-checkout -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-        -DRUMMAGE_MEDIA=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
-    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media
+        -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf
 }
 
 package_rummage() {
-    optdepends=('rummage-media: video thumbnails and still previews')
+    optdepends=('rummage-media: video thumbnails and still previews'
+                'rummage-pdf: PDF thumbnails and first-page previews'
+                'rummage-previews: all optional preview engines')
     DESTDIR="$pkgdir" cmake --install build --component Unspecified
     install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 rummage-checkout/third_party/tabler-icons/LICENSE "$pkgdir/usr/share/licenses/$pkgname/tabler-icons-LICENSE"
@@ -36,5 +38,20 @@ package_rummage-media() {
     pkgdesc='Optional video thumbnails and still previews for rummage'
     depends=("rummage=$pkgver-$pkgrel" 'ffmpeg')
     DESTDIR="$pkgdir" cmake --install build --component media
+    install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_rummage-pdf() {
+    pkgdesc='Optional PDF thumbnails and first-page previews for rummage'
+    license=('BSD-3-Clause' 'BSD-2-Clause' 'Apache-2.0' 'MIT' 'Unicode-3.0')
+    depends=("rummage=$pkgver-$pkgrel" 'gcc-libs' 'freetype2' 'harfbuzz' 'libjpeg-turbo'
+             'libpng' 'libtiff' 'lcms2' 'zlib')
+    DESTDIR="$pkgdir" cmake --install build --component pdf
+    install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_rummage-previews() {
+    pkgdesc='All optional preview engines for rummage'
+    depends=("rummage-media=$pkgver-$pkgrel" "rummage-pdf=$pkgver-$pkgrel")
     install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
