@@ -47,6 +47,7 @@ struct GlyphBitmap {
     std::int32_t left{0};
     std::int32_t top{0};
     bool color{false};
+    bool subpixel{false};  // outline accepts fractional placement; bitmap/color glyphs do not
     std::vector<std::uint8_t> pixels;
 };
 
@@ -96,8 +97,9 @@ public:
     [[nodiscard]] TextLayout glyph_layout(std::uint32_t font, std::uint32_t glyph, float size,
                                           float scale);
 
-    // Renders one glyph at pixel_size (physical pixels), moved right by x_offset (0-1 px) for
-    // subpixel positioning. Hinting and antialiasing follow fontconfig, as Pango and Qt do.
+    // Renders one glyph at pixel_size (physical pixels). Outlines move right by x_offset
+    // (0-1 px); bitmap/color glyphs ignore it and return subpixel=false so the caller can
+    // round the original pen position. Hinting and antialiasing follow fontconfig.
     [[nodiscard]] GlyphBitmap rasterize(std::uint32_t font, std::uint32_t glyph, float pixel_size,
                                         float x_offset = 0.0F);
 

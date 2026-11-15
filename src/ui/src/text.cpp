@@ -61,13 +61,12 @@ RenderSettings render_settings(const std::string& family) {
     FcPatternGetInteger(match, FC_HINT_STYLE, 0, &hintstyle);
     FcPatternDestroy(match);
 
-    if (antialias == FcFalse) {
-        settings.load_flags = FT_LOAD_TARGET_MONO;
-        settings.render_mode = FT_RENDER_MODE_MONO;
-        settings.subpixel = false;
-    } else if (hinting == FcFalse || hintstyle == FC_HINT_NONE) {
+    const bool hinted = hinting != FcFalse && hintstyle != FC_HINT_NONE;
+    if (!hinted) {
         settings.load_flags = FT_LOAD_NO_HINTING;
         settings.render_mode = FT_RENDER_MODE_NORMAL;
+    } else if (antialias == FcFalse) {
+        settings.load_flags = FT_LOAD_TARGET_MONO;
     } else if (hintstyle == FC_HINT_SLIGHT) {
         settings.load_flags = FT_LOAD_TARGET_LIGHT;
         settings.render_mode = FT_RENDER_MODE_LIGHT;
@@ -76,7 +75,12 @@ RenderSettings render_settings(const std::string& family) {
         settings.render_mode = FT_RENDER_MODE_NORMAL;
         settings.subpixel = false;
     }
-    if (autohint == FcTrue && hinting == FcTrue) {
+    // Monochrome rendering and disabled hinting are independent settings.
+    if (antialias == FcFalse) {
+        settings.render_mode = FT_RENDER_MODE_MONO;
+        settings.subpixel = false;
+    }
+    if (autohint == FcTrue && hinted) {
         settings.load_flags |= FT_LOAD_FORCE_AUTOHINT;
     }
     return settings;
@@ -629,6 +633,9 @@ GlyphBitmap FontSystem::rasterize(std::uint32_t font_id, std::uint32_t glyph, fl
     FT_Set_Transform(face, nullptr, shifted ? &delta : nullptr);
     const bool loaded = FT_Load_Glyph(face, glyph, flags) == 0;
     FT_Set_Transform(face, nullptr, nullptr);
+    // Scalable faces can also contain embedded bitmap strikes. Only an outline actually
+    // receives the transform; tell the renderer to round every other glyph's original pen.
+    bitmap.subpixel = loaded && shifted && face->glyph->format == FT_GLYPH_FORMAT_OUTLINE;
     if (!loaded || FT_Render_Glyph(face->glyph, mode) != 0) {
         return bitmap;
     }
@@ -637,9 +644,6 @@ GlyphBitmap FontSystem::rasterize(std::uint32_t font_id, std::uint32_t glyph, fl
     const auto height = static_cast<std::int32_t>(ft.rows);
     bitmap.left = face->glyph->bitmap_left;
     bitmap.top = face->glyph->bitmap_top;
-    // A glyph that cannot move by a fraction (colour, bitmap strike) moves by the whole pixel
-    // nearest to it instead, so it lands where rounding its pen position would put it.
-    const auto nudge = shifted ? 0 : static_cast<std::int32_t>(std::lround(x_offset));
     if (width == 0 || height == 0) {
         return bitmap;  // space and other blank glyphs
     }
@@ -701,7 +705,6 @@ GlyphBitmap FontSystem::rasterize(std::uint32_t font_id, std::uint32_t glyph, fl
                     std::lround(static_cast<float>(bitmap.left) * strike_scale));
                 bitmap.top = static_cast<std::int32_t>(
                     std::lround(static_cast<float>(bitmap.top) * strike_scale));
-                bitmap.left += nudge;
                 return bitmap;
             }
             bitmap.pixels = std::move(rgba);
@@ -712,7 +715,6 @@ GlyphBitmap FontSystem::rasterize(std::uint32_t font_id, std::uint32_t glyph, fl
                        static_cast<int>(ft.pixel_mode));
             return bitmap;
     }
-    bitmap.left += nudge;
     bitmap.width = width;
     bitmap.height = height;
     return bitmap;

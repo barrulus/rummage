@@ -413,6 +413,7 @@ struct Renderer::GlyphEntry {
     std::int32_t left{0};
     std::int32_t top{0};
     bool color{false};
+    bool subpixel{false};
 };
 
 // Mirrors the per-instance attributes of the box shader.
@@ -646,7 +647,10 @@ void Renderer::draw_layout(const TextLayout& layout, float x, float y, Color col
         if (entry.width == 0) {
             continue;  // blank glyph (space) or failed raster
         }
-        const float gx = whole + static_cast<float>(entry.left);
+        // Bitmap/color glyphs cannot use the quantized offset. Round their original pen
+        // once, otherwise e.g. 0.4 -> 0.5 -> 1 shifts them a pixel too far right.
+        const float gx =
+            (entry.subpixel ? whole : std::round(pen_x)) + static_cast<float>(entry.left);
         const float gy = std::round(baseline + glyph.y) - static_cast<float>(entry.top);
         const Color shade = runs.empty() ? premultiplied : colour_of(glyph.cluster);
         push_glyph({
@@ -663,7 +667,8 @@ void Renderer::draw_layout(const TextLayout& layout, float x, float y, Color col
 Renderer::GlyphEntry Renderer::rasterize(const ShapedGlyph& glyph, float pixel_size,
                                          float x_offset) {
     const GlyphBitmap bitmap = fonts_.rasterize(glyph.font, glyph.glyph, pixel_size, x_offset);
-    GlyphEntry entry{.left = bitmap.left, .top = bitmap.top, .color = bitmap.color};
+    GlyphEntry entry{
+        .left = bitmap.left, .top = bitmap.top, .color = bitmap.color, .subpixel = bitmap.subpixel};
     if (bitmap.width == 0 || bitmap.height == 0) {
         return entry;
     }

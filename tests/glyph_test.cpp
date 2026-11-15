@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -63,4 +64,35 @@ TEST_CASE("glyphs: the same pixel size at another scale is its own layout (point
     CHECK(&one != &two);
     CHECK(width_one > 0.0F);
     CHECK(two.width > 0.0F);
+}
+
+TEST_CASE("glyphs: monochrome rendering honors disabled hinting") {
+    ui::FontSystem hinted{"DejaVu Sans:antialias=false:hinting=true:hintstyle=hintfull"};
+    ui::FontSystem disabled{"DejaVu Sans:antialias=false:hinting=false:hintstyle=hintfull"};
+    ui::FontSystem none{"DejaVu Sans:antialias=false:hinting=true:hintstyle=hintnone"};
+    CHECK_FALSE(hinted.subpixel_positioning());
+    CHECK_FALSE(disabled.subpixel_positioning());
+    CHECK_FALSE(none.subpixel_positioning());
+    const auto raster = [](ui::FontSystem& fonts, const char* text) {
+        const auto& layout = fonts.layout(text, 13.0F, 1.0F);
+        REQUIRE(layout.glyphs.size() == 1);
+        const auto& glyph = layout.glyphs.front();
+        return fonts.rasterize(glyph.font, glyph.glyph, layout.pixel_size);
+    };
+    const auto same = [](const ui::GlyphBitmap& a, const ui::GlyphBitmap& b) {
+        return a.width == b.width && a.height == b.height && a.left == b.left && a.top == b.top &&
+               a.pixels == b.pixels;
+    };
+    bool differs_from_hinted = false;
+    for (const auto* text : {"m", "W", "a", "l", "i"}) {
+        CAPTURE(text);
+        const auto unhinted = raster(disabled, text);
+        REQUIRE(unhinted.width > 0);
+        CHECK_FALSE(unhinted.color);
+        CHECK(std::ranges::all_of(unhinted.pixels,
+                                  [](std::uint8_t alpha) { return alpha == 0 || alpha == 255; }));
+        CHECK(same(unhinted, raster(none, text)));
+        differs_from_hinted |= !same(unhinted, raster(hinted, text));
+    }
+    CHECK(differs_from_hinted);
 }
