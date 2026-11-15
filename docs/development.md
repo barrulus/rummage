@@ -29,11 +29,22 @@ working EGL/GLES and fonts even without a compositor. CMake generates
 | `CMAKE_INSTALL_PREFIX` | CMake default | Set explicitly for installation/portal activation |
 | `RUMMAGE_BUILD_TESTS` | `ON` | Build tests if doctest is found |
 | `RUMMAGE_WERROR` | `ON` | First-party warnings are errors; package builds may disable |
+| `RUMMAGE_HARDENING` | `ON` | Compiler-supported stack/control-flow protection, PIE, full RELRO and libstdc++ assertions; fortify in optimized builds |
 | `RUMMAGE_SANITIZER` | Empty | e.g. `address,undefined` or `thread` |
 | `RUMMAGE_CLANG_TIDY` | `OFF` | Run clang-tidy while compiling |
 | `RUMMAGE_MEDIA` | `OFF` | Build the optional sandboxed FFmpeg helper |
 | `RUMMAGE_PDF` | `OFF` | Build the optional sandboxed PDFium helper |
 | `RUMMAGE_FUZZ` | `OFF` | Build libFuzzer targets; requires Clang |
+
+Hardening applies to all project targets, including the C decoder. Fortify level 3
+is enabled in `Release`, `RelWithDebInfo` and `MinSizeRel` configurations, except
+when `RUMMAGE_SANITIZER` or `RUMMAGE_FUZZ` is set. Debug builds keep the other
+protections. `-DRUMMAGE_HARDENING=OFF` disables these project flags; Nix and native
+package toolchains can still supply their own hardening flags independently.
+
+Tests require the `shared-mime-info` pkg-config file and MIME database at configure
+time; the Nix development shell supplies both. Test processes use that database
+instead of inheriting the host's `XDG_DATA_DIRS`.
 
 Tests are silently absent from a later `ctest` run if configure skipped them;
 read the configure notice and check `ctest --test-dir build-dev -N`.
