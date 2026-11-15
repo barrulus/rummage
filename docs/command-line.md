@@ -24,8 +24,47 @@ rummage --help
 
 `--about` probes the GPU with a surfaceless context; failures can leave GPU details
 unavailable. An uncommitted source change is not encoded in the version string.
-The command line accepts one positional directory and does not implement a `--`
-option terminator; use an absolute path for a directory whose name starts with `-`.
+The command line accepts one positional directory. Use `--` before a path whose
+name starts with `-`, for example `rummage -- ./-downloads`.
+
+## Show in Folder
+
+```sh
+rummage --reveal ~/Downloads/example.zip
+rummage --properties -- ~/Downloads/example.zip ~/Pictures/photo.jpg
+rummage --open-folders ~/Downloads ~/Pictures
+rummage --set-file-manager
+rummage --unset-file-manager
+```
+
+`--reveal PATH...` selects each item in its parent folder, grouping items by
+folder into tabs and focusing the first folder. Directories are selected in their
+parent too. `--properties` also opens the info pane with More details expanded.
+`--open-folders DIR...` opens directory tabs and keeps the first one focused.
+Paths may be relative; `--` ends option parsing. Missing items and non-directory
+folder arguments are skipped; no existing paths gives exit status 1 without a
+window. These modes cannot be combined with a picker or service mode.
+
+`--set-file-manager` opts into the desktop's `org.freedesktop.FileManager1`
+interface used by browsers' **Show in Folder** actions. It writes only
+`$XDG_DATA_HOME/dbus-1/services/org.freedesktop.FileManager1.service` (normally
+`~/.local/share/dbus-1/services/`). Another program's service file is left alone.
+If another file manager already owns the bus name, close it or log out and in
+before rummage answers. `--unset-file-manager` removes only rummage's own service
+file; its idle service exits within 30 seconds. Re-run setup after moving a local
+build or removing the installation named in the service file.
+
+The service is activated as `rummage --file-manager1`, separately from the
+FileChooser portal. ShowFolders, ShowItems and ShowItemProperties launch a new
+window per request, forwarding the caller's activation token. Only local `file://`
+URIs with an empty host or `localhost` are supported. Remote URIs, malformed
+escapes, NUL bytes and query/fragment components are ignored. A valid request's
+filesystem checks happen in its child so an unavailable mount cannot block the
+service. Compositor policy determines whether the window takes focus.
+
+This choice is independent of the default folder application. To make ordinary
+folder opening use rummage too, run `xdg-mime default rummage.desktop inode/directory`.
+The setup command reports the current folder association but does not change it.
 
 ## Standalone picker
 
@@ -106,6 +145,7 @@ diagnostic rather than assuming every nonzero exit is a user cancellation.
 | `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, `XDG_DATA_HOME` | Standard storage locations |
 | `XDG_DATA_DIRS`, `XDG_CURRENT_DESKTOP` | Desktop data/association discovery |
 | `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR` | Wayland session connection |
+| `XDG_ACTIVATION_TOKEN`, `DESKTOP_STARTUP_ID` | One-shot startup focus token, consumed before child launches |
 
 Release builds log at `info` by default; debug builds at `debug`. SIGUSR1 asks the
 browser for a memory report; SIGINT/SIGTERM request orderly shutdown. Startup

@@ -176,6 +176,10 @@ public:
     // The columns from root down to target (see ColumnView::reveal); switches to the columns.
     void reveal(const std::filesystem::path& root, const std::filesystem::path& target);
 
+    // Show each existing item selected in its parent, grouped into tabs on the active pane.
+    // Keep the first requested folder focused. details opens the expanded info pane.
+    void show_items(const std::vector<std::filesystem::path>& items, bool details);
+
     void set_mode(Mode mode);
 
     using Step = HistoryStep;

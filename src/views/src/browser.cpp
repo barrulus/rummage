@@ -2010,6 +2010,53 @@ void Browser::restore_folder(const std::filesystem::path& path) {
     pane().remembered_settings = settings;
 }
 
+void Browser::show_items(const std::vector<std::filesystem::path>& items, bool details) {
+    std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> groups;
+    for (const auto& item : items) {
+        auto normal = item.lexically_normal();
+        if (!normal.is_absolute())
+            continue;
+        if (!normal.has_filename() && normal.has_relative_path())
+            normal = normal.parent_path();
+        std::error_code error;
+        if (!std::filesystem::exists(std::filesystem::symlink_status(normal, error)) || error)
+            continue;
+        const bool root = !normal.has_relative_path();
+        const auto folder = root ? normal : normal.parent_path();
+        if (!std::filesystem::is_directory(folder, error))
+            continue;
+        auto group =
+            std::ranges::find(groups, folder, [](const auto& entry) { return entry.first; });
+        if (group == groups.end())
+            group = groups.insert(groups.end(), {folder, {}});
+        if (!root &&
+            std::ranges::find(group->second, normal.filename().string()) == group->second.end()) {
+            group->second.push_back(normal.filename().string());
+        }
+    }
+    const auto first = area().active;
+    for (std::size_t i = 0; i < groups.size(); ++i) {
+        const auto& [folder, names] = groups[i];
+        if (i == 0)
+            open(folder);
+        else
+            open_tab(folder, true);
+        // Reveal all requested hidden items, not just the first name's filter exception.
+        if (std::ranges::any_of(names, [](const auto& name) { return name.starts_with('.'); })) {
+            set_show_hidden(true, false);
+        }
+        if (const auto shown = current_folder(); shown && !names.empty())
+            shown->expect_names(names);
+    }
+    if (groups.size() > 1)
+        select_tab(first);
+    if (details && !groups.empty()) {
+        set_info_visible(true);
+        info_pane_.set_expanded(true);
+    }
+    redraw_();
+}
+
 void Browser::note_location() {
     if (pane().mode == Mode::columns && pane().columns.revealing()) {
         return;  // noted once the columns have unfolded

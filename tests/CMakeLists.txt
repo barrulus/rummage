@@ -67,6 +67,7 @@ add_executable(rummage-tests
     erase_test.cpp
     erase_view_test.cpp
     file_finder_test.cpp
+    file_manager_test.cpp
     file_picker_test.cpp
     transfer_test.cpp
     trash_test.cpp
@@ -147,8 +148,26 @@ target_link_libraries(rummage-portal-tests PRIVATE rummage::platform PkgConfig::
 add_executable(rummage-notification-tests notifications_test.cpp)
 target_include_directories(rummage-notification-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/platform/src)
 target_link_libraries(rummage-notification-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
+add_test(NAME file-manager-cli COMMAND "${CMAKE_COMMAND}"
+    "-DRUMMAGE_EXECUTABLE=$<TARGET_FILE:rummage>"
+    "-DTEST_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/file-manager-cli-scratch"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/file_manager_cli.cmake")
+set_tests_properties(file-manager-cli PROPERTIES TIMEOUT 30)
+add_executable(rummage-file-manager-tests file_manager_bus_test.cpp)
+target_link_libraries(rummage-file-manager-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
 find_program(DBUS_RUN_SESSION dbus-run-session)
+find_program(DBUS_SEND dbus-send)
+if(DBUS_RUN_SESSION AND DBUS_SEND)
+    add_test(NAME file-manager-activation COMMAND "${CMAKE_COMMAND}"
+        "-DRUMMAGE_EXECUTABLE=$<TARGET_FILE:rummage>"
+        "-DTEST_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/file-manager-activation-scratch"
+        "-DDBUS_RUN_SESSION=${DBUS_RUN_SESSION}" "-DDBUS_SEND=${DBUS_SEND}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/file_manager_activation.cmake")
+    set_tests_properties(file-manager-activation PROPERTIES TIMEOUT 40)
+endif()
 if(DBUS_RUN_SESSION)
+    add_test(NAME file-manager COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-file-manager-tests>)
+    set_tests_properties(file-manager PROPERTIES TIMEOUT 15)
     add_test(NAME file-picker-portal COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-portal-tests>)
     set_tests_properties(file-picker-portal PROPERTIES TIMEOUT 30)
     add_test(NAME action-notifications COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-notification-tests>)

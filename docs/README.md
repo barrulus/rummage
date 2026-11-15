@@ -29,6 +29,7 @@ See [installation](install.md),
 | Add commands, destination dialogs or menu groups | [Actions and context menus](actions.md) |
 | Look up default keys or override bindings | [Keyboard shortcuts](shortcuts.md) |
 | Use command-line options or diagnostic variables | [Command line](command-line.md) |
+| Open browser downloads with Show in Folder | [Desktop integration](command-line.md#show-in-folder) |
 | Replace application Open/Save dialogs | [File picker and portal](file-picker.md) |
 | Understand compositor fallbacks and past testing | [Desktop compatibility](compatibility.md) |
 

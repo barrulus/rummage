@@ -140,6 +140,26 @@ hints. Portal selection is desktop configuration, independent of the default
 `inode/directory` application. See [file-picker setup](file-picker.md) and its
 integration tests for observable behavior.
 
+## File manager service
+
+The optional user-local `org.freedesktop.FileManager1` service activates the same
+executable with `--file-manager1`, without Wayland. Its three methods reply before
+posting URI parsing and child launch to the event loop. The service performs no
+filesystem lookup on requested paths: the child checks availability before window
+startup, then browser selection rechecks for races. This preserves responsiveness
+when a requested local path belongs to an unavailable mount.
+
+ShowFolders starts `--open-folders`, ShowItems starts `--reveal`, and
+ShowItemProperties starts `--properties`. The browser groups selections into tabs
+on its active pane, leaves the first requested folder focused, and preserves the
+other pane. Startup tokens are consumed before worker creation and redeemed once
+after the first frame; child launches receive only their request's token. The
+service exits after 30 seconds idle or when its bus connection is lost.
+
+Setup is opt-in through `--set-file-manager`; no global FileManager1 service is
+installed. Generated services preserve the public launcher when a Nix wrapper is
+present. See [commands and desktop setup](command-line.md#show-in-folder).
+
 ## Change entry points
 
 For a new setting, update `core/config`, validation tests and the example/reference.

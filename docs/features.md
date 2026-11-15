@@ -71,6 +71,17 @@ See [configuration](configuration.md), [appearance](appearance.md) and
 [compatibility](compatibility.md). Fonts need a restart; the other settings have
 specific reload rules. No graphical settings editor is provided.
 
+## Show in Folder
+
+- Optional `org.freedesktop.FileManager1` integration for browsers and other applications.
+- Reveal local items selected in parent-folder tabs, or open their expanded information.
+- Open multiple folders as tabs, keeping the first folder focused.
+- User-local setup/removal commands preserve another application's service file.
+
+See [Show in Folder setup and commands](command-line.md#show-in-folder). This is
+independent of the FileChooser portal and the default folder application; remote
+URIs are unsupported. Each request opens a new window.
+
 ## File selection for other applications
 
 - Standalone open-file, multi-file, directory and save-file commands with NUL-separated output.
