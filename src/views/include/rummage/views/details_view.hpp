@@ -30,6 +30,7 @@
 #include "rummage/views/edit_slot.hpp"
 #include "rummage/views/folder.hpp"
 #include "rummage/views/info_pane.hpp"
+#include "rummage/views/item_bounds.hpp"
 #include "rummage/views/list_size.hpp"
 
 namespace rummage::views {
@@ -149,6 +150,8 @@ public:
     // cleared) or on the info pane: menu(x, y) opens the context menu there.
     void set_menu_handler(std::function<void(float x, float y)> menu) { menu_ = std::move(menu); }
 
+    [[nodiscard]] ItemBounds motion_bounds() const noexcept { return motion_bounds_; }
+
     // Where a context menu opened from the keyboard goes: by the cursor's entry, when it is shown.
     [[nodiscard]] std::optional<std::pair<float, float>> cursor_anchor() const;
 
@@ -172,6 +175,7 @@ public:
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
 private:
+    ItemBounds motion_bounds_{};
     void zoom(std::size_t index);
     // The fixed columns grow with the text: widths_ are at the usual size, shown times this.
     [[nodiscard]] float width_scale() const;

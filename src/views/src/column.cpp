@@ -75,6 +75,7 @@ void Column::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                   ui::IconSet& icons, bool focused, Clock::time_point now, EditSlot* edit,
                   const CutMarks* cut, const DropMark* drop) {
+    motion_bounds_ = {};
     const std::vector<fs::Entry>& entries = folder_->entries();
     rows_area_ = bounds;
     const float content = static_cast<float>(entries.size()) * size_.row;
@@ -93,6 +94,9 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
     for (std::size_t i = range.first; i < range.last; ++i) {
         const fs::Entry& entry = entries[i];
         const float y = bounds.y + (static_cast<float>(i) * size_.row) - offset;
+        motion_bounds_.include(ui::Rect{bounds.x + kRowInset, y + 1.0F,
+                                        bounds.width - 2.0F * kRowInset, size_.row - 2.0F},
+                               bounds, cursor == i, folder_->is_selected(entry.name));
         const ItemStyle style = item_style(palette, entry,
                                            {.selected = folder_->is_selected(entry.name),
                                             .cursor = cursor == i,

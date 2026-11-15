@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -8,6 +9,7 @@
 
 #include "rummage/ui/color.hpp"
 #include "rummage/ui/geometry.hpp"
+#include "rummage/ui/motion.hpp"
 #include "rummage/ui/text.hpp"
 #include "rummage/ui/texture.hpp"
 
@@ -49,6 +51,24 @@ public:
     void begin_frame(std::int32_t buffer_width, std::int32_t buffer_height, float scale,
                      Color clear, float background_opacity = 1.0F);
     void end_frame();
+
+    // One non-nested pane/overlay pass. Capture the backdrop, draw normal content, then
+    // composite it. False means draw normally. Resources are lazy, reused and capped.
+    bool begin_motion(const Rect& bounds, core::MotionConfig::Quality quality);
+    void end_motion(const Motion::Frame& frame, float origin_x, float origin_y, Color accent);
+    void release_motion();  // call while the context is current, e.g. after disabling effects
+
+    struct MotionStats {
+        std::size_t texture_bytes{0};
+        std::size_t allocations{0};
+        std::size_t passes{0};
+        std::size_t fallbacks{0};
+        std::size_t frames{0};
+        double last_frame_ms{0};  // CPU submission, not GPU completion or presentation latency
+        double max_frame_ms{0};
+    };
+
+    [[nodiscard]] const MotionStats& motion_stats() const noexcept { return motion_stats_; }
 
     [[nodiscard]] float scale() const noexcept { return scale_; }
 
@@ -98,6 +118,7 @@ public:
 
 private:
     struct Gl;
+    struct MotionGl;
     struct BoxInstance;
     struct GlyphInstance;
     struct GlyphEntry;
@@ -109,6 +130,10 @@ private:
     void apply_clip();
 
     std::unique_ptr<Gl> gl_;
+    std::unique_ptr<MotionGl> motion_gl_;
+    MotionStats motion_stats_;
+    bool motion_failed_{false};
+    std::chrono::steady_clock::time_point frame_started_;
     FontSystem& fonts_;
     std::vector<BoxInstance> boxes_;  // pending, at most one of the two lists is non-empty
     std::vector<GlyphInstance> glyphs_;

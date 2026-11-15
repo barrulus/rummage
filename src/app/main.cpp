@@ -464,6 +464,7 @@ int main(int argc, char** argv) {
         core::EventLoop loop;
         // Set once the browser exists: what it holds, for the memory report.
         std::function<std::vector<std::string>()> memory_lines;
+        const ui::Renderer* renderer_for_stats = nullptr;  // window owns it through loop.run()
         loop.add_fd(signals.fd(), POLLIN, [&](short /*revents*/) {
             signalfd_siginfo info{};
             if (read(signals.fd(), &info, sizeof info) != sizeof info) {
@@ -473,6 +474,14 @@ int main(int argc, char** argv) {
                 return;  // a clipboard reader went away: the write already failed with EPIPE
             }
             if (info.ssi_signo == SIGUSR1) {
+                const auto motion_stats = renderer_for_stats ? renderer_for_stats->motion_stats()
+                                                             : ui::Renderer::MotionStats{};
+                log::info(
+                    "motion: {} bytes, {} allocations, {} passes, {} fallbacks; CPU frame last "
+                    "{:.3f} ms, max {:.3f} ms ({} frames)",
+                    motion_stats.texture_bytes, motion_stats.allocations, motion_stats.passes,
+                    motion_stats.fallbacks, motion_stats.last_frame_ms, motion_stats.max_frame_ms,
+                    motion_stats.frames);
                 // A development report (ROADMAP 6.3b): pkill -USR1 rummage.
                 for (const std::string& line : core::describe(core::read_memory_report())) {
                     log::info("memory: {}", line);
@@ -505,11 +514,14 @@ int main(int argc, char** argv) {
                 : std::optional<bool>{config.appearance.color_scheme == "dark"});
         // Without colors.toml, the desktop's light/dark and accent (ROADMAP 7.4).
         std::unique_ptr<platform::DesktopPortal> portal;
+        std::function<void(bool)> motion_preference;
         const auto follow_desktop = [&] {
             if (!portal->available()) {
                 return;
             }
             const platform::Appearance& appearance = portal->appearance();
+            if (motion_preference)
+                motion_preference(appearance.reduced_motion);
             theme::Desktop desktop{.dark = appearance.dark, .accent = std::nullopt};
             if (appearance.accent) {
                 const auto [r, g, b] = *appearance.accent;
@@ -593,6 +605,7 @@ int main(int argc, char** argv) {
         const auto apply_config = [&](const core::ConfigResult& loaded) {
             const auto& fresh = loaded.config;
             if (columns) {
+                columns->set_motion_config(fresh.animations);
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
                 columns->set_preview_in_sidebar(fresh.appearance.preview_position == "sidebar");
             }
@@ -664,6 +677,12 @@ int main(int argc, char** argv) {
                                        std::move(done));
                 });
             columns->set_actions(configured_actions);
+            columns->set_motion_config(config.animations);
+            columns->set_reduced_motion(portal->appearance().reduced_motion);
+            motion_preference = [&](bool reduced) {
+                if (columns)
+                    columns->set_reduced_motion(reduced);
+            };
             columns->status_bar().set_text_size(config.status_bar.text_size);
             columns->set_preview_in_sidebar(config.appearance.preview_position == "sidebar");
             columns->set_context_menu(config.context_menu);
@@ -1024,6 +1043,7 @@ int main(int argc, char** argv) {
                 } else {
                     columns->draw(renderer, content, palette, icons, views::Browser::Clock::now());
                 }
+                renderer_for_stats = &renderer;
                 if (columns->animating()) {
                     window.request_redraw();  // next frame, paced by the compositor
                 }

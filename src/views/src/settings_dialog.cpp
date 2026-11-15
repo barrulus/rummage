@@ -102,6 +102,22 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         config.appearance.preview_position, false, {"right", "sidebar"});
     add(0, "icon", "follow_accent", "Follow desktop accent",
         config.icon.follow_accent ? "true" : "false", true, {"true", "false"});
+    add(0, "animations", "enabled", "Motion effects", config.animations.enabled ? "true" : "false",
+        true, {"true", "false"});
+    add(0, "animations", "duration_scale", "Motion duration scale (0 to 4)",
+        std::format("{:g}", config.animations.duration_scale), true);
+    const auto reduce = config.animations.reduce_motion;
+    add(0, "animations", "reduce_motion", "Reduce motion",
+        reduce == core::MotionConfig::Reduce::always  ? "always"
+        : reduce == core::MotionConfig::Reduce::never ? "never"
+                                                      : "system",
+        false, {"system", "always", "never"});
+    const auto quality = config.animations.quality;
+    add(0, "animations", "quality", "Motion quality",
+        quality == core::MotionConfig::Quality::low    ? "low"
+        : quality == core::MotionConfig::Quality::high ? "high"
+                                                       : "auto",
+        false, {"auto", "low", "high"});
     add(0, "font", "family", "Interface font (restart required)", config.font.family);
     add(0, "font", "monospace", "Preview font (restart required)", config.font.monospace);
     add(0, "status_bar", "text_size", "Status text size (logical pixels)",

@@ -470,6 +470,7 @@ void DetailsView::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 
 void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                        const theme::Palette& palette, ui::IconSet& icons, Clock::time_point now) {
+    motion_bounds_ = {};
     if (!folder_) {
         return;
     }
@@ -539,6 +540,9 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const auto& owner = row.folder;
         const fs::Entry& entry = owner->entries()[row.entry];
         const float y = rows_.y + (static_cast<float>(i) * size_.row) - offset;
+        motion_bounds_.include(
+            ui::Rect{table_left, y + kRowInset, table_width, size_.row - 2.0F * kRowInset}, rows_,
+            cursor == i, owner->is_selected(entry.name));
         const bool selected = owner->is_selected(entry.name);
         const ItemStyle style =
             item_style(palette, entry,

@@ -180,6 +180,7 @@ TEST_CASE("an empty file gives the defaults and no problems") {
     CHECK(result.from_file);
     CHECK(result.problems.empty());
     check_defaults(result.config);
+    CHECK(result.config.animations == rummage::core::MotionConfig{});
 }
 
 TEST_CASE("status bar text size accepts finite logical pixels from 8 to 32") {
@@ -369,6 +370,7 @@ TEST_CASE("the example config parses clean and matches the defaults") {
     CHECK(result.from_file);
     CHECK(result.problems.empty());
     check_defaults(result.config);
+    CHECK(result.config.animations == rummage::core::MotionConfig{});
 }
 
 TEST_CASE("default_config_path follows XDG_CONFIG_HOME, then HOME") {

@@ -26,6 +26,7 @@
 #include "rummage/views/folder.hpp"
 #include "rummage/views/grid_size.hpp"
 #include "rummage/views/info_pane.hpp"
+#include "rummage/views/item_bounds.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -106,6 +107,8 @@ public:
     // cleared) or on the info pane: menu(x, y) opens the context menu there.
     void set_menu_handler(std::function<void(float x, float y)> menu) { menu_ = std::move(menu); }
 
+    [[nodiscard]] ItemBounds motion_bounds() const noexcept { return motion_bounds_; }
+
     // Where a context menu opened from the keyboard goes: by the cursor's entry, when it is shown.
     [[nodiscard]] std::optional<std::pair<float, float>> cursor_anchor() const;
 
@@ -134,6 +137,7 @@ public:
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
 private:
+    ItemBounds motion_bounds_{};
     void right_click(float x, float y);
     void enter();
     void go_up();

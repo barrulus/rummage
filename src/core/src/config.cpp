@@ -293,6 +293,88 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
     for (const auto& [key, node] : root) {
         if (key.str() == "actions") {
             result.actions_valid = read_actions(node, reader, config.actions);
+        } else if (key.str() == "animations") {
+            auto& motion = config.animations;
+            reader.read_section(
+                node, "animations",
+                {{"enabled",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, motion.enabled);
+                  }},
+                 {"duration_scale",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto number = value.value<double>();
+                      if (number && std::isfinite(*number) && *number >= 0 && *number <= 4)
+                          motion.duration_scale = static_cast<float>(*number);
+                      else
+                          reader.report(value.source(),
+                                        path + " must be a finite number from 0 to 4");
+                  }},
+                 {"reduce_motion",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto text = value.value<std::string_view>();
+                      if (text == "system")
+                          motion.reduce_motion = MotionConfig::Reduce::system;
+                      else if (text == "always")
+                          motion.reduce_motion = MotionConfig::Reduce::always;
+                      else if (text == "never")
+                          motion.reduce_motion = MotionConfig::Reduce::never;
+                      else
+                          reader.report(value.source(), path + " must be system, always or never");
+                  }},
+                 {"quality",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto text = value.value<std::string_view>();
+                      if (text == "auto")
+                          motion.quality = MotionConfig::Quality::automatic;
+                      else if (text == "low")
+                          motion.quality = MotionConfig::Quality::low;
+                      else if (text == "high")
+                          motion.quality = MotionConfig::Quality::high;
+                      else
+                          reader.report(value.source(), path + " must be auto, low or high");
+                  }},
+                 {"events",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto* table = value.as_table();
+                      if (!table) {
+                          reader.report(value.source(), path + " must be a table");
+                          return;
+                      }
+                      for (const auto& [name, entry] : *table) {
+                          const auto event = motion_name<MotionEvent>(name.str(), kMotionEvents);
+                          const auto text = entry.value<std::string_view>();
+                          const auto effect = text
+                                                  ? motion_name<MotionEffect>(*text, kMotionEffects)
+                                                  : std::nullopt;
+                          if (!event)
+                              reader.report(name.source(), "unknown animation event '" +
+                                                               std::string{name.str()} + "'");
+                          else if (!effect)
+                              reader.report(entry.source(),
+                                            path + "." + std::string{name.str()} +
+                                                " must name a built-in effect or none");
+                          else
+                              motion.events[static_cast<std::size_t>(*event)] = *effect;
+                      }
+                  }},
+                 {"durations", [&](const toml::node& value, const std::string& path) {
+                      const auto* table = value.as_table();
+                      if (!table) {
+                          reader.report(value.source(), path + " must be a table");
+                          return;
+                      }
+                      for (const auto& [name, entry] : *table) {
+                          const auto event = motion_name<MotionEvent>(name.str(), kMotionEvents);
+                          if (!event)
+                              reader.report(name.source(), "unknown animation event '" +
+                                                               std::string{name.str()} + "'");
+                          else
+                              reader.read_int(
+                                  entry, path + "." + std::string{name.str()}, 0, 2000,
+                                  motion.durations_ms[static_cast<std::size_t>(*event)]);
+                      }
+                  }}});
         } else if (key.str() == "startup") {
             reader.read_section(
                 node, "startup",

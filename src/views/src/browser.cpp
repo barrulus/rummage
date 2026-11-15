@@ -196,6 +196,7 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    leave_motion();
     remember_folder(pane());
     filter_focused_ = false;
     quick_look_.close();
@@ -531,7 +532,9 @@ void Browser::submit(fs::TransferRequest request, std::uint64_t batch,
     if (const auto it = batches_.find(batch); it != batches_.end()) {
         ++it->second.pending;
     }
-    submitted_.push_back({.batch = batch, .empty_clipboard = empty_clipboard});
+    submitted_.push_back({.batch = batch,
+                          .empty_clipboard = empty_clipboard,
+                          .motion = capture_operation_motion(request)});
     transfers_.submit(std::move(request));
 }
 
@@ -1101,6 +1104,7 @@ void Browser::transfer_done(const fs::TransferRequest& request, const fs::Transf
         submitted = submitted_.front();
         submitted_.pop_front();
     }
+    complete_operation_motion(submitted.motion, request, result);
     // Another program's cut that moved something: nobody should move those files again. Unless
     // the clipboard holds something else by now.
     if (submitted.empty_clipboard && !result.placed.empty() && system_.clear &&
@@ -1906,6 +1910,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
+    cancel_operation_motion();
     remember_folder(pane());
     pane().columns.open(directory);
     if (pane().mode == Mode::grid) {
@@ -2027,6 +2032,7 @@ void Browser::travel(int direction) {
     };
     bool moved = false;
     while (ahead()) {
+        area().motion_back = true;
         pane().here = direction < 0 ? pane().here - 1 : pane().here + 1;
         const Step step = pane().history[pane().here];  // go_to() notes the cursor it finds there
         go_to(step.folder, step.cursor);
@@ -2515,6 +2521,7 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
 
 void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now) {
+    begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
     note_location();
     const float sidebar_width = sidebar_visible_ ? sidebar_.width_in(bounds.width) : 0.0F;
@@ -2607,10 +2614,12 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     editor_.draw(renderer, palette);
     if (quick_look_.is_open())
         quick_look_.follow(current_folder());
+    const auto overlay_motion = begin_overlay_motion(renderer, bounds, palette, icons, now);
     quick_look_.draw(renderer, bounds, palette, icons, now);
     shortcuts_.draw(renderer, bounds, palette);
     menu_.draw(renderer, bounds, palette);
     palette_.draw(renderer, bounds, palette);
+    end_overlay_motion(renderer, overlay_motion, bounds, palette);
     properties_.draw(renderer, bounds, palette, icons, thumbnails_.get());
     settings_.draw(renderer, bounds, palette);
     conflict_.draw(renderer, bounds, palette);
@@ -2626,6 +2635,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
 void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, ui::IconSet& icons, Clock::time_point now) {
     note_location();  // includes asynchronous reveals in either visible pane
+    layout_motion_area(bounds);
     area().bounds = bounds;
     ui::Rect view = bounds;
     const auto folder = current_folder();
@@ -2682,7 +2692,7 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
     if (pane().details.info_visible() !=
         (!split_visible_ && info_visible_ && !preview_below_places_))
         pane().details.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
-    draw_view(renderer, area().view_area, palette, icons, now);
+    draw_view_with_motion(renderer, palette, icons, now);
     renderer.pop_clip();
 }
 
@@ -2702,6 +2712,8 @@ void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
 }
 
 bool Browser::animating() const {
+    if (motion_.active())
+        return true;
     for (std::size_t i = 0; i < areas_.size(); ++i) {
         if (!areas_[i] || (!split_visible_ && i != active_area_))
             continue;
@@ -2735,6 +2747,9 @@ bool Browser::loading() const {
 }
 
 void Browser::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (event.kind == ui::PointerEvent::Kind::scroll) {
+        cancel_operation_motion();
+    }
     const bool button = event.kind == ui::PointerEvent::Kind::press ||
                         event.kind == ui::PointerEvent::Kind::release;
     if (button) {

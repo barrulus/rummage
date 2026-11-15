@@ -77,7 +77,9 @@ Folder::Reveal Folder::take_reveal() noexcept {
     return reveal;
 }
 
-void Folder::selection_changed() {
+void Folder::selection_changed(bool feedback) {
+    if (feedback)
+        ++selection_revision_;
     summary_.reset();
     redraw_();
     if (changed_) {
@@ -147,7 +149,7 @@ void Folder::on_change(const fs::ModelChange& change) {
         selected_ = std::move(present);
     }
     if (had_cursor || had_selection) {
-        selection_changed();
+        selection_changed(false);  // Metadata/scan updates do not replay selection feedback.
     } else {
         redraw_();
     }

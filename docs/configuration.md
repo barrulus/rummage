@@ -73,6 +73,12 @@ rename = "Ctrl+r"
 | `appearance.color_scheme` | `"system"` | `"system"` (desktop / colors.toml), `"light"`, or `"dark"`; live |
 | `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |
 | `appearance.background_opacity` | `1.0` | Number from 0 to 1; background only |
+| `animations.enabled` | `true` | Enable built-in motion effects; live |
+| `animations.duration_scale` | `1.0` | Finite number 0–4; 0 is immediate; final duration capped at 2 seconds |
+| `animations.reduce_motion` | `"system"` | `system`, `always`, `never`; follows desktop reduced motion by default |
+| `animations.quality` | `"auto"` | `auto`, `low` (fades), `high`; bounded capture storage |
+| `animations.events.EVENT` | Per event | Built-in effect or `none`; see [motion effects](motion.md) |
+| `animations.durations.EVENT` | Per event | Integer milliseconds 0–2000 before duration scaling |
 | `status_bar.text_size` | `12.0` | Number from 8 to 32 logical pixels; applies live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |
 | `font.monospace` | `"monospace"` | Fontconfig pattern for text previews |

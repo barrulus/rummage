@@ -65,6 +65,8 @@ public:
 
     [[nodiscard]] const std::vector<fs::Place>& places() const noexcept { return places_; }
 
+    [[nodiscard]] std::optional<ui::Rect> place_icon_rect(const std::filesystem::path& path) const;
+
     // current: the folder shown, whose place is marked.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, const std::filesystem::path& current, Clock::time_point now);

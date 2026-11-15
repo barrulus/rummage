@@ -283,6 +283,7 @@ void GridView::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 
 void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                     ui::IconSet& icons, Clock::time_point now) {
+    motion_bounds_ = {};
     if (!folder_) {
         return;
     }
@@ -325,6 +326,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             }
             const fs::Entry& entry = entries[i];
             const float x = area_.x + kPadding + (static_cast<float>(column) * cell_width_);
+            motion_bounds_.include(
+                ui::Rect{x + kCellInset, y + kCellInset, cell_width_ - 2.0F * kCellInset,
+                         height - 2.0F * kCellInset},
+                area_, cursor == i, folder_->is_selected(entry.name));
             const bool cut = cut_ != nullptr && cut_->holds(folder_->path(), entry);
             const ItemStyle style =
                 item_style(palette, entry,

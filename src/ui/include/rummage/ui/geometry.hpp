@@ -17,6 +17,16 @@ struct Rect {
 
     [[nodiscard]] constexpr bool empty() const noexcept { return width <= 0.0F || height <= 0.0F; }
 
+    [[nodiscard]] constexpr Rect united(const Rect& other) const noexcept {
+        if (empty())
+            return other;
+        if (other.empty())
+            return *this;
+        const float left = std::min(x, other.x), top = std::min(y, other.y);
+        return {left, top, std::max(right(), other.right()) - left,
+                std::max(bottom(), other.bottom()) - top};
+    }
+
     // The point is inside: left and top edges included, right and bottom left out.
     [[nodiscard]] constexpr bool contains(float px, float py) const noexcept {
         return px >= x && px < right() && py >= y && py < bottom();

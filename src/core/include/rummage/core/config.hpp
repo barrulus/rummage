@@ -9,6 +9,7 @@
 
 #include "rummage/core/actions.hpp"
 #include "rummage/core/menu_layout.hpp"
+#include "rummage/core/motion.hpp"
 
 // User settings from config.toml. Every key is optional: a missing key keeps its default, a bad
 // value (wrong type, out of range) is reported and keeps its default, an unknown key is reported
@@ -56,6 +57,7 @@ struct Config {
     MenuLayout context_menu;
 
     Appearance appearance;
+    MotionConfig animations;
     Startup startup;
     StatusBar status_bar;
     Font font;

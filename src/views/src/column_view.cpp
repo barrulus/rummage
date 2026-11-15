@@ -819,6 +819,10 @@ void ColumnView::right_click(float x, float y) {
     }
 }
 
+ItemBounds ColumnView::motion_bounds() const {
+    return focus_ < columns_.size() ? columns_[focus_].column->motion_bounds() : ItemBounds{};
+}
+
 std::optional<std::pair<float, float>> ColumnView::cursor_anchor() const {
     if (columns_.empty()) {
         return std::nullopt;

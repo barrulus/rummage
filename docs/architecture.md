@@ -46,6 +46,12 @@ changes with inotify. Transfers report progress and conflicts back to the UI.
 Rendering is requested on changes and animation frames rather than a permanent
 idle redraw loop.
 
+`ui::Motion` schedules bounded per-surface transitions from browser events and
+confirmed transfer results. Native geometry handles focus, selection and travelling
+icons; the renderer's optional GLES pass composites bounded captures. Configuration
+and desktop reduced-motion changes cancel active effects immediately. See
+[motion effects](motion.md) for resource limits, shader conventions and profiling.
+
 Views share filesystem models and browser commands. Two tab groups hold separate
 location/view/sort/hidden/filter state; sidebar, information pane and undo serve
 the window. The browser owns split orientation, divider and active-pane state.

@@ -378,6 +378,8 @@ void Browser::refresh_found() {
                          .open = then(FoundAction::open)});
     }
     palette_.set_results(std::move(items), finder_->status());
+    if (!finder_->results().empty() && !finder_->scanning() && !finder_->matching())
+        start_motion(core::MotionEvent::search_results);
 }
 
 void Browser::show_found(const std::filesystem::path& root, const std::string& relative,

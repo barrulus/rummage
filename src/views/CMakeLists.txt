@@ -12,6 +12,7 @@ add_library(rummage_views
     src/browser_actions.cpp
     src/browser_panes.cpp
     src/browser.cpp
+    src/browser_motion.cpp
     src/browser_palette.cpp
     src/column.cpp
     src/column_view.cpp

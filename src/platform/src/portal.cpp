@@ -46,9 +46,11 @@ std::optional<std::array<double, 3>> accent_of(const sdbus::Variant& value) {
 }  // namespace
 
 Appearance appearance_from(std::optional<std::uint32_t> color_scheme,
-                           std::optional<std::array<double, 3>> accent) {
+                           std::optional<std::array<double, 3>> accent,
+                           std::optional<std::uint32_t> reduced_motion) {
     Appearance appearance;
     appearance.dark = color_scheme == 1;
+    appearance.reduced_motion = reduced_motion == 1;
     if (accent && std::ranges::all_of(*accent, [](double v) { return v >= 0.0 && v <= 1.0; })) {
         appearance.accent = accent;
     }
@@ -64,6 +66,7 @@ struct DesktopPortal::Impl {
 
     bool available{false};
     std::optional<std::uint32_t> scheme;
+    std::optional<std::uint32_t> reduced_motion;
     std::optional<std::array<double, 3>> accent;
     Appearance appearance;
 
@@ -75,6 +78,8 @@ struct DesktopPortal::Impl {
             scheme = scheme_of(value);
         } else if (key == "accent-color") {
             accent = accent_of(value);
+        } else if (key == "reduced-motion") {
+            reduced_motion = scheme_of(value);
         } else {
             return false;
         }
@@ -97,7 +102,7 @@ struct DesktopPortal::Impl {
             return;
         }
         available = true;
-        appearance = appearance_from(scheme, accent);
+        appearance = appearance_from(scheme, accent, reduced_motion);
     }
 
     void read_later() {
@@ -129,7 +134,7 @@ struct DesktopPortal::Impl {
         if (space != kNamespace || !take(key, value)) {
             return;
         }
-        const Appearance fresh = appearance_from(scheme, accent);
+        const Appearance fresh = appearance_from(scheme, accent, reduced_motion);
         const bool was_available = std::exchange(available, true);
         if (fresh != appearance || !was_available) {
             appearance = fresh;

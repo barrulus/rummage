@@ -106,11 +106,15 @@ void Browser::swap_panes() {
 }
 
 void Browser::set_stacked(bool stacked) {
+    if (stacked_ != stacked) {
+        cancel_layout_motion();
+    }
     stacked_ = stacked;
     redraw_();
 }
 
 void Browser::set_split_ratio(float ratio) {
+    cancel_layout_motion();
     if (std::isfinite(ratio))
         split_ratio_ = std::clamp(ratio, 0.15F, 0.85F);
     redraw_();
