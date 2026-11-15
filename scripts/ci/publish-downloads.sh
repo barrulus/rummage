@@ -11,7 +11,8 @@ test -s "$assets/release-notes.md"
 # Fail before any mutation if the prepared identity differs from the tag target.
 python3 - "$assets/source.json" "$commit" <<'PY'
 import json, sys
-assert json.load(open(sys.argv[1]))['commit'] == sys.argv[2]
+identity = json.load(open(sys.argv[1]))
+assert identity.get('published_commit', identity['commit']) == sys.argv[2]
 PY
 files=(rummage-media-debian13-amd64.deb rummage-media-fedora44-x86_64.rpm
        rummage-media-arch-x86_64.pkg.tar.zst rummage-media-tumbleweed-x86_64.rpm
