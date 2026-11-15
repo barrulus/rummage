@@ -447,6 +447,13 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_z, XKB_KEY_Z},
              .command = Command::redo},
     Shortcut{.group = "Files",
+             .keys = "Shift+Escape",
+             .action = "Stop the copy, move or delete",
+             .scope = scope::kViews | scope::kQuickLook | scope::kSidebar,
+             .modifiers = kShift,
+             .keysyms = {XKB_KEY_Escape},
+             .command = Command::stop_transfer},
+    Shortcut{.group = "Files",
              .keys = "Enter  Escape",
              .action = "Renaming: keep, give up",
              .scope = scope::kEditor,
@@ -472,7 +479,7 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_v, XKB_KEY_V}},
     Shortcut{.group = "Files",
              .keys = "R  S  Enter",
-             .action = "Name taken: replace, skip, both",
+             .action = "Name taken: replace or merge, skip, both",
              .scope = scope::kConflict,
              .keysyms = {XKB_KEY_r, XKB_KEY_s, XKB_KEY_Return, XKB_KEY_KP_Enter}},
     Shortcut{.group = "Files",
@@ -623,6 +630,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::undo;
     if (name == "redo")
         command = Command::redo;
+    if (name == "stop_transfer")
+        command = Command::stop_transfer;
     if (name == "context_menu")
         command = Command::context_menu;
     if (name == "properties")
@@ -858,6 +867,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "erase",
                              "undo",
                              "redo",
+                             "stop_transfer",
                              "context_menu",
                              "properties",
                              "back",

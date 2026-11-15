@@ -152,6 +152,9 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (redo_) {
         command(Command::redo, "redo", "Redo");
     }
+    if (transfers_.pending() > 0) {
+        command(Command::stop_transfer, "stop_transfer", "Stop the Transfer");
+    }
     if (folder) {
         view_command("select_all", "Select All", "Ctrl+A", XKB_KEY_a, {.ctrl = true});
     }

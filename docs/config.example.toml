@@ -180,6 +180,7 @@ follow_accent = true
 # erase = "Shift+Delete"        # Permanent deletion; also Shift+keypad Delete
 # undo = "Ctrl+z"
 # redo = "Ctrl+Shift+z"
+# stop_transfer = "Shift+Escape" # Stop the active copy, move or delete
 
 # Customization examples (replace the corresponding line above):
 # rename = "Ctrl+r"
@@ -208,7 +209,7 @@ follow_accent = true
 # Sidebar: Up/Down/Home/End chooses a place, Return opens, Escape returns to view.
 # Quick Look: Escape closes; arrows browse files; Home/End and Page_Up/Page_Down
 # scroll text; Ctrl+a selects text, Ctrl+c copies selected text.
-# Name conflict dialog: R replaces, S skips, Return keeps both;
+# Name conflict dialog: R replaces a file or merges folders, S skips, Return keeps both;
 # A applies the choice to the rest, Escape stops.
 # Permanent-delete confirmation: Return confirms, Escape cancels.
 #

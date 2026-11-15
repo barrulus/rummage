@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "rummage/views/format.hpp"
+#include "rummage/views/shortcuts.hpp"
 
 namespace rummage::views {
 namespace {
@@ -175,6 +176,16 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
                    cancel_button_.y + ((kButtonHeight - kIconSize) / 2.0F), kIconSize,
                    cancel_hovered_ ? palette.error : palette.on_surface_variant);
         text_right = cancel_button_.x - kPadding;
+        const std::string stop_key = keys_for(Command::stop_transfer);
+        if (!stop_key.empty()) {
+            const auto& key_line = renderer.fonts().layout(stop_key, text_size_, renderer.scale());
+            const float key_width = key_line.width / renderer.scale();
+            const float key_height = (key_line.ascent + key_line.descent) / renderer.scale();
+            const float key_x = cancel_button_.x - 6.0F - key_width;
+            renderer.draw_layout(key_line, key_x, bounds.y + (bounds.height - key_height) / 2.0F,
+                                 palette.outline);
+            text_right = key_x - kPadding;
+        }
     }
 
     // The message, else a transfer, else the status and the free space; cut in the middle when

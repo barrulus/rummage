@@ -607,3 +607,25 @@ TEST_CASE("shortcuts: folder jumps validate, reload and navigate within the curr
     REQUIRE(configure_shortcuts({{binding, ""}}).empty());
     CHECK(rummage::views::folder_for(event).empty());
 }
+
+TEST_CASE("shortcuts: stopping a transfer is configurable, disableable, and listed in settings") {
+    ResetBindings reset;
+    using rummage::views::command_for;
+    using rummage::views::configure_shortcuts;
+    using rummage::views::keys_for;
+    CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::stop_transfer);
+    CHECK(command_for(chord(XKB_KEY_Escape, {})) == Command::none);
+    CHECK(keys_for(Command::stop_transfer) == "Shift+Escape");
+    const auto settings = rummage::views::binding_settings();
+    const auto stop = std::ranges::find(settings, "stop_transfer",
+                                        [](const auto& binding) { return binding.first; });
+    REQUIRE(stop != settings.end());
+    CHECK(stop->second == "Stop the copy, move or delete · Default: Shift+Escape");
+    REQUIRE(configure_shortcuts({{"stop_transfer", "Ctrl+Alt+s"}}).empty());
+    CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::none);
+    CHECK(command_for(chord(XKB_KEY_s, {.ctrl = true, .alt = true})) == Command::stop_transfer);
+    CHECK(keys_for(Command::stop_transfer) == "Ctrl+Alt+s");
+    REQUIRE(configure_shortcuts({{"stop_transfer", ""}}).empty());
+    CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::none);
+    CHECK(keys_for(Command::stop_transfer).empty());
+}

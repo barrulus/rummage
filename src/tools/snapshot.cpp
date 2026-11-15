@@ -573,7 +573,12 @@ int main(int argc, char** argv) {
                         views::TransferStatus{.text = transfer, .fraction = 0.4F});
                 }
                 if (!conflict.empty()) {
-                    columns->conflict_dialog().open({.name = conflict, .destination = columns_dir},
+                    // A folder's name there asks as two folders meeting (Merge).
+                    const bool folder = std::filesystem::is_directory(columns_dir / conflict);
+                    columns->conflict_dialog().open({.name = conflict,
+                                                     .destination = columns_dir,
+                                                     .directory = folder,
+                                                     .target_directory = folder},
                                                     columns_dir.filename(),
                                                     [](rummage::fs::Resolution, bool) {});
                 }

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <fcntl.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -13,6 +14,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 #include <doctest/doctest.h>
@@ -25,6 +27,7 @@
 using rummage::core::CancelToken;
 using rummage::core::EventLoop;
 using rummage::fs::Conflict;
+using rummage::fs::PlacedItem;
 using rummage::fs::Resolution;
 using rummage::fs::TransferCallbacks;
 using rummage::fs::TransferKind;
@@ -185,6 +188,120 @@ TEST_CASE("transfer: a move on one disk renames; between disks it copies, then d
     CHECK(result.placed == Names{"notes.txt"});
 }
 
+TEST_CASE("transfer: between two file systems the bytes go through read and write") {
+    // /dev/shm is a tmpfs of its own: copy_file_range refuses (EXDEV), the fallback copies.
+    std::string pattern = "/dev/shm/rummage-test-XXXXXX";
+    if (mkdtemp(pattern.data()) == nullptr) {
+        MESSAGE("no /dev/shm: skipped");
+        return;
+    }
+
+    struct Removed {
+        fs::path path;
+
+        explicit Removed(fs::path made) : path{std::move(made)} {}
+
+        Removed(const Removed&) = delete;
+        Removed& operator=(const Removed&) = delete;
+        Removed(Removed&&) = delete;
+        Removed& operator=(Removed&&) = delete;
+
+        ~Removed() {
+            std::error_code ignored;
+            fs::remove_all(path, ignored);
+        }
+    };
+
+    const Removed other_disk{fs::path{pattern}};
+    Tree t;
+    if (stat_of(other_disk.path).st_dev == stat_of(t.from).st_dev) {
+        MESSAGE("/dev/shm on the same file system as the temporary folder: skipped");
+        return;
+    }
+    // Several buffers and a piece: every byte different from its neighbours.
+    std::string data(std::size_t{1} << 20U, '\0');
+    data += "-a tail";
+    for (std::size_t i = 0; i < data.size() - 7; ++i) {
+        data[i] = static_cast<char>((i * 31U) % 251U);
+    }
+    std::ofstream{t.from / "big.raw", std::ios::binary} << data;
+
+    std::vector<TransferProgress> seen;
+    const TransferResult result = rummage::fs::run_transfer(
+        {.kind = TransferKind::copy,
+         .source = t.from,
+         .names = {"big.raw"},
+         .destination = other_disk.path,
+         .force_copy = false},
+        {},
+        {.progress = [&](const TransferProgress& p) { seen.push_back(p); }, .resolve = nullptr});
+    CHECK(result.errors.empty());
+    CHECK(read_file(other_disk.path / "big.raw") == data);
+    CHECK(listing(other_disk.path) == Names{"big.raw"});  // no temporary left
+    REQUIRE_FALSE(seen.empty());
+    CHECK(seen.back().bytes_done == data.size());
+}
+
+TEST_CASE("transfer: loose files copied at once, each with its sidecars, in the order asked") {
+    TempDir dir;
+    const fs::path from = dir.path / "from";
+    const fs::path to = dir.path / "to";
+    fs::create_directories(from);
+    fs::create_directories(to);
+    Names names;
+    for (int i = 0; i < 120; ++i) {
+        const std::string photo = std::format("P{:03}.ORF", i);
+        std::ofstream{from / photo} << std::string(std::size_t{4096} + (std::size_t(i) * 97U),
+                                                   static_cast<char>('a' + (i % 26)));
+        if (i % 3 == 0) {
+            std::ofstream{from / (photo + ".xmp")} << "sidecar of " << photo;
+        }
+        names.push_back(photo);
+    }
+    std::ranges::reverse(names);  // not the folder's order
+    const TransferResult result = rummage::fs::run_transfer({.kind = TransferKind::copy,
+                                                             .source = from,
+                                                             .names = names,
+                                                             .destination = to,
+                                                             .force_copy = false,
+                                                             .threads = 8},
+                                                            {}, {});
+    CHECK(result.errors.empty());
+    CHECK(result.placed == names);
+    REQUIRE(result.items.size() == names.size());
+    CHECK(result.items.front().to == to / names.front());
+    CHECK(listing(to).size() == 160);  // 120 photos, 40 sidecars
+    for (int i = 0; i < 120; i += 7) {
+        const std::string photo = std::format("P{:03}.ORF", i);
+        CHECK(read_file(to / photo) == read_file(from / photo));
+    }
+    CHECK(read_file(to / "P099.ORF.xmp") == "sidecar of P099.ORF");
+    CHECK(result.files_done == 160);
+}
+
+TEST_CASE("transfer: a name kept for one file still being copied is not given to another") {
+    // "x" is there: the new "x" becomes "x 2" while it is copied; "x 2" then finds its name
+    // taken although nothing is on the disk yet, and becomes "x 2 2".
+    Tree t;
+    std::ofstream{t.from / "x"} << std::string(std::size_t{1} << 20U, 'x');
+    std::ofstream{t.from / "x 2"} << "the second";
+    std::ofstream{t.to / "x"} << "there before";
+    Answer answer{.resolution = Resolution::keep_both};
+    const TransferResult result = rummage::fs::run_transfer({.kind = TransferKind::copy,
+                                                             .source = t.from,
+                                                             .names = {"x", "x 2"},
+                                                             .destination = t.to,
+                                                             .force_copy = false,
+                                                             .threads = 8},
+                                                            {}, answer.callbacks());
+    CHECK(result.errors.empty());
+    CHECK(answer.asked == 2);
+    CHECK(result.placed == Names{"x 2", "x 2 2"});
+    CHECK(read_file(t.to / "x") == "there before");
+    CHECK(fs::file_size(t.to / "x 2") == std::size_t{1} << 20U);
+    CHECK(read_file(t.to / "x 2 2") == "the second");
+}
+
 TEST_CASE("transfer: conflicts are asked; replace, skip, keep both, cancel") {
     Tree t;
     std::ofstream{t.to / "notes.txt"} << "old notes";
@@ -230,6 +347,63 @@ TEST_CASE("transfer: folders merge on replace; a file never replaces a folder") 
     REQUIRE(result.errors.size() == 1);
     CHECK(result.errors.front() == "link: a folder has its name; a file does not replace a folder");
     CHECK(fs::is_directory(t.to / "link"));
+}
+
+TEST_CASE("transfer: inside a merge each taken file is asked; photos keep their sidecars") {
+    for (const std::size_t threads : {std::size_t{1}, std::size_t{8}}) {
+        for (const bool between_disks : {false, true}) {
+            CAPTURE(threads);
+            CAPTURE(between_disks);
+            Tree t;
+            for (const char* name : {"P1.ORF", "P1.ORF.xmp", "P1_01.ORF.xmp"}) {
+                fs::copy_file(t.from / name, t.from / "Trip" / name);
+            }
+            fs::create_directories(t.to / "Trip" / "deep");
+            std::ofstream{t.to / "Trip" / "P1.ORF"} << "old P1";
+            std::ofstream{t.to / "Trip" / "deep" / "b.jpg"} << "old b";
+            std::ofstream{t.to / "Trip" / "deep" / "mine.jpg"} << "mine";
+            std::vector<std::string> asked;
+            const TransferCallbacks callbacks{
+                .progress = nullptr, .resolve = [&](const Conflict& conflict) {
+                    asked.push_back(
+                        (conflict.destination / conflict.name).lexically_relative(t.to).string());
+                    if (conflict.name == "Trip") {
+                        return Resolution::replace;  // merge
+                    }
+                    return conflict.name == "P1.ORF" ? Resolution::keep_both : Resolution::replace;
+                }};
+            const TransferResult result = rummage::fs::run_transfer(
+                {.kind = between_disks ? TransferKind::move : TransferKind::copy,
+                 .source = t.from,
+                 .names = {"Trip"},
+                 .destination = t.to,
+                 .force_copy = between_disks,
+                 .threads = threads},
+                {}, callbacks);
+            CHECK(result.errors.empty());
+            // Trip itself, then its files only: deep merged without a question.
+            CHECK(asked == Names{"Trip", "Trip/P1.ORF", "Trip/deep/b.jpg"});
+            CHECK(listing(t.to / "Trip") ==
+                  Names{"P1 2.ORF", "P1 2.ORF.xmp", "P1 2_01.ORF.xmp", "P1.ORF", "a.jpg", "deep"});
+            CHECK(read_file(t.to / "Trip" / "P1.ORF") == "old P1");
+            CHECK(read_file(t.to / "Trip" / "P1 2.ORF.xmp") == "P1.ORF.xmp");
+            CHECK(read_file(t.to / "Trip" / "deep" / "b.jpg") == "Trip/deep/b.jpg");
+            CHECK(read_file(t.to / "Trip" / "deep" / "mine.jpg") == "mine");
+            CHECK(result.placed == Names{"Trip"});
+            CHECK(result.undo_excluded == 1);  // deep/b.jpg
+            // What an undo takes away: what was not there before, never the folders that were.
+            std::vector<std::string> made;
+            made.reserve(result.items.size());
+            for (const PlacedItem& item : result.items) {
+                made.push_back(item.to.lexically_relative(t.to).string());
+            }
+            std::ranges::sort(made);
+            CHECK(made == Names{"Trip/P1 2.ORF", "Trip/a.jpg"});
+            if (between_disks) {
+                CHECK_FALSE(fs::exists(t.from / "Trip"));  // all of it moved
+            }
+        }
+    }
 }
 
 TEST_CASE("transfer: a copy into its own folder keeps both by itself") {
@@ -290,6 +464,79 @@ TEST_CASE("transfer: cancelled halfway, nothing half-written is left") {
     CHECK(fs::file_size(t.from / "big.bin") == 40U << 20U);  // the source is whole
 }
 
+TEST_CASE("transfer: a folder's files go straight in; cancelled deep inside, nothing is left") {
+    Tree t;
+    {
+        std::ofstream big{t.from / "Trip" / "deep" / "big.bin"};
+        const std::string block(1 << 20, 'x');
+        for (int i = 0; i < 40; ++i) {
+            big << block;  // 40 MB: five pieces of 8 MB
+        }
+    }
+    const CancelToken token;
+    TransferResult result = t.run(TransferKind::copy, {"Trip"},
+                                  {.progress =
+                                       [&](const TransferProgress& progress) {
+                                           if (progress.bytes_done > (1U << 20U)) {
+                                               token.cancel();  // inside big.bin
+                                           }
+                                       },
+                                   .resolve = nullptr},
+                                  false, token);
+    CHECK(result.cancelled);
+    CHECK(listing(t.to).empty());  // the hidden folder went, with all in it
+
+    // Whole: every name its own, no hidden temporary anywhere, the dates kept.
+    const std::array<timespec, 2> times{timespec{.tv_sec = 1'200'000'000, .tv_nsec = 0},
+                                        timespec{.tv_sec = 1'300'000'000, .tv_nsec = 0}};
+    REQUIRE(utimensat(AT_FDCWD, (t.from / "Trip" / "deep").c_str(), times.data(), 0) == 0);
+    result = t.run(TransferKind::copy, {"Trip"});
+    CHECK(result.errors.empty());
+    Names names;
+    for (const fs::directory_entry& entry : fs::recursive_directory_iterator{t.to}) {
+        names.push_back(fs::relative(entry.path(), t.to).string());
+    }
+    std::ranges::sort(names);
+    CHECK(names ==
+          Names{"Trip", "Trip/a.jpg", "Trip/deep", "Trip/deep/b.jpg", "Trip/deep/big.bin"});
+    CHECK(fs::file_size(t.to / "Trip" / "deep" / "big.bin") == 40U << 20U);
+    CHECK(stat_of(t.to / "Trip" / "deep").st_mtim.tv_sec == 1'300'000'000);
+}
+
+TEST_CASE("transfer: a folder moved between disks: what did not arrive stays, with its folders") {
+    if (geteuid() == 0) {
+        return;  // root reads anything
+    }
+    for (const std::size_t threads : {std::size_t{1}, std::size_t{8}}) {
+        CAPTURE(threads);
+        Tree t;
+        for (int i = 0; i < 40; ++i) {
+            t.dir.write(std::format("from/Trip/deep/n{:02}.jpg", i), std::format("photo {}", i));
+        }
+        const fs::path locked = t.from / "Trip" / "deep" / "locked.jpg";
+        std::ofstream{locked} << "unreadable";
+        fs::permissions(locked, fs::perms::none);
+        const TransferResult result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                                 .source = t.from,
+                                                                 .names = {"Trip"},
+                                                                 .destination = t.to,
+                                                                 .force_copy = true,
+                                                                 .threads = threads},
+                                                                {}, {});
+        fs::permissions(locked, fs::perms::owner_all);
+        REQUIRE(result.errors.size() == 1);
+        CHECK(result.errors.front() == "Trip/deep/locked.jpg: Permission denied");
+        // Everything else arrived and left; the file that did not stays, with its folders.
+        CHECK(listing(t.to / "Trip" / "deep").size() == 41);  // b.jpg and the 40
+        CHECK(listing(t.from / "Trip") == Names{"deep"});
+        CHECK(listing(t.from / "Trip" / "deep") == Names{"locked.jpg"});
+        CHECK(result.files_done == 42);  // a.jpg, b.jpg, the 40
+        CHECK(result.placed == Names{"Trip"});
+        CHECK(result.items ==
+              std::vector<PlacedItem>{{.from = t.from / "Trip", .to = t.to / "Trip"}});
+    }
+}
+
 TEST_CASE("transfer: a folder without write permission gives errors, not a crash") {
     if (geteuid() == 0) {
         return;
@@ -301,6 +548,268 @@ TEST_CASE("transfer: a folder without write permission gives errors, not a crash
     REQUIRE(result.errors.size() == 2);
     CHECK(result.errors.front() == "notes.txt: Permission denied");
     CHECK(result.placed.empty());
+}
+
+TEST_CASE("transfer: an unpublished folder move never deletes its sources") {
+    for (const bool cancel : {false, true}) {
+        CAPTURE(cancel);
+        TempDir dir;
+        const fs::path from = dir.path / "from";
+        const fs::path to = dir.path / "to";
+        fs::create_directories(from / "Trip" / "deep");
+        fs::create_directories(to);
+        std::ofstream{from / "Trip" / "one"} << "one";
+        std::ofstream{from / "Trip" / "deep" / "two"} << "two";
+        const CancelToken token;
+        bool interrupted = false;
+        const TransferResult result = rummage::fs::run_transfer(
+            {.kind = TransferKind::move,
+             .source = from,
+             .names = {"Trip"},
+             .destination = to,
+             .force_copy = true,
+             .threads = 1},
+            token,
+            {.progress =
+                 [&](const TransferProgress& progress) {
+                     if (!interrupted && progress.files_done > 0) {
+                         interrupted = true;
+                         if (cancel) {
+                             token.cancel();
+                         } else {
+                             fs::create_directory(to / "Trip");  // publication must fail
+                         }
+                     }
+                 },
+             .resolve = nullptr});
+        CHECK(interrupted);
+        CHECK(result.cancelled == cancel);
+        CHECK(result.items.empty());
+        CHECK(result.files_done == 0);
+        CHECK(read_file(from / "Trip" / "one") == "one");
+        CHECK(read_file(from / "Trip" / "deep" / "two") == "two");
+        if (cancel) {
+            CHECK(listing(to).empty());
+        } else {
+            REQUIRE(result.errors.size() == 1);
+            CHECK(listing(to) == Names{"Trip"});
+            CHECK(listing(to / "Trip").empty());
+        }
+    }
+}
+
+TEST_CASE("transfer: a queued source replaced with a folder or link is refused") {
+    for (const bool link : {false, true}) {
+        CAPTURE(link);
+        Tree t;
+        bool changed = false;
+        const TransferResult result = rummage::fs::run_transfer(
+            {.kind = TransferKind::copy,
+             .source = t.from,
+             .names = {"notes.txt"},
+             .destination = t.to,
+             .threads = 1},
+            {},
+            {.progress =
+                 [&](const TransferProgress& progress) {
+                     if (!changed && progress.current == "notes.txt") {
+                         changed = true;
+                         fs::rename(t.from / "notes.txt", t.from / "original");
+                         if (link) {
+                             fs::create_symlink("original", t.from / "notes.txt");
+                         } else {
+                             fs::create_directory(t.from / "notes.txt");
+                         }
+                     }
+                 },
+             .resolve = nullptr});
+        CHECK(changed);
+        CHECK(result.errors == Names{"notes.txt: changed while being copied"});
+        CHECK(result.items.empty());
+        CHECK(listing(t.to).empty());
+    }
+}
+
+TEST_CASE("transfer: a folder named like a sidecar is only copied when selected itself") {
+    for (const bool select_directory : {false, true}) {
+        CAPTURE(select_directory);
+        Tree t;
+        fs::remove(t.from / "P1.ORF.xmp");
+        fs::create_directory(t.from / "P1.ORF.xmp");
+        std::ofstream{t.from / "P1.ORF.xmp" / "contents"} << "folder contents";
+        const TransferResult result = rummage::fs::run_transfer(
+            {.kind = TransferKind::copy,
+             .source = t.from,
+             .names = select_directory ? Names{"P1.ORF", "P1.ORF.xmp"} : Names{"P1.ORF"},
+             .destination = t.to,
+             .threads = 1},
+            {}, {});
+        CHECK(result.errors.empty());
+        CHECK(read_file(t.to / "P1.ORF") == "P1.ORF");
+        CHECK(read_file(t.to / "P1_01.ORF.xmp") == "P1_01.ORF.xmp");
+        CHECK(fs::exists(t.to / "P1.ORF.xmp") == select_directory);
+        if (select_directory) {
+            CHECK(result.placed == Names{"P1.ORF", "P1.ORF.xmp"});
+            CHECK(read_file(t.to / "P1.ORF.xmp" / "contents") == "folder contents");
+        } else {
+            CHECK(result.placed == Names{"P1.ORF"});
+        }
+    }
+}
+
+TEST_CASE("transfer: a copied move does not unlink a source replaced during copying") {
+    Tree t;
+    bool changed = false;
+    const TransferResult result =
+        t.run(TransferKind::move, {"notes.txt"},
+              {.progress =
+                   [&](const TransferProgress& progress) {
+                       if (!changed && progress.bytes_done > 0) {
+                           changed = true;
+                           fs::rename(t.from / "notes.txt", t.from / "original");
+                           std::ofstream{t.from / "notes.txt"} << "replacement";
+                       }
+                   },
+               .resolve = nullptr},
+              true);
+    CHECK(changed);
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    CHECK(read_file(t.from / "notes.txt") == "replacement");
+    CHECK(result.errors == Names{"notes.txt: changed while being moved"});
+}
+
+TEST_CASE("transfer: copied moves of hardlinked files remove every original name") {
+    for (const bool folder : {false, true}) {
+        CAPTURE(folder);
+        Tree t;
+        const fs::path parent = folder ? t.from / "Trip" : t.from;
+        std::ofstream{parent / "first"} << "shared bytes";
+        fs::create_hard_link(parent / "first", parent / "second");
+        const TransferResult result =
+            t.run(TransferKind::move, folder ? Names{"Trip"} : Names{"first", "second"}, {}, true);
+        CHECK(result.errors.empty());
+        CHECK_FALSE(fs::exists(parent / "first"));
+        CHECK_FALSE(fs::exists(parent / "second"));
+        const fs::path destination = folder ? t.to / "Trip" : t.to;
+        CHECK(read_file(destination / "first") == "shared bytes");
+        CHECK(read_file(destination / "second") == "shared bytes");
+    }
+}
+
+TEST_CASE("transfer: a replaced source inside a merge stays without a second folder error") {
+    TempDir dir;
+    const fs::path from = dir.path / "from";
+    const fs::path to = dir.path / "to";
+    fs::create_directories(from / "Trip");
+    fs::create_directories(to / "Trip");
+    std::ofstream{from / "Trip" / "photo"} << "original";
+    bool changed = false;
+    const TransferResult result = rummage::fs::run_transfer(
+        {.kind = TransferKind::move,
+         .source = from,
+         .names = {"Trip"},
+         .destination = to,
+         .force_copy = true},
+        {},
+        {.progress =
+             [&](const TransferProgress& progress) {
+                 if (!changed && progress.bytes_done > 0) {
+                     changed = true;
+                     fs::rename(from / "Trip" / "photo", from / "saved");
+                     std::ofstream{from / "Trip" / "photo"} << "replacement";
+                 }
+             },
+         .resolve = [](const Conflict&) { return Resolution::replace; }});
+    CHECK(changed);
+    CHECK(result.errors == Names{"Trip/photo: changed while being moved"});
+    CHECK(read_file(from / "Trip" / "photo") == "replacement");
+    CHECK(read_file(to / "Trip" / "photo") == "original");
+    CHECK(result.items ==
+          std::vector<PlacedItem>{{.from = from / "Trip" / "photo", .to = to / "Trip" / "photo"}});
+}
+
+TEST_CASE("transfer: preexisting destination sidecars exclude their photo from undo") {
+    for (const bool with_source_sidecar : {false, true}) {
+        CAPTURE(with_source_sidecar);
+        Tree t;
+        if (!with_source_sidecar) {
+            fs::remove(t.from / "P1.ORF.xmp");
+            fs::remove(t.from / "P1_01.ORF.xmp");
+        }
+        std::ofstream{t.to / "P1_02.ORF.xmp"} << "untouched sidecar";
+        const TransferResult result = t.run(TransferKind::copy, {"P1.ORF"});
+        CHECK(result.errors.empty());
+        CHECK(result.placed == Names{"P1.ORF"});
+        CHECK(result.items.empty());
+        CHECK(result.undo_excluded == 1);
+        CHECK(read_file(t.to / "P1_02.ORF.xmp") == "untouched sidecar");
+    }
+}
+
+TEST_CASE("transfer: a failed sidecar never makes a merged move complete or undo unsafe") {
+    Tree t;
+    fs::create_directories(t.to / "Trip");
+    fs::rename(t.from / "P1.ORF", t.from / "Trip" / "P1.ORF");
+    fs::rename(t.from / "P1.ORF.xmp", t.from / "Trip" / "P1.ORF.xmp");
+    std::ofstream{t.to / "Trip" / "P1.ORF.xmp"} << "old sidecar";
+    bool changed = false;
+    const TransferResult result =
+        t.run(TransferKind::move, {"Trip"},
+              {.progress =
+                   [&](const TransferProgress&) {
+                       if (!changed && fs::exists(t.to / "Trip" / "P1.ORF")) {
+                           changed = true;
+                           fs::rename(t.from / "Trip" / "P1.ORF.xmp", t.from / "saved.xmp");
+                           fs::create_directory(t.from / "Trip" / "P1.ORF.xmp");
+                       }
+                   },
+               .resolve = [](const Conflict&) { return Resolution::replace; }},
+              true);
+    CHECK(changed);
+    CHECK(result.undo_excluded == 1);
+    CHECK(read_file(t.to / "Trip" / "P1.ORF.xmp") == "old sidecar");
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors.front() == "Trip/P1.ORF.xmp: changed while being copied");
+    for (const PlacedItem& item : result.items) {
+        CHECK(item.to != t.to / "Trip" / "P1.ORF");
+    }
+    CHECK(fs::is_directory(t.from / "Trip"));
+}
+
+TEST_CASE("transfer: mapped destination names rename photos and their sidecars") {
+    Tree t;
+    const TransferResult result =
+        rummage::fs::run_transfer({.kind = TransferKind::move,
+                                   .source = t.from,
+                                   .names = {"P1.ORF", "notes.txt"},
+                                   .destination = t.to,
+                                   .destination_names = {"Original.ORF", "Original.txt"}},
+                                  {}, {});
+    CHECK(result.errors.empty());
+    CHECK(result.placed == Names{"Original.ORF", "Original.txt"});
+    CHECK(listing(t.to) ==
+          Names{"Original.ORF", "Original.ORF.xmp", "Original.txt", "Original_01.ORF.xmp"});
+    CHECK(read_file(t.to / "Original.ORF.xmp") == "P1.ORF.xmp");
+    CHECK(result.items ==
+          std::vector<PlacedItem>{{.from = t.from / "P1.ORF", .to = t.to / "Original.ORF"},
+                                  {.from = t.from / "notes.txt", .to = t.to / "Original.txt"}});
+}
+
+TEST_CASE("transfer: invalid destination mappings are refused before any item moves") {
+    Tree t;
+    for (const Names& names :
+         {Names{"one", "two"}, Names{"../escape"}, Names{"/absolute"}, Names{"."}, Names{""}}) {
+        const TransferResult result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                                 .source = t.from,
+                                                                 .names = {"notes.txt"},
+                                                                 .destination = t.to,
+                                                                 .destination_names = names},
+                                                                {}, {});
+        CHECK(result.refused == "Invalid destination names");
+        CHECK(result.items.empty());
+        CHECK(fs::exists(t.from / "notes.txt"));
+        CHECK(listing(t.to).empty());
+    }
 }
 
 TEST_CASE("transfer queue: progress, a question answered later, the result") {

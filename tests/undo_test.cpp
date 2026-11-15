@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/conflict_dialog.hpp"
 #include "temp_dir.hpp"
 
 using rummage::core::EventLoop;
@@ -184,6 +186,105 @@ TEST_CASE("undo: copies go to the trash, never deleted; redo brings them back") 
     CHECK(f.message() == "Redone: “P1.ORF” restored");
 }
 
+TEST_CASE("undo: after a merge only what the copy made goes; what was there stays") {
+    Fixture f;
+    // album/photos is there already, with a file of its own and an older P2.ORF.
+    fs::create_directories(f.album / "photos");
+    std::ofstream{f.album / "photos" / "mine.txt"} << "mine";
+    std::ofstream{f.album / "photos" / "P2.ORF"} << "album's P2";
+    rummage::views::ConflictDialog& dialog = f.browser.conflict_dialog();
+    f.show(f.root, "photos");
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    CHECK(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(f.press(key(XKB_KEY_r)));  // merge the folders
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(dialog.conflict().name == "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_r)));  // replace the older P2.ORF
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.album / "photos") == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF", "mine.txt"});
+
+    f.run(key(XKB_KEY_z, kCtrl));
+    // The new files go to the trash; the folder and what it held before stay.
+    CHECK(listing(f.album / "photos") == Names{"P2.ORF", "mine.txt"});
+    CHECK(listing(f.trash / "files") == Names{"P1.ORF", "P1.ORF.xmp"});
+}
+
+TEST_CASE("undo: a move merged into a folder goes back into its own, made again") {
+    Fixture f;
+    fs::create_directories(f.album / "photos");
+    std::ofstream{f.album / "photos" / "mine.txt"} << "mine";
+    std::ofstream{f.album / "photos" / "P2.ORF"} << "album's P2";
+    rummage::views::ConflictDialog& dialog = f.browser.conflict_dialog();
+    f.show(f.root, "photos");
+    CHECK(f.press(key(XKB_KEY_x, kCtrl)));
+    f.show(f.album, "");
+    CHECK(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(f.press(key(XKB_KEY_r)));  // merge
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(dialog.conflict().name == "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_s)));  // keep album's P2.ORF: photos/P2.ORF stays behind
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.album / "photos") == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF", "mine.txt"});
+    REQUIRE(listing(f.photos) == Names{"P2.ORF"});
+
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    CHECK(listing(f.album / "photos") == Names{"P2.ORF", "mine.txt"});
+    CHECK(f.message() == "Undone: “P1.ORF” back in photos");
+
+    // All of it moved this time: the emptied photos folder is gone, and made again by the undo.
+    fs::remove(f.album / "photos" / "P2.ORF");
+    f.show(f.root, "photos");
+    CHECK(f.press(key(XKB_KEY_x, kCtrl)));
+    f.show(f.album, "");
+    CHECK(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(f.press(key(XKB_KEY_r)));
+    REQUIRE(f.settle());
+    REQUIRE_FALSE(fs::exists(f.photos));
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    CHECK(listing(f.album / "photos") == Names{"mine.txt"});
+}
+
+TEST_CASE("undo: replaced files are said, never brought back") {
+    Fixture f;
+    std::ofstream{f.album / "P2.ORF"} << "album's P2";
+    rummage::views::ConflictDialog& dialog = f.browser.conflict_dialog();
+    f.show(f.photos, "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    CHECK(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(f.press(key(XKB_KEY_r)));
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.album) == Names{"P2.ORF"});
+
+    CHECK(f.press(key(XKB_KEY_z, kCtrl)));  // only a replaced file: nothing to bring back
+    CHECK(f.message() == "1 item cannot be safely undone");
+    CHECK(listing(f.album) == Names{"P2.ORF"});
+    CHECK(f.press(key(XKB_KEY_z, kCtrl)));
+    CHECK(f.message() == "Nothing to undo");
+
+    // Everything in photos: P1.ORF is new, P2.ORF replaces album's again.
+    f.show(f.photos, "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_a, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    CHECK(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(dialog.conflict().name == "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_r)));
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.album) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.album) == Names{"P2.ORF"});
+    CHECK(f.message() == "Undone: “P1.ORF” moved to the trash; 1 item cannot be safely undone");
+}
+
 TEST_CASE("undo: Delete is undone by restoring; a permanent delete cannot be") {
     Fixture f;
     f.show(f.photos, "P2.ORF");
@@ -251,4 +352,106 @@ TEST_CASE("undo: what the messages say") {
     CHECK(rummage::views::describe(
               {.kind = Kind::move, .items = {{.from = "/a/x.txt", .to = "/b/x.txt"}}}) ==
           "“x.txt” back in b");
+}
+
+TEST_CASE("undo: dual-pane merged transfers preserve the destination through undo and redo") {
+    Fixture f;
+    bool move = false;
+    SUBCASE("copy") {}
+    SUBCASE("move") { move = true; }
+    fs::create_directories(f.album / "photos");
+    std::ofstream{f.album / "photos" / "mine.txt"} << "mine";
+    f.show(f.root, "photos");
+    f.browser.toggle_split();
+    f.show(f.album, "");
+    f.browser.focus_pane(0);
+    f.browser.details().folder()->select_name("photos");
+    f.browser.transfer_to_other_pane(move);
+    auto& dialog = f.browser.conflict_dialog();
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    REQUIRE(dialog.conflict().directory);
+    REQUIRE(f.press(key(XKB_KEY_r)));
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.album / "photos") == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF", "mine.txt"});
+    CHECK(fs::exists(f.photos) == !move);
+
+    // Undo belongs to the browser, even when the receiving pane has focus.
+    f.browser.focus_pane(1);
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.album / "photos") == Names{"mine.txt"});
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    f.run(key(XKB_KEY_Z, kCtrlShift));
+    CHECK(listing(f.album / "photos") == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF", "mine.txt"});
+    // A merge records its leaf items. Redo moves those again; it leaves the source folder
+    // recreated by undo in place rather than claiming that folder as one of its own items.
+    if (move) {
+        CHECK(listing(f.photos).empty());
+    } else {
+        CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    }
+}
+
+TEST_CASE("undo: kept-both moves restore their original names and sidecars, then redo") {
+    Fixture f;
+    bool merge = false;
+    SUBCASE("top-level file") {}
+    SUBCASE("file inside a merged folder") { merge = true; }
+    const fs::path destination = merge ? f.album / "photos" : f.album;
+    fs::create_directories(destination);
+    std::ofstream{destination / "P1.ORF"} << "destination photo";
+    std::ofstream{destination / "P1.ORF.xmp"} << "destination sidecar";
+    f.show(merge ? f.root : f.photos, merge ? "photos" : "P1.ORF");
+    REQUIRE(f.press(key(XKB_KEY_x, kCtrl)));
+    f.show(f.album, "");
+    REQUIRE(f.press(key(XKB_KEY_v, kCtrl)));
+    auto& dialog = f.browser.conflict_dialog();
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    if (merge) {
+        REQUIRE(dialog.conflict().directory);
+        REQUIRE(f.press(key(XKB_KEY_r)));
+        REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    }
+    REQUIRE(dialog.conflict().name == "P1.ORF");
+    REQUIRE(f.press(key(XKB_KEY_Return)));  // Keep Both
+    REQUIRE(f.settle());
+    REQUIRE(fs::exists(destination / "P1 2.ORF"));
+    REQUIRE(fs::exists(destination / "P1 2.ORF.xmp"));
+    CHECK_FALSE(fs::exists(f.photos / "P1.ORF"));
+
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    CHECK(listing(destination) == Names{"P1.ORF", "P1.ORF.xmp"});
+    f.run(key(XKB_KEY_Z, kCtrlShift));
+    CHECK(fs::exists(destination / "P1 2.ORF"));
+    CHECK(fs::exists(destination / "P1 2.ORF.xmp"));
+    CHECK_FALSE(fs::exists(f.photos / "P1.ORF"));
+    CHECK_FALSE(fs::exists(f.photos / "P1.ORF.xmp"));
+    const auto read = [](const fs::path& file) {
+        std::ifstream stream{file};
+        return std::string{std::istreambuf_iterator<char>{stream}, {}};
+    };
+    CHECK(read(destination / "P1.ORF") == "destination photo");
+    CHECK(read(destination / "P1.ORF.xmp") == "destination sidecar");
+    CHECK(read(destination / "P1 2.ORF") == "P1.ORF");
+    CHECK(read(destination / "P1 2.ORF.xmp") == "P1.ORF.xmp");
+}
+
+TEST_CASE("undo: a preexisting destination sidecar keeps its photo group out of undo") {
+    Fixture f;
+    bool move = false;
+    SUBCASE("copy") {}
+    SUBCASE("move") { move = true; }
+    std::ofstream{f.album / "P2.ORF.xmp"} << "destination's sidecar";
+    f.show(f.photos, "P2.ORF");  // P2 has no source sidecar
+    REQUIRE(f.press(key(move ? XKB_KEY_x : XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    REQUIRE(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.album) == Names{"P2.ORF", "P2.ORF.xmp"});
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(f.message() == "1 item cannot be safely undone");
+    CHECK(listing(f.album) == Names{"P2.ORF", "P2.ORF.xmp"});
+    CHECK_FALSE(fs::exists(f.trash / "files" / "P2.ORF.xmp"));
+    std::ifstream sidecar{f.album / "P2.ORF.xmp"};
+    CHECK(std::string{std::istreambuf_iterator<char>{sidecar}, {}} == "destination's sidecar");
 }

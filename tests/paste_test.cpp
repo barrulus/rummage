@@ -208,6 +208,56 @@ TEST_CASE("paste: a taken name asks; skip, replace, both for the rest, stop") {
     CHECK(f.browser.status_bar().message() == "Stopped: 0 files copied so far");
 }
 
+TEST_CASE("paste: Merge for the rest merges folders; the files inside are still asked") {
+    Fixture f;
+    rummage::views::ConflictDialog& dialog = f.browser.conflict_dialog();
+    for (const char* folder : {"one", "two"}) {
+        fs::create_directories(f.root / "photos" / folder);
+        fs::create_directories(f.root / "album" / folder);
+        std::ofstream{f.root / "photos" / folder / "x.jpg"} << "new";
+        std::ofstream{f.root / "album" / folder / "x.jpg"} << "old";
+    }
+    f.show(f.root / "photos", {"one", "two"});
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    f.show(f.root / "album", {});
+    CHECK(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(dialog.conflict().name == "one");
+    CHECK(f.press(key(XKB_KEY_a)));
+    CHECK(f.press(key(XKB_KEY_r)));  // merge, for the rest
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(dialog.conflict().name == "x.jpg");  // one/x.jpg: asked all the same
+    CHECK(f.press(key(XKB_KEY_s)));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    CHECK(dialog.conflict().name == "x.jpg");  // two merged without a question, its x.jpg asked
+    CHECK(dialog.conflict().destination == f.root / "album" / "two");
+    CHECK(f.press(key(XKB_KEY_r)));
+    REQUIRE(f.settle());
+    CHECK(read_file(f.root / "album" / "one" / "x.jpg") == "old");
+    CHECK(read_file(f.root / "album" / "two" / "x.jpg") == "new");
+}
+
+TEST_CASE("paste: Shift+Escape stops a transfer on its way, and says when there is none") {
+    Fixture f;
+    f.show(f.root / "album", {});
+    CHECK(f.press(key(XKB_KEY_Escape, {.shift = true})));
+    CHECK(f.browser.status_bar().message() == "Nothing is being copied, moved or deleted");
+
+    // A copy held on a question: the card put away unanswered, the transfer still waits.
+    rummage::views::ConflictDialog& dialog = f.browser.conflict_dialog();
+    f.show(f.root / "photos", {"P2.ORF"});
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    f.show(f.root / "album", {});
+    CHECK(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    dialog.close();
+    CHECK(f.browser.loading());
+    CHECK(f.press(key(XKB_KEY_Escape, {.shift = true})));
+    REQUIRE(f.settle());
+    CHECK(f.browser.status_bar().message() == "Stopped: 0 files copied so far");
+    CHECK(read_file(f.root / "album" / "P2.ORF") == "album's own");
+}
+
 TEST_CASE("paste: every key listed for the question works on it") {
     Fixture f;
     rummage::views::ConflictDialog& dialog = f.browser.conflict_dialog();
@@ -231,4 +281,54 @@ TEST_CASE("paste: every key listed for the question works on it") {
             REQUIRE(f.settle());
         }
     }
+}
+
+TEST_CASE("paste: a rebound stop command works from Quick Look and the palette") {
+    struct ResetBindings {
+        ~ResetBindings() { (void)rummage::views::configure_shortcuts({}); }
+    } reset;
+
+    REQUIRE(rummage::views::configure_shortcuts({{"stop_transfer", "Ctrl+Alt+s"}}).empty());
+    Fixture f;
+    f.show(f.root / "photos", {"P2.ORF"});
+    f.browser.toggle_split();
+    f.show(f.root / "album", {});
+    f.browser.focus_pane(0);
+    f.browser.details().folder()->select_name("P2.ORF");
+    f.browser.transfer_to_other_pane(false);
+    auto& dialog = f.browser.conflict_dialog();
+    REQUIRE(run_until(f.loop, [&] { return dialog.is_open(); }));
+    dialog.close();  // leave the worker waiting so cancellation cannot race a finished copy
+    f.browser.focus_pane(1);
+
+    SUBCASE("Quick Look keeps Escape for closing, and uses the configured stop chord") {
+        f.folder()->select_name("P2.ORF");
+        REQUIRE(f.press(key(XKB_KEY_space)));
+        REQUIRE(f.browser.quick_look().is_open());
+        REQUIRE(f.press(key(XKB_KEY_Escape)));
+        CHECK_FALSE(f.browser.quick_look().is_open());
+        CHECK(f.browser.loading());
+        REQUIRE(f.press(key(XKB_KEY_space)));
+        REQUIRE(f.browser.quick_look().is_open());
+        REQUIRE(f.press(key(XKB_KEY_s, {.ctrl = true, .alt = true})));
+        CHECK(f.browser.quick_look().is_open());
+    }
+    SUBCASE("palette offers the running transfer with its configured chord") {
+        const auto items = f.browser.palette_items();
+        const auto stop =
+            std::ranges::find(items, "command:stop_transfer", &rummage::views::PaletteItem::id);
+        REQUIRE(stop != items.end());
+        CHECK(stop->keys == "Ctrl+Alt+s");
+        REQUIRE(f.press(key(XKB_KEY_k, {.ctrl = true})));
+        f.browser.command_palette().set_query("Stop the Transfer");
+        REQUIRE(f.browser.command_palette().highlighted());
+        REQUIRE(f.press(key(XKB_KEY_Return)));
+        CHECK_FALSE(f.browser.command_palette().is_open());
+    }
+    REQUIRE(f.settle());
+    CHECK(f.browser.status_bar().message() == "Stopped: 0 files copied so far");
+    CHECK(read_file(f.root / "album" / "P2.ORF") == "album's own");
+    const auto items = f.browser.palette_items();
+    CHECK(std::ranges::find(items, "command:stop_transfer", &rummage::views::PaletteItem::id) ==
+          items.end());
 }
