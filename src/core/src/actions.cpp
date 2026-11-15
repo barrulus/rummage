@@ -30,6 +30,13 @@ std::vector<Action> action_registry(std::span<const Action> custom) {
                                  .selection = Action::Selection::any,
                                  .kind = Action::Kind::copy_location,
                                  .placement = Action::Placement::menu},
+                                {.id = "copy_name",
+                                 .label = "Copy Name",
+                                 .argv = {},
+                                 .mime = {},
+                                 .selection = Action::Selection::many,
+                                 .kind = Action::Kind::copy_name,
+                                 .placement = Action::Placement::menu},
                                 {.id = "extract_here",
                                  .label = "Extract Here",
                                  .argv = {},
@@ -48,7 +55,8 @@ std::vector<Action> action_registry(std::span<const Action> custom) {
         const auto found = std::ranges::find(actions, action.id, &Action::id);
         if (found == actions.end()) {
             actions.push_back(action);
-        } else if (found->kind != Action::Kind::copy_location) {
+        } else if (found->kind != Action::Kind::copy_location &&
+                   found->kind != Action::Kind::copy_name) {
             *found = action;
         }
     }
@@ -62,8 +70,8 @@ std::optional<std::string> action_problem(const Action& action) {
             std::string::npos) {
         return "id must contain only letters, digits, '_' or '-'";
     }
-    if (action.id == "copy_location") {
-        return "copy_location is a built-in action and cannot be replaced";
+    if (action.id == "copy_location" || action.id == "copy_name") {
+        return action.id + " is a built-in action and cannot be replaced";
     }
     if (action.label.empty() || action.label.find('\0') != std::string::npos) {
         return "label must be nonempty and contain no NUL";
@@ -128,7 +136,8 @@ std::optional<std::string> action_problem(const Action& action) {
 }
 
 bool action_matches(const Action& action, const ActionContext& context) {
-    if (!action.enabled || context.trash || context.directory.empty()) {
+    if (!action.enabled || (context.trash && action.kind != Action::Kind::copy_name) ||
+        context.directory.empty()) {
         return false;
     }
     const auto count = context.targets.size();

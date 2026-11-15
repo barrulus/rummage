@@ -406,6 +406,13 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .command = Command::copy},
     Shortcut{.group = "Files",
+             .keys = "Ctrl+Alt+C",
+             .action = "Copy Name",
+             .scope = scope::kViews,
+             .modifiers = {.ctrl = true, .alt = true},
+             .keysyms = {XKB_KEY_c, XKB_KEY_C},
+             .action_id = "copy_name"},
+    Shortcut{.group = "Files",
              .keys = "Ctrl+X",
              .action = "Cut (Escape: keep them)",
              .scope = scope::kViews | scope::kQuickLook,
@@ -664,6 +671,9 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::go_to;
     for (std::size_t i = 0; i < kShortcuts.size(); ++i) {
         const auto& entry = kShortcuts[i];
+        if (!entry.action_id.empty() &&
+            (name == entry.action_id || name == "action:" + std::string{entry.action_id}))
+            return i;
         if (command != Command::none && entry.command == command)
             return i;
         if (name == "select_all" && entry.action == "Select all")
@@ -724,6 +734,8 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
                                              std::span<const core::Action> custom, bool apply) {
     Bindings next;
     for (const auto& action : core::action_registry(custom)) {
+        if (action.id == "copy_name")
+            continue;
         const bool bundled = action.id == "copy_location" || action.id == "extract_here" ||
                              action.id == "extract_to";
         if (!bindings.contains("action:" + action.id) &&
@@ -861,6 +873,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "rename",
                              "new_folder",
                              "copy",
+                             "copy_name",
                              "cut",
                              "paste",
                              "trash",

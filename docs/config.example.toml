@@ -174,6 +174,7 @@ follow_accent = true
 # rename = "F2"                 # Rename the focused file
 # new_folder = "Ctrl+Shift+n"
 # copy = "Ctrl+c"               # Copy selected files
+# copy_name = "Ctrl+Alt+c"       # Copy selected names as text, including extensions
 # cut = "Ctrl+x"                # Cut selected files; Escape cancels the cut
 # paste = "Ctrl+v"              # Paste into the current folder
 # trash = "Delete"              # Also keypad Delete by default
@@ -217,8 +218,9 @@ follow_accent = true
 # defaults at startup, previous bindings on reload. Check before using:
 # rummage --config ~/.config/rummage/config.example.toml --check-config
 
-# Registry actions also accept bindings: copy_location, extract_here, extract_to,
-# and "action:<id>" for any configured action. They have no default shortcut.
+# Registry actions also accept bindings: copy_name, copy_location, extract_here, extract_to,
+# and "action:<id>" for any configured action. Copy Name defaults to Ctrl+Alt+C;
+# the other registry actions have no default shortcut.
 # copy_location = "Ctrl+Shift+c"
 # Uncomment bindings only after enabling the corresponding action below.
 # "action:compress" = "Ctrl+Alt+z"
@@ -357,8 +359,9 @@ follow_accent = true
 # Add enabled = false to a block to disable it without deleting it.
 #
 # Built-in Copy Location copies selected paths as text (one per line), or the current folder
-# on empty space. It cannot be replaced. Actions are not offered in the trash; external actions
-# are also unavailable in file-picker mode.
+# on empty space. Built-in Copy Name copies selected filenames including extensions, one
+# per line, and also works in Trash using displayed names. Neither action can be replaced.
+# Other registry actions are not offered in Trash; external actions are unavailable in file-picker mode.
 # Extract Here and Extract To… automatically detect installed programs on PATH:
 #   unrar for RAR, then 7zz/7z for ZIP/RAR/7z; otherwise file-roller, unzip (ZIP),
 #   gzip (single .gz), tar (tar / compressed tar),
@@ -417,6 +420,7 @@ follow_accent = true
 #   { id = "erase" },
 #   { id = "properties", separator = true },
 #   { id = "action:copy_location" },
+#   { id = "action:copy_name" },
 #   { id = "action:extract_here" },
 #   { id = "action:extract_to" },
 #   { remaining = true },
@@ -439,12 +443,14 @@ follow_accent = true
 #   { id = "properties", separator = true },
 # ]
 #
-# Trash entries show Restore, Delete Permanently and read-only Properties; empty space shows Empty Trash.
+# Trash entries show Restore, Delete Permanently, read-only Properties and Copy Name;
+# empty space shows Empty Trash.
 # These are alternative contexts, so all three never appear together.
 # trash = [
 #   { id = "restore" },
 #   { id = "erase", separator = true },
 #   { id = "properties", separator = true },
+#   { id = "action:copy_name" },
 #   { id = "empty_trash" },
 # ]
 #
@@ -467,8 +473,8 @@ follow_accent = true
 #              sort:type (Type), sort:created, sort:accessed, sort:owner, sort:group,
 #              sort:permissions, sort:location, sort:link_target, then sort:ascending (Ascending),
 #              sort:descending (Descending). The current key and direction are checked.
-# Actions disappears when empty. The default registry puts Copy Location, Extract Here
-# and Extract To at the top level; extraction only appears for applicable archive selections.
+# Actions disappears when empty. The default registry puts Copy Location, Copy Name,
+# Extract Here and Extract To at the top level; extraction only appears for applicable archive selections.
 # { remaining = true } above keeps other applicable top-level actions (placement = "menu")
 # before Actions, including the Compress example. The actions reference keeps submenu actions.
 # Explicit action references take precedence over their placement setting.
@@ -530,7 +536,7 @@ follow_accent = true
 # sort:permissions, sort:location, sort:link_target, sort:ascending, sort:descending, actions,
 # panes, toggle_split, switch_pane, swap_panes, orient_panes, open_other_pane,
 # same_other_pane, copy_other_pane, move_other_pane,
-# action:copy_location, action:extract_here, action:extract_to,
+# action:copy_location, action:copy_name, action:extract_here, action:extract_to,
 # mount, unmount, eject, remove_bookmark.
 # open_with and new_file include their dynamically discovered applications/templates;
 # sort and actions include their remaining children. Each ID may appear once per layout.

@@ -88,6 +88,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
                  [this](const fs::TransferRequest& request, const fs::TransferResult& result) {
                      transfer_done(request, result);
                  }} {
+    info_pane_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
+    properties_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
     areas_[0] = std::make_unique<BrowsingArea>(*this);
     add_pane(0);
     palette_.set_chosen_handler([this](const std::string& id) {
@@ -196,6 +198,7 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    info_pane_.clear_text_focus();
     leave_motion();
     remember_folder(pane());
     filter_focused_ = false;
@@ -1589,6 +1592,9 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         properties.enabled = names.size() == 1;
         properties.action = [this] { show_properties(); };
         items.push_back(std::move(properties));
+        for (auto& item : action_items(action_context(folder))) {
+            items.push_back(std::move(item));
+        }
         return items;
     }
     const auto add = [&items](std::string id, std::string label, std::string keys,
@@ -1814,6 +1820,7 @@ void Browser::show_properties() {
     menu_.close();
     palette_.close();
     quick_look_.close();
+    info_pane_.clear_text_focus();
     filter_focused_ = false;
     properties_.open(
         path,
@@ -1944,6 +1951,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
+    info_pane_.clear_text_focus();
     cancel_operation_motion();
     remember_folder(pane());
     pane().columns.open(directory);
@@ -2219,6 +2227,7 @@ void Browser::set_info_visible(bool visible) {
     info_visible_ = visible;
     if (!visible) {
         info_pane_.cancel_measurement();
+        info_pane_.clear_text_focus();
     }
     for (const std::unique_ptr<Pane>& each : area().tabs) {
         each->grid.set_info_visible(visible);
@@ -2558,6 +2567,11 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
 
 void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now) {
+    if (password_.is_open() || errors_.is_open() || conflict_.is_open() || confirm_.is_open() ||
+        mount_password_.is_open() || location_.is_open() || settings_.is_open() ||
+        properties_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
+        quick_look_.is_open() || editor_.active())
+        info_pane_.clear_text_focus();
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
     note_location();
@@ -2892,7 +2906,7 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (status_bar_.claims(x, y)) {
         return hand(status_bar_.clickable_at(x, y));
     }
-    return hand(info_pane_.clickable_at(x, y));
+    return info_pane_.text_at(x, y) ? Shape::text : hand(info_pane_.clickable_at(x, y));
 }
 
 void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now) {
@@ -3073,6 +3087,13 @@ void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point 
             }
             return;
         }
+    }
+    if (!button_held_ && info_pane_.pointer(event, now)) {
+        if (event.kind == Kind::press) {
+            filter_focused_ = false;
+            sidebar_.set_focused(false);
+        }
+        return;
     }
     if (!button_held_ && shared_info_bounds_.contains(event.x, event.y)) {
         if (event.kind == Kind::scroll)
@@ -4331,6 +4352,8 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return handled;
     }
     if (!sidebar_.focused()) {
+        if (info_pane_.text_key(event, now))
+            return true;
         if (const auto id = action_for(event); !id.empty()) {
             run_action(id);
             return true;
@@ -4347,10 +4370,17 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         // The view does not see keys meanwhile.
         return listed(event, scope::kSidebar) && sidebar_.key(event);
     }
-    return view_key(event, now);
+    const auto before = current_folder();
+    const auto revision = before ? before->selection_revision() : 0;
+    const bool handled = view_key(event, now);
+    if (current_folder() != before || (before && before->selection_revision() != revision))
+        info_pane_.clear_text_focus();
+    return handled;
 }
 
 void Browser::run(Command command, Clock::time_point now) {
+    if (command < Command::scroll_preview_up || command > Command::scroll_preview_page_down)
+        info_pane_.clear_text_focus();
     if (!panes_enabled_ && command >= Command::toggle_split)
         return;
     if (const std::shared_ptr<Folder> shown = current_folder(); shown && shown->is_trash()) {

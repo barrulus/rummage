@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <limits>
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "draw_helpers.hpp"
 #include "rummage/fs/icon.hpp"
@@ -64,9 +66,11 @@ std::string rating_of(int rating) {
 // Lays the pane out top to bottom: one column of centered content.
 class Writer {
 public:
-    Writer(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette)
+    Writer(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
+           SelectableText& text)
         : renderer_{renderer},
           palette_{palette},
+          text_{text},
           width_{std::min(bounds.width - (2.0F * kPadding), kMaxColumn)},
           left_{bounds.x + ((bounds.width - width_) / 2.0F)},
           y_{bounds.y + kTop} {}
@@ -79,11 +83,13 @@ public:
 
     void skip(float height) { y_ += height; }
 
-    void centered(std::string_view text, float size, ui::Color color, float advance) {
+    void centered(std::string_view id, std::string_view text, float size, ui::Color color,
+                  float advance) {
         const float w = std::min(text_width(renderer_, text, size), width_);
-        renderer_.draw_text(text, left_ + ((width_ - w) / 2.0F), y_, size, color, width_,
-                            ui::Ellipsis::middle);
-        y_ += advance;
+        const float height = text_.draw(renderer_, std::string{id}, text,
+                                        {left_ + ((width_ - w) / 2.0F), y_, w, 0.0F}, size, color,
+                                        palette_.secondary_container);
+        y_ += std::max(advance, height + 4.0F);
     }
 
     // A section: a thin line, then its title.
@@ -96,30 +102,34 @@ public:
         y_ += 20.0F;
     }
 
-    // A label at the left, its value at the right (cut in the middle when long); nothing when the
-    // value is empty.
+    // Labels and values stay readable in narrow panes; soft wraps preserve copied text.
     void row(std::string_view label, const std::string& value,
              ui::Typeface typeface = ui::Typeface::proportional) {
         if (value.empty()) {
             return;
         }
-        const float label_width =
-            renderer_.draw_text(label, left_, y_, kTextSize, palette_.on_surface_variant);
+        const float label_width = std::min(text_width(renderer_, label, kTextSize), width_ * 0.48F);
         const float room = std::max(1.0F, width_ - label_width - 12.0F);
+        const std::string id{label};
+        const float label_height =
+            text_.draw(renderer_, id + ".label", label, {left_, y_, label_width, 0.0F}, kTextSize,
+                       palette_.on_surface_variant, palette_.secondary_container);
         const float full =
             renderer_.fonts()
                 .layout(value, kTextSize, renderer_.scale(), 0.0F, ui::Ellipsis::end, typeface)
                 .width /
             renderer_.scale();
         const float shown = std::min(full, room);
-        renderer_.draw_text(value, left_ + width_ - shown, y_, kTextSize, palette_.on_surface, room,
-                            ui::Ellipsis::middle, typeface);
-        y_ += kRowHeight;
+        const float height = text_.draw(
+            renderer_, id + ".value", value, {left_ + width_ - shown, y_, shown, 0.0F}, kTextSize,
+            palette_.on_surface, palette_.secondary_container, 0.0F, typeface);
+        y_ += std::max(kRowHeight, std::max(height, label_height) + 5.0F);
     }
 
 private:
     ui::Renderer& renderer_;
     const theme::Palette& palette_;
+    SelectableText& text_;
     float width_;
     float left_;
     float y_;
@@ -159,6 +169,199 @@ void InfoPane::set_expanded(bool expanded) {
     redraw_();
 }
 
+const preview::Text* InfoPane::shown_text() const {
+    return summary_ && summary_->text && !page_.empty() ? &*summary_->text : nullptr;
+}
+
+bool InfoPane::text_at(float x, float y) const {
+    return bounds_.contains(x, y) &&
+           (page_.contains(x, y) || metadata_.cursor_at(x, y) == ui::CursorShape::text);
+}
+
+bool InfoPane::text_focused() const noexcept {
+    return !bounds_.empty() && (page_focused_ || metadata_.focused());
+}
+
+void InfoPane::clear_text_focus() {
+    page_focused_ = false;
+    selecting_ = false;
+    selection_.clear();
+    metadata_.clear_focus();
+}
+
+std::string InfoPane::selected_text() const {
+    if (!text_focused()) {
+        return {};
+    }
+    const preview::Text* const text = shown_text();
+    return page_focused_ && text != nullptr ? selection_.text(text->lines)
+                                            : metadata_.selected_text();
+}
+
+TextPoint InfoPane::point_at(float x, float y) const {
+    const preview::Text* const text = shown_text();
+    if (text == nullptr || text->lines.empty() || page_clusters_.empty()) {
+        return {};
+    }
+    const float from_top = y - page_.y - kPagePadding + page_scroller_.offset();
+    if (from_top < 0.0F) {
+        return {};
+    }
+    const auto line = static_cast<std::size_t>(from_top / kLineHeight);
+    if (line >= text->lines.size()) {
+        return {text->lines.size() - 1, text->lines.back().size()};
+    }
+    const float local = x - page_.x - kPagePadding + page_sideways_.offset();
+    const auto& clusters = page_clusters_[line];
+    float nearest = std::numeric_limits<float>::max();
+    std::size_t byte = 0;
+    for (const SelectableText::GlyphSpan& cluster : clusters) {
+        const float start = cluster.rtl ? cluster.right : cluster.left;
+        const float end = cluster.rtl ? cluster.left : cluster.right;
+        if (std::abs(local - start) < nearest) {
+            nearest = std::abs(local - start);
+            byte = cluster.begin;
+        }
+        if (std::abs(local - end) < nearest) {
+            nearest = std::abs(local - end);
+            byte = cluster.end;
+        }
+    }
+    return {line, byte};
+}
+
+void InfoPane::measure_text(ui::Renderer& renderer, const preview::Text& text) {
+    if (!page_clusters_.empty() && page_metrics_scale_ == renderer.scale()) {
+        return;
+    }
+    page_clusters_.clear();
+    page_text_width_ = 0.0F;
+    page_metrics_scale_ = renderer.scale();
+    page_clusters_.reserve(text.lines.size());
+    for (const std::string& line : text.lines) {
+        const ui::TextLayout& shaped = renderer.fonts().layout(
+            line, kLineSize, renderer.scale(), 0.0F, ui::Ellipsis::end, ui::Typeface::monospace);
+        page_text_width_ = std::max(page_text_width_, shaped.width / renderer.scale());
+        page_clusters_.push_back(SelectableText::glyph_spans(
+            renderer.fonts(), line, kLineSize, renderer.scale(), ui::Typeface::monospace));
+    }
+}
+
+bool InfoPane::autoscrolling() const noexcept {
+    return selecting_ && !page_.empty() &&
+           ((page_scroller_.max_offset() > 0.0F &&
+             (pointer_y_ < page_.y + kPagePadding || pointer_y_ > page_.bottom() - kPagePadding)) ||
+            (page_sideways_.max_offset() > 0.0F &&
+             (pointer_x_ < page_.x + kPagePadding || pointer_x_ > page_.right() - kPagePadding)));
+}
+
+bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    using Kind = ui::PointerEvent::Kind;
+    if (event.kind == Kind::leave) {
+        selecting_ = false;
+        metadata_.pointer(event);
+        return false;
+    }
+    if (event.kind == Kind::press) {
+        if (event.button != ui::PointerButton::left) {
+            return false;
+        }
+        if (!bounds_.contains(event.x, event.y)) {
+            clear_text_focus();
+            return false;
+        }
+        if (const preview::Text* const text = shown_text();
+            text != nullptr && page_.contains(event.x, event.y)) {
+            metadata_.clear_focus();
+            page_focused_ = true;
+            selecting_ = true;
+            pointer_x_ = event.x;
+            pointer_y_ = event.y;
+            autoscrolled_ = now;
+            selection_.press(point_at(event.x, event.y), event.click_count, event.modifiers.shift,
+                             text->lines);
+            redraw_();
+            return true;
+        }
+        page_focused_ = false;
+        selecting_ = false;
+        selection_.clear();
+        const bool handled = metadata_.pointer(event);
+        redraw_();
+        return handled;
+    }
+    if (selecting_ && (event.kind == Kind::motion || event.kind == Kind::release)) {
+        if (event.kind == Kind::release && event.button != ui::PointerButton::left) {
+            return false;
+        }
+        pointer_x_ = event.x;
+        pointer_y_ = event.y;
+        if (const preview::Text* const text = shown_text()) {
+            selection_.drag(point_at(event.x, event.y), text->lines);
+        }
+        selecting_ = event.kind != Kind::release;
+        autoscrolled_ = now;
+        redraw_();
+        return true;
+    }
+    if (metadata_.pointer(event)) {
+        redraw_();
+        return true;
+    }
+    return false;
+}
+
+bool InfoPane::text_key(const ui::KeyEvent& event, Clock::time_point now) {
+    if (!text_focused()) {
+        return false;
+    }
+    if (!page_focused_) {
+        const bool handled = metadata_.key(event);
+        if (handled) {
+            redraw_();
+        }
+        return handled;
+    }
+    const preview::Text* const text = shown_text();
+    if (text == nullptr) {
+        return false;
+    }
+    if (event.modifiers == ui::Modifiers{.ctrl = true}) {
+        if (event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A) {
+            selection_.select_all(text->lines);
+            redraw_();
+            return true;
+        }
+        if (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C) {
+            if (copy_ && !selection_.empty()) {
+                copy_(selection_.text(text->lines));
+            }
+            return true;
+        }
+    }
+    if (event.modifiers != ui::Modifiers{}) {
+        return false;
+    }
+    switch (event.keysym) {
+        case XKB_KEY_Home:
+            page_scroller_.glide_to(0.0F, now);
+            break;
+        case XKB_KEY_End:
+            page_scroller_.glide_to(page_scroller_.max_offset(), now);
+            break;
+        case XKB_KEY_Page_Up:
+            scroll_text(TextScroll::page_up, now);
+            break;
+        case XKB_KEY_Page_Down:
+            scroll_text(TextScroll::page_down, now);
+            break;
+        default:
+            return false;
+    }
+    redraw_();
+    return true;
+}
+
 bool InfoPane::scroll(const ui::PointerEvent& event, Clock::time_point now) {
     if (event.x < bounds_.x || event.x >= bounds_.right() || event.y < bounds_.y ||
         event.y >= bounds_.bottom()) {
@@ -166,16 +369,29 @@ bool InfoPane::scroll(const ui::PointerEvent& event, Clock::time_point now) {
     }
     // A page with more lines than fit takes the wheel over it; the rest of the pane scrolls the
     // pane.
-    ui::Scroller& scroller = page_.contains(event.x, event.y) && page_scroller_.max_offset() > 0.0F
-                                 ? page_scroller_
-                                 : scroller_;
-    if (event.wheel_y != 0.0F) {
+    ui::Scroller& scroller =
+        page_.contains(event.x, event.y) && (page_scroller_.max_offset() > 0.0F ||
+                                             (event.modifiers.shift && event.wheel_y != 0.0F &&
+                                              page_sideways_.max_offset() > 0.0F))
+            ? page_scroller_
+            : scroller_;
+    if (&scroller == &page_scroller_ && event.modifiers.shift && event.wheel_y != 0.0F) {
+        page_sideways_.wheel(event.wheel_y, now);
+    } else if (event.wheel_y != 0.0F) {
         scroller.wheel(event.wheel_y, now);
     } else if (event.scroll_y != 0.0F) {
         scroller.finger(event.scroll_y, now);
     }
+    if (page_.contains(event.x, event.y)) {
+        if (event.wheel_x != 0.0F) {
+            page_sideways_.wheel(event.wheel_x, now);
+        } else if (event.scroll_x != 0.0F) {
+            page_sideways_.finger(event.scroll_x, now);
+        }
+    }
     if (event.scroll_finger && event.scroll_stop) {
         scroller.release(now);
+        page_sideways_.release(now);
     }
     redraw_();
     return true;
@@ -223,9 +439,13 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
     }
     key_ = std::move(key);
     summary_.reset();
+    clear_text_focus();
+    metadata_.reset();
     scroller_.jump_to(0.0F);  // another entry starts at the top
     page_scroller_.jump_to(0.0F);
+    page_sideways_.jump_to(0.0F);
     page_placed_ = false;
+    page_clusters_.clear();
     if (job_) {
         job_->cancel();
     }
@@ -322,12 +542,19 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     scroller_.advance(now);
     const float offset = scroller_.offset();
     renderer.push_clip(bounds);
-    Writer out{renderer, {bounds.x, bounds.y - offset, bounds.width, bounds.height}, palette};
+    metadata_.begin_frame(bounds);
+    Writer out{
+        renderer, {bounds.x, bounds.y - offset, bounds.width, bounds.height}, palette, metadata_};
     const auto finish = [&] {
         if (page_.height <= 0.0F) {
             // Multiple selection can replace a text page without requesting another summary.
             page_scroller_.jump_to(page_scroller_.offset());
+            page_sideways_.jump_to(page_sideways_.offset());
+            page_focused_ = false;
+            selecting_ = false;
+            selection_.clear();
         }
+        metadata_.end_frame();
         content_height_ = out.y() - (bounds.y - offset) + kTop;
         renderer.pop_clip();
     };
@@ -338,6 +565,14 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     };
 
     const fs::Entry* const single = folder.single_selection();
+    std::string shown_key =
+        std::format("{}\n{}\n{}", folder.path().string(), folder.selection_revision(),
+                    single == nullptr ? std::string{} : single->name);
+    if (shown_key != shown_key_) {
+        shown_key_ = std::move(shown_key);
+        clear_text_focus();
+        metadata_.reset();
+    }
     if (single == nullptr && folder.selected_count() > 1) {
         // Several entries: how many, of which kind, and how big (with folders, added up on a
         // worker as for one).
@@ -358,7 +593,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             measure({}, {});
         }
         icon("files", palette.on_surface_variant);
-        out.centered(count_of(selection.folders + selection.files, "item"), 15.0F,
+        out.centered("summary", count_of(selection.folders + selection.files, "item"), 15.0F,
                      palette.on_surface, 22.0F);
         std::string kinds;
         if (selection.folders > 0) {
@@ -367,7 +602,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         if (selection.files > 0) {
             kinds += (kinds.empty() ? "" : ", ") + count_of(selection.files, "file");
         }
-        out.centered(kinds, kSmallSize, palette.on_surface_variant, 20.0F);
+        out.centered("kinds", kinds, kSmallSize, palette.on_surface_variant, 20.0F);
         if (selection.folders > 0) {
             out.section("INFORMATION");
             out.row("Size", size_text());
@@ -460,22 +695,72 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             page_placed_ = true;
         }
         page_scroller_.advance(now);
+        measure_text(renderer, *summary->text);
+        page_sideways_.set_extent(page_text_width_ + kLineSize,
+                                  page_.width - (2.0F * kPagePadding));
+        page_sideways_.advance(now);
+        if (autoscrolling()) {
+            const float seconds =
+                std::clamp(std::chrono::duration<float>(now - autoscrolled_).count(), 0.0F, 0.1F);
+            const auto step = [seconds](float position, float start, float end) {
+                const float beyond = position < start ? position - start
+                                     : position > end ? position - end
+                                                      : 0.0F;
+                return std::clamp(beyond * 8.0F, -900.0F, 900.0F) * seconds;
+            };
+            page_scroller_.jump_to(page_scroller_.offset() + step(pointer_y_,
+                                                                  page_.y + kPagePadding,
+                                                                  page_.bottom() - kPagePadding));
+            page_sideways_.jump_to(page_sideways_.offset() + step(pointer_x_,
+                                                                  page_.x + kPagePadding,
+                                                                  page_.right() - kPagePadding));
+            autoscrolled_ = now;
+        }
+        if (selecting_) {
+            selection_.drag(point_at(pointer_x_, pointer_y_), lines);
+        }
         const float page_offset = page_scroller_.offset();
+        const float sideways = page_sideways_.offset();
         renderer.draw_box(page_, {.fill = palette.surface_container, .radius = {}});
-        const ui::Rect inner{page_.x, page_.y + kPagePadding, page_.width, view};
+        const ui::Rect inner{page_.x + kPagePadding, page_.y + kPagePadding,
+                             page_.width - (2.0F * kPagePadding), view};
         renderer.push_clip(inner);
         const auto first = static_cast<std::size_t>(page_offset / kLineHeight);
         const auto last = std::min(
             lines.size(), static_cast<std::size_t>(std::ceil((page_offset + view) / kLineHeight)));
+        if (!selection_.empty()) {
+            const auto [from, to] = selection_.range();
+            for (std::size_t i = std::max(first, from.line); i < last && i <= to.line; ++i) {
+                const std::size_t start = i == from.line ? from.byte : 0;
+                const std::size_t end = i == to.line ? to.byte : lines[i].size();
+                for (const SelectableText::GlyphSpan& cluster : page_clusters_[i]) {
+                    if (cluster.end <= start || cluster.begin >= end) {
+                        continue;
+                    }
+                    renderer.fill_rect({inner.x - sideways + cluster.left,
+                                        inner.y + static_cast<float>(i) * kLineHeight - page_offset,
+                                        cluster.right - cluster.left, kLineHeight},
+                                       palette.secondary_container);
+                }
+                if (i < to.line) {
+                    // Include a small mark for a selected line break, including empty lines.
+                    const float end_x =
+                        page_clusters_[i].empty() ? 0.0F : page_clusters_[i].back().right;
+                    renderer.fill_rect({inner.x - sideways + end_x,
+                                        inner.y + static_cast<float>(i) * kLineHeight - page_offset,
+                                        kLineSize * 0.5F, kLineHeight},
+                                       palette.secondary_container);
+                }
+            }
+        }
         for (std::size_t i = first; i < last; ++i) {
             const std::vector<ui::ColorRun> runs = i < spans.size()
                                                        ? colour_runs(spans[i], colours, 1.0F)
                                                        : std::vector<ui::ColorRun>{};
-            renderer.draw_text_runs(lines[i], inner.x + kPagePadding,
+            renderer.draw_text_runs(lines[i], inner.x - sideways,
                                     inner.y + (static_cast<float>(i) * kLineHeight) - page_offset,
-                                    kLineSize, palette.on_surface_variant, runs,
-                                    page_.width - (2.0F * kPagePadding), ui::Ellipsis::end,
-                                    ui::Typeface::monospace);
+                                    kLineSize, palette.on_surface_variant, runs, 0.0F,
+                                    ui::Ellipsis::end, ui::Typeface::monospace);
         }
         renderer.pop_clip();
         if (page_scroller_.max_offset() > 0.0F) {
@@ -487,6 +772,15 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             renderer.draw_box(
                 {page_.right() - kScrollbarWidth - 3.0F, thumb_y, kScrollbarWidth, thumb},
                 {.fill = palette.on_surface_variant.with_alpha(0.45F), .radius = {}});
+        }
+        if (page_sideways_.max_offset() > 0.0F) {
+            const float content = page_text_width_ + kLineSize;
+            const float thumb = std::min(
+                inner.width, std::max(kScrollbarMinThumb, inner.width * inner.width / content));
+            const float thumb_x =
+                inner.x + ((inner.width - thumb) * sideways / page_sideways_.max_offset());
+            renderer.draw_box({thumb_x, page_.bottom() - 6.0F, thumb, kScrollbarWidth},
+                              {.fill = palette.on_surface_variant.with_alpha(0.45F), .radius = {}});
         }
         out.skip(height + 18.0F);
     } else {
@@ -502,13 +796,13 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     if (name.empty()) {
         name = folder.path().string();  // the root
     }
-    out.centered(name, 15.0F, palette.on_surface, 22.0F);
+    out.centered("name", name, 15.0F, palette.on_surface, 22.0F);
     std::string type = "Folder";
     if (single != nullptr) {
         type =
             typed.mime == fs::kUnknownMime ? std::string{"…"} : std::string{mime.name(typed.mime)};
     }
-    out.centered(type, kSmallSize, palette.on_surface_variant, 20.0F);
+    out.centered("type", type, kSmallSize, palette.on_surface_variant, 20.0F);
 
     // What it is.
     out.section("INFORMATION");
@@ -590,7 +884,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
         if (!info->error.empty()) {
             out.skip(6.0F);
-            out.centered(info->error, kSmallSize, palette.error, 20.0F);
+            out.centered("error", info->error, kSmallSize, palette.error, 20.0F);
         }
     }
     finish();

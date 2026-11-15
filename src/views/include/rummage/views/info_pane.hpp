@@ -1,12 +1,15 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "rummage/core/event_loop.hpp"
@@ -20,6 +23,8 @@
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/selectable_text.hpp"
+#include "rummage/views/text_selection.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -68,6 +73,24 @@ public:
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, const Folder& folder, Clock::time_point now);
 
+    // Read-only text focus is independent of the file selection. Clicking elsewhere returns
+    // Ctrl+A/C to the files; hidden or replaced content drops its selection.
+    bool pointer(const ui::PointerEvent& event, Clock::time_point now);
+    bool text_key(const ui::KeyEvent& event, Clock::time_point now);
+    [[nodiscard]] bool text_at(float x, float y) const;
+    [[nodiscard]] bool text_focused() const noexcept;
+    void clear_text_focus();
+    [[nodiscard]] std::string selected_text() const;
+
+    void set_copy_handler(std::function<void(std::string)> handler) {
+        copy_ = std::move(handler);
+        metadata_.set_copy_handler(copy_);
+    }
+
+    [[nodiscard]] ui::Rect property_bounds(std::string_view id) const {
+        return metadata_.bounds(id);
+    }
+
     // A click at (x, y): true when the pane took it ("More details").
     bool click(float x, float y);
 
@@ -87,7 +110,8 @@ public:
     [[nodiscard]] bool animating() const noexcept {
         // A hidden pane cannot advance its scrollers and must not keep requesting frames.
         return bounds_.width > 0.0F && bounds_.height > 0.0F &&
-               (scroller_.animating() || page_scroller_.animating());
+               (scroller_.animating() || page_scroller_.animating() || page_sideways_.animating() ||
+                autoscrolling());
     }
 
     [[nodiscard]] bool expanded() const noexcept { return expanded_; }
@@ -108,6 +132,7 @@ public:
     void end_frame() {
         if (bounds_.empty()) {
             cancel_measurement();
+            clear_text_focus();
         }
     }
 
@@ -136,6 +161,12 @@ public:
 
     [[nodiscard]] float text_max_offset() const noexcept { return page_scroller_.max_offset(); }
 
+    [[nodiscard]] float text_horizontal_offset() const noexcept { return page_sideways_.offset(); }
+
+    [[nodiscard]] float text_horizontal_max_offset() const noexcept {
+        return page_sideways_.max_offset();
+    }
+
     // What was read about the entry shown last; nullptr before it arrives (tests).
     [[nodiscard]] const preview::Summary* summary() const noexcept { return summary_.get(); }
 
@@ -152,6 +183,11 @@ private:
     // No roots cancels any pending or running measurement.
     void measure(std::vector<std::filesystem::path> roots, std::string key);
     [[nodiscard]] std::string size_text() const;
+
+    [[nodiscard]] const preview::Text* shown_text() const;
+    [[nodiscard]] TextPoint point_at(float x, float y) const;
+    [[nodiscard]] bool autoscrolling() const noexcept;
+    void measure_text(ui::Renderer& renderer, const preview::Text& text);
 
     core::EventLoop& loop_;
     core::WorkerPool& pool_;
@@ -171,8 +207,21 @@ private:
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
     ui::Rect page_{};    // a text file's page, as last drawn; empty when not shown
+    SelectableText metadata_;
+    TextSelection selection_;
+    std::function<void(std::string)> copy_;
+    bool page_focused_{false};
+    bool selecting_{false};
+    float pointer_x_{0.0F};
+    float pointer_y_{0.0F};
+    std::vector<std::vector<SelectableText::GlyphSpan>> page_clusters_;
+    float page_text_width_{0.0F};
+    float page_metrics_scale_{0.0F};
+    Clock::time_point autoscrolled_{};
+    std::string shown_key_;
     ui::Scroller scroller_;
     ui::Scroller page_scroller_;  // through the text page's lines
+    ui::Scroller page_sideways_;
     bool page_placed_{false};     // the page has been put at its start (a log's end) for this entry
     float content_height_{0.0F};  // of the last draw
     // False once destroyed: results still on their way find out here.

@@ -78,6 +78,7 @@ selection gestures are covered in [Using rummage](usage.md#navigate-and-select).
 | F2 | Rename | `rename` |
 | Ctrl+Shift+N | New folder | `new_folder` |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste | `copy`, `cut`, `paste` |
+| Ctrl+Alt+C | Copy selected filenames, including extensions | `copy_name` |
 | Delete | Trash; permanent delete when already in Trash | `trash` |
 | Shift+Delete | Delete permanently with confirmation | `erase` |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo | `undo`, `redo` |
@@ -86,6 +87,8 @@ selection gestures are covered in [Using rummage](usage.md#navigate-and-select).
 
 Copy Location, Extract Here and Extract To have no default shortcuts. Bind their
 IDs `copy_location`, `extract_here`, `extract_to` or `action:<id>` explicitly.
+Copy Name copies plain text, with multiple names separated by newlines. Its
+`copy_name` binding also accepts the alias `action:copy_name`.
 
 ## Context-specific keys
 
