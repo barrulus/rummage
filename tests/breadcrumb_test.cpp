@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <doctest/doctest.h>
@@ -13,11 +14,14 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
 
 using rummage::core::EventLoop;
 using rummage::test::TempDir;
+using rummage::ui::Ellipsis;
+using rummage::ui::FontSystem;
 using rummage::views::Browser;
 using rummage::views::Crumb;
 using rummage::views::crumbs_of;
@@ -84,6 +88,44 @@ TEST_CASE("breadcrumb: steps from the home or the root") {
     // A sibling whose name starts like the home is not in it.
     CHECK(crumbs_of("/home/me2", "/home/me").front().icon == "server");
     CHECK(crumbs_of("/home/me/x", "").front().icon == "server");
+}
+
+TEST_CASE("breadcrumb: measured names fit after logical-width rounding at fractional scales") {
+    constexpr float kTextSize = 14.0F;
+    constexpr float kInsets = 12.0F;
+    FontSystem fonts;
+    for (const float output : {1.0F, 1.25F, 1.5F, 2.0F}) {
+        // Exercise non-binary scales, including 15/13, without depending on a UI size setting.
+        for (int numerator = 8; numerator <= 32; ++numerator) {
+            const float scale = output * (static_cast<float>(numerator) / 13.0F);
+            for (const std::string_view name :
+                 {"Downloads", "Documents", "Pictures", "Desktop", "Templates", "2026"}) {
+                CAPTURE(scale);
+                CAPTURE(name);
+                const float step = (fonts.layout(name, kTextSize, scale).width / scale) + kInsets;
+                const float room = step - kInsets;
+                CHECK_FALSE(fonts.layout(name, kTextSize, scale, room, Ellipsis::middle).truncated);
+            }
+        }
+    }
+}
+
+TEST_CASE("breadcrumb: width tolerance stays within one physical 26.6 unit") {
+    constexpr float kTextSize = 14.0F;
+    constexpr float kUnit = 1.0F / 64.0F;
+    constexpr std::string_view kName = "Downloads";
+    FontSystem fonts;
+    for (const float scale : {1.0F, 1.25F, 1.5F, 2.0F}) {
+        CAPTURE(scale);
+        const float width = fonts.layout(kName, kTextSize, scale).width;
+        for (const Ellipsis ellipsis : {Ellipsis::end, Ellipsis::middle}) {
+            CHECK_FALSE(
+                fonts.layout(kName, kTextSize, scale, (width - kUnit / 2.0F) / scale, ellipsis)
+                    .truncated);
+            CHECK(fonts.layout(kName, kTextSize, scale, (width - 2.0F * kUnit) / scale, ellipsis)
+                      .truncated);
+        }
+    }
 }
 
 TEST_CASE("breadcrumb: going up in the grid and the details") {

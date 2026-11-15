@@ -523,7 +523,8 @@ const TextLayout& FontSystem::layout(std::string_view utf8, float size, float sc
     }
     impl_->ptem = size * kPointsPerPixel;
     TextLayout layout = impl_->shape(utf8, pixel_size, typeface);
-    if (max_px > 0.0F && layout.width > max_px) {
+    // A measured width may come back a hair short from logical pixels.
+    if (max_px > 0.0F && layout.width > max_px + (1.0F / kFixedPoint)) {
         layout = impl_->truncate(utf8, layout, max_px, ellipsis, typeface);
     }
     return cache.emplace(std::move(key), std::move(layout)).first->second;
