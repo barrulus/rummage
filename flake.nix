@@ -62,6 +62,7 @@
               ffmpeg
               libjpeg_turbo
               nixfmt
+              shared-mime-info
             ];
             # Keep CMake's setup hook from configuring a build on shell entry.
             dontUseCmakeConfigure = true;

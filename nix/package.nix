@@ -97,6 +97,7 @@ stdenv.mkDerivation {
     zlib
     sdbus-cpp_2
   ]
+  ++ lib.optional withTests shared-mime-info
   ++ lib.optional withMedia ffmpeg
   ++ lib.optional withPdf rummage-pdfium;
 

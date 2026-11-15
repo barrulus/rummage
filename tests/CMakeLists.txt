@@ -115,12 +115,22 @@ add_executable(rummage-sandbox-probe sandbox_probe.cpp
 target_include_directories(rummage-sandbox-probe PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src)
 target_link_libraries(rummage-sandbox-probe PRIVATE rummage::warnings)
 add_dependencies(rummage-tests rummage-preview rummage-fake-preview rummage-sandbox-probe)
+# The MIME database the tests read: shared-mime-info as pkg-config finds it at build time, not
+# whatever $XDG_DATA_DIRS says when they run (NixOS keeps it outside /usr/share, Flatpak adds
+# its own). tests/main.cpp points $XDG_DATA_DIRS at it.
+pkg_get_variable(RUMMAGE_MIME_PREFIX shared-mime-info prefix)
+if(NOT RUMMAGE_MIME_PREFIX OR NOT EXISTS "${RUMMAGE_MIME_PREFIX}/share/mime/globs2")
+    message(FATAL_ERROR "The tests need shared-mime-info (its pkg-config file and "
+                        "share/mime/globs2); install it, or configure with "
+                        "-DRUMMAGE_BUILD_TESTS=OFF")
+endif()
 # The shipped example config must parse clean and match the built-in defaults.
 target_compile_definitions(rummage-tests
     PRIVATE RUMMAGE_EXAMPLE_CONFIG="${PROJECT_SOURCE_DIR}/docs/config.example.toml"
             RUMMAGE_TEST_DATA="${PROJECT_SOURCE_DIR}/tests/data"
             RUMMAGE_APP_ICON="${PROJECT_SOURCE_DIR}/data/rummage.svg"
             RUMMAGE_ENGINES="${PROJECT_SOURCE_DIR}/data/engines"
+            RUMMAGE_MIME_DATA="${RUMMAGE_MIME_PREFIX}/share"
             RUMMAGE_PREVIEW_HELPER="$<TARGET_FILE:rummage-preview>"
             RUMMAGE_FAKE_HELPER="$<TARGET_FILE:rummage-fake-preview>"
             RUMMAGE_SANDBOX_PROBE="$<TARGET_FILE:rummage-sandbox-probe>")

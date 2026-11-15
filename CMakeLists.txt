@@ -51,6 +51,42 @@ if(RUMMAGE_FUZZ)
     target_link_options(rummage_warnings INTERFACE -fsanitize=address,undefined)
 endif()
 
+# ---------------------------------------------------------------------------
+# Hardening for every target, including the C decoder, in native and package builds.
+# ---------------------------------------------------------------------------
+option(RUMMAGE_HARDENING "Build with the compiler's and linker's hardening flags" ON)
+if(RUMMAGE_HARDENING)
+    include(CheckCCompilerFlag)
+    include(CheckCXXCompilerFlag)
+    include(CheckPIESupported)
+    check_pie_supported()
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    # Probe both languages: control-flow protection is architecture-specific and not every
+    # compiler supports stack-clash protection.
+    foreach(flag IN ITEMS -fstack-protector-strong -fstack-clash-protection -fcf-protection)
+        string(MAKE_C_IDENTIFIER "${flag}" flag_name)
+        string(TOUPPER "${flag_name}" flag_name)
+        check_c_compiler_flag("${flag}" RUMMAGE_C_HAS${flag_name})
+        check_cxx_compiler_flag("${flag}" RUMMAGE_CXX_HAS${flag_name})
+        if(RUMMAGE_C_HAS${flag_name})
+            add_compile_options("$<$<COMPILE_LANGUAGE:C>:${flag}>")
+        endif()
+        if(RUMMAGE_CXX_HAS${flag_name})
+            add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:${flag}>")
+        endif()
+    endforeach()
+    # Check standard-library indexes. The DNG hot loops retain their row-sized invariants
+    # without adding a dynamic bounds check to each pixel (dng/develop.cpp).
+    add_compile_definitions(_GLIBCXX_ASSERTIONS)
+    # Checked string and memory calls need optimisation and overlap with sanitizer checks.
+    # -U first: a distro's package build may already pass its own fortify level.
+    if(NOT RUMMAGE_SANITIZER AND NOT RUMMAGE_FUZZ)
+        add_compile_options("$<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:-U_FORTIFY_SOURCE;-D_FORTIFY_SOURCE=3>")
+    endif()
+    # Full RELRO: resolve relocations at start, then make them read-only (Linux ELF).
+    add_link_options(-Wl,-z,relro -Wl,-z,now)
+endif()
+
 option(RUMMAGE_CLANG_TIDY "Run clang-tidy while building the rummage targets" OFF)
 if(RUMMAGE_CLANG_TIDY)
     find_program(RUMMAGE_CLANG_TIDY_EXE NAMES clang-tidy REQUIRED)

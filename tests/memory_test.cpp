@@ -23,11 +23,15 @@ TEST_CASE("memory report: the process, malloc and the lines for the log") {
 #if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
     // Under a sanitizer malloc is the sanitizer's: glibc's mallinfo2 reports nothing.
     CHECK(during.heap_in_use >= before.heap_in_use + size);
-    CHECK(during.anonymous >= before.anonymous + size);
+    // The process as a whole: other threads (earlier tests' pools, malloc's arenas) may give
+    // pages back between the two reads (124 KB short of the block once in the CI): a margin.
+    constexpr std::size_t margin = std::size_t{4} << 20U;
+    CHECK(during.anonymous + margin >= before.anonymous + size);
 #else
     // The sanitizer's allocator gives freed memory back on its own, between the two reads too
-    // (after the whole suite it holds some 500 MB): the block shows, not to the byte.
-    CHECK(during.anonymous >= before.anonymous + (size / 2));
+    // (135 MB once in the CI, more than the block): no difference holds, only that the process
+    // holds the block.
+    CHECK(during.anonymous >= size);
 #endif
 
     const std::vector<std::string> lines = rummage::core::describe(during);
@@ -48,7 +52,10 @@ TEST_CASE("memory: large blocks go back to the system once freed") {
         CHECK(block.back() == i);
     }
     const rummage::core::MemoryReport after = rummage::core::read_memory_report();
-    CHECK(after.heap_free < before.heap_free + (std::size_t{4} << 20U));  // nothing kept
-    CHECK(after.anonymous < before.anonymous + (std::size_t{8} << 20U));
+    // malloc's own counters, not the process's anonymous memory: another thread still running
+    // from an earlier test (Mesa's software renderer keeps some) may allocate meanwhile.
+    CHECK(after.heap_free < before.heap_free + (std::size_t{4} << 20U));    // nothing kept free
+    CHECK(after.heap_mmapped <= before.heap_mmapped);                       // each unmapped
+    CHECK(after.heap_arena < before.heap_arena + (std::size_t{4} << 20U));  // none in the heap
 #endif
 }

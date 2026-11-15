@@ -187,7 +187,9 @@ std::vector<std::byte> encode_text_payload(const text::Text& text, std::uint32_t
         if (i > 0) {
             payload[at++] = std::byte{'\n'};
         }
-        std::memcpy(payload.data() + at, text.lines[i].data(), text.lines[i].size());
+        // Not memcpy: an empty line's data() may be null, undefined for memcpy even for 0 bytes.
+        std::ranges::copy(std::as_bytes(std::span{text.lines[i]}),
+                          payload.begin() + static_cast<std::ptrdiff_t>(at));
         at += text.lines[i].size();
     }
     at = (at + 3) / 4 * 4;
@@ -275,8 +277,10 @@ std::vector<std::byte> encode_text_request(const text::Limits& limits, std::stri
         .tail = static_cast<std::uint8_t>(limits.tail ? 1 : 0)};
     std::vector<std::byte> bytes(sizeof(request) + name.size() + mime.size());
     std::memcpy(bytes.data(), &request, sizeof(request));
-    std::memcpy(bytes.data() + sizeof(request), name.data(), name.size());
-    std::memcpy(bytes.data() + sizeof(request) + name.size(), mime.data(), mime.size());
+    // Default-constructed string_views may have null data(), including for optional MIME types.
+    std::ranges::copy(std::as_bytes(std::span{name}), bytes.begin() + sizeof(request));
+    std::ranges::copy(std::as_bytes(std::span{mime}),
+                      bytes.begin() + static_cast<std::ptrdiff_t>(sizeof(request) + name.size()));
     return bytes;
 }
 

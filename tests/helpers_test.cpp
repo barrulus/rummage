@@ -320,6 +320,32 @@ TEST_CASE("helpers: a text request travels whole, and too much is refused") {
     CHECK_FALSE(protocol::decode_text_request({}));
 }
 
+TEST_CASE("helpers: empty text fields and payloads travel without a backing buffer") {
+    namespace protocol = isolate::protocol;
+    // Empty optional fields can be default-constructed views whose data() is null. UBSan
+    // rejects passing these to memcpy, even with a count of zero.
+    const std::vector<std::byte> request = protocol::encode_text_request({}, {}, {});
+    CHECK(request.size() == sizeof(protocol::TextRequest));
+    const std::optional<protocol::TextAsk> ask = protocol::decode_text_request(request);
+    REQUIRE(ask.has_value());
+    CHECK(ask->name.empty());
+    CHECK(ask->mime.empty());
+
+    for (const std::uint32_t lines : {0U, 1U}) {
+        text::Text sent;
+        sent.lines.resize(lines);
+        std::uint32_t bytes = 1;
+        std::uint32_t spans = 1;
+        const std::vector<std::byte> payload = protocol::encode_text_payload(sent, bytes, spans);
+        CHECK(payload.empty());
+        CHECK(bytes == 0);
+        CHECK(spans == 0);
+        text::Text back;
+        REQUIRE(protocol::decode_text_payload(payload, lines, bytes, spans, false, {}, back));
+        CHECK(back.lines == sent.lines);
+    }
+}
+
 TEST_CASE("helpers: a helper that lies about a text is let go of") {
     const TempDir dir;
     const fs::path file = dir.path / "a.txt";
