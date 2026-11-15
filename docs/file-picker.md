@@ -36,8 +36,10 @@ Import its NixOS module and enable the application and picker. In a NixOS module
 { inputs, ... }: {
   imports = [ inputs.rummage.nixosModules.default ];
 
-  programs.rummage.enable = true;
-  programs.rummage.filePicker.enable = true;
+  programs.rummage = {
+    enable = true;
+    filePicker.enable = true;
+  };
 }
 ```
 
@@ -47,6 +49,9 @@ no separate picker package or service to enable. The backend exits after 30 seco
 without an active request and is activated again when needed. Enabling only `programs.rummage.enable`
 installs the file manager without changing portal preferences. `programs.rummage.package`
 can override the package used for both the application and backend.
+Set `programs.rummage.preview.thumbnails = true;` for video thumbnails and still
+previews, and `programs.rummage.preview.pdf = true;` for PDF previews in both.
+Both are optional and default to `false`; image thumbnails are built in.
 
 Keep your existing Umbriel and GTK portal packages and
 `xdg.portal.config.umbriel.default = [ "umbriel" "gtk" ];`: the module merges its package

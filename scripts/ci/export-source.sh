@@ -16,7 +16,16 @@ if [[ -n $(git status --porcelain --untracked-files=normal) ]]; then
     exit 1
 fi
 mkdir -p "$output/input"
-git archive --format=tar --prefix=rummage-checkout/ HEAD | gzip -n > "$output/input/source.tar.gz"
+# Include hash-pinned renderer sources so distro/source-package builds need no
+# Nix installation or network access. Nix is only used by this source exporter.
+pdfium_sources=$(nix build .#pdfium-sources --no-link --print-out-paths)
+mkdir -p "$output/source-stage"
+git archive --format=tar --prefix=rummage-checkout/ HEAD | tar -xf - -C "$output/source-stage"
+cp -R "$pdfium_sources" "$output/source-stage/rummage-checkout/third_party/pdfium-sources"
+python3 packaging/pdfium/copyright.py "$pdfium_sources" \
+    "$output/source-stage/rummage-checkout/packaging/debian/copyright"
+tar --sort=name --mtime=@1 --owner=0 --group=0 --numeric-owner \
+    -C "$output/source-stage" -cf - rummage-checkout | gzip -n > "$output/input/source.tar.gz"
 python3 - "$output/input" <<'PY'
 import hashlib, json, os, re, subprocess, sys
 from pathlib import Path

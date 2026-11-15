@@ -1,0 +1,4 @@
+usr/libexec/rummage/rummage-pdf
+usr/libexec/rummage/libpdfium.so
+usr/share/rummage/engines/pdf.toml
+usr/share/licenses/rummage-pdf/*

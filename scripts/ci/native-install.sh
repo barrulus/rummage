@@ -41,6 +41,9 @@ for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview; do
 done
 # The base package must work before the optional media package is installed.
 test ! -e /usr/libexec/rummage/rummage-media
+test ! -e /usr/libexec/rummage/rummage-pdf
+test ! -e /usr/libexec/rummage/libpdfium.so
+test ! -e /usr/share/rummage/engines/pdf.toml
 case "$format" in
     deb) apt-get install -y --no-install-recommends /packages/rummage-media_*.deb ;;
     rpm) dnf install -y /packages/rummage-media-[0-9]*.x86_64.rpm ;;
@@ -50,6 +53,26 @@ esac
 libraries=$(ldd /usr/libexec/rummage/rummage-media)
 printf '%s\n' "$libraries"
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+test ! -e /usr/libexec/rummage/rummage-pdf
+case "$format" in
+    deb) apt-get install -y --no-install-recommends /packages/rummage-pdf_*.deb /packages/rummage-previews_*.deb ;;
+    rpm) dnf install -y /packages/rummage-pdf-[0-9]*.x86_64.rpm /packages/rummage-previews-[0-9]*.x86_64.rpm ;;
+    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-pdf-[0-9]*.x86_64.rpm /packages/rummage-previews-[0-9]*.x86_64.rpm ;;
+    arch) pacman -U --noconfirm /packages/rummage-pdf-[0-9]*-x86_64.pkg.tar.zst /packages/rummage-previews-[0-9]*-x86_64.pkg.tar.zst ;;
+esac
+libraries=$(ldd /usr/libexec/rummage/rummage-pdf)
+printf '%s\n' "$libraries"
+if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+grep -F '/usr/libexec/rummage/libpdfium.so' <<< "$libraries"
+test -s /usr/share/rummage/engines/pdf.toml
+test -s /usr/share/licenses/rummage-pdf/pdfium-LICENSE
+case "$format" in
+    deb) apt-get install -y --no-install-recommends python3 ;;
+    rpm) dnf install -y python3 ;;
+    tumbleweed) zypper --non-interactive install --no-recommends python3 ;;
+    arch) pacman -S --noconfirm --needed python ;;
+esac
+python3 /source/scripts/ci/check-pdf.py /usr/libexec/rummage/rummage-pdf /source/tests/data/pdf
 case "$format" in
     deb) apt-get install -y --no-install-recommends desktop-file-utils ;;
     rpm) dnf install -y desktop-file-utils ;;

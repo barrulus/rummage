@@ -45,6 +45,10 @@ class DownloadsTest(unittest.TestCase):
         }.items():
             for name in names:
                 (self.roots[kind] / 'packages' / name).write_bytes(name.encode())
+                if name.startswith('rummage-media'):
+                    for feature in ('pdf', 'previews'):
+                        extra = name.replace('rummage-media', f'rummage-{feature}')
+                        (self.roots[kind] / 'packages' / extra).write_bytes(extra.encode())
 
         directory = self.roots['deb'] / 'debian-source'
         directory.mkdir()
@@ -66,7 +70,7 @@ class DownloadsTest(unittest.TestCase):
 
     def test_assets_and_instructions(self):
         self.prepare()
-        self.assertEqual(len(list(self.output.iterdir())), 14)
+        self.assertEqual(len(list(self.output.iterdir())), 22)
         self.assertEqual((self.output / 'rummage-debian13-amd64.deb').read_bytes(), b'rummage_0.5.0_amd64.deb')
         self.assertEqual((self.output / 'rummage-fedora44-x86_64.rpm').read_bytes(), b'rummage-0.5.0.x86_64.rpm')
         self.assertEqual((self.output / 'rummage-arch-x86_64.pkg.tar.zst').read_bytes(), b'rummage-0.5.0-1-x86_64.pkg.tar.zst')
@@ -95,6 +99,16 @@ class DownloadsTest(unittest.TestCase):
         (self.roots['deb'] / 'packages/rummage-media_0.5.0_amd64.deb').unlink()
         with self.assertRaisesRegex(ValueError, 'rummage-media'):
             self.prepare()
+
+    def test_missing_pdf_or_previews_rejected(self):
+        for feature in ('pdf', 'previews'):
+            with self.subTest(feature=feature):
+                path = self.roots['deb'] / f'packages/rummage-{feature}_0.5.0_amd64.deb'
+                contents = path.read_bytes()
+                path.unlink()
+                with self.assertRaisesRegex(ValueError, f'rummage-{feature}'):
+                    self.prepare()
+                path.write_bytes(contents)
 
     def test_mixed_source_rejected(self):
         self.identity['commit'] = 'b' * 40
@@ -183,7 +197,7 @@ elif args[0] == 'api' and '/compare/' in args[1]:
         result, calls = self.publish('existing')
         self.assertEqual(result.returncode, 0, result.stderr)
         uploads = [c for c in calls if c[:2] == ['release', 'upload']]
-        self.assertEqual(len(uploads), 13)
+        self.assertEqual(len(uploads), 21)
         self.assertTrue(uploads[-1][3].endswith('/SHA256SUMS'))
         self.assertTrue(any('sha=' + COMMIT in c for c in calls))
 

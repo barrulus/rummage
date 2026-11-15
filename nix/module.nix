@@ -16,7 +16,35 @@ in
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       defaultText = lib.literalExpression "inputs.rummage.packages.\${pkgs.stdenv.hostPlatform.system}.default";
-      description = "rummage package to install and use for the file picker.";
+      apply =
+        package:
+        if cfg.preview.thumbnails || cfg.preview.pdf then
+          package.override (
+            lib.optionalAttrs cfg.preview.thumbnails { withMedia = true; }
+            // lib.optionalAttrs cfg.preview.pdf { withPdf = true; }
+          )
+        else
+          package;
+      description = ''
+        rummage package to install and use for the file picker. Enabled preview
+        options override this package's withMedia and withPdf arguments; a custom
+        package must support those arguments. Features already enabled in the
+        selected package are preserved.
+      '';
+    };
+
+    preview = {
+      thumbnails =
+        lib.mkEnableOption "video thumbnails and still previews through the FFmpeg-based media engine"
+        // {
+          description = ''
+            Enable the optional media engine for video thumbnails and still previews
+            in the information pane and Quick Look. Image thumbnails and image/text
+            previews are built in and do not require this option.
+          '';
+        };
+
+      pdf = lib.mkEnableOption "PDF thumbnails and first-page previews through the PDFium-based PDF engine";
     };
 
     filePicker = {

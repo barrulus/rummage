@@ -2,7 +2,8 @@ Source: rummage
 Section: utils
 Priority: optional
 Maintainer: rummage fork maintainers <barrulus@users.noreply.github.com>
-Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config,
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, python3, patch,
+ libglib2.0-dev, libjpeg-dev, libpng-dev, libtiff-dev,
  libwayland-dev, wayland-protocols, libegl-dev, libgles-dev, libxkbcommon-dev,
  libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev,
  libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
@@ -16,7 +17,7 @@ Package: rummage
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, shared-mime-info, hicolor-icon-theme,
  libheif1 (>= 1.23), libheif-plugin-libde265 (>= 1.23)
-Suggests: rummage-media
+Suggests: rummage-previews, rummage-media, rummage-pdf
 Description: Native Wayland file manager
  A file manager with column and grid views, isolated previews, configurable
  custom actions and an optional desktop file chooser portal.
@@ -27,3 +28,16 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
 Description: Optional video thumbnails and still previews for rummage
  Isolated video decoding using system FFmpeg shared libraries. No FFmpeg
  command-line tools are required. This package does not provide playback.
+
+Package: rummage-pdf
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
+Description: Optional PDF thumbnails and first-page previews for rummage
+ Isolated PDF rendering with a private, source-built PDFium library.
+ This package provides still previews, not a document viewer.
+
+Package: rummage-previews
+Architecture: any
+Depends: ${misc:Depends}, rummage-media (= ${binary:Version}), rummage-pdf (= ${binary:Version})
+Description: All optional preview engines for rummage
+ Convenience package installing video and PDF preview helpers.

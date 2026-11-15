@@ -25,7 +25,7 @@ python3 scripts/ci/preflight.py deb rpm arch tumbleweed
 ```
 
 With no targets, the runner selects `all`. Nix supplies the lint tools from the
-locked nixpkgs input. Native targets require a working Docker daemon and the host
+locked nixpkgs input. Native targets require Nix to assemble pinned renderer sources, a working Docker daemon and the host
 tools listed below. Build targets reject dirty or untracked files, because a Nix
 flake can omit untracked source and the native builders export `git archive HEAD`.
 Lint alone accepts unfinished edits and labels its report accordingly.
@@ -135,7 +135,7 @@ The `Void glibc package and clean install` job uses Docker and Void's `xbps-src`
 **the exact committed checkout**, including the PR merge commit when GitHub checks one out.
 It does not fetch upstream's v0.5.0 and mistake that build for a test of this fork.
 
-From a clean, committed checkout, with Docker, Git, Bash, Python 3, tar/gzip tools and
+From a clean, committed checkout, with Nix, Docker, Git, Bash, Python 3, tar/gzip tools and
 coreutils available:
 
 ```sh
@@ -148,7 +148,7 @@ parallelism (default: 2).
 
 The script:
 
-1. Archives the checkout and records its commit, commit timestamp, application version,
+1. Archives the checkout together with the pinned PDFium source bundle and records its commit, commit timestamp, application version,
    and SHA-256 in `input/source.json`.
 2. Starts a disposable Void container. Inside it, `xbps-src` uses Void's container-only
    `ethereal` build mode; no privileged Docker container or host chroot is required.
@@ -379,3 +379,28 @@ window proves integration with every compositor, GPU, removable drive, or deskto
 configuration. Those remain real-desktop checks before release. Native ARM runners, Void
 musl compatibility, additional distribution recipes, and signed release artifacts
 can be added separately without weakening these required checks.
+
+## Native PDF previews
+
+All native recipes split the application, media helper, PDF helper and combined
+preview dependency package. The PDF helper and private renderer live together in
+`/usr/libexec/rummage`; only that helper has an `$ORIGIN` runtime library path.
+The base application does not link PDFium or FFmpeg.
+
+`nix/pdfium-sources.nix` exports source code from the locked Nixpkgs recipes,
+including GN and private dependency sources. `export-source.sh` puts this into
+the checksum-verified source archive. Nix is needed only on the export host;
+Debian source-package rebuilds and native container builds compile everything
+with the distro toolchain without fetching additional source or using Nix binaries.
+
+`packaging/pdfium/build.sh` keeps V8, XFA, Skia and PartitionAlloc disabled,
+builds ICU common with stub data, and links private dependency archives into
+PDFium. System font, colour and image libraries remain shared. Licenses and
+source versions are installed with the PDF helper. Updating `flake.lock` also
+updates these sources, and requires rerunning the complete native matrix.
+
+Clean installation first checks the base package without optional helpers, then
+installs media, PDF and the convenience package. It checks runtime libraries
+before installing test tools and uses `scripts/ci/check-pdf.py` to exercise the
+installed helper's sandbox, first-page rendering, rotation, fonts and forms.
+The release assembler rejects missing PDF or convenience packages.
