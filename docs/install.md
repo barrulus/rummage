@@ -73,6 +73,8 @@ nix run github:barrulus/rummage/development
 nix profile install github:barrulus/rummage/development
 ```
 
+Enable the optional [public binary cache](#binary-cache) first to reuse CI builds.
+
 [Checksums](https://github.com/barrulus/rummage/releases/download/development/SHA256SUMS)
 and [source identity](https://github.com/barrulus/rummage/releases/download/development/source.json)
 are provided with every build. To verify a download, save `SHA256SUMS` beside it and run
@@ -181,13 +183,53 @@ nix flake check
 
 `nix build` produces `result/bin/rummage` plus the preview helper, manifests and
 desktop integration files. The ordinary package omits tests.
-`nix flake check` builds a separate test derivation (including media), runs installed
+`nix flake check` builds a separate test derivation (including media and PDF), runs installed
 package smoke checks and checks the NixOS module. Packages and development shells are
 defined for `x86_64-linux` and `aarch64-linux`; checking one host is not evidence of
 runtime testing on both architectures.
 
 On non-NixOS hosts, running a Nix-built GUI also requires access to the host's
 graphics drivers. A successful package build alone does not establish that setup.
+
+### Binary cache
+
+The public [rummage-fm cache](https://rummage-fm.cachix.org) provides **x86_64-linux**
+builds after successful Nix checks on `main`. It includes the default package,
+media-only, PDF-only and combined preview variants, including their helper outputs
+and runtime dependencies. The cache starts filling after the first successful CI
+upload; older revisions and aarch64 builds may require local compilation.
+
+With Cachix installed, enable it once:
+
+```sh
+cachix use rummage-fm
+```
+
+Or run the client without installing it permanently:
+
+```sh
+nix shell nixpkgs#cachix -c cachix use rummage-fm
+```
+
+For NixOS, add these settings to your system configuration and rebuild instead:
+
+```nix
+nix.settings = {
+  substituters = [ "https://rummage-fm.cachix.org" ];
+  trusted-public-keys = [
+    "rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA="
+  ];
+};
+```
+
+Keep any existing cache entries. On a shared multi-user Nix installation, the
+administrator may need to configure the daemon's cache trust; follow the client's
+instructions. Reading this public cache requires no Cachix account or token.
+
+Continue using the same `nix run`, `nix build`, profile or NixOS configuration
+commands. Nix downloads matching signed outputs when available and builds missing
+ones normally. Changing the source, package options or pinned dependencies can
+produce a different store path and require a build.
 
 ### NixOS configuration
 
