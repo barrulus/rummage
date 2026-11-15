@@ -146,11 +146,16 @@ as well as the available IDs and additional custom-action examples. Default refe
 and the custom `items` example are alternatives: keep only the overrides you intend to use
 and only one `[context_menu]` table.
 
-Copy Location, Extract Here, and Extract To are built-in actions. Extraction is filtered to
+Copy Name, Copy Location, Extract Here, and Extract To are built-in actions.
+Copy Name (**Ctrl+Alt+C**) copies each selected filename, including its extension, as
+plain text; multiple names are separated by newlines. It also works in Trash,
+using the displayed names, and in file pickers. Copy Location copies absolute
+selected paths, or the current folder path when nothing is selected. Extraction is filtered to
 applicable archive selections. Missing tools show setup guidance when invoked.
-Supported backends include unrar, 7-Zip, File Roller, unzip, gzip and tar. Copy Location cannot be replaced. Override an extraction preset by its ID to change
+Supported backends include unrar, 7-Zip, File Roller, unzip, gzip and tar. Copy Name and Copy Location cannot be replaced. Override an extraction preset by its ID to change
 its label, placement, or enabled state; providing `argv` makes it an external command.
-Actions are unavailable in Trash, and external actions are unavailable in file-picker mode.
+Copy Name is the only registry action available in Trash. External actions are unavailable
+in file-picker mode.
 
 Action IDs can also be bound in the existing `[keybindings]` table, for example
 `"action:compress" = "Ctrl+Alt+z"`; define the action before enabling its binding. Actions,
@@ -197,7 +202,7 @@ diagnostics and any retained output location. Extraction is not added to the fil
 | `destination_name` | Empty | Literal suggested filename for `destination = "file"` |
 | `notify_on_completion` | `false` | Status message and desktop notification when the launched process exits |
 
-Preset overrides retain omitted preset fields. Copy Location cannot be replaced.
+Preset overrides retain omitted preset fields. Copy Name and Copy Location cannot be replaced.
 See the [annotated reference](config.example.toml) for all default context layouts
 and menu IDs. See [troubleshooting](troubleshooting.md#actions-or-menus-are-missing)
 when an action does not appear.

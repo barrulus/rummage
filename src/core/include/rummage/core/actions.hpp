@@ -9,7 +9,7 @@
 namespace rummage::core {
 
 struct Action {
-    enum class Kind { external, copy_location, extract_here, extract_to };
+    enum class Kind { external, copy_location, copy_name, extract_here, extract_to };
     enum class Selection { one, many, background, any };
     enum class Placement { actions, menu };
     enum class Destination { none, file, directory };

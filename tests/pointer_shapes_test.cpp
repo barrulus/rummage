@@ -155,7 +155,7 @@ struct Fixture {
 
 }  // namespace
 
-TEST_CASE("pointer shapes: a hand on every kind of button, an arrow elsewhere") {
+TEST_CASE("pointer shapes: buttons use hands and selectable metadata uses text cursors") {
     Fixture f;
     if (!f.gl) {
         return;
@@ -186,9 +186,17 @@ TEST_CASE("pointer shapes: a hand on every kind of button, an arrow elsewhere") 
         f.draw();
         return f.find(CursorShape::pointer, in_view).has_value();
     }));
+    for (const auto* id : {"name", "Size.value"}) {
+        const auto field = f.browser.info_pane().property_bounds(id);
+        REQUIRE_FALSE(field.empty());
+        const float x = field.x + field.width / 2.0F;
+        const float y = field.y + field.height / 2.0F;
+        CHECK(f.browser.info_pane().text_at(x, y));
+        CHECK(f.browser.cursor_at(x, y) == CursorShape::text);
+    }
     CHECK_FALSE(f.find(CursorShape::text, [&](float x, float y) {
-        return !f.browser.filter_bounds().contains(x, y);
-    }));  // only the always-visible name filter
+        return !f.browser.filter_bounds().contains(x, y) && !f.browser.info_pane().text_at(x, y);
+    }));  // text cursors belong to the filter and the info pane's actual text targets
 }
 
 TEST_CASE("pointer shapes: the text cursor over a name being edited") {

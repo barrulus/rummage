@@ -32,6 +32,13 @@ struct TransferRequest {
     // Tests: trash into this top directory's trash, as if the items were on another disk.
     std::filesystem::path trash_top{};  // NOLINT(readability-redundant-member-init): GCC wants one
                                         // for designated initializers that leave it out
+    // Threads copying a folder's files at once; 0: rummage's choice. Tests and measurements.
+    std::size_t threads{0};
+    // An undo of a move: the destination (where the items came from) is made again when that
+    // move took the folder away, emptied by a merge.
+    bool make_destination{false};
+    // Optional destination names parallel to names (undo restores a Keep Both item's old name).
+    std::vector<std::string> destination_names{};
 };
 
 // What to do with an item whose name is taken in the destination.
@@ -75,6 +82,10 @@ struct TransferResult {
     // The same items, sidecars left out (they follow their photo): copied or moved from where to
     // where; trashed from their place to the trash's files/; restored from files/ to their place.
     std::vector<PlacedItem> items;
+    // Groups omitted from items: overwritten files cannot be restored, and an undo must not
+    // collect preexisting destination sidecars. Inside a merged folder, items holds what the
+    // merge safely made there, not the folder.
+    std::size_t undo_excluded{0};
     std::size_t files_done{0};
     std::uint64_t bytes_done{0};
     std::vector<std::string> errors;  // "Trip/P1.ORF: Permission denied"
@@ -93,11 +104,17 @@ struct TransferCallbacks {
 //   copies the data (copy_file_range, else read/write) in pieces into a hidden temporary file
 //   (".rummage-part-XXXXXX") renamed to its name only when complete, so a cancelled or failed
 //   copy leaves nothing half-written under a real name. A new folder is built the same way, as a
-//   whole. Permissions, access and modification times and symbolic links are kept.
+//   whole, the files inside it written under their own names (nobody sees them before the
+//   folder's rename) by a few threads at once; the folders' permissions and dates are set once
+//   every file in them has arrived. Permissions, access and modification times and symbolic
+//   links are kept. A source file is opened without following links and must still be the file
+//   first looked at ("changed while being copied").
 // - Between file systems a source is deleted only after its copy is complete and flushed to disk
-//   (fsync), and a folder only if all of it arrived.
+//   (fsync) and published under its final name, and a folder only if all of it arrived.
 // - A regular file takes its darktable sidecars along (sidecars_of), named after its new name;
-//   a conflict on any of them is a conflict on the file.
+//   a conflict on any of them is a conflict on the file. Loose files are copied by the same
+//   threads, each with its sidecars (only once it arrived), while the next ones are looked at
+//   (conflicts asked one at a time, the names given claimed at once); placed keeps the order.
 // - Taken names go to callbacks.resolve, except a copy into its own folder: always keep_both.
 //   A file never replaces a folder, nor a folder a file.
 // - Refused before anything is done: a folder into itself or below, or a copy bigger than the

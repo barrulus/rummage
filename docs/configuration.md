@@ -7,6 +7,8 @@ command palette. Appearance includes colour and icon themes, opacity, fonts and
 preview placement. Keybindings lets you replace a default with a chord (for example
 `Ctrl+J`), type `Default` to reset it, or clear a field to disable it. **New keybinding**
 adds a chord for an action (`action:ID`) or folder (`go:/path` or `go:~/path`).
+Copy Name defaults to **Ctrl+Alt+C** and can be changed with `copy_name`; it copies
+selected filenames, including extensions, with newlines between multiple names.
 Create custom commands in Actions first; you can save the action and its binding together.
 Actions lets
 you add commands and edit custom action labels, argument arrays and enabled state. Advanced options remain

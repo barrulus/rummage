@@ -155,7 +155,7 @@ void ConflictDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                    ? "A folder is not replaced: keep both or skip."
                    : "A file and a folder cannot replace each other.";
     } else if (conflict_.directory) {
-        note = "Replace merges the folders: files with the same name are replaced.";
+        note = "Merge joins the folders; a file with the same name is asked about.";
     }
     renderer.draw_text(note, left, y, kTextSize, palette.on_surface_variant, room);
     y += 30.0F;
@@ -200,7 +200,8 @@ void ConflictDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (!usable) {
             text = palette.outline;
         }
-        renderer.draw_text(kLabels.at(i), button.x + 14.0F,
+        const bool merges = i == kReplace && conflict_.directory && can_replace();
+        renderer.draw_text(merges ? "Merge   R" : kLabels.at(i), button.x + 14.0F,
                            button.y + ((kButtonHeight - kTextSize) / 2.0F) - 2.0F, kTextSize, text,
                            button.width - 20.0F);
     }

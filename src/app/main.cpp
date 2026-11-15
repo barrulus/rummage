@@ -39,7 +39,10 @@
 #include "rummage/isolate/helpers.hpp"
 #include "rummage/platform/about.hpp"
 #include "rummage/platform/action_handoff.hpp"
+#include "rummage/platform/applications.hpp"
 #include "rummage/platform/desktop_entry.hpp"
+#include "rummage/platform/file_manager.hpp"
+#include "rummage/platform/file_manager_config.hpp"
 #include "rummage/platform/file_picker_portal.hpp"
 #include "rummage/platform/gvfs.hpp"
 #include "rummage/platform/opener.hpp"
@@ -205,7 +208,11 @@ constexpr const char* kUsage =
     "Picker: rummage --pick|--pick-directory|--save-file [--multiple] [--name NAME] [--title "
     "TITLE] [DIR]\n"
     "Selected absolute paths are NUL-separated on stdout; exit 1 cancels.\n"
-    "Portal backend: rummage --portal\n\n"
+    "Portal backend: rummage --portal\n"
+    "Show in Folder service: rummage --file-manager1\n"
+    "Desktop integration: rummage --set-file-manager | --unset-file-manager\n"
+    "Reveal items: rummage --reveal|--properties [--] PATH...\n"
+    "Open folder tabs: rummage --open-folders [--] DIR...\n\n"
     "usage: rummage [--config FILE] [--check-config] [--test-scene] [--version] [--about] [DIR]\n"
     "  DIR             the folder to show (default: your home folder)\n"
     "  --config FILE   read FILE instead of ~/.config/rummage/config.toml\n"
@@ -230,6 +237,42 @@ std::filesystem::path start_folder(const std::filesystem::path& given) {
 bool client_decorations_forced() {
     const char* value = std::getenv("RUMMAGE_FORCE_CSD");  // NOLINT(concurrency-mt-unsafe): startup
     return value != nullptr && *value != '\0' && std::string_view{value} != "0";
+}
+
+// Consume before any worker starts; launched children must get their own activation tokens.
+std::string take_activation_token() {
+    std::string token;
+    for (const char* name : {"XDG_ACTIVATION_TOKEN", "DESKTOP_STARTUP_ID"}) {
+        const char* value = std::getenv(name);  // NOLINT(concurrency-mt-unsafe): startup
+        if (value != nullptr && *value != '\0' && token.empty())
+            token = value;
+        unsetenv(name);  // NOLINT(concurrency-mt-unsafe): startup, before threads
+    }
+    return token;
+}
+
+int change_file_manager(bool set) {
+    const auto environment = platform::Environment::from_environment();
+    platform::ManagerChange change;
+    if (!set) {
+        change = platform::unset_file_manager(environment);
+    } else {
+        std::error_code error;
+        const auto self = std::filesystem::read_symlink("/proc/self/exe", error);
+        const auto program = platform::file_manager_program(self);
+        if (error || !program) {
+            change = {.ok = false, .message = "cannot locate the rummage executable\n"};
+        } else {
+            const auto mime = fs::MimeDatabase::load();
+            const auto apps = platform::Applications::load(environment, *mime);
+            const auto* folders = apps.default_for("inode/directory", *mime);
+            change = platform::set_file_manager(
+                environment, *program, platform::bus_name_owner(platform::kFileManagerBusName),
+                folders ? std::string_view{folders->id} : std::string_view{});
+        }
+    }
+    std::fputs(change.message.c_str(), change.ok ? stdout : stderr);
+    return change.ok ? 0 : 1;
 }
 
 // --about: what rummage runs on, one "Label: value" line each, to paste into a bug report.
@@ -338,11 +381,54 @@ int main(int argc, char** argv) {
     bool check_only = false;
     bool test_scene = false;
     bool portal_backend = false;
+    bool file_manager_backend = false;
+    std::optional<bool> configure_file_manager;
+    bool reveal = false;
+    bool reveal_details = false;
+    bool open_folders = false;
+    bool only_paths = false;
+    std::vector<std::filesystem::path> requested_paths;
     bool picker_channel = false;
     std::optional<core::PickerRequest> picker_request;
     core::PickerResult picker_result;
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg{argv[i]};
+        if (only_paths || ((reveal || open_folders) && !arg.starts_with("-"))) {
+            if (reveal || open_folders)
+                requested_paths.emplace_back(arg);
+            else if (start_dir.empty())
+                start_dir = arg;
+            else {
+                std::fprintf(stderr, "rummage: only one folder without --open-folders\n");
+                return 2;
+            }
+            continue;
+        }
+        if (arg == "--") {
+            only_paths = true;
+            continue;
+        }
+        if (arg == "--reveal" || arg == "--properties") {
+            reveal = true;
+            reveal_details = reveal_details || arg == "--properties";
+            continue;
+        }
+        if (arg == "--open-folders") {
+            open_folders = true;
+            continue;
+        }
+        if (arg == "--file-manager1") {
+            file_manager_backend = true;
+            continue;
+        }
+        if (arg == "--set-file-manager" || arg == "--unset-file-manager") {
+            if (configure_file_manager) {
+                std::fprintf(stderr, "rummage: choose one file manager configuration command\n");
+                return 2;
+            }
+            configure_file_manager = arg == "--set-file-manager";
+            continue;
+        }
         if (arg == "--help" || arg == "-h") {
             std::puts(kUsage);
             return 0;
@@ -395,6 +481,43 @@ int main(int argc, char** argv) {
             return 2;
         }
     }
+    const int modes = static_cast<int>(portal_backend) + static_cast<int>(file_manager_backend) +
+                      static_cast<int>(configure_file_manager.has_value()) +
+                      static_cast<int>(reveal) + static_cast<int>(open_folders) +
+                      static_cast<int>(picker_request.has_value()) + static_cast<int>(test_scene) +
+                      static_cast<int>(check_only);
+    if (modes > 1 ||
+        ((reveal || open_folders) && (requested_paths.empty() || !start_dir.empty())) ||
+        ((portal_backend || file_manager_backend || configure_file_manager) &&
+         !start_dir.empty())) {
+        std::fprintf(stderr, "rummage: incompatible launch modes or missing paths\n");
+        return 2;
+    }
+    if (configure_file_manager)
+        return change_file_manager(*configure_file_manager);
+    for (auto& path : requested_paths) {
+        std::error_code error;
+        path = std::filesystem::absolute(path, error).lexically_normal();
+        if (error) {
+            std::fprintf(stderr, "rummage: cannot resolve path\n");
+            return 2;
+        }
+        if (!path.has_filename() && path.has_relative_path())
+            path = path.parent_path();
+    }
+    if (reveal || open_folders) {
+        std::erase_if(requested_paths, [open_folders](const auto& path) {
+            std::error_code error;
+            return open_folders
+                       ? !std::filesystem::is_directory(path, error)
+                       : !std::filesystem::exists(std::filesystem::symlink_status(path, error));
+        });
+        if (requested_paths.empty()) {
+            std::fprintf(stderr, "rummage: no existing paths to show\n");
+            return 1;
+        }
+    }
+    std::string startup_token = take_activation_token();
     if ((portal_backend && (picker_request || test_scene || check_only || !start_dir.empty())) ||
         (picker_request && (test_scene || check_only)) ||
         (picker_request && picker_request->mode != core::PickerRequest::Mode::open &&
@@ -412,7 +535,8 @@ int main(int argc, char** argv) {
     std::vector<std::string> migration_errors;
     if (config_path.empty()) {
         config_path = core::default_config_path();
-        if (!check_only && !test_scene && !portal_backend && !picker_request) {
+        if (!check_only && !test_scene && !portal_backend && !file_manager_backend &&
+            !picker_request) {
             bool config_migrated = true;
             for (const auto& path :
                  {config_path, theme::default_colors_path(), views::default_state_path()}) {
@@ -496,6 +620,9 @@ int main(int argc, char** argv) {
             loop.quit(0);
         });
 
+        if (file_manager_backend) {
+            return platform::run_file_manager(loop);
+        }
         if (portal_backend) {
             return platform::run_file_picker_portal(loop);
         }
@@ -806,6 +933,14 @@ int main(int argc, char** argv) {
                 const auto location = views::startup_location(
                     {.mode = core::Config::Startup::Mode::last}, remembered.state, start_dir);
                 columns->open(start_folder(location.folder));
+            } else if (reveal) {
+                columns->open(start_folder({}));
+                columns->show_items(requested_paths, reveal_details);
+            } else if (open_folders) {
+                columns->open(requested_paths.front());
+                if (requested_paths.size() > 1) {
+                    columns->open_tabs({requested_paths.begin() + 1, requested_paths.end()});
+                }
             } else if (!launch_location.restore_tabs ||
                        !columns->restore_session(remembered.state)) {
                 columns->open(start_folder(launch_location.folder));
@@ -1036,6 +1171,11 @@ int main(int argc, char** argv) {
                     startup.mark("first-draw");
                 }
                 ready_drawn = ready_drawn || ready;
+            }
+            if (!startup_token.empty()) {
+                loop.post([&activation, &window, token = std::exchange(startup_token, {})] {
+                    activation.activate(token, window.surface());
+                });
             }
             if (columns) {
                 if (picker) {

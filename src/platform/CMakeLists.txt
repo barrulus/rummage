@@ -7,6 +7,8 @@ add_library(rummage_platform
     src/desktop_entry.cpp
     src/exec.cpp
     src/gvfs.cpp
+    src/file_manager.cpp
+    src/file_manager_config.cpp
     src/file_picker_portal.cpp
     src/launcher.cpp
     src/notifications.cpp

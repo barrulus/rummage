@@ -522,6 +522,50 @@ TEST_CASE("actions: shortcuts validate registry IDs and preserve bindings after 
     CHECK(action_for(chord(XKB_KEY_i, {.ctrl = true, .alt = true})).empty());
 }
 
+TEST_CASE("actions: copy name has a configurable default without changing file copy or location") {
+    ResetBindings reset;
+    using rummage::views::action_for;
+    using rummage::views::configure_shortcuts;
+    const auto copy_name = chord(XKB_KEY_c, {.ctrl = true, .alt = true});
+    CHECK(action_for(copy_name) == "copy_name");
+    CHECK(rummage::views::keys_for_action("copy_name") == "Ctrl+Alt+C");
+    CHECK(rummage::views::command_for(chord(XKB_KEY_c, {.ctrl = true})) == Command::copy);
+    REQUIRE(configure_shortcuts({{"copy_location", "Ctrl+Shift+c"}}).empty());
+    CHECK(action_for(copy_name) == "copy_name");
+    CHECK(action_for(chord(XKB_KEY_C, {.ctrl = true, .shift = true})) == "copy_location");
+    REQUIRE(configure_shortcuts({{"action:copy_name", "Ctrl+Alt+F3"}}).empty());
+    CHECK(action_for(copy_name).empty());
+    CHECK(action_for(chord(XKB_KEY_F3, {.ctrl = true, .alt = true})) == "copy_name");
+    CHECK_FALSE(
+        configure_shortcuts({{"copy_name", "Ctrl+Alt+F3"}, {"action:copy_name", "Ctrl+Alt+F5"}})
+            .empty());
+    REQUIRE(configure_shortcuts({{"copy_name", ""}}).empty());
+    CHECK(action_for(copy_name).empty());
+    REQUIRE(configure_shortcuts({}).empty());
+    CHECK(action_for(copy_name) == "copy_name");
+}
+
+TEST_CASE("actions: copy name shortcut works in every view and respects name editors") {
+    ResetBindings reset;
+    Fixture f;
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    const auto event = chord(XKB_KEY_C, {.ctrl = true, .alt = true});
+    for (const auto mode : kModes) {
+        f.reset(mode, "a.txt");
+        CHECK(f.browser.key(event, Browser::Clock::now()));
+        REQUIRE_FALSE(offered.empty());
+        CHECK(offered.front().second == "a.txt");
+        offered.clear();
+        f.browser.key(chord(XKB_KEY_F2, {}), Browser::Clock::now());
+        REQUIRE(f.browser.name_editor().active());
+        f.browser.key(event, Browser::Clock::now());
+        CHECK(offered.empty());
+    }
+}
+
 TEST_CASE("actions: external shortcuts use the same targets in all views and respect editors") {
     ResetBindings reset;
     const std::vector<rummage::core::Action> actions{
@@ -606,4 +650,26 @@ TEST_CASE("shortcuts: folder jumps validate, reload and navigate within the curr
     CHECK(f.browser.status_bar().message().starts_with("Folder unavailable:"));
     REQUIRE(configure_shortcuts({{binding, ""}}).empty());
     CHECK(rummage::views::folder_for(event).empty());
+}
+
+TEST_CASE("shortcuts: stopping a transfer is configurable, disableable, and listed in settings") {
+    ResetBindings reset;
+    using rummage::views::command_for;
+    using rummage::views::configure_shortcuts;
+    using rummage::views::keys_for;
+    CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::stop_transfer);
+    CHECK(command_for(chord(XKB_KEY_Escape, {})) == Command::none);
+    CHECK(keys_for(Command::stop_transfer) == "Shift+Escape");
+    const auto settings = rummage::views::binding_settings();
+    const auto stop = std::ranges::find(settings, "stop_transfer",
+                                        [](const auto& binding) { return binding.first; });
+    REQUIRE(stop != settings.end());
+    CHECK(stop->second == "Stop the copy, move or delete · Default: Shift+Escape");
+    REQUIRE(configure_shortcuts({{"stop_transfer", "Ctrl+Alt+s"}}).empty());
+    CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::none);
+    CHECK(command_for(chord(XKB_KEY_s, {.ctrl = true, .alt = true})) == Command::stop_transfer);
+    CHECK(keys_for(Command::stop_transfer) == "Ctrl+Alt+s");
+    REQUIRE(configure_shortcuts({{"stop_transfer", ""}}).empty());
+    CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::none);
+    CHECK(keys_for(Command::stop_transfer).empty());
 }

@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <doctest/doctest.h>
@@ -105,6 +106,23 @@ struct Fixture {
         event.keysym = key;
         event.modifiers = modifiers;
         browser.key(event, now);
+    }
+
+    void pointer(rummage::ui::PointerEvent::Kind kind, float x, float y, int clicks = 1,
+                 rummage::ui::Modifiers modifiers = {}) {
+        rummage::ui::PointerEvent event;
+        event.kind = kind;
+        event.x = x;
+        event.y = y;
+        event.button = rummage::ui::PointerButton::left;
+        event.click_count = clicks;
+        event.modifiers = modifiers;
+        browser.pointer(event, now);
+    }
+
+    void click(float x, float y, int clicks = 1, rummage::ui::Modifiers modifiers = {}) {
+        pointer(rummage::ui::PointerEvent::Kind::press, x, y, clicks, modifiers);
+        pointer(rummage::ui::PointerEvent::Kind::release, x, y);
     }
 
     void wheel(float x, float y, float notches) {
@@ -358,4 +376,287 @@ TEST_CASE("info pane: text pages fit short windows and reach their final line") 
     f.draw(1000ms);
     CHECK(f.pane().text_max_offset() <= previous_max);
     CHECK(f.pane().text_offset() == f.pane().text_max_offset());
+}
+
+TEST_CASE("info pane: metadata text takes Ctrl+A/C while file selection stays intact") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    REQUIRE(f.settle());
+    auto& folder = f.browser.columns().column(0).folder();
+    const auto name = f.pane().property_bounds("name");
+    REQUIRE_FALSE(name.empty());
+    f.click(name.x + 2.0F, name.y + 2.0F);
+    REQUIRE(f.pane().text_focused());
+    f.press(XKB_KEY_a, {.ctrl = true});
+    CHECK(f.pane().selected_text() == "long.txt");
+    CHECK(folder.selected_count() == 1);
+    f.press(XKB_KEY_c, {.ctrl = true});
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().first == "text/plain;charset=utf-8");
+    CHECK(offered.front().second == "long.txt");
+
+    const auto size = f.pane().property_bounds("Size.value");
+    REQUIRE_FALSE(size.empty());
+    f.click(size.x + 2.0F, size.y + 2.0F);
+    f.press(XKB_KEY_a, {.ctrl = true});
+    CHECK_FALSE(f.pane().selected_text().empty());
+    CHECK(f.pane().selected_text() != "long.txt");
+    f.press(XKB_KEY_c, {.ctrl = true});
+    CHECK(offered.front().second == f.pane().selected_text());
+    CHECK(folder.selected_count() == 1);
+
+    // Pressing in the file view gives Ctrl+A and Ctrl+C back to file operations.
+    f.click(400.0F, 300.0F);
+    CHECK_FALSE(f.pane().text_focused());
+    f.press(XKB_KEY_a, {.ctrl = true});
+    CHECK(folder.selected_count() == folder.entries().size());
+    f.press(XKB_KEY_c, {.ctrl = true});
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().first == "x-special/gnome-copied-files");
+}
+
+TEST_CASE("info pane: a full long UTF-8 filename wraps and copies without visual line breaks") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    const std::string filename = std::string(160, 'a') + "-café-very-long-name.txt";
+    std::ofstream{f.dir.path / filename} << "small file";
+    auto& folder = f.browser.columns().column(0).folder();
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::any_of(folder.entries(),
+                                   [&](const auto& entry) { return entry.name == filename; });
+    }));
+    folder.select_name(filename);
+    f.browser.set_mode(Browser::Mode::grid);
+    REQUIRE(f.settle());
+    const auto name = f.pane().property_bounds("name");
+    REQUIRE(name.height > 42.0F);
+    CHECK(name.width <= f.pane().width());
+    f.click(name.x + 2.0F, name.y + 2.0F, 3);
+    CHECK(f.pane().selected_text() == filename);
+    f.press(XKB_KEY_a, {.ctrl = true});
+    CHECK(f.pane().selected_text() == filename);
+    // Reflow keeps the same source and selection.
+    f.pane().set_width(InfoPane::kMaxWidth);
+    f.draw();
+    CHECK(f.pane().selected_text() == filename);
+    CHECK(f.pane().property_bounds("name").height < name.height);
+}
+
+TEST_CASE("info pane: preview text supports words, lines, drag, shift and loaded-text selection") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    REQUIRE(f.settle());
+    const auto page = f.pane().text_page();
+    REQUIRE_FALSE(page.empty());
+    using Kind = rummage::ui::PointerEvent::Kind;
+    const float x = page.x + 10.0F;
+    const float y = page.y + 10.0F;
+    f.click(x, y, 2);
+    CHECK(f.pane().selected_text() == "line");
+    f.click(x, y, 3);
+    CHECK(f.pane().selected_text() == "line 0 of a file that goes on\n");
+    f.pointer(Kind::press, x, y);
+    f.pointer(Kind::motion, x + 30.0F, y);
+    f.pointer(Kind::release, x + 30.0F, y);
+    const auto dragged = f.pane().selected_text();
+    CHECK_FALSE(dragged.empty());
+    f.click(x + 60.0F, y, 1, {.shift = true});
+    CHECK(f.pane().selected_text().size() > dragged.size());
+    f.press(XKB_KEY_a, {.ctrl = true});
+    CHECK(f.pane().selected_text().starts_with("line 0"));
+    CHECK(f.pane().selected_text().ends_with("line 199 of a file that goes on"));
+    f.press(XKB_KEY_End);
+    f.draw(1000ms);
+    CHECK(f.pane().text_offset() == f.pane().text_max_offset());
+    CHECK(f.pane().text_focused());
+}
+
+TEST_CASE("info pane: changing context or hiding it clears text selection and focus") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    REQUIRE(f.settle());
+    const auto name = f.pane().property_bounds("name");
+    f.click(name.x + 2.0F, name.y + 2.0F);
+    f.press(XKB_KEY_a, {.ctrl = true});
+    REQUIRE_FALSE(f.pane().selected_text().empty());
+    SUBCASE("another selected file") { f.press(XKB_KEY_Down); }
+    SUBCASE("hidden preview") { f.browser.set_info_visible(false); }
+    SUBCASE("another tab") { f.browser.new_tab(); }
+    SUBCASE("another pane") {
+        f.browser.toggle_split();
+        f.browser.switch_pane();
+    }
+    f.draw();
+    CHECK_FALSE(f.pane().text_focused());
+    CHECK(f.pane().selected_text().empty());
+}
+
+TEST_CASE("info pane: collapsing more details forgets selection of a hidden property") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_End);
+    REQUIRE(f.settle());
+    f.pane().set_expanded(true);
+    f.draw();
+    const auto location = f.pane().property_bounds("Location.value");
+    REQUIRE_FALSE(location.empty());
+    f.click(location.x + 2.0F, location.y + 2.0F);
+    f.press(XKB_KEY_a, {.ctrl = true});
+    REQUIRE(f.pane().selected_text() == f.dir.path.string());
+    f.pane().set_expanded(false);
+    f.draw();
+    CHECK_FALSE(f.pane().text_focused());
+    CHECK(f.pane().selected_text().empty());
+}
+
+TEST_CASE(
+    "info pane: shaped Unicode clusters select accurately and long-line tails are reachable") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    const std::string first = "漢字 é 👩🏽‍💻 tail";
+    std::string long_line;
+    for (int i = 0; i < 150; ++i) {
+        long_line += "漢字";
+    }
+    long_line += " END";
+    std::ofstream{f.dir.path / "unicode.txt"} << first << "\n" << long_line << "\n";
+    auto& folder = f.browser.columns().column(0).folder();
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::any_of(folder.entries(),
+                                   [](const auto& entry) { return entry.name == "unicode.txt"; });
+    }));
+    folder.select_name("unicode.txt");
+    REQUIRE(f.settle());
+    const auto page = f.pane().text_page();
+    REQUIRE_FALSE(page.empty());
+    constexpr float size = 11.0F;
+    const auto first_layout = f.fonts.layout(first, size, 1.0F, 0.0F, rummage::ui::Ellipsis::end,
+                                             rummage::ui::Typeface::monospace);
+    const auto combining = std::ranges::find_if(
+        first_layout.glyphs, [&](const auto& glyph) { return glyph.cluster == first.find('e'); });
+    REQUIRE(combining != first_layout.glyphs.end());
+    const float combining_x = page.x + 8.0F + combining->x + combining->advance * 0.4F;
+    f.click(combining_x, page.y + 10.0F, 2);
+    CHECK(f.pane().selected_text() == "é");
+
+    const auto long_layout = f.fonts.layout(long_line, size, 1.0F, 0.0F, rummage::ui::Ellipsis::end,
+                                            rummage::ui::Typeface::monospace);
+    CHECK(f.pane().text_horizontal_max_offset() >= long_layout.width - (page.width - 16.0F));
+    rummage::ui::PointerEvent wheel;
+    wheel.kind = rummage::ui::PointerEvent::Kind::scroll;
+    wheel.x = page.x + page.width / 2.0F;
+    wheel.y = page.y + 10.0F;
+    wheel.wheel_y = 1000.0F;
+    wheel.modifiers.shift = true;
+    f.browser.pointer(wheel, f.now);
+    f.draw(2000ms);
+    CHECK(f.pane().text_horizontal_offset() == f.pane().text_horizontal_max_offset());
+    const auto tail = std::ranges::find_if(long_layout.glyphs, [&](const auto& glyph) {
+        return glyph.cluster == long_line.find("END");
+    });
+    REQUIRE(tail != long_layout.glyphs.end());
+    const float tail_x =
+        page.x + 8.0F + tail->x + tail->advance * 0.4F - f.pane().text_horizontal_offset();
+    REQUIRE(tail_x > page.x);
+    REQUIRE(tail_x < page.right());
+    f.click(tail_x, page.y + 10.0F + InfoPane::kTextLineHeight, 2);
+    CHECK(f.pane().selected_text() == "END");
+}
+
+TEST_CASE("info pane: a short wide preview pans sideways but vertical wheel scrolls its metadata") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    f.height = 320;
+    std::ofstream{f.dir.path / "wide.txt"} << std::string(600, 'w') << "\n";
+    auto& folder = f.browser.columns().column(0).folder();
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::any_of(folder.entries(),
+                                   [](const auto& entry) { return entry.name == "wide.txt"; });
+    }));
+    folder.select_name("wide.txt");
+    f.pane().set_expanded(true);
+    REQUIRE(f.settle());
+    const auto page = f.pane().text_page();
+    REQUIRE_FALSE(page.empty());
+    REQUIRE(f.pane().text_max_offset() == 0.0F);
+    REQUIRE(f.pane().text_horizontal_max_offset() > 0.0F);
+    const auto name = f.pane().property_bounds("name");
+    rummage::ui::PointerEvent horizontal;
+    horizontal.kind = rummage::ui::PointerEvent::Kind::scroll;
+    horizontal.x = page.x + page.width / 2.0F;
+    horizontal.y = page.y + 10.0F;
+    horizontal.wheel_y = 2.0F;
+    horizontal.modifiers.shift = true;
+    f.browser.pointer(horizontal, f.now);
+    f.draw(1000ms);
+    CHECK(f.pane().text_horizontal_offset() > 0.0F);
+    CHECK(f.pane().property_bounds("name").y == name.y);
+    f.wheel(horizontal.x, horizontal.y, 3.0F);
+    f.draw(1000ms);
+    CHECK(f.pane().text_offset() == 0.0F);
+    CHECK(f.pane().property_bounds("name").y < name.y);
+}
+
+TEST_CASE("info pane: modifier keys keep text focus and file navigation drops it before drawing") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    REQUIRE(f.settle());
+    const auto name = f.pane().property_bounds("name");
+    f.click(name.x + 2.0F, name.y + 2.0F);
+    f.press(XKB_KEY_a, {.ctrl = true});
+    REQUIRE(f.pane().selected_text() == "long.txt");
+    f.press(XKB_KEY_Control_L);
+    REQUIRE(f.pane().text_focused());
+    f.press(XKB_KEY_c, {.ctrl = true});
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().first == "text/plain;charset=utf-8");
+    CHECK(offered.front().second == "long.txt");
+    // Both key presses arrive before the next frame can refresh the info pane's content.
+    f.press(XKB_KEY_Down);
+    CHECK_FALSE(f.pane().text_focused());
+    f.press(XKB_KEY_c, {.ctrl = true});
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().first == "x-special/gnome-copied-files");
+    CHECK(offered.front().second.ends_with("short.txt"));
 }

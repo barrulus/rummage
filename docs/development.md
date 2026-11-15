@@ -148,7 +148,7 @@ with `./build-dev/`).
 | `rummage-decode` | Decode/inspect images and raw previews with timings |
 | `rummage-thumb` | Exercise the thumbnail cache |
 | `rummage-open` | Inspect default-application resolution; use `--dry-run` to avoid launching |
-| `rummage-transfer` | Exercise real copy/move operations on disposable fixtures |
+| `rummage-transfer` | Exercise real copy/move operations on disposable fixtures; `--threads 1` through `--threads 64` selects copy concurrency |
 | `rummage-bench-jpeg` | Optional wuffs/TurboJPEG comparison |
 | `tests/rummage-bench-previews` | Optional exiv2/reference comparison |
 

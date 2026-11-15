@@ -37,6 +37,9 @@ public:
     void request(wl_seat* seat, std::uint32_t serial, wl_surface* surface,
                  std::function<void(std::string token)> done);
 
+    // Redeem a token supplied by the program that started us, after the first window frame.
+    void activate(const std::string& token, wl_surface* surface);
+
 private:
     struct Pending {
         Activation* owner{nullptr};

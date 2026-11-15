@@ -1,5 +1,6 @@
 #include "rummage/core/actions.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iterator>
@@ -45,19 +46,40 @@ TEST_CASE("actions: arguments preserve filename bytes and selection boundaries")
     CHECK_FALSE(action_matches(action, context));
 }
 
+TEST_CASE("actions: copy name requires targets and remains available in Trash") {
+    const auto actions = action_registry();
+    const auto name = std::ranges::find(actions, "copy_name", &Action::id);
+    REQUIRE(name != actions.end());
+    CHECK(name->kind == Action::Kind::copy_name);
+    CHECK(name->placement == Action::Placement::menu);
+    ActionContext context{.directory = "/tmp", .targets = {}};
+    CHECK_FALSE(action_matches(*name, context));
+    context.targets = {{"/tmp/Photo.ORF", "image/x-dcraw"}, {"/tmp/sub", "inode/directory"}};
+    CHECK(action_matches(*name, context));
+    context.trash = true;
+    CHECK(action_matches(*name, context));
+    CHECK_FALSE(action_matches(actions.front(), context));
+    auto replacement = *name;
+    replacement.label = "Wrong";
+    replacement.enabled = false;
+    const auto registry = action_registry(std::vector{replacement});
+    CHECK(registry[1].label == "Copy Name");
+    CHECK(registry[1].enabled);
+}
+
 TEST_CASE("actions: bundled extraction requires only supported archive types") {
     const auto actions = action_registry();
-    REQUIRE(actions.size() == 3);
+    REQUIRE(actions.size() == 4);
     ActionContext context{.directory = "/tmp", .targets = {{"/tmp/a.zip", "application/zip"}}};
-    CHECK(action_matches(actions[1], context));
-    CHECK(actions[1].kind == Action::Kind::extract_here);
-    CHECK(actions[2].kind == Action::Kind::extract_to);
+    CHECK(action_matches(actions[2], context));
+    CHECK(actions[2].kind == Action::Kind::extract_here);
+    CHECK(actions[3].kind == Action::Kind::extract_to);
     context.targets.push_back({"/tmp/b", "inode/directory"});
-    CHECK_FALSE(action_matches(actions[1], context));
+    CHECK_FALSE(action_matches(actions[2], context));
     CHECK(action_matches(actions[0], context));
-    auto replacement = actions[1];
+    auto replacement = actions[2];
     replacement.enabled = false;
-    CHECK_FALSE(action_matches(action_registry(std::vector{replacement})[1], context));
+    CHECK_FALSE(action_matches(action_registry(std::vector{replacement})[2], context));
 }
 
 TEST_CASE("actions: bzip2 tar canonical MIME and legacy alias both expose extraction") {
@@ -65,8 +87,8 @@ TEST_CASE("actions: bzip2 tar canonical MIME and legacy alias both expose extrac
          {"application/x-bzip2-compressed-tar", "application/x-bzip-compressed-tar"}) {
         for (const auto* name : {"archive.tar.bz2", "archive.tbz2"}) {
             const ActionContext context{.directory = "/tmp", .targets = {{name, mime}}};
-            CHECK(action_matches(action_registry()[1], context));
             CHECK(action_matches(action_registry()[2], context));
+            CHECK(action_matches(action_registry()[3], context));
         }
     }
 }
@@ -99,6 +121,7 @@ execution = "handoff"
           "[[actions]]\nid='bad'\nlabel='Bad'\nargv=['tool']\nplacement=true",
           "[[actions]]\nid='bad'\nlabel='Bad'\nargv=['tool']\nconfirm=true",
           "[[actions]]\nid='copy_location'\nlabel='Bad'\nargv=['tool']",
+          "[[actions]]\nid='copy_name'\nlabel='Bad'\nargv=['tool']",
           "[[actions]]\nid='bad'\nlabel='Bad'\nargv=['tool',7]",
           "[[actions]]\nid='bad'\nlabel='Bad'\nargv=['tool']\nmime=['*/*']"}) {
         CAPTURE(invalid);
@@ -113,11 +136,11 @@ execution = "handoff"
         "actions.toml");
     REQUIRE(preset.problems.empty());
     const auto registry = action_registry(preset.config.actions);
-    CHECK_FALSE(registry[1].enabled);
-    CHECK(registry[2].label == "Extract To…");
-    CHECK(registry[2].argv == std::vector<std::string>{"other-archiver", "{files}"});
-    CHECK(registry[2].selection == Action::Selection::many);
-    CHECK(registry[2].placement == Action::Placement::menu);
+    CHECK_FALSE(registry[2].enabled);
+    CHECK(registry[3].label == "Extract To…");
+    CHECK(registry[3].argv == std::vector<std::string>{"other-archiver", "{files}"});
+    CHECK(registry[3].selection == Action::Selection::many);
+    CHECK(registry[3].placement == Action::Placement::menu);
     const auto duplicate = rummage::core::parse_config(
         valid + "\n[[actions]]\nid='upscale'\nlabel='Again'\nargv=['tool']", "actions.toml");
     CHECK_FALSE(duplicate.actions_valid);
@@ -148,8 +171,8 @@ placement = "actions"
     CHECK(result.config.actions[1].placement == Action::Placement::actions);
     const auto registry = action_registry(result.config.actions);
     CHECK(registry[0].placement == Action::Placement::menu);
-    CHECK(registry[1].placement == Action::Placement::actions);
-    CHECK(registry[2].placement == Action::Placement::menu);
+    CHECK(registry[2].placement == Action::Placement::actions);
+    CHECK(registry[3].placement == Action::Placement::menu);
 }
 
 TEST_CASE("actions: handoff passes arguments and cwd literally and reports failures") {

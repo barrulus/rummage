@@ -5,6 +5,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "rummage/core/worker_pool.hpp"
@@ -13,6 +15,7 @@
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/text_field.hpp"
+#include "rummage/views/selectable_text.hpp"
 
 namespace rummage::views {
 
@@ -26,6 +29,14 @@ public:
     ~PropertiesDialog();
     void open(std::filesystem::path path, std::function<void()> changed, bool editable = true);
     void close();
+
+    void set_copy_handler(std::function<void(std::string)> handler) {
+        copy_ = std::move(handler);
+        text_.set_copy_handler(copy_);
+    }
+
+    // Drawn selectable field geometry: name, type, or a metadata row's label.
+    [[nodiscard]] ui::Rect text_bounds(std::string_view id) const { return text_.bounds(id); }
 
     [[nodiscard]] bool is_open() const { return open_; }
 
@@ -84,6 +95,8 @@ private:
     core::WorkerPool& pool_;
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_, changed_;
+    std::function<void(std::string)> copy_;
+    SelectableText text_;
     core::CancelToken load_job_, save_job_, icons_job_;
     bool open_{false}, loading_{false}, saving_{false}, picking_{false}, editable_{true};
     bool icons_loading_{false};

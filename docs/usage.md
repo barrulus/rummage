@@ -17,7 +17,24 @@ permissions, owner/group, links and folder counts.
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
 **Ctrl+I** toggles the information pane. Drag its edge to
-resize it (240–720 logical pixels).
+resize it (240–720 logical pixels). Filenames and metadata wrap in full. Drag to
+select text in the pane, double-click a word, triple-click a line, or Shift+click
+to extend. After clicking a text field or text preview, **Ctrl+A** selects its text
+and **Ctrl+C** copies it. Click the file view to return these shortcuts to files.
+
+Rest on a selected folder for 250 ms to count its recursive size on a worker. The
+pane shows “Counting…” with the growing size, then Size and Contains. Selections
+containing folders get a combined recursive size; files alone show their listed
+sizes immediately. Moving to another selection or hiding the pane cancels the
+count. Hidden files are included, hard-linked file bytes count once, and links
+inside folders are never followed. A selected link to a folder measures its target;
+selecting both that target and its link counts the directory once.
+
+Counts stay on each root's filesystem and stop before directories 64 levels deep.
+Unreadable entries and skipped mounts make the size say “at least”. Network and
+FUSE folders are skipped (“—” when nothing could be counted); local fuseblk disks
+such as NTFS and exFAT are counted. Sizes reflect the tree when it was measured;
+changes deep inside it may require selecting it again to recount.
 
 ## Choose a view
 
@@ -221,7 +238,9 @@ independently of file lists. Its size is remembered across restarts. Status bar
 text has its own [configuration setting](configuration.md#settings-reference).
 
 **Alt+Enter** or Properties in the context menu shows metadata for one entry,
-or the current folder from the background menu. Metadata is read-only. Folders
+or the current folder from the background menu. Metadata is read-only and selectable: drag, double-click a word, triple-click a
+line, or Shift+click to extend. **Ctrl+A** selects the focused field and **Ctrl+C**
+copies its selection. Long filenames and metadata values wrap in full. Folders
 also offer Change Icon; see [folder icons](appearance.md#folder-icons-and-properties).
 
 ## Preview or work with files

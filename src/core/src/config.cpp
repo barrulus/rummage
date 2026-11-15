@@ -191,7 +191,8 @@ bool read_actions(const toml::node& node, Reader& reader, std::vector<Action>& a
         if (const auto id = (*table)["id"].value<std::string>()) {
             const auto defaults = action_registry();
             const auto preset = std::ranges::find(defaults, *id, &Action::id);
-            if (preset != defaults.end() && preset->kind != Action::Kind::copy_location) {
+            if (preset != defaults.end() && preset->kind != Action::Kind::copy_location &&
+                preset->kind != Action::Kind::copy_name) {
                 action = *preset;
             }
         }

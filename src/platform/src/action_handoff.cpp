@@ -304,7 +304,8 @@ bool ActionHandoff::available(const core::Action& action,
     if (action.kind == core::Action::Kind::external) {
         return !action.argv.empty() && available(action.argv.front());
     }
-    if (action.kind == core::Action::Kind::copy_location)
+    if (action.kind == core::Action::Kind::copy_location ||
+        action.kind == core::Action::Kind::copy_name)
         return true;
     return !context.targets.empty() &&
            std::ranges::all_of(context.targets, [&](const auto& target) {

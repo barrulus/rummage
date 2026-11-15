@@ -4,6 +4,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,7 +16,11 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/theme/palette.hpp"
+#include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
+#include "rummage/ui/renderer.hpp"
+#include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
 
@@ -27,6 +32,7 @@ using rummage::test::TempDir;
 using rummage::views::Browser;
 using rummage::views::DetailsView;
 using rummage::views::Folder;
+using rummage::views::InfoPane;
 using Field = DetailsView::Field;
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
@@ -353,4 +359,120 @@ TEST_CASE("details: header chooser and sorting use the visible column layout") {
         std::ranges::find(menu.items(), "details_columns", &rummage::views::MenuItem::id);
     REQUIRE(columns != menu.items().end());
     CHECK(columns->children.size() == rummage::views::kDetailsColumnCount + 1);
+}
+
+TEST_CASE("info pane: a folder's size, or a selection's, is added up once the cursor rests") {
+    constexpr std::int32_t width = 1000;
+    constexpr std::int32_t height = 600;
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(width, height);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    REQUIRE(f.settle());
+    write(f.root / "alpha" / "more.txt", 2000);
+    fs::create_directories(f.root / "alpha" / "deeper");
+    write(f.root / "alpha" / "deeper" / "last.txt", 30);
+    f.press(XKB_KEY_3, {.ctrl = true});
+    if (!f.browser.info_visible()) {
+        f.press(XKB_KEY_I, {.ctrl = true});
+    }
+    const rummage::views::InfoPane& pane = f.browser.info_pane();
+    const auto draw = [&] {
+        renderer.begin_frame(width, height, 1.0F, {});
+        f.browser.draw(renderer, {0.0F, 0.0F, width, height}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+
+    f.press(XKB_KEY_Down);  // alpha
+    REQUIRE(cursor_name(*f.browser.columns().focused_folder()) == "alpha");
+    draw();
+    CHECK_FALSE(pane.folder_size());  // not before kMeasureDelay
+    f.press(XKB_KEY_Down);            // gamma: alpha's count never starts
+    draw();
+    REQUIRE(run_until(f.loop, [&] { return pane.folder_size_done(); }));
+    CHECK(pane.folder_size()->entries() == 1);  // gamma, empty
+    CHECK(pane.folder_size()->bytes == 0);
+
+    f.press(XKB_KEY_Up);  // alpha
+    draw();
+    REQUIRE(run_until(f.loop, [&] { return pane.folder_size_done(); }));
+    const rummage::fs::Tally& alpha = *pane.folder_size();
+    CHECK(alpha.files == 3);
+    CHECK(alpha.folders == 2);
+    CHECK(alpha.bytes == 1 + 2000 + 30);
+    CHECK(alpha.complete());
+    draw();  // the rows drawn with the sum
+
+    // Several selected, folders among them: all of it added up.
+    f.press(XKB_KEY_Down, {.shift = true});  // alpha, gamma
+    draw();
+    REQUIRE(run_until(f.loop, [&] { return pane.folder_size_done(); }));
+    CHECK(pane.folder_size()->folders == 3);
+    CHECK(pane.folder_size()->bytes == 1 + 2000 + 30);
+    f.press(XKB_KEY_Down, {.shift = true});  // and a.md
+    draw();
+    REQUIRE(run_until(f.loop, [&] { return pane.folder_size_done(); }));
+    CHECK(pane.folder_size()->files == 4);
+    CHECK(pane.folder_size()->bytes == 1 + 2000 + 30 + 10);
+    draw();
+
+    // The same selection is invalidated when an entry's listed metadata changes.
+    write(f.root / "a.md", 20);
+    f.browser.columns().focused_folder()->refresh_entry("a.md");
+    REQUIRE(run_until(f.loop, [&] {
+        draw();
+        return pane.folder_size_done() && pane.folder_size()->bytes == 1 + 2000 + 30 + 20;
+    }));
+
+    f.press(XKB_KEY_Down);  // b.txt alone: a file, no count
+    draw();
+    CHECK_FALSE(pane.folder_size());
+    f.press(XKB_KEY_Down, {.shift = true});  // b.txt, c.txt: files only, their sizes as listed
+    draw();
+    CHECK_FALSE(pane.folder_size());
+}
+
+TEST_CASE("info pane: hiding a pane cancels its delayed folder count") {
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(1000, 600);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_3, {.ctrl = true});
+    f.browser.set_info_visible(true);
+    f.press(XKB_KEY_Down);  // alpha
+    const auto draw = [&](float width) {
+        renderer.begin_frame(1000, 600, 1.0F, {});
+        f.browser.draw(renderer, {0, 0, width, 600}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+    draw(1000);
+    const auto& pane = f.browser.info_pane();
+    CHECK_FALSE(pane.folder_size());
+    SUBCASE("hidden explicitly") { f.browser.set_info_visible(false); }
+    SUBCASE("window too narrow") { draw(300); }
+    // Let the original debounce deadline pass: no count may start later.
+    bool elapsed = false;
+    const auto timer =
+        f.loop.add_timer(InfoPane::kMeasureDelay + 20ms, 0ms, [&] { elapsed = true; });
+    REQUIRE(run_until(f.loop, [&] { return elapsed; }));
+    f.loop.remove(timer);
+    CHECK_FALSE(pane.folder_size());
+    CHECK_FALSE(pane.loading());
 }

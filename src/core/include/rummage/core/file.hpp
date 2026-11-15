@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -31,5 +32,9 @@ struct TextFile {
 // The file:// URI of an absolute path, escaped exactly as GLib's g_filename_to_uri does (other
 // programs compare these strings: thumbnails by their MD5, bookmarks, the clipboard).
 [[nodiscard]] std::string file_uri(const std::filesystem::path& absolute);
+
+// Decode an absolute local file:// URI. Remote hosts, query/fragment components, malformed
+// escapes and NUL bytes are refused; escaped filename characters are preserved.
+[[nodiscard]] std::optional<std::filesystem::path> path_from_uri(std::string_view uri);
 
 }  // namespace rummage::core

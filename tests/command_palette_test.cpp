@@ -335,7 +335,7 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
     // Every command of the shortcuts but those the palette has no use for.
     const std::set<Command> not_in_palette{
         Command::none, Command::context_menu, Command::select_tab, Command::command_palette,
-        Command::undo, Command::redo,
+        Command::undo, Command::redo, Command::stop_transfer,
         // Keys while looking at the info pane: the palette closes on a pick.
         Command::scroll_preview_up, Command::scroll_preview_down, Command::scroll_preview_page_up,
         Command::scroll_preview_page_down};

@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -22,6 +23,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/fs/trash.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
@@ -252,7 +254,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     REQUIRE(f.menu().is_open());
     CHECK(ids(f.menu().items()) == Names{"open", "open_with", "copy", "cut", "-paste", "rename",
                                          "trash", "erase", "properties", "action:copy_location",
-                                         "sort", "panes"});
+                                         "action:copy_name", "sort", "panes"});
     CHECK(f.menu().items()[2].keys == "Ctrl+C");  // from the shortcuts table
     CHECK(f.menu().items()[6].keys == "Delete");
     CHECK(f.press(key(XKB_KEY_Escape)));
@@ -263,14 +265,14 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.browser.open_menu(100, 100, false);
     CHECK(ids(f.menu().items()) == Names{"open", "open_with", "copy", "cut", "-paste", "-rename",
                                          "trash", "erase", "-properties", "action:copy_location",
-                                         "sort", "panes"});
+                                         "action:copy_name", "sort", "panes"});
     f.menu().close();
     f.select({"sub"});
     CHECK(f.press(key(XKB_KEY_F10, {.shift = true})));
     CHECK(ids(f.menu().items()) == Names{"open", "open_with", "open_tab", "open_terminal",
                                          "add_bookmark", "copy", "cut", "-paste", "rename", "trash",
-                                         "erase", "properties", "action:copy_location", "sort",
-                                         "panes"});
+                                         "erase", "properties", "action:copy_location",
+                                         "action:copy_name", "sort", "panes"});
 
     // Copy from the menu; then Paste can be chosen, here and on empty space.
     f.choose("copy");
@@ -548,6 +550,84 @@ TEST_CASE("actions: copy location shares menu and palette and captures its targe
     f.browser.open_menu(100, 100, false);
     f.choose("action:copy_location");
     CHECK(offered.front().second == f.photos.string());
+}
+
+TEST_CASE("actions: copy name shares menu and palette and preserves exact basenames") {
+    Fixture f;
+    const std::string tricky = "Photo ü ;'$(x).tar.gz";
+    std::ofstream{f.photos / tricky} << "photo";
+    f.browser.open(f.photos / "sub");
+    REQUIRE(f.settle());
+    f.browser.open(f.photos);
+    REQUIRE(f.settle());
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    f.select({tricky});
+    f.browser.open_menu(100, 100, false);
+    const auto menu_item = std::ranges::find(f.menu().items(), "action:copy_name", &MenuItem::id);
+    REQUIRE(menu_item != f.menu().items().end());
+    CHECK(menu_item->keys == "Ctrl+Alt+C");
+    f.choose("action:copy_name");
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().first == "text/plain;charset=utf-8");
+    CHECK(offered.front().second == tricky);
+    f.select({"a.txt", "b.txt"});
+    auto items = f.browser.palette_items();
+    const auto name =
+        std::ranges::find(items, "action:copy_name", &rummage::views::PaletteItem::id);
+    REQUIRE(name != items.end());
+    f.select({"sub"});
+    name->action();
+    CHECK(offered.front().second == "a.txt\nb.txt");
+    items = f.browser.palette_items();
+    const auto folder_name =
+        std::ranges::find(items, "action:copy_name", &rummage::views::PaletteItem::id);
+    REQUIRE(folder_name != items.end());
+    folder_name->action();
+    CHECK(offered.front().second == "sub");
+    f.select({});
+    items = f.browser.palette_items();
+    CHECK(std::ranges::find(items, "action:copy_name", &rummage::views::PaletteItem::id) ==
+          items.end());
+}
+
+TEST_CASE("actions: copy name in Trash uses the displayed original name") {
+    struct RestoreSources {
+        rummage::fs::TrashSources before{rummage::fs::trash_sources()};
+
+        ~RestoreSources() { rummage::fs::set_trash_sources(before); }
+    } restore_sources;
+
+    Fixture f;
+    const auto trash = f.dir.path / "Trash";
+    fs::create_directories(trash / "files");
+    fs::create_directories(trash / "info");
+    std::ofstream{trash / "files" / "stored-id"} << "raw";
+    std::ofstream{trash / "info" / "stored-id.trashinfo"}
+        << rummage::fs::trash_info(f.photos / "Photo Name.ORF", 0);
+    rummage::fs::set_trash_sources(
+        {.home = trash, .tops = std::vector<fs::path>{}, .uid = geteuid()});
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    f.browser.open(rummage::fs::trash_path());
+    REQUIRE(f.settle());
+    f.select({"Photo Name.ORF"});
+    auto items = f.browser.palette_items();
+    const auto name =
+        std::ranges::find(items, "action:copy_name", &rummage::views::PaletteItem::id);
+    REQUIRE(name != items.end());
+    name->action();
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().second == "Photo Name.ORF");
+    CHECK(std::ranges::find(items, "action:copy_location", &rummage::views::PaletteItem::id) ==
+          items.end());
+    f.browser.open_menu(100, 100, false);
+    f.choose("action:copy_name");
+    CHECK(offered.front().second == "Photo Name.ORF");
 }
 
 TEST_CASE("actions: custom handoffs share applicability and capture selection across navigation") {
@@ -1207,4 +1287,236 @@ TEST_CASE("actions: errors remain queued and copyable when a later archive succe
     CHECK(errors.detail() == "Second archive failed\nDisk full");
     errors.key({.keysym = XKB_KEY_Escape, .text = {}});
     CHECK_FALSE(errors.is_open());
+}
+
+TEST_CASE("properties: wrapped names and metadata support selecting and copying exact text") {
+    rummage::ui::Offscreen gl{800, 900};
+    Fixture f;
+    const std::string name = "résumé " + std::string(160, 'w') + ".txt";
+    const auto file = f.photos / name;
+    std::ofstream{file} << "hello";
+    auto& properties = f.browser.properties_dialog();
+    std::string copied;
+    properties.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    properties.open(file, [] {});
+    REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&](float width = 400) {
+        renderer.begin_frame(800, 900, 1, rummage::ui::Color::rgb(0));
+        properties.draw(renderer, {0, 0, width, 900}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    const auto press = [&](const rummage::ui::Rect& rect, int clicks = 1) {
+        properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                            .x = rect.x + 1,
+                            .y = rect.y + 2,
+                            .button = rummage::ui::PointerButton::left,
+                            .click_count = clicks});
+        properties.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                            .x = rect.x + 1,
+                            .y = rect.y + 2,
+                            .button = rummage::ui::PointerButton::left});
+    };
+    draw();
+    const auto wrapped = properties.text_bounds("name");
+    CHECK(wrapped.height > 3 * 22);
+    CHECK(wrapped.right() <= properties.card_bounds().right() - 24);
+    CHECK(properties.text_bounds("Location").y >= wrapped.bottom());
+    CHECK(properties.cursor_at(wrapped.x + 1, wrapped.y + 2) == rummage::ui::CursorShape::text);
+
+    // A double click selects a Unicode word using the displayed proportional font.
+    press(wrapped, 2);
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == "résumé");
+    // Leaving the surface ends an unfinished drag without discarding its selection.
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = wrapped.x + 1,
+                        .y = wrapped.y + 2,
+                        .button = rummage::ui::PointerButton::left,
+                        .click_count = 2});
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::leave});
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::motion,
+                        .x = wrapped.right(),
+                        .y = wrapped.bottom()});
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == "résumé");
+    properties.key(key(XKB_KEY_a, {.ctrl = true}));
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == name);  // soft wraps never become clipboard newlines
+
+    // Resizing preserves source offsets, while every character remains readable by wrapping.
+    draw(320);
+    CHECK(properties.text_bounds("name").height > wrapped.height);
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == name);
+
+    const auto location = properties.text_bounds("Location");
+    press(location, 3);
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == f.photos.string());
+    const auto size = properties.text_bounds("Size");
+    press(size);
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = size.x,
+                        .y = size.y + 2,
+                        .button = rummage::ui::PointerButton::left,
+                        .click_count = 1});
+    properties.pointer(
+        {.kind = rummage::ui::PointerEvent::Kind::motion, .x = size.right() + 20, .y = size.y + 2});
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                        .x = size.right() + 20,
+                        .y = size.y + 2,
+                        .button = rummage::ui::PointerButton::left});
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == "5 bytes (5 bytes)");
+
+    // An empty click clears focus, and reopening another item cannot copy the previous field.
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = 1,
+                        .y = 1,
+                        .button = rummage::ui::PointerButton::left});
+    copied.clear();
+    properties.key(key(XKB_KEY_a, {.ctrl = true}));
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied.empty());
+    properties.open(f.photos / "a.txt", [] {});
+    REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));
+    draw();
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied.empty());
+}
+
+TEST_CASE("properties: selecting a visually placed RTL character copies its source bytes") {
+    rummage::ui::Offscreen gl{800, 640};
+    Fixture f;
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& properties = f.browser.properties_dialog();
+    std::string copied;
+    properties.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    for (const std::string name : {"אבג", "عربي"}) {
+        std::ofstream{f.photos / name} << "text";
+        properties.open(f.photos / name, [] {});
+        REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));
+        renderer.begin_frame(800, 640, 1, {});
+        properties.draw(renderer, {0, 0, 800, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+        const auto rect = properties.text_bounds("name");
+        const auto spans = rummage::views::SelectableText::glyph_spans(fonts, name, 16, 1);
+        REQUIRE_FALSE(spans.empty());
+        const auto& first = spans.front();
+        REQUIRE(first.rtl);
+        CHECK(first.left > 0);
+        const auto pixel = [&](const rummage::views::SelectableText::GlyphSpan& span) {
+            std::vector<std::uint8_t> rgba(4);
+            glReadPixels(static_cast<int>(rect.x + (span.left + span.right) / 2),
+                         639 - static_cast<int>(rect.y + 20), 1, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                         rgba.data());
+            return rgba;
+        };
+        const auto before_selected = pixel(first);
+        const auto before_other = pixel(spans.back());
+        properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                            .x = rect.x + first.left + 0.1F,
+                            .y = rect.y + 2,
+                            .button = rummage::ui::PointerButton::left,
+                            .click_count = 1});
+        properties.pointer({.kind = rummage::ui::PointerEvent::Kind::motion,
+                            .x = rect.x + first.right - 0.1F,
+                            .y = rect.y + 2});
+        properties.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                            .x = rect.x + first.right - 0.1F,
+                            .y = rect.y + 2,
+                            .button = rummage::ui::PointerButton::left});
+        properties.key(key(XKB_KEY_c, {.ctrl = true}));
+        CHECK(copied == name.substr(first.begin, first.end - first.begin));
+        renderer.begin_frame(800, 640, 1, {});
+        properties.draw(renderer, {0, 0, 800, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+        CHECK(pixel(first) != before_selected);
+        CHECK(pixel(spans.back()) == before_other);
+    }
+}
+
+TEST_CASE("properties: Tab from selected metadata begins the button focus order") {
+    rummage::ui::Offscreen gl{800, 640};
+    Fixture f;
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& properties = f.browser.properties_dialog();
+    properties.open(f.photos / "sub", [] {});
+    REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));
+    const auto select_name = [&] {
+        renderer.begin_frame(800, 640, 1, {});
+        properties.draw(renderer, {0, 0, 800, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+        const auto name = properties.text_bounds("name");
+        properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                            .x = name.x + 1,
+                            .y = name.y + 2,
+                            .button = rummage::ui::PointerButton::left});
+    };
+    select_name();
+    properties.key(key(XKB_KEY_Tab));
+    properties.key(key(XKB_KEY_Return));
+    CHECK(properties.picking());  // Change Icon is first, before Default.
+    properties.key(key(XKB_KEY_Escape));
+    properties.choose_icon("folder-music");
+    select_name();
+    properties.key(key(XKB_KEY_Tab, {.shift = true}));
+    properties.key(key(XKB_KEY_Return));
+    REQUIRE(run_until(f.loop, [&] { return !properties.saving(); }));
+    CHECK_FALSE(properties.is_open());  // Apply is last.
+    CHECK(read_file(f.photos / "sub/.directory").find("folder-music") != std::string::npos);
+}
+
+TEST_CASE("selectable text: exact-fit labels and natural wraps retain source bytes") {
+    rummage::ui::Offscreen gl{800, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::views::SelectableText text;
+    for (const float scale : {1.0F, 1.25F, 1.5F, 1.75F}) {
+        renderer.begin_frame(800, 640, scale, {});
+        const float width = fonts.layout("Permissions", 12, scale).width / scale;
+        CHECK(rummage::views::SelectableText::height(renderer, "Permissions", width, 12) == 18);
+        // A subpixel accumulation difference must not put the final 's' on a second line.
+        CHECK(rummage::views::SelectableText::height(renderer, "Permissions", width - 0.001F, 12) ==
+              18);
+        renderer.end_frame();
+    }
+
+    struct Wrap {
+        std::string value, fits, first_line;
+    };
+
+    for (const auto& wrap : std::vector<Wrap>{{"filename with words", "filename wi", "filename "},
+                                              {"folder/subfolder/file", "folder/sub", "folder/"},
+                                              {"prefix-longfilename", "prefix-lo", "prefix-"},
+                                              {"today at 22:54", "today at 22:5", "today at "}}) {
+        renderer.begin_frame(800, 640, 1, {});
+        const float width = fonts.layout(wrap.fits, 12, 1).width;
+        text.begin_frame({0, 0, 800, 640});
+        text.draw(renderer, "value", wrap.value, {20, 20, width, 0}, 12,
+                  rummage::ui::Color::rgb(0xFFFFFF), rummage::ui::Color::rgb(0x336699));
+        text.end_frame();
+        renderer.end_frame();
+        text.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                      .x = 20,
+                      .y = 22,
+                      .button = rummage::ui::PointerButton::left,
+                      .click_count = 1});
+        text.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::motion, .x = 20 + width + 10, .y = 22});
+        text.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                      .x = 20 + width + 10,
+                      .y = 22,
+                      .button = rummage::ui::PointerButton::left});
+        CHECK(text.selected_text() == wrap.first_line);
+        text.select_all();
+        CHECK(text.selected_text() == wrap.value);
+    }
 }

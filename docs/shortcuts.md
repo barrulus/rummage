@@ -78,13 +78,17 @@ selection gestures are covered in [Using rummage](usage.md#navigate-and-select).
 | F2 | Rename | `rename` |
 | Ctrl+Shift+N | New folder | `new_folder` |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste | `copy`, `cut`, `paste` |
+| Ctrl+Alt+C | Copy selected filenames, including extensions | `copy_name` |
 | Delete | Trash; permanent delete when already in Trash | `trash` |
 | Shift+Delete | Delete permanently with confirmation | `erase` |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo | `undo`, `redo` |
+| Shift+Escape | Stop the active copy, move or delete | `stop_transfer` |
 | F4 | Open terminal in folder | `open_terminal` |
 
 Copy Location, Extract Here and Extract To have no default shortcuts. Bind their
 IDs `copy_location`, `extract_here`, `extract_to` or `action:<id>` explicitly.
+Copy Name copies plain text, with multiple names separated by newlines. Its
+`copy_name` binding also accepts the alias `action:copy_name`.
 
 ## Context-specific keys
 
@@ -95,7 +99,7 @@ IDs `copy_location`, `extract_here`, `extract_to` or `action:<id>` explicitly.
 | Palette/search | Arrows/Page Up/Down choose; Enter runs/reveals; Escape closes |
 | File search | Space previews; Shift+Enter opens in application |
 | Rename editor | Enter accepts, Escape cancels, Ctrl+arrows moves words, Ctrl+V pastes, Ctrl+Z / Ctrl+Shift+Z edits undo history |
-| Conflict dialog | R replaces, S skips, Enter keeps both, A applies to rest, Escape stops |
+| Conflict dialog | R replaces a file or merges folders, S skips, Enter keeps both, A applies to rest, Escape stops |
 | Permanent-delete dialog | Enter confirms, Escape cancels |
 | Context menu | Up/Down chooses, Right enters a submenu, Left/Escape backs out, Enter runs |
 | File picker | Ctrl+Enter accepts; Tab/Shift+Tab cycles controls; Escape closes transient UI before cancelling |
