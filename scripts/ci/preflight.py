@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ("lint", "nix", "void", "deb", "rpm", "arch", "tumbleweed")
+NIX_PACKAGES = [".#rummage", ".#rummage-with-media", ".#rummage-with-pdf", ".#rummage-with-previews"]
 
 
 def commands(target, output):
@@ -21,8 +22,7 @@ def commands(target, output):
     if target == "nix":
         return [["nix", "flake", "check", "--print-build-logs"],
                 ["nix", "build", "--no-link", "--print-build-logs",
-                 ".#rummage^*", ".#rummage-with-media^*",
-                 ".#rummage-with-pdf^*", ".#rummage-with-previews^*"]]
+                 *(package + "^*" for package in NIX_PACKAGES)]]
     if target == "void":
         return [["bash", "scripts/ci/void.sh", str(output / "void-package")]]
     return [["bash", "scripts/ci/native.sh", target, str(output / f"{target}-package")]]

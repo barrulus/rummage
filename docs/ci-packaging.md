@@ -86,24 +86,28 @@ The ordinary package remains a release build without test executables. The separ
 successful package build. Tests that probe optional kernel capabilities retain their
 existing capability checks.
 
-All runs can read the public `rummage-fm` Cachix cache. After the Nix checks and
-all four installable variants build successfully, pushes to `main` and manual
-runs targeting `main` in `barrulus/rummage` upload those packages and the test
-derivation. Every output is included (`^*`), so the separate media and PDF helpers
-are cached along with their runtime dependencies, including the custom PDFium.
+All runs read the public `rummage-fm` Cachix cache. Main runs and PRs whose branches
+belong to `barrulus/rummage` upload completed derivations as they finish, using the
+cache-specific `CACHIX_AUTH_TOKEN` and Cachix-managed signing. A later test failure
+does not discard successful dependency builds. Failed derivations are not cached.
+Being in the cache does not mean a revision passed the complete release matrix;
+use the `development` tag for a validated snapshot.
+
+Fork PRs receive no Cachix token. They restore and save the Nix store using GitHub's
+PR-scoped cache, including after a test failure, so updates to that PR can reuse
+completed work. Cache keys group matching architecture, `flake.lock` and Nix recipes;
+Nix still rebuilds outputs whose inputs changed. GitHub cache eviction can cause a
+cold build. Cancelling a run may interrupt cache saving.
+
+Successful PRs also retain all outputs of the four installable variants and three
+checks as a binary-cache artifact for 14 days. On an identical-tree merge, main
+imports roots evaluated from its own flake, runs the usual Nix preflight (which can
+reuse those successful derivations), and explicitly publishes imported outputs to
+Cachix. The media/PDF helper outputs and custom PDFium runtime closure are included.
 The test derivation alone would not provide the ordinary installable packages.
 
-Uploads use the repository Actions secret `CACHIX_AUTH_TOKEN`, containing a
-cache-specific write token for `rummage-fm`, with Cachix-managed signing. Only the
-upload step receives the token. PRs and other repositories never upload; the Cachix
-action is configured for reads only, without automatic background uploads. Local
-preflight builds the same variants but never pushes to Cachix. Only x86_64-linux
-is populated by this workflow. See [user setup](install.md#binary-cache).
-
-The cache upload belongs to the Nix job and does not wait for native distribution
-jobs. The `development` tag still advances only after the complete matrix passes.
-An upload failure fails the Nix job and prevents development publication; rerunning
-the job can reuse already uploaded paths.
+Local preflight never uploads. Only x86_64-linux is populated by this workflow.
+See [user setup](install.md#binary-cache) and [merge reuse](#reuse-at-merge).
 
 To run just one check locally:
 
@@ -122,8 +126,8 @@ nix profile install github:barrulus/rummage
 ```
 
 Append `/COMMIT_SHA` to that reference to select an exact revision. This fetches the source
-and builds rummage if a matching binary is not cached. The Nix job does not currently upload
-a portable binary closure; copying only the executable omits its `/nix/store` dependencies.
+and builds rummage if a matching binary is not cached. Cachix supplies the runtime
+closure; copying only the executable omits its `/nix/store` dependencies.
 
 ## Void Linux
 
@@ -303,7 +307,7 @@ section, so they stay in sync. Keep both development-downloads marker comments i
 Preparation runs on PRs too; the prepared bundle is available as a workflow artifact.
 
 On trusted `main` runs, the publication job creates or updates **Latest development build**.
-It replaces the assets, moves the `development` tag to the tested commit, and updates the
+It replaces the assets, moves the `development` tag to the validated main commit, and updates the
 release notes with a link to the CI run. It is explicitly a prerelease, not the repository's
 latest stable release. Nix uses the same moving tag as its source reference; the Nix
 job uploads binary closures separately to Cachix. No README commits are needed for subsequent builds.
@@ -321,6 +325,35 @@ Release assets stay available until replaced or removed, independently of the 14
 artifact retention. They are unsigned snapshots and must not be presented as stable releases,
 an official distribution repository, or packages for untested distributions such as Leap or Ubuntu.
 
+### Reuse at merge
+
+A push to `main` first looks for a successful PR run of this workflow whose tested
+checkout has the **same complete Git tree** as main. Commit IDs may differ because
+GitHub's PR checkout is a temporary merge commit. The lookup verifies that this
+commit belongs to the run's PR head, all six build jobs and download preparation
+passed, and both the prepared downloads and Nix closure artifacts remain available.
+It searches the latest 30 successful PR runs. Lookup errors, expired/missing artifacts
+or a different tree fall back to the normal build matrix.
+
+When a match exists, native build jobs are skipped and their already validated
+packages are promoted. The Nix job imports the matching closure and resolves the
+usual checks/packages without recompiling matching derivations. Download checksums
+and tree equality are verified again before promotion. A corrupt or disappearing
+artifact fails promotion rather than publishing unchecked files. No PR artifact
+scripts are executed, and fork PRs never receive release or Cachix write credentials.
+
+Package bytes, embedded versions, source archives and their original timestamps stay
+unchanged. `source.json` retains the original tested `commit` and adds `published_commit`
+for the main/tag target plus the common `tree`. Release notes retain the original
+successful build link and explain the promotion. This records what was actually built
+instead of relabelling binaries as a new compilation.
+
+PR runs always validate normally, reusing cached Nix derivations where possible.
+Manual dispatch deliberately bypasses artifact promotion for a fresh matrix run
+(ordinary Nix substitution still applies). Changes to workflow files or any other
+tracked source prevent reuse unless that exact tree has passed. Runs created before
+Nix closure artifacts were introduced need one normal main build.
+
 ## GitHub setup and scope
 
 GitHub Actions must be enabled on the fork. Build and preparation jobs use read-only repository
@@ -328,7 +361,9 @@ permissions, pinned action commits, and `pull_request`, not `pull_request_target
 publication job has `contents: write`, using the built-in GitHub token; no extra secret is
 needed for GitHub release publication. Cachix uploads separately require `CACHIX_AUTH_TOKEN`
 as described above. The publication job runs exclusively on pushes to `main` or manual runs targeting `main`, after all
-six checks and download preparation pass. It never commits to a branch.
+six checks and download preparation pass, either in this run or in the verified
+identical-tree PR run. It never commits to a branch. `actions: read` permits lookup
+and download of that run's artifacts.
 
 After a successful run, configure a branch ruleset for `main` requiring these checks:
 

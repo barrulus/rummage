@@ -122,8 +122,17 @@ class DownloadsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'empty'):
             self.prepare()
 
-    def publish(self, mode):
+    def publish(self, mode, published_commit=None, target=COMMIT):
         self.prepare()
+        if published_commit:
+            identity_file = self.output / 'source.json'
+            identity_file.write_text(json.dumps({**self.identity, 'published_commit': published_commit,
+                                                 'tree': 'd' * 40}))
+            manifest = self.output / 'SHA256SUMS'
+            names = [line.split('  ')[1] for line in manifest.read_text().splitlines()]
+            manifest.write_text(''.join(
+                f'{hashlib.sha256((self.output / name).read_bytes()).hexdigest()}  {name}\n'
+                for name in names))
         binary = self.root / 'bin'
         binary.mkdir()
         mock = binary / 'gh'
@@ -143,12 +152,25 @@ elif args[0] == 'api' and '/compare/' in args[1]:
 ''')
         mock.chmod(0o755)
         log = self.root / 'calls'
-        result = subprocess.run(['bash', str(SCRIPTS / 'publish-downloads.sh'), str(self.output), COMMIT],
+        result = subprocess.run(['bash', str(SCRIPTS / 'publish-downloads.sh'), str(self.output), target],
                                 env={**os.environ, 'PATH': str(binary) + ':' + os.environ['PATH'],
                                      'GH_REPO': 'owner/repo', 'MOCK_MODE': mode, 'CALL_LOG': str(log)},
                                 capture_output=True, text=True)
-        calls = [json.loads(line) for line in log.read_text().splitlines()]
+        calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
         return result, calls
+
+    def test_promoted_packages_publish_at_main_without_changing_tested_commit(self):
+        merged = 'b' * 40
+        result, calls = self.publish('missing', published_commit=merged, target=merged)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(c for c in calls if c[:2] == ['release', 'create'])
+        self.assertEqual(create[create.index('--target') + 1], merged)
+        self.assertEqual(json.loads((self.output / 'source.json').read_text())['commit'], COMMIT)
+
+    def test_wrong_promotion_target_fails_before_any_github_mutation(self):
+        result, calls = self.publish('missing', published_commit='b' * 40, target='c' * 40)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls, [])
 
     def test_first_publication(self):
         result, calls = self.publish('missing')
