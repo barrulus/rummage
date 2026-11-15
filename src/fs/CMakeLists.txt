@@ -6,6 +6,7 @@ add_library(rummage_fs
     src/folder_icon.cpp
     src/folder_icon_store.cpp
     src/icon.cpp
+    src/measure.cpp
     src/mime.cpp
     src/operations.cpp
     src/places.cpp

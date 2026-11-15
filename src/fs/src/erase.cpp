@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <format>
+#include <limits>
 #include <optional>
 #include <set>
 #include <string>
@@ -16,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "rummage/fs/measure.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/trash.hpp"
 
@@ -124,48 +126,15 @@ std::vector<Group> groups_of(const TransferRequest& request, std::vector<std::st
     return groups;
 }
 
-// Adds up what a delete removes.
-class Counter {
-public:
-    explicit Counter(const core::CancelToken& token) : token_{token} {}
-
-    // NOLINTNEXTLINE(misc-no-recursion): as deep as the tree
-    void count(int parent, const char* name) {
-        if (token_.cancelled()) {
-            return;
-        }
-        struct stat info{};
-        if (fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0) {
-            return;
-        }
-        ++entries_;
-        if (S_ISREG(info.st_mode) &&
-            (info.st_nlink <= 1 || linked_.emplace(info.st_dev, info.st_ino).second)) {
-            bytes_ += static_cast<std::uint64_t>(info.st_size);
-        }
-        if (!S_ISDIR(info.st_mode)) {
-            return;
-        }
-        const int fd = openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-        if (fd < 0) {
-            return;  // what cannot be read is not counted
-        }
-        for (const std::string& child : names_in(fd)) {
-            count(fd, child.c_str());
-        }
-        close(fd);
-    }
-
-    [[nodiscard]] std::size_t entries() const noexcept { return entries_; }
-
-    [[nodiscard]] std::uint64_t bytes() const noexcept { return bytes_; }
-
-private:
-    const core::CancelToken& token_;
-    std::set<std::pair<dev_t, ino_t>> linked_;
-    std::size_t entries_{0};
-    std::uint64_t bytes_{0};
-};
+// What a delete removes, counted: everything, as it all goes.
+MeasureOptions counting() {
+    MeasureOptions options;
+    options.one_file_system = false;
+    options.max_depth = std::numeric_limits<std::size_t>::max();
+    options.skip_remote = false;
+    options.follow_root = false;
+    return options;
+}
 
 class Eraser {
 public:
@@ -283,16 +252,16 @@ TransferResult Eraser::run() {
     const std::vector<Group> groups = groups_of(request_, result_.errors);
     progress_.preparing = true;
     report();
-    Counter counter{token_};
+    Measurer counter{counting(), token_};
     for (const Group& group : groups) {
-        counter.count(AT_FDCWD, group.item.c_str());
+        counter.add(group.item);
         for (const std::filesystem::path& sidecar : group.sidecars) {
-            counter.count(AT_FDCWD, sidecar.c_str());
+            counter.add(sidecar);
         }
     }
     progress_.preparing = false;
-    progress_.files_total = counter.entries();
-    progress_.bytes_total = counter.bytes();
+    progress_.files_total = counter.tally().entries();
+    progress_.bytes_total = counter.tally().bytes;
     report();
 
     for (const Group& group : groups) {
@@ -352,13 +321,13 @@ TransferResult Eraser::run() {
 
 ErasePlan plan_erase(const TransferRequest& request, const core::CancelToken& token) {
     ErasePlan plan;
-    Counter counter{token};
+    Measurer counter{counting(), token};
     for (Group& group : groups_of(request, plan.errors)) {
-        counter.count(AT_FDCWD, group.item.c_str());
+        counter.add(group.item);
         plan.items.push_back(std::move(group.item));
         plan.names.push_back(std::move(group.name));
         for (std::filesystem::path& sidecar : group.sidecars) {
-            counter.count(AT_FDCWD, sidecar.c_str());
+            counter.add(sidecar);
             // One picked along with its photo was counted as an item by whoever picked it.
             const std::string picked =
                 is_trash(request.source) ? sidecar.string() : sidecar.filename().string();
@@ -368,8 +337,8 @@ ErasePlan plan_erase(const TransferRequest& request, const core::CancelToken& to
             plan.items.push_back(std::move(sidecar));
         }
     }
-    plan.entries = counter.entries();
-    plan.bytes = counter.bytes();
+    plan.entries = counter.tally().entries();
+    plan.bytes = counter.tally().bytes;
     return plan;
 }
 

@@ -54,7 +54,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       redraw_{redraw},
       set_cursor_{std::move(set_cursor)},
       thumbnails_{thumbnails ? std::make_unique<Thumbnails>(pool, thumbnails, redraw) : nullptr},
-      info_pane_{pool, thumbnails_.get(), redraw},
+      info_pane_{loop, pool, thumbnails_.get(), redraw},
       watcher_{watcher},
       mime_{mime},
       quick_look_{pool, mime, std::move(thumbnails), redraw},
@@ -2217,6 +2217,9 @@ void Browser::set_show_hidden(bool show, bool announce) {
 
 void Browser::set_info_visible(bool visible) {
     info_visible_ = visible;
+    if (!visible) {
+        info_pane_.cancel_measurement();
+    }
     for (const std::unique_ptr<Pane>& each : area().tabs) {
         each->grid.set_info_visible(visible);
         each->details.set_info_visible(visible);
@@ -2642,6 +2645,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     context_area_ = active_area_;
     if (folder && shared_info_bounds_.width > 0)
         info_pane_.draw(renderer, shared_info_bounds_, palette, icons, *folder, now);
+    info_pane_.end_frame();
     if (!sidebar_preview_divider_.empty())
         renderer.fill_background(sidebar_preview_divider_, palette.outline_variant);
     draw_band(renderer, palette);

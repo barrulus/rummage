@@ -35,6 +35,7 @@ add_executable(rummage-tests
     image_test.cpp
     heif_test.cpp
     load_test.cpp
+    measure_test.cpp
     memory_test.cpp
     mime_test.cpp
     navigation_test.cpp

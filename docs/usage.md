@@ -19,6 +19,20 @@ arrows choose a place, Enter opens it and Escape returns to the files.
 **Ctrl+I** toggles the information pane. Drag its edge to
 resize it (240–720 logical pixels).
 
+Rest on a selected folder for 250 ms to count its recursive size on a worker. The
+pane shows “Counting…” with the growing size, then Size and Contains. Selections
+containing folders get a combined recursive size; files alone show their listed
+sizes immediately. Moving to another selection or hiding the pane cancels the
+count. Hidden files are included, hard-linked file bytes count once, and links
+inside folders are never followed. A selected link to a folder measures its target;
+selecting both that target and its link counts the directory once.
+
+Counts stay on each root's filesystem and stop before directories 64 levels deep.
+Unreadable entries and skipped mounts make the size say “at least”. Network and
+FUSE folders are skipped (“—” when nothing could be counted); local fuseblk disks
+such as NTFS and exFAT are counted. Sizes reflect the tree when it was measured;
+changes deep inside it may require selecting it again to recount.
+
 ## Choose a view
 
 | View | Shortcut | Behavior |

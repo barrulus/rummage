@@ -1,13 +1,17 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
+#include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/measure.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -29,7 +33,9 @@ namespace rummage::views {
 // lens, exposure, the darktable rating) for photos, and on request ("More details") permissions,
 // owner, location and the rest of the exposure. Several entries selected: how many and how big;
 // nothing selected: the folder itself. What the directory entry says shows at once, the rest when
-// read on a worker.
+// read on a worker. A folder's size (or a selection's with folders in it) is added up on a
+// worker too, once the cursor rests (kMeasureDelay), showing the sum as it grows; moving on
+// cancels it.
 //
 // Loop thread only. Draw it while drawing (thumbnail textures are made then).
 class InfoPane {
@@ -46,8 +52,12 @@ public:
     // A line of a text file's page.
     static constexpr float kTextLineHeight = 15.0F;
 
+    // Resting on a folder starts its count; moving through folders starts nothing.
+    static constexpr std::chrono::milliseconds kMeasureDelay{250};
+
     // thumbnails may be nullptr: icons only.
-    InfoPane(core::WorkerPool& pool, Thumbnails* thumbnails, std::function<void()> redraw);
+    InfoPane(core::EventLoop& loop, core::WorkerPool& pool, Thumbnails* thumbnails,
+             std::function<void()> redraw);
     ~InfoPane();
 
     InfoPane(const InfoPane&) = delete;
@@ -92,6 +102,15 @@ public:
         page_ = {};
     }
 
+    // Stop filesystem work when hidden; end_frame also covers a pane that no longer fits.
+    void cancel_measurement() { measure({}, {}); }
+
+    void end_frame() {
+        if (bounds_.empty()) {
+            cancel_measurement();
+        }
+    }
+
     // The width the user gave it (dragging its edge in the grid or the details).
     [[nodiscard]] float width() const noexcept { return width_; }
 
@@ -105,7 +124,9 @@ public:
     void set_expanded(bool expanded);
 
     // What it shows is still being read (snapshots, tests).
-    [[nodiscard]] bool loading() const noexcept { return job_.has_value(); }
+    [[nodiscard]] bool loading() const noexcept {
+        return job_.has_value() || size_timer_ != 0 || size_job_.has_value();
+    }
 
     // The text page as last drawn (empty when there is none) and how far it is scrolled, and how
     // far it can be (tests).
@@ -118,11 +139,21 @@ public:
     // What was read about the entry shown last; nullptr before it arrives (tests).
     [[nodiscard]] const preview::Summary* summary() const noexcept { return summary_.get(); }
 
+    // The folder or combined selection's measured size; empty until counting starts (tests).
+    [[nodiscard]] const std::optional<fs::Tally>& folder_size() const noexcept { return size_; }
+
+    [[nodiscard]] bool folder_size_done() const noexcept { return size_done_; }
+
 private:
     // Reads path's summary unless it is the one shown or on its way.
     void request(const std::filesystem::path& path, std::int64_t modified_ns, std::string mime,
                  preview::Kind kind);
 
+    // No roots cancels any pending or running measurement.
+    void measure(std::vector<std::filesystem::path> roots, std::string key);
+    [[nodiscard]] std::string size_text() const;
+
+    core::EventLoop& loop_;
     core::WorkerPool& pool_;
     Thumbnails* thumbnails_;
     std::function<void()> redraw_;
@@ -130,6 +161,11 @@ private:
     std::string key_;  // what summary_ is (or will be) about
     std::optional<core::CancelToken> job_;
     std::shared_ptr<const preview::Summary> summary_;
+    std::string size_key_;  // what size_ is (or will be) about
+    core::EventLoop::SourceId size_timer_{0};
+    std::optional<core::CancelToken> size_job_;
+    std::optional<fs::Tally> size_;  // so far
+    bool size_done_{false};
     bool expanded_{false};
     float width_{kWidth};
     ui::Rect bounds_{};  // as last drawn
