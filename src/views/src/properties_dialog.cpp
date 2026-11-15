@@ -39,6 +39,7 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
         return;
     ++generation_;
     scroll_ = 0;
+    text_.reset();
     load_job_.cancel();
     path_ = std::move(path);
     if (!path_.has_filename() && path_ != path_.root_path())
@@ -95,6 +96,7 @@ void PropertiesDialog::close() {
     load_job_.cancel();
     open_ = picking_ = loading_ = false;
     controls_.clear();
+    text_.reset();
     redraw_();
 }
 
@@ -118,6 +120,7 @@ void PropertiesDialog::pick_icon() {
     if (!can_edit_icon())
         return;
     picking_ = true;
+    text_.reset();
     scroll_ = 0;
     search_.set_text({});
     custom_.set_text(draft_);
@@ -263,12 +266,30 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
             close();
         return true;
     }
+    if (!picking_ && text_.key(event)) {
+        redraw_();
+        return true;
+    }
+    if (picking_ && event.modifiers.ctrl &&
+        (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C) &&
+        (focus_ == "search" || focus_ == "custom")) {
+        const auto& field = focus_ == "search" ? search_ : custom_;
+        const auto [first, last] = field.selection();
+        if (copy_ && first != last)
+            copy_(field.text().substr(first, last - first));
+        return true;
+    }
     if (event.keysym == XKB_KEY_Tab || event.keysym == XKB_KEY_ISO_Left_Tab) {
+        text_.clear_focus();
         const auto order = focus_order();
         const auto it = std::ranges::find(order, focus_);
-        const auto at = it == order.end() ? 0 : static_cast<std::size_t>(it - order.begin());
         const bool backwards = event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab;
-        focus_ = order[(at + (backwards ? order.size() - 1 : 1)) % order.size()];
+        if (it == order.end())
+            focus_ = backwards ? order.back() : order.front();
+        else {
+            const auto at = static_cast<std::size_t>(it - order.begin());
+            focus_ = order[(at + (backwards ? order.size() - 1 : 1)) % order.size()];
+        }
         ui::Rect rect{};
         if (focus_ == "search")
             rect = search_.bounds();
@@ -370,6 +391,11 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
         activate(event.wheel_y > 0 ? "next" : "previous");
         return;
     }
+    if (!picking_ && text_.pointer(event)) {
+        focus_ = "text";
+        redraw_();
+        return;
+    }
     if (event.kind != ui::PointerEvent::Kind::press || event.button != ui::PointerButton::left)
         return;
     if (picking_ && content_.contains(event.x, event.y) &&
@@ -406,6 +432,8 @@ ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
     if (picking_ && content_.contains(x, y) &&
         (search_.bounds().contains(x, y) || custom_.bounds().contains(x, y)))
         return ui::CursorShape::text;
+    if (!picking_ && text_.cursor_at(x, y) == ui::CursorShape::text)
+        return ui::CursorShape::text;
     for (const auto& control : controls_) {
         const bool footer = control.id == "close" || control.id == "apply" ||
                             control.id == "back" || control.id == "use";
@@ -427,8 +455,6 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool preview =
         !loading_ && thumbnails && !data_.entry.is_directory() &&
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
-    const float header_height = preview ? 96.0F : 56.0F;
-    const float rows_top = 60.0F + header_height + 16.0F;
     const float row_height = 26.0F;
     const bool folder_controls = data_.entry.is_directory() && editable_;
     const bool folder_hint =
@@ -436,7 +462,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
     const std::string name = path_.filename().empty() ? path_.string() : path_.filename().string();
     const std::string type = loading_ ? "Loading…" : std::string{mime_->name(data_.entry.mime)};
-    const std::vector<std::pair<std::string, std::string>> rows{
+    std::vector<std::pair<std::string, std::string>> rows{
         {"Location", path_.parent_path().string()},
         {data_.entry.is_directory() ? "Contents" : "Size",
          loading_ ? "…"
@@ -452,6 +478,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         {"Group", data_.info.group},
         {"Permissions", data_.info.permissions},
     };
+    if (!data_.info.link_target.empty())
+        rows.emplace_back("Link target", data_.info.link_target);
     const auto measure = [&](std::string_view value, float size) {
         return renderer.fonts().layout(value, size, renderer.scale()).width / renderer.scale();
     };
@@ -476,14 +504,34 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                         12));
     if (!message.empty())
         natural_width = std::max(natural_width, 48 + measure(message, 12));
-    const float natural_height =
-        picking_ ? 550.0F
-                 : rows_top + (data_.info.link_target.empty() ? 7.0F : 8.0F) * row_height +
-                       (folder_controls ? 44.0F : 0.0F) + (folder_hint ? 26.0F : 0.0F) +
-                       (message.empty() ? 0.0F : 26.0F) + 70.0F;
     const float width =
         std::min(picking_ ? 640.0F : std::clamp(std::ceil(natural_width), 320.0F, 560.0F),
                  std::max(0.0F, bounds.width - 24.0F));
+    const float room = width - 48;
+    const float preview_width = preview ? std::min(144.0F, room * 0.4F) : 56.0F;
+    const float name_width = std::max(1.0F, room - preview_width - 20);
+    const float name_height = SelectableText::height(renderer, name, name_width, 16);
+    const float type_height = SelectableText::height(renderer, type, name_width, 12);
+    const float header_height = std::max(preview ? 96.0F : 56.0F, name_height + 5 + type_height);
+    const float rows_top = 60.0F + header_height + 16.0F;
+    const auto value_height = [&](std::string_view value) {
+        return SelectableText::height(renderer, value, std::max(1.0F, room - value_offset), 12);
+    };
+    float rows_height = 0;
+    for (const auto& [label, value] : rows)
+        rows_height += std::max(row_height, value_height(value) + 8);
+    const std::string icon_label = draft_.empty() ? "Default folder icon" : draft_;
+    const float icon_height = SelectableText::height(renderer, icon_label, room, 12);
+    const auto hint = icons.selected_theme() == "builtin"
+                          ? "Custom icons appear when using a system icon theme."
+                          : "Changing this icon affects the linked folder.";
+    const float hint_height = SelectableText::height(renderer, hint, room, 12);
+    const float message_height = SelectableText::height(renderer, message, room, 12);
+    const float natural_height = picking_ ? 550.0F
+                                          : rows_top + rows_height +
+                                                (folder_controls ? 40 + icon_height + 8 : 0) +
+                                                (folder_hint ? hint_height + 8 : 0) +
+                                                (message.empty() ? 0 : message_height + 8) + 70;
     const float height = std::min(natural_height, bounds.height - 24.0F);
     const ui::Rect card{bounds.x + (bounds.width - width) / 2,
                         bounds.y + (bounds.height - height) / 2, width, height};
@@ -497,7 +545,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     scroll_ = std::clamp(scroll_, 0.0F, max_scroll_);
     const float top = card.y - scroll_;
     renderer.push_clip(content_);
-    const float left = card.x + 24, room = width - 48;
+    const float left = card.x + 24;
+    text_.begin_frame(content_);
     const auto text = [&](std::string_view value, float x, float y, float size, float space,
                           bool dim = false) {
         renderer.draw_text(value, x, y, size, dim ? palette.on_surface_variant : palette.on_surface,
@@ -577,7 +626,6 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                : draft_.starts_with("./")
                                    ? (path_ / draft_).lexically_normal().string()
                                    : draft_;
-        const float preview_width = preview ? std::min(144.0F, room * 0.4F) : 56.0F;
         const ui::Rect preview_box{left, top + 60, preview_width, header_height};
         const ui::Texture* thumbnail = nullptr;
         if (preview) {
@@ -604,37 +652,41 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 preview_box.y + (preview_box.height - 56) / 2, 56, palette.primary, preferred);
         }
         const float name_left = left + preview_width + 20;
-        const float name_top = top + 60 + (header_height - 56) / 2;
-        text(name, name_left, name_top, 16, room - preview_width - 20);
-        text(type, name_left, name_top + 27, 12, room - preview_width - 20, true);
+        const float name_top = top + 60 + (header_height - name_height - 5 - type_height) / 2;
+        const auto selectable = [&](std::string id, std::string_view value, float x, float y,
+                                    float size, float space, bool dim = false) {
+            return text_.draw(renderer, std::move(id), value, {x, y, space, 0}, size,
+                              dim ? palette.on_surface_variant : palette.on_surface,
+                              palette.primary_container);
+        };
+        selectable("name", name, name_left, name_top, 16, name_width);
+        selectable("type", type, name_left, name_top + name_height + 5, 12, name_width, true);
         float y = top + rows_top;
         const auto row = [&](std::string_view label, const std::string& value) {
-            text(label, left, y, 12, label_width, true);
-            text(value, left + value_offset, y, 12, room - value_offset);
-            y += row_height;
+            selectable("label:" + std::string{label}, label, left, y, 12, label_width, true);
+            selectable(std::string{label}, value, left + value_offset, y, 12,
+                       std::max(1.0F, room - value_offset));
+            y += std::max(row_height, value_height(value) + 8);
         };
         for (const auto& [label, value] : rows)
             row(label, value);
-        if (!data_.info.link_target.empty())
-            row("Link target", data_.info.link_target);
         if (folder_controls) {
             button("change", "Change Icon…", {left, y, 144, 32}, can_edit_icon());
             button("default", "Default", {left + 152, y, 92, 32},
                    can_edit_icon() && !draft_.empty());
-            text(draft_.empty() ? "Default folder icon" : draft_, left + 256, y + 7, 12, room - 256,
-                 true);
-            y += 44;
-            if (icons.selected_theme() == "builtin")
-                text("Custom icons appear when using a system icon theme.", left, y, 12, room,
-                     true);
-            else if (data_.entry.is_link)
-                text("Changing this icon affects the linked folder.", left, y, 12, room, true);
-            if (folder_hint)
-                y += 26;
+            y += 40;
+            selectable("Icon", icon_label, left, y, 12, room, true);
+            y += icon_height + 8;
+            if (folder_hint) {
+                selectable("hint", hint, left, y, 12, room, true);
+                y += hint_height + 8;
+            }
         }
         if (!message.empty())
-            renderer.draw_text(message, left, y, 12, palette.error, room, ui::Ellipsis::middle);
+            text_.draw(renderer, "error", message, {left, y, room, 0}, 12, palette.error,
+                       palette.primary_container);
     }
+    text_.end_frame();
     renderer.pop_clip();
     if (max_scroll_ > 0) {
         const float track = content_.height - 24;

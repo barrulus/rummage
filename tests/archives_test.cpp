@@ -1,15 +1,18 @@
 #include "rummage/platform/archives.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <doctest/doctest.h>
 
+#include "rummage/core/actions.hpp"
 #include "rummage/core/event_loop.hpp"
 #include "rummage/platform/action_handoff.hpp"
 #include "temp_dir.hpp"
@@ -20,6 +23,13 @@ using namespace std::chrono_literals;
 using rummage::core::ActionContext;
 using rummage::platform::ActionHandoff;
 using rummage::platform::ArchiveBackend;
+
+rummage::core::Action registered_action(std::string_view id) {
+    const auto actions = rummage::core::action_registry();
+    const auto found = std::ranges::find(actions, id, &rummage::core::Action::id);
+    REQUIRE(found != actions.end());
+    return *found;
+}
 
 std::string read(const fs::path& path) {
     std::ifstream input{path, std::ios::binary};
@@ -151,8 +161,8 @@ TEST_CASE("archives: unzip handles literal wildcards and never overwrites destin
     std::ofstream{f.dir.path / name / "keep"} << "existing";
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     const ActionContext context{.directory = f.dir.path, .targets = {{archive, "application/zip"}}};
-    REQUIRE(handoff.available(rummage::core::action_registry()[1], context));
-    handoff.run(rummage::core::action_registry()[1], context);
+    REQUIRE(handoff.available(registered_action("extract_here"), context));
+    handoff.run(registered_action("extract_here"), context);
     REQUIRE(f.wait());
     CHECK(f.errors.empty());
     CHECK(read(f.dir.path / name / "keep") == "existing");
@@ -172,7 +182,7 @@ TEST_CASE("archives: gzip keeps its source and uses the selected destination") {
             choose = std::move(done);
         }};
     ActionContext context{.directory = f.dir.path, .targets = {{archive, "application/gzip"}}};
-    handoff.run(rummage::core::action_registry()[2], context);
+    handoff.run(registered_action("extract_to"), context);
     REQUIRE(choose);
     context.targets.clear();  // changing tabs/selection does not redirect a pending extraction
     choose(f.destination);
@@ -191,7 +201,7 @@ TEST_CASE("archives: destination cancellation creates nothing") {
     const auto archive = f.archive("message.txt.gz", "message.txt.gz");
     ActionHandoff handoff{
         f.loop, f.environment, f.report(), {}, [](const auto&, auto done) { done(std::nullopt); }};
-    handoff.run(rummage::core::action_registry()[2],
+    handoff.run(registered_action("extract_to"),
                 {.directory = f.dir.path, .targets = {{archive, "application/gzip"}}});
     CHECK(f.messages.empty());
     CHECK(f.errors.empty());
@@ -205,7 +215,7 @@ TEST_CASE("archives: tar unpacks both gzip and tar layers") {
         return;
     const auto archive = f.archive("sample.tar.gz", "sample.tar.gz");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.dir.path, .targets = {{archive, "application/x-compressed-tar"}}});
     REQUIRE(f.wait());
     for (const auto& error : f.errors)
@@ -222,7 +232,7 @@ TEST_CASE("archives: 7z extracts 7z and both layers of compressed tar without ta
     const auto seven = f.archive("sample.7z", "seven.7z");
     const auto tar = f.archive("sample.tar.gz", "tarball.tar.gz");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.dir.path,
                  .targets = {{seven, "application/x-7z-compressed"},
                              {tar, "application/x-compressed-tar"}}});
@@ -241,7 +251,7 @@ TEST_CASE("archives: corrupt and encrypted archives report errors without publis
         return;
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     const auto corrupt = f.dir.write("broken.gz", "not a gzip file");
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.dir.path, .targets = {{corrupt, "application/gzip"}}});
     REQUIRE(f.wait());
     REQUIRE_FALSE(f.errors.empty());
@@ -249,7 +259,7 @@ TEST_CASE("archives: corrupt and encrypted archives report errors without publis
     CHECK(fs::exists(corrupt));
     f.errors.clear();
     const auto encrypted = f.archive("encrypted.7z", "secret.7z");
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.dir.path, .targets = {{encrypted, "application/x-7z-compressed"}}});
     REQUIRE(f.wait());
     CHECK_FALSE(f.errors.empty());
@@ -268,7 +278,7 @@ TEST_CASE("archives: File Roller remains a supported handoff with literal select
     fs::permissions(program, fs::perms::owner_all);
     const auto zip = f.archive("sample.zip", "a*[x] space.zip");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
-    handoff.run(rummage::core::action_registry()[2],
+    handoff.run(registered_action("extract_to"),
                 {.directory = f.dir.path, .targets = {{zip, "application/zip"}}});
     REQUIRE(f.wait());
     CHECK(read(f.dir.path / "called") == std::string{"--extract"} + '\0' + zip.string() + '\0');
@@ -286,8 +296,8 @@ TEST_CASE("archives: unsupported mixed selections do not start partial batches")
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     const ActionContext context{.directory = f.dir.path,
                                 .targets = {{gzip, "application/gzip"}, {zip, "application/zip"}}};
-    CHECK_FALSE(handoff.available(rummage::core::action_registry()[1], context));
-    handoff.run(rummage::core::action_registry()[1], context);
+    CHECK_FALSE(handoff.available(registered_action("extract_here"), context));
+    handoff.run(registered_action("extract_here"), context);
     CHECK(f.errors.size() == 1);
     CHECK(f.messages.empty());
     CHECK_FALSE(fs::exists(f.dir.path / "message.txt (extracting)"));
@@ -311,7 +321,7 @@ TEST_CASE("archives: canonical bzip2 tar MIME unpacks both layers with tar or 7z
     CHECK((backend->kind == ArchiveBackend::Kind::tar || backend->tar_layer));
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     handoff.run(
-        rummage::core::action_registry()[1],
+        registered_action("extract_here"),
         {.directory = f.dir.path, .targets = {{archive, "application/x-bzip2-compressed-tar"}}});
     REQUIRE(f.wait());
     CHECK(f.errors.empty());
@@ -376,7 +386,7 @@ TEST_CASE("archives: encrypted ZIP RAR and 7z prompt and retry without File Roll
             const auto mime =
                 rar ? "application/vnd.rar"
                     : (extension == ".zip" ? "application/zip" : "application/x-7z-compressed");
-            handoff.run(rummage::core::action_registry()[1],
+            handoff.run(registered_action("extract_here"),
                         {.directory = f.dir.path, .targets = {{archive, mime}}});
             REQUIRE(f.wait());
             for (const auto& error : f.errors)
@@ -412,7 +422,7 @@ TEST_CASE("archives: password cancellation and concurrent prompts are isolated")
         paths.push_back(path);
         prompts.push_back(std::move(done));
     });
-    handoff.run(rummage::core::action_registry()[2],
+    handoff.run(registered_action("extract_to"),
                 {.directory = f.dir.path,
                  .targets = {{first, "application/x-7z-compressed"},
                              {second, "application/x-7z-compressed"}}});
@@ -445,7 +455,7 @@ TEST_CASE("archives: cancelling ZIP RAR or 7z passwords creates no output") {
             rar ? "application/vnd.rar"
                 : (fs::path{fixture}.extension() == ".zip" ? "application/zip"
                                                            : "application/x-7z-compressed");
-        handoff.run(rummage::core::action_registry()[2],
+        handoff.run(registered_action("extract_to"),
                     {.directory = f.dir.path, .targets = {{archive, mime}}});
         REQUIRE(f.until([&] { return !f.messages.empty() || !f.errors.empty(); }));
         CHECK(f.errors.empty());
@@ -472,7 +482,7 @@ TEST_CASE("archives: a ZIP RAR and 7z batch extracts without a GUI backend") {
         ++prompts;
         done(path.extension() == ".rar" ? "password" : "archive test");
     });
-    handoff.run(rummage::core::action_registry()[2],
+    handoff.run(registered_action("extract_to"),
                 {.directory = f.dir.path,
                  .targets = {{zip, "application/zip"},
                              {rar, "application/vnd.rar"},
@@ -499,7 +509,7 @@ TEST_CASE("archives: a mixed 7z and tar selection keeps each chosen backend") {
     const auto seven = f.archive("encrypted-content.7z", "seven.7z");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     handoff.set_password_prompt([](const auto&, bool, auto done) { done("archive test"); });
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.dir.path,
                  .targets = {{seven, "application/x-7z-compressed"},
                              {tar, "application/x-compressed-tar"}}});
@@ -515,7 +525,7 @@ TEST_CASE("archives: missing backends explain how to install a suitable extracto
                              "application/x-7z-compressed", "application/x-bzip2-compressed-tar"}) {
         Fixture f;
         ActionHandoff handoff{f.loop, f.environment, f.report()};
-        handoff.run(rummage::core::action_registry()[1],
+        handoff.run(registered_action("extract_here"),
                     {.directory = f.destination, .targets = {{f.dir.path / "archive", mime}}});
         REQUIRE(f.errors.size() == 1);
         CHECK(f.errors[0].find("Install ") != std::string::npos);
@@ -574,7 +584,7 @@ TEST_CASE("archives: a RAR-incapable 7z gives installation guidance without a pa
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     handoff.set_password_prompt(
         [](const auto&, bool, auto) { FAIL("must not request a password for a missing decoder"); });
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.destination, .targets = {{archive, "application/vnd.rar"}}});
     REQUIRE(f.wait());
     REQUIRE(f.errors.size() == 1);
@@ -601,7 +611,7 @@ exit 7
         done("private-secret");
     });
     handoff.run(
-        rummage::core::action_registry()[1],
+        registered_action("extract_here"),
         {.directory = f.destination, .targets = {{archive, "application/x-7z-compressed"}}});
     REQUIRE(f.wait());
     REQUIRE(f.errors.size() == 1);
@@ -619,7 +629,7 @@ TEST_CASE("archives: long diagnostics retain the final error and output location
            "printf '" + std::string(10000, 'x') + "\\nNo space left on device\\n' >&2\nexit 1\n");
     const auto archive = f.archive("message.txt.gz", "message.txt.gz");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.destination, .targets = {{archive, "application/gzip"}}});
     REQUIRE(f.wait());
     REQUIRE(f.errors.size() == 1);
@@ -637,7 +647,7 @@ TEST_CASE("archives: silent and interrupted extractors still provide actionable 
         const auto archive = f.archive("sample.7z", "sample.7z");
         ActionHandoff handoff{f.loop, f.environment, f.report()};
         handoff.run(
-            rummage::core::action_registry()[1],
+            registered_action("extract_here"),
             {.directory = f.destination, .targets = {{archive, "application/x-7z-compressed"}}});
         REQUIRE(f.wait());
         REQUIRE(f.errors.size() == 1);
@@ -656,7 +666,7 @@ TEST_CASE("archives: missing source and invalid destination retain filesystem di
         return;
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     const auto missing = f.dir.path / "missing.gz";
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.destination, .targets = {{missing, "application/gzip"}}});
     REQUIRE(f.errors.size() == 1);
     CHECK(f.errors[0].find(missing.string()) != std::string::npos);
@@ -665,7 +675,7 @@ TEST_CASE("archives: missing source and invalid destination retain filesystem di
     f.errors.clear();
     const auto file = f.dir.write("not-a-directory", "existing");
     const auto archive = f.archive("message.txt.gz", "message.txt.gz");
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = file, .targets = {{archive, "application/gzip"}}});
     REQUIRE(f.errors.size() == 1);
     CHECK(f.errors[0].find(file.string()) != std::string::npos);
@@ -679,7 +689,7 @@ TEST_CASE("archives: encrypted ZIP with only unzip explains the password-capable
         return;
     const auto archive = f.archive("encrypted-zipcrypto.zip", "encrypted.zip");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.destination, .targets = {{archive, "application/zip"}}});
     REQUIRE(f.wait());
     REQUIRE(f.errors.size() == 1);
@@ -693,7 +703,7 @@ TEST_CASE("archives: File Roller failures retain its diagnostic and RAR installa
            "printf '%s\\n' 'libarchive: RAR encryption support unavailable' >&2\nexit 2\n");
     const auto archive = f.archive("encrypted-headers.rar", "secret.rar");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
-    handoff.run(rummage::core::action_registry()[1],
+    handoff.run(registered_action("extract_here"),
                 {.directory = f.destination, .targets = {{archive, "application/vnd.rar"}}});
     REQUIRE(f.wait());
     REQUIRE(f.errors.size() == 1);
@@ -713,7 +723,7 @@ TEST_CASE("archives: an extractor that cannot start reports its path and system 
     const auto archive = f.archive("sample.7z", "sample.7z");
     ActionHandoff handoff{f.loop, f.environment, f.report()};
     handoff.run(
-        rummage::core::action_registry()[1],
+        registered_action("extract_here"),
         {.directory = f.destination, .targets = {{archive, "application/x-7z-compressed"}}});
     REQUIRE(f.errors.size() == 1);
     CHECK(f.errors[0].find("Cannot start " + program.string()) != std::string::npos);

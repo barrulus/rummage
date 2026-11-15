@@ -1,16 +1,18 @@
 // Copy and move engine from the command line (ROADMAP 6.3). Not installed.
 //
-//   rummage-transfer [--move] [--force-copy] SOURCE_DIR DESTINATION_DIR [NAME...]
+//   rummage-transfer [--move] [--force-copy] [--threads N] SOURCE_DIR DESTINATION_DIR [NAME...]
 //   rummage-transfer --trash SOURCE_DIR NAME...
 //   rummage-transfer --erase SOURCE_DIR NAME...
 //
 // Copies (or moves) NAMEs (default: everything in SOURCE_DIR) as Ctrl+V does, conflicts
 // skipped, and prints files, bytes, time and rate. Compare with: time cp -a SOURCE_DIR/. DEST.
+// --threads N: how many threads copy a folder's files (default: rummage's choice).
 // --trash moves NAMEs to the trash as Delete does (ROADMAP 6.4): the real one, from
 // $XDG_DATA_HOME or $HOME. --erase deletes NAMEs for good as Shift+Delete does (ROADMAP 6.4d),
 // sidecars along: compare with time rm -rf.
 #include "rummage/fs/transfer.hpp"
 
+#include <charconv>
 #include <chrono>
 #include <cstdio>
 #include <exception>
@@ -18,6 +20,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "rummage/core/worker_pool.hpp"
@@ -30,9 +33,25 @@ int main(int argc, char** argv) {
     const std::span args{argv + 1, static_cast<std::size_t>(argc > 0 ? argc - 1 : 0)};
     fs::TransferRequest request;
     std::vector<std::string> positional;
-    for (const char* const arg : args) {
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const char* const arg = args[i];
         const std::string_view option{arg};
-        if (option == "--move") {
+        if (option == "--threads") {
+            if (i + 1 == args.size()) {
+                std::fputs("rummage-transfer: --threads wants a number from 1 to 64\n", stderr);
+                return 2;
+            }
+            const std::string_view count{args[++i]};
+            std::size_t threads = 0;
+            const auto [end, failed] =
+                std::from_chars(count.data(), count.data() + count.size(), threads);
+            if (failed != std::errc{} || end != count.data() + count.size() || threads == 0 ||
+                threads > 64) {
+                std::fputs("rummage-transfer: --threads wants a number from 1 to 64\n", stderr);
+                return 2;
+            }
+            request.threads = threads;
+        } else if (option == "--move") {
             request.kind = fs::TransferKind::move;
         } else if (option == "--trash") {
             request.kind = fs::TransferKind::trash;
@@ -48,7 +67,8 @@ int main(int argc, char** argv) {
     const bool erase = request.kind == fs::TransferKind::erase;
     if (positional.size() < 2) {
         std::fputs(
-            "usage: rummage-transfer [--move] [--force-copy] SOURCE_DIR DESTINATION_DIR "
+            "usage: rummage-transfer [--move] [--force-copy] [--threads N] SOURCE_DIR "
+            "DESTINATION_DIR "
             "[NAME...]\n"
             "       rummage-transfer --trash SOURCE_DIR NAME...\n"
             "       rummage-transfer --erase SOURCE_DIR NAME...\n",

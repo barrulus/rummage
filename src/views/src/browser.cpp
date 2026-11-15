@@ -54,7 +54,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       redraw_{redraw},
       set_cursor_{std::move(set_cursor)},
       thumbnails_{thumbnails ? std::make_unique<Thumbnails>(pool, thumbnails, redraw) : nullptr},
-      info_pane_{pool, thumbnails_.get(), redraw},
+      info_pane_{loop, pool, thumbnails_.get(), redraw},
       watcher_{watcher},
       mime_{mime},
       quick_look_{pool, mime, std::move(thumbnails), redraw},
@@ -88,6 +88,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
                  [this](const fs::TransferRequest& request, const fs::TransferResult& result) {
                      transfer_done(request, result);
                  }} {
+    info_pane_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
+    properties_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
     areas_[0] = std::make_unique<BrowsingArea>(*this);
     add_pane(0);
     palette_.set_chosen_handler([this](const std::string& id) {
@@ -196,6 +198,7 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    info_pane_.clear_text_focus();
     leave_motion();
     remember_folder(pane());
     filter_focused_ = false;
@@ -998,17 +1001,20 @@ void Browser::cancel_transfer() {
 }
 
 void Browser::ask(const fs::Conflict& conflict, std::function<void(fs::Resolution)> answer) {
-    if (for_the_rest_ && (*for_the_rest_ != fs::Resolution::replace ||
-                          (conflict.directory == conflict.target_directory &&
-                           (!conflict.directory || conflict.merge)))) {
+    if (for_the_rest_ &&
+        (*for_the_rest_ != fs::Resolution::replace ||
+         (conflict.directory == conflict.target_directory &&
+          conflict.directory == for_the_rest_folder_ && (!conflict.directory || conflict.merge)))) {
         answer(*for_the_rest_);
         return;
     }
     copy_started_.reset();  // the time spent on the question does not count in the rate
     conflict_.open(conflict, conflict.destination.filename().string(),
-                   [this, answer = std::move(answer)](fs::Resolution resolution, bool rest) {
+                   [this, folder = conflict.directory, answer = std::move(answer)](
+                       fs::Resolution resolution, bool rest) {
                        if (rest) {
                            for_the_rest_ = resolution;
+                           for_the_rest_folder_ = folder;
                        }
                        answer(resolution);
                    });
@@ -1118,13 +1124,16 @@ void Browser::transfer_done(const fs::TransferRequest& request, const fs::Transf
     }
     Batch& done = batch->second;
     done.items.insert(done.items.end(), result.items.begin(), result.items.end());
+    done.undo_excluded += result.undo_excluded;
     done.failed =
         done.failed || result.cancelled || !result.errors.empty() || !result.refused.empty();
     if (--done.pending == 0) {
         Batch finished = std::move(done);
         batches_.erase(batch);
-        record({.kind = finished.kind, .items = std::move(finished.items)}, finished.purpose,
-               finished.failed);
+        record({.kind = finished.kind,
+                .items = std::move(finished.items),
+                .undo_excluded = finished.undo_excluded},
+               finished.purpose, finished.failed);
     }
 }
 
@@ -1263,11 +1272,21 @@ bool unchanged_since_made(const fs::PlacedItem& item) {
 
 }  // namespace
 
+namespace {
+
+std::string cannot_undo(std::size_t undo_excluded) {
+    return undo_excluded == 1 ? "1 item cannot be safely undone"
+                              : std::format("{} items cannot be safely undone", undo_excluded);
+}
+
+}  // namespace
+
 void Browser::record(FileOperation operation, Purpose purpose, bool failed) {
+    const std::size_t undo_excluded = std::exchange(undo_excluded_, 0);
     if (purpose != Purpose::user) {
         undoing_ = false;
     }
-    if (operation.items.empty()) {
+    if (operation.items.empty() && operation.undo_excluded == 0) {
         return;  // nothing was done: what Ctrl+Z undoes stays
     }
     const std::string what = describe(operation);
@@ -1286,8 +1305,12 @@ void Browser::record(FileOperation operation, Purpose purpose, bool failed) {
             break;
     }
     if (!failed) {  // otherwise the transfer's own message says what went wrong
-        show_message(std::format("{}: {}", purpose == Purpose::undo ? "Undone" : "Redone", what),
-                     false);
+        std::string message =
+            std::format("{}: {}", purpose == Purpose::undo ? "Undone" : "Redone", what);
+        if (purpose == Purpose::undo && undo_excluded > 0) {
+            message += "; " + cannot_undo(undo_excluded);
+        }
+        show_message(message, false);
     }
 }
 
@@ -1297,6 +1320,12 @@ void Browser::undo() {
     } else if (!undo_) {
         show_message("Nothing to undo", false);
     } else {
+        if (undo_->items.empty() && undo_->undo_excluded > 0) {
+            show_message(cannot_undo(undo_->undo_excluded), false);
+            undo_.reset();
+            return;
+        }
+        undo_excluded_ = undo_->undo_excluded;
         start_inverse(*undo_, Purpose::undo);
     }
 }
@@ -1420,25 +1449,33 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
         case FileOperation::Kind::move: {
             // Back where each came from, one transfer per pair of folders.
             const std::uint64_t batch = open_batch(purpose, FileOperation::Kind::move);
-            std::vector<std::pair<std::pair<std::filesystem::path, std::filesystem::path>,
-                                  std::vector<std::string>>>
-                moves;
+
+            struct MoveBack {
+                std::pair<std::filesystem::path, std::filesystem::path> folders;
+                std::vector<std::string> names;
+                std::vector<std::string> destination_names;
+            };
+
+            std::vector<MoveBack> moves;
             for (const fs::PlacedItem& item : operation.items) {
                 const std::pair folders{item.to.parent_path(), item.from.parent_path()};
-                auto it = std::ranges::find(moves, folders, [](const auto& m) { return m.first; });
+                auto it = std::ranges::find(moves, folders, &MoveBack::folders);
                 if (it == moves.end()) {
-                    moves.emplace_back(folders, std::vector<std::string>{});
+                    moves.push_back({.folders = folders, .names = {}, .destination_names = {}});
                     it = std::prev(moves.end());
                 }
-                it->second.push_back(item.to.filename().string());
+                it->names.push_back(item.to.filename().string());
+                it->destination_names.push_back(item.from.filename().string());
             }
             undoing_ = true;
-            for (auto& [folders, names] : moves) {
+            for (auto& move : moves) {
                 submit({.kind = fs::TransferKind::move,
-                        .source = folders.first,
-                        .names = std::move(names),
-                        .destination = folders.second,
-                        .force_copy = false},
+                        .source = move.folders.first,
+                        .names = std::move(move.names),
+                        .destination = move.folders.second,
+                        .force_copy = false,
+                        .make_destination = true,
+                        .destination_names = std::move(move.destination_names)},
                        batch);
             }
             return;
@@ -1555,6 +1592,9 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         properties.enabled = names.size() == 1;
         properties.action = [this] { show_properties(); };
         items.push_back(std::move(properties));
+        for (auto& item : action_items(action_context(folder))) {
+            items.push_back(std::move(item));
+        }
         return items;
     }
     const auto add = [&items](std::string id, std::string label, std::string keys,
@@ -1780,6 +1820,7 @@ void Browser::show_properties() {
     menu_.close();
     palette_.close();
     quick_look_.close();
+    info_pane_.clear_text_focus();
     filter_focused_ = false;
     properties_.open(
         path,
@@ -1910,6 +1951,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
+    info_pane_.clear_text_focus();
     cancel_operation_motion();
     remember_folder(pane());
     pane().columns.open(directory);
@@ -1974,6 +2016,53 @@ void Browser::restore_folder(const std::filesystem::path& path) {
     const auto settings = folder_settings(pane());
     folder_settings_.remember(normalized, settings, true);
     pane().remembered_settings = settings;
+}
+
+void Browser::show_items(const std::vector<std::filesystem::path>& items, bool details) {
+    std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> groups;
+    for (const auto& item : items) {
+        auto normal = item.lexically_normal();
+        if (!normal.is_absolute())
+            continue;
+        if (!normal.has_filename() && normal.has_relative_path())
+            normal = normal.parent_path();
+        std::error_code error;
+        if (!std::filesystem::exists(std::filesystem::symlink_status(normal, error)) || error)
+            continue;
+        const bool root = !normal.has_relative_path();
+        const auto folder = root ? normal : normal.parent_path();
+        if (!std::filesystem::is_directory(folder, error))
+            continue;
+        auto group =
+            std::ranges::find(groups, folder, [](const auto& entry) { return entry.first; });
+        if (group == groups.end())
+            group = groups.insert(groups.end(), {folder, {}});
+        if (!root &&
+            std::ranges::find(group->second, normal.filename().string()) == group->second.end()) {
+            group->second.push_back(normal.filename().string());
+        }
+    }
+    const auto first = area().active;
+    for (std::size_t i = 0; i < groups.size(); ++i) {
+        const auto& [folder, names] = groups[i];
+        if (i == 0)
+            open(folder);
+        else
+            open_tab(folder, true);
+        // Reveal all requested hidden items, not just the first name's filter exception.
+        if (std::ranges::any_of(names, [](const auto& name) { return name.starts_with('.'); })) {
+            set_show_hidden(true, false);
+        }
+        if (const auto shown = current_folder(); shown && !names.empty())
+            shown->expect_names(names);
+    }
+    if (groups.size() > 1)
+        select_tab(first);
+    if (details && !groups.empty()) {
+        set_info_visible(true);
+        info_pane_.set_expanded(true);
+    }
+    redraw_();
 }
 
 void Browser::note_location() {
@@ -2183,6 +2272,10 @@ void Browser::set_show_hidden(bool show, bool announce) {
 
 void Browser::set_info_visible(bool visible) {
     info_visible_ = visible;
+    if (!visible) {
+        info_pane_.cancel_measurement();
+        info_pane_.clear_text_focus();
+    }
     for (const std::unique_ptr<Pane>& each : area().tabs) {
         each->grid.set_info_visible(visible);
         each->details.set_info_visible(visible);
@@ -2521,6 +2614,11 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
 
 void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now) {
+    if (password_.is_open() || errors_.is_open() || conflict_.is_open() || confirm_.is_open() ||
+        mount_password_.is_open() || location_.is_open() || settings_.is_open() ||
+        properties_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
+        quick_look_.is_open() || editor_.active())
+        info_pane_.clear_text_focus();
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
     note_location();
@@ -2608,6 +2706,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     context_area_ = active_area_;
     if (folder && shared_info_bounds_.width > 0)
         info_pane_.draw(renderer, shared_info_bounds_, palette, icons, *folder, now);
+    info_pane_.end_frame();
     if (!sidebar_preview_divider_.empty())
         renderer.fill_background(sidebar_preview_divider_, palette.outline_variant);
     draw_band(renderer, palette);
@@ -2854,7 +2953,7 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (status_bar_.claims(x, y)) {
         return hand(status_bar_.clickable_at(x, y));
     }
-    return hand(info_pane_.clickable_at(x, y));
+    return info_pane_.text_at(x, y) ? Shape::text : hand(info_pane_.clickable_at(x, y));
 }
 
 void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now) {
@@ -3035,6 +3134,13 @@ void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point 
             }
             return;
         }
+    }
+    if (!button_held_ && info_pane_.pointer(event, now)) {
+        if (event.kind == Kind::press) {
+            filter_focused_ = false;
+            sidebar_.set_focused(false);
+        }
+        return;
     }
     if (!button_held_ && shared_info_bounds_.contains(event.x, event.y)) {
         if (event.kind == Kind::scroll)
@@ -4293,6 +4399,8 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return handled;
     }
     if (!sidebar_.focused()) {
+        if (info_pane_.text_key(event, now))
+            return true;
         if (const auto id = action_for(event); !id.empty()) {
             run_action(id);
             return true;
@@ -4309,10 +4417,17 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         // The view does not see keys meanwhile.
         return listed(event, scope::kSidebar) && sidebar_.key(event);
     }
-    return view_key(event, now);
+    const auto before = current_folder();
+    const auto revision = before ? before->selection_revision() : 0;
+    const bool handled = view_key(event, now);
+    if (current_folder() != before || (before && before->selection_revision() != revision))
+        info_pane_.clear_text_focus();
+    return handled;
 }
 
 void Browser::run(Command command, Clock::time_point now) {
+    if (command < Command::scroll_preview_up || command > Command::scroll_preview_page_down)
+        info_pane_.clear_text_focus();
     if (!panes_enabled_ && command >= Command::toggle_split)
         return;
     if (const std::shared_ptr<Folder> shown = current_folder(); shown && shown->is_trash()) {
@@ -4447,6 +4562,13 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::redo:
             redo();
+            break;
+        case Command::stop_transfer:
+            if (transfers_.pending() > 0) {
+                cancel_transfer();
+            } else {
+                show_message("Nothing is being copied, moved or deleted", false);
+            }
             break;
         case Command::context_menu:
             open_menu_from_keyboard();

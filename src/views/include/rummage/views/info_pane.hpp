@@ -1,13 +1,20 @@
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
+#include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/measure.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -16,6 +23,8 @@
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/selectable_text.hpp"
+#include "rummage/views/text_selection.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -29,7 +38,9 @@ namespace rummage::views {
 // lens, exposure, the darktable rating) for photos, and on request ("More details") permissions,
 // owner, location and the rest of the exposure. Several entries selected: how many and how big;
 // nothing selected: the folder itself. What the directory entry says shows at once, the rest when
-// read on a worker.
+// read on a worker. A folder's size (or a selection's with folders in it) is added up on a
+// worker too, once the cursor rests (kMeasureDelay), showing the sum as it grows; moving on
+// cancels it.
 //
 // Loop thread only. Draw it while drawing (thumbnail textures are made then).
 class InfoPane {
@@ -46,8 +57,12 @@ public:
     // A line of a text file's page.
     static constexpr float kTextLineHeight = 15.0F;
 
+    // Resting on a folder starts its count; moving through folders starts nothing.
+    static constexpr std::chrono::milliseconds kMeasureDelay{250};
+
     // thumbnails may be nullptr: icons only.
-    InfoPane(core::WorkerPool& pool, Thumbnails* thumbnails, std::function<void()> redraw);
+    InfoPane(core::EventLoop& loop, core::WorkerPool& pool, Thumbnails* thumbnails,
+             std::function<void()> redraw);
     ~InfoPane();
 
     InfoPane(const InfoPane&) = delete;
@@ -57,6 +72,24 @@ public:
 
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, const Folder& folder, Clock::time_point now);
+
+    // Read-only text focus is independent of the file selection. Clicking elsewhere returns
+    // Ctrl+A/C to the files; hidden or replaced content drops its selection.
+    bool pointer(const ui::PointerEvent& event, Clock::time_point now);
+    bool text_key(const ui::KeyEvent& event, Clock::time_point now);
+    [[nodiscard]] bool text_at(float x, float y) const;
+    [[nodiscard]] bool text_focused() const noexcept;
+    void clear_text_focus();
+    [[nodiscard]] std::string selected_text() const;
+
+    void set_copy_handler(std::function<void(std::string)> handler) {
+        copy_ = std::move(handler);
+        metadata_.set_copy_handler(copy_);
+    }
+
+    [[nodiscard]] ui::Rect property_bounds(std::string_view id) const {
+        return metadata_.bounds(id);
+    }
 
     // A click at (x, y): true when the pane took it ("More details").
     bool click(float x, float y);
@@ -77,7 +110,8 @@ public:
     [[nodiscard]] bool animating() const noexcept {
         // A hidden pane cannot advance its scrollers and must not keep requesting frames.
         return bounds_.width > 0.0F && bounds_.height > 0.0F &&
-               (scroller_.animating() || page_scroller_.animating());
+               (scroller_.animating() || page_scroller_.animating() || page_sideways_.animating() ||
+                autoscrolling());
     }
 
     [[nodiscard]] bool expanded() const noexcept { return expanded_; }
@@ -90,6 +124,16 @@ public:
         bounds_ = {};
         toggle_ = {};
         page_ = {};
+    }
+
+    // Stop filesystem work when hidden; end_frame also covers a pane that no longer fits.
+    void cancel_measurement() { measure({}, {}); }
+
+    void end_frame() {
+        if (bounds_.empty()) {
+            cancel_measurement();
+            clear_text_focus();
+        }
     }
 
     // The width the user gave it (dragging its edge in the grid or the details).
@@ -105,7 +149,9 @@ public:
     void set_expanded(bool expanded);
 
     // What it shows is still being read (snapshots, tests).
-    [[nodiscard]] bool loading() const noexcept { return job_.has_value(); }
+    [[nodiscard]] bool loading() const noexcept {
+        return job_.has_value() || size_timer_ != 0 || size_job_.has_value();
+    }
 
     // The text page as last drawn (empty when there is none) and how far it is scrolled, and how
     // far it can be (tests).
@@ -115,14 +161,35 @@ public:
 
     [[nodiscard]] float text_max_offset() const noexcept { return page_scroller_.max_offset(); }
 
+    [[nodiscard]] float text_horizontal_offset() const noexcept { return page_sideways_.offset(); }
+
+    [[nodiscard]] float text_horizontal_max_offset() const noexcept {
+        return page_sideways_.max_offset();
+    }
+
     // What was read about the entry shown last; nullptr before it arrives (tests).
     [[nodiscard]] const preview::Summary* summary() const noexcept { return summary_.get(); }
+
+    // The folder or combined selection's measured size; empty until counting starts (tests).
+    [[nodiscard]] const std::optional<fs::Tally>& folder_size() const noexcept { return size_; }
+
+    [[nodiscard]] bool folder_size_done() const noexcept { return size_done_; }
 
 private:
     // Reads path's summary unless it is the one shown or on its way.
     void request(const std::filesystem::path& path, std::int64_t modified_ns, std::string mime,
                  preview::Kind kind);
 
+    // No roots cancels any pending or running measurement.
+    void measure(std::vector<std::filesystem::path> roots, std::string key);
+    [[nodiscard]] std::string size_text() const;
+
+    [[nodiscard]] const preview::Text* shown_text() const;
+    [[nodiscard]] TextPoint point_at(float x, float y) const;
+    [[nodiscard]] bool autoscrolling() const noexcept;
+    void measure_text(ui::Renderer& renderer, const preview::Text& text);
+
+    core::EventLoop& loop_;
     core::WorkerPool& pool_;
     Thumbnails* thumbnails_;
     std::function<void()> redraw_;
@@ -130,13 +197,31 @@ private:
     std::string key_;  // what summary_ is (or will be) about
     std::optional<core::CancelToken> job_;
     std::shared_ptr<const preview::Summary> summary_;
+    std::string size_key_;  // what size_ is (or will be) about
+    core::EventLoop::SourceId size_timer_{0};
+    std::optional<core::CancelToken> size_job_;
+    std::optional<fs::Tally> size_;  // so far
+    bool size_done_{false};
     bool expanded_{false};
     float width_{kWidth};
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
     ui::Rect page_{};    // a text file's page, as last drawn; empty when not shown
+    SelectableText metadata_;
+    TextSelection selection_;
+    std::function<void(std::string)> copy_;
+    bool page_focused_{false};
+    bool selecting_{false};
+    float pointer_x_{0.0F};
+    float pointer_y_{0.0F};
+    std::vector<std::vector<SelectableText::GlyphSpan>> page_clusters_;
+    float page_text_width_{0.0F};
+    float page_metrics_scale_{0.0F};
+    Clock::time_point autoscrolled_{};
+    std::string shown_key_;
     ui::Scroller scroller_;
     ui::Scroller page_scroller_;  // through the text page's lines
+    ui::Scroller page_sideways_;
     bool page_placed_{false};     // the page has been put at its start (a log's end) for this entry
     float content_height_{0.0F};  // of the last draw
     // False once destroyed: results still on their way find out here.

@@ -625,3 +625,72 @@ TEST_CASE("tabs: independent column choices in the same folder survive restart")
     CHECK(again.details().columns() ==
           std::vector<Field>{Field::name, Field::owner, Field::permissions});
 }
+
+TEST_CASE("Show in Folder: grouped selection, first tab focus and properties") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_info_visible(false);
+    f.browser.show_items({f.a / "one.txt", f.b / "two.txt", f.a / "sub/", f.a / "one.txt",
+                          f.a / "gone", f.dir.path / "missing/item"},
+                         true);
+    REQUIRE(f.settle());
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.active_tab() == 0);
+    CHECK(f.browser.info_visible());
+    CHECK(f.browser.info_pane().expanded());
+    const auto first = f.browser.details().folder();
+    REQUIRE(first);
+    CHECK(first->path() == f.a);
+    CHECK(first->selected_count() == 2);
+    CHECK(first->is_selected("one.txt"));
+    CHECK(first->is_selected("sub"));
+    REQUIRE(first->cursor());
+    CHECK(first->entries()[*first->cursor()].name == "one.txt");
+    f.browser.select_tab(1);
+    REQUIRE(f.settle());
+    const auto second = f.browser.details().folder();
+    REQUIRE(second);
+    CHECK(second->path() == f.b);
+    CHECK(second->selected_names() == Names{"two.txt"});
+}
+
+TEST_CASE("Show in Folder: active pane stays focused and hidden items are revealed") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.toggle_split();
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.active_pane() == 1);
+    std::ofstream{f.a / ".one"} << "1";
+    std::ofstream{f.a / ".two"} << "2";
+    f.browser.show_items({f.a / ".one", f.b / "two.txt", f.a / ".two"}, false);
+    REQUIRE(f.settle());
+    CHECK(f.browser.active_pane() == 1);
+    CHECK(f.browser.active_tab() == 0);
+    CHECK(f.browser.shows_hidden());
+    CHECK(f.browser.details().folder()->selected_names() == Names{".one", ".two"});
+    f.browser.focus_pane(0);
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.details().folder()->path() == f.a);
+    f.browser.focus_pane(1);
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.details().folder()->path() == f.a);
+    f.browser.set_info_visible(false);
+    f.browser.show_items({f.a / "gone", f.dir.path / "missing/item", "relative.txt"}, true);
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.active_tab() == 0);
+    CHECK_FALSE(f.browser.info_visible());
+}
+
+TEST_CASE("Show in Folder: filesystem root and folder opening preserve first focus") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.show_items({"/"}, false);
+    REQUIRE(f.settle());
+    CHECK(f.browser.details().folder()->path() == fs::path{"/"});
+    f.browser.open(f.a);
+    f.browser.open_tabs({f.b, f.a / "sub"});
+    REQUIRE(f.settle());
+    CHECK(f.browser.active_tab() == 0);
+    CHECK(f.browser.tab_titles() == Names{"a", "b", "sub"});
+}

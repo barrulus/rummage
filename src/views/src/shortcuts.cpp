@@ -406,6 +406,13 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .command = Command::copy},
     Shortcut{.group = "Files",
+             .keys = "Ctrl+Alt+C",
+             .action = "Copy Name",
+             .scope = scope::kViews,
+             .modifiers = {.ctrl = true, .alt = true},
+             .keysyms = {XKB_KEY_c, XKB_KEY_C},
+             .action_id = "copy_name"},
+    Shortcut{.group = "Files",
              .keys = "Ctrl+X",
              .action = "Cut (Escape: keep them)",
              .scope = scope::kViews | scope::kQuickLook,
@@ -447,6 +454,13 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_z, XKB_KEY_Z},
              .command = Command::redo},
     Shortcut{.group = "Files",
+             .keys = "Shift+Escape",
+             .action = "Stop the copy, move or delete",
+             .scope = scope::kViews | scope::kQuickLook | scope::kSidebar,
+             .modifiers = kShift,
+             .keysyms = {XKB_KEY_Escape},
+             .command = Command::stop_transfer},
+    Shortcut{.group = "Files",
              .keys = "Enter  Escape",
              .action = "Renaming: keep, give up",
              .scope = scope::kEditor,
@@ -472,7 +486,7 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_v, XKB_KEY_V}},
     Shortcut{.group = "Files",
              .keys = "R  S  Enter",
-             .action = "Name taken: replace, skip, both",
+             .action = "Name taken: replace or merge, skip, both",
              .scope = scope::kConflict,
              .keysyms = {XKB_KEY_r, XKB_KEY_s, XKB_KEY_Return, XKB_KEY_KP_Enter}},
     Shortcut{.group = "Files",
@@ -623,6 +637,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::undo;
     if (name == "redo")
         command = Command::redo;
+    if (name == "stop_transfer")
+        command = Command::stop_transfer;
     if (name == "context_menu")
         command = Command::context_menu;
     if (name == "properties")
@@ -655,6 +671,9 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::go_to;
     for (std::size_t i = 0; i < kShortcuts.size(); ++i) {
         const auto& entry = kShortcuts[i];
+        if (!entry.action_id.empty() &&
+            (name == entry.action_id || name == "action:" + std::string{entry.action_id}))
+            return i;
         if (command != Command::none && entry.command == command)
             return i;
         if (name == "select_all" && entry.action == "Select all")
@@ -715,6 +734,8 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
                                              std::span<const core::Action> custom, bool apply) {
     Bindings next;
     for (const auto& action : core::action_registry(custom)) {
+        if (action.id == "copy_name")
+            continue;
         const bool bundled = action.id == "copy_location" || action.id == "extract_here" ||
                              action.id == "extract_to";
         if (!bindings.contains("action:" + action.id) &&
@@ -852,12 +873,14 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "rename",
                              "new_folder",
                              "copy",
+                             "copy_name",
                              "cut",
                              "paste",
                              "trash",
                              "erase",
                              "undo",
                              "redo",
+                             "stop_transfer",
                              "context_menu",
                              "properties",
                              "back",

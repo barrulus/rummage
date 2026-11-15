@@ -61,14 +61,16 @@ std::vector<MenuItem> Browser::action_items(const core::ActionContext& context) 
     custom.submenu = true;
     for (const auto& action : actions_) {
         if (!core::action_matches(action, context) ||
-            (action.kind != core::Action::Kind::copy_location && !action_handoff_)) {
+            (action.kind != core::Action::Kind::copy_location &&
+             action.kind != core::Action::Kind::copy_name && !action_handoff_)) {
             continue;
         }
         MenuItem item;
         item.id = "action:" + action.id;
         item.label = action.label;
         item.keys = keys_for_action(action.id);
-        item.enabled = action.kind == core::Action::Kind::copy_location || !action_available_ ||
+        item.enabled = action.kind == core::Action::Kind::copy_location ||
+                       action.kind == core::Action::Kind::copy_name || !action_available_ ||
                        action_available_(action, context);
         if (!item.enabled) {
             const bool archive = action.kind == core::Action::Kind::extract_here ||
@@ -94,13 +96,15 @@ void Browser::invoke_action(const core::Action& action, const core::ActionContex
     if (!core::action_matches(action, context)) {
         return;
     }
-    if (action.kind == core::Action::Kind::copy_location) {
+    if (action.kind == core::Action::Kind::copy_location ||
+        action.kind == core::Action::Kind::copy_name) {
         std::string text;
         for (const auto& target : context.targets) {
             if (!text.empty()) {
                 text += '\n';
             }
-            text += target.path.string();
+            text += action.kind == core::Action::Kind::copy_name ? target.path.filename().string()
+                                                                 : target.path.string();
         }
         copy_text(context.targets.empty() ? context.directory.string() : std::move(text));
     } else if (action_handoff_) {

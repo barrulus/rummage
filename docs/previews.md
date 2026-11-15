@@ -114,8 +114,18 @@ Quick Look would read (the same bounded read, and a large `.log` opens at its ne
 lines). The wheel or touchpad over the page scrolls the page; anywhere else on the
 pane it scrolls the pane. **Alt+J** and
 **Alt+K** scroll three lines down and up, **Alt+Page Down** and **Alt+Page Up** a page.
-Long lines are cut with an ellipsis; open Quick Look to scroll them sideways. The pane
-has no selection, so Quick Look is still the place to copy text.
+Drag to select text, double-click a word, triple-click a line, or Shift+click to
+extend. Clicking the page gives it text focus: **Ctrl+A** selects the loaded text
+and **Ctrl+C** copies the selection. Home/End and Page Up/Down scroll the focused
+page. Shift+wheel or horizontal touchpad scrolling reveals long lines. Dragging
+beyond the page scrolls the selection.
+
+The filename and metadata are also selectable, including values under **More
+details**. Long names and values wrap in full; copying keeps the original text
+without the visual line breaks. Click a field, then use **Ctrl+A** to select that
+field and **Ctrl+C** to copy it. Clicking the file view returns these shortcuts to
+file selection and file copying. Changing the selected file or hiding the pane
+clears text focus and selection. All preview and metadata text remains read-only.
 
 ## Optional video previews and caching
 

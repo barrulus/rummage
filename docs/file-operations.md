@@ -38,20 +38,30 @@ folder. Cut entries fade until pasted or cancelled with Escape. File-manager
 clipboard formats allow exchange with other desktop applications; only local
 file paths/URIs are accepted for transfers.
 
-Transfers run outside the UI thread, with progress and a stop button. Copies use
-temporary names before publishing completed output. A cross-filesystem move
-removes its source only after its copy is flushed. Dates, permissions and symbolic
-links are preserved, and supported darktable sidecars travel with the photo.
+Transfers run outside the UI thread, with progress and a stop button.
+**Shift+Escape** stops the active transfer from a file view or Quick Look; the
+command palette also offers **Stop the Transfer** while work is pending. The
+`stop_transfer` binding can be changed in Settings or `config.toml`.
+
+Copies use temporary names before publishing completed output. Files can copy
+in parallel through a bounded queue, while conflict questions remain on the UI
+thread. A cross-filesystem move removes its source only after its copy is flushed
+and published. Dates, permissions and symbolic links are preserved, and supported
+darktable sidecars travel with the photo.
 Moving a folder into itself or copying more than the available space is refused.
 
 When a destination name exists:
 
 | Choice | Result |
 | --- | --- |
-| Replace | Replace after the new file is complete; directories are merged |
+| Replace | Replace a file after its new contents are complete |
+| Merge | Join two folders, asking separately about conflicting files inside |
 | Skip | Keep the destination and omit that source |
 | Keep both | Give the incoming item a numbered sibling name |
-| Apply to the rest | Reuse the selected policy for later conflicts |
+| Apply to the rest | Reuse the selected policy; a folder-merge choice never authorizes replacing files |
+
+Nested folders join as part of the requested merge. Existing files inside them
+are still subject to file-conflict choices.
 
 Pasting into the source folder automatically keeps both. Cancellation stops work;
 items already completed can remain. Temporary handling does not make a multi-file
@@ -115,8 +125,13 @@ Permanent deletion cannot be undone.
 | External action or archive extraction | Not recorded in file-operation undo |
 
 Undo is session history, not a backup system. Changes made meanwhile can prevent
-an inverse operation; rummage skips affected items and explains the result. Undoing
-a replacement does not imply recovery of overwritten destination data.
+an inverse operation; rummage skips affected items and explains the result.
+After a folder merge, undo affects only items newly placed by that transfer and
+leaves pre-existing destination files in place. Undoing a merged move recreates
+an emptied source folder when needed. Replaced files cannot be restored. A photo
+with pre-existing destination sidecars is also excluded from undo so those
+sidecars remain safe. Undo reports how many items cannot be safely undone and
+leaves those items in place.
 
 ## darktable sidecars
 

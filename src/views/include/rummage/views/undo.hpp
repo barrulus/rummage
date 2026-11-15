@@ -23,6 +23,8 @@ struct FileOperation {
 
     Kind kind{Kind::copy};
     std::vector<fs::PlacedItem> items;  // sidecars left out: they follow their photo
+    // Groups that cannot be safely undone (replacements or preexisting sidecars).
+    std::size_t undo_excluded{0};
 };
 
 // What the operation did, for "Undone: ..." and "Redone: ...": "“P1.ORF” is “Lake.ORF” again",
