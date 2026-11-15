@@ -63,7 +63,9 @@ The `Nix build, tests and installed package` job runs:
 
 ```sh
 nix flake check --print-build-logs
-nix build --print-build-logs
+nix build --no-link --print-build-logs \
+  '.#rummage^*' '.#rummage-with-media^*' \
+  '.#rummage-with-pdf^*' '.#rummage-with-previews^*'
 ```
 
 Checks include:
@@ -83,6 +85,25 @@ The ordinary package remains a release build without test executables. The separ
 `checks.<system>.tests` derivation enables tests; it does not skip them in exchange for a
 successful package build. Tests that probe optional kernel capabilities retain their
 existing capability checks.
+
+All runs can read the public `rummage-fm` Cachix cache. After the Nix checks and
+all four installable variants build successfully, pushes to `main` and manual
+runs targeting `main` in `barrulus/rummage` upload those packages and the test
+derivation. Every output is included (`^*`), so the separate media and PDF helpers
+are cached along with their runtime dependencies, including the custom PDFium.
+The test derivation alone would not provide the ordinary installable packages.
+
+Uploads use the repository Actions secret `CACHIX_AUTH_TOKEN`, containing a
+cache-specific write token for `rummage-fm`, with Cachix-managed signing. Only the
+upload step receives the token. PRs and other repositories never upload; the Cachix
+action is configured for reads only, without automatic background uploads. Local
+preflight builds the same variants but never pushes to Cachix. Only x86_64-linux
+is populated by this workflow. See [user setup](install.md#binary-cache).
+
+The cache upload belongs to the Nix job and does not wait for native distribution
+jobs. The `development` tag still advances only after the complete matrix passes.
+An upload failure fails the Nix job and prevents development publication; rerunning
+the job can reuse already uploaded paths.
 
 To run just one check locally:
 
@@ -284,8 +305,8 @@ Preparation runs on PRs too; the prepared bundle is available as a workflow arti
 On trusted `main` runs, the publication job creates or updates **Latest development build**.
 It replaces the assets, moves the `development` tag to the tested commit, and updates the
 release notes with a link to the CI run. It is explicitly a prerelease, not the repository's
-latest stable release. Nix uses the same moving tag as its source reference; this does not
-publish a Nix binary closure. No README commits are needed for subsequent builds.
+latest stable release. Nix uses the same moving tag as its source reference; the Nix
+job uploads binary closures separately to Cachix. No README commits are needed for subsequent builds.
 
 Main runs are serialized without automatic cancellation, preventing overlapping publication.
 PR runs still cancel superseded checks. Rerunning an older successful main workflow cannot
@@ -305,7 +326,8 @@ an official distribution repository, or packages for untested distributions such
 GitHub Actions must be enabled on the fork. Build and preparation jobs use read-only repository
 permissions, pinned action commits, and `pull_request`, not `pull_request_target`. Only the
 publication job has `contents: write`, using the built-in GitHub token; no extra secret is
-needed. It runs exclusively on pushes to `main` or manual runs targeting `main`, after all
+needed for GitHub release publication. Cachix uploads separately require `CACHIX_AUTH_TOKEN`
+as described above. The publication job runs exclusively on pushes to `main` or manual runs targeting `main`, after all
 six checks and download preparation pass. It never commits to a branch.
 
 After a successful run, configure a branch ruleset for `main` requiring these checks:
@@ -320,5 +342,5 @@ After a successful run, configure a branch ruleset for `main` requiring these ch
 Package artifacts are retained for 14 days. Neither a passing container check nor a headless
 window proves integration with every compositor, GPU, removable drive, or desktop portal
 configuration. Those remain real-desktop checks before release. Native ARM runners, Void
-musl compatibility, additional distribution recipes, caching, and signed release artifacts
+musl compatibility, additional distribution recipes, and signed release artifacts
 can be added separately without weakening these required checks.

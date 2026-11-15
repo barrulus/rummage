@@ -20,7 +20,9 @@ def commands(target, output):
                  "bash", "scripts/ci/lint.sh"]]
     if target == "nix":
         return [["nix", "flake", "check", "--print-build-logs"],
-                ["nix", "build", "--no-link", "--print-build-logs"]]
+                ["nix", "build", "--no-link", "--print-build-logs",
+                 ".#rummage^*", ".#rummage-with-media^*",
+                 ".#rummage-with-pdf^*", ".#rummage-with-previews^*"]]
     if target == "void":
         return [["bash", "scripts/ci/void.sh", str(output / "void-package")]]
     return [["bash", "scripts/ci/native.sh", target, str(output / f"{target}-package")]]

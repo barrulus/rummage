@@ -24,10 +24,30 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+      - name: Use the public rummage binary cache
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: rummage-fm
+          skipPush: true
       - name: Lint workflow, scripts and documentation; test CI tooling
         run: python3 scripts/ci/preflight.py lint
-      - name: Run all x86_64-linux flake checks and build the package
+      - name: Run all x86_64-linux flake checks and build all package variants
         run: python3 scripts/ci/preflight.py nix
+      - name: Upload checked Nix packages to Cachix
+        if: >-
+          github.repository == 'barrulus/rummage' &&
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          # Resolve all outputs, including the separate media and PDF helpers.
+          # Finish successfully before uploading any of the collected paths.
+          nix build --no-link --print-out-paths \
+            '.#rummage^*' '.#rummage-with-media^*' \
+            '.#rummage-with-pdf^*' '.#rummage-with-previews^*' \
+            '.#checks.x86_64-linux.tests^*' > "$RUNNER_TEMP/cachix-paths"
+          cachix push rummage-fm < "$RUNNER_TEMP/cachix-paths"
 
   void:
     name: Void glibc package and clean install
