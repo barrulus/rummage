@@ -95,6 +95,20 @@ void Sidebar::set_places(std::vector<fs::Place> places) {
     redraw_();
 }
 
+std::optional<ui::Rect> Sidebar::place_icon_rect(const std::filesystem::path& path) const {
+    if (bounds_.empty())
+        return std::nullopt;
+    for (const auto& row : rows_) {
+        if (row.place && places_[*row.place].path == path) {
+            const float y = bounds_.y + row.top - scroller_.offset();
+            const float size = kRowHeight * scale();
+            if (y >= bounds_.y && y + size <= bounds_.bottom())
+                return ui::Rect{bounds_.x + kIconLeft * scale(), y, size, size};
+        }
+    }
+    return std::nullopt;
+}
+
 void Sidebar::layout() {
     rows_.clear();
     float y = (kTop * scale());

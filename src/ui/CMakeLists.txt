@@ -73,6 +73,7 @@ add_library(rummage_ui
     src/display.cpp
     src/egl_context.cpp
     src/renderer.cpp
+    src/motion.cpp
     src/seat.cpp
     src/icons.cpp
     src/icon_theme.cpp

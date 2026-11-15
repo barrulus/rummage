@@ -74,7 +74,16 @@ ConfigText edit_config_text(std::string text, const std::vector<ConfigEdit>& edi
                     text.replace(begin, end - begin, out.str());
                 } else {
                     const auto begin = offset(text, table->source().begin);
-                    if (begin >= text.size() || text[begin] != '[') {
+                    bool explicit_header = begin < text.size() && text[begin] == '[';
+                    if (explicit_header && edit.table.find_first_of(".[]") == std::string::npos) {
+                        // An implicit parent inherits its child's source position. Inserting
+                        // after [animations.events] would put enabled inside events instead.
+                        const auto newline = text.find('\n', begin);
+                        const auto header = toml::parse(text.substr(begin, newline - begin));
+                        const auto* declared = header.at_path(edit.table).as_table();
+                        explicit_header = declared && declared->empty();
+                    }
+                    if (!explicit_header) {
                         if (edit.table.find_first_of(".[]") != std::string::npos)
                             throw std::runtime_error("Cannot insert into an implicit action table");
                         text.insert(0, quote_config_string(edit.table) + "." +

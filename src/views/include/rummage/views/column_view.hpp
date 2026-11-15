@@ -134,6 +134,7 @@ public:
 
     // Where a context menu opened from the keyboard goes: by the cursor's entry, when it is shown.
     [[nodiscard]] std::optional<std::pair<float, float>> cursor_anchor() const;
+    [[nodiscard]] ItemBounds motion_bounds() const;
 
     // The name being edited, which the view leaves for the editor to draw (the browser's).
     void set_edit_slot(EditSlot* edit) { edit_ = edit; }

@@ -25,6 +25,7 @@ See [installation](install.md),
 | Change settings or understand saved state | [Configuration](configuration.md) |
 | Copy a complete annotated settings reference | [config.example.toml](config.example.toml) |
 | Change colours, fonts, icons or transparency | [Appearance](appearance.md) |
+| Configure motion, shaders and reduced motion | [Motion effects](motion.md) |
 | Add commands, destination dialogs or menu groups | [Actions and context menus](actions.md) |
 | Look up default keys or override bindings | [Keyboard shortcuts](shortcuts.md) |
 | Use command-line options or diagnostic variables | [Command line](command-line.md) |

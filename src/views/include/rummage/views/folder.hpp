@@ -164,6 +164,8 @@ public:
 
     [[nodiscard]] std::size_t selected_count() const noexcept { return selected_.size(); }
 
+    [[nodiscard]] std::uint64_t selection_revision() const noexcept { return selection_revision_; }
+
     [[nodiscard]] bool is_selected(const std::string& name) const {
         return selected_.contains(name);
     }
@@ -193,7 +195,7 @@ public:
 
 private:
     void on_change(const fs::ModelChange& change);
-    void selection_changed();
+    void selection_changed(bool feedback = true);
 
     core::WorkerPool& pool_;
     std::shared_ptr<const fs::MimeDatabase> mime_;
@@ -207,6 +209,7 @@ private:
     bool press_pending_{false};                // release_press() selects the cursor's alone
     Reveal reveal_{Reveal::none};
     std::unordered_set<std::string> selected_;
+    std::uint64_t selection_revision_{0};
     std::string anchor_;                               // where a Shift range starts
     mutable std::optional<SelectionSummary> summary_;  // computed on demand
 

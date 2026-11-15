@@ -17,6 +17,7 @@
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/item_bounds.hpp"
 #include "rummage/views/list_size.hpp"
 
 namespace rummage::views {
@@ -80,6 +81,8 @@ public:
     // The rows a band touches, in content points (BandLane).
     [[nodiscard]] std::vector<std::size_t> rows_in(const ui::Rect& content) const;
 
+    [[nodiscard]] ItemBounds motion_bounds() const noexcept { return motion_bounds_; }
+
     // Below the cursor's row, near its left: where a menu opened from the keyboard goes; nullopt
     // when the row is not shown.
     [[nodiscard]] std::optional<std::pair<float, float>> cursor_anchor() const;
@@ -88,6 +91,7 @@ public:
     bool set_hovered(std::optional<std::size_t> row);
 
 private:
+    ItemBounds motion_bounds_{};
     void reveal_cursor(Folder::Reveal reveal, Clock::time_point now);
 
     std::shared_ptr<Folder> folder_;

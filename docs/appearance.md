@@ -10,6 +10,9 @@ placement. Light/dark overrides retain the source accent without changing
 `colors.toml`. Selecting Desktop/Noctalia resumes its current palette. Font changes
 apply at the next start; the other appearance changes apply when saved.
 
+The same panel controls motion effects, speed, quality and reduced motion. See
+[motion effects](motion.md) for per-event mappings, durations and resource limits.
+
 ## Colours
 
 rummage uses `$XDG_CONFIG_HOME/rummage/colors.toml` (normally

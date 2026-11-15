@@ -391,8 +391,22 @@ public:
 
     // A line in the status bar for a few seconds (what opening a file did).
     void show_message(std::string text, bool error) {
+        if (error)
+            start_motion(core::MotionEvent::invalid_operation);
         status_bar_.show_message(std::move(text), error);
     }
+
+    void set_motion_config(const core::MotionConfig& config) {
+        motion_.configure(config);
+        redraw_();
+    }
+
+    void set_reduced_motion(bool reduced) {
+        motion_.set_system_reduced(reduced);
+        redraw_();
+    }
+
+    [[nodiscard]] const ui::Motion& motion() const noexcept { return motion_; }
 
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, Clock::time_point now);
@@ -841,6 +855,15 @@ private:
         ui::Rect bounds{}, header{}, view_area{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
         ui::Rect view_menu_bounds{}, settings_bounds{};
+        std::filesystem::path motion_folder;
+        const Pane* motion_tab{nullptr};
+        Mode motion_mode{Mode::columns};
+        std::string motion_cursor;
+        std::uint64_t motion_selection{0};
+        bool motion_pending{false};
+        bool motion_back{false};
+        ui::Rect motion_origin{};
+        ui::Rect motion_view_bounds{};
     };
 
     State::Folders folder_settings_;
@@ -849,6 +872,39 @@ private:
     std::size_t active_area_{0};
     // Rendering and pointer dispatch may address an inactive area without changing focus.
     std::size_t context_area_{0};
+    ui::Motion motion_;
+    std::uint64_t motion_epoch_{0};
+    ui::Rect motion_bounds_{};
+    bool motion_quick_look_{false}, motion_palette_{false};
+    void start_motion(core::MotionEvent event);
+    void observe_motion(Clock::time_point now);
+    [[nodiscard]] ItemBounds motion_item_bounds() const;
+    void leave_motion();
+    void cancel_operation_motion();
+    void cancel_layout_motion();
+    void begin_motion_frame(ui::Renderer&, const ui::Rect&, Clock::time_point);
+    void layout_motion_area(const ui::Rect&);
+    void draw_view_with_motion(ui::Renderer&, const theme::Palette&, ui::IconSet&,
+                               Clock::time_point);
+    [[nodiscard]] std::optional<ui::Motion::Frame> begin_overlay_motion(
+        ui::Renderer&, const ui::Rect&, const theme::Palette&, ui::IconSet&, Clock::time_point);
+    void end_overlay_motion(ui::Renderer&, const std::optional<ui::Motion::Frame>&, const ui::Rect&,
+                            const theme::Palette&);
+
+    struct OperationMotion {
+        std::size_t area{0};
+        std::uint64_t epoch{0};
+        ui::Rect from{};
+        std::filesystem::path path;
+        std::string icon, mime;
+    };
+
+    [[nodiscard]] OperationMotion capture_operation_motion(const fs::TransferRequest&) const;
+    void complete_operation_motion(const OperationMotion&, const fs::TransferRequest&,
+                                   const fs::TransferResult&);
+    void draw_motion_sprite(ui::Renderer&, const theme::Palette&, ui::IconSet&, Clock::time_point);
+    std::string motion_sprite_icon_{"file"};
+    std::string motion_sprite_mime_;
 
     BrowsingArea& area() { return *areas_[context_area_]; }
 
@@ -1004,6 +1060,7 @@ private:
     struct Submitted {
         std::uint64_t batch{0};
         std::optional<std::uint64_t> empty_clipboard;
+        OperationMotion motion;
     };
 
     std::deque<Submitted> submitted_;

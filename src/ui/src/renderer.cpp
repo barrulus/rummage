@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "motion_shaders.hpp"
 #include "rummage/core/log.hpp"
 
 namespace rummage::ui {
@@ -479,6 +480,24 @@ struct Renderer::Gl {
     }
 };
 
+struct Renderer::MotionGl {
+    static constexpr std::array<Attribute, 1> kAttributes{{{1, 4, 0}}};
+    Pipeline pipeline{kMotionVertexShader, motion_fragment_shader().c_str(), kAttributes,
+                      sizeof(Rect)};
+    std::array<GLuint, 2> textures{};
+    int width{0};
+    int height{0};
+    int storage_width{0};
+    int storage_height{0};
+    int x{0};
+    int y{0};
+    bool capturing{false};
+
+    MotionGl() { glGenTextures(2, textures.data()); }
+
+    ~MotionGl() { glDeleteTextures(2, textures.data()); }
+};
+
 Renderer::Renderer(FontSystem& fonts) : gl_{std::make_unique<Gl>()}, fonts_{fonts} {
     boxes_.reserve(kMaxInstancesPerDraw);
     glyphs_.reserve(kMaxInstancesPerDraw);
@@ -488,6 +507,9 @@ Renderer::~Renderer() = default;
 
 void Renderer::begin_frame(std::int32_t buffer_width, std::int32_t buffer_height, float scale,
                            Color clear, float background_opacity) {
+    frame_started_ = std::chrono::steady_clock::now();
+    if (motion_gl_)
+        motion_gl_->capturing = false;
     buffer_width_ = buffer_width;
     buffer_height_ = buffer_height;
     scale_ = scale;
@@ -519,9 +541,140 @@ void Renderer::fill_background(const Rect& rect, Color color) {
 
 void Renderer::end_frame() {
     flush();
+    ++motion_stats_.frames;
+    motion_stats_.last_frame_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - frame_started_)
+            .count();
+    motion_stats_.max_frame_ms = std::max(motion_stats_.max_frame_ms, motion_stats_.last_frame_ms);
     if (!clips_.empty()) {
         log::warn("renderer: {} clip(s) still pushed at end of frame", clips_.size());
     }
+}
+
+bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality quality) {
+    if (motion_failed_ || !std::isfinite(bounds.x) || !std::isfinite(bounds.y) ||
+        !std::isfinite(bounds.width) || !std::isfinite(bounds.height) || bounds.empty())
+        return false;
+    if (motion_gl_ && motion_gl_->capturing)
+        return false;
+    const auto edge = [](float value, int maximum) {
+        return static_cast<int>(std::round(std::clamp(value, 0.0F, static_cast<float>(maximum))));
+    };
+    const int x = edge(bounds.x * scale_, buffer_width_);
+    const int y = edge(bounds.y * scale_, buffer_height_);
+    const int width = edge(bounds.right() * scale_, buffer_width_) - x;
+    const int height = edge(bounds.bottom() * scale_, buffer_height_) - y;
+    const std::size_t pixels = static_cast<std::size_t>(std::max(0, width)) *
+                               static_cast<std::size_t>(std::max(0, height));
+    const std::size_t cap = quality == core::MotionConfig::Quality::high ? 4194304 : 2097152;
+    if (pixels == 0 || pixels > cap) {
+        ++motion_stats_.fallbacks;
+        return false;
+    }
+    flush();
+    try {
+        if (!motion_gl_)
+            motion_gl_ = std::make_unique<MotionGl>();
+    } catch (const std::runtime_error& error) {
+        log::warn("motion disabled: {}", error.what());
+        motion_failed_ = true;
+        ++motion_stats_.fallbacks;
+        return false;
+    }
+    auto& pass = *motion_gl_;
+    glActiveTexture(GL_TEXTURE0);
+    if (width > pass.storage_width || height > pass.storage_height ||
+        motion_stats_.texture_bytes > cap * 8) {
+        int storage_width = std::max(width, pass.storage_width);
+        int storage_height = std::max(height, pass.storage_height);
+        if (static_cast<std::size_t>(storage_width) * static_cast<std::size_t>(storage_height) >
+            cap) {
+            storage_width = width;
+            storage_height = height;
+        }
+        glDeleteTextures(2, pass.textures.data());
+        glGenTextures(2, pass.textures.data());
+        for (const auto texture : pass.textures) {
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, storage_width, storage_height, 0, GL_RGBA,
+                         GL_UNSIGNED_BYTE, nullptr);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        }
+        if (glGetError() != GL_NO_ERROR) {
+            release_motion();
+            motion_failed_ = true;
+            ++motion_stats_.fallbacks;
+            return false;
+        }
+        pass.storage_width = storage_width;
+        pass.storage_height = storage_height;
+        motion_stats_.texture_bytes =
+            static_cast<std::size_t>(storage_width) * static_cast<std::size_t>(storage_height) * 8;
+        ++motion_stats_.allocations;
+    }
+    pass.x = x;
+    pass.y = y;
+    pass.width = width;
+    pass.height = height;
+    glBindTexture(GL_TEXTURE_2D, pass.textures[0]);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, buffer_height_ - y - height, width, height);
+    pass.capturing = glGetError() == GL_NO_ERROR;
+    if (!pass.capturing)
+        ++motion_stats_.fallbacks;
+    return pass.capturing;
+}
+
+void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float origin_y,
+                          Color accent) {
+    if (!motion_gl_ || !motion_gl_->capturing)
+        return;
+    flush();
+    auto& pass = *motion_gl_;
+    pass.capturing = false;
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, pass.textures[1]);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pass.x, buffer_height_ - pass.y - pass.height,
+                        pass.width, pass.height);
+    if (glGetError() != GL_NO_ERROR) {
+        ++motion_stats_.fallbacks;
+        glActiveTexture(GL_TEXTURE0);
+        return;
+    }
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, pass.textures[0]);
+    const GLuint program = pass.pipeline.program();
+    glUseProgram(program);
+    glUniform1i(glGetUniformLocation(program, "source_texture"), 0);
+    glUniform1i(glGetUniformLocation(program, "target_texture"), 1);
+    glUniform1i(glGetUniformLocation(program, "effect"), static_cast<int>(frame.effect));
+    glUniform1f(glGetUniformLocation(program, "progress"), frame.progress);
+    glUniform1f(glGetUniformLocation(program, "time_seconds"), frame.time_seconds);
+    glUniform2f(glGetUniformLocation(program, "resolution"), static_cast<float>(pass.width),
+                static_cast<float>(pass.height));
+    glUniform2f(glGetUniformLocation(program, "capture_extent"),
+                static_cast<float>(pass.width) / static_cast<float>(pass.storage_width),
+                static_cast<float>(pass.height) / static_cast<float>(pass.storage_height));
+    glUniform2f(glGetUniformLocation(program, "origin"),
+                origin_x * scale_ - static_cast<float>(pass.x),
+                origin_y * scale_ - static_cast<float>(pass.y));
+    const auto tint = accent.premultiplied();
+    glUniform4f(glGetUniformLocation(program, "accent"), tint.r, tint.g, tint.b, tint.a);
+    const Rect rect{static_cast<float>(pass.x), static_cast<float>(pass.y),
+                    static_cast<float>(pass.width), static_cast<float>(pass.height)};
+    // The shader contains the backdrop, including its alpha: replace rather than blend again.
+    glDisable(GL_BLEND);
+    pass.pipeline.draw(&rect, 1, sizeof(Rect), buffer_width_, buffer_height_);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    ++motion_stats_.passes;
+}
+
+void Renderer::release_motion() {
+    motion_gl_.reset();
+    motion_stats_.texture_bytes = 0;
 }
 
 void Renderer::draw_box(const Rect& rect, const BoxStyle& style) {

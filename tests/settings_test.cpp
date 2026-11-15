@@ -83,6 +83,39 @@ TEST_CASE("settings: existing actions and inline tables retain unrelated fields"
     CHECK_FALSE(config.config.icon.follow_accent);
 }
 
+TEST_CASE("settings: motion controls save live and preserve per-event overrides") {
+    Fixture f;
+    REQUIRE_FALSE(core::write_file_atomically(f.path, "[animations.events]\nfile_copy = 'none'\n"));
+    f.open();
+    REQUIRE(f.dialog.edit("animations", "enabled", "false"));
+    REQUIRE(f.dialog.edit("animations", "reduce_motion", "always"));
+    REQUIRE(f.dialog.edit("animations", "quality", "low"));
+    REQUIRE(f.dialog.edit("animations", "duration_scale", "0.5"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    CHECK(f.applied == 1);
+    const auto loaded = core::load_config(f.path);
+    REQUIRE(loaded.problems.empty());
+    CHECK_FALSE(loaded.config.animations.enabled);
+    CHECK(loaded.config.animations.duration_scale == 0.5F);
+    CHECK(loaded.config.animations.reduce_motion == core::MotionConfig::Reduce::always);
+    CHECK(loaded.config.animations.events[3] == core::MotionEffect::none);
+}
+
+TEST_CASE("settings: adding a field to the second action preserves its array position") {
+    const auto edited = core::edit_config_text(
+        "[[actions]]\nid='first'\nlabel='First'\nargv=['echo']\n"
+        "[[actions]]\nid='second'\nlabel='Second'\nargv=['echo']\n",
+        {{"actions[1]", "enabled", "false"}});
+    REQUIRE_MESSAGE(edited.error.empty(), edited.error);
+    const auto parsed = core::parse_config(edited.text, "test");
+    REQUIRE(parsed.problems.empty());
+    REQUIRE(parsed.config.actions.size() == 2);
+    CHECK(parsed.config.actions[0].enabled);
+    CHECK_FALSE(parsed.config.actions[1].enabled);
+}
+
 TEST_CASE("settings: invalid replacement cannot inject another setting") {
     CHECK_FALSE(
         core::edit_config_text("", {{"icon", "theme", "'system'\nextra = true"}}).error.empty());

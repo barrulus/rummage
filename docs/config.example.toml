@@ -18,6 +18,43 @@ color_scheme = "system"
 # With the sidebar hidden or the window too short, preview falls back to the right.
 preview_position = "right"
 
+[animations]
+# Built-in motion effects, applied live. System reduced motion suppresses all new effects.
+enabled = true
+duration_scale = 1.0  # 0-4; 0 is immediate; scaled durations are capped at 2 seconds
+reduce_motion = "system"  # system, always, never
+quality = "auto"          # auto (16 MiB cap), low (fade), high (32 MiB cap)
+
+[animations.events]
+# Every event accepts a built-in effect name or "none". See docs/motion.md.
+directory_open = "iris"
+directory_back = "ripple"
+view_change = "ink_bleed"
+file_copy = "hologram"
+file_move = "portal"
+file_trash = "disintegrate"
+selection_change = "energy_trace"
+focus_change = "focus_glow"
+invalid_operation = "glitch"
+quick_look = "frost"
+palette_open = "particles"
+search_results = "scan"
+
+[animations.durations]
+# Milliseconds before duration_scale (0-2000). Zero disables that event's effect.
+directory_open = 220
+directory_back = 180
+view_change = 240
+file_copy = 420
+file_move = 420
+file_trash = 420
+selection_change = 160
+focus_change = 140
+invalid_operation = 140
+quick_look = 220
+palette_open = 240
+search_results = 180
+
 [status_bar]
 # Text size in logical pixels (8-32); independent of list/sidebar zoom, applied live.
 # The bar grows to fit larger text. Use 15 to match the large file-list text.
