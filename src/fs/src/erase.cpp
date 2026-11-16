@@ -20,6 +20,7 @@
 #include "rummage/fs/measure.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::fs {
 namespace {
@@ -91,7 +92,7 @@ std::vector<Group> groups_of(const TransferRequest& request, std::vector<std::st
             std::optional<TrashedGroup>& group = found[i];
             if (!group) {
                 errors.push_back(
-                    std::format("{}: not in the trash any more", paths[i].filename().string()));
+                    i18n::trf("{}: not in the trash any more", paths[i].filename().string()));
                 continue;
             }
             groups.push_back({.item = std::move(group->item),

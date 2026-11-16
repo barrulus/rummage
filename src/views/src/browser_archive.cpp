@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <format>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/compress.hpp"
 #include "rummage/fs/extract.hpp"
 #include "rummage/fs/operations.hpp"
@@ -49,24 +50,25 @@ void Browser::compress(bool tar_gz) {
         if (entry.name == names.front())
             first_folder = entry.is_directory();
     const auto proposed = fs::archive_name_for(names, first_folder, tar_gz);
-    confirm_.open_name(tar_gz ? "Compress to tar.gz" : "Compress to ZIP",
-                       "Archive name · existing files are kept", proposed,
-                       [this, folder, names = std::move(names), tar_gz](const std::string& name) {
-                           if (const auto error = fs::name_problem(name))
-                               return *error;
-                           submit({.kind = fs::TransferKind::compress,
-                                   .source = folder->path(),
-                                   .names = names,
-                                   .destination = folder->path(),
-                                   .force_copy = false,
-                                   .archive_name = name,
-                                   .tar_gz = tar_gz},
-                                  open_batch(Purpose::user, FileOperation::Kind::copy));
-                           status_bar_.set_transfer(TransferStatus{
-                               .text = "Getting ready to compress…", .fraction = -1.0F});
-                           redraw_();
-                           return std::string{};
-                       });
+    confirm_.open_name(
+        std::string{i18n::tr(tar_gz ? "Compress to tar.gz" : "Compress to ZIP")},
+        std::string{i18n::tr("Archive name · existing files are kept")}, proposed,
+        [this, folder, names = std::move(names), tar_gz](const std::string& name) {
+            if (const auto error = fs::name_problem(name))
+                return *error;
+            submit({.kind = fs::TransferKind::compress,
+                    .source = folder->path(),
+                    .names = names,
+                    .destination = folder->path(),
+                    .force_copy = false,
+                    .archive_name = name,
+                    .tar_gz = tar_gz},
+                   open_batch(Purpose::user, FileOperation::Kind::copy));
+            status_bar_.set_transfer(TransferStatus{
+                .text = std::string{i18n::tr("Getting ready to compress…")}, .fraction = -1.0F});
+            redraw_();
+            return std::string{};
+        });
 }
 
 void Browser::compress_done(const fs::TransferRequest& request, const fs::TransferResult& result) {
@@ -75,7 +77,7 @@ void Browser::compress_done(const fs::TransferRequest& request, const fs::Transf
         return;
     }
     if (result.cancelled) {
-        show_message("Stopped: no archive made", false);
+        show_message(std::string{i18n::tr("Stopped: no archive made")}, false);
         return;
     }
     if (result.placed.empty()) {
@@ -84,9 +86,8 @@ void Browser::compress_done(const fs::TransferRequest& request, const fs::Transf
         return;
     }
     const auto& name = result.placed.front();
-    show_message(result.errors.empty()
-                     ? std::format("Created “{}”", name)
-                     : std::format("Created “{}”; {}", name, result.errors.front()),
+    show_message(result.errors.empty() ? i18n::trf("Created “{}”", name)
+                                       : i18n::trf("Created “{}”; {}", name, result.errors.front()),
                  !result.errors.empty());
     if (const auto folder = current_folder(); folder && folder->path() == request.destination)
         folder->expect_name(name);

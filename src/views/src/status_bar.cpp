@@ -7,6 +7,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/format.hpp"
 #include "rummage/views/shortcuts.hpp"
 
@@ -41,18 +42,18 @@ std::string status_of(const Folder& folder) {
         return model.problem();
     }
     const std::string prefix = model.is_archive()
-                                   ? std::format("{} archive  ·  read-only  ·  ",
-                                                 archive::format_name(model.archive_format()))
+                                   ? i18n::trf("{} archive  ·  read-only  ·  ",
+                                               archive::format_name(model.archive_format()))
                                    : std::string{};
     if (folder.selected_count() > 1) {
-        return prefix + std::format("{} of {} selected", folder.selected_count(), count);
+        return prefix + i18n::trf("{} of {} selected", folder.selected_count(), count);
     }
     if (model.loading()) {
-        return prefix + std::format("{} items, loading…", count);
+        return prefix + i18n::trn("{} item, loading…", "{} items, loading…", count);
     }
-    std::string status = prefix + std::format("{} {}", count, count == 1 ? "item" : "items");
+    std::string status = prefix + (i18n::trn("{} item", "{} items", count));
     if (const std::size_t hidden = folder.hidden_count(); hidden > 0) {
-        status += std::format(", {} hidden", hidden);
+        status += i18n::trf(", {} hidden", hidden);
     }
     if (const auto problem = model.problem(); !problem.empty())
         status += "  ·  " + problem;
@@ -190,7 +191,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
                    cancel_button_.y + ((kButtonHeight - kIconSize) / 2.0F), kIconSize,
                    cancel_hovered_ ? palette.error : palette.on_surface_variant);
         text_right = cancel_button_.x - kPadding;
-        const std::string stop_key = keys_for(Command::stop_transfer);
+        const std::string stop_key = i18n::keys(keys_for(Command::stop_transfer));
         if (!stop_key.empty()) {
             const auto& key_line = renderer.fonts().layout(stop_key, text_size_, renderer.scale());
             const float key_width = key_line.width / renderer.scale();
@@ -212,8 +213,8 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     } else if (message_.empty()) {
         text = status_of(folder);
         if (free_ && !folder.model().error()) {
-            text += std::format("  ·  {} free of {}", format_size(free_->free),
-                                format_size(free_->total));
+            text += i18n::trf("  ·  {} free of {}", format_size(free_->free),
+                              format_size(free_->total));
         }
         color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }

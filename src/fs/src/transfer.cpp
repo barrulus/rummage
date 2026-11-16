@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::fs {
@@ -454,7 +455,7 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
     const Fd from{open(source.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)};
     if (from.get() < 0) {
         if (errno == ELOOP) {
-            error(where, "changed while being copied");  // a link now
+            error(where, i18n::tr("changed while being copied"));  // a link now
         } else {
             error(where, last_error());
         }
@@ -463,7 +464,7 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
     struct stat opened{};
     if (fstat(from.get(), &opened) != 0 || !S_ISREG(opened.st_mode) ||
         opened.st_dev != info.st_dev || opened.st_ino != info.st_ino) {
-        error(where, "changed while being copied");
+        error(where, i18n::tr("changed while being copied"));
         return false;
     }
     const std::filesystem::path part = fresh ? target : temporary(target);
@@ -551,7 +552,7 @@ bool Engine::copy_folder(const std::filesystem::path& source, const struct stat&
                          bool* completed) {
     if (fresh) {
         // fill() makes folders inside one being built itself; nothing else asks for one.
-        error(where, "a folder inside a copy: not expected here");
+        error(where, i18n::tr("a folder inside a copy: not expected here"));
         return false;
     }
     // Built under a hidden name and renamed when complete: a cancelled copy leaves no half folder.
@@ -704,7 +705,7 @@ bool Engine::remove_source(const std::filesystem::path& source, const struct sta
         (now->st_mode & S_IFMT) != (info.st_mode & S_IFMT) || now->st_size != info.st_size ||
         now->st_mtim.tv_sec != info.st_mtim.tv_sec ||
         now->st_mtim.tv_nsec != info.st_mtim.tv_nsec) {
-        error(where, "changed while being moved");
+        error(where, i18n::tr("changed while being moved"));
         return false;
     }
     if (unlink(source.c_str()) != 0) {
@@ -727,7 +728,7 @@ void Engine::remove_sources(std::deque<Building>& folders) {
             const std::optional<struct stat> now = status_of(building.source);
             if (!now || !S_ISDIR(now->st_mode) || now->st_dev != building.info.st_dev ||
                 now->st_ino != building.info.st_ino) {
-                error(building.where, "changed while being moved");
+                error(building.where, i18n::tr("changed while being moved"));
                 building.failed = true;
             } else if (rmdir(building.source.c_str()) != 0) {
                 error(building.where, last_error());
@@ -866,7 +867,7 @@ std::vector<Outcome> Engine::place_all(const std::filesystem::path& source,
             const std::optional<struct stat> now = status_of(source / group.name);
             if (!now || now->st_dev != group.info.st_dev || now->st_ino != group.info.st_ino ||
                 !S_ISDIR(now->st_mode)) {
-                error(label, "changed while being copied");
+                error(label, i18n::tr("changed while being copied"));
                 continue;
             }
             outcome.merged = true;
@@ -901,7 +902,7 @@ std::vector<Outcome> Engine::place_all(const std::filesystem::path& source,
                 const std::string sidecar_label =
                     where.empty() ? sidecar : std::format("{}/{}", where, sidecar);
                 if (!group.sidecar_info[sidecar_index]) {
-                    error(sidecar_label, "changed while being copied");
+                    error(sidecar_label, i18n::tr("changed while being copied"));
                     const std::scoped_lock lock{state_};
                     outcomes[index].complete = false;
                     continue;
@@ -986,14 +987,16 @@ bool Engine::place(const std::filesystem::path& source, const std::filesystem::p
     if (expected != nullptr &&
         (info->st_dev != expected->st_dev || info->st_ino != expected->st_ino ||
          (info->st_mode & S_IFMT) != (expected->st_mode & S_IFMT))) {
-        error(where, "changed while being copied");
+        error(where, i18n::tr("changed while being copied"));
         return false;
     }
     const std::optional<struct stat> existing = replace ? status_of(target) : std::nullopt;
     const bool folder = S_ISDIR(info->st_mode);
     if (existing && folder != S_ISDIR(existing->st_mode)) {
-        error(where, folder ? "a file has its name; a folder does not replace a file"
-                            : "a folder has its name; a file does not replace a folder");
+        error(where,
+              std::string{
+                  folder ? i18n::tr("a file has its name; a folder does not replace a file")
+                         : i18n::tr("a folder has its name; a file does not replace a folder")});
         return false;
     }
     if (existing && folder) {
@@ -1023,7 +1026,7 @@ bool Engine::place(const std::filesystem::path& source, const std::filesystem::p
     if (S_ISLNK(info->st_mode)) {
         return copy_link(source, *info, target, where, replace, fresh);
     }
-    error(where, "a special file (device, socket, pipe): not copied");
+    error(where, std::string{i18n::tr("a special file (device, socket, pipe): not copied")});
     return false;
 }
 
@@ -1035,7 +1038,7 @@ TransferResult Engine::run() {
              return name.empty() || name == "." || name == ".." ||
                     std::filesystem::path{name}.filename() != std::filesystem::path{name};
          }))) {
-        result_.refused = "Invalid destination names";
+        result_.refused = i18n::tr("Invalid destination names");
         return finished();
     }
     moving_ = r.kind == TransferKind::move;
@@ -1047,7 +1050,7 @@ TransferResult Engine::run() {
         to = status_of(r.destination);
     }
     if (!to || !S_ISDIR(to->st_mode)) {
-        result_.refused = std::format("{} is not a folder", r.destination.string());
+        result_.refused = i18n::trf("{} is not a folder", r.destination.string());
         return finished();
     }
     std::error_code ignored;
@@ -1070,8 +1073,8 @@ TransferResult Engine::run() {
         const std::filesystem::path folder = source_dir / group.name;
         const auto [end, rest] = std::ranges::mismatch(folder, target_dir);
         if (end == folder.end()) {
-            result_.refused =
-                std::format("Cannot {} {} into itself", moving_ ? "move" : "copy", group.name);
+            result_.refused = moving_ ? i18n::trf("Cannot move {} into itself", group.name)
+                                      : i18n::trf("Cannot copy {} into itself", group.name);
             return finished();
         }
     }
@@ -1098,8 +1101,8 @@ TransferResult Engine::run() {
             const std::uint64_t free = static_cast<std::uint64_t>(space.f_bavail) *
                                        static_cast<std::uint64_t>(space.f_frsize);
             if (progress_.bytes_total > free) {
-                result_.refused = std::format("Not enough space: {} needed, {} free",
-                                              human_size(progress_.bytes_total), human_size(free));
+                result_.refused = i18n::trf("Not enough space: {} needed, {} free",
+                                            human_size(progress_.bytes_total), human_size(free));
                 return finished();
             }
         }
@@ -1138,8 +1141,8 @@ std::string human_size(std::uint64_t bytes) {
         value /= 1000.0;
         ++unit;
     }
-    return unit == 0 ? std::format("{} bytes", bytes)
-                     : std::format("{:.1f} {}", value, units.at(unit));
+    return unit == 0 ? i18n::trn("{} byte", "{} bytes", bytes)
+                     : i18n::decimal(std::format("{:.1f} {}", value, units.at(unit)));
 }
 
 std::string free_name(const std::filesystem::path& directory, const std::string& name, bool folder,

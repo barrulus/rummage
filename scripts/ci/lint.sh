@@ -9,3 +9,4 @@ actionlint .github/workflows/ci.yml
 shellcheck -x scripts/ci/*.sh packaging/pdfium/*.sh
 python3 -m unittest discover -s scripts/ci/tests -v
 python3 scripts/check-docs.py
+python3 scripts/i18n-check.py --strict

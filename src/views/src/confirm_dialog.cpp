@@ -6,6 +6,8 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::views {
 namespace {
 
@@ -46,9 +48,10 @@ void ConfirmDialog::open(std::string title, std::string detail, std::string acti
 void ConfirmDialog::open_password(std::string name, bool retry,
                                   std::function<void(std::optional<std::string>)> answer) {
     open(
-        "Password for “" + name + "”",
-        retry ? "Password rejected or archive damaged. Try again." : "Enter the archive password.",
-        "Extract",
+        i18n::trf("Password for “{}”", name),
+        std::string{i18n::tr(retry ? "Password rejected or archive damaged. Try again."
+                                   : "Enter the archive password.")},
+        std::string{i18n::tr("Extract")},
         [this, answer = std::move(answer)](bool confirmed) {
             std::optional<std::string> password;
             if (confirmed)
@@ -217,7 +220,7 @@ void ConfirmDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         }
         renderer.draw_box(button, {.fill = fill, .radius = {}});
         const std::string label =
-            action ? std::format("{}   ↵", action_) : std::string{"Cancel   Esc"};
+            action ? std::format("{}   ↵", action_) : std::string{i18n::tr("Cancel   Esc")};
         renderer.draw_text(label, button.x + 14.0F,
                            button.y + ((kButtonHeight - kTextSize) / 2.0F) - 2.0F, kTextSize, text,
                            button.width - 20.0F);

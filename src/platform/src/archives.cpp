@@ -5,6 +5,8 @@
 #include <format>
 #include <string_view>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::platform {
 namespace {
 
@@ -109,7 +111,7 @@ std::string archive_output_name(const std::filesystem::path& archive) {
         }
     }
     if (name.empty() || name == "." || name == "..") {
-        name = "Extracted";
+        name = std::string{i18n::tr("Extracted")};
     }
     // Leave room for a collision suffix and the visible in-progress name.
     return name.substr(0, 180);
@@ -174,12 +176,15 @@ bool rar_target(const core::ActionTarget& target) {
 
 std::string archive_install_hint(const core::ActionTarget& target) {
     if (rar_target(target))
-        return "RAR extraction requires unrar or a RAR-capable 7-Zip build. Install unrar and try "
-               "again.";
+        return std::string{
+            i18n::tr("RAR extraction requires unrar or a RAR-capable 7-Zip build. "
+                     "Install unrar and try again.")};
     if (target.mime == "application/zip" || target.mime == "application/x-7z-compressed")
-        return "Install 7zz (7-Zip) or 7z and try again; these also support archive passwords.";
-    return "Install 7zz (7-Zip), or tar with the matching gzip, bzip2, xz or zstd decompressor, "
-           "and try again.";
+        return std::string{i18n::tr(
+            "Install 7zz (7-Zip) or 7z and try again; these also support archive passwords.")};
+    return std::string{
+        i18n::tr("Install 7zz (7-Zip), or tar with the matching gzip, bzip2, xz or "
+                 "zstd decompressor, and try again.")};
 }
 
 bool archive_password_error(const ArchiveBackend& backend, int status,
@@ -206,65 +211,66 @@ std::string archive_failure(const core::ActionTarget& target, const ArchiveBacke
     const bool password_error = archive_password_error(backend, status, diagnostic);
     std::string reason;
     if (signal != 0) {
-        reason =
+        reason = std::string{i18n::tr(
             "The extractor was stopped by a signal. Retry; if this repeats, check system resources "
-            "or update the extractor.";
+            "or update the extractor.")};
     } else if (unsupported) {
-        reason =
-            "The installed extractor does not support this archive's compression or encryption. " +
-            archive_install_hint(target);
+        reason = std::string{i18n::tr("The installed extractor does not support this archive's "
+                                      "compression or encryption.")} +
+                 " " + archive_install_hint(target);
     } else if (has("unable to get password") || has("password required") ||
                (backend.kind == ArchiveBackend::Kind::unzip && password_error)) {
-        reason =
+        reason = std::string{i18n::tr(
             "This archive needs a password, but unzip cannot use rummage's password dialog. "
-            "Install 7zz (7-Zip) and try again.";
+            "Install 7zz (7-Zip) and try again.")};
     } else if (password_error) {
-        reason =
+        reason = std::string{i18n::tr(
             "The password was rejected, or encrypted data is damaged. Check the password and try "
-            "again; if it still fails, obtain a fresh copy of the archive.";
+            "again; if it still fails, obtain a fresh copy of the archive.")};
     } else if (has("no space left") || has("disk full")) {
-        reason =
+        reason = std::string{i18n::tr(
             "There is not enough space to finish extraction. Free space on the destination drive "
-            "or choose another destination.";
+            "or choose another destination.")};
     } else if (has("permission denied") || has("access is denied") ||
                has("read-only file system")) {
-        reason =
-            "Access was denied. Check that the archive is readable and choose a writable "
-            "destination.";
+        reason = std::string{
+            i18n::tr("Access was denied. Check that the archive is readable and choose a writable "
+                     "destination.")};
     } else if (backend.kind == ArchiveBackend::Kind::unrar && (status == 5 || status == 9)) {
-        reason =
+        reason = std::string{i18n::tr(
             "The extractor could not create or write output. Check destination permissions and "
-            "free disk space.";
+            "free disk space.")};
     } else if (has("missing volume") || has("next volume") || has("cannot find volume")) {
-        reason =
+        reason = std::string{i18n::tr(
             "An archive part is missing. Put all parts in the same folder and open the first part "
-            "with an archive manager.";
+            "with an archive manager.")};
     } else if (rar && backend.kind != ArchiveBackend::Kind::unrar &&
                (has("as archive") || has("as [rar") ||
                 backend.kind == ArchiveBackend::Kind::file_roller)) {
-        reason = "The archive may be damaged, or this extractor may lack RAR support. " +
-                 archive_install_hint(target);
+        reason = std::string{i18n::tr(
+                     "The archive may be damaged, or this extractor may lack RAR support.")} +
+                 " " + archive_install_hint(target);
     } else if (has("unexpected end") || has("unexpected eof") || has("truncated") || has("crc") ||
                has("checksum") || has("data error") || has("headers error") ||
                has("not in gzip format") || has("as archive") || has("end-of-central-directory")) {
-        reason =
+        reason = std::string{i18n::tr(
             "The archive is damaged, incomplete, or not in the expected format. Obtain a fresh "
-            "copy and make sure all archive parts are present.";
+            "copy and make sure all archive parts are present.")};
     } else if (status == 255 && (backend.kind == ArchiveBackend::Kind::seven_zip ||
                                  backend.kind == ArchiveBackend::Kind::unrar)) {
-        reason =
+        reason = std::string{i18n::tr(
             "The extractor was interrupted before completion. Retry if you did not intend to "
-            "cancel extraction.";
+            "cancel extraction.")};
     } else if (status == 8 && (backend.kind == ArchiveBackend::Kind::seven_zip ||
                                backend.kind == ArchiveBackend::Kind::unrar)) {
-        reason =
+        reason = std::string{i18n::tr(
             "The extractor ran out of memory. Close other applications or use a machine with more "
-            "available memory.";
+            "available memory.")};
     } else {
-        reason =
-            "The extractor could not complete the operation. Check the details below, the "
-            "archive's integrity, and destination permissions; then retry or use another "
-            "extractor.";
+        reason = std::string{
+            i18n::tr("The extractor could not complete the operation. Check the details below, the "
+                     "archive's integrity, and destination permissions; then retry or use another "
+                     "extractor.")};
         if (rar)
             reason += " " + archive_install_hint(target);
     }
@@ -280,20 +286,26 @@ std::string archive_failure(const core::ActionTarget& target, const ArchiveBacke
     for (auto& c : details)
         if ((static_cast<unsigned char>(c) < 32 && c != '\n' && c != '\t') || c == 127)
             c = ' ';
-    std::string message = std::format(
-        "Could not {} “{}”.\n{}\n\nArchive: {}\nExtractor: {}\nExit status: {}; signal: {}",
-        operation, target.path.filename().string(), reason, target.path.string(),
-        backend.program.string(), status, signal);
+    // The operation is a noun phrase ("extract", "inspect the archive") a translation may put
+    // anywhere: "{0} von „{1}“ fehlgeschlagen".
+    std::string message =
+        i18n::trf("Could not {} “{}”.", i18n::tr(operation), target.path.filename().string()) +
+        "\n" + reason + "\n\n" + i18n::trf("Archive: {}", target.path.string()) + "\n" +
+        i18n::trf("Extractor: {}", backend.program.string()) + "\n" +
+        i18n::trf("Exit status: {}; signal: {}", status, signal);
     if (!destination.empty())
-        message += "\nDestination: " + destination.string();
+        message += "\n" + i18n::trf("Destination: {}", destination.string());
     if (backend.kind == ArchiveBackend::Kind::file_roller)
-        message += "\nCheck the destination chosen in File Roller for partial output.";
+        message += "\n" + std::string{i18n::tr(
+                              "Check the destination chosen in File Roller for partial output.")};
     else
-        message += staging.empty() ? "\nNo extraction output was created."
-                                   : "\nPartial output (not published): " + staging.string();
-    message += "\n\nExtractor details:\n" +
-               (details.empty() ? std::string{"The extractor did not provide diagnostic output."}
-                                : details);
+        message += "\n" + (staging.empty()
+                               ? std::string{i18n::tr("No extraction output was created.")}
+                               : i18n::trf("Partial output (not published): {}", staging.string()));
+    message +=
+        "\n\n" + std::string{i18n::tr("Extractor details:")} + "\n" +
+        (details.empty() ? std::string{i18n::tr("The extractor did not provide diagnostic output.")}
+                         : details);
     return message;
 }
 

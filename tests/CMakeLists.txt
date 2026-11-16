@@ -1,6 +1,15 @@
 add_executable(rummage-program-fixture program_fixture.cpp)
 target_link_libraries(rummage-program-fixture PRIVATE rummage::warnings)
 
+add_executable(rummage-i18n-tests i18n_runtime_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/src/i18n.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/src/i18n_rules.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/src/log.cpp)
+target_include_directories(rummage-i18n-tests PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/core/include ${PROJECT_SOURCE_DIR}/src/core/src)
+target_link_libraries(rummage-i18n-tests PRIVATE doctest::doctest PkgConfig::TOMLPLUSPLUS rummage::warnings)
+add_test(NAME i18n-runtime COMMAND rummage-i18n-tests)
+
 add_executable(rummage-tests
     batch_rename_test.cpp
     permissions_test.cpp
@@ -35,6 +44,7 @@ add_executable(rummage-tests
     file_watcher_test.cpp
     format_test.cpp
     folder_icon_test.cpp
+    i18n_test.cpp
     icon_test.cpp
     icon_theme_test.cpp
     svg_test.cpp

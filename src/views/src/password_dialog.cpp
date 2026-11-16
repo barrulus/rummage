@@ -1,3 +1,4 @@
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/password_dialog.hpp"
 
 #include <algorithm>
@@ -334,8 +335,9 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         rects_.registered = {left, y, half, kModeHeight};
         rects_.anonymous = {left + half, y, half, kModeHeight};
         for (const auto& [rect, chosen, label, target] :
-             {std::tuple{rects_.registered, !anonymous_, "Registered user", Target::registered},
-              std::tuple{rects_.anonymous, anonymous_, "Anonymous", Target::anonymous}}) {
+             {std::tuple{rects_.registered, !anonymous_, i18n::tr("Registered user"),
+                         Target::registered},
+              std::tuple{rects_.anonymous, anonymous_, i18n::tr("Anonymous"), Target::anonymous}}) {
             ui::Color fill =
                 chosen ? palette.secondary_container : palette.surface_container_highest;
             if (hovered_ == target && !chosen) {
@@ -365,9 +367,10 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         quiet_colors.border = palette.outline_variant;
         quiet_colors.caret = palette.surface_container_highest;
         for (const auto& [ask, item, label, rect] :
-             {std::tuple{request_.ask_user, Item::user, "User", &rects_.user},
-              std::tuple{request_.ask_domain, Item::domain, "Domain", &rects_.domain},
-              std::tuple{request_.ask_password, Item::password, "Password", &rects_.password}}) {
+             {std::tuple{request_.ask_user, Item::user, i18n::tr("User"), &rects_.user},
+              std::tuple{request_.ask_domain, Item::domain, i18n::tr("Domain"), &rects_.domain},
+              std::tuple{request_.ask_password, Item::password, i18n::tr("Password"),
+                         &rects_.password}}) {
             if (!ask) {
                 continue;
             }
@@ -392,7 +395,7 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             renderer.fill_rect(box.inset(4.5F), palette.on_primary);
         }
         renderer.draw_text(
-            "Remember the password", box.right() + 10.0F,
+            i18n::tr("Remember the password"), box.right() + 10.0F,
             y + ((kCheckSize - kTextSize) / 2.0F) - 2.0F, kTextSize,
             hovered_ == Target::remember ? palette.on_surface : palette.on_surface_variant,
             room - kLabelWidth - kCheckSize - 10.0F);
@@ -412,8 +415,8 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             text = connect ? palette.on_primary_container : palette.on_surface;
         }
         renderer.draw_box(button, {.fill = fill, .radius = ui::Corners::all(8.0F)});
-        renderer.draw_text(connect ? "Connect   ↵" : "Cancel   Esc", button.x + 14.0F,
-                           text_y(button), kTextSize, text, button.width - 20.0F);
+        renderer.draw_text(connect ? i18n::tr("Connect   ↵") : i18n::tr("Cancel   Esc"),
+                           button.x + 14.0F, text_y(button), kTextSize, text, button.width - 20.0F);
     }
     renderer.pop_clip();
 }

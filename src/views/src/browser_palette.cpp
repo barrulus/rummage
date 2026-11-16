@@ -13,6 +13,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/command_palette.hpp"
@@ -36,15 +37,21 @@ std::string first_chord(Command command) {
 void Browser::open_palette() {
     menu_.close();
     shortcuts_.close();
-    palette_.open(palette_items(), palette_recent_, "Type a command, a place or a tab");
+    palette_.open(palette_items(), palette_recent_,
+                  std::string{i18n::tr("Type a command, a place or a tab")});
 }
 
 std::vector<PaletteItem> Browser::palette_items() {
     std::vector<PaletteItem> items;
     const auto add = [&items](std::string id, std::string label, std::string keys,
-                              std::function<void()> action, bool remember = true) {
+                              std::function<void()> action, bool remember = true,
+                              bool translate = true) {
+        const auto shown =
+            !translate
+                ? label
+                : std::string{label == "Open" ? i18n::trc("file-action", "Open") : i18n::tr(label)};
         items.push_back({.id = std::move(id),
-                         .label = std::move(label),
+                         .label = shown,
                          .keys = std::move(keys),
                          .remember = remember,
                          .action = std::move(action),
@@ -125,7 +132,8 @@ std::vector<PaletteItem> Browser::palette_items() {
     // Files.
     if (editable) {
         command(Command::new_folder, "new_folder", "New Folder");
-        add("command:new_file", "New Empty File", "", [this] { new_file("New File", {}); });
+        add("command:new_file", "New Empty File", "",
+            [this] { new_file(std::string{i18n::tr("New File")}, {}); });
     }
     if (!names.empty() && !in_trash) {
         command(Command::copy, "copy", "Copy");
@@ -183,16 +191,16 @@ std::vector<PaletteItem> Browser::palette_items() {
         if (item.submenu) {
             for (auto& child : item.children) {
                 if (child.enabled) {
-                    add(child.id, child.label, child.keys, std::move(child.action));
+                    add(child.id, child.label, child.keys, std::move(child.action), true, false);
                 }
             }
         } else if (item.enabled) {
-            add(item.id, item.label, item.keys, std::move(item.action));
+            add(item.id, item.label, item.keys, std::move(item.action), true, false);
         }
     }
 
     for (auto& item : pane_items()) {
-        add("command:" + item.id, item.label, item.keys, std::move(item.action));
+        add("command:" + item.id, item.label, item.keys, std::move(item.action), true, false);
     }
 
     if (panes_enabled_)
@@ -226,13 +234,14 @@ std::vector<PaletteItem> Browser::palette_items() {
 
     for (const auto& column : kDetailsColumns) {
         if (order.key != column.field) {
-            add("sort:" + std::string{column.id}, "Sort by " + std::string{column.title}, "",
-                [this, key = column.field] { set_sort(key, sort_order().descending); });
+            add("sort:" + std::string{column.id}, i18n::trf("Sort by {}", i18n::tr(column.title)),
+                "", [this, key = column.field] { set_sort(key, sort_order().descending); });
         }
         if (pane().mode == Mode::details && column.field != DetailsView::Field::name) {
             add("column:" + std::string{column.id},
-                std::string{pane().details.column_visible(column.field) ? "Hide " : "Show "} +
-                    std::string{column.title} + " column",
+                pane().details.column_visible(column.field)
+                    ? i18n::trf("Hide {} column", i18n::tr(column.title))
+                    : i18n::trf("Show {} column", i18n::tr(column.title)),
                 "", [this, field = column.field] {
                     pane().details.set_column_visible(field, !pane().details.column_visible(field));
                 });
@@ -261,7 +270,7 @@ std::vector<PaletteItem> Browser::palette_items() {
                 continue;
             }
             add(
-                std::format("tab:{}", i), std::format("Tab {}: {}", i + 1, titles[i]),
+                std::format("tab:{}", i), i18n::trf("Tab {}: {}", i + 1, titles[i]),
                 i < 9 ? std::format("Alt+{}", i + 1) : std::string{}, [this, i] { select_tab(i); },
                 false);
         }
@@ -270,11 +279,14 @@ std::vector<PaletteItem> Browser::palette_items() {
     // Places, as the sidebar lists them.
     for (const fs::Place& place : places_) {
         const std::string where = place.path.empty() ? place.disk.volume : place.path.string();
-        add("go:" + where, "Go to " + place.label, "", [this, place] { open_place(place); });
+        add("go:" + where, i18n::trf("Go to {}", place.label), "",
+            [this, place] { open_place(place); });
         if (place.section == fs::Place::Section::devices && place.disk.mounted &&
             !place.disk.volume.empty()) {
             add("eject:" + place.disk.volume,
-                (place.disk.ejectable ? "Eject " : "Unmount ") + place.label, "", [this, place] {
+                place.disk.ejectable ? i18n::trf("Eject {}", place.label)
+                                     : i18n::trf("Unmount {}", place.label),
+                "", [this, place] {
                     if (place.disk.ejectable) {
                         eject_place(place);
                     } else {
@@ -331,7 +343,9 @@ void Browser::open_with_palette() {
                  items.reserve(apps.size());
                  for (const AppChoice& app : apps) {
                      items.push_back({.id = "open_with:" + app.id,
-                                      .label = app.is_default ? app.name + " (default)" : app.name,
+                                      .label = app.is_default
+                                                   ? app.name + std::string{i18n::tr(" (default)")}
+                                                   : app.name,
                                       .keys = {},
                                       .remember = false,
                                       .action = [this, directory, files,
@@ -341,10 +355,10 @@ void Browser::open_with_palette() {
                                       .open = {}});
                  }
                  if (items.empty()) {
-                     show_message("No applications open it", false);
+                     show_message(std::string{i18n::tr("No applications open it")}, false);
                      return;
                  }
-                 palette_.open(std::move(items), {}, "Open with…");
+                 palette_.open(std::move(items), {}, std::string{i18n::tr("Open with…")});
              });
 }
 
@@ -354,7 +368,7 @@ void Browser::open_finder() {
         return;
     }
     if (folder->is_trash()) {
-        show_message("Files are not looked for in the trash", false);
+        show_message(std::string{i18n::tr("Files are not looked for in the trash")}, false);
         return;
     }
     if (folder->is_archive()) {
@@ -370,7 +384,7 @@ void Browser::open_finder() {
     if (name.empty()) {
         name = root.string();  // "/"
     }
-    palette_.open_external(std::format("Find in {}", name), [this](const std::string& query) {
+    palette_.open_external(i18n::trf("Find in {}", name), [this](const std::string& query) {
         if (finder_) {
             finder_->set_query(query);
         }
@@ -392,7 +406,7 @@ void Browser::refresh_found() {
         };
         items.push_back({.id = "file:" + found.path,
                          .label = found.path,
-                         .keys = found.directory ? "Folder" : "",
+                         .keys = found.directory ? std::string{i18n::tr("Folder")} : std::string{},
                          .remember = false,
                          .action = then(FoundAction::show),
                          .path = true,

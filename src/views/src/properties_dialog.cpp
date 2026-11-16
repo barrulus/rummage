@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/directory.hpp"
 #include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
@@ -483,10 +484,10 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const auto measure = [&](std::string_view value, float size) {
         return renderer.fonts().layout(value, size, renderer.scale()).width / renderer.scale();
     };
-    float label_width = measure("Link target", 12);
+    float label_width = measure(i18n::tr("Link target"), 12);
     float value_width = measure(data_.info.link_target, 12);
     for (const auto& [label, value] : rows) {
-        label_width = std::max(label_width, measure(label, 12));
+        label_width = std::max(label_width, measure(i18n::tr(label), 12));
         value_width = std::max(value_width, measure(value, 12));
     }
     const float value_offset = label_width + 16;
@@ -495,15 +496,19 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                             std::max(measure(name, 16), measure(type, 12)));
     if (folder_controls)
         natural_width = std::max(
-            natural_width, 48 + 256 + measure(draft_.empty() ? "Default folder icon" : draft_, 12));
+            natural_width,
+            48 + 256 +
+                measure(draft_.empty() ? std::string{i18n::tr("Default folder icon")} : draft_,
+                        12));
     if (folder_hint)
         natural_width = std::max(
-            natural_width, 48 + measure(icons.selected_theme() == "builtin"
-                                            ? "Custom icons appear when using a system icon theme."
-                                            : "Changing this icon affects the linked folder.",
-                                        12));
+            natural_width,
+            48 + measure(i18n::tr(icons.selected_theme() == "builtin"
+                                      ? "Custom icons appear when using a system icon theme."
+                                      : "Changing this icon affects the linked folder."),
+                         12));
     if (!message.empty())
-        natural_width = std::max(natural_width, 48 + measure(message, 12));
+        natural_width = std::max(natural_width, 48 + measure(i18n::tr(message), 12));
     const float width =
         std::min(picking_ ? 640.0F : std::clamp(std::ceil(natural_width), 320.0F, 560.0F),
                  std::max(0.0F, bounds.width - 24.0F));
@@ -520,13 +525,14 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     float rows_height = 0;
     for (const auto& [label, value] : rows)
         rows_height += std::max(row_height, value_height(value) + 8);
-    const std::string icon_label = draft_.empty() ? "Default folder icon" : draft_;
+    const std::string icon_label =
+        draft_.empty() ? std::string{i18n::tr("Default folder icon")} : draft_;
     const float icon_height = SelectableText::height(renderer, icon_label, room, 12);
-    const auto hint = icons.selected_theme() == "builtin"
-                          ? "Custom icons appear when using a system icon theme."
-                          : "Changing this icon affects the linked folder.";
+    const std::string_view hint = i18n::tr(
+        icons.selected_theme() == "builtin" ? "Custom icons appear when using a system icon theme."
+                                            : "Changing this icon affects the linked folder.");
     const float hint_height = SelectableText::height(renderer, hint, room, 12);
-    const float message_height = SelectableText::height(renderer, message, room, 12);
+    const float message_height = SelectableText::height(renderer, i18n::tr(message), room, 12);
     const float natural_height = picking_ ? 550.0F
                                           : rows_top + rows_height +
                                                 (folder_controls ? 40 + icon_height + 8 : 0) +
@@ -559,14 +565,14 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                  .radius = {},
                                  .border_width = focus_ == id ? 2.0F : 0.0F,
                                  .border = palette.primary});
-        renderer.draw_text(label, rect.x + 12, rect.y + 7, 13,
+        renderer.draw_text(i18n::tr(label), rect.x + 12, rect.y + 7, 13,
                            (primary && enabled ? palette.on_primary : palette.on_surface)
                                .with_alpha(enabled ? 1.0F : 0.4F),
                            rect.width - 20);
         controls_.push_back({std::move(id), rect, enabled});
     };
     const float bottom = top + natural_height - 56;
-    text(picking_ ? "Choose Folder Icon" : "Properties", left, top + 20, 18, room);
+    text(i18n::tr(picking_ ? "Choose Folder Icon" : "Properties"), left, top + 20, 18, room);
     if (picking_) {
         load_catalogue(icons.selected_theme());
         if (!preview_icons_)
@@ -578,14 +584,14 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                    palette.on_surface, palette.primary_container,
                                    focused ? palette.primary : ui::Color{}};
         };
-        text("Search folder icons", left, top + 55, 12, room, true);
+        text(i18n::tr("Search folder icons"), left, top + 55, 12, room, true);
         search_.draw(renderer, {left, top + 76, room, 30}, 13, field_colors(focus_ == "search"));
         grid_ = {left, top + 120, room, std::max(90.0F, bottom - (top + 120) - 136)};
         const float cell_width = room / 5;
         const float cell_height = grid_.height / 3;
         if (filtered_.empty())
-            text(icons_loading_ ? "Loading icons…"
-                                : "No matching icons. You can enter an image path below.",
+            text(i18n::tr(icons_loading_ ? "Loading icons…"
+                                         : "No matching icons. You can enter an image path below."),
                  left, grid_.y + 12, 13, room, true);
         for (std::size_t index = page_ * kPageSize;
              index < std::min(filtered_.size(), (page_ + 1) * kPageSize); ++index) {
@@ -618,7 +624,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
              left + 108, pager + 6, 12, room - 210, true);
         button("next", "Next", {card.right() - 106, pager, 82, 30},
                (page_ + 1) * kPageSize < filtered_.size());
-        text("Custom icon name or SVG/PNG path", left, pager + 42, 12, room, true);
+        text(i18n::tr("Custom icon name or SVG/PNG path"), left, pager + 42, 12, room, true);
         custom_.draw(renderer, {left, pager + 63, room, 30}, 13, field_colors(focus_ == "custom"));
 
     } else {
@@ -663,7 +669,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         selectable("type", type, name_left, name_top + name_height + 5, 12, name_width, true);
         float y = top + rows_top;
         const auto row = [&](std::string_view label, const std::string& value) {
-            selectable("label:" + std::string{label}, label, left, y, 12, label_width, true);
+            selectable("label:" + std::string{label}, i18n::tr(label), left, y, 12, label_width,
+                       true);
             selectable(std::string{label}, value, left + value_offset, y, 12,
                        std::max(1.0F, room - value_offset));
             y += std::max(row_height, value_height(value) + 8);
@@ -683,7 +690,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             }
         }
         if (!message.empty())
-            text_.draw(renderer, "error", message, {left, y, room, 0}, 12, palette.error,
+            text_.draw(renderer, "error", i18n::tr(message), {left, y, room, 0}, 12, palette.error,
                        palette.primary_container);
     }
     text_.end_frame();

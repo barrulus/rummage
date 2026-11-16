@@ -18,7 +18,7 @@ namespace rummage::views {
 // One line of a context menu.
 struct MenuItem {       // NOLINT(misc-no-recursion): a submenu's items are MenuItems too
     std::string id;     // what tests and set_submenu() find it by ("open_with")
-    std::string label;  // "Open With"
+    std::string label;  // final display text: translated UI label or literal user data
     std::string keys;   // the shortcut shown at the right ("Ctrl+C"); may be empty
     bool enabled{true};
     bool separator{false};  // a line above it

@@ -24,6 +24,7 @@ struct Action {
     Destination destination{Destination::none};
     std::string destination_name{};  // suggested filename for the save picker
     bool notify_on_completion{false};
+    bool translate_label{false};  // registry defaults only; user labels remain literal
 };
 
 struct ActionTarget {

@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::fs {
@@ -30,7 +31,7 @@ std::string new_name(std::string_view original, bool folder, const RenameOptions
             name.replace(pos, options.find.size(), options.replace);
             pos += options.replace.size();
             if (name.size() > 255) {
-                error = "The replacement makes a name longer than 255 bytes";
+                error = std::string{i18n::tr("The replacement makes a name longer than 255 bytes")};
                 return {};
             }
         }
@@ -42,7 +43,8 @@ std::string new_name(std::string_view original, bool folder, const RenameOptions
         } else {
             const auto end = options.pattern.find('}', pos);
             if (end == std::string::npos) {
-                error = "Close template tokens with }; use {name}, {ext} and {n}";
+                error =
+                    std::string{i18n::tr("Close each template token; use {name}, {ext} and {n}")};
                 return {};
             }
             const auto token = std::string_view{options.pattern}.substr(pos, end - pos + 1);
@@ -53,13 +55,13 @@ std::string new_name(std::string_view original, bool folder, const RenameOptions
             } else if (token == "{n}") {
                 result += std::format("{:0{}}", number, options.padding);
             } else {
-                error = "Use only {name}, {ext} and {n} in the template";
+                error = std::string{i18n::tr("Use only {name}, {ext} and {n} in the template")};
                 return {};
             }
             pos = end + 1;
         }
         if (result.size() > 255) {
-            error = "The template makes a name longer than 255 bytes";
+            error = std::string{i18n::tr("The template makes a name longer than 255 bytes")};
             return {};
         }
     }
@@ -120,23 +122,22 @@ std::string check_rename(std::span<const RenameSource> directory,
             return std::format("{}: {}", change.from, *problem);
         }
         if (!sources.insert(change.from).second) {
-            return std::format("{} is selected more than once", change.from);
+            return i18n::trf("{} is selected more than once", change.from);
         }
         if (!targets.insert(change.to).second) {
-            return std::format("More than one file would be named {}", change.to);
+            return i18n::trf("More than one file would be named {}", change.to);
         }
         const auto it = existing.find(change.from);
         if (it == existing.end()) {
-            return std::format("{} no longer exists", change.from);
+            return i18n::trf("{} no longer exists", change.from);
         }
         if (it->second->device != change.device || it->second->inode != change.inode) {
-            return std::format("{} was replaced since the preview; reopen Batch Rename",
-                               change.from);
+            return i18n::trf("{} was replaced since the preview; reopen Batch Rename", change.from);
         }
     }
     for (const auto& change : changes) {
         if (existing.contains(change.to) && !sources.contains(change.to)) {
-            return std::format("{} already exists", change.to);
+            return i18n::trf("{} already exists", change.to);
         }
     }
     return {};
@@ -147,8 +148,8 @@ RenamePlan plan_rename(std::span<const RenameSource> directory,
     RenamePlan plan;
     if (options.padding > 20 || options.step == 0 || options.pattern.size() > 1024 ||
         options.replace.size() > 255) {
-        plan.error =
-            "Use a positive step, padding from 0 to 20, and a shorter template/replacement";
+        plan.error = std::string{i18n::tr(
+            "Use a positive step, padding from 0 to 20, and a shorter template/replacement")};
         return plan;
     }
     std::map<std::string, const RenameSource*, std::less<>> entries;
@@ -198,7 +199,7 @@ RenamePlan plan_rename(std::span<const RenameSource> directory,
     const auto add = [&](const std::string& from, std::string to, bool sidecar) {
         const auto it = entries.find(from);
         if (it == entries.end()) {
-            plan.error = std::format("{} no longer exists", from);
+            plan.error = i18n::trf("{} no longer exists", from);
             return;
         }
         plan.changes.push_back({.from = from,
@@ -212,7 +213,8 @@ RenamePlan plan_rename(std::span<const RenameSource> directory,
             continue;
         }
         if (overflow && options.pattern.find("{n}") != std::string::npos) {
-            plan.error = "The numbering exceeds the largest supported number";
+            plan.error =
+                std::string{i18n::tr("The numbering exceeds the largest supported number")};
             return plan;
         }
         const auto entry = entries.find(from);
@@ -287,11 +289,11 @@ BatchRenamed rename_batch(const std::filesystem::path& directory,
         if (fstatat(parent, work[i].from.c_str(), &info, AT_SYMLINK_NOFOLLOW) != 0 ||
             static_cast<std::uint64_t>(info.st_dev) != work[i].device ||
             static_cast<std::uint64_t>(info.st_ino) != work[i].inode) {
-            result.error = std::format("{} changed while renaming", work[i].from);
+            result.error = i18n::trf("{} changed while renaming", work[i].from);
             break;
         }
         if (!move(parent, work[i].from, stage, work[i].from)) {
-            result.error = std::format("Cannot rename {}: {}", work[i].from, system_error());
+            result.error = i18n::trf("Cannot rename {}: {}", work[i].from, system_error());
             break;
         }
         where[i] = 1;
@@ -300,15 +302,15 @@ BatchRenamed rename_batch(const std::filesystem::path& directory,
         if (fstatat(stage, work[i].from.c_str(), &info, AT_SYMLINK_NOFOLLOW) != 0 ||
             static_cast<std::uint64_t>(info.st_dev) != work[i].device ||
             static_cast<std::uint64_t>(info.st_ino) != work[i].inode) {
-            result.error = std::format("{} changed while renaming", work[i].from);
+            result.error = i18n::trf("{} changed while renaming", work[i].from);
             break;
         }
     }
     if (result.error.empty()) {
         for (std::size_t i = 0; i < work.size(); ++i) {
             if (!move(stage, work[i].from, parent, work[i].to)) {
-                result.error = std::format("Cannot rename {} to {}: {}", work[i].from, work[i].to,
-                                           system_error());
+                result.error = i18n::trf("Cannot rename {} to {}: {}", work[i].from, work[i].to,
+                                         system_error());
                 break;
             }
             where[i] = 2;
@@ -340,8 +342,8 @@ BatchRenamed rename_batch(const std::filesystem::path& directory,
             }
         }
         result.error += result.recovery.empty()
-                            ? ". No names were changed."
-                            : ". Some names could not be restored; see recovery paths.";
+                            ? i18n::tr(". No names were changed.")
+                            : i18n::tr(". Some names could not be restored; see recovery paths.");
     }
     close(stage);
     close(parent);

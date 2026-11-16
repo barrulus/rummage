@@ -6,6 +6,8 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::views {
 namespace {
 constexpr float kRow = 24.0F;
@@ -65,7 +67,8 @@ void BatchRenameDialog::update() {
     if (!number(fields_[3].text(), options.start) || !number(fields_[4].text(), options.step) ||
         !number(fields_[5].text(), padding) || padding > 20 || options.step == 0) {
         preview_ = {};
-        preview_.error = "Start and step must be whole numbers; step > 0, padding 0–20";
+        preview_.error =
+            std::string{i18n::tr("Start and step must be whole numbers; step > 0, padding 0–20")};
     } else {
         options.padding = static_cast<unsigned>(padding);
         preview_ = fs::plan_rename(directory_, selection_, options);
@@ -239,7 +242,7 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                  .border = palette.outline_variant});
         renderer.draw_text(busy_message_, card.x + 20.0F, card.y + 24.0F, 16.0F, palette.on_surface,
                            width - 40.0F);
-        renderer.draw_text("Please wait…", card.x + 20.0F, card.y + 56.0F, 13.0F,
+        renderer.draw_text(i18n::tr("Please wait…"), card.x + 20.0F, card.y + 56.0F, 13.0F,
                            palette.on_surface_variant, width - 40.0F);
         return;
     }
@@ -255,7 +258,7 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float left = card.x + 18.0F;
     const float room = width - 36.0F;
     float y = card.y + 16.0F;
-    renderer.draw_text("Batch Rename", left, y, 17.0F, palette.on_surface, room);
+    renderer.draw_text(i18n::tr("Batch Rename"), left, y, 17.0F, palette.on_surface, room);
     y += 28.0F;
     const float buttons_y = card.bottom() - 50.0F;
     body_ = {left, y, room, std::max(30.0F, buttons_y - 42.0F - y)};
@@ -266,11 +269,12 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     form_offset_ = std::clamp(form_offset_, 0.0F, max_form_scroll_);
     y -= form_offset_;
     renderer.push_clip(body_);
-    renderer.draw_text("Names keep their extension with {ext}. Numbering follows the view order.",
-                       left, y, 12.0F, palette.on_surface_variant, room);
+    renderer.draw_text(
+        i18n::tr("Names keep their extension with {ext}. Numbering follows the view order."), left,
+        y, 12.0F, palette.on_surface_variant, room);
     y += 24.0F;
     const auto field = [&](std::size_t i, float x, float w, float top) {
-        renderer.draw_text(labels[i], x, top, 12.0F, palette.on_surface_variant, w);
+        renderer.draw_text(i18n::tr(labels[i]), x, top, 12.0F, palette.on_surface_variant, w);
         fields_[i].draw(
             renderer, {x, top + 18.0F, w, 28.0F}, 13.0F,
             {.background = palette.surface_container_highest,
@@ -293,12 +297,14 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         field(i, numbers_x + static_cast<float>(i - 3) * (third + 12.0F), third, y);
     }
     y += 54.0F;
-    renderer.draw_text("{name} = name after replacement     {n} = number     {ext} = extension",
-                       left, y, 12.0F, palette.on_surface_variant, room);
+    renderer.draw_text(
+        i18n::tr("{name} = name after replacement     {n} = number     {ext} = extension"), left, y,
+        12.0F, palette.on_surface_variant, room);
     y += 24.0F;
-    renderer.draw_text("Old name", left + 6.0F, y, 13.0F, palette.on_surface_variant, half - 12.0F);
-    renderer.draw_text("New name", left + half + 12.0F, y, 13.0F, palette.on_surface_variant,
+    renderer.draw_text(i18n::tr("Old name"), left + 6.0F, y, 13.0F, palette.on_surface_variant,
                        half - 12.0F);
+    renderer.draw_text(i18n::tr("New name"), left + half + 12.0F, y, 13.0F,
+                       palette.on_surface_variant, half - 12.0F);
     y += 22.0F;
     list_ = {left, y, room, list_height};
     max_scroll_ = std::max(0.0F, static_cast<float>(preview_.changes.size()) * kRow - list_.height);
@@ -334,8 +340,10 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (status.empty()) {
         const auto count =
             std::ranges::count_if(preview_.changes, [](const auto& c) { return c.from != c.to; });
-        status = count == 0 ? "No names would change"
-                            : std::format("{} names will change, including sidecars", count);
+        status = count == 0 ? std::string{i18n::tr("No names would change")}
+                            : i18n::trn("{} name will change, including sidecars",
+                                        "{} names will change, including sidecars",
+                                        static_cast<std::uint64_t>(count));
     }
     renderer.draw_text(status, left, buttons_y - 32.0F, 12.0F,
                        preview_.error.empty() ? palette.on_surface_variant : palette.error, room);
@@ -350,7 +358,8 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                      .border_width = 1.0F,
                      .border = focus_ == (apply ? kApply : kCancel) ? palette.primary
                                                                     : palette.outline_variant});
-        renderer.draw_text(apply ? "Rename" : "Cancel", button.x + 20.0F, button.y + 7.0F, 13.0F,
+        renderer.draw_text(i18n::tr(apply ? "Rename" : "Cancel"), button.x + 20.0F, button.y + 7.0F,
+                           13.0F,
                            apply && enabled ? palette.on_primary : palette.on_surface_variant,
                            button.width - 24.0F);
     }

@@ -5,6 +5,8 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::views {
 namespace {
 
@@ -257,7 +259,7 @@ ui::Rect ContextMenu::measure(ui::Renderer& renderer, const std::vector<MenuItem
     for (const MenuItem& item : items) {
         float line = text_width(renderer, item.label);
         if (!item.keys.empty()) {
-            line += kKeysGap + text_width(renderer, item.keys);
+            line += kKeysGap + text_width(renderer, i18n::keys(item.keys));
         }
         if (item.submenu) {
             line += kKeysGap + kArrowWidth;
@@ -311,8 +313,9 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
         }
         float keys_width = 0.0F;
         if (!item.keys.empty()) {
-            keys_width = text_width(renderer, item.keys);
-            renderer.draw_text(item.keys, right - keys_width, text_y, kTextSize, dim);
+            const std::string keys = i18n::keys(item.keys);
+            keys_width = text_width(renderer, keys);
+            renderer.draw_text(keys, right - keys_width, text_y, kTextSize, dim);
         }
         if (item.checkable) {
             const float mark_x = panel.x + kTextInset;

@@ -2,6 +2,7 @@
 #include <format>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/browser.hpp"
 
 namespace rummage::views {
@@ -13,12 +14,13 @@ void Browser::start_batch_rename(const std::shared_ptr<Folder>& folder,
         return;
     }
     if (operations_ > 0 || transfers_.pending() > 0 || undoing_) {
-        show_message("Wait for the current operation before batch renaming", false);
+        show_message(std::string{i18n::tr("Wait for the current operation before batch renaming")},
+                     false);
         return;
     }
     batch_rename_preparing_ = true;
     const auto generation = ++batch_rename_generation_;
-    batch_rename_.open_busy("Preparing Batch Rename… (Escape cancels)");
+    batch_rename_.open_busy(std::string{i18n::tr("Preparing Batch Rename… (Escape cancels)")});
     ++operations_;
     pool_.submit(
         core::Priority::visible,
@@ -37,7 +39,7 @@ void Browser::start_batch_rename(const std::shared_ptr<Folder>& folder,
             batch_rename_preparing_ = false;
             batch_rename_.close();
             if (!snapshot.error.empty()) {
-                show_message("Cannot prepare Batch Rename: " + snapshot.error, true);
+                show_message(i18n::trf("Cannot prepare Batch Rename: {}", snapshot.error), true);
                 return;
             }
             if (current_folder() != folder || picker_mode_ || batch_rename_.is_open()) {
@@ -54,12 +56,14 @@ void Browser::apply_batch_rename(const std::filesystem::path& directory,
                                  std::vector<fs::RenameChange> changes, Purpose purpose) {
     if (batch_rename_preparing_ || batch_rename_running_ || operations_ > 0 ||
         transfers_.pending() > 0 || undoing_) {
-        show_message("Wait for the current operation before batch renaming", false);
+        show_message(std::string{i18n::tr("Wait for the current operation before batch renaming")},
+                     false);
         return;
     }
     batch_rename_running_ = true;
     undoing_ = true;
-    batch_rename_.open_busy(purpose == Purpose::user ? "Renaming files…" : "Restoring names…");
+    batch_rename_.open_busy(
+        std::string{i18n::tr(purpose == Purpose::user ? "Renaming files…" : "Restoring names…")});
     ++operations_;
     pool_.submit(
         core::Priority::visible,
@@ -81,7 +85,7 @@ void Browser::apply_batch_rename(const std::filesystem::path& directory,
                     detail += "\n" + path;
                 }
                 errors_.push(std::move(detail));
-                show_message("Batch Rename failed; see details", true);
+                show_message(std::string{i18n::tr("Batch Rename failed; see details")}, true);
                 return;
             }
             FileOperation operation{
@@ -93,7 +97,8 @@ void Browser::apply_batch_rename(const std::filesystem::path& directory,
             record(std::move(operation), purpose, false);
             if (purpose == Purpose::user) {
                 show_message(
-                    std::format("Renamed {} items, including sidecars", result.changed.size()),
+                    i18n::trn("Renamed {} item, including sidecars",
+                              "Renamed {} items, including sidecars", result.changed.size()),
                     false);
             }
         });

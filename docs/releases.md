@@ -32,6 +32,10 @@ Markdown opens rendered in Quick Look, with headings, emphasis, lists, quotes,
 tables and highlighted code blocks. The visible toggle or M switches to source.
 Links are styled text; images and external resources are not loaded.
 
+The interface follows the system language and includes German. Translation catalogs
+support language-specific integer plurals and separate meanings of the same English
+word. File names and user-defined action labels keep their original spelling.
+
 ## Upstream release history
 
 The following entries summarize the user-visible changes in Nordend's releases.
