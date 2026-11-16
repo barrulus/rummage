@@ -25,6 +25,8 @@ namespace {
 
 constexpr std::string_view kUriKey = "Thumb::URI";
 constexpr std::string_view kMtimeKey = "Thumb::MTime";
+constexpr std::string_view kWidthKey = "Thumb::Image::Width";
+constexpr std::string_view kHeightKey = "Thumb::Image::Height";
 // rummage's own key in a failure's PNG: why it failed (picture::Failure, as a number).
 constexpr std::string_view kFailureKey = "X-Rummage::Failure";
 
@@ -61,6 +63,40 @@ bool matches(std::span<const std::uint8_t> png, const std::string& uri, std::int
     return uri_ok && mtime_ok;
 }
 
+// Shared caches can store the original, unrotated dimensions even though their pixels are
+// upright (for example gdk-pixbuf's thumbnailer). Match the aspect to the actual thumbnail,
+// allowing one pixel of scaling/rounding error. An unrelated crop or malformed hint is unknown.
+std::pair<std::uint32_t, std::uint32_t> stored_size(std::span<const std::uint8_t> png,
+                                                    const picture::Image& image) {
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    for (const auto& [key, value] : picture::png_text(png)) {
+        std::uint32_t* const target =
+            key == kWidthKey ? &width : (key == kHeightKey ? &height : nullptr);
+        if (target == nullptr) {
+            continue;
+        }
+        std::uint32_t parsed = 0;
+        const auto [end, error] =
+            std::from_chars(value.data(), value.data() + value.size(), parsed);
+        *target = error == std::errc{} && end == value.data() + value.size() ? parsed : 0;
+    }
+    if (width == 0 || height == 0) {
+        return {0, 0};
+    }
+    const auto difference = [&image](std::uint32_t w, std::uint32_t h) {
+        const auto a = std::uint64_t{w} * image.height;
+        const auto b = std::uint64_t{h} * image.width;
+        return a > b ? a - b : b - a;
+    };
+    const auto upright = difference(width, height);
+    const auto rotated = difference(height, width);
+    if (std::min(upright, rotated) > std::max(width, height)) {
+        return {0, 0};
+    }
+    return rotated < upright ? std::pair{height, width} : std::pair{width, height};
+}
+
 // Creates the directories down to path, the new ones private (0700, as the spec asks).
 bool make_private_directories(const std::filesystem::path& path) {
     std::error_code error;
@@ -78,10 +114,15 @@ bool make_private_directories(const std::filesystem::path& path) {
 // Writes the PNG of image with the spec's text to target: to a private temporary file next to
 // it, then renamed, so that readers never see half a thumbnail and two writers do not mix.
 bool store(const std::filesystem::path& target, const picture::Image& image, const std::string& uri,
-           std::int64_t mtime, picture::Failure failed = picture::Failure::none) {
+           std::int64_t mtime, picture::Failure failed = picture::Failure::none,
+           std::uint32_t full_width = 0, std::uint32_t full_height = 0) {
     picture::PngText text{{std::string{kUriKey}, uri},
                           {std::string{kMtimeKey}, std::to_string(mtime)},
                           {"Software", "rummage"}};
+    if (full_width > 0 && full_height > 0) {
+        text.emplace_back(std::string{kWidthKey}, std::to_string(full_width));
+        text.emplace_back(std::string{kHeightKey}, std::to_string(full_height));
+    }
     if (failed != picture::Failure::none) {
         text.emplace_back(std::string{kFailureKey}, std::to_string(static_cast<unsigned>(failed)));
     }
@@ -229,7 +270,12 @@ Thumbnail Cache::get(const std::filesystem::path& file, Size size, std::string_v
         // Our own PNGs (or another app's, the same spec): read here, with wuffs, PNG only.
         std::string error;
         if (std::optional<picture::Image> stored = picture::decode_png(cached, error)) {
-            return {.image = std::move(*stored), .source = Source::cache, .error = {}};
+            const auto [full_width, full_height] = stored_size(cached, *stored);
+            return {.image = std::move(*stored),
+                    .source = Source::cache,
+                    .error = {},
+                    .full_width = full_width,
+                    .full_height = full_height};
         }
     }
     const std::vector<std::uint8_t> failed = read_file(fail_path(file, mime));
@@ -273,10 +319,13 @@ Thumbnail Cache::make(const std::filesystem::path& file, Size size, std::int64_t
         }
         return failure(std::string{loaded.error()} + " (" + loaded.detail + ")", loaded.failure);
     }
-    static_cast<void>(store(path_for(file, size), loaded.image, uri, mtime));
+    static_cast<void>(store(path_for(file, size), loaded.image, uri, mtime, picture::Failure::none,
+                            loaded.full_width, loaded.full_height));
     return {.image = std::move(loaded.image),
             .source = loaded.from_preview ? Source::preview : Source::decoded,
-            .error = {}};
+            .error = {},
+            .full_width = loaded.full_width,
+            .full_height = loaded.full_height};
 }
 
 }  // namespace rummage::thumbs

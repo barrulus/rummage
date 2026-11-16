@@ -1,16 +1,19 @@
 #include "rummage/views/quick_look.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -20,8 +23,10 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/formats/image/load.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/picture/png.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -459,5 +464,110 @@ TEST_CASE("quick look: Details button stays inside a narrow scaled window") {
         CHECK(look.details_shown() != before);
         CHECK(look.is_open());
         REQUIRE(run_until(f.loop, [&] { return !look.loading(); }));
+    }
+}
+
+TEST_CASE("quick look: upright thumbnail and reduced sharp frame keep size and opacity") {
+    namespace picture = rummage::picture;
+    namespace thumbs = rummage::thumbs;
+    for (const float scale : {1.0F, 2.0F}) {
+        INFO(scale);
+
+        struct RestoreLoader {
+            ~RestoreLoader() {
+                picture::set_loader([](const picture::LoadRequest& request) {
+                    return rummage::formats::image::load(request);
+                });
+            }
+        } restore;
+
+        const auto white = [](std::uint32_t width, std::uint32_t height) {
+            picture::Image image{
+                .width = width,
+                .height = height,
+                .rgba = std::vector<std::uint8_t>(std::size_t{width} * height * 4, 255)};
+            for (std::size_t i = 3; i < image.rgba.size(); i += 4)
+                image.rgba[i] = 128;
+            return image;
+        };
+        const auto write = [](const fs::path& path, const auto& bytes) {
+            fs::create_directories(path.parent_path());
+            std::ofstream out{path, std::ios::binary};
+            out.write(reinterpret_cast<const char*>(bytes.data()),
+                      static_cast<std::streamsize>(bytes.size()));
+        };
+        rummage::test::TempDir dir;
+        const auto photo = dir.path / "photos" / "portrait.png";
+        write(photo, picture::encode_png(white(320, 480)));
+        auto cache = std::make_shared<thumbs::Cache>(dir.path / "cache", "rummage-test");
+        struct stat info{};
+        REQUIRE(::stat(photo.c_str(), &info) == 0);
+        write(cache->path_for(photo, thumbs::Size::large),
+              picture::encode_png(white(171, 256), {{"Thumb::URI", thumbs::file_uri(photo)},
+                                                    {"Thumb::MTime", std::to_string(info.st_mtime)},
+                                                    {"Thumb::Image::Width", "480"},
+                                                    {"Thumb::Image::Height", "320"}}));
+        EventLoop loop;
+        WorkerPool pool{loop, 2};
+        // Destroying the promise also releases a blocked load if an assertion fails.
+        std::promise<void> release_sharp;
+        picture::set_loader([ready = release_sharp.get_future().share(),
+                             white](const picture::LoadRequest&) {
+            ready.wait();
+            picture::Loaded loaded;
+            loaded.image = white(160, 240);  // like a reduced video frame or embedded raw preview
+            loaded.full_width = 320;
+            loaded.full_height = 480;
+            return loaded;
+        });
+        rummage::fs::DirectoryWatcher watcher{loop};
+        auto mime = rummage::fs::MimeDatabase::load();
+        auto folder = std::make_shared<rummage::views::Folder>(loop, pool, watcher, mime,
+                                                               photo.parent_path(), [] {});
+        REQUIRE(run_until(loop, [&] { return folder->entries().size() == 1; }));
+        folder->sniff(0, 1);
+        REQUIRE(run_until(loop, [&] {
+            return folder->mime_of(folder->entries().front()) != rummage::fs::kUnknownMime;
+        }));
+        folder->select_name("portrait.png");
+        rummage::ui::Offscreen surface{800, 900};
+        rummage::ui::FontSystem fonts;
+        rummage::ui::Renderer renderer{fonts};
+        rummage::ui::IconSet icons{fonts};
+        QuickLook look{pool, mime, cache, [] {}};
+        const auto now = QuickLook::Clock::now();
+        look.open(folder, now - 1s);
+        const auto draw = [&](QuickLook::Clock::time_point at) {
+            renderer.begin_frame(800, 900, scale, {});
+            look.draw(renderer, {0, 0, 800 / scale, 900 / scale}, rummage::theme::Palette{}, icons,
+                      at);
+            renderer.end_frame();
+            std::vector<unsigned char> pixels(800 * 900 * 4);
+            glReadPixels(0, 0, 800, 900, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            return pixels;
+        };
+        // Image is white; UI text and shadows are outside this central scan line.
+        const auto span = [](const auto& pixels) {
+            int first = 800, last = -1;
+            for (int x = 0; x < 800; ++x) {
+                if (pixels[(450U * 800U + static_cast<unsigned>(x)) * 4U] > 100) {
+                    first = std::min(first, x);
+                    last = x;
+                }
+            }
+            return last - first + 1;
+        };
+        REQUIRE(run_until(loop, [&] { return span(draw(now)) > 0; }));
+        const auto thumbnail = draw(now);
+        CHECK(span(thumbnail) == 320);
+        REQUIRE(look.content() == nullptr);
+        release_sharp.set_value();
+        REQUIRE(run_until(loop, [&] { return !look.loading(); }));
+        for (const auto offset : {0ms, 25ms, 100ms}) {
+            const auto sharp = draw(now + offset);
+            CHECK(span(sharp) == 320);
+            const auto center = (450U * 800U + 400U) * 4U;
+            CHECK(sharp[center] == thumbnail[center]);
+        }
     }
 }

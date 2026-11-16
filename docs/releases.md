@@ -36,6 +36,10 @@ The interface follows the system language and includes German. Translation catal
 support language-specific integer plurals and separate meanings of the same English
 word. File names and user-defined action labels keep their original spelling.
 
+Quick Look keeps thumbnails and sharp previews at the same size when their original
+dimensions are known, including rotated images from shared thumbnail caches. Video
+stills and embedded raw previews can grow beyond their reduced decoding size.
+
 ## Upstream release history
 
 The following entries summarize the user-visible changes in Nordend's releases.

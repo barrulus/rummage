@@ -1,10 +1,12 @@
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <sys/stat.h>
 
 #include <doctest/doctest.h>
 
+#include "rummage/picture/png.hpp"
 #include "rummage/thumbs/cache.hpp"
 #include "rummage/thumbs/md5.hpp"
 #include "temp_dir.hpp"
@@ -84,6 +86,12 @@ TEST_CASE("thumbs: made once, then read from the cache until the file changes") 
     const thumbs::Thumbnail cached = cache.get(photo, thumbs::Size::normal);
     CHECK(cached.source == thumbs::Source::cache);
     CHECK(cached.image.rgba == made.image.rgba);
+    // The whole image's size, upright, stored with it (Thumb::Image::Width/Height): Quick Look
+    // shows the thumbnail where the sharp image will land.
+    CHECK(made.full_width == 320);
+    CHECK(made.full_height == 480);
+    CHECK(cached.full_width == 320);
+    CHECK(cached.full_height == 480);
 
     // Changed: the stored one no longer matches its Thumb::MTime.
     fs::last_write_time(photo, fs::last_write_time(photo) + std::chrono::seconds{10});
@@ -95,6 +103,50 @@ TEST_CASE("thumbs: made once, then read from the cache until the file changes") 
     CHECK(large.source == thumbs::Source::decoded);
     CHECK(large.image.width == 171);
     CHECK(large.image.height == 256);
+    CHECK(large.full_width == 320);
+    CHECK(large.full_height == 480);
+}
+
+TEST_CASE("thumbs: shared-cache dimensions follow upright pixels or stay unknown") {
+    TempDir dir;
+    const fs::path photo = dir.path / "photo.jpg";
+    fs::copy_file(kData / "with-thumbnail.jpg", photo);
+    const thumbs::Cache cache{dir.path / "thumbnails", "rummage-test"};
+    const auto target = cache.path_for(photo, thumbs::Size::large);
+    fs::create_directories(target.parent_path());
+    struct stat info{};
+    REQUIRE(::stat(photo.c_str(), &info) == 0);
+    const rummage::picture::Image image{
+        .width = 171, .height = 256, .rgba = std::vector<std::uint8_t>(171 * 256 * 4, 255)};
+    const auto check = [&](const std::string& width, const std::string& height,
+                           std::uint32_t expected_width, std::uint32_t expected_height) {
+        rummage::picture::PngText text{{"Thumb::URI", thumbs::file_uri(photo)},
+                                       {"Thumb::MTime", std::to_string(info.st_mtime)}};
+        if (!width.empty())
+            text.emplace_back("Thumb::Image::Width", width);
+        if (!height.empty())
+            text.emplace_back("Thumb::Image::Height", height);
+        const auto png = rummage::picture::encode_png(image, text);
+        {
+            std::ofstream out{target, std::ios::binary};
+            out.write(reinterpret_cast<const char*>(png.data()),
+                      static_cast<std::streamsize>(png.size()));
+        }
+        const auto cached = cache.get(photo, thumbs::Size::large);
+        REQUIRE(cached.source == thumbs::Source::cache);
+        CHECK(cached.full_width == expected_width);
+        CHECK(cached.full_height == expected_height);
+        CHECK(cached.image.rgba == image.rgba);
+    };
+    check("480", "320", 320, 480);  // gdk-pixbuf: original dimensions, rotated pixels
+    check("320", "480", 320, 480);  // already upright; keep rounding in 171 x 256
+    check("", "", 0, 0);            // older thumbnails
+    check("480", "", 0, 0);
+    check("0", "480", 0, 0);
+    check("-320", "480", 0, 0);
+    check("4294967296", "480", 0, 0);
+    check("320px", "480", 0, 0);
+    check("480", "480", 0, 0);  // a crop/padded thumbnail cannot establish orientation
 }
 
 TEST_CASE("thumbs: a failure is remembered until the file changes, make() tries again") {
