@@ -763,7 +763,7 @@ private:
     // The folder shown into the history: a new step when it changed, else its cursor.
     void note_location();
     void remember_folder(Pane& pane);
-    void restore_folder(const std::filesystem::path& path);
+    void restore_folder(const std::filesystem::path& path, bool opened = false);
     [[nodiscard]] static State::FolderSettings folder_settings(const Pane& pane);
 
     // Goes through the history by direction (-1 back, 1 forward).

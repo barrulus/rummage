@@ -8,8 +8,10 @@
 #include "rummage/core/config.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/theme/palette.hpp"
+#include "rummage/ui/icons.hpp"
 #include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
+#include "rummage/views/context_menu.hpp"
 
 namespace rummage::views {
 
@@ -34,7 +36,8 @@ public:
     ui::CursorShape cursor_at(float x, float y) const;
     void paste(std::string_view text);
     std::string copy_selection(bool cut);
-    void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette);
+    void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
+              ui::IconSet& icons);
     void save();
     // Shared by controls and focused tests.
     bool edit(std::string_view table, std::string_view key, std::string value);
@@ -57,7 +60,8 @@ private:
     };
 
     void populate(const core::ConfigResult& config);
-    void activate(std::string_view id);
+    void activate(std::string_view id, bool keyboard = false);
+    static std::string choice_label(const Field& field, std::string_view value);
     void change_section(int section);
     void reveal_focus();
     core::WorkerPool& pool_;
@@ -76,5 +80,6 @@ private:
     ui::Scroller scroller_;
     ui::Scrollbar scrollbar_;
     ui::Rect list_{};
+    ContextMenu choices_;
 };
 }  // namespace rummage::views

@@ -935,3 +935,98 @@ TEST_CASE("panes: compact View menu and Settings remain accessible without the c
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.browser.settings_dialog().is_open());
 }
+
+TEST_CASE("panes: column focus preserves the view and a child's saved mode") {
+    const auto surface = offscreen();
+    REQUIRE(surface);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    const auto child = f.a / "sub";
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+    for (const auto saved_mode : {Browser::Mode::grid, Browser::Mode::details}) {
+        for (const bool pointer : {true, false}) {
+            f.browser.open(child);
+            REQUIRE(f.settle());
+            f.browser.set_mode(saved_mode);
+            f.browser.open(f.a);
+            REQUIRE(f.settle());
+            f.browser.set_mode(Browser::Mode::columns);
+            f.browser.columns().focused_folder()->select_name("sub");
+            REQUIRE(f.settle());
+            draw();
+            REQUIRE(f.browser.columns().column_count() == 2);
+            if (pointer) {
+                const auto bounds = f.browser.columns().column(1).rows_area();
+                f.browser.pointer({.kind = PointerEvent::Kind::press,
+                                   .x = bounds.x + 30,
+                                   .y = bounds.y + 60,
+                                   .button = PointerButton::right},
+                                  Browser::Clock::now());
+                CHECK(f.browser.context_menu().is_open());
+                f.browser.context_menu().close();
+            } else {
+                REQUIRE(f.press(key(XKB_KEY_Right)));
+                REQUIRE(f.press(key(XKB_KEY_Left)));
+                REQUIRE(f.press(key(XKB_KEY_Right)));
+            }
+            CHECK(f.browser.mode() == Browser::Mode::columns);
+            CHECK(f.browser.picker_folder()->path() == child);
+            // A single tab is omitted from saved tab lists; add a background tab.
+            f.browser.open_tab(f.b, false);
+            REQUIRE(f.settle());
+            draw();
+            const auto saved = f.browser.state();
+            REQUIRE(saved.folders.find(child));
+            CHECK(saved.folders.find(child)->mode ==
+                  static_cast<rummage::views::State::Mode>(saved_mode));
+            Browser restored{f.loop,    f.pool,
+                             f.watcher, rummage::fs::MimeDatabase::load(),
+                             [] {},     [](CursorShape) {}};
+            restored.apply(saved);
+            REQUIRE(restored.restore_tabs(saved.tabs, saved.shown_tab));
+            REQUIRE(run_until(f.loop, [&] { return !restored.loading(); }));
+            CHECK(restored.mode() == Browser::Mode::columns);
+            CHECK(restored.state().folders.find(child)->mode ==
+                  static_cast<rummage::views::State::Mode>(saved_mode));
+            restored.open(child);
+            REQUIRE(run_until(f.loop, [&] { return !restored.loading(); }));
+            CHECK(restored.mode() == saved_mode);
+            // Focusing another tab and returning must not overwrite the child's saved mode.
+            f.browser.select_tab(1);
+            REQUIRE(f.settle());
+            f.browser.select_tab(0);
+            CHECK(f.browser.mode() == Browser::Mode::columns);
+            f.browser.close_tab(1);
+            f.browser.open(child);
+            REQUIRE(f.settle());
+            CHECK(f.browser.mode() == saved_mode);
+        }
+    }
+}
+
+TEST_CASE("panes: explicitly choosing columns replaces a child's remembered grid mode") {
+    Fixture f;
+    const auto child = f.a / "sub";
+    f.browser.open(child);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::columns);
+    f.browser.columns().focused_folder()->select_name("sub");
+    REQUIRE(f.settle());
+    REQUIRE(f.press(key(XKB_KEY_Right)));
+    f.browser.set_mode(Browser::Mode::columns);
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.open(child);
+    REQUIRE(f.settle());
+    CHECK(f.browser.mode() == Browser::Mode::columns);
+}

@@ -27,7 +27,7 @@ std::string arguments(const std::vector<std::string>& argv) {
 }  // namespace
 
 SettingsDialog::SettingsDialog(core::WorkerPool& pool, std::function<void()> redraw)
-    : pool_{pool}, redraw_{std::move(redraw)} {}
+    : pool_{pool}, redraw_{std::move(redraw)}, choices_{redraw_} {}
 
 SettingsDialog::~SettingsDialog() { job_.cancel(); }
 
@@ -73,6 +73,7 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
 void SettingsDialog::close() {
     if (busy_)
         return;
+    choices_.close();
     open_ = false;
     ++generation_;
     redraw_();
@@ -324,6 +325,7 @@ void SettingsDialog::save() {
 }
 
 void SettingsDialog::change_section(int section) {
+    choices_.close();
     section_ = section;
     scroller_.jump_to(0);
     scrollbar_ = ui::Scrollbar{};
@@ -351,7 +353,17 @@ void SettingsDialog::reveal_focus() {
     }
 }
 
-void SettingsDialog::activate(std::string_view id) {
+std::string SettingsDialog::choice_label(const Field& field, std::string_view value) {
+    if (field.key == "preview_position")
+        return std::string{i18n::tr(value == "right" ? "Right side" : "Below Places")};
+    if (field.key == "color_scheme" && value == "system")
+        return std::string{i18n::tr("Desktop / Noctalia")};
+    if (value == "true" || value == "false")
+        return std::string{i18n::tr(value == "true" ? "On" : "Off")};
+    return std::string{i18n::tr(value)};
+}
+
+void SettingsDialog::activate(std::string_view id, bool keyboard) {
     if (busy_)
         return;
     if (id == "save")
@@ -371,13 +383,27 @@ void SettingsDialog::activate(std::string_view id) {
             auto& field = fields_[i];
             if (id != "f" + std::to_string(i) || field.choices.empty())
                 continue;
-            const auto found = std::ranges::find(field.choices, field.input.text());
-            const auto index = found == field.choices.end()
-                                   ? 0
-                                   : (static_cast<std::size_t>(found - field.choices.begin()) + 1) %
-                                         field.choices.size();
-            field.input.set_text(field.choices[index]);
-            redraw_();
+            std::vector<MenuItem> items;
+            for (const auto& value : field.choices) {
+                MenuItem item;
+                item.id = value;
+                item.label = choice_label(field, value);
+                item.radio = true;
+                item.checked = value == field.input.text();
+                item.action = [this, i, value] {
+                    fields_[i].input.set_text(value);
+                    redraw_();
+                };
+                items.push_back(std::move(item));
+            }
+            choices_.open(field.bounds.x, field.bounds.bottom(), std::move(items), keyboard);
+            if (keyboard) {
+                const auto current = std::ranges::find(field.choices, field.input.text());
+                for (auto at = field.choices.begin(); at != current && at != field.choices.end();
+                     ++at)
+                    choices_.key({.keysym = XKB_KEY_Down, .text = {}});
+            }
+            return;
         }
     }
 }
@@ -387,6 +413,16 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         return false;
     if (busy_)
         return true;
+    if (choices_.is_open()) {
+        if (event.keysym == XKB_KEY_Tab || event.keysym == XKB_KEY_ISO_Left_Tab)
+            choices_.close();
+        else {
+            auto choice_event = event;
+            if (choice_event.keysym == XKB_KEY_space)
+                choice_event.keysym = XKB_KEY_Return;
+            return choices_.key(choice_event);
+        }
+    }
     if (event.keysym == XKB_KEY_Escape) {
         close();
         return true;
@@ -421,7 +457,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
     }
     if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter ||
         (event.keysym == XKB_KEY_space && (!focus_.starts_with("f") || focus_ == "file"))) {
-        activate(focus_);
+        activate(focus_, true);
         return true;
     }
     for (std::size_t i = 0; i < fields_.size(); ++i) {
@@ -431,7 +467,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         if (!field.choices.empty()) {
             if (event.keysym == XKB_KEY_space || event.keysym == XKB_KEY_Left ||
                 event.keysym == XKB_KEY_Right)
-                activate(focus_);
+                activate(focus_, true);
         } else if (field.input.key(event))
             redraw_();
         return true;
@@ -440,7 +476,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
 }
 
 std::string SettingsDialog::copy_selection(bool cut) {
-    if (busy_ || !open_)
+    if (busy_ || !open_ || choices_.is_open())
         return {};
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
@@ -458,7 +494,7 @@ std::string SettingsDialog::copy_selection(bool cut) {
 }
 
 void SettingsDialog::paste(std::string_view text) {
-    if (busy_ || !open_)
+    if (busy_ || !open_ || choices_.is_open())
         return;
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
@@ -472,6 +508,8 @@ void SettingsDialog::paste(std::string_view text) {
 ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
     if (busy_)
         return ui::CursorShape::standard;
+    if (choices_.is_open())
+        return ui::CursorShape::pointer;
     if (scrollbar_.dragging() || scrollbar_.hit(scroller_, x, y))
         return ui::CursorShape::pointer;
     for (const auto& button : buttons_)
@@ -486,6 +524,8 @@ ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
 
 void SettingsDialog::pointer(const ui::PointerEvent& event) {
     if (!open_ || busy_)
+        return;
+    if (choices_.pointer(event))
         return;
     if (event.kind != ui::PointerEvent::Kind::press) {
         for (auto& field : fields_) {
@@ -532,7 +572,7 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
 }
 
 void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
-                          const theme::Palette& palette) {
+                          const theme::Palette& palette, ui::IconSet& icons) {
     if (!open_)
         return;
     renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
@@ -599,22 +639,14 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                      .caret = focused ? palette.on_surface : palette.on_surface.with_alpha(0)});
             else {
                 renderer.draw_box(field.bounds,
-                                  {.fill = palette.surface_container_highest,
+                                  {.fill = palette.surface_container_high,
                                    .radius = {},
                                    .border_width = 1,
                                    .border = focused ? palette.primary : palette.outline_variant});
-                std::string label = field.input.text();
-                if (field.key == "preview_position")
-                    label = label == "right" ? "Right side" : "Below Places";
-                else if (field.key == "color_scheme" && label == "system")
-                    label = "Desktop / Noctalia";
-                else if (label == "true")
-                    label = "On";
-                else if (label == "false")
-                    label = "Off";
-                label = i18n::tr(label);
-                renderer.draw_text(label + "  ↔", left + 6, y + 30, 13, palette.on_surface,
-                                   room - 40);
+                renderer.draw_text(choice_label(field, field.input.text()), left + 6, y + 30, 13,
+                                   palette.on_surface, std::max(1.0F, field.bounds.width - 36));
+                icons.draw(renderer, "chevron-down", field.bounds.right() - 24, field.bounds.y + 8,
+                           16, palette.on_surface_variant);
             }
         }
         y += 72;
@@ -633,5 +665,6 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     button("close", "Cancel", {left + footer + 6, card.bottom() - 48, footer, 32});
     button("save", "Save", {left + (footer + 6) * 2, card.bottom() - 48, footer, 32});
     renderer.pop_clip();
+    choices_.draw(renderer, bounds, palette);
 }
 }  // namespace rummage::views
