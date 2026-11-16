@@ -111,9 +111,11 @@ MenuItem item(std::string id, bool enabled = true, std::function<void()> action 
 }
 
 // The ids of the menu's items, and which can be chosen ("-paste": shown, not usable).
-Names ids(const std::vector<MenuItem>& items) {
+Names ids(const std::vector<MenuItem>& items, bool separators = false) {
     Names out;
     for (const MenuItem& entry : items) {
+        if (separators && entry.separator)
+            out.emplace_back("|");
         out.push_back(entry.enabled ? entry.id : "-" + entry.id);
     }
     return out;
@@ -281,29 +283,84 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.select({"a.txt"});
     CHECK(f.press(key(XKB_KEY_Menu)));
     REQUIRE(f.menu().is_open());
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "compress_zip", "compress_tar",
-                                         "copy", "cut", "-paste", "rename", "trash", "erase",
-                                         "properties", "action:copy_location", "action:copy_name",
-                                         "sort", "panes"});
-    CHECK(f.menu().items()[4].keys == "Ctrl+C");  // from the shortcuts table
-    CHECK(f.menu().items()[8].keys == "Delete");
+    CHECK(ids(f.menu().items(), true) == Names{"open",
+                                               "open_with",
+                                               "|",
+                                               "cut",
+                                               "copy",
+                                               "-paste",
+                                               "rename",
+                                               "|",
+                                               "action:copy_name",
+                                               "action:copy_location",
+                                               "|",
+                                               "compress_zip",
+                                               "compress_tar",
+                                               "|",
+                                               "trash",
+                                               "erase",
+                                               "|",
+                                               "sort",
+                                               "panes",
+                                               "|",
+                                               "properties"});
+    CHECK(f.menu().items()[3].keys == "Ctrl+C");  // from the shortcuts table
+    CHECK(f.menu().items()[10].keys == "Delete");
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.menu().is_open());
 
     // Several: batch Rename. A folder: Open With and a terminal too.
     f.select({"a.txt", "b.txt"});
     f.browser.open_menu(100, 100, false);
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "compress_zip", "compress_tar",
-                                         "copy", "cut", "-paste", "rename", "trash", "erase",
-                                         "-properties", "action:copy_location", "action:copy_name",
-                                         "sort", "panes"});
+    CHECK(ids(f.menu().items(), true) == Names{"open",
+                                               "open_with",
+                                               "|",
+                                               "cut",
+                                               "copy",
+                                               "-paste",
+                                               "rename",
+                                               "|",
+                                               "action:copy_name",
+                                               "action:copy_location",
+                                               "|",
+                                               "compress_zip",
+                                               "compress_tar",
+                                               "|",
+                                               "trash",
+                                               "erase",
+                                               "|",
+                                               "sort",
+                                               "panes",
+                                               "|",
+                                               "-properties"});
     f.menu().close();
     f.select({"sub"});
     CHECK(f.press(key(XKB_KEY_F10, {.shift = true})));
-    CHECK(ids(f.menu().items()) ==
-          Names{"open", "open_with", "open_tab", "open_terminal", "add_bookmark", "compress_zip",
-                "compress_tar", "copy", "cut", "-paste", "rename", "trash", "erase", "properties",
-                "action:copy_location", "action:copy_name", "sort", "panes"});
+    CHECK(ids(f.menu().items(), true) == Names{"open",
+                                               "open_with",
+                                               "open_tab",
+                                               "open_terminal",
+                                               "|",
+                                               "cut",
+                                               "copy",
+                                               "-paste",
+                                               "rename",
+                                               "|",
+                                               "action:copy_name",
+                                               "action:copy_location",
+                                               "|",
+                                               "compress_zip",
+                                               "compress_tar",
+                                               "|",
+                                               "add_bookmark",
+                                               "|",
+                                               "trash",
+                                               "erase",
+                                               "|",
+                                               "sort",
+                                               "panes",
+                                               "|",
+                                               "properties"});
 
     // Copy from the menu; then Paste can be chosen, here and on empty space.
     f.choose("copy");
@@ -311,9 +368,9 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     CHECK(f.browser.status_bar().message() == "Ctrl+V copies “sub” where you want them");
     f.select({});
     CHECK(f.press(key(XKB_KEY_Menu)));
-    CHECK(ids(f.menu().items()) == Names{"new_folder", "new_file", "paste", "add_bookmark",
-                                         "open_terminal", "copy_path", "action:copy_location",
-                                         "sort", "properties", "panes"});
+    CHECK(ids(f.menu().items(), true) ==
+          Names{"new_folder", "new_file", "|", "paste", "action:copy_location", "|",
+                "open_terminal", "add_bookmark", "|", "sort", "panes", "|", "properties"});
     REQUIRE(f.settle());  // the templates looked for: none
     CHECK(ids(f.menu().items()[1].children) == Names{"empty_file"});
 }

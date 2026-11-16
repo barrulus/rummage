@@ -424,59 +424,78 @@ follow_accent = true
 #   { id = "open_with" },
 #   { id = "open_tab" },
 #   { id = "open_terminal" },
-#   { id = "add_bookmark" },
-#   { id = "compress_zip", separator = true },
-#   { id = "compress_tar" },
-#   { id = "copy", separator = true },
+#   { separator = true },
 #   { id = "cut" },
+#   { id = "copy" },
 #   { id = "paste" },
-#   { id = "rename", separator = true },
-#   { id = "trash" },
-#   { id = "erase" },
-#   { id = "properties", separator = true },
-#   { id = "action:copy_location" },
+#   { id = "rename" },
+#   { separator = true },
 #   { id = "action:copy_name" },
+#   { id = "action:copy_location" },
+#   { separator = true },
 #   { id = "action:extract_here" },
 #   { id = "action:extract_to" },
+#   { id = "compress_zip" },
+#   { id = "compress_tar" },
+#   { separator = true },
+#   { id = "add_bookmark" },
+#   { id = "running" },
+#   { separator = true },
 #   { remaining = true },
 #   { id = "actions" },
-#   { id = "sort", separator = true },
+#   { separator = true },
+#   { id = "trash" },
+#   { id = "erase" },
+#   { separator = true },
+#   { id = "sort" },
+#   { id = "panes" },
+#   { id = "properties", separator = true },
 # ]
 #
 # Empty space in an ordinary folder, with no entry targeted.
 # New File keeps Empty File and the dynamically discovered templates.
+# Copy Location replaces the duplicate Copy Path row in the automatic default.
+# copy_path remains available to explicit layouts and the command palette. This reference
+# omits remaining to avoid adding that alias back; insert custom top-level action IDs beside
+# actions below (submenu actions are retained automatically).
 # background = [
 #   { id = "new_folder" },
 #   { id = "new_file" },
 #   { id = "paste", separator = true },
-#   { id = "add_bookmark", separator = true },
-#   { id = "open_terminal" },
 #   { id = "action:copy_location" },
-#   { remaining = true },
-#   { id = "actions" },
-#   { id = "sort", separator = true },
+#   { id = "open_terminal", separator = true },
+#   { id = "add_bookmark" },
+#   { id = "actions", separator = true },
+#   { separator = true },
+#   { id = "sort" },
+#   { id = "panes" },
 #   { id = "properties", separator = true },
 # ]
 #
-# Trash entries show Restore, Delete Permanently, read-only Properties and Copy Name;
-# empty space shows Empty Trash.
-# These are alternative contexts, so all three never appear together.
+# Trash entries show Restore, Copy Name, Delete Permanently and read-only Properties;
+# empty space shows Empty Trash. Pane controls remain available in either context.
 # trash = [
 #   { id = "restore" },
-#   { id = "erase", separator = true },
-#   { id = "properties", separator = true },
-#   { id = "action:copy_name" },
+#   { id = "action:copy_name", separator = true },
+#   { separator = true },
+#   { id = "erase" },
 #   { id = "empty_trash" },
+#   { id = "panes", separator = true },
+#   { id = "properties", separator = true },
 # ]
 #
-# Sidebar: devices show Mount/Unmount and, when supported, Eject; bookmarks show
-# Remove from Sidebar; Trash shows Empty Trash. Other places have no context menu.
+# Sidebar: devices show Mount/Unmount and, when supported, Eject; bookmarks show editing,
+# reordering and removal commands; Trash shows Empty Trash. Other places have no context menu.
 # Mount/Unmount are enabled according to the device's mounted state.
 # sidebar = [
+#   { id = "rename_bookmark" },
+#   { id = "choose_bookmark_folder" },
+#   { id = "move_bookmark_up", separator = true },
+#   { id = "move_bookmark_down" },
 #   { id = "mount" },
 #   { id = "unmount" },
 #   { id = "eject", separator = true },
-#   { id = "remove_bookmark" },
+#   { id = "remove_bookmark", separator = true },
 #   { id = "empty_trash" },
 # ]
 #
@@ -491,7 +510,8 @@ follow_accent = true
 # Actions disappears when empty. The default registry puts Copy Location, Copy Name,
 # Extract Here and Extract To at the top level; extraction only appears for applicable archive selections.
 # { remaining = true } above keeps other applicable top-level actions (placement = "menu")
-# before Actions, including the Compress example. The actions reference keeps submenu actions.
+# before Actions in the entry layout, including the Compress example. The actions reference
+# keeps submenu actions. Explicit layouts may also move built-in actions out of their submenus.
 # Explicit action references take precedence over their placement setting.
 # To move a submenu child, reference its ID in a new group; it is removed from its old group.
 # Keep open_with/new_file as parent references to retain their dynamically loaded contents.

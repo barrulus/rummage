@@ -98,6 +98,18 @@ A desktop notification service is needed for popups; the status message still wo
 one. Completion follows the launched process, so a GUI launcher that delegates work and
 exits early cannot report when that delegated work finishes.
 
+## Default menu groups
+
+File and folder menus put opening commands first, followed by Cut/Copy/Paste and Rename,
+then Copy Name/Location, archive operations, and applicable extra actions. Trash and
+permanent deletion have their own group. Sort By and Panes stay together near the bottom,
+and Properties is last. Separators appear only between groups that contain commands.
+
+Empty-space menus start with New Folder/New File and clipboard commands, then folder tools,
+extra actions, view controls and Properties. Copy Location is the single current-folder
+path command there. Trash keeps restoration separate from permanent deletion; archive
+members put Quick Look before Copy to Extract.
+
 ## Arrange and nest menus
 
 Actions default to the **Actions** submenu. `placement = "menu"` puts an action directly

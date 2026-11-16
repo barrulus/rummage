@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <format>
+#include <initializer_list>
 #include <string>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -2184,6 +2185,59 @@ void Browser::show_properties() {
         !folder->is_trash());
 }
 
+namespace {
+
+// Default groups are kept together here, after all applicable commands (including panes and
+// actions) are known. Explicit user layouts still receive the complete available command list.
+std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool background,
+                                           bool trash) {
+    std::vector<core::MenuNode> layout;
+    const auto group = [&](std::initializer_list<std::string_view> ids) {
+        layout.push_back({.separator = true});
+        for (const auto id : ids) {
+            // Respect action placement: do not pull a user-configured submenu child to the root.
+            if (std::ranges::find(items, id, &MenuItem::id) != items.end())
+                layout.push_back({.id = std::string{id}});
+        }
+    };
+    const auto extensions = [&] {
+        layout.push_back({.separator = true, .remaining = true});
+        layout.push_back({.id = "actions"});
+    };
+    if (trash) {
+        group({"restore"});
+        group({"action:copy_name"});
+        group({"erase", "empty_trash"});
+    } else if (background) {
+        // These commands copy the same current-folder path. Keep one default entry, with its
+        // shortcut, while retaining both IDs for user layouts and the command palette.
+        const auto path = std::ranges::find(items, "copy_path", &MenuItem::id);
+        const auto location = std::ranges::find(items, "action:copy_location", &MenuItem::id);
+        if (path != items.end() && location != items.end()) {
+            if (location->keys.empty())
+                location->keys = path->keys;
+            items.erase(path);
+        }
+        group({"new_folder", "new_file"});
+        group({"paste", "action:copy_location"});
+        group({"open_terminal", "add_bookmark"});
+        extensions();
+    } else {
+        group({"open", "open_with", "open_tab", "open_terminal"});
+        group({"cut", "copy", "paste", "rename"});
+        group({"action:copy_name", "action:copy_location"});
+        group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
+        group({"add_bookmark", "running"});
+        extensions();
+        group({"trash", "erase"});
+    }
+    group({"sort", "panes"});
+    group({"properties"});
+    return arrange_menu(items, layout);
+}
+
+}  // namespace
+
 void Browser::open_menu(float x, float y, bool keyboard) {
     const std::shared_ptr<Folder> folder = current_folder();
     if (!folder) {
@@ -2202,13 +2256,14 @@ void Browser::open_menu(float x, float y, bool keyboard) {
             copy.label = std::string{i18n::tr("Copy to Extract")};
             copy.keys = keys_for(Command::copy);
             copy.action = [this] { take_selection(false); };
-            items.push_back(std::move(copy));
             MenuItem preview;
             preview.id = "quick_look";
             preview.label = std::string{i18n::tr("Quick Look")};
             preview.keys = "Space";
             preview.action = [this, folder] { quick_look_.open(folder, Clock::now()); };
             items.push_back(std::move(preview));
+            copy.separator = true;
+            items.push_back(std::move(copy));
             menu_.open(x, y, std::move(items), keyboard);
         }
         return;
@@ -2237,6 +2292,9 @@ void Browser::open_menu(float x, float y, bool keyboard) {
         submenu.children = std::move(pane_commands);
         items.push_back(std::move(submenu));
     }
+    if (!layout && !menu_layout_.items)
+        items =
+            default_context_menu(std::move(items), targets(*folder).empty(), folder->is_trash());
     items = configured_menu(std::move(items), layout);
     if (items.empty()) {
         menu_loaders_.clear();
