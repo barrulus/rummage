@@ -22,8 +22,6 @@ not a shipped feature.
 
 Dual panes, configurable actions, menus, file-picker integration and expandable details folders
 are documented as current source behavior in the guides, rather than future work.
-The [Luciole review](luciole-comparison.md) records additional ideas at a particular
-revision; it is not a commitment to implement every comparison item.
 
 The project remains at 0.x while behavior and the configuration/state formats evolve.
 The recorded versioning policy uses minor versions for visible features and patch

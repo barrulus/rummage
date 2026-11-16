@@ -52,7 +52,6 @@ These records provide context; dated results and proposals are not current featu
 - [Benchmarks](benchmarks.md): dated results and reproduction commands.
 - [Upstream bug log](buglog.md): recorded Noctalia/Umbriel issues and their last known status.
 - [SVG renderer brief](svg-renderer-brief.md): original implementation plan, with superseded criteria marked.
-- [Luciole comparison](luciole-comparison.md): a source review at the revisions stated in the document.
 
 Use the topic guide for current behavior, source and tests for implementation detail,
 and dated records to understand why it changed. Documentation maintenance conventions

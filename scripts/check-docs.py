@@ -19,7 +19,6 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parent.parent
 HISTORICAL = {
     "devlog.md", "benchmarks.md", "buglog.md", "svg-renderer-brief.md",
-    "luciole-comparison.md",
 }
 LINK = re.compile(r"!?\[[^\]\n]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+\"[^\"]*\")?\s*\)")
 HTML_LINK = re.compile(r"(?:href|src)=[\"']([^\"']+)[\"']")
