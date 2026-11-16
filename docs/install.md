@@ -41,7 +41,7 @@ On the first normal launch without `--config`, rummage copies existing Nordend `
 only where the destination is absent. Originals and existing rummage files are left intact.
 Custom commands and paths inside copied settings are preserved; update any that invoke Nordend.
 Explicit `--config`, config checks, and picker/portal-only launches do not migrate files.
-Screenshots and historical development records may still show the upstream name.
+Older screenshots may still show the upstream name.
 
 ## Development downloads
 
@@ -170,19 +170,10 @@ Install the matching `rummage-pdf` package for PDF thumbnails and first-page sti
 information pane and Space Quick Look. Password-protected PDFs get a lock on their icon,
 damaged ones a cross; see [previews](previews.md#optional-pdf-previews).
 
-The helper links PDFium. Nix builds it from the source recipe in the Nixpkgs revision
-pinned by `flake.lock` (currently PDFium 8110), including its upstream unit and embedder
-tests. `nix/pdfium.nix` builds for size without V8, XFA, Skia, Fontations, experimental
-Brotli or PartitionAlloc. ICU is limited to its common Unicode/bidi code and upstream
-stub data: no locale bundles, i18n library, tools or plugins. ICU, Abseil, libyuv and
-OpenJPEG are built as private static archives; unused code is discarded when linking
-PDFium. This retains SIMD pixel conversions and JPEG 2000 resolution reduction without
-pulling in their complete shared-library packages. Font and colour libraries already
-used by rummage remain shared. The embedded components' licenses are installed with
-PDFium; output checks reject accidental runtime references to the private archives.
-No third-party precompiled PDFium release is downloaded. The default application
-package does not depend on PDFium. Without the helper, PDFs keep their file icons and
-information cards.
+The helper uses PDFium built from pinned sources, without JavaScript or XFA support.
+Its licenses are installed with the package. The default application package does
+not depend on PDFium. Without the helper, PDFs keep their file icons and information
+cards.
 
 For a source build, add `-DRUMMAGE_PDF=ON` and point CMake at a source-built PDFium
 installation using `PDFium_DIR` or `CMAKE_PREFIX_PATH`, or install `fpdfview.h` and
@@ -193,20 +184,9 @@ manifest. For Nix, `.#rummage-with-pdf` builds the application with the helper, 
 selects its separate output, and `.#rummage-with-previews` includes both optional engines.
 Restart after changing the installed engines.
 
-`nix build .#pdfium` builds the renderer separately. Update `flake.lock` to update its
-source pins and build recipe, then rerun the PDF tests and package preflight. Revisit
-`nix/pdfium-read-error.patch` on updates: it makes PDFium 8110 propagate a refused
-custom-file read instead of terminating the helper on an assertion. Cached Nix
-build outputs may be substituted as usual; the derivation is a source build, not a binary
-release download. Native distro recipes build the same pinned renderer sources with their own
-compiler. `rummage-pdf` includes a private `libpdfium.so` beside its helper;
-it does not replace a system PDFium library. Clean-install checks render first
-pages, rotated pages, built-in fonts and form appearances through the sandboxed
-helper. Source archives include the renderer dependencies and build tool sources,
-so rebuilding them needs no Nix installation or source downloads. When changing the recipe, measure
-the complete added closure against `.#rummage`, not just `libpdfium.so`, and compare
-rendering output as well as speed. Earlier measurements of other slim or prebuilt
-PDFium configurations are not measurements of this build.
+Native `rummage-pdf` packages include a private `libpdfium.so` beside the helper;
+they do not replace a system PDFium library. For source-package builds and renderer
+maintenance, see the [package builder guide](../contributing/ci-packaging.md#native-pdf-previews).
 
 ## Nix
 
@@ -374,7 +354,7 @@ Optional reference dependencies are libjpeg-turbo for the JPEG benchmark, LibRaw
 for DNG comparison tests, and exiv2 for metadata comparison tests/benchmarks.
 These reference libraries are not required to build the application.
 
-Distribution package names vary. The [packaging recipes](ci-packaging.md) contain
+Distribution package names vary. The [packaging recipes](../contributing/ci-packaging.md) contain
 platform-specific dependencies. Use the Nix development shell when maintaining
 local build dependencies is inconvenient.
 
@@ -392,7 +372,7 @@ cmake --install build --strip
 ```
 
 Install doctest before configuration if you want tests: CMake skips them with a
-notice when it is missing. See [development](development.md) for test environment
+notice when it is missing. See [development](../contributing/development.md) for test environment
 requirements and build options. Keep the helper and engine manifests alongside the
 application in the build tree or installation; copying only `rummage` loses previews.
 
@@ -418,7 +398,7 @@ path generated for the install prefix.
 
 ## Build distribution packages
 
-Use the [package builder guide](ci-packaging.md) for Void glibc, Debian 13, Fedora
+Use the [package builder guide](../contributing/ci-packaging.md) for Void glibc, Debian 13, Fedora
 44, Arch Linux and openSUSE Tumbleweed. Those builders archive a clean committed
 checkout, record its identity and validate installation in disposable containers.
 They reject uncommitted changes; their output directory must be outside the checkout.

@@ -26,7 +26,7 @@ with no tests is not a pass. Install doctest, configure again and inspect
 
 Offscreen tests still need fonts, MIME data and working EGL/GLES. Host allocator
 and filesystem differences can affect tests; the Nix package documents its
-specific accommodations. See [development](development.md#tests).
+specific accommodations. See [development](../contributing/development.md#tests).
 
 ## The window does not open
 
@@ -161,5 +161,4 @@ format bugs include a minimal shareable sample, camera/encoder details and wheth
 the error is in thumbnails, the information pane or Quick Look.
 
 Logs, paths, screenshots and sample files may contain private information; review
-them before posting. Historical upstream issues are recorded in
-[the bug log](buglog.md), with status as of their entries rather than a live tracker.
+them before posting.

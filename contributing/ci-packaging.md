@@ -1,6 +1,6 @@
 # CI and package validation
 
-[Documentation](README.md) · [Installation](install.md) · [Development](development.md)
+[Documentation](../docs/README.md) · [Installation](../docs/install.md) · [Development](development.md)
 
 The fork's [workflow](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`,
 and manual dispatch. It currently validates **x86_64 Linux with glibc**. The flake still
@@ -50,12 +50,10 @@ changes on `main`. Configure the required checks listed under
 protection. If a shared dependency failure affects several branches, fix it on
 `main` and refresh the branches before continuing feature merges.
 
-Void's pinned recipe revision and rolling binary repository can diverge even with
-an unchanged application. On 2026-11-14 an old libjxl recipe forced a source rebuild,
-which pulled in tar 1.35 and failed against current ACL headers before rummage
-compiled. Update `VOID_PACKAGES_REV` to a reviewed revision, then run the complete
-Void build and fresh-install check. Do not mask the failure with retries or treat
-the pinned container image as a frozen dependency repository.
+Void's pinned recipe revision and rolling binary repository can diverge. When
+updating `VOID_PACKAGES_REV`, use a reviewed revision and run the complete Void
+build and fresh-install check. The pinned container image does not freeze the
+dependency repository.
 
 ## Nix
 
@@ -107,7 +105,7 @@ Cachix. The media/PDF helper outputs and custom PDFium runtime closure are inclu
 The test derivation alone would not provide the ordinary installable packages.
 
 Local preflight never uploads. Only x86_64-linux is populated by this workflow.
-See [user setup](install.md#binary-cache) and [merge reuse](#reuse-at-merge).
+See [user setup](../docs/install.md#binary-cache) and [merge reuse](#reuse-at-merge).
 
 To run just one check locally:
 
@@ -255,7 +253,7 @@ A missing or mismatched source package prevents publication.
 
 The stable `rummage-debian-source.tar.gz` download bundles the versioned source-package files
 together, preserving the filenames referenced by the descriptor. The individual files are
-also in the Debian CI artifact's `native-package/debian-source/` directory. See [installation](install.md#development-downloads)
+also in the Debian CI artifact's `native-package/debian-source/` directory. See [installation](../docs/install.md#development-downloads)
 for extraction, dependency installation and rebuild commands. The generic `rummage-source.tar.gz`
 remains the raw checkout archive, not a Debian source package or a substitute for the descriptor.
 
@@ -290,7 +288,7 @@ headless Weston. Test fixtures are installed after the runtime dependency checks
 unit suite continues to run in Nix. Both jobs must pass before any development downloads are
 published, and the release preparer requires all five native package identities to match.
 
-The README provides stable links; [installation](install.md#development-downloads)
+The README provides stable links; [installation](../docs/install.md#development-downloads)
 provides the distribution-specific commands. Arch and Tumbleweed users should
 fully update their systems before installing these snapshots. These are unsigned local
 packages, not configured pacman/zypper repositories; Tumbleweed's install command explicitly
@@ -404,3 +402,12 @@ installs media, PDF and the convenience package. It checks runtime libraries
 before installing test tools and uses `scripts/ci/check-pdf.py` to exercise the
 installed helper's sandbox, first-page rendering, rotation, fonts and forms.
 The release assembler rejects missing PDF or convenience packages.
+
+### PDF renderer maintenance
+
+`nix build .#pdfium` builds the renderer separately. Update `flake.lock` to update
+its source pins and recipe, then rerun the PDF tests and package preflight. Review
+`nix/pdfium-read-error.patch` on updates: it propagates a refused custom-file read
+instead of terminating the helper on an assertion. Compare rendered output and
+timings, and measure the complete added closure against `.#rummage`, not just the
+size of `libpdfium.so`.

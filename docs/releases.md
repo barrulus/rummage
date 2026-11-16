@@ -1,6 +1,6 @@
 # Release history and source versions
 
-[Documentation](README.md) · [Roadmap](roadmap.md) · [Development log](devlog.md)
+[Documentation](README.md) · [Current features](features.md) · [Installation](install.md)
 
 rummage is a fork of Nordend. The current source version is 0.5.1; the source
 commit identifies development builds more precisely than that number.
@@ -12,7 +12,7 @@ See [installation](install.md#development-downloads) for package/source identity
 The fork includes system icon themes and SVG rendering, HEIC/HEIF still previews,
 visibility of unmounted internal partitions, optional isolated video
 previews, configurable shortcuts/actions/menus, destination pickers and completion
-notifications, archive password handling, expandable details, two persistent panes,
+notifications, optional PDF previews, archive password handling, expandable details, two persistent panes,
 filename filtering, properties/folder icons, independent sidebar zoom, status text
 settings, the file-picker portal and NixOS integration. Packages and public names
 use rummage. Details columns can be shown, hidden and reordered, with sortable
@@ -21,8 +21,7 @@ layouts are saved per folder and tab. See [current features](features.md).
 
 ## Upstream release history
 
-The following entries preserve Nordend's recorded releases and measurements.
-They are historical descriptions, not benchmark results for the current fork.
+The following entries summarize the user-visible changes in Nordend's releases.
 
 ## [0.5.0](https://github.com/pankaspe/nordend-fm/releases/tag/v0.5.0), 2026-11-09
 
@@ -39,14 +38,14 @@ lines. The helper became the first engine, described by a manifest
 
 Image previews read by Nordend's own code: DNG developed when its previews are too small
 (Leica M240 and M8, DJI drones, Adobe-converted files) with the file's colour, tone curve,
-vignetting and lens corrections, read identically to LibRaw and 2-4 times faster; TIFF
+vignetting and lens corrections; TIFF
 with its own reader (BigTIFF, LZW, Deflate, PackBits, JPEG, 8/16-bit and float, CMYK,
 tiles, a scanner's scan in a SubIFD); raw files' previews and the info pane's EXIF without
-exiv2 (the same results, 3 to 100 times quicker); pictures made in small `nordend-preview`
+exiv2; pictures made in small `nordend-preview`
 processes, each in a cage of Nordend's own (seccomp and landlock), so a file that crashes
 or hangs one costs only its preview; one path for every picture, told by the file's bytes;
 a plain sentence when a file cannot be shown. Canon CRW and Minolta MRW get that sentence;
-darktable sidecars' ratings are no longer read (Nordend's own ratings come next)
+darktable sidecars' ratings are no longer read.
 
 ## [0.3.1](https://github.com/pankaspe/nordend-fm/releases/tag/v0.3.1), 2026-11-07
 

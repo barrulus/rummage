@@ -90,48 +90,13 @@ startup does not animate the listing. Tab changes cancel pending surface effects
 resizing cancels active effects. Closing an overlay cancels its reveal. No effect
 changes selection, focus, operation completion or undo history.
 
-## Renderer and resource limits
+## Quality and fallback
 
-The CPU scheduler has four channels: two panes, one overlay and one operation
-sprite. Native geometry moves icons and draws focus/selection feedback. Other
-effects use a cached GLES 3 program and two lazily allocated RGBA8 textures,
-reused across passes. No effect requests frames when the scheduler is idle;
-active frames use the window's compositor-paced redraw path.
+`auto` and `low` cap capture texture storage at 16 MiB; `high` permits 32 MiB.
+Graphics-driver overhead is additional. `low` substitutes fades. When the area
+exceeds the limit or a graphics resource cannot be created, normal content is
+drawn immediately. Shader failures are logged and disable subsequent capture
+attempts for that renderer. Idle effects do not request redraws.
 
-`auto` and `low` cap texture storage at 16 MiB (two surfaces of at most 2,097,152
-physical pixels each). `high` permits 32 MiB. Driver/program overhead is additional.
-`low` substitutes fades. If the area exceeds the cap, allocation fails, or shader
-compilation fails, normal content is drawn immediately. Shader failures are logged
-and disable subsequent capture attempts for that renderer. Texture coordinates
-are local, top-left origin; RGBA is premultiplied and sRGB-encoded, matching the
-existing renderer. Captured backdrop composites replace pixels, avoiding a second
-alpha blend on translucent windows.
-
-Only built-in shader source is compiled. Community GLSL loading, manifests and
-preset packs remain future work; a GPU shader is not a security sandbox.
-
-## Shared implementation
-
-`core/motion.hpp` defines the effect registry used by configuration names, native
-feedback dispatch and generated GLSL constants. Shader branches use those named
-constants rather than duplicated numeric IDs. `ui::MotionChannel` names the two
-pane channels, overlay and operation channel.
-
-`views/browser_motion.cpp` owns motion observation, invalidation, operation
-provenance and render integration. The normal browser flow calls those helpers
-at navigation, transfer and draw boundaries. Column, grid and details layouts
-share `views::ItemBounds` to clip focused/selected item bounds and accumulate the
-visible selection. The browser reads the same bounds interface for all layouts.
-
-## Validation and profiling
-
-Run `build-motion/tests/rummage-tests --test-case='motion:*'` for deterministic
-scheduler, config, portal-policy, browser and offscreen shader tests. An EGL/GLES
-context and fonts are required. With `RUMMAGE_MOTION_FRAMES=/tmp/motion-frames`
-(create that directory first), the shader tests also write PPM stills for review.
-
-Send `SIGUSR1` to a running Rummage process for capture bytes, allocation/pass/
-fallback counts and last/maximum CPU frame-submission time. These timings exclude
-GPU completion and compositor presentation; they are not frame-pacing or integrated
-GPU performance claims. Compare hardware, scale, dimensions, theme, build mode and
-revision when profiling. The texture counters exclude driver overhead.
+Only the built-in effects are available. Loading custom shaders or preset packs
+is not supported. For display problems, see [troubleshooting](troubleshooting.md).

@@ -1,6 +1,6 @@
 # Architecture
 
-[Documentation](README.md) · [Development](development.md) · [Security](security.md)
+[Documentation](../docs/README.md) · [Development](development.md) · [Security](../docs/security.md)
 
 rummage is a Linux C++20 application with a native Wayland/OpenGL ES UI. It uses
 system libraries for text shaping, graphics, configuration and selected codecs,
@@ -27,7 +27,7 @@ aliases follow the `rummage::` namespace.
 | `src/thumbs` | Shared thumbnail cache |
 | `src/media` | Optional isolated FFmpeg video engine |
 | `src/pdf` | Optional isolated PDFium PDF engine |
-| `src/svg` | FreeType-based SVG icon rendering |
+| `src/svg` | FreeType-based SVG theme-icon rendering |
 | `src/tools` | Developer renderers, inspectors and benchmarks |
 | `tests` | Doctest suite, standalone integrations, fixtures and fuzz targets |
 | `data`, `nix`, `packaging` | Desktop/portal/theme assets and packaging |
@@ -50,7 +50,8 @@ idle redraw loop.
 confirmed transfer results. Native geometry handles focus, selection and travelling
 icons; the renderer's optional GLES pass composites bounded captures. Configuration
 and desktop reduced-motion changes cancel active effects immediately. See
-[motion effects](motion.md) for resource limits, shader conventions and profiling.
+[motion effects](../docs/motion.md) for settings and user-visible behavior. See
+[development](development.md#motion-validation-and-profiling) for validation and profiling.
 
 Views share filesystem models and browser commands. Two tab groups hold separate
 location/view/sort/hidden/filter state; sidebar, information pane and undo serve
@@ -108,7 +109,7 @@ extension mechanism, not a stable third-party plugin ABI. Decoders must remain
 out of the main application's format-reader dependency graph. The optional `rummage-media` uses the same isolation protocol and links FFmpeg
 libraries only in that helper; the optional `rummage-pdf` does the same with PDFium. SVG theme icons and thumbnail cache parsing have
 different boundaries; see
-[security](security.md).
+[security](../docs/security.md).
 
 ## Commands, actions and menus
 
@@ -137,7 +138,7 @@ The picker UI reuses views/previews while excluding external actions and avoidin
 writes to the file manager's state. Its own view, window size and last folder are
 saved separately in `picker.toml`. Wayland parenting uses xdg-foreign-v2 and optional modal
 hints. Portal selection is desktop configuration, independent of the default
-`inode/directory` application. See [file-picker setup](file-picker.md) and its
+`inode/directory` application. See [file-picker setup](../docs/file-picker.md) and its
 integration tests for observable behavior.
 
 ## File manager service
@@ -158,7 +159,20 @@ service exits after 30 seconds idle or when its bus connection is lost.
 
 Setup is opt-in through `--set-file-manager`; no global FileManager1 service is
 installed. Generated services preserve the public launcher when a Nix wrapper is
-present. See [commands and desktop setup](command-line.md#show-in-folder).
+present. See [commands and desktop setup](../docs/command-line.md#show-in-folder).
+
+## Motion implementation
+
+`core/motion.hpp` defines the effect registry used by configuration names, native
+feedback dispatch and generated GLSL constants. Shader branches use those named
+constants rather than duplicated numeric IDs. `ui::MotionChannel` names the two
+pane channels, overlay and operation channel.
+
+`views/browser_motion.cpp` owns motion observation, invalidation, operation
+provenance and render integration. The normal browser flow calls those helpers
+at navigation, transfer and draw boundaries. Column, grid and details layouts
+share `views::ItemBounds` to clip focused/selected item bounds and accumulate the
+visible selection. The browser reads the same bounds interface for all layouts.
 
 ## Change entry points
 

@@ -1,30 +1,22 @@
 # SVG renderer acceptance
 
-[Documentation](README.md) · [Development](development.md) · [Security model](security.md)
+[Documentation](../docs/README.md) · [Development](development.md) · [Security model](../docs/security.md)
 
-This is the active SVG renderer validation policy, including its explicitly
-recorded changes. The [original brief](svg-renderer-brief.md) is historical; do not
-reinstate superseded acceptance thresholds from it. Results in this document are
-dated evidence and must be rerun for a renderer change.
-
-On 2026-11-10 the author approved ending the pixel-parity effort, returning stroke
-expansion to FreeType, and judging a fixed set of icons at native size alongside
-geometric correctness and performance tests. This supersedes the original stage-3
-requirements for 98% corpus agreement and pixel passes for every filtered icon.
-
-The captured rasters and numeric comparator remain unchanged. Corpus percentages
-are diagnostic measurements, not release gates. Changes to this policy must be
-recorded explicitly; improving a percentage alone does not justify more custom
-stroke or raster approximation code.
+Validate renderer changes with semantic and geometric tests, native-size visual
+review, performance checks and sanitizer fuzzing. Keep captured references and
+the numeric comparator unchanged: corpus percentages are diagnostic measurements,
+not release gates. Record results with the relevant change rather than in this
+guide. Improving a percentage alone does not justify more custom stroke or raster
+approximation code.
 
 ## Required checks
 
 - All SVG semantic, geometric, API, bounds and committed original-fixture tests
   pass. Keep exact pixels where geometry supports them. Keep the existing fixture
   comparator; do not recapture or replace references to accommodate changes.
-- Full release tests, ASan/UBSan tests, and the Nix package build pass, with the
-  existing documented unrelated test accommodations. A final-source sanitizer
-  fuzz run lasts at least 1800 seconds with no new finding, timeout or OOM.
+- Full release tests, ASan/UBSan tests, and the Nix package build pass. Record any
+  test-environment accommodations with the results. A final-source sanitizer fuzz
+  run lasts at least 1800 seconds with no new finding, timeout or OOM.
 - Total parse/render time stays within 1.5 times each preserved corpus baseline
   at 16, 48 and 128 px. Measure after competing builds and fuzzing stop.
 - Review every entry in `tests/data/svg-review.tsv` at native 16, 48 and 128 px on
@@ -70,9 +62,9 @@ under ignored build directories; only selection identifiers are committed.
 
 ## Hardening checks
 
-Hardening applies to every renderer stage. The renderer consumes untrusted bytes
-in-process on the UI thread; these are deterministic resource ceilings, not a
-wall-clock deadline or a whole-process memory limit.
+Hardening applies to every renderer change. Theme icons render in-process on the
+UI thread. These are deterministic resource ceilings, not a wall-clock deadline
+or a whole-process memory limit.
 
 | Resource | Enforced limit |
 | --- | --- |

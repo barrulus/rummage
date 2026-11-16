@@ -35,7 +35,7 @@ and [upgrading from Nordend](docs/install.md#upgrading-from-nordend).
 - [Configure rummage](docs/configuration.md): settings, reload behavior and saved state.
 - [Use rummage as a file picker](docs/file-picker.md): Open/Save dialogs and portal setup.
 - [Troubleshoot](docs/troubleshooting.md): startup, previews, menus and desktop integration.
-- [All documentation](docs/README.md): guides, references and development records.
+- [All documentation](docs/README.md): application guides and references.
 
 From this checkout, with Nix flakes enabled:
 
@@ -71,10 +71,6 @@ The [feature overview](docs/features.md) links to the behavior and limitations o
 area. Image and text decoders run in separate preview helpers; see the
 [security model](docs/security.md) for the boundaries and exceptions.
 
-Performance results are recorded with their dates, machines and methods in
-[benchmarks](docs/benchmarks.md). They are historical measurements, not promises for
-every build or desktop.
-
 ## Development downloads
 
 <!-- development-downloads:start -->
@@ -101,9 +97,8 @@ for a fixed revision. These are individual development packages, not an update r
 
 ## Contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow,
-[architecture](docs/architecture.md) for the source map, and the
-[roadmap](docs/roadmap.md) for planned work.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and
+[architecture](contributing/architecture.md) for the source map.
 
 ## License
 

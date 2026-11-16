@@ -1,6 +1,6 @@
 # Contributing
 
-[Documentation](docs/README.md) · [Development](docs/development.md) · [Architecture](docs/architecture.md)
+[Documentation](docs/README.md) · [Development](contributing/development.md) · [Architecture](contributing/architecture.md)
 
 Start with the code and tests for the affected module. rummage is a C++20 Wayland
 application with its own UI; changes should preserve responsive browsing, clear
@@ -9,7 +9,7 @@ describe visible behavior and limitations in the change.
 
 ## Build and verify
 
-The [development guide](docs/development.md) gives the complete dependency,
+The [development guide](contributing/development.md) gives the complete dependency,
 configuration and test workflow. A typical local start is:
 
 ```sh
@@ -29,7 +29,7 @@ Run the relevant tests, then the appropriate broader checks. Renderer changes
 also need visual inspection; a screenshot does not establish keyboard, clipboard
 or portal behavior. Parser/sandbox changes need sanitizer and adversarial-input
 coverage. SVG changes follow the existing
-[SVG validation policy](docs/svg-renderer-validation.md).
+[SVG validation policy](contributing/svg-validation.md).
 
 ## Before proposing a change
 
@@ -37,7 +37,7 @@ coverage. SVG changes follow the existing
   `python3 scripts/ci/preflight.py lint nix` for the shared CI tooling and Nix checks.
   Dependency, CMake, packaging, helper or install-layout changes also require
   `python3 scripts/ci/preflight.py all` (Nix and Docker). A Nix pass alone does not
-  verify native packages. See [preflight](docs/ci-packaging.md#local-preflight).
+  verify native packages. See [preflight](contributing/ci-packaging.md#local-preflight).
 - Before merging, require every package job to pass on the current PR revision;
   update/retest against current `main` when concurrent changes affect dependencies
   or packaging. Do not merge a known failing check as an unrelated failure.
@@ -61,20 +61,26 @@ from anything you publish. See [troubleshooting](docs/troubleshooting.md).
 ## Documentation
 
 Documentation is Markdown rendered by the repository browser; no site generator
-or publishing step is required. [docs/README.md](docs/README.md) is the index.
+or publishing step is required. [docs/README.md](docs/README.md) is the application
+documentation index.
+
+Keep `docs/` limited to application documentation: installation, usage,
+configuration, integrations, supported formats, troubleshooting, security and
+user-visible release notes. Maintained contributor procedures belong in
+`contributing/`, linked from this guide. Do not add investigation reports, task
+briefs, agent handoffs, development diaries, benchmark result logs or implementation
+plans to either documentation collection. Keep temporary work notes local and
+record review-specific evidence in the relevant issue or pull request.
 
 Keep the root README as an introduction and entry point. Put procedures in topic
 guides and detailed option lists in references. Add a link from the documentation
 index for a new page; use relative links and descriptive text. Prefer stable
 source-file links over line numbers that drift.
 
-Current behavior belongs in the guides. Release history, dated benchmark results,
-development logs and review briefs retain their context; do not silently rewrite
-historical observations as though they describe the current tree. Add an explicit
-correction or superseding reference when a historical statement is misleading.
-Private `DESIGN.md`/`ROADMAP.md` notes and step numbers are historical context, not
-required public documentation. The public [architecture](docs/architecture.md)
-and [roadmap](docs/roadmap.md) should stand on their own.
+Describe current behavior in the guides. Release notes should describe
+user-visible changes, without implementation diaries or unqualified performance
+claims. Keep contributor instructions reusable and independent of past task IDs,
+private notes and local build artifacts.
 
 When changing configuration, update defaults/ranges in
 [configuration.md](docs/configuration.md), recipes in
@@ -90,9 +96,6 @@ focused checks are still needed.
 
 ## Project history and credits
 
-Nordend’s upstream author records Claude Opus assistance in code, analysis, tests and
-documentation, with design decisions, hardware testing and releases remaining
-the author's. The [devlog](docs/devlog.md) preserves that development history.
 Contributions should be reviewable on their behavior and evidence regardless of
 the tools used. Bundled material and licenses are listed in
 [THIRD_PARTY.md](THIRD_PARTY.md).

@@ -43,8 +43,7 @@ private:
 
 struct WalkOptions {
     bool hidden{false};  // dotfiles and the folders they name
-    // Stops there (truncated): about 0.5 s and 20 MB of paths (measured on 273 000 entries,
-    // docs/benchmarks.md).
+    // Stops there and marks the result truncated, bounding the stored path count.
     std::size_t max_entries{300'000};
     std::size_t max_depth{64};  // folders deeper are not entered
     std::size_t batch{4096};    // entries handed over at a time

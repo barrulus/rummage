@@ -1,6 +1,6 @@
 # Command line
 
-[Documentation](README.md) · [File picker](file-picker.md) · [Development tools](development.md#diagnostic-tools)
+[Documentation](README.md) · [File picker](file-picker.md) · [Development tools](../contributing/development.md#diagnostic-tools)
 
 ## Browser and diagnostics
 
@@ -150,4 +150,4 @@ diagnostic rather than assuming every nonzero exit is a user cancellation.
 Release builds log at `info` by default; debug builds at `debug`. SIGUSR1 asks the
 browser for a memory report; SIGINT/SIGTERM request orderly shutdown. Startup
 benchmark variables and `RUMMAGE_SANDBOX_REPORT` are development instrumentation,
-described in [development](development.md) and [security](security.md).
+described in [development](../contributing/development.md) and [security](security.md).

@@ -1,10 +1,10 @@
 # Development
 
-[Documentation](README.md) · [Contributing](../CONTRIBUTING.md) · [Architecture](architecture.md)
+[Documentation](../docs/README.md) · [Contributing](../CONTRIBUTING.md) · [Architecture](architecture.md)
 
 ## Build environment
 
-Use the [installation dependency list](install.md#build-dependencies), or enter
+Use the [installation dependency list](../docs/install.md#build-dependencies), or enter
 `nix develop`. The shell supplies build dependencies, doctest, clang tools, GDB
 and the optional JPEG benchmark dependency. It does not configure a build on entry.
 
@@ -101,7 +101,7 @@ ctest --test-dir build-tsan --output-on-failure
 ```
 
 Keep ASan/UBSan and TSan in separate builds. Sanitizer runtimes change memory
-requirements and helper sandbox allowances; see [security](security.md).
+requirements and helper sandbox allowances; see [security](../docs/security.md).
 Known third-party leak suppressions live in
 `src/core/src/lsan_suppressions.cpp`. Record suppressions and environment workarounds
 when reporting results.
@@ -128,7 +128,7 @@ The example is a smoke run, not a release qualification. Targets are `tiff`,
 preserve crash inputs and reproduce them in the same instrumented build.
 Camera corpora may require local samples; SVG corpus references are not all shipped.
 SVG changes have the longer fuzzing and visual requirements in
-[their validation policy](svg-renderer-validation.md).
+[their validation policy](svg-validation.md).
 
 ## Diagnostic tools
 
@@ -169,4 +169,16 @@ input or desktop interoperability. Record dimensions, scale, theme and fixtures.
 application startup marks. Prefer the wrapper to setting them by hand. Keep
 timings separate from competing builds/fuzz runs and label warm/cold caches,
 hardware versus software rendering, and on-screen versus offscreen measurements.
-See [benchmarks](benchmarks.md) for historical methods and results.
+
+## Motion validation and profiling
+
+Run `build-dev/tests/rummage-tests --test-case='motion:*'` for deterministic
+scheduler, config, portal-policy, browser and offscreen shader tests. An EGL/GLES
+context and fonts are required. With `RUMMAGE_MOTION_FRAMES=/tmp/motion-frames`
+(create that directory first), the shader tests also write PPM stills for review.
+
+Send `SIGUSR1` to a running Rummage process for capture bytes, allocation/pass/
+fallback counts and last/maximum CPU frame-submission time. These timings exclude
+GPU completion and compositor presentation; they are not frame-pacing or integrated
+GPU performance claims. Compare hardware, scale, dimensions, theme, build mode and
+revision when profiling. The texture counters exclude driver overhead.

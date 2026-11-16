@@ -2,10 +2,9 @@
 
 [Project overview](../README.md)
 
-These guides describe rummage's 0.5.1 development sources, building on upstream
-Nordend. Use the source commit and package identity when reporting behavior.
-See [installation](install.md),
-[release history](releases.md) and [package validation](ci-packaging.md).
+Guides and references for installing, using and configuring rummage. These pages
+describe the 0.5.1 sources; include the source commit and package identity when
+reporting behavior in a development build.
 
 ## Get started
 
@@ -25,34 +24,19 @@ See [installation](install.md),
 | Change settings or understand saved state | [Configuration](configuration.md) |
 | Copy a complete annotated settings reference | [config.example.toml](config.example.toml) |
 | Change colours, fonts, icons or transparency | [Appearance](appearance.md) |
-| Configure motion, shaders and reduced motion | [Motion effects](motion.md) |
+| Configure animation effects and reduced motion | [Motion effects](motion.md) |
 | Add commands, destination dialogs or menu groups | [Actions and context menus](actions.md) |
 | Look up default keys or override bindings | [Keyboard shortcuts](shortcuts.md) |
 | Use command-line options or diagnostic variables | [Command line](command-line.md) |
 | Open browser downloads with Show in Folder | [Desktop integration](command-line.md#show-in-folder) |
 | Replace application Open/Save dialogs | [File picker and portal](file-picker.md) |
-| Understand compositor fallbacks and past testing | [Desktop compatibility](compatibility.md) |
+| Understand compositor requirements and fallbacks | [Desktop compatibility](compatibility.md) |
 
-## Develop
+## Application reference
 
-- [Contributing](../CONTRIBUTING.md): changes, verification and documentation expectations.
-- [Development](development.md): builds, tests, sanitizers, fuzzers and diagnostic tools.
-- [Architecture](architecture.md): modules, data flow, threads and extension points.
 - [Security model](security.md): preview isolation, file operations and external programs.
-- [SVG renderer validation](svg-renderer-validation.md): the current renderer acceptance policy.
-- [CI and package validation](ci-packaging.md): build artifacts and development publishing.
+- [Release history](releases.md): application versions and user-visible changes.
 - [Third-party material](../THIRD_PARTY.md): bundled sources and licenses.
 
-## History and plans
-
-These records provide context; dated results and proposals are not current feature promises.
-
-- [Release history](releases.md) and [roadmap](roadmap.md).
-- [Development log](devlog.md): decisions and implementation history, newest first.
-- [Benchmarks](benchmarks.md): dated results and reproduction commands.
-- [Upstream bug log](buglog.md): recorded Noctalia/Umbriel issues and their last known status.
-- [SVG renderer brief](svg-renderer-brief.md): original implementation plan, with superseded criteria marked.
-
-Use the topic guide for current behavior, source and tests for implementation detail,
-and dated records to understand why it changed. Documentation maintenance conventions
-are in [Contributing](../CONTRIBUTING.md#documentation).
+Contributor workflows, source architecture and package-maintenance instructions
+are separate from these application guides; start with [Contributing](../CONTRIBUTING.md).

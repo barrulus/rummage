@@ -28,13 +28,29 @@ windows, its contents scroll while the action buttons remain visible.
 | Text | Isolated decoding, syntax colours and selectable text | Bounded reads; not an editor or rendered Markdown viewer |
 | Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
 | PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
-| SVG theme icons | rummage's in-process icon renderer | Not a Quick Look SVG-document provider |
+| SVG theme icons | rummage's in-process icon renderer | Supported subset described below; SVG files use text previews |
 | Other formats | File information and external application opening | No built-in audio player, archive-content or font preview |
 
 The [base engine manifest](../data/engines/base.toml) registers MIME families.
 Registration is not a guarantee that every subtype/sample can decode. The image
 loader checks bytes rather than trusting an extension. A detected type must also
 reach an appropriate provider; system MIME data matters.
+
+### SVG
+
+SVG files open as text in Quick Look. Rendered SVG document previews and
+thumbnails are not currently available.
+
+SVG theme icons use rummage's in-process renderer. It supports paths and shapes,
+strokes, gradients, basic CSS, groups, clipping, masks, colour matrices, Gaussian
+blur, patterns and embedded PNG/JPEG. It preserves transparency and aspect ratio,
+with input capped at 8 MiB and rendered icons at 1024 pixels per side.
+
+This is a static SVG subset: text, animation, scripts, external images/styles and
+other external resources are not rendered or fetched. Unsupported filter
+primitives leave the element unfiltered. Malformed documents and exhausted
+rendering limits return no rendered icon, allowing the icon fallback to be used.
+See the [security model](security.md) for parsing boundaries.
 
 ### TIFF
 
@@ -184,7 +200,7 @@ registered by manifests found beside the build executable or under
 `share/rummage/engines`; `rummage --about` lists discovered engines. A missing helper
 or invalid manifest prevents that engine's previews.
 
-See [architecture](architecture.md#preview-engines) for developer details and
+See [architecture](../contributing/architecture.md#preview-engines) for developer details and
 [troubleshooting](troubleshooting.md#previews-are-unavailable) for installation and
 runtime diagnosis. Format-specific limits and process isolation reduce exposure;
 they do not imply all file handling runs in a sandbox.

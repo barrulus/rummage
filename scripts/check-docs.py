@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Check public docs' local links/anchors and TOML fences (Python 3.11+).
 
-No network or third-party dependencies. This checks the Markdown conventions used
-in this repository, not every Markdown extension. Historical TOML fences are
-excluded: they can be fragments of old formats, rather than current examples.
+No network or third-party dependencies. This checks application and contributor
+documentation using this repository's Markdown conventions, not every extension.
 """
 
 from __future__ import annotations
@@ -17,9 +16,6 @@ from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
-HISTORICAL = {
-    "devlog.md", "benchmarks.md", "buglog.md", "svg-renderer-brief.md",
-}
 LINK = re.compile(r"!?\[[^\]\n]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+\"[^\"]*\")?\s*\)")
 HTML_LINK = re.compile(r"(?:href|src)=[\"']([^\"']+)[\"']")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
@@ -45,7 +41,7 @@ def scan(path: Path) -> tuple[set[str], list[tuple[int, str]], list[str], int]:
         marker = FENCE.match(line)
         if fence:
             if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
-                if language == "toml" and path.name not in HISTORICAL:
+                if language == "toml":
                     try:
                         tomllib.loads("\n".join(block))
                         toml_count += 1
@@ -79,8 +75,8 @@ def scan(path: Path) -> tuple[set[str], list[tuple[int, str]], list[str], int]:
 
 def main() -> int:
     pages = [ROOT / name for name in ("README.md", "CONTRIBUTING.md", "THIRD_PARTY.md")]
-    # These local/private notes are deliberately not part of the public docs.
-    pages += sorted(p for p in (ROOT / "docs").rglob("*.md") if p.name not in {"DESIGN.md", "ROADMAP.md"})
+    for directory in ("docs", "contributing"):
+        pages += sorted((ROOT / directory).rglob("*.md"))
     scanned = {path.resolve(): scan(path) for path in pages}
     errors = [error for result in scanned.values() for error in result[2]]
     links_checked = 0

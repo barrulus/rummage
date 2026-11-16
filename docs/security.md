@@ -1,6 +1,6 @@
 # Security model
 
-[Documentation](README.md) · [Architecture](architecture.md) · [File operations](file-operations.md)
+[Documentation](README.md) · [Architecture](../contributing/architecture.md) · [File operations](file-operations.md)
 
 rummage separates image/text file parsing from the browser process and uses bounded
 protocols and resource limits. This page describes those boundaries, not a claim
@@ -29,26 +29,20 @@ The filter has architecture definitions for x86-64 and AArch64. Crashes, timeout
 and malformed replies are treated as preview failures. The browser does not fall
 back to decoding the same unsupported input in-process.
 
-See [sandbox.cpp](../src/isolate/src/sandbox.cpp),
-[helper_main.cpp](../src/isolate/src/helper_main.cpp) and
-[helpers.cpp](../src/isolate/src/helpers.cpp). Tests include forbidden-operation
-probes and helpers that deliberately crash, hang or send invalid results.
-
-## Boundaries outside the helper
+## Parsing and execution boundaries
 
 | Component | Boundary |
 | --- | --- |
 | Theme SVG/PNG icons | Loaded/rendered in-process; SVG parsing/rendering has explicit work and size limits |
 | Thumbnail cache | Shared desktop files read by the application; not a trusted private store |
 | Optional video previews | `rummage-media` links FFmpeg libraries inside the same descriptor-based sandbox, with separate decode/time limits |
-| Optional PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline; adversarial samples in `tests/data/pdf/attack` |
+| Optional PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline |
 | Desktop applications and custom actions | Ordinary user processes, outside the preview sandbox |
 | Archive extraction | External archive tools; their parser and extraction behavior remains their responsibility |
 | File operations, MIME lookup and desktop metadata | Run with rummage's user permissions |
 
-Do not infer the helper's protections for any other row. The
-[SVG validation document](svg-renderer-validation.md) records its resource limits
-and required adversarial testing separately.
+Do not infer the helper's protections for any other row. See
+[SVG support and limits](previews.md#svg) for the supported preview subset.
 
 ## File-operation guarantees and limits
 
@@ -69,7 +63,7 @@ Archive CLI workflows use new destination names and preserve sources, but are no
 the image/text decoder sandbox. Consult the external tool's behavior for untrusted
 archives. This documentation does not claim a universal archive containment guarantee.
 
-## Development diagnostics
+## Diagnostic builds and settings
 
 Sanitizer builds relax address-space limits and add syscall allowances for runtime
 instrumentation. They are useful for finding errors but are not equivalent to the
@@ -79,4 +73,4 @@ normal runtime setting.
 
 When investigating a failure, retain the input, revision, build mode, stderr and
 reproduction command. Avoid putting private file contents into a public report.
-For review and test workflows, see [development](development.md).
+For review and test workflows, see [development](../contributing/development.md).

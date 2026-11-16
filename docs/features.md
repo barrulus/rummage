@@ -1,6 +1,6 @@
 # Feature overview
 
-[Documentation](README.md) · [Using rummage](usage.md) · [Roadmap](roadmap.md)
+[Documentation](README.md) · [Using rummage](usage.md) · [Release history](releases.md)
 
 This is a map of the current source tree's capabilities. Detailed behavior belongs
 in the linked guides. The fork develops beyond upstream Nordend 0.5.0; see [release history](releases.md).
@@ -18,8 +18,9 @@ in the linked guides. The fork develops beyond upstream Nordend 0.5.0; see [rele
 - Fuzzy command palette and recursive filename/path search with cancellation.
 
 See [Using rummage](usage.md) and the [shortcut reference](shortcuts.md).
-Search is not content search; remote browsing without gvfs, encrypted-volume unlocking and
-bookmark reordering are not implemented. Name sorting is natural and ASCII
+Search is not content search; remote browsing without gvfs and encrypted-volume
+unlocking are not implemented. Local bookmarks can be renamed, repointed and
+reordered. Name sorting is natural and ASCII
 case-insensitive, not locale collation.
 
 ## Files and external applications
@@ -52,8 +53,8 @@ not implemented.
   damage badges.
 
 See [previews and formats](previews.md) for decoder limits. Video playback, rendered
-Markdown, PDF previews, SVG document previews and darktable rating import are not
-current capabilities. SVG **theme icons** have their own in-process renderer.
+Markdown, rendered SVG document previews and darktable rating import are not
+current capabilities. SVG theme icons use an in-process renderer.
 
 ## Desktop integration and customization
 
@@ -68,8 +69,9 @@ current capabilities. SVG **theme icons** have their own in-process renderer.
 - Remembered two-pane/multi-tab sessions and window/view state, without saving navigation history.
 
 See [configuration](configuration.md), [appearance](appearance.md) and
-[compatibility](compatibility.md). Fonts need a restart; the other settings have
-specific reload rules. No graphical settings editor is provided.
+[compatibility](compatibility.md). Open **Settings** with **Ctrl+,** for appearance,
+keybindings and actions. Font family changes need a restart; font sizes apply
+live. Other settings have the reload rules listed in the configuration guide.
 
 ## Show in Folder
 
@@ -94,14 +96,9 @@ See [file-picker setup](file-picker.md) and [command-line reference](command-lin
 Only applications using the portal use this backend. Unsupported parent handles
 open independent windows; filename-based MIME filtering has limits.
 
-## Implementation and evidence
+## Runtime and security
 
 rummage uses C++20, Wayland and OpenGL ES without GTK, Qt or GLib. The
-[architecture](architecture.md) explains modules and execution, and the
 [security model](security.md) distinguishes isolated readers from other file
-handling and external programs.
-
-[Benchmarks](benchmarks.md) record performance at specific revisions and machines.
-Binary sizes, dependency counts and test counts change with the build; they are
-not repeated here as current guarantees. See [development](development.md) to
-reproduce checks and [the roadmap](roadmap.md) for planned work.
+handling and external programs. See [installation](install.md) for runtime and
+build requirements.

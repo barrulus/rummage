@@ -205,8 +205,9 @@ message. Closing the search releases its index.
 Home folders follow XDG user-directory settings. **Ctrl+D** bookmarks the current
 folder; Add to Sidebar in the context menu bookmarks selected folders. Dragging
 folders onto the BOOKMARKS heading or the end of its list also adds them. A
-right-click removes a bookmark. rummage shares the GTK bookmarks file and keeps
-unrelated entries and labels; reordering/renaming bookmarks is not implemented.
+right-click offers removal and, for local bookmarks, renaming, destination changes
+and reordering. rummage shares the GTK bookmarks file and preserves unrelated
+entries and labels. See [editing bookmarks](#editing-bookmarks) for the controls.
 
 With udisks2 available, unmounted internal partitions and removable disks appear
 in the sidebar without mounting themselves. Click to mount and open, with
