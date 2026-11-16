@@ -2,14 +2,14 @@
 
 [Documentation](README.md) · [Architecture](../contributing/architecture.md) · [File operations](file-operations.md)
 
-rummage separates image/text file parsing from the browser process and uses bounded
+rummage separates image, text and archive file parsing from the browser process and uses bounded
 protocols and resource limits. This page describes those boundaries, not a claim
 that the entire file manager or every external program is sandboxed.
 
-## Image and text helpers
+## File-reading helpers
 
 `rummage-preview` receives already-open input descriptors from rummage and returns
-picture/text results. Libraries are warmed up before entering the sandbox so later
+picture/text results or archive metadata and member bytes. Libraries are warmed up before entering the sandbox so later
 decoding does not need to discover configuration or load codec resources from disk.
 
 In normal builds the helper applies:
@@ -22,7 +22,8 @@ In normal builds the helper applies:
 - Resource limits: no core dumps, 32 file descriptors and 4 GiB of virtual address
   space in ordinary builds. Decoder and protocol limits also bound requests/results.
 - Parent-side timeout and failure handling. The default helper request timeout is
-  3 seconds (8 seconds for media and PDF), and idle helpers close after 30 seconds; allocations can be returned
+  3 seconds (8 seconds for media and PDF; archive extraction can request up to
+  60 seconds), and idle helpers close after 30 seconds; allocations can be returned
   earlier during idle time.
 
 The filter has architecture definitions for x86-64 and AArch64. Crashes, timeouts
@@ -35,6 +36,14 @@ caps the rendered side at 1024 pixels. It reads only the supplied descriptor;
 external SVG resources are never fetched. Theme icons use the separate in-process
 path described below.
 
+Markdown parsing runs in the text helper. The browser validates a bounded presentation
+document before laying it out; HTML is not executed, and links and images do not trigger
+resource loads. Source and rendered previews retain the text reader's byte limits.
+
+Archive browsing lists ZIP, TAR and gzip data through the base helper. Member previews
+are decoded from memory descriptors. Listing sizes, path depth and synthesized folder
+counts are bounded before the browser constructs its tree. Archive contents are read-only.
+
 ## Parsing and execution boundaries
 
 | Component | Boundary |
@@ -44,7 +53,9 @@ path described below.
 | Optional video previews | `rummage-media` links FFmpeg libraries inside the same descriptor-based sandbox, with separate decode/time limits |
 | Optional PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline |
 | Desktop applications and custom actions | Ordinary user processes, outside the preview sandbox |
-| Archive extraction | External archive tools; their parser and extraction behavior remains their responsibility |
+| Archive member extraction | Archive decoding in the helper; rummage creates destination entries through confined directory descriptors |
+| External archive extraction | External archive tools; their parser and extraction behavior remains their responsibility |
+| Archive creation | A worker reads selected local files and writes ZIP/tar.gz; it is outside the preview sandbox |
 | File operations, MIME lookup and desktop metadata | Run with rummage's user permissions |
 
 Do not infer the helper's protections for any other row. See
@@ -55,9 +66,21 @@ Do not infer the helper's protections for any other row. See
 Built-in copies stage output before publishing it and cross-filesystem moves flush
 the copy before removing the source. Conflicts ask for a policy, trash failures do
 not become silent permanent deletes, and permanent deletion asks for confirmation.
-These measures do not make multi-file operations transactional or replace backups.
+These measures do not make all multi-file operations transactional or replace backups.
 Completed steps can remain after cancellation, and overwritten or permanently
 deleted content is not generally recoverable through Undo.
+
+Batch rename stages all changed names in a private directory and uses atomic no-overwrite
+renames, including for swaps and rollback. It rechecks source identities and refuses file
+systems without the required operation. A failure rolls back completed steps; if concurrent
+changes prevent recovery, the error details identify the retained files. Undo/Redo uses the
+same checks and treats the batch as one operation.
+
+Copying members out of a browsed archive creates files in a private staging directory,
+using `openat2` confinement to prevent traversal and symlink escapes. Publication never
+replaces an existing name. Special files and unsupported/encrypted members are refused or
+reported; supported links must remain within the extracted selection. These guarantees
+apply to the built-in member workflow, not to independently configured external tools.
 
 Custom actions use an argument vector, preserving path boundaries without implicit
 shell evaluation, globbing or environment expansion. A user-configured shell or

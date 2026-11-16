@@ -2,7 +2,7 @@
 add_executable(rummage-pdf backend.cpp
     ../isolate/src/helper_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp)
 target_include_directories(rummage-pdf PRIVATE ../isolate/src)
-target_link_libraries(rummage-pdf PRIVATE rummage::picture rummage::text pdfium
+target_link_libraries(rummage-pdf PRIVATE rummage::picture rummage::text rummage::archive pdfium
     rummage::warnings)
 set_target_properties(rummage-pdf PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 if(RUMMAGE_PRIVATE_PDFIUM)

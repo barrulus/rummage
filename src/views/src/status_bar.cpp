@@ -38,18 +38,24 @@ std::string status_of(const Folder& folder) {
     const fs::DirectoryModel& model = folder.model();
     const std::size_t count = folder.entries().size();
     if (model.error()) {
-        return model.error().message();
+        return model.problem();
     }
+    const std::string prefix = model.is_archive()
+                                   ? std::format("{} archive  ·  read-only  ·  ",
+                                                 archive::format_name(model.archive_format()))
+                                   : std::string{};
     if (folder.selected_count() > 1) {
-        return std::format("{} of {} selected", folder.selected_count(), count);
+        return prefix + std::format("{} of {} selected", folder.selected_count(), count);
     }
     if (model.loading()) {
-        return std::format("{} items, loading…", count);
+        return prefix + std::format("{} items, loading…", count);
     }
-    std::string status = std::format("{} {}", count, count == 1 ? "item" : "items");
+    std::string status = prefix + std::format("{} {}", count, count == 1 ? "item" : "items");
     if (const std::size_t hidden = folder.hidden_count(); hidden > 0) {
         status += std::format(", {} hidden", hidden);
     }
+    if (const auto problem = model.problem(); !problem.empty())
+        status += "  ·  " + problem;
     return status;
 }
 
@@ -72,6 +78,14 @@ StatusBar::~StatusBar() {
 void StatusBar::update(const Folder& folder) {
     if (job_ || (known_ && path_ == folder.path() && revision_ == folder.model().revision())) {
         return;  // on its way, or known: a draw after the result checks again
+    }
+    if (folder.is_archive()) {
+        // No free space inside an archive: it means nothing there.
+        path_ = folder.path();
+        revision_ = folder.model().revision();
+        known_ = true;
+        free_.reset();
+        return;
     }
     path_ = folder.path();
     revision_ = folder.model().revision();
@@ -201,7 +215,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
             text += std::format("  ·  {} free of {}", format_size(free_->free),
                                 format_size(free_->total));
         }
-        color = folder.model().error() ? palette.error : palette.on_surface_variant;
+        color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }
     const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     const auto& line =

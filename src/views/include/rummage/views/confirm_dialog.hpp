@@ -36,6 +36,8 @@ public:
     // A separate instance can be used for archive passwords without replacing a confirmation.
     void open_password(std::string name, bool retry,
                        std::function<void(std::optional<std::string>)> answer);
+    void open_name(std::string title, std::string detail, std::string initial,
+                   std::function<std::string(const std::string&)> accept);
     void paste(std::string_view text);
 
     [[nodiscard]] std::size_t generation() const { return generation_; }
@@ -79,6 +81,8 @@ private:
     std::string warning_;
     Answer answer_;
     bool password_mode_{false};
+    bool field_masked_{true};
+    std::function<std::string(const std::string&)> name_accept_;
     ui::TextField password_field_;
     std::size_t generation_{0};
     std::array<ui::Rect, kButtons> buttons_{};  // as last drawn

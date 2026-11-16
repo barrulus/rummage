@@ -81,8 +81,10 @@ Family read_family(std::string_view source, const toml::table& table) {
         family.shows = Shows::picture;
     } else if (what == "text") {
         family.shows = Shows::text;
+    } else if (what == "archive") {
+        family.shows = Shows::archive;
     } else {
-        fail(source, shows, R"('shows' must be "picture" or "text")");
+        fail(source, shows, R"('shows' must be "picture", "text" or "archive")");
     }
     family.info = flag(source, table, "info");
     family.thumbnails = flag(source, table, "thumbnails");

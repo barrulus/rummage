@@ -1,7 +1,7 @@
 [engine]
 name = "media"
 program = "rummage-media"
-protocol = 5
+protocol = 6
 
 [[family]]
 name = "video"

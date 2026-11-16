@@ -19,6 +19,7 @@ enum class TransferKind : std::uint8_t {
     trash,        // run_trash (trash.hpp): destination is the home trash
     restore,      // run_restore (trash.hpp): names are paths in a trash's files/
     erase,        // run_erase (erase.hpp): deleted for good; destination unused
+    compress,     // write one ZIP or tar.gz archive
     empty_trash,  // run_erase: names are trashes, everything in them goes
 };
 
@@ -37,6 +38,10 @@ struct TransferRequest {
     // An undo of a move: the destination (where the items came from) is made again when that
     // move took the folder away, emptied by a merge.
     bool make_destination{false};
+    std::string extract_into{};
+    bool from_archive{false};
+    std::string archive_name{};
+    bool tar_gz{false};
     // Optional destination names parallel to names (undo restores a Keep Both item's old name).
     std::vector<std::string> destination_names{};
 };
@@ -54,7 +59,8 @@ struct Conflict {
     std::filesystem::path destination;
     bool directory{false};         // the item is a folder
     bool target_directory{false};  // the name taken is a folder's
-    bool merge{true};              // folders may be merged (Replace); not when restoring
+    std::string question{};
+    bool merge{true};  // folders may be merged (Replace); not when restoring
 };
 
 struct TransferProgress {
@@ -123,6 +129,8 @@ struct TransferCallbacks {
 [[nodiscard]] TransferResult run_transfer(const TransferRequest& request,
                                           const core::CancelToken& token,
                                           const TransferCallbacks& callbacks);
+
+[[nodiscard]] std::string human_size(std::uint64_t bytes);
 
 // The first free name in directory for name: "P1 2.ORF", "P1 3.ORF"... (a folder: "Trip 2"),
 // with the names its sidecars would take free too.

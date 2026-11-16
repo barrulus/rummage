@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+#include "rummage/text/markdown.hpp"
+
 // What rummage does with a text file, wherever it is read (ROADMAP 3b): the Text it draws and
 // how one is asked for. No reader here: the text family (formats/text) reads files in the base
 // engine, and rummage asks it through the loader, as for pictures.
@@ -57,6 +59,7 @@ struct Text {
     std::string language;
     // Each line's coloured pieces, in order, apart; empty (not one per line) without a language.
     std::vector<std::vector<Span>> spans;
+    Markdown markdown;  // helper-produced rendered form; empty for other languages
 };
 
 struct Limits {

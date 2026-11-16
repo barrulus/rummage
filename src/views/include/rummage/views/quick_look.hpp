@@ -24,6 +24,7 @@
 #include "rummage/ui/seat.hpp"
 #include "rummage/ui/texture.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/markdown_view.hpp"
 #include "rummage/views/selectable_text.hpp"
 #include "rummage/views/text_selection.hpp"
 
@@ -57,6 +58,10 @@ public:
     void open(std::shared_ptr<Folder> folder, Clock::time_point now);
     void close();
     void set_details(bool shown);
+
+    [[nodiscard]] bool markdown_rendered() const;
+
+    [[nodiscard]] ui::Rect markdown_button() const { return markdown_button_; }
 
     [[nodiscard]] bool details_shown() const { return details_; }
 
@@ -125,6 +130,13 @@ public:
 
 private:
     bool details_{false};
+    bool render_markdown_{true};
+    ui::Rect markdown_button_;
+    MarkdownView markdown_;
+    void toggle_markdown();
+    void draw_markdown(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
+                       const fs::Entry& entry, const preview::Text& text, float fade,
+                       Clock::time_point now);
     ui::Rect details_button_, details_bounds_;
     SelectableText metadata_;
     ui::Scroller details_scroller_;
@@ -162,6 +174,10 @@ private:
     void draw_card(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
                    ui::IconSet& icons, const fs::Entry& entry, const preview::Info* info,
                    float fade);
+    // An archive seen from outside: what it holds, and its first entries.
+    void draw_archive(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
+                      ui::IconSet& icons, const fs::Entry& entry, const preview::Archive& archive,
+                      float fade);
 
     core::WorkerPool& pool_;
     std::shared_ptr<const fs::MimeDatabase> mime_;

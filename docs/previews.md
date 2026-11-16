@@ -25,16 +25,20 @@ windows, its contents scroll while the action buttons remain visible.
 | TIFF / BigTIFF | rummage's TIFF reader | Compression/sample limits below |
 | PGM / PPM | rummage's binary PNM reader | 8- and 16-bit samples; not every Netpbm format |
 | Camera raw | Embedded previews; some DNGs developed by rummage | Support depends on the file's container, preview and compression |
-| Text | Isolated decoding, syntax colours and selectable text | Bounded reads; not an editor or rendered Markdown viewer |
+| Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
 | Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
 | PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
 | SVG files | rummage's SVG renderer in the preview helper | Static previews and thumbnails; supported subset described below |
-| Other formats | File information and external application opening | No built-in audio player, archive-content or font preview |
+| ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
+| Other formats | File information and external application opening | No built-in audio player or font preview |
 
 The [base engine manifest](../data/engines/base.toml) registers MIME families.
 Registration is not a guarantee that every subtype/sample can decode. The image
 loader checks bytes rather than trusting an extension. A detected type must also
 reach an appropriate provider; system MIME data matters.
+
+For archive browsing, copying members out and creating archives, see
+[Browse and create archives](actions.md#browse-and-create-archives).
 
 ### SVG
 
@@ -110,8 +114,8 @@ fallback. The caption identifies language, encoding, line endings and size/lines
 Syntax colours cover C/C++, Rust, Python, JavaScript/TypeScript, Lua/Luau, shell,
 fish, CMake, Makefiles, JSON, TOML, YAML, INI/desktop/systemd files, ignore and
 attributes files, Markdown and diffs. Detection uses MIME, filename/extension and
-shebang as appropriate. Markdown is source with syntax colours; fenced code can
-use its own language. Minified files with long average lines are shown plain.
+shebang as appropriate. Markdown opens rendered in Quick Look; **M** or the **Source / Rendered** button switches
+between the page and highlighted source. Fenced code can use its own language. Minified files with long average lines are shown plain.
 
 Drag to select, double-click a word, triple-click a line, or Shift+click to extend.
 **Ctrl+A** selects the loaded text and **Ctrl+C** copies the text selection. With
@@ -124,6 +128,22 @@ Arrow keys still move between files. Clicking outside the page closes Quick Look
 Reads are bounded. Large `.log` files show the last 256 KiB and open at the bottom;
 the caption identifies the tail. Do not assume a selected preview contains every
 byte of a large source file.
+
+## Rendered Markdown
+
+Quick Look renders headings, bold and italic text, inline code, lists and task boxes,
+quotes, simple pipe tables, links and fenced code blocks. Paragraphs and table cells
+wrap to the window; code uses the monospace font with syntax colours. **M** switches
+between rendered text and the original source. The button at the top offers the same
+switch. Home/End and Page Up/Down scroll either view; arrow keys still move between files.
+Select rendered text with the pointer or Ctrl+A, then copy with Ctrl+C. Copying rendered
+text omits markup; switch to Source to copy the original Markdown.
+
+This is a bounded Markdown subset, not a web page: HTML stays literal, links are styled
+text without navigation, and images show their alternative text as placeholders. Nothing
+fetches external resources. Reference links, deeply nested formatting and advanced Markdown
+extensions may remain literal. Parsing runs in the text preview helper; truncated files or
+presentation limits show **Preview truncated**. The information pane keeps highlighted source.
 
 ## Text in the information pane
 

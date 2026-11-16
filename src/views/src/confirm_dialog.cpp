@@ -31,6 +31,8 @@ void ConfirmDialog::open(std::string title, std::string detail, std::string acti
                          std::string warning) {
     ++generation_;
     password_mode_ = false;
+    field_masked_ = true;
+    name_accept_ = nullptr;
     password_field_.set_text({});
     warning_ = std::move(warning);
     title_ = std::move(title);
@@ -58,6 +60,17 @@ void ConfirmDialog::open_password(std::string name, bool retry,
     password_mode_ = true;
 }
 
+void ConfirmDialog::open_name(std::string title, std::string detail, std::string initial,
+                              std::function<std::string(const std::string&)> accept) {
+    open(std::move(title), std::move(detail), "Compress", [](bool) {}, "");
+    password_mode_ = true;
+    field_masked_ = false;
+    password_field_.set_masked(false);
+    password_field_.set_text(std::move(initial));
+    password_field_.select_all();
+    name_accept_ = std::move(accept);
+}
+
 void ConfirmDialog::paste(std::string_view text) {
     if (is_open() && password_mode_ &&
         text.find_first_of(std::string_view{"\r\n\0", 3}) == std::string_view::npos) {
@@ -80,6 +93,14 @@ void ConfirmDialog::close() {
 }
 
 void ConfirmDialog::choose(bool confirmed) {
+    if (confirmed && name_accept_) {
+        const std::string error = name_accept_(password_field_.text());
+        if (!error.empty()) {
+            set_detail(error);
+            return;
+        }
+    }
+    name_accept_ = nullptr;
     Answer answer = std::exchange(answer_, nullptr);
     redraw_();
     if (answer) {
@@ -171,7 +192,7 @@ void ConfirmDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                               .text = palette.on_surface,
                               .selection = palette.primary_container,
                               .caret = palette.primary},
-                             true);
+                             field_masked_);
     } else {
         renderer.draw_text(warning_, left, y, kTextSize, palette.on_surface_variant, room);
     }

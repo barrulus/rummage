@@ -167,6 +167,36 @@ The maintained reference is [config.example.toml](config.example.toml) in this r
 It is also installed at `share/rummage/config.example.toml`. Updating rummage does not replace
 your personal configuration; compare it with the reference when enabling new features.
 
+## Browse and create archives
+
+ZIP, TAR, tar.gz and single gzip files open as folders with **Enter**. Their contents
+are read-only: navigate folders normally, press **Space** for Quick Look, or select
+members and use **Ctrl+C**, then **Ctrl+V** in an ordinary folder to extract them.
+Copy to the other pane works too. An archive's own Quick Look card shows its file
+counts, unpacked size and first entries. Enter on a member extracts a private copy
+under `$XDG_CACHE_HOME/rummage/opened` and opens its associated application; changes
+to that copy do not update the archive. Old copies are cleaned after a day.
+
+The **Compress to ZIP…** and **Compress to tar.gz…** menu and command-palette entries
+ask for a filename, then create an archive beside the selection. These built-in
+writers need no external archive program. Enter confirms and Escape cancels the
+name dialog; existing names get numbered siblings. Progress appears in the status
+bar, **Shift+Escape** cancels, and **Ctrl+Z** moves the completed archive to Trash.
+
+Archive browsing supports stored/Deflate ZIP, TAR and gzip. Encrypted members and
+other compression methods can be listed but cannot be previewed or copied through
+the browser; use the extraction actions below for password-protected ZIP/7z/RAR and
+additional formats. Disc-image mounting and editing an archive in place are not
+supported. File pickers do not return virtual archive-member paths.
+
+Member extraction stages its output before publishing and never overwrites existing
+files. Unsafe paths and unsupported member types are left out with an explanation;
+symbolic and hard links must remain within the extracted selection. Large expansion
+ratios require confirmation. Archive preview reads are limited to 256 MiB per member;
+listings and folder trees also have bounds, so excessive archives report a limit.
+Copied-out members participate in file-operation undo; external extraction remains
+outside that history.
+
 ## Built-in extraction behavior
 
 The automatic presets prefer unrar for RAR, then 7zz/7z for ZIP/RAR/7z. Other

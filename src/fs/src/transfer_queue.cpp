@@ -7,7 +7,10 @@
 #include <optional>
 #include <utility>
 
+#include "rummage/fs/archive_folder.hpp"
+#include "rummage/fs/compress.hpp"
 #include "rummage/fs/erase.hpp"
+#include "rummage/fs/extract.hpp"
 #include "rummage/fs/trash.hpp"
 
 namespace rummage::fs {
@@ -81,6 +84,12 @@ void TransferQueue::work() {
             shared->current = token;
         }
 
+        if ((request->kind == TransferKind::copy || request->kind == TransferKind::move) &&
+            find_archive(request->source)) {
+            auto identified = *request;
+            identified.from_archive = true;
+            request = std::make_shared<const TransferRequest>(std::move(identified));
+        }
         auto last = std::chrono::steady_clock::now() - kProgressInterval;
         TransferCallbacks callbacks;
         callbacks.progress = [&](const TransferProgress& progress) {
@@ -132,6 +141,9 @@ void TransferQueue::work() {
 
         TransferResult result;
         switch (request->kind) {
+            case TransferKind::compress:
+                result = run_compress(*request, token, callbacks);
+                break;
             case TransferKind::trash:
                 result = run_trash(*request, token, callbacks);
                 break;
@@ -144,7 +156,13 @@ void TransferQueue::work() {
                 break;
             case TransferKind::copy:
             case TransferKind::move:
-                result = run_transfer(*request, token, callbacks);
+                if (request->from_archive) {
+                    if (request->kind == TransferKind::move)
+                        result.refused = "Archive contents are read-only; copy them instead";
+                    else
+                        result = run_extract(*request, token, callbacks);
+                } else
+                    result = run_transfer(*request, token, callbacks);
                 break;
         }
         loop_.post([this, alive = alive_, request, result = std::move(result)] {

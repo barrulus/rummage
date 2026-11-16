@@ -27,6 +27,7 @@
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/views/batch_rename_dialog.hpp"
 #include "rummage/views/breadcrumb.hpp"
 #include "rummage/views/column_view.hpp"
 #include "rummage/views/command_palette.hpp"
@@ -489,6 +490,8 @@ public:
     // F2: edits the name of the entry under the cursor (nothing without one).
     void start_rename();
 
+    [[nodiscard]] BatchRenameDialog& batch_rename_dialog() noexcept { return batch_rename_; }
+
     // Ctrl+Shift+N: makes "New Folder" (or "New Folder 2"...) in the folder shown, puts the cursor
     // on it and edits its name.
     void new_folder();
@@ -784,6 +787,9 @@ private:
     void record(FileOperation operation, Purpose purpose, bool failed);
     // Starts the inverse of operation, for an undo or a redo.
     void start_inverse(const FileOperation& operation, Purpose purpose);
+    void start_batch_rename(const std::shared_ptr<Folder>& folder, std::vector<std::string> names);
+    void apply_batch_rename(const std::filesystem::path& directory,
+                            std::vector<fs::RenameChange> changes, Purpose purpose);
     // Moves paths to the trash as one operation of purpose.
     void trash_paths(const std::vector<std::filesystem::path>& paths, Purpose purpose);
 
@@ -826,6 +832,11 @@ private:
     void run(Command command, Clock::time_point now);
     // Opens the selected files when the cursor is on a file (only the cursor's when it is not
     // selected); false when the cursor is on a folder or nowhere.
+    [[nodiscard]] bool opens_as_folder(const fs::Entry& file) const;
+    static constexpr std::string_view kArchiveReadOnly = "Archive contents are read-only";
+    void open_archive_members(const std::filesystem::path& source, std::vector<fs::Entry> files);
+    void compress(bool tar_gz);
+    void compress_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     bool open_selection();
     // F4: a terminal in the cursor's folder, else in the folder shown.
     void open_terminal();
@@ -990,6 +1001,10 @@ private:
     ConfirmDialog password_;
     PasswordDialog mount_password_;
     LocationDialog location_;
+    BatchRenameDialog batch_rename_;
+    bool batch_rename_preparing_{false};
+    bool batch_rename_running_{false};
+    std::uint64_t batch_rename_generation_{0};
     ErrorDialog errors_;
     PropertiesDialog properties_;
     SettingsDialog settings_;

@@ -318,4 +318,121 @@ std::optional<TextAsk> decode_text_request(std::span<const std::byte> bytes) {
     return ask;
 }
 
+namespace {
+
+struct EntryRecord {
+    std::uint8_t type{0};
+    std::uint8_t unreadable{0};
+    std::uint16_t reserved{0};
+    std::uint32_t mode{0};
+    std::int64_t mtime{0};
+    std::uint64_t size{0};
+    std::uint64_t packed{0};
+    std::uint64_t locator{0};
+    std::uint32_t path_length{0};
+    std::uint32_t link_length{0};
+};
+
+static_assert(sizeof(EntryRecord) == 48);
+
+constexpr std::size_t padded(std::size_t bytes) { return (bytes + 7) & ~std::size_t{7}; }
+
+}  // namespace
+
+std::vector<std::byte> encode_archive_payload(const std::vector<archive::Entry>& entries) {
+    std::vector<std::byte> out;
+    for (const archive::Entry& entry : entries) {
+        const EntryRecord record{.type = static_cast<std::uint8_t>(entry.type),
+                                 .unreadable = static_cast<std::uint8_t>(entry.unreadable),
+                                 .reserved = 0,
+                                 .mode = entry.mode,
+                                 .mtime = entry.mtime,
+                                 .size = entry.size,
+                                 .packed = entry.packed,
+                                 .locator = entry.locator,
+                                 .path_length = static_cast<std::uint32_t>(entry.path.size()),
+                                 .link_length = static_cast<std::uint32_t>(entry.link.size())};
+        const std::size_t at = out.size();
+        out.resize(at + sizeof(record) + padded(entry.path.size() + entry.link.size()));
+        std::memcpy(out.data() + at, &record, sizeof(record));
+        std::ranges::copy(std::as_bytes(std::span{entry.path}),
+                          out.begin() + static_cast<std::ptrdiff_t>(at + sizeof(record)));
+        std::ranges::copy(
+            std::as_bytes(std::span{entry.link}),
+            out.begin() + static_cast<std::ptrdiff_t>(at + sizeof(record) + entry.path.size()));
+    }
+    return out;
+}
+
+std::optional<std::vector<archive::Entry>> decode_archive_payload(
+    std::span<const std::byte> payload, std::uint32_t count, const archive::Limits& limits) {
+    if (count > limits.max_entries) {
+        return std::nullopt;
+    }
+    std::vector<archive::Entry> entries;
+    entries.reserve(count);
+    std::size_t at = 0;
+    for (std::uint32_t i = 0; i < count; ++i) {
+        EntryRecord record;
+        if (payload.size() - at < sizeof(record)) {
+            return std::nullopt;
+        }
+        std::memcpy(&record, payload.data() + at, sizeof(record));
+        at += sizeof(record);
+        if (record.type > static_cast<std::uint8_t>(archive::Type::other) ||
+            record.unreadable > static_cast<std::uint8_t>(archive::Unreadable::kind) ||
+            record.mode > 07777 || record.path_length > limits.max_path_bytes ||
+            record.link_length > limits.max_path_bytes ||
+            payload.size() - at < padded(std::size_t{record.path_length} + record.link_length)) {
+            return std::nullopt;
+        }
+        archive::Entry entry;
+        entry.type = static_cast<archive::Type>(record.type);
+        entry.unreadable = static_cast<archive::Unreadable>(record.unreadable);
+        entry.mode = record.mode;
+        entry.mtime = record.mtime;
+        entry.size = record.size;
+        entry.packed = record.packed;
+        entry.locator = record.locator;
+        const auto* chars = reinterpret_cast<const char*>(payload.data() + at);  // NOLINT: bytes
+        entry.path.assign(chars, record.path_length);
+        entry.link.assign(chars + record.path_length, record.link_length);
+        at += padded(std::size_t{record.path_length} + record.link_length);
+        entries.push_back(std::move(entry));
+    }
+    if (at != payload.size()) {
+        return std::nullopt;
+    }
+    return entries;
+}
+
+ArchiveReadRequest encode_archive_read(archive::Format format, const archive::Entry& entry,
+                                       std::uint64_t max_bytes) {
+    ArchiveReadRequest request;
+    request.format = static_cast<std::uint8_t>(format);
+    request.type = static_cast<std::uint8_t>(entry.type);
+    request.unreadable = static_cast<std::uint8_t>(entry.unreadable);
+    request.max_bytes = max_bytes;
+    request.size = entry.size;
+    request.locator = entry.locator;
+    return request;
+}
+
+std::optional<archive::Entry> decode_archive_read(const ArchiveReadRequest& request,
+                                                  archive::Format& format) {
+    if (request.magic != kRequestMagic || request.kind != Kind::archive_read ||
+        request.format > static_cast<std::uint8_t>(archive::Format::gzip) ||
+        request.type > static_cast<std::uint8_t>(archive::Type::other) ||
+        request.unreadable > static_cast<std::uint8_t>(archive::Unreadable::kind)) {
+        return std::nullopt;
+    }
+    format = static_cast<archive::Format>(request.format);
+    archive::Entry entry;
+    entry.type = static_cast<archive::Type>(request.type);
+    entry.unreadable = static_cast<archive::Unreadable>(request.unreadable);
+    entry.size = request.size;
+    entry.locator = request.locator;
+    return entry;
+}
+
 }  // namespace rummage::isolate::protocol

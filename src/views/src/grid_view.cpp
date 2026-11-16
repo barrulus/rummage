@@ -355,7 +355,8 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             const engines::Family* family =
                 entry.is_directory() ? nullptr : engines->find(*mime_, typed.mime);
             const bool video = mime_->name(typed.mime).starts_with("video/");
-            if (thumbnails_ != nullptr && (video || (family != nullptr && family->thumbnails))) {
+            if (thumbnails_ != nullptr &&
+                (video || (family != nullptr && family->thumbnails && !folder_->is_archive()))) {
                 thumbnail = thumbnails_->get(folder_->path_of(entry), entry.modified_ns,
                                              thumbnail_size, mime_->name(typed.mime), &failure);
             }
@@ -423,8 +424,7 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
-        draw_centered(renderer, model.error().message(), area_, area_.y + 24.0F, 14.0F,
-                      palette.error);
+        draw_centered(renderer, model.problem(), area_, area_.y + 24.0F, 14.0F, palette.error);
     } else if (entries.empty() && !model.loading()) {
         draw_centered(renderer, "Empty folder", area_, area_.y + 24.0F, 14.0F,
                       palette.on_surface_variant);

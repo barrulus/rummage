@@ -9,6 +9,7 @@
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "archive_text.hpp"
 #include "draw_helpers.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/format.hpp"
@@ -433,7 +434,8 @@ bool InfoPane::click(float x, float y) {
 }
 
 void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_ns,
-                       std::string mime, preview::Kind kind) {
+                       std::string mime, preview::Kind kind,
+                       std::shared_ptr<const fs::MimeDatabase> types) {
     std::string key = std::format("{}\n{}\n{}", path.string(), modified_ns, static_cast<int>(kind));
     if (key == key_) {
         return;
@@ -452,9 +454,10 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
     }
     job_ = pool_.submit(
         core::Priority::visible,
-        [path, mime = std::move(mime), kind](const core::CancelToken& token) {
+        [path, mime = std::move(mime), kind,
+         types = std::move(types)](const core::CancelToken& token) {
             return std::make_shared<const preview::Summary>(
-                preview::summarize(path, mime, kind, token));
+                preview::summarize(path, mime, kind, token, types));
         },
         [this, alive = alive_, key = key_](std::shared_ptr<const preview::Summary> summary) {
             if (!*alive || key != key_) {
@@ -464,6 +467,15 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
             summary_ = std::move(summary);
             redraw_();
         });
+}
+
+void InfoPane::forget_summary() {
+    key_.clear();
+    summary_.reset();
+    if (job_) {
+        job_->cancel();
+        job_.reset();
+    }
 }
 
 void InfoPane::measure(std::vector<std::filesystem::path> roots, std::string key) {
@@ -578,7 +590,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         // Several entries: how many, of which kind, and how big (with folders, added up on a
         // worker as for one).
         const SelectionSummary& selection = folder.summary();
-        if (selection.folders > 0) {
+        if (selection.folders > 0 && !folder.is_archive()) {
             std::vector<std::filesystem::path> roots;
             std::string key = folder.path().string();
             key += '\0' + std::to_string(folder.model().revision());
@@ -624,18 +636,25 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         typed.mime = folder.mime_of(*single);
         kind = preview::provider_for(mime, typed.mime).kind();
     }
-    if (single != nullptr && single->is_directory()) {
+    if (single != nullptr && single->is_directory() && !folder.is_archive()) {
         measure({path}, std::format("{}\n{}\n{}", path.string(), single->modified_ns,
                                     folder.model().revision()));
     } else {
         measure({}, {});
     }
-    request(path, single == nullptr ? 0 : single->modified_ns,
-            single == nullptr ? std::string{} : std::string{mime.name(typed.mime)}, kind);
+    if (folder.is_archive()) {
+        forget_summary();
+    } else {
+        request(path, single == nullptr ? 0 : single->modified_ns,
+                single == nullptr ? std::string{} : std::string{mime.name(typed.mime)}, kind,
+                folder.shared_mime());
+    }
     const preview::Summary* const summary = summary_.get();
     const preview::Info* const info = summary == nullptr ? nullptr : &summary->info;
     const picture::PhotoInfo* const photo =
         summary == nullptr || !summary->photo ? nullptr : &*summary->photo;
+    const preview::Archive* const held =
+        summary == nullptr || !summary->archive ? nullptr : &*summary->archive;
 
     // The preview takes the pane's whole width (a wider pane, a larger photo); the rows keep to
     // the column.
@@ -649,7 +668,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         const float box = std::min(preview_width, bounds.height * kMaxPreview);
         const ui::Texture* thumbnail = nullptr;
         picture::Failure failure = picture::Failure::none;
-        if (thumbnails_ != nullptr) {
+        if (thumbnails_ != nullptr && !folder.is_archive()) {
             thumbnail = thumbnails_->get(
                 path, single->modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(box * renderer.scale()))),
@@ -824,6 +843,18 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     } else {
         out.row("Size", format_size(single->size));
+        if (const archive::Entry* const packed = folder.model().archive_entry(single->name);
+            packed != nullptr && packed->packed != packed->size) {
+            out.row("Compressed", format_size(packed->packed));
+        }
+        // An archive: what it holds, once listed.
+        if (held != nullptr) {
+            const ArchiveRows rows = archive_rows(*held);
+            out.row("Contains", rows.contains);
+            out.row("Unpacked", rows.unpacked);
+            out.row("Encrypted", rows.encrypted);
+            out.row("Not readable yet", rows.unsupported);
+        }
         // The dot on the icon, in words (issue #17): for a file of a type that runs.
         if (!folder.is_trash() && folder.type_runs(*single)) {
             out.row("Runs as program", folder.runs_as_program(*single) ? "Yes" : "No");

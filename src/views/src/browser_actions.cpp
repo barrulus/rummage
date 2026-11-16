@@ -29,7 +29,7 @@ void Browser::set_actions(std::span<const core::Action> custom) {
 core::ActionContext Browser::action_context(const std::shared_ptr<Folder>& folder,
                                             bool background) const {
     core::ActionContext context;
-    if (!folder) {
+    if (!folder || folder->is_archive()) {
         return context;
     }
     std::error_code error;
@@ -118,6 +118,10 @@ void Browser::invoke_action(const core::Action& action, const core::ActionContex
 }
 
 void Browser::run_action(std::string_view id) {
+    if (const auto folder = current_folder(); folder && folder->is_archive()) {
+        show_message(std::string{kArchiveReadOnly} + "; extract the archive first", false);
+        return;
+    }
     const auto found = std::ranges::find(actions_, id, &core::Action::id);
     if (found != actions_.end()) {
         invoke_action(*found, action_context(current_folder()));

@@ -26,6 +26,8 @@ case-insensitive, not locale collation.
 ## Files and external applications
 
 - Copy/move with progress, cancellation and conflict choices; rename and create from templates.
+- Batch rename with a live preview, literal replacement, templates and numbering in view order;
+  darktable sidecars follow, and the batch has one Undo/Redo step.
 - Freedesktop Trash across filesystems, restore, confirmed permanent deletion and undo/redo.
 - Clipboard exchange and drag/drop with desktop applications.
 - Mounting internal partitions and removable disks through udisks2, with authorization when required.
@@ -34,11 +36,13 @@ case-insensitive, not locale collation.
 - darktable sidecars follow supported photo operations.
 - Copy Location, automatic archive backends and configurable external actions.
 - Destination pickers, completion notifications and nested/context-specific menus.
+- Browse ZIP, TAR, tar.gz and gzip archives, preview their members, copy files out,
+  and create ZIP or tar.gz archives from the selection.
 
 See [file operations](file-operations.md) and [actions](actions.md). Permanent
 removal cannot be undone; external commands/extraction are outside file-operation
-undo. File handling is local; general queued jobs, macros and batch rename are
-not implemented.
+undo. File handling is local; general queued jobs and macros are not implemented.
+Archive contents are read-only; extract files before changing them.
 
 ## Previews
 
@@ -49,12 +53,14 @@ not implemented.
 - Photo metadata, orientation/crop handling and shared freedesktop thumbnail caching.
 - Quick Look for pictures and text, with file-to-file navigation.
 - Text encoding detection, syntax colours, selection/copy and log tails.
+- Rendered Markdown in Quick Look, with a source toggle, headings, lists, tables,
+  emphasis and highlighted code blocks.
 - Optional isolated FFmpeg video thumbnails and Quick Look stills.
 - Optional isolated PDFium first-page thumbnails and Quick Look stills for PDFs, with lock and
   damage badges.
 
-See [previews and formats](previews.md) for decoder limits. Video playback, rendered
-Markdown and darktable rating import are not current capabilities. SVG theme icons
+See [previews and formats](previews.md) for decoder limits. Video playback and
+darktable rating import are not current capabilities. SVG theme icons
 use the same renderer in-process; SVG file previews use the sandboxed helper.
 
 ## Desktop integration and customization

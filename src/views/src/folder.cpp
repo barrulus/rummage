@@ -384,7 +384,7 @@ bool Folder::type_runs(const fs::Entry& entry) const {
 }
 
 bool Folder::runs_as_program(const fs::Entry& entry) const {
-    return (entry.mode & S_IXUSR) != 0 && !is_trash() && type_runs(entry);
+    return (entry.mode & S_IXUSR) != 0 && !is_trash() && !is_archive() && type_runs(entry);
 }
 
 std::filesystem::path Folder::path_of(const fs::Entry& entry) const {
