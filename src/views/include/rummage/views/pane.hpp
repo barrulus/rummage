@@ -51,6 +51,9 @@ struct Pane {
     ViewMode mode{ViewMode::columns};
     std::filesystem::path settings_folder;  // whose preferences are applied
     std::optional<State::FolderSettings> remembered_settings;
+    // Column focus may retain a saved mode without applying it to the current column chain.
+    std::optional<State::Mode> retained_folder_mode;
+    bool restore_mode_on_arrival{false};  // explicit navigation can finish unfolding asynchronously
     std::vector<HistoryStep> history;
     std::size_t here{0};  // where history is now
 };

@@ -213,9 +213,10 @@ TEST_CASE("settings: mouse wheel and keyboard reach fields in a short window") {
     rummage::ui::Offscreen gl{400, 360};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
     const auto draw = [&] {
         renderer.begin_frame(400, 360, 1, {});
-        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{});
+        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{}, icons);
         renderer.end_frame();
     };
     draw();
@@ -241,9 +242,10 @@ TEST_CASE("settings: scrollbar drags outside the list and releases capture") {
     ui::Offscreen gl{400, 360};
     ui::FontSystem fonts;
     ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
     const auto draw = [&] {
         renderer.begin_frame(400, 360, 1, {});
-        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{});
+        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{}, icons);
         renderer.end_frame();
     };
     draw();
@@ -300,9 +302,10 @@ TEST_CASE(
     ui::Offscreen gl{800, 700};
     ui::FontSystem fonts;
     ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
     const auto draw = [&] {
         renderer.begin_frame(800, 700, 1, {});
-        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{});
+        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{}, icons);
         renderer.end_frame();
     };
     draw();
@@ -385,4 +388,85 @@ TEST_CASE("settings: interface size, terminal arguments and program opening pers
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
     CHECK(core::load_config(f.path).config.terminal.program.empty());
+}
+
+TEST_CASE("settings: keyboard choices open a list and save the selected value") {
+    Fixture f;
+    f.open();
+    for (int i = 0; i < 3; ++i)
+        f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    // Open with Space, choose the final theme with End, and confirm with Enter.
+    f.dialog.key({.keysym = XKB_KEY_space, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    // Reopening starts at the current value; Space also confirms a menu choice.
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Up, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_space, .text = {}});
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(f.dialog.error().empty());
+    CHECK(core::load_config(f.path).config.appearance.color_scheme == "light");
+}
+
+TEST_CASE("settings: choice cancellation and Tab preserve values and text editing") {
+    Fixture f;
+    f.open();
+    for (int i = 0; i < 3; ++i)
+        f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Escape, .text = {}});
+    CHECK(f.dialog.is_open());
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    f.dialog.paste("builtin");
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(f.dialog.error().empty());
+    const auto config = core::load_config(f.path);
+    CHECK(config.config.appearance.color_scheme == "system");
+    CHECK(config.config.icon.theme == "builtin");
+}
+
+TEST_CASE("settings: pointer choices select from a menu and outside clicks only dismiss") {
+    Fixture f;
+    f.open();
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{800, 700};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 700, 1, {});
+        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    const auto click = [&](float x, float y) {
+        f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                          .x = x,
+                          .y = y,
+                          .button = ui::PointerButton::left});
+    };
+    draw();
+    click(100, 170);  // Colour theme, at the top of Appearance.
+    draw();
+    click(100, 267);  // Third menu choice: dark.
+    draw();
+    click(100, 170);
+    draw();
+    click(400, 640);  // Cancel button is behind the open menu: dismiss only.
+    CHECK(f.dialog.is_open());
+    draw();
+    click(100, 458);  // Follow desktop accent: On/Off choices.
+    draw();
+    click(100, 527);  // Off.
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(f.dialog.error().empty());
+    const auto config = core::load_config(f.path);
+    CHECK(config.config.appearance.color_scheme == "dark");
+    CHECK_FALSE(config.config.icon.follow_accent);
 }

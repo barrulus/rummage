@@ -14,6 +14,10 @@ Actions lets
 you add commands and edit custom action labels, argument arrays and enabled state. Advanced options remain
 available through **Open config**.
 
+Choice fields have a dropdown arrow. Click one or press Enter/Space while focused
+to see its options; use the arrow keys and Enter/Space to choose, or Escape to
+cancel. Tab dismisses the list and moves to the next control.
+
 **Save** validates changes and applies live settings; font family changes require a restart. Font size changes apply immediately.
 **Cancel** or **Escape** discards edits. Use Tab/Shift+Tab to move between controls,
 Alt+1/2/3 to switch sections, and Ctrl+S to save. Scroll within a section for more
@@ -140,7 +144,9 @@ locations, active tab, views, zoom, sorting, hidden visibility and filename filt
 Back/forward history and details-tree expansion are not saved across restarts.
 
 View mode, sort key/direction, row size, grid icon size and details-column choices, order and widths
-are remembered per folder. Revisiting a folder restores them; a folder without
+are remembered per folder. Opening a folder restores them. Moving focus between
+Miller columns keeps column view without replacing the folder’s saved view mode;
+choosing a view mode explicitly updates that preference. A folder without
 saved settings initially inherits the current view. Sorting one tab does not
 change other tabs. Existing tabs retain their own view and zoom until navigation;
 when the same folder is used in several tabs, the last-used settings are saved
