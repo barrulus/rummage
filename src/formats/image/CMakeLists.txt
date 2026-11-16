@@ -31,4 +31,4 @@ target_include_directories(rummage_formats_image PUBLIC include)
 target_link_libraries(rummage_formats_image
     PUBLIC rummage::picture
     PRIVATE PkgConfig::WEBP PkgConfig::JXL PkgConfig::HEIF PkgConfig::LCMS2
-            PkgConfig::ZLIB rummage::warnings)
+            PkgConfig::ZLIB rummage::svg rummage::warnings)

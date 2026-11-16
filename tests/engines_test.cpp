@@ -97,7 +97,7 @@ TEST_CASE("engines: the base engine shows what may_show listed before, and text"
     CHECK(family.info);
     CHECK(family.thumbnails);
     CHECK_FALSE(family.subclasses);
-    CHECK(family.mime.size() == kBefore.size());
+    CHECK(family.mime.size() == kBefore.size() + 1);
 
     const std::shared_ptr<const MimeDatabase> mime = MimeDatabase::load();
     for (const std::string_view type : kBefore) {
@@ -107,6 +107,8 @@ TEST_CASE("engines: the base engine shows what may_show listed before, and text"
         CHECK(registry->find(*mime, id) == &family);
     }
     CHECK(registry->engine_of(family) == &base);
+    // Exact SVG registration wins over its text/plain ancestry: previews and thumbnails.
+    CHECK(registry->find(*mime, mime->find("image/svg+xml")) == &family);
     for (const std::string_view type : {"application/pdf", "image/avif", "application/zip"}) {
         CAPTURE(type);
         CHECK(registry->find(*mime, mime->find(type)) == nullptr);
@@ -121,7 +123,7 @@ TEST_CASE("engines: the base engine shows what may_show listed before, and text"
     CHECK_FALSE(text.thumbnails);
     for (const std::string_view type :
          {"text/plain", "text/x-csrc", "text/x-python", "application/json", "application/toml",
-          "text/markdown", "image/svg+xml", "application/x-shellscript"}) {
+          "text/markdown", "application/x-shellscript"}) {
         CAPTURE(type);
         const rummage::fs::MimeId id = mime->find(type);
         REQUIRE(id != rummage::fs::kUnknownMime);

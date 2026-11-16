@@ -28,13 +28,33 @@ windows, its contents scroll while the action buttons remain visible.
 | Text | Isolated decoding, syntax colours and selectable text | Bounded reads; not an editor or rendered Markdown viewer |
 | Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
 | PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
-| SVG theme icons | rummage's in-process icon renderer | Not a Quick Look SVG-document provider |
+| SVG files | rummage's SVG renderer in the preview helper | Static previews and thumbnails; supported subset described below |
 | Other formats | File information and external application opening | No built-in audio player, archive-content or font preview |
 
 The [base engine manifest](../data/engines/base.toml) registers MIME families.
 Registration is not a guarantee that every subtype/sample can decode. The image
 loader checks bytes rather than trusting an extension. A detected type must also
 reach an appropriate provider; system MIME data matters.
+
+### SVG
+
+SVG files show as pictures in Quick Look, the information pane and thumbnails,
+using the same renderer as theme icons. File previews run inside `rummage-preview`'s
+sandbox; theme icons continue to render in-process.
+
+The renderer supports paths and shapes, strokes, gradients, basic CSS, groups,
+clipping, masks, colour matrices, Gaussian blur, patterns and embedded PNG/JPEG.
+It preserves transparency and aspect ratio. Input is capped at 8 MiB and the
+rendered preview at 1024 pixels per side; larger display requests use that bounded
+preview. The preview's pixel dimensions are not reported as intrinsic document
+dimensions.
+
+This is a static SVG subset: text, animation, scripts, external images/styles and
+other external resources are not rendered or fetched. Unsupported filter
+primitives leave the element unfiltered. Compressed SVG (`.svgz`) is not supported.
+Malformed documents and exhausted rendering limits produce a preview error.
+See the [SVG validation policy](svg-renderer-validation.md) for the renderer's
+resource limits.
 
 ### TIFF
 

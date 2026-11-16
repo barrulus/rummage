@@ -34,6 +34,12 @@ See [sandbox.cpp](../src/isolate/src/sandbox.cpp),
 [helpers.cpp](../src/isolate/src/helpers.cpp). Tests include forbidden-operation
 probes and helpers that deliberately crash, hang or send invalid results.
 
+SVG file previews also run in the base helper, using the existing SVG renderer
+with its input, geometry and work limits. The file adapter reads at most 8 MiB and
+caps the rendered side at 1024 pixels. It reads only the supplied descriptor;
+external SVG resources are never fetched. Theme icons use the separate in-process
+path described below.
+
 ## Boundaries outside the helper
 
 | Component | Boundary |
