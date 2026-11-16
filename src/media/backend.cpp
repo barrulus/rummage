@@ -11,6 +11,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -162,8 +163,10 @@ bool dark(const picture::Image& image) {
     return count * 100 >= (image.rgba.size() / 4) * 98;
 }
 
+// The frame as RGBA, upright, fitted to width x height; whole gets the video's own size, upright
+// and with its pixel aspect (what the frame would be unscaled).
 picture::Image convert(const AVFrame& frame, AVStream& stream, std::uint32_t width,
-                       std::uint32_t height) {
+                       std::uint32_t height, std::pair<std::uint32_t, std::uint32_t>& whole) {
     if (frame.width <= 0 || frame.height <= 0 ||
         static_cast<std::int64_t>(frame.width) * frame.height > kMaxPixels) {
         return {};
@@ -193,6 +196,11 @@ picture::Image convert(const AVFrame& frame, AVStream& stream, std::uint32_t wid
     const double display_width = frame.width * aspect;
     const double fit =
         std::min({1.0, width / display_width, static_cast<double>(height) / frame.height});
+    whole = {static_cast<std::uint32_t>(std::max(1.0, std::floor(display_width))),
+             static_cast<std::uint32_t>(frame.height)};
+    if (orientation == 6 || orientation == 8) {
+        std::swap(whole.first, whole.second);
+    }
     const int w = std::max(1, static_cast<int>(std::floor(display_width * fit)));
     const int h = std::max(1, static_cast<int>(std::floor(frame.height * fit)));
     SwsContext* scale =
@@ -271,6 +279,7 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
     const std::array<std::int64_t, 3> positions{duration > AV_TIME_BASE ? duration / 10 : 0,
                                                 duration > AV_TIME_BASE ? duration / 3 : 0, 0};
     picture::Image first_dark;
+    std::pair<std::uint32_t, std::uint32_t> first_dark_whole{0, 0};
     for (std::size_t attempt = 0; attempt < positions.size(); ++attempt) {
         if (attempt > 0 && positions[0] == 0) {
             break;
@@ -296,7 +305,8 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
                     av_frame_unref(decoder.frame);
                     continue;
                 }
-                auto image = convert(*decoder.frame, *stream, width, height);
+                std::pair<std::uint32_t, std::uint32_t> whole{0, 0};
+                auto image = convert(*decoder.frame, *stream, width, height, whole);
                 av_frame_unref(decoder.frame);
                 if (image.empty()) {
                     break;
@@ -304,10 +314,13 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
                 if (!dark(image)) {
                     picture::Loaded loaded;
                     loaded.image = std::move(image);
+                    loaded.full_width = whole.first;
+                    loaded.full_height = whole.second;
                     return loaded;
                 }
                 if (first_dark.empty()) {
                     first_dark = std::move(image);
+                    first_dark_whole = whole;
                 }
                 break;
             }
@@ -328,6 +341,8 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
     if (!first_dark.empty()) {
         picture::Loaded loaded;
         loaded.image = std::move(first_dark);
+        loaded.full_width = first_dark_whole.first;
+        loaded.full_height = first_dark_whole.second;
         return loaded;
     }
     return failure(Clock::now() >= source.deadline || source.read >= kReadBudget

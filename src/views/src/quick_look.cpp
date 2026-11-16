@@ -186,10 +186,20 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
             [cache = thumbnails_, path = slot.path,
              mime = std::string{mime_->name(folder_->mime_of(entry))}](
                 const core::CancelToken& token) {
-                return std::make_shared<picture::Image>(
-                    cache->get(path, thumbs::Size::large, mime, &token).image);
+                auto made = std::make_shared<thumbs::Thumbnail>(
+                    cache->get(path, thumbs::Size::large, mime, &token));
+                // A thumbnail smaller than its box was not scaled down: it is the whole image.
+                // Only for rasters; a vector's sharp image is drawn to fill the area anyway.
+                const std::uint32_t side = thumbs::pixels(thumbs::Size::large);
+                if (made->full_width == 0 && !made->image.empty() && mime.starts_with("image/") &&
+                    mime != "image/svg+xml" && made->image.width < side &&
+                    made->image.height < side) {
+                    made->full_width = made->image.width;
+                    made->full_height = made->image.height;
+                }
+                return made;
             },
-            [this, alive = alive_, key](std::shared_ptr<picture::Image> pixels) {
+            [this, alive = alive_, key](std::shared_ptr<thumbs::Thumbnail> made) {
                 if (!*alive) {
                     return;
                 }
@@ -198,8 +208,11 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                     return;
                 }
                 it->second.thumbnail_job.reset();
-                if (!pixels->empty()) {
-                    it->second.thumbnail_pixels = std::move(pixels);
+                if (!made->image.empty()) {
+                    it->second.thumbnail_full_width = made->full_width;
+                    it->second.thumbnail_full_height = made->full_height;
+                    it->second.thumbnail_pixels =
+                        std::shared_ptr<picture::Image>(made, &made->image);
                     redraw_();
                 }
             });
@@ -669,12 +682,25 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
                           palette.error.with_alpha(fade));
         }
     } else {
-        // The sharp image fitted to the area, never larger than its own pixels; a thumbnail
-        // fills the area, where the sharp image is likely to land.
+        // Fitted to the area, never larger than the whole picture's own pixels: its full size
+        // when known (a video frame or a raw preview made smaller than the file), else the
+        // pixels at hand. The thumbnail goes where the sharp image will land, so one replaces
+        // the other without a jump; with no size known it fills the area, as large pictures do.
         const auto texture_width = static_cast<float>(texture->width());
         const auto texture_height = static_cast<float>(texture->height());
         float fit = std::min(area.width / texture_width, area.height / texture_height);
-        if (texture == slot.image_texture.get()) {
+        const bool sharp = texture == slot.image_texture.get();
+        std::uint32_t whole_width = sharp && loaded != nullptr ? loaded->full_width : 0;
+        std::uint32_t whole_height = sharp && loaded != nullptr ? loaded->full_height : 0;
+        if (!sharp) {
+            whole_width = slot.thumbnail_full_width;
+            whole_height = slot.thumbnail_full_height;
+        }
+        if (whole_width > 0 && whole_height > 0) {
+            const float whole = std::min(static_cast<float>(whole_width) / texture_width,
+                                         static_cast<float>(whole_height) / texture_height);
+            fit = std::min(fit, std::max(whole, sharp ? 1.0F : 0.0F) / renderer.scale());
+        } else if (sharp) {
             fit = std::min(fit, 1.0F / renderer.scale());
         }
         const float shown_width = texture_width * fit;

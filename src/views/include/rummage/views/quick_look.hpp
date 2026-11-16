@@ -139,6 +139,10 @@ private:
         std::optional<core::CancelToken> summary_job;
         std::shared_ptr<preview::Summary> summary;
         std::shared_ptr<picture::Image> thumbnail_pixels;
+        // The size the sharp image will have, as the thumbnail knows it (0 when it does not): the
+        // thumbnail is shown at that size, so the sharp one replaces it without a jump.
+        std::uint32_t thumbnail_full_width{0};
+        std::uint32_t thumbnail_full_height{0};
         std::shared_ptr<preview::Content> content;  // once made (for images, the sharp stage)
         std::unique_ptr<ui::Texture> thumbnail_texture;
         std::unique_ptr<ui::Texture> image_texture;

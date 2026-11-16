@@ -31,6 +31,8 @@ TEST_CASE("media: actual sandbox decodes common codecs, rotation, fades and dark
         REQUIRE(loaded.failure == picture::Failure::none);
         CHECK(loaded.image.width == 96);
         CHECK(loaded.image.height == 48);
+        CHECK(loaded.full_width == 96);
+        CHECK(loaded.full_height == 48);
         CHECK(loaded.image.rgba[0] > 220);
         CHECK(loaded.image.rgba[1] < 30);
     }
@@ -39,6 +41,8 @@ TEST_CASE("media: actual sandbox decodes common codecs, rotation, fades and dark
     REQUIRE(rotated.failure == picture::Failure::none);
     CHECK(rotated.image.width == 48);
     CHECK(rotated.image.height == 96);
+    CHECK(rotated.full_width == 48);  // the whole video, upright
+    CHECK(rotated.full_height == 96);
     auto black =
         helpers.load({.path = fixtures / "black.mp4", .max_width = 128, .max_height = 128});
     REQUIRE(black.failure == picture::Failure::none);
@@ -47,6 +51,9 @@ TEST_CASE("media: actual sandbox decodes common codecs, rotation, fades and dark
     REQUIRE(scaled.failure == picture::Failure::none);
     CHECK(scaled.image.width == 32);
     CHECK(scaled.image.height == 16);
+    // Made smaller than the video: the whole size still says how large it is.
+    CHECK(scaled.full_width == 96);
+    CHECK(scaled.full_height == 48);
 }
 
 TEST_CASE("media: damaged files and external references fail without killing the app") {

@@ -84,6 +84,12 @@ TEST_CASE("thumbs: made once, then read from the cache until the file changes") 
     const thumbs::Thumbnail cached = cache.get(photo, thumbs::Size::normal);
     CHECK(cached.source == thumbs::Source::cache);
     CHECK(cached.image.rgba == made.image.rgba);
+    // The whole image's size, upright, stored with it (Thumb::Image::Width/Height): Quick Look
+    // shows the thumbnail where the sharp image will land.
+    CHECK(made.full_width == 320);
+    CHECK(made.full_height == 480);
+    CHECK(cached.full_width == 320);
+    CHECK(cached.full_height == 480);
 
     // Changed: the stored one no longer matches its Thumb::MTime.
     fs::last_write_time(photo, fs::last_write_time(photo) + std::chrono::seconds{10});
@@ -95,6 +101,8 @@ TEST_CASE("thumbs: made once, then read from the cache until the file changes") 
     CHECK(large.source == thumbs::Source::decoded);
     CHECK(large.image.width == 171);
     CHECK(large.image.height == 256);
+    CHECK(large.full_width == 320);
+    CHECK(large.full_height == 480);
 }
 
 TEST_CASE("thumbs: a failure is remembered until the file changes, make() tries again") {
