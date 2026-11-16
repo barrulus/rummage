@@ -19,6 +19,23 @@ use rummage. Details columns can be shown, hidden and reordered, with sortable
 creation/access times, owner, group, permissions, location and link target. Column
 layouts are saved per folder and tab. See [current features](features.md).
 
+ZIP, TAR, tar.gz and gzip archives can be browsed as read-only folders, with member
+previews and copy-out extraction. Selected files and folders can be compressed to
+ZIP or tar.gz. Existing external extraction backends remain available for other
+formats and encrypted archives.
+
+F2 on multiple selected items opens Batch Rename, with a live old/new preview,
+literal replacement, templates and numbering. Conflicts prevent applying the batch;
+sidecars follow their photos, and Undo/Redo applies to the whole batch.
+
+Markdown opens rendered in Quick Look, with headings, emphasis, lists, quotes,
+tables and highlighted code blocks. The visible toggle or M switches to source.
+Links are styled text; images and external resources are not loaded.
+
+The interface follows the system language and includes German. Translation catalogs
+support language-specific integer plurals and separate meanings of the same English
+word. File names and user-defined action labels keep their original spelling.
+
 ## Upstream release history
 
 The following entries summarize the user-visible changes in Nordend's releases.

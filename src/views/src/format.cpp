@@ -1,5 +1,4 @@
 #include "rummage/views/format.hpp"
-#include "rummage/core/i18n.hpp"
 
 #include <algorithm>
 #include <array>
@@ -7,15 +6,14 @@
 #include <ctime>
 #include <format>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::views {
 
 std::string format_size(std::uint64_t bytes) {
-    if (bytes == 1) {
-        return std::string{i18n::tr("1 byte")};
-    }
     constexpr std::uint64_t step = 1000;
     if (bytes < step) {
-        return i18n::trf("{} bytes", bytes);
+        return i18n::trn("{} byte", "{} bytes", bytes);
     }
     constexpr std::array<const char*, 6> units{"kB", "MB", "GB", "TB", "PB", "EB"};
     auto value = static_cast<double>(bytes) / static_cast<double>(step);

@@ -70,6 +70,22 @@ public:
     }
 };
 
+// An archive the base engine reads (zip, tar, tar.gz, .gz): what it holds, and its first entries.
+class ArchiveProvider final : public Provider {
+public:
+    [[nodiscard]] Kind kind() const override { return Kind::archive; }
+
+    [[nodiscard]] bool can_handle(const fs::MimeDatabase& mime, fs::MimeId type) const override {
+        const engines::Family* family = engines::installed()->find(mime, type);
+        return family != nullptr && family->shows == engines::Shows::archive;
+    }
+
+    [[nodiscard]] Content load(const Request& request,
+                               const core::CancelToken& /*cancel*/) const override {
+        return read_archive(request.path, request.types, kArchiveTopEntries);
+    }
+};
+
 // Everything else: the information card.
 class InfoProvider final : public Provider {
 public:
@@ -91,12 +107,16 @@ public:
 const Provider& provider_for(const fs::MimeDatabase& mime, fs::MimeId type) {
     static const ImageProvider kImage;
     static const TextProvider kText;
+    static const ArchiveProvider kArchive;
     static const InfoProvider kInfo;
     if (kImage.can_handle(mime, type)) {
         return kImage;
     }
     if (kText.can_handle(mime, type)) {
         return kText;
+    }
+    if (kArchive.can_handle(mime, type)) {
+        return kArchive;
     }
     return kInfo;
 }

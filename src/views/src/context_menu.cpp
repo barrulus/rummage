@@ -257,7 +257,7 @@ ui::Rect ContextMenu::measure(ui::Renderer& renderer, const std::vector<MenuItem
     float width = kMinWidth;
     float height = 2.0F * kPadding;
     for (const MenuItem& item : items) {
-        float line = text_width(renderer, i18n::tr(item.label));
+        float line = text_width(renderer, item.label);
         if (!item.keys.empty()) {
             line += kKeysGap + text_width(renderer, i18n::keys(item.keys));
         }
@@ -333,8 +333,7 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
                               {.fill = text, .radius = {}});
         }
         const float room = right - keys_width - label_x - (item.keys.empty() ? 0.0F : kKeysGap);
-        renderer.draw_text(i18n::tr(item.label), label_x, text_y, kTextSize, text,
-                           std::max(room, 1.0F));
+        renderer.draw_text(item.label, label_x, text_y, kTextSize, text, std::max(room, 1.0F));
         y += kItemHeight;
     }
 }

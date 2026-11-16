@@ -17,6 +17,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rummage/archive/archive.hpp"
 #include "rummage/picture/photo_info.hpp"
 #include "rummage/text/text.hpp"
 
@@ -43,6 +44,8 @@ enum class Kind : std::uint32_t {  // NOLINT(performance-enum-size)
     picture = 0,                   // the file's picture, max_width x max_height at most
     photo_info = 1,                // what the file says about itself (EXIF)
     text = 2,                      // the file's text (TextRequest)
+    archive_list = 3,              // an archive's entries (ArchiveListRequest)
+    archive_read = 4,  // one entry's bytes, into a second descriptor (ArchiveReadRequest)
 };
 
 struct Request {
@@ -94,9 +97,10 @@ struct TextResponse {
     std::uint8_t truncated{0};
     std::uint8_t crlf{0};
     std::uint32_t lines{0};
-    std::uint32_t bytes{0};          // of the lines joined by '\n'
-    std::uint32_t spans{0};          // coloured pieces, all lines together
-    std::uint16_t detail_length{0};  // at most kMaxDetail
+    std::uint32_t bytes{0};           // of the lines joined by '\n'
+    std::uint32_t spans{0};           // coloured pieces, all lines together
+    std::uint32_t markdown_bytes{0};  // bounded structured presentation after the text payload
+    std::uint16_t detail_length{0};   // at most kMaxDetail
     std::uint8_t language_length{0};
     std::uint8_t tail{0};  // 1: the lines are the file's end (text::Text::tail)
 };
@@ -131,6 +135,71 @@ struct TextAsk {
                                                          std::string_view name,
                                                          std::string_view mime);
 [[nodiscard]] std::optional<TextAsk> decode_text_request(std::span<const std::byte> bytes);
+
+inline constexpr std::uint32_t kArchiveListMagic = 0x4E50414C;  // "NPAL"
+inline constexpr std::uint32_t kArchiveReadMagic = 0x4E504152;  // "NPAR"
+
+// The most an archive's listing may weigh (entries and names): a helper refuses more.
+inline constexpr std::size_t kMaxArchivePayload = std::size_t{16} * 1024 * 1024;
+
+// An archive's entries, asked for with the archive's descriptor.
+struct ArchiveListRequest {
+    std::uint32_t magic{kRequestMagic};
+    Kind kind{Kind::archive_list};
+    std::uint32_t max_entries{0};
+    std::uint32_t max_path_bytes{0};
+};
+
+// The answer: this, then detail_length bytes of detail; with entries, a sealed memfd holding
+// them (encode_archive_payload).
+struct ArchiveListResponse {
+    std::uint32_t magic{kArchiveListMagic};
+    std::uint8_t failure{0};  // archive::Failure
+    std::uint8_t format{0};   // archive::Format
+    std::uint16_t detail_length{0};
+    std::uint32_t entries{0};
+    std::uint32_t payload_bytes{0};
+};
+
+// One entry's bytes, asked for with the archive's descriptor and the one to write them to. The
+// entry travels back as the listing gave it, without its names (the engine finds it by locator).
+struct ArchiveReadRequest {
+    std::uint32_t magic{kRequestMagic};
+    Kind kind{Kind::archive_read};
+    std::uint8_t format{0};
+    std::uint8_t type{0};
+    std::uint8_t unreadable{0};
+    std::uint8_t reserved{0};
+    std::uint32_t reserved2{0};
+    std::uint64_t max_bytes{0};
+    std::uint64_t size{0};
+    std::uint64_t locator{0};
+};
+
+struct ArchiveReadResponse {
+    std::uint32_t magic{kArchiveReadMagic};
+    std::uint8_t failure{0};
+    std::uint8_t reserved{0};
+    std::uint16_t detail_length{0};
+    std::uint64_t bytes{0};
+};
+
+// The entries as one payload: each a fixed record (type, unreadable, mode, mtime, size, packed,
+// locator, the lengths of its path and link), then its path and link, padded to 8 bytes.
+[[nodiscard]] std::vector<std::byte> encode_archive_payload(
+    const std::vector<archive::Entry>& entries);
+
+// The entries back from a payload; nullopt unless it holds exactly count entries, each with
+// known values and names within limits.
+[[nodiscard]] std::optional<std::vector<archive::Entry>> decode_archive_payload(
+    std::span<const std::byte> payload, std::uint32_t count, const archive::Limits& limits);
+
+// A read request from an entry, and the entry back from one (path and link empty).
+[[nodiscard]] ArchiveReadRequest encode_archive_read(archive::Format format,
+                                                     const archive::Entry& entry,
+                                                     std::uint64_t max_bytes);
+[[nodiscard]] std::optional<archive::Entry> decode_archive_read(const ArchiveReadRequest& request,
+                                                                archive::Format& format);
 
 inline constexpr std::size_t kMaxFds = 2;
 

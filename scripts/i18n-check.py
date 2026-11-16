@@ -11,6 +11,8 @@ Usage: scripts/i18n-check.py [--unwrapped] [--strict] [LANGUAGE...]
 """
 
 import argparse
+from collections import Counter
+import string
 import re
 import sys
 import tomllib
@@ -19,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LITERAL = r'"(?:[^"\\\n]|\\.)*"'
 ADJACENT = re.compile(rf"(?:{LITERAL}\s*){{2,}}")
-CALL = re.compile(rf"\b(?:i18n::)?trf?\(\s*({LITERAL})")
+CALL = re.compile(rf"\b(?:i18n::)?(trnc|trn|trcf|trc|trf|tr)\(\s*({LITERAL})(?:\s*,\s*({LITERAL}))?(?:\s*,\s*({LITERAL}))?")
 # Interface code: views, the app, and the platform/fs messages the views show.
 INTERFACE = ["src/views", "src/app", "src/platform/src", "src/fs/src", "src/ui/src"]
 
@@ -52,14 +54,141 @@ def sources():
             yield path
 
 
+def calls(source):
+    """(context, English key) -> singular for plurals, None for plain messages."""
+    used = {}
+    for name, first, second, third in CALL.findall(join_adjacent(source)):
+        args = [unescape(x) for x in (first, second, third) if x]
+        if name in ("tr", "trf"):
+            used[("", args[0])] = None
+        elif name in ("trc", "trcf") and len(args) >= 2:
+            used[(args[0], args[1])] = None
+        elif name == "trn" and len(args) >= 2:
+            used[("", args[1])] = args[0]
+        elif name == "trnc" and len(args) >= 3:
+            used[(args[0], args[2])] = args[1]
+    return used
+
+
 def used_texts():
-    """Texts passed to tr()/trf(), and every literal of the code (for unused entries)."""
-    used, literals = set(), set()
+    used, literals = {}, set()
     for path in sources():
         text = join_adjacent(path.read_text(encoding="utf-8"))
-        used.update(unescape(m) for m in CALL.findall(text))
+        used.update(calls(text))
         literals.update(unescape(m) for m in re.findall(LITERAL, text))
     return used, literals
+
+
+FORMS = {"zero", "one", "two", "few", "many", "other"}
+MAX_COUNT = 2**64 - 1
+
+
+def valid_rule(text):
+    if not isinstance(text, str) or not text or len(text) > 1024:
+        return False
+    relations = re.split(r"\s*(?:and|or)\s*", text)
+    if len(relations) > 32:
+        return False
+    for relation in relations:
+        match = re.fullmatch(r"\s*n\s*(?:%\s*([0-9]+))?\s*(!=|=)\s*(.*?)\s*", relation)
+        if not match:
+            return False
+        if match[1] and not 0 < int(match[1]) <= MAX_COUNT:
+            return False
+        ranges = match[3].split(",")
+        if len(ranges) > 32:
+            return False
+        for interval in ranges:
+            bounds = re.fullmatch(r"\s*([0-9]+)\s*(?:\.\.\s*([0-9]+))?\s*", interval)
+            if not bounds:
+                return False
+            low, high = int(bounds[1]), int(bounds[2] or bounds[1])
+            if not 0 <= low <= high <= MAX_COUNT:
+                return False
+    return True
+
+
+def fields(text):
+    """Compare argument identities, including escaped braces and reordered fields."""
+    out = Counter()
+    next_index = 0
+    automatic = explicit = False
+    def visit(value, depth=0):
+        nonlocal next_index, automatic, explicit
+        if depth > 8:
+            raise ValueError("format nesting is too deep")
+        for _, field, spec, _ in string.Formatter().parse(value):
+            if field is None:
+                continue
+            if field == "":
+                automatic = True
+                field = str(next_index)
+                next_index += 1
+            elif field.isdecimal():
+                explicit = True
+            out[field] += 1
+            if spec:
+                visit(spec, depth + 1)
+        if automatic and explicit:
+            raise ValueError("mixed automatic and numbered fields")
+    visit(text)
+    return out
+
+
+def catalog_messages(catalog):
+    texts, contexts = catalog.get("texts", {}), catalog.get("contexts", {})
+    if not isinstance(texts, dict) or not isinstance(contexts, dict):
+        raise ValueError("texts and contexts must be tables")
+    messages = {("", key): value for key, value in texts.items()}
+    for context, table in contexts.items():
+        if not context or not isinstance(table, dict):
+            raise ValueError("contexts must contain named message tables")
+        messages.update({(context, key): value for key, value in table.items()})
+    return messages
+
+
+def validate_catalog(catalog, used, literals):
+    problems = []
+    language = catalog.get("language", {})
+    if not isinstance(language, dict):
+        return [], [], ["language must be a table"]
+    if not isinstance(language.get("name"), str) or not language["name"]:
+        problems.append("language.name is required")
+    rules = language.get("plural_rules", {"one": "n = 1"})
+    if not isinstance(rules, dict):
+        problems.append("plural_rules must be a table")
+        rules = {}
+    for form, rule in rules.items():
+        if form not in FORMS - {"other"} or not valid_rule(rule):
+            problems.append(f"invalid plural rule: {form}")
+    required = set(rules) | {"other"}
+    try:
+        messages = catalog_messages(catalog)
+    except ValueError as error:
+        return [], [], problems + [str(error)]
+    missing = sorted(key for key in used if key not in messages and key[1].strip(" ({}),.:;") != "")
+    unused = sorted(key for key in messages if key not in used and (key[0] or key[1] not in literals))
+    for key, value in messages.items():
+        if isinstance(value, dict):
+            if set(value) - FORMS or required - set(value):
+                problems.append(f"{key}: plural forms must include {sorted(required)} and use known categories")
+            if key in used and used[key] is None:
+                problems.append(f"{key}: plural table used by a plain lookup")
+            values = value.values()
+        else:
+            if used.get(key) is not None:
+                problems.append(f"{key}: plural lookup needs a table")
+            values = [value]
+        for text in values:
+            try:
+                if not isinstance(text, str) or not text or fields(key[1]) != fields(text):
+                    problems.append(f"{key}: invalid text or changed placeholders")
+            except ValueError as error:
+                problems.append(f"{key}: {error}")
+        singular = used.get(key)
+        if singular is not None and fields(singular) != fields(key[1]):
+            problems.append(f"{key}: English singular/plural placeholders differ")
+    return missing, unused, problems
 
 
 def catalogs(wanted):
@@ -95,7 +224,7 @@ COMMENT = re.compile(r"//[^\n]*")
 def inside_tr(code, start):
     """Whether position start is inside the parentheses of a tr(/trf( call not yet closed."""
     window = code[max(0, start - 400):start]
-    for match in reversed(list(re.finditer(r"\btrf?\(", window))):
+    for match in reversed(list(re.finditer(r"\b(?:trnc|trn|trcf|trc|trf|tr)\(", window))):
         between = re.sub(LITERAL, '""', window[match.end():])
         if between.count("(") >= between.count(")"):
             return True
@@ -133,18 +262,20 @@ def main():
     found = False
     for code, catalog in catalogs(set(args.languages)):
         found = True
-        texts = catalog.get("texts", {})
-        missing = sorted(t for t in used if t not in texts and t.strip(" ({}),.:;") != "")
-        unused = sorted(t for t in texts if t not in literals)
-        name = catalog.get("language", {}).get("name", code)
-        print(f"{code} ({name}): {len(texts)} texts, {len(missing)} missing, {len(unused)} unused")
-        for text in missing:
-            print(f"  missing: {text!r}")
-        for text in unused:
-            print(f"  unused:  {text!r}")
-        failed |= bool(missing or unused)
+        missing, unused, problems = validate_catalog(catalog, used, literals)
+        language = catalog.get("language", {})
+        name = language.get("name", code) if isinstance(language, dict) else code
+        try:
+            texts = catalog_messages(catalog)
+        except ValueError:
+            texts = {}
+        print(f"{code} ({name}): {len(texts)} messages, {len(missing)} missing, {len(unused)} unused, {len(problems)} invalid")
+        for label, entries in (("missing", missing), ("unused", unused), ("invalid", problems)):
+            for entry in entries:
+                print(f"  {label}: {entry!r}")
+        failed |= bool(missing or unused or problems)
         if args.unwrapped:
-            for line in unwrapped(texts):
+            for line in unwrapped({key for _, key in texts}):
                 print(f"  not wrapped? {line}")
     if not found:
         print("no catalog in data/i18n matches", file=sys.stderr)

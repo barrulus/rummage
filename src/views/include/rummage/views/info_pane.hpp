@@ -177,8 +177,10 @@ public:
 
 private:
     // Reads path's summary unless it is the one shown or on its way.
+    // No summary (inside an archive: nothing to read from disk).
+    void forget_summary();
     void request(const std::filesystem::path& path, std::int64_t modified_ns, std::string mime,
-                 preview::Kind kind);
+                 preview::Kind kind, std::shared_ptr<const fs::MimeDatabase> types);
 
     // No roots cancels any pending or running measurement.
     void measure(std::vector<std::filesystem::path> roots, std::string key);

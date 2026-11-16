@@ -121,6 +121,7 @@ pkg_check_modules(TURBOJPEG IMPORTED_TARGET libturbojpeg)  # optional for now: t
 add_subdirectory(src/core)      # logging, event loop, worker pool, config
 add_subdirectory(src/ui)        # Wayland connection, windows, rendering
 add_subdirectory(src/theme)     # Noctalia palette, hot reload
+add_subdirectory(src/archive)   # archive data shared with the isolated reader
 add_subdirectory(src/fs)        # directory loading and sorting
 add_subdirectory(src/engines)   # engines' manifests: who shows which type (3a)
 add_subdirectory(src/text)      # text files: the Text type, the loader (3b)

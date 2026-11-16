@@ -554,6 +554,11 @@ constexpr std::array kShortcuts{
 
     // Quick Look
     Shortcut{.group = "Quick Look",
+             .keys = "M",
+             .action = "Markdown: rendered text or source",
+             .scope = scope::kQuickLook,
+             .keysyms = {XKB_KEY_m, XKB_KEY_M}},
+    Shortcut{.group = "Quick Look",
              .keys = "Space  Escape",
              .action = "Close",
              .scope = scope::kQuickLook,

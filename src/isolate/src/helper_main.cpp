@@ -1,7 +1,9 @@
 // rummage-preview: rummage's preview helper (ROADMAP 2b). Started by rummage with a socket on
 // descriptor 3, never by hand: the base engine (data/engines/base.toml). It reads files only
-// through the descriptors rummage sends, turns them into pictures (the image family) or texts
-// (the text family), and answers with the pixels or the lines in a sealed memfd. It leaves after
+// through the descriptors rummage sends, turns them into pictures (the image family), texts
+// (the text family) or archive listings (the archive family), and answers with the pixels, the
+// lines or the entries in a sealed memfd; an archive entry's bytes go to a descriptor rummage
+// sends with the archive's. It leaves after
 // --idle-ms without work (a goodbye first), or when rummage closes the socket.
 
 #include <algorithm>
@@ -26,8 +28,8 @@
 #include <vector>
 
 #include "backend.hpp"
-#include "rummage/picture/load.hpp"
 #include "protocol.hpp"
+#include "rummage/picture/load.hpp"
 #include "sandbox.hpp"
 
 namespace isolate = rummage::isolate;
@@ -114,8 +116,9 @@ void answer_text(int socket, int file, const protocol::TextAsk& ask) {
         language = std::string_view{loaded.text.language}.substr(0, protocol::kMaxField);
         std::uint32_t text_bytes = 0;
         std::uint32_t spans = 0;
-        const std::vector<std::byte> all =
-            protocol::encode_text_payload(loaded.text, text_bytes, spans);
+        std::vector<std::byte> all = protocol::encode_text_payload(loaded.text, text_bytes, spans);
+        const auto markdown = rummage::text::encode_markdown(loaded.text.markdown);
+        all.insert(all.end(), markdown.begin(), markdown.end());
         payload = all.empty() ? -1 : sealed_memfd("rummage-text", all);
         if (!all.empty() && payload < 0) {
             response.failure = static_cast<std::uint8_t>(rummage::text::Failure::unreadable);
@@ -124,6 +127,7 @@ void answer_text(int socket, int file, const protocol::TextAsk& ask) {
             response.lines = static_cast<std::uint32_t>(loaded.text.lines.size());
             response.bytes = text_bytes;
             response.spans = spans;
+            response.markdown_bytes = static_cast<std::uint32_t>(markdown.size());
         }
     }
     const std::string_view detail = std::string_view{loaded.detail}.substr(0, protocol::kMaxDetail);
@@ -146,6 +150,66 @@ void answer_text(int socket, int file, const protocol::TextAsk& ask) {
     if (payload >= 0) {
         ::close(payload);
     }
+}
+
+void answer_archive_list(int socket, int file, const rummage::archive::Limits& limits) {
+    rummage::archive::Listing listing = isolate::backend::list_archive(file, limits);
+    std::vector<std::byte> payload = protocol::encode_archive_payload(listing.entries);
+    if (payload.size() > protocol::kMaxArchivePayload) {
+        listing.failure = rummage::archive::Failure::too_large;
+        listing.detail = "its list is too large";
+        listing.entries.clear();
+        payload.clear();
+    }
+    protocol::ArchiveListResponse response;
+    response.failure = static_cast<std::uint8_t>(listing.failure);
+    response.format = static_cast<std::uint8_t>(listing.format);
+    int entries = -1;
+    if (!payload.empty()) {
+        entries = sealed_memfd("rummage-archive", payload);
+        if (entries < 0) {
+            response.failure = static_cast<std::uint8_t>(rummage::archive::Failure::unreadable);
+            listing.detail = "out of memory";
+        } else {
+            response.entries = static_cast<std::uint32_t>(listing.entries.size());
+            response.payload_bytes = static_cast<std::uint32_t>(payload.size());
+        }
+    }
+    const std::string_view detail =
+        std::string_view{listing.detail}.substr(0, protocol::kMaxDetail);
+    response.detail_length = static_cast<std::uint16_t>(detail.size());
+    std::array<std::byte, sizeof(response) + protocol::kMaxDetail> bytes{};
+    std::memcpy(bytes.data(), &response, sizeof(response));
+    std::ranges::copy(std::as_bytes(std::span{detail}), bytes.begin() + sizeof(response));
+    const std::array<int, 1> fds{entries};
+    static_cast<void>(
+        protocol::send_packet(socket, std::span{bytes}.first(sizeof(response) + detail.size()),
+                              entries >= 0 ? std::span<const int>{fds} : std::span<const int>{}));
+    if (entries >= 0) {
+        ::close(entries);
+    }
+}
+
+void answer_archive_read(int socket, int file, int out, const protocol::ArchiveReadRequest& ask) {
+    rummage::archive::Format format{};
+    const std::optional<rummage::archive::Entry> entry = protocol::decode_archive_read(ask, format);
+    rummage::archive::Read read;
+    if (entry) {
+        read = isolate::backend::read_archive_entry(file, format, *entry, out, ask.max_bytes);
+    } else {
+        read.failure = rummage::archive::Failure::unreadable;
+        read.detail = "not an entry";
+    }
+    protocol::ArchiveReadResponse response;
+    response.failure = static_cast<std::uint8_t>(read.failure);
+    response.bytes = read.bytes;
+    const std::string_view detail = std::string_view{read.detail}.substr(0, protocol::kMaxDetail);
+    response.detail_length = static_cast<std::uint16_t>(detail.size());
+    std::array<std::byte, sizeof(response) + protocol::kMaxDetail> bytes{};
+    std::memcpy(bytes.data(), &response, sizeof(response));
+    std::ranges::copy(std::as_bytes(std::span{detail}), bytes.begin() + sizeof(response));
+    static_cast<void>(
+        protocol::send_packet(socket, std::span{bytes}.first(sizeof(response) + detail.size())));
 }
 
 void answer_photo_info(int socket, int file) {
@@ -237,7 +301,24 @@ int main(int argc, char** argv) {
         const std::span<const std::byte> bytes = std::span{packet->bytes}.first(packet->length);
         protocol::Request request;
         bool understood = magic == protocol::kRequestMagic;
-        if (understood && kind == protocol::Kind::text) {
+        if (understood && kind == protocol::Kind::archive_list &&
+            packet->length == sizeof(protocol::ArchiveListRequest)) {
+            protocol::ArchiveListRequest ask;
+            std::memcpy(&ask, packet->bytes.data(), sizeof(ask));
+            const rummage::archive::Limits most;
+            understood = ask.max_entries > 0 && ask.max_entries <= most.max_entries &&
+                         ask.max_path_bytes > 0 && ask.max_path_bytes <= most.max_path_bytes;
+            if (understood) {
+                answer_archive_list(
+                    socket, file,
+                    {.max_entries = ask.max_entries, .max_path_bytes = ask.max_path_bytes});
+            }
+        } else if (understood && kind == protocol::Kind::archive_read &&
+                   packet->length == sizeof(protocol::ArchiveReadRequest) && packet->fds[1] >= 0) {
+            protocol::ArchiveReadRequest ask;
+            std::memcpy(&ask, packet->bytes.data(), sizeof(ask));
+            answer_archive_read(socket, file, packet->fds[1], ask);
+        } else if (understood && kind == protocol::Kind::text) {
             const std::optional<protocol::TextAsk> ask = protocol::decode_text_request(bytes);
             understood = ask.has_value();
             if (ask) {

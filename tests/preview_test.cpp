@@ -83,7 +83,7 @@ TEST_CASE("preview: the provider for a type") {
     const preview::Content missing = content_of("text/plain", dir.path / "missing.txt");
     REQUIRE(std::holds_alternative<preview::Info>(missing));
     CHECK_FALSE(std::get<preview::Info>(missing).error.empty());
-    CHECK(std::holds_alternative<preview::Info>(content_of("application/zip", json)));
+    CHECK(std::holds_alternative<preview::Archive>(content_of("application/zip", json)));
     CHECK(std::holds_alternative<preview::Info>(content_of("inode/directory", dir.path)));
     CHECK(std::holds_alternative<rummage::picture::Loaded>(
         content_of("image/png", fs::path{RUMMAGE_TEST_DATA} / "image" / "blocks.png")));

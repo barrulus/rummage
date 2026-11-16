@@ -32,3 +32,7 @@ target_link_options(rummage-fuzz-text PRIVATE -fsanitize=fuzzer)
 add_executable(rummage-fuzz-svg fuzz_svg.cpp)
 target_link_libraries(rummage-fuzz-svg PRIVATE rummage::svg rummage::warnings)
 target_link_options(rummage-fuzz-svg PRIVATE -fsanitize=fuzzer)
+
+add_executable(rummage-fuzz-archive fuzz_archive.cpp)
+target_link_libraries(rummage-fuzz-archive PRIVATE rummage::formats::archive rummage::warnings)
+target_link_options(rummage-fuzz-archive PRIVATE -fsanitize=fuzzer)

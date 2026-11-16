@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 #include <doctest/doctest.h>
 
@@ -87,10 +88,10 @@ TEST_CASE("i18n: every catalog parses, names itself and keeps the fields of its 
         CHECK(i18n::language_name(code) != code);  // [language] name, so the file parsed
         const auto entries = i18n::entries(code);
         CHECK_FALSE(entries.empty());
-        std::set<std::string_view> seen;
+        std::set<std::tuple<std::string_view, std::string_view, std::string_view>> seen;
         for (const i18n::Entry& entry : entries) {
             CAPTURE(entry.english);
-            CHECK(seen.insert(entry.english).second);
+            CHECK(seen.emplace(entry.context, entry.english, entry.form).second);
             CHECK_FALSE(entry.translated.empty());
             CHECK(fields(entry.english) == fields(entry.translated));
         }

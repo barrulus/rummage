@@ -1,6 +1,7 @@
 #include "rummage/fs/directory_model.hpp"
 
 #include <algorithm>
+#include <format>
 #include <initializer_list>
 #include <optional>
 #include <string_view>
@@ -52,6 +53,10 @@ void DirectoryModel::open(std::filesystem::path path) {
     std::error_code error;
     watch_ = watcher_.watch(
         path_, [this](const std::vector<DirectoryEvent>& events) { on_events(events); }, error);
+    if (error == std::errc::not_a_directory) {
+        load_archive();  // a file, or a path through one: an archive's folder, or an error
+        return;
+    }
     if (error == std::errc::no_space_on_device) {
         // The per-user inotify watch limit: show the directory anyway, without live updates.
         log::warn("{}: cannot watch for changes (inotify watch limit reached)", path_.string());
@@ -142,6 +147,76 @@ void DirectoryModel::stop() {
     trashed_.clear();
     trash_ = false;
     trash_again_ = false;
+    archive_tree_.reset();
+    archive_at_ = {};
+    problem_.clear();
+}
+
+std::string DirectoryModel::problem() const {
+    if (!problem_.empty()) {
+        return problem_;
+    }
+    return error_ ? error_.message() : std::string{};
+}
+
+const archive::Entry* DirectoryModel::archive_entry(const std::string& name) const {
+    if (!archive_tree_) {
+        return nullptr;
+    }
+    return archive_tree_->entry(archive_at_.inner.empty() ? name : archive_at_.inner + "/" + name);
+}
+
+void DirectoryModel::load_archive() {
+    struct Found {
+        std::optional<ArchiveLocation> where;
+        std::shared_ptr<const ArchiveTree> tree;
+    };
+
+    loading_ = true;
+    refresh_running_ = true;
+    refresh_job_ = pool_.submit(
+        core::Priority::visible,
+        [path = path_, mime = options_.mime](const core::CancelToken& /*token*/) {
+            Found found;
+            found.where = find_archive(path);
+            if (found.where) {
+                found.tree = fs::archive_tree(found.where->archive, mime.get());
+            }
+            return found;
+        },
+        [this](Found found) {
+            refresh_running_ = false;
+            loading_ = false;
+            if (!found.where || !found.tree) {
+                fail(std::make_error_code(std::errc::not_a_directory));
+                return;
+            }
+            const ArchiveTree& tree = *found.tree;
+            const std::vector<Entry>* entries = tree.folder(found.where->inner);
+            const bool failed = tree.failure() != archive::Failure::none;
+            if (entries == nullptr || (failed && entries->empty())) {
+                fail_with(std::make_error_code(std::errc::io_error),
+                          failed ? tree.detail() : std::string{"no such folder in the archive"});
+                return;
+            }
+            archive_tree_ = std::move(found.tree);
+            archive_at_ = std::move(*found.where);
+            if (failed) {
+                problem_ = "damaged: " + archive_tree_->detail();
+            } else if (const std::size_t out = archive_tree_->left_out(); out > 0) {
+                problem_ = std::format("{} {} with unsafe names left out", out,
+                                       out == 1 ? "entry" : "entries");
+            }
+            ModelChange change;
+            change.added.reserve(entries->size());
+            for (const Entry& entry : *entries) {
+                names_.insert(entry.name);
+                change.added.push_back(entry.name);
+            }
+            listing_.add(std::vector<Entry>{*entries});
+            notify(change);
+            notify(loaded_change());
+        });
 }
 
 const TrashedItem* DirectoryModel::trashed(const std::string& name) const {
@@ -404,9 +479,12 @@ void DirectoryModel::notify(const ModelChange& change) {
     }
 }
 
-void DirectoryModel::fail(std::error_code error) {
+void DirectoryModel::fail(std::error_code error) { fail_with(error, {}); }
+
+void DirectoryModel::fail_with(std::error_code error, std::string problem) {
     stop();
     error_ = error;
+    problem_ = std::move(problem);
     listing_.clear();
     names_.clear();
     notify(reset_change());

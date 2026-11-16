@@ -16,7 +16,7 @@ enum class Ellipsis : std::uint8_t {
 };
 
 // Which fallback chain text is set in: the interface font, or a monospace one (text previews).
-enum class Typeface : std::uint8_t { proportional, monospace };
+enum class Typeface : std::uint8_t { proportional, monospace, bold, italic, bold_italic };
 
 // One positioned glyph. Positions are physical pixels relative to the start of the baseline.
 struct ShapedGlyph {
@@ -58,8 +58,8 @@ struct GlyphBitmap {
 // name. Invalid UTF-8 (possible in Linux file names) becomes U+FFFD. Bidirectional text is not
 // reordered yet: right-to-left scripts render in logical order.
 //
-// Two fallback chains: family for the interface, monospace (looked up on first use) for text
-// previews. A font in both is loaded once.
+// Fallback chains: family for the interface, monospace for code, and bold/italic variants
+// for rendered text (looked up on first use). A font in multiple chains is loaded once.
 //
 // Not thread-safe; owned by the UI thread. Throws std::runtime_error if no font can be loaded.
 class FontSystem {

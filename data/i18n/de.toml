@@ -10,6 +10,9 @@
 name = "Deutsch"
 decimal_separator = ","
 
+[language.plural_rules]
+one = "n = 1"
+
 # Key names in shortcuts, as German keyboards label them.
 [keys]
 Ctrl = "Strg"
@@ -32,22 +35,19 @@ moves = "Bewegung"
 [texts]
 # Sizes and counts
 "1 byte" = "1 Byte"
-"{} bytes" = "{} Bytes"
-"1 item" = "1 Objekt"
-"{} items" = "{} Objekte"
+"{} bytes" = { one = "{} Byte", other = "{} Bytes" }
+"{} items" = { one = "{} Objekt", other = "{} Objekte" }
 "1 file" = "1 Datei"
-"{} files" = "{} Dateien"
-"1 folder" = "1 Ordner"
-"{} folders" = "{} Ordner"
-"1 line" = "1 Zeile"
-"{} lines" = "{} Zeilen"
-"first {} lines" = "erste {} Zeilen"
-"last {} lines" = "letzte {} Zeilen"
+"{} files" = { one = "{} Datei", other = "{} Dateien" }
+"{} folders" = { one = "{} Ordner", other = "{} Ordner" }
+"{} lines" = { one = "{} Zeile", other = "{} Zeilen" }
+"first {} lines" = { one = "erste {} Zeile", other = "erste {} Zeilen" }
+"last {} lines" = { one = "letzte {} Zeile", other = "letzte {} Zeilen" }
 " (default)" = " (Standard)"
 
 # Status bar and views
 "{} of {} selected" = "{} von {} ausgewählt"
-"{} items, loading…" = "{} Objekte, lädt…"
+"{} items, loading…" = { one = "{} Objekt, lädt…", other = "{} Objekte, lädt…" }
 ", {} hidden" = ", {} verborgen"
 "  ·  {} free of {}" = "  ·  {} von {} frei"
 "Loading…" = "Lädt…"
@@ -56,8 +56,8 @@ moves = "Bewegung"
 "Size" = "Größe"
 "Modified" = "Geändert"
 "Type" = "Typ"
-"Searching… {} items" = "Suche… {} Objekte"
-"Stopped at {} items" = "Gestoppt bei {} Objekten"
+"Searching… {1} items" = { one = "Suche… {1} Objekt", other = "Suche… {1} Objekte" }
+"Stopped at {1} items" = { one = "Gestoppt bei {1} Objekt", other = "Gestoppt bei {1} Objekten" }
 "No matches" = "Keine Treffer"
 "Trash" = "Papierkorb"
 "Home" = "Persönlicher Ordner"
@@ -252,30 +252,26 @@ moves = "Bewegung"
 "Already here" = "Bereits hier"
 "“{}” cannot go into itself" = "„{}“ lässt sich nicht in sich selbst ablegen"
 "Opened “{}” in a new tab" = "„{}“ in neuem Tab geöffnet"
-"Opened {} folders in new tabs" = "{} Ordner in neuen Tabs geöffnet"
+"Opened {} folders in new tabs" = { one = "{} Ordner in einem neuen Tab geöffnet", other = "{} Ordner in neuen Tabs geöffnet" }
 "Hidden files shown" = "Verborgene Dateien sichtbar"
 "Hidden files hidden" = "Verborgene Dateien ausgeblendet"
 
 # Copying, moving, the trash, deleting
 "Getting ready to copy…" = "Kopieren wird vorbereitet…"
 "Getting ready to move…" = "Verschieben wird vorbereitet…"
-"Getting ready to copy 1 item…" = "Kopieren von 1 Objekt wird vorbereitet…"
-"Getting ready to copy {} items…" = "Kopieren von {} Objekten wird vorbereitet…"
-"Getting ready to move 1 item…" = "Verschieben von 1 Objekt wird vorbereitet…"
-"Getting ready to move {} items…" = "Verschieben von {} Objekten wird vorbereitet…"
+"Getting ready to copy {} items…" = { one = "Kopieren von {} Objekt wird vorbereitet…", other = "Kopieren von {} Objekten wird vorbereitet…" }
+"Getting ready to move {} items…" = { one = "Verschieben von {} Objekt wird vorbereitet…", other = "Verschieben von {} Objekten wird vorbereitet…" }
 "Getting ready to delete…" = "Löschen wird vorbereitet…"
 "Getting ready to empty the trash…" = "Leeren des Papierkorbs wird vorbereitet…"
-"Copying 1 file · {} of {}" = "Kopieren: 1 Datei · {} von {}"
-"Copying {} files · {} of {}" = "Kopieren: {} Dateien · {} von {}"
-"Moving 1 file · {} of {}" = "Verschieben: 1 Datei · {} von {}"
-"Moving {} files · {} of {}" = "Verschieben: {} Dateien · {} von {}"
+"Copying {} files · {} of {}" = { one = "Kopieren: {} Datei · {} von {}", other = "Kopieren: {} Dateien · {} von {}" }
+"Moving {} files · {} of {}" = { one = "Verschieben: {} Datei · {} von {}", other = "Verschieben: {} Dateien · {} von {}" }
 " · {}/s · {} left" = " · {}/s · noch {}"
 " · {} more waiting" = " · {} weitere warten"
-"Moving {} of {} items" = "Verschieben: {} von {} Objekten"
-"Moving {} of {} items to the trash" = "In den Papierkorb: {} von {} Objekten"
-"Restoring {} of {} items" = "Wiederherstellen: {} von {} Objekten"
-"Deleting {} of {} files and folders" = "Löschen: {} von {} Dateien und Ordnern"
-"Emptying the trash: {} of {} files and folders" = "Papierkorb leeren: {} von {} Dateien und Ordnern"
+"Moving {1} of {0} items" = { one = "Verschieben: {1} von {0} Objekt", other = "Verschieben: {1} von {0} Objekten" }
+"Moving {1} of {0} items to the trash" = { one = "In den Papierkorb: {1} von {0} Objekt", other = "In den Papierkorb: {1} von {0} Objekten" }
+"Restoring {1} of {0} items" = { one = "Wiederherstellen: {1} von {0} Objekt", other = "Wiederherstellen: {1} von {0} Objekten" }
+"Deleting {1} of {0} files and folders" = { one = "Löschen: {1} von {0} Datei oder Ordner", other = "Löschen: {1} von {0} Dateien und Ordnern" }
+"Emptying the trash: {1} of {0} files and folders" = { one = "Papierkorb leeren: {1} von {0} Datei oder Ordner", other = "Papierkorb leeren: {1} von {0} Dateien und Ordnern" }
 "Copied {} ({})" = "{} kopiert ({})"
 "Moved {} ({})" = "{} verschoben ({})"
 "Copied {}; {} could not be: {}" = "{} kopiert; {} fehlgeschlagen: {}"
@@ -283,12 +279,11 @@ moves = "Bewegung"
 "Stopped: {} copied so far" = "Abgebrochen: {} bereits kopiert"
 "Stopped: {} moved so far" = "Abgebrochen: {} bereits verschoben"
 "Nothing to do: every name was skipped" = "Nichts zu tun: alle Namen übersprungen"
-" with 1 darktable sidecar" = " mit 1 darktable-Begleitdatei"
-" with {} darktable sidecars" = " mit {} darktable-Begleitdateien"
+" with {} darktable sidecars" = { one = " mit {} darktable-Begleitdatei", other = " mit {} darktable-Begleitdateien" }
 "With its darktable sidecar" = "Mit zugehöriger darktable-Begleitdatei"
 "With 1 darktable sidecar" = "Mit 1 darktable-Begleitdatei"
-"With {} darktable sidecars" = "Mit {} darktable-Begleitdateien"
-"{} files and folders in all" = "Insgesamt {} Dateien und Ordner"
+"With {} darktable sidecars" = { one = "Mit {} darktable-Begleitdatei", other = "Mit {} darktable-Begleitdateien" }
+"{} files and folders in all" = { one = "Insgesamt {} Datei oder Ordner", other = "Insgesamt {} Dateien und Ordner" }
 "{} moved to the trash" = "{} in den Papierkorb verschoben"
 "“{}” moved to the trash" = "„{}“ in den Papierkorb verschoben"
 "{} moved to the trash; {} could not be: {}" = "{} in den Papierkorb verschoben; {} fehlgeschlagen: {}"
@@ -298,7 +293,7 @@ moves = "Bewegung"
 "Stopped: {} restored so far" = "Abgebrochen: {} bereits wiederhergestellt"
 "Nothing restored: every name was skipped" = "Nichts wiederhergestellt: alle Namen übersprungen"
 "Delete “{}” permanently?" = "„{}“ endgültig löschen?"
-"Delete {} items permanently?" = "{} Objekte endgültig löschen?"
+"Delete {} items permanently?" = { one = "{} Objekt endgültig löschen?", other = "{} Objekte endgültig löschen?" }
 "Empty the trash?" = "Papierkorb leeren?"
 "Adding up the size…" = "Größe wird berechnet…"
 "Empty" = "Leeren"
@@ -328,10 +323,9 @@ moves = "Bewegung"
 # Names, folders, files
 "Cannot make a folder in {}: {}" = "Ordner in {} nicht anlegbar: {}"
 "Cannot make a file in {}: {}" = "Datei in {} nicht anlegbar: {}"
-"Renamed {} with 1 darktable sidecar" = "{} mit 1 darktable-Begleitdatei umbenannt"
-"Renamed {} with {} darktable sidecars" = "{} mit {} darktable-Begleitdateien umbenannt"
+"Renamed {1} with {0} darktable sidecars" = { one = "{1} mit {0} darktable-Begleitdatei umbenannt", other = "{1} mit {0} darktable-Begleitdateien umbenannt" }
 "{} no longer exists" = "{} existiert nicht mehr"
-"{} folders no longer exist" = "{} Ordner existieren nicht mehr"
+"{} folders no longer exist" = { one = "{} Ordner existiert nicht mehr", other = "{} Ordner existieren nicht mehr" }
 "A name cannot be empty" = "Ein Name darf nicht leer sein"
 "A name cannot be . or .." = "Ein Name darf nicht . oder .. sein"
 "A name cannot contain /" = "Ein Name darf kein / enthalten"
@@ -375,7 +369,7 @@ moves = "Bewegung"
 "Only folders go in the sidebar" = "In die Seitenleiste passen nur Ordner"
 "The sidebar could not be changed: {}" = "Seitenleiste nicht änderbar: {}"
 "“{}” added to the sidebar" = "„{}“ zur Seitenleiste hinzugefügt"
-"{} folders added to the sidebar" = "{} Ordner zur Seitenleiste hinzugefügt"
+"{} folders added to the sidebar" = { one = "{} Ordner zur Seitenleiste hinzugefügt", other = "{} Ordner zur Seitenleiste hinzugefügt" }
 "“{}” removed from the sidebar" = "„{}“ aus der Seitenleiste entfernt"
 "Mounting “{}”…" = "„{}“ wird eingehängt…"
 "“{}” could not be mounted: {}" = "„{}“ konnte nicht eingehängt werden: {}"
@@ -395,7 +389,7 @@ moves = "Bewegung"
 # Opening files
 "Opening {} files with {} applications…" = "{} Dateien werden mit {} Programmen geöffnet…"
 "Opening {} with {}…" = "{} wird mit {} geöffnet…"
-"Opening {} files with {}…" = "{} Dateien werden mit {} geöffnet…"
+"Opening {} files with {}…" = { one = "{} Datei wird mit {} geöffnet…", other = "{} Dateien werden mit {} geöffnet…" }
 "No application opens {}" = "Kein Programm für {}"
 "{} is not installed" = "{} ist nicht installiert"
 "{} has an Exec line rummage cannot read" = "{} hat eine Exec-Zeile, die rummage nicht versteht"
@@ -528,8 +522,7 @@ moves = "Bewegung"
 "/path, ~/path, smb://server/share, sftp://user@host/path, ftp://, davs://" = "/pfad, ~/pfad, smb://server/freigabe, sftp://user@host/pfad, ftp://, davs://"
 
 # Added with rummage's transfers, file information and motion effects
-"1 item cannot be safely undone" = "1 Objekt lässt sich nicht sicher zurücknehmen"
-"{} items cannot be safely undone" = "{} Objekte lassen sich nicht sicher zurücknehmen"
+"{} items cannot be safely undone" = { one = "{} Objekt lässt sich nicht sicher zurücknehmen", other = "{} Objekte lassen sich nicht sicher zurücknehmen" }
 "Merge joins the folders; a file with the same name is asked about." = "Vereinen führt die Ordner zusammen; bei gleichen Dateinamen wird gefragt."
 "Merge   R" = "Vereinen   R"
 "Invalid destination names" = "Ungültige Zielnamen"
@@ -551,7 +544,7 @@ moves = "Bewegung"
 "“{}” is on a disk that does not let programs run" = "„{}“ liegt auf einem Datenträger ohne Ausführrechte"
 "Could not allow it to run: {}" = "Ausführen ließ sich nicht erlauben: {}"
 "“{}” still cannot run" = "„{}“ startet weiterhin nicht"
-"{} more programs are not allowed to run" = "{} weitere Programme dürfen nicht starten"
+"{} more programs are not allowed to run" = { one = "{} weiteres Programm darf nicht starten", other = "{} weitere Programme dürfen nicht starten" }
 "“{}” is a program but is not allowed to run" = "„{}“ ist ein Programm, darf aber nicht starten"
 "{} can run as a program" = "{} ist jetzt ausführbar"
 "{} can no longer run as a program" = "{} ist nicht mehr ausführbar"
@@ -563,8 +556,8 @@ moves = "Bewegung"
 "No terminal to run {} in: set terminal.program in config.toml" = "Kein Terminal für {}: terminal.program in config.toml setzen"
 
 # Copying, the sidebar and panes
-"Copied {} characters" = "{} Zeichen kopiert"
-"Copied {} lines" = "{} Zeilen kopiert"
+"Copied {} characters" = { one = "{} Zeichen kopiert", other = "{} Zeichen kopiert" }
+"Copied {} lines" = { one = "{} Zeile kopiert", other = "{} Zeilen kopiert" }
 "Renamed “{}” in the sidebar" = "„{}“ in der Seitenleiste umbenannt"
 "The bookmark now opens “{}”" = "Das Lesezeichen öffnet jetzt „{}“"
 "Folder unavailable: {}" = "Ordner nicht verfügbar: {}"
@@ -595,7 +588,7 @@ moves = "Bewegung"
 
 # Errors
 "Action failed" = "Aktion fehlgeschlagen"
-"Action failed · {} reports" = "Aktion fehlgeschlagen · {} Meldungen"
+"Action failed · {} reports" = { one = "Aktion fehlgeschlagen · {} Meldung", other = "Aktion fehlgeschlagen · {} Meldungen" }
 "Password for “{}”" = "Passwort für „{}“"
 "Extract" = "Entpacken"
 
@@ -771,3 +764,68 @@ moves = "Bewegung"
 "Check destination permissions and free disk space, then retry." = "Zielrechte und freien Speicherplatz prüfen, dann erneut versuchen."
 "Check the retained output folder and retry extraction." = "Aufbewahrten Ausgabeordner prüfen und erneut entpacken."
 "The extracted data is retained. Check destination permissions and move it from the output folder below." = "Die entpackten Daten sind erhalten. Zielrechte prüfen und sie aus dem Ausgabeordner unten verschieben."
+
+". No names were changed." = ". Es wurden keine Namen geändert."
+". Some names could not be restored; see recovery paths." = ". Einige Namen konnten nicht wiederhergestellt werden; siehe Wiederherstellungspfade."
+"Archive name · existing files are kept" = "Archivname · vorhandene Dateien bleiben erhalten"
+"Batch Rename" = "Mehrfach umbenennen"
+"Batch Rename…" = "Mehrfach umbenennen…"
+"Batch Rename failed; see details" = "Mehrfaches Umbenennen fehlgeschlagen; siehe Details"
+"Cannot prepare Batch Rename: {}" = "Mehrfaches Umbenennen kann nicht vorbereitet werden: {}"
+"Cannot rename {} to {}: {}" = "{} kann nicht in {} umbenannt werden: {}"
+"Close each template token; use {name}, {ext} and {n}" = "Jedes Vorlagenfeld schließen; {name}, {ext} und {n} verwenden"
+"Compressing into “{}” · {} of {}" = "Komprimieren in „{}“ · {} von {}"
+"Copy to Extract" = "Zum Entpacken kopieren"
+"Created “{}”" = "„{}“ erstellt"
+"Created “{}”; {}" = "„{}“ erstellt; {}"
+"Extracted {}" = "{} entpackt"
+"Extracted {} ({})" = "{} entpackt ({})"
+"Extracted {}; {} could not be: {}" = "{} entpackt; {} fehlgeschlagen: {}"
+"Getting ready to compress…" = "Komprimieren wird vorbereitet…"
+"More than one file would be named {}" = "Mehrere Dateien würden {} heißen"
+"Names keep their extension with {ext}. Numbering follows the view order." = "{ext} behält die Endung bei. Nummerierung folgt der Ansichtsreihenfolge."
+"New name" = "Neuer Name"
+"Old name" = "Alter Name"
+"No names would change" = "Keine Namen würden geändert"
+"Nothing" = "Nichts"
+"Please wait…" = "Bitte warten…"
+"Preparing Batch Rename… (Escape cancels)" = "Mehrfaches Umbenennen vorbereiten… (Esc bricht ab)"
+"Start and step must be whole numbers; step > 0, padding 0–20" = "Start und Schritt müssen ganzzahlig sein; Schritt > 0, Stellenzahl 0–20"
+"Stopped: no archive made" = "Abgebrochen: kein Archiv erstellt"
+"Stopped: {} extracted so far" = "Abgebrochen: bisher {} entpackt"
+"The numbering exceeds the largest supported number" = "Die Nummerierung überschreitet die größte unterstützte Zahl"
+"The replacement makes a name longer than 255 bytes" = "Die Ersetzung macht einen Namen länger als 255 Bytes"
+"The template makes a name longer than 255 bytes" = "Die Vorlage macht einen Namen länger als 255 Bytes"
+"Use a positive step, padding from 0 to 20, and a shorter template/replacement" = "Positiven Schritt, 0 bis 20 Stellen und eine kürzere Vorlage/Ersetzung verwenden"
+"Use only {name}, {ext} and {n} in the template" = "In der Vorlage nur {name}, {ext} und {n} verwenden"
+"Wait for the current operation before batch renaming" = "Vor dem mehrfachen Umbenennen den laufenden Vorgang abwarten"
+"damaged: {}" = "beschädigt: {}"
+"{name} = name after replacement     {n} = number     {ext} = extension" = "{name} = Name nach Ersetzung     {n} = Nummer     {ext} = Endung"
+"{} changed while renaming" = "{} wurde während des Umbenennens verändert"
+"{} is selected more than once" = "{} ist mehrfach ausgewählt"
+"{} was replaced since the preview; reopen Batch Rename" = "{} wurde seit der Vorschau ersetzt; Mehrfach umbenennen erneut öffnen"
+"{} archive  ·  read-only  ·  " = "{}-Archiv  ·  schreibgeschützt  ·  "
+"Source · M" = "Quelltext · M"
+"Rendered · M" = "Formatierte Ansicht · M"
+"Compress to ZIP…" = "Als ZIP komprimieren…"
+"Compress to tar.gz…" = "Als tar.gz komprimieren…"
+"Compress to ZIP" = "Als ZIP komprimieren"
+"Compress to tar.gz" = "Als tar.gz komprimieren"
+"Renaming files…" = "Dateien werden umbenannt…"
+"Restoring names…" = "Namen werden wiederhergestellt…"
+"Find in name (literal)" = "Im Namen suchen (wörtlich)"
+"Replace with" = "Ersetzen durch"
+"Template" = "Vorlage"
+"Start" = "Start"
+"Step" = "Schritt"
+"Zero padding" = "Stellenzahl"
+"Renamed {} items, including sidecars" = { one = "Den Namen von {} Objekt geändert, einschließlich Begleitdateien", other = "Die Namen von {} Objekten geändert, einschließlich Begleitdateien" }
+"{} names will change, including sidecars" = { one = "{} Name wird geändert, einschließlich Begleitdateien", other = "{} Namen werden geändert, einschließlich Begleitdateien" }
+"{} entries with unsafe names left out" = { one = "{} Eintrag mit unsicherem Namen ausgelassen", other = "{} Einträge mit unsicheren Namen ausgelassen" }
+"{} links" = { one = "{} Verknüpfung", other = "{} Verknüpfungen" }
+"{} others" = { one = "{} sonstiger Eintrag", other = "{} sonstige Einträge" }
+
+"{1} items" = { one = "{1} Objekt", other = "{1} Objekte" }
+
+[contexts.file-action]
+"Open" = "Öffnen"

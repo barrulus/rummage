@@ -18,6 +18,7 @@
 
 #include "rummage/core/config.hpp"
 #include "rummage/core/event_loop.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
@@ -38,6 +39,34 @@ using rummage::views::Folder;
 using rummage::views::MenuItem;
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
+
+TEST_CASE("i18n: menu rendering preserves literal names in every language") {
+    struct RestoreEnglish {
+        ~RestoreEnglish() { rummage::i18n::set_language("en"); }
+    } restore;
+
+    rummage::ui::Offscreen surface{400, 200};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    ContextMenu menu{[] {}};
+    MenuItem literal;
+    literal.id = "template:Home";
+    literal.label = "Home";
+    menu.open(20, 20, {literal}, true);
+    const auto pixels = [&](std::string_view language) {
+        rummage::i18n::set_language(language);
+        renderer.begin_frame(400, 200, 1, {});
+        menu.draw(renderer, {0, 0, 400, 200}, rummage::theme::Palette{});
+        renderer.end_frame();
+        std::vector<unsigned char> result(400 * 200 * 4);
+        glReadPixels(0, 0, 400, 200, GL_RGBA, GL_UNSIGNED_BYTE, result.data());
+        return result;
+    };
+    const auto english = pixels("en");
+    const auto german = pixels("de");
+    REQUIRE(rummage::i18n::tr("Home") != "Home");
+    CHECK(english == german);
+}
 
 namespace {
 
@@ -252,27 +281,29 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.select({"a.txt"});
     CHECK(f.press(key(XKB_KEY_Menu)));
     REQUIRE(f.menu().is_open());
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "copy", "cut", "-paste", "rename",
-                                         "trash", "erase", "properties", "action:copy_location",
-                                         "action:copy_name", "sort", "panes"});
-    CHECK(f.menu().items()[2].keys == "Ctrl+C");  // from the shortcuts table
-    CHECK(f.menu().items()[6].keys == "Delete");
+    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "compress_zip", "compress_tar",
+                                         "copy", "cut", "-paste", "rename", "trash", "erase",
+                                         "properties", "action:copy_location", "action:copy_name",
+                                         "sort", "panes"});
+    CHECK(f.menu().items()[4].keys == "Ctrl+C");  // from the shortcuts table
+    CHECK(f.menu().items()[8].keys == "Delete");
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.menu().is_open());
 
-    // Several: no Rename. A folder: Open With and a terminal too.
+    // Several: batch Rename. A folder: Open With and a terminal too.
     f.select({"a.txt", "b.txt"});
     f.browser.open_menu(100, 100, false);
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "copy", "cut", "-paste", "-rename",
-                                         "trash", "erase", "-properties", "action:copy_location",
-                                         "action:copy_name", "sort", "panes"});
+    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "compress_zip", "compress_tar",
+                                         "copy", "cut", "-paste", "rename", "trash", "erase",
+                                         "-properties", "action:copy_location", "action:copy_name",
+                                         "sort", "panes"});
     f.menu().close();
     f.select({"sub"});
     CHECK(f.press(key(XKB_KEY_F10, {.shift = true})));
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "open_tab", "open_terminal",
-                                         "add_bookmark", "copy", "cut", "-paste", "rename", "trash",
-                                         "erase", "properties", "action:copy_location",
-                                         "action:copy_name", "sort", "panes"});
+    CHECK(ids(f.menu().items()) ==
+          Names{"open", "open_with", "open_tab", "open_terminal", "add_bookmark", "compress_zip",
+                "compress_tar", "copy", "cut", "-paste", "rename", "trash", "erase", "properties",
+                "action:copy_location", "action:copy_name", "sort", "panes"});
 
     // Copy from the menu; then Paste can be chosen, here and on empty space.
     f.choose("copy");
@@ -1605,4 +1636,53 @@ TEST_CASE("ask to run: the card names the program, and only Allow and Run lets i
     f.browser.ask_to_run(f.photos / "Tool.AppImage", [&allowed] { ++allowed; });
     CHECK(f.press(key(XKB_KEY_Return)));
     CHECK(allowed == 1);
+}
+
+TEST_CASE("i18n: templates and custom actions keep their names beside translated commands") {
+    struct RestoreEnglish {
+        ~RestoreEnglish() { rummage::i18n::set_language("en"); }
+    } restore;
+
+    rummage::i18n::set_language("de");
+    Fixture f;
+    const fs::path templates = f.dir.path / "templates";
+    fs::create_directories(templates);
+    std::ofstream{templates / "Home"} << "literal template";
+    f.select({});
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    REQUIRE(f.settle());
+    const auto make = std::ranges::find(f.menu().items(), "new_file", &MenuItem::id);
+    REQUIRE(make != f.menu().items().end());
+    const auto named = std::ranges::find(make->children, "template:Home", &MenuItem::id);
+    REQUIRE(named != make->children.end());
+    CHECK(named->label == "Home");
+    const auto create = named->action;
+    f.menu().close();
+    create();
+    REQUIRE(f.settle());
+    CHECK(read_file(f.photos / "Home") == "literal template");
+    f.browser.name_editor().cancel();
+    using rummage::core::Action;
+    const std::vector<Action> custom{{.id = "literal",
+                                      .label = "Home",
+                                      .argv = {"true"},
+                                      .mime = {},
+                                      .selection = Action::Selection::any,
+                                      .placement = Action::Placement::menu}};
+    f.browser.set_actions(custom);
+    f.browser.set_action_handoff([](const auto&, const auto&) {},
+                                 [](const auto&, const auto&) { return true; });
+    f.select({"a.txt"});
+    f.browser.open_menu(100, 100, false);
+    const auto action = std::ranges::find(f.menu().items(), "action:literal", &MenuItem::id);
+    REQUIRE(action != f.menu().items().end());
+    CHECK(action->label == "Home");
+    const auto open = std::ranges::find(f.menu().items(), "open", &MenuItem::id);
+    REQUIRE(open != f.menu().items().end());
+    CHECK(open->label == "Öffnen");
+    const auto palette = f.browser.palette_items();
+    const auto command =
+        std::ranges::find(palette, "action:literal", &rummage::views::PaletteItem::id);
+    REQUIRE(command != palette.end());
+    CHECK(command->label == "Home");
 }

@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "rummage/archive/archive.hpp"
 #include "rummage/engines/engines.hpp"
 #include "rummage/picture/load.hpp"
 #include "rummage/picture/photo_info.hpp"
@@ -58,6 +59,19 @@ public:
     // The text of request.path, read by a helper. Thread-safe.
     [[nodiscard]] text::Loaded load_text(const text::LoadRequest& request);
 
+    // An archive's entries, and one entry's bytes written to out, by a helper; the time allowed
+    // grows with the archive (a tar.gz is inflated from its start). Thread-safe.
+    [[nodiscard]] archive::Listing list_archive(const std::filesystem::path& path,
+                                                const archive::Limits& limits);
+    [[nodiscard]] archive::Read read_archive_entry(const std::filesystem::path& path,
+                                                   archive::Format format,
+                                                   const archive::Entry& entry, int out,
+                                                   std::uint64_t max_bytes);
+
+    [[nodiscard]] static std::unique_ptr<archive::EntrySequence> open_sequence(
+        std::shared_ptr<Helpers> helpers, const std::filesystem::path& path, archive::Format format,
+        std::function<bool()> stopped = {});
+
     // Helpers started and not yet known to be gone (tests).
     [[nodiscard]] std::size_t running() const;
 
@@ -68,21 +82,25 @@ private:
         std::chrono::steady_clock::time_point idle_since;
     };
     enum class Outcome : std::uint8_t { done, again, failed };
+    class Sequence;
 
-    [[nodiscard]] std::optional<Helper> take(const core::CancelToken* cancel);
+    [[nodiscard]] std::optional<Helper> take(const core::CancelToken* cancel,
+                                             const std::function<bool()>& stopped = {});
     void give_back(Helper helper);
     int discard(Helper helper);  // its wait status
     void close_idle();           // the reaper thread: closes and waits for helpers idle too long
     [[nodiscard]] std::optional<Helper> spawn() const;
     // One request and its reply; again: the helper had left (retry in a new one).
     Outcome exchange(Helper helper, std::span<const std::byte> request, std::span<const int> fds,
-                     protocol::Packet& reply, std::string& why,
-                     const core::CancelToken* cancel) const;
+                     protocol::Packet& reply, std::string& why, const core::CancelToken* cancel,
+                     std::chrono::milliseconds timeout,
+                     const std::function<bool()>& stopped = {}) const;
     // The request to a helper (a new one if it had left), its reply handed to accept; false with
     // why when no helper answered in a way accept took.
     bool run(std::span<const std::byte> request, std::span<const int> fds,
              const std::function<bool(protocol::Packet&, std::string&)>& accept, std::string& why,
-             const core::CancelToken* cancel = nullptr);
+             const core::CancelToken* cancel = nullptr,
+             std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
     HelperOptions options_;
     mutable std::mutex mutex_;

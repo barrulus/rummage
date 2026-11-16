@@ -5,6 +5,7 @@
 #include <system_error>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/format.hpp"
 
@@ -145,7 +146,8 @@ void Browser::open_in_other_pane(const std::filesystem::path& directory) {
 void Browser::transfer_to_other_pane(bool move) {
     const auto source = current_folder();
     const auto destination = other_folder();
-    if (!source || source->is_trash() || !destination || destination->is_trash())
+    if (!source || (source->is_trash() || (move && source->is_archive())) || !destination ||
+        (destination->is_trash() || destination->is_archive()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*source))
@@ -175,7 +177,7 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
                                          {Command::grid_view, "Grid"},
                                          {Command::details_view, "Details"}}) {
         MenuItem item;
-        item.label = label;
+        item.label = i18n::tr(label);
         item.keys = keys_for(command);
         item.radio = true;
         item.checked = (command == Command::columns_view && mode() == Mode::columns) ||
@@ -193,7 +195,7 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
                      std::make_move_iterator(panes.end()));
     }
     items.push_back({.id = "toggle_info",
-                     .label = "Preview",
+                     .label = std::string{i18n::tr("Preview")},
                      .keys = keys_for(Command::toggle_info),
                      .separator = true,
                      .checked = info_visible_,
@@ -201,14 +203,14 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
                      .children = {},
                      .action = [this] { set_info_visible(!info_visible_); }});
     items.push_back({.id = "toggle_sidebar",
-                     .label = "Places sidebar",
+                     .label = std::string{i18n::tr("Places sidebar")},
                      .keys = keys_for(Command::toggle_sidebar),
                      .checked = sidebar_visible_,
                      .empty_text = {},
                      .children = {},
                      .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
     items.push_back({.id = "settings",
-                     .label = "Settings…",
+                     .label = std::string{i18n::tr("Settings…")},
                      .keys = keys_for(Command::show_settings),
                      .separator = true,
                      .empty_text = {},
@@ -225,7 +227,7 @@ std::vector<MenuItem> Browser::pane_items() {
                          std::function<void()> action) {
         MenuItem item;
         item.id = std::move(id);
-        item.label = std::move(label);
+        item.label = i18n::tr(label);
         item.keys = keys_for(command);
         item.action = std::move(action);
         items.push_back(std::move(item));
@@ -254,7 +256,7 @@ std::vector<MenuItem> Browser::pane_items() {
         }
     }
     const auto destination = other_folder();
-    if (!destination || destination->is_trash() || names.empty())
+    if (!destination || (destination->is_trash() || destination->is_archive()) || names.empty())
         return items;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : names)
@@ -264,6 +266,8 @@ std::vector<MenuItem> Browser::pane_items() {
     const std::string direction =
         stacked_ ? (active_area_ == 0 ? "↓" : "↑") : (active_area_ == 0 ? "→" : "←");
     for (const bool move : {false, true}) {
+        if (move && source->is_archive())
+            continue;
         add(move ? "move_other_pane" : "copy_other_pane",
             std::format("{} to “{}” {}", move ? "Move" : "Copy", destination->path().string(),
                         direction),

@@ -8,9 +8,13 @@ if(RUMMAGE_SANITIZER)
 endif()
 
 add_library(rummage_views
+    src/batch_rename_dialog.cpp
+    src/browser_batch_rename.cpp
     src/breadcrumb.cpp
     src/browser_actions.cpp
     src/browser_panes.cpp
+    src/browser_archive.cpp
+    src/archive_text.cpp
     src/browser.cpp
     src/browser_motion.cpp
     src/browser_palette.cpp
@@ -33,6 +37,7 @@ add_library(rummage_views
     src/grid_view.cpp
     src/info_pane.cpp
     src/location_dialog.cpp
+    src/markdown_view.cpp
     src/name_editor.cpp
     src/pane.cpp
     src/password_dialog.cpp

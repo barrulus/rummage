@@ -31,6 +31,34 @@ supports compose input, word movement, selection, clipboard paste and local
 undo/redo. Paste uses the first line of clipboard text. While editing a name,
 Ctrl+Z edits that text rather than undoing a file operation.
 
+## Batch rename
+
+Select several entries and press **F2**, or choose **Batch Rename…** in the context
+menu or command palette. The dialog previews old and new names as you type.
+**Find** and **Replace** perform case-sensitive literal replacement in the name
+without its final extension. The template then uses `{name}` for that result,
+`{ext}` for the original extension including its dot, and `{n}` for a number.
+Folder names are kept whole and have no extension token.
+For example, `bug-report_{n}{ext}` with start 1 and padding 2 produces
+`bug-report_01.png`, `bug-report_02.png`, and so on. Numbering follows the current
+view order; sort before opening the dialog. Step must be positive. Regex is not
+supported.
+
+Recognized darktable sidecars follow their photo, including duplicate sidecars.
+Selecting them together with the photo does not consume extra numbers. The
+preview includes their destination names. Invalid names, duplicate targets and
+names occupied by unrelated entries disable Rename. Changes are checked again
+when applied; files replaced since the preview are refused.
+
+Tab moves through the fields, preview and buttons. Enter applies, Escape cancels,
+and Page Up/Down or the wheel scrolls the preview. **Ctrl+Z** undoes the entire
+batch, including its sidecars; **Ctrl+Shift+Z** redoes it. Swaps and chains use a
+private temporary directory, and no step overwrites an existing entry. A failure
+rolls back completed moves. If another process prevents rollback, a persistent
+error dialog lists the remaining files and their recovery paths. Filesystems
+without atomic no-replace rename support refuse the operation. Batch rename is
+unavailable in Trash, archives and file pickers.
+
 ## Copy, move and conflicts
 
 **Ctrl+C / Ctrl+X** copies/cuts the selection; **Ctrl+V** pastes into the current

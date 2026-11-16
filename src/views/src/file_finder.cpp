@@ -4,8 +4,8 @@
 #include <format>
 #include <utility>
 
-#include "rummage/views/fuzzy.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/views/fuzzy.hpp"
 
 namespace rummage::views {
 namespace {
@@ -195,12 +195,12 @@ void FileFinder::fill_nearest() {
 
 std::string FileFinder::status() const {
     if (scanning_) {
-        return i18n::trf("Searching… {} items", count(entries_));
+        return i18n::trn("Searching… {1} item", "Searching… {1} items", entries_, count(entries_));
     }
     if (walked_.truncated) {
-        return i18n::trf("Stopped at {} items", count(entries_));
+        return i18n::trn("Stopped at {1} item", "Stopped at {1} items", entries_, count(entries_));
     }
-    return i18n::trf("{} items", count(entries_));
+    return i18n::trn("{1} item", "{1} items", entries_, count(entries_));
 }
 
 std::size_t FileFinder::bytes() const noexcept {

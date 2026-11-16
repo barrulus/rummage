@@ -11,8 +11,10 @@ std::string describe(const FileOperation& operation) {
     const std::size_t count = operation.items.size();
     std::string what = count == 1
                            ? std::format("“{}”", operation.items.front().to.filename().string())
-                           : i18n::trf("{} items", count);
+                           : i18n::trn("{} item", "{} items", count);
     switch (operation.kind) {
+        case FileOperation::Kind::batch_rename:
+            return std::format("{} renamed", what);
         case FileOperation::Kind::rename:
             if (count == 1) {
                 return i18n::trf("“{}” is “{}” again",

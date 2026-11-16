@@ -46,7 +46,8 @@ std::string opening_message(const OpenPlan& plan) {
     if (plan.files == 1) {
         return i18n::trf("Opening {} with {}…", plan.first_name, apps.front());
     }
-    return i18n::trf("Opening {} files with {}…", plan.files, apps.front());
+    return i18n::trn("Opening {} file with {}…", "Opening {} files with {}…", plan.files,
+                     apps.front());
 }
 
 // The types may_be_program takes, their kin (subclasses) included.
@@ -334,7 +335,8 @@ void Opener::start(OpenPlan plan) {
         if (plan.not_allowed.size() > 1) {
             plan.problems.insert(
                 plan.problems.begin(),
-                i18n::trf("{} more programs are not allowed to run", plan.not_allowed.size() - 1));
+                i18n::trn("{} more program is not allowed to run",
+                          "{} more programs are not allowed to run", plan.not_allowed.size() - 1));
         }
         const std::filesystem::path first = plan.not_allowed.front();
         if (ask_) {

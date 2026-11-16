@@ -51,6 +51,8 @@ std::vector<Action> action_registry(std::span<const Action> custom) {
                                  .selection = Action::Selection::many,
                                  .kind = Action::Kind::extract_to,
                                  .placement = Action::Placement::menu}};
+    for (auto& action : actions)
+        action.translate_label = true;
     for (const auto& action : custom) {
         const auto found = std::ranges::find(actions, action.id, &Action::id);
         if (found == actions.end()) {

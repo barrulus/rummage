@@ -1,11 +1,25 @@
 add_executable(rummage-program-fixture program_fixture.cpp)
 target_link_libraries(rummage-program-fixture PRIVATE rummage::warnings)
 
+add_executable(rummage-i18n-tests i18n_runtime_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/src/i18n.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/src/i18n_rules.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/src/log.cpp)
+target_include_directories(rummage-i18n-tests PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/core/include ${PROJECT_SOURCE_DIR}/src/core/src)
+target_link_libraries(rummage-i18n-tests PRIVATE doctest::doctest PkgConfig::TOMLPLUSPLUS rummage::warnings)
+add_test(NAME i18n-runtime COMMAND rummage-i18n-tests)
+
 add_executable(rummage-tests
+    batch_rename_test.cpp
     permissions_test.cpp
     program_test.cpp
     actions_test.cpp
     archives_test.cpp
+    compress_test.cpp
+    extract_test.cpp
+    archive_test.cpp
+    archive_folder_test.cpp
     main.cpp
     about_test.cpp
     app_icon_test.cpp
@@ -26,6 +40,7 @@ add_executable(rummage-tests
     directory_test.cpp
     dng_test.cpp
     event_loop_test.cpp
+    feature_integration_test.cpp
     file_watcher_test.cpp
     format_test.cpp
     folder_icon_test.cpp
@@ -54,6 +69,8 @@ add_executable(rummage-tests
     pointer_shapes_test.cpp
     tabs_test.cpp
     panes_test.cpp
+    markdown_test.cpp
+    markdown_view_test.cpp
     text_test.cpp
     text_selection_test.cpp
     platform_test.cpp
@@ -84,7 +101,7 @@ add_executable(rummage-tests
     undo_test.cpp
     worker_pool_test.cpp
     xcursor_test.cpp)
-target_link_libraries(rummage-tests PRIVATE rummage::svg rummage::core rummage::theme rummage::fs rummage::views rummage::picture rummage::formats rummage::formats::image rummage::formats::text rummage::text rummage::thumbs rummage::preview rummage::engines rummage::isolate rummage::platform doctest::doctest rummage::warnings)
+target_link_libraries(rummage-tests PRIVATE rummage::svg rummage::core rummage::theme rummage::fs rummage::views rummage::picture rummage::formats rummage::formats::image rummage::formats::text rummage::formats::archive rummage::text rummage::thumbs rummage::preview rummage::engines rummage::isolate rummage::platform doctest::doctest rummage::warnings)
 
 # The helper protocol's private header, for its tests; the image family's private readers (TIFF,
 # DNG, lossless JPEG), for theirs.
@@ -117,7 +134,7 @@ endif()
 add_executable(rummage-fake-preview fake_preview_helper.cpp
                                     ${PROJECT_SOURCE_DIR}/src/isolate/src/protocol.cpp)
 target_include_directories(rummage-fake-preview PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src)
-target_link_libraries(rummage-fake-preview PRIVATE rummage::picture rummage::text rummage::warnings)
+target_link_libraries(rummage-fake-preview PRIVATE rummage::picture rummage::text rummage::archive rummage::warnings)
 
 # The sandbox probe: the preview helper's cage, then one forbidden (or allowed) thing.
 add_executable(rummage-sandbox-probe sandbox_probe.cpp

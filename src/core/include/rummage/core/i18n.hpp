@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <format>
 #include <string>
 #include <string_view>
@@ -20,6 +21,8 @@ inline constexpr std::string_view kEnglish = "en";
 struct Entry {
     std::string_view english;
     std::string_view translated;
+    std::string_view context;
+    std::string_view form;  // empty for a plain text; otherwise a plural category
 };
 
 // The code of the language the interface speaks ("de", "pt_BR", or "en").
@@ -44,6 +47,50 @@ void set_language(std::string_view code);
 
 // english in the interface's language.
 [[nodiscard]] std::string_view tr(std::string_view english);
+
+// Context is a stable meaning ("file-action"), never user data. A missing context entry
+// falls back to English, not a possibly unrelated context-free translation.
+[[nodiscard]] std::string_view trc(std::string_view context, std::string_view english);
+
+// The catalog's integer cardinal category. Useful when checking a translation.
+[[nodiscard]] std::string_view plural_category(std::uint64_t count);
+
+namespace detail {
+[[nodiscard]] std::string_view plural_text(std::string_view context, std::string_view singular,
+                                           std::string_view plural, std::uint64_t count);
+
+inline std::string translated_format(std::string_view english, std::string_view translated,
+                                     std::format_args args) {
+    try {
+        return std::vformat(translated, args);
+    } catch (const std::format_error&) {
+        return std::vformat(english, args);
+    }
+}
+}  // namespace detail
+
+template <class... Args>
+[[nodiscard]] std::string trcf(std::string_view context, std::string_view english,
+                               const Args&... args) {
+    return detail::translated_format(english, trc(context, english),
+                                     std::make_format_args(args...));
+}
+
+// Whole, nonnegative counts. Count is always argument {0}; additional arguments start at {1}.
+// Catalogs key plural messages by their English plural, with zero/one/two/few/many/other forms.
+template <class... Args>
+[[nodiscard]] std::string trnc(std::string_view context, std::string_view singular,
+                               std::string_view plural, std::uint64_t count, const Args&... args) {
+    return detail::translated_format(count == 1 ? singular : plural,
+                                     detail::plural_text(context, singular, plural, count),
+                                     std::make_format_args(count, args...));
+}
+
+template <class... Args>
+[[nodiscard]] std::string trn(std::string_view singular, std::string_view plural,
+                              std::uint64_t count, const Args&... args) {
+    return trnc({}, singular, plural, count, args...);
+}
 
 // std::format with a translated format string. A translation may reorder its arguments with
 // numbered fields ("{1} von {0}"); a translation whose fields do not fit falls back to English.

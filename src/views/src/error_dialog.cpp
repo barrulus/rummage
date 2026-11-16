@@ -153,7 +153,8 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                              .border_width = 1,
                              .border = palette.outline_variant});
     const auto title = pending() == 1 ? std::string{i18n::tr("Action failed")}
-                                      : i18n::trf("Action failed · {} reports", pending());
+                                      : i18n::trn("Action failed · {} report",
+                                                  "Action failed · {} reports", pending());
     renderer.draw_text(title, card.x + 20, card.y + 18, 16, palette.on_surface, width - 40);
     const ui::Rect content{card.x + 20, card.y + 50, width - 40, height - 124};
     wrap(renderer, content.width);

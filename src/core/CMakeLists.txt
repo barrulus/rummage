@@ -47,6 +47,7 @@ add_library(rummage_core
     src/file_picker.cpp
     src/file_watcher.cpp
     src/i18n.cpp
+    src/i18n_rules.cpp
     src/log.cpp
     src/memory.cpp
     src/worker_pool.cpp

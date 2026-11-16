@@ -12,10 +12,10 @@
 
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -626,7 +626,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 size_text = i18n::tr("Loading…");
             else if (!child->second->model().error()) {
                 const auto count = child->second->entries().size();
-                size_text = count == 1 ? std::string{i18n::tr("1 item")} : i18n::trf("{} items", count);
+                size_text = i18n::trn("{} item", "{} items", count);
             }
         }
         cell(Field::size, size_text, true);
