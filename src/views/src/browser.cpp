@@ -2896,8 +2896,13 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     if (folder && shared_info_bounds_.width > 0)
         info_pane_.draw(renderer, shared_info_bounds_, palette, icons, *folder, now);
     info_pane_.end_frame();
-    if (!sidebar_preview_divider_.empty())
+    if (!sidebar_preview_divider_.empty()) {
         renderer.fill_background(sidebar_preview_divider_, palette.outline_variant);
+        const float edge = 1.0F / renderer.scale();
+        renderer.fill_rect({shared_info_bounds_.right() - edge, shared_info_bounds_.y, edge,
+                            shared_info_bounds_.height},
+                           palette.outline_variant);
+    }
     draw_band(renderer, palette);
     editor_.draw(renderer, palette);
     if (quick_look_.is_open())
