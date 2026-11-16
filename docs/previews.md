@@ -7,6 +7,12 @@ for the current file; arrows move through the folder, and Space/Escape closes it
 Unsupported files get an information card or a reason why a preview is unavailable.
 Opening a file with Enter uses its desktop application, independent of preview support.
 
+Quick Look uses the original image or video dimensions, when known, to size both the
+thumbnail and the sharp preview. Small images stay at their native size; reduced video
+frames and embedded raw previews can fill more of the window, up to the original size.
+Older cached thumbnails without dimensions still fill the preview area until the sharp
+image arrives.
+
 **Alt+Enter** opens Properties with a compact metadata card and an image or video
 thumbnail beside the filename when available. Unsupported files use their file-type
 icon. Its width follows the filename and metadata instead of reserving an empty

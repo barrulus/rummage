@@ -49,6 +49,10 @@ struct Thumbnail {
     // What failed, when the file says so (damaged, password protected); remembered with the
     // failure, so a view can mark the file's icon without trying again.
     picture::Failure failure{picture::Failure::none};
+    // The size of the whole image, upright, when known (the spec's Thumb::Image::Width and
+    // Thumb::Image::Height; 0 when the file or the cached PNG does not say).
+    std::uint32_t full_width{0};
+    std::uint32_t full_height{0};
 };
 
 // The freedesktop thumbnail cache (~/.cache/thumbnails), shared with the other apps: a

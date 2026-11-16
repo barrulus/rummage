@@ -316,10 +316,10 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
             [cache = thumbnails_, path = slot.path,
              mime = std::string{mime_->name(folder_->mime_of(entry))}](
                 const core::CancelToken& token) {
-                return std::make_shared<picture::Image>(
-                    cache->get(path, thumbs::Size::large, mime, &token).image);
+                return std::make_shared<thumbs::Thumbnail>(
+                    cache->get(path, thumbs::Size::large, mime, &token));
             },
-            [this, alive = alive_, key](std::shared_ptr<picture::Image> pixels) {
+            [this, alive = alive_, key](std::shared_ptr<thumbs::Thumbnail> made) {
                 if (!*alive) {
                     return;
                 }
@@ -328,8 +328,11 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                     return;
                 }
                 it->second.thumbnail_job.reset();
-                if (!pixels->empty()) {
-                    it->second.thumbnail_pixels = std::move(pixels);
+                if (!made->image.empty()) {
+                    it->second.thumbnail_full_width = made->full_width;
+                    it->second.thumbnail_full_height = made->full_height;
+                    it->second.thumbnail_pixels =
+                        std::shared_ptr<picture::Image>(made, &made->image);
                     redraw_();
                 }
             });
@@ -837,8 +840,11 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
         slot.image_texture ? slot.image_texture.get() : slot.thumbnail_texture.get();
 
     std::string caption = entry.name;
+    // The size from the sharp image, or already from the thumbnail: the caption stays put.
     if (loaded != nullptr && loaded->full_width > 0) {
         caption += std::format("   {} × {}", loaded->full_width, loaded->full_height);
+    } else if (slot.thumbnail_texture && slot.thumbnail_full_width > 0) {
+        caption += std::format("   {} × {}", slot.thumbnail_full_width, slot.thumbnail_full_height);
     }
     caption += "   " + format_size(entry.size);
     if (texture == nullptr && slot.content) {
@@ -863,19 +869,35 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
                           palette.error.with_alpha(fade));
         }
     } else {
-        // The sharp image fitted to the area, never larger than its own pixels; a thumbnail
-        // fills the area, where the sharp image is likely to land.
-        const auto texture_width = static_cast<float>(texture->width());
-        const auto texture_height = static_cast<float>(texture->height());
-        float fit = std::min(area.width / texture_width, area.height / texture_height);
-        if (texture == slot.image_texture.get()) {
-            fit = std::min(fit, 1.0F / renderer.scale());
-        }
-        const float shown_width = texture_width * fit;
-        const float shown_height = texture_height * fit;
-        const ui::Rect rect{area.x + ((area.width - shown_width) / 2.0F),
+        // Fitted to the area, never larger than the whole picture's own pixels: its full size
+        // when known (a video frame or a raw preview made smaller than the file), else the
+        // pixels at hand. The thumbnail goes where the sharp image will land, so one replaces
+        // the other without a jump; with no size known it fills the area, as large pictures do.
+        const auto place = [&](const ui::Texture& shown) {
+            const auto texture_width = static_cast<float>(shown.width());
+            const auto texture_height = static_cast<float>(shown.height());
+            float fit = std::min(area.width / texture_width, area.height / texture_height);
+            const bool sharp = &shown == slot.image_texture.get();
+            std::uint32_t whole_width = sharp && loaded != nullptr ? loaded->full_width : 0;
+            std::uint32_t whole_height = sharp && loaded != nullptr ? loaded->full_height : 0;
+            if (!sharp) {
+                whole_width = slot.thumbnail_full_width;
+                whole_height = slot.thumbnail_full_height;
+            }
+            if (whole_width > 0 && whole_height > 0) {
+                const float whole = std::min(static_cast<float>(whole_width) / texture_width,
+                                             static_cast<float>(whole_height) / texture_height);
+                fit = std::min(fit, std::max(whole, sharp ? 1.0F : 0.0F) / renderer.scale());
+            } else if (sharp) {
+                fit = std::min(fit, 1.0F / renderer.scale());
+            }
+            const float shown_width = texture_width * fit;
+            const float shown_height = texture_height * fit;
+            return ui::Rect{area.x + ((area.width - shown_width) / 2.0F),
                             area.y + ((area.height - shown_height) / 2.0F), shown_width,
                             shown_height};
+        };
+        const ui::Rect rect = place(*texture);
         renderer.draw_shadow(shifted_down(rect), {}, 18.0F, palette.shadow.with_alpha(0.6F * fade));
         renderer.draw_image(*texture, rect, {}, fade);
     }
