@@ -7,6 +7,7 @@
 #include <sys/statvfs.h>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/format.hpp"
 #include "rummage/views/shortcuts.hpp"
 
@@ -41,14 +42,15 @@ std::string status_of(const Folder& folder) {
         return model.error().message();
     }
     if (folder.selected_count() > 1) {
-        return std::format("{} of {} selected", folder.selected_count(), count);
+        return i18n::trf("{} of {} selected", folder.selected_count(), count);
     }
     if (model.loading()) {
-        return std::format("{} items, loading…", count);
+        return i18n::trf("{} items, loading…", count);
     }
-    std::string status = std::format("{} {}", count, count == 1 ? "item" : "items");
+    std::string status =
+        count == 1 ? std::string{i18n::tr("1 item")} : i18n::trf("{} items", count);
     if (const std::size_t hidden = folder.hidden_count(); hidden > 0) {
-        status += std::format(", {} hidden", hidden);
+        status += i18n::trf(", {} hidden", hidden);
     }
     return status;
 }
@@ -176,7 +178,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
                    cancel_button_.y + ((kButtonHeight - kIconSize) / 2.0F), kIconSize,
                    cancel_hovered_ ? palette.error : palette.on_surface_variant);
         text_right = cancel_button_.x - kPadding;
-        const std::string stop_key = keys_for(Command::stop_transfer);
+        const std::string stop_key = i18n::keys(keys_for(Command::stop_transfer));
         if (!stop_key.empty()) {
             const auto& key_line = renderer.fonts().layout(stop_key, text_size_, renderer.scale());
             const float key_width = key_line.width / renderer.scale();
@@ -198,8 +200,8 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     } else if (message_.empty()) {
         text = status_of(folder);
         if (free_ && !folder.model().error()) {
-            text += std::format("  ·  {} free of {}", format_size(free_->free),
-                                format_size(free_->total));
+            text += i18n::trf("  ·  {} free of {}", format_size(free_->free),
+                              format_size(free_->total));
         }
         color = folder.model().error() ? palette.error : palette.on_surface_variant;
     }

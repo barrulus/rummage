@@ -6,6 +6,8 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::views {
 namespace {
 constexpr float kTextSize = 13;
@@ -150,8 +152,8 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                              .radius = {},
                              .border_width = 1,
                              .border = palette.outline_variant});
-    const auto title = pending() == 1 ? std::string{"Action failed"}
-                                      : std::format("Action failed · {} reports", pending());
+    const auto title = pending() == 1 ? std::string{i18n::tr("Action failed")}
+                                      : i18n::trf("Action failed · {} reports", pending());
     renderer.draw_text(title, card.x + 20, card.y + 18, 16, palette.on_surface, width - 40);
     const ui::Rect content{card.x + 20, card.y + 50, width - 40, height - 124};
     wrap(renderer, content.width);
@@ -167,9 +169,10 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         y += kLineHeight;
     }
     renderer.pop_clip();
-    renderer.draw_text(
-        maximum_scroll_ > 0 ? "Scroll for more · Ctrl+C copies details" : "Ctrl+C copies details",
-        content.x, card.bottom() - 68, 12, palette.on_surface_variant, content.width);
+    renderer.draw_text(i18n::tr(maximum_scroll_ > 0 ? "Scroll for more · Ctrl+C copies details"
+                                                    : "Ctrl+C copies details"),
+                       content.x, card.bottom() - 68, 12, palette.on_surface_variant,
+                       content.width);
     close_button_ = {card.right() - 128, card.bottom() - 48, 108, 32};
     copy_button_ = {close_button_.x - 144, close_button_.y, 136, 32};
     for (const bool copy : {true, false}) {
@@ -177,8 +180,9 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_box(
             button,
             {.fill = copy ? palette.surface_container_highest : palette.primary, .radius = {}});
-        renderer.draw_text(copy ? "Copy Details" : "Close   ↵", button.x + 12, button.y + 6, 13,
-                           copy ? palette.on_surface : palette.on_primary, button.width - 24);
+        renderer.draw_text(i18n::tr(copy ? "Copy Details" : "Close   ↵"), button.x + 12,
+                           button.y + 6, 13, copy ? palette.on_surface : palette.on_primary,
+                           button.width - 24);
     }
 }
 

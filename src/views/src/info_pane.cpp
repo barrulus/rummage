@@ -10,6 +10,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "draw_helpers.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/format.hpp"
 #include "rummage/views/media_details.hpp"
@@ -36,7 +37,13 @@ constexpr float kScrollbarMinThumb = 24.0F;
 
 // "1 file", "3 files".
 std::string count_of(std::size_t count, std::string_view noun) {
-    return std::format("{} {}{}", count, noun, count == 1 ? "" : "s");
+    if (noun == "folder") {
+        return count == 1 ? std::string{i18n::tr("1 folder")} : i18n::trf("{} folders", count);
+    }
+    if (noun == "file") {
+        return count == 1 ? std::string{i18n::tr("1 file")} : i18n::trf("{} files", count);
+    }
+    return count == 1 ? std::string{i18n::tr("1 item")} : i18n::trf("{} items", count);
 }
 
 // "1/2000 s · F5.6 · ISO 200", leaving out what is missing.
@@ -55,7 +62,7 @@ std::string exposure_of(const picture::PhotoInfo& photo) {
 
 std::string rating_of(int rating) {
     if (rating < 0) {
-        return "Rejected";
+        return std::string{i18n::tr("Rejected")};
     }
     std::string stars;
     for (int i = 0; i < 5; ++i) {
@@ -99,7 +106,7 @@ public:
         renderer_.fill_rect({left_, y_, width_, 1.0F / renderer_.scale()},
                             palette_.outline_variant);
         y_ += 12.0F;
-        renderer_.draw_text(title, left_, y_, kSectionSize, palette_.on_surface_variant);
+        renderer_.draw_text(i18n::tr(title), left_, y_, kSectionSize, palette_.on_surface_variant);
         y_ += 20.0F;
     }
 
@@ -109,12 +116,14 @@ public:
         if (value.empty()) {
             return;
         }
-        const float label_width = std::min(text_width(renderer_, label, kTextSize), width_ * 0.48F);
+        const std::string_view shown_label = i18n::tr(label);
+        const float label_width =
+            std::min(text_width(renderer_, shown_label, kTextSize), width_ * 0.48F);
         const float room = std::max(1.0F, width_ - label_width - 12.0F);
         const std::string id{label};
         const float label_height =
-            text_.draw(renderer_, id + ".label", label, {left_, y_, label_width, 0.0F}, kTextSize,
-                       palette_.on_surface_variant, palette_.secondary_container);
+            text_.draw(renderer_, id + ".label", shown_label, {left_, y_, label_width, 0.0F},
+                       kTextSize, palette_.on_surface_variant, palette_.secondary_container);
         const float full =
             renderer_.fonts()
                 .layout(value, kTextSize, renderer_.scale(), 0.0F, ui::Ellipsis::end, typeface)
@@ -526,11 +535,11 @@ std::string InfoPane::size_text() const {
         return "—";  // not walked on a network file system
     }
     if (!size_done_) {
-        return size_->bytes == 0 ? std::string{"Counting…"}
-                                 : std::format("Counting… {}", format_size(size_->bytes));
+        return size_->bytes == 0 ? std::string{i18n::tr("Counting…")}
+                                 : i18n::trf("Counting… {}", format_size(size_->bytes));
     }
     return size_->complete() ? format_size(size_->bytes)
-                             : std::format("at least {}", format_size(size_->bytes));
+                             : i18n::trf("at least {}", format_size(size_->bytes));
 }
 
 void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
@@ -798,7 +807,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         name = folder.path().string();  // the root
     }
     out.centered("name", name, 15.0F, palette.on_surface, 22.0F);
-    std::string type = "Folder";
+    std::string type{i18n::tr("Folder")};
     if (single != nullptr) {
         type =
             typed.mime == fs::kUnknownMime ? std::string{"…"} : std::string{mime.name(typed.mime)};
@@ -826,7 +835,8 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         out.row("Size", format_size(single->size));
         // The dot on the icon, in words (issue #17): for a file of a type that runs.
         if (!folder.is_trash() && folder.type_runs(*single)) {
-            out.row("Runs as program", folder.runs_as_program(*single) ? "Yes" : "No");
+            out.row("Runs as program",
+                    std::string{i18n::tr(folder.runs_as_program(*single) ? "Yes" : "No")});
         }
     }
     if (photo != nullptr && photo->width > 0) {
@@ -865,7 +875,8 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     // The rest, on request.
     if (info != nullptr) {
         out.skip(8.0F);
-        const std::string_view label = expanded_ ? "Fewer details" : "More details";
+        const std::string_view label =
+            expanded_ ? i18n::tr("Fewer details") : i18n::tr("More details");
         const float label_width = text_width(renderer, label, kTextSize);
         const float total = label_width + 6.0F + 12.0F;
         const float x = out.left() + ((out.width() - total) / 2.0F);

@@ -5,6 +5,8 @@
 #include <format>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::platform {
 namespace {
 
@@ -21,12 +23,12 @@ const UdisksObject* find(const std::vector<UdisksObject>& objects, const std::st
 std::string size_name(std::uint64_t bytes) {
     const auto value = static_cast<double>(bytes);
     if (value >= kTerabyte) {
-        return std::format("{:.1f} TB Volume", value / kTerabyte);
+        return i18n::decimal(i18n::trf("{:.1f} TB Volume", value / kTerabyte));
     }
     if (value >= kGigabyte) {
-        return std::format("{:.0f} GB Volume", value / kGigabyte);
+        return i18n::trf("{:.0f} GB Volume", value / kGigabyte);
     }
-    return std::format("{:.0f} MB Volume", std::max(1.0, std::round(value / 1e6)));
+    return i18n::trf("{:.0f} MB Volume", std::max(1.0, std::round(value / 1e6)));
 }
 
 std::vector<Volume> volumes_from(const std::vector<UdisksObject>& objects) {

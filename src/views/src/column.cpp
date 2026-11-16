@@ -9,6 +9,7 @@
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -149,7 +150,7 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         draw_centered(renderer, model.error().message(), bounds, bounds.y + 24.0F, size_.text,
                       palette.error);
     } else if (entries.empty() && !model.loading()) {
-        draw_centered(renderer, "Empty folder", bounds, bounds.y + 24.0F, size_.text,
+        draw_centered(renderer, i18n::tr("Empty folder"), bounds, bounds.y + 24.0F, size_.text,
                       palette.on_surface_variant);
     }
 

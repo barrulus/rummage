@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/browser.hpp"
 
 namespace rummage::views {
@@ -57,7 +58,7 @@ std::vector<MenuItem> Browser::action_items(const core::ActionContext& context) 
     std::vector<MenuItem> items;
     MenuItem custom;
     custom.id = "actions";
-    custom.label = "Actions";
+    custom.label = i18n::tr("Actions");
     custom.submenu = true;
     for (const auto& action : actions_) {
         if (!core::action_matches(action, context) ||
@@ -67,7 +68,7 @@ std::vector<MenuItem> Browser::action_items(const core::ActionContext& context) 
         }
         MenuItem item;
         item.id = "action:" + action.id;
-        item.label = action.label;
+        item.label = i18n::tr(action.label);
         item.keys = keys_for_action(action.id);
         item.enabled = action.kind == core::Action::Kind::copy_location ||
                        action.kind == core::Action::Kind::copy_name || !action_available_ ||
@@ -75,7 +76,7 @@ std::vector<MenuItem> Browser::action_items(const core::ActionContext& context) 
         if (!item.enabled) {
             const bool archive = action.kind == core::Action::Kind::extract_here ||
                                  action.kind == core::Action::Kind::extract_to;
-            item.label += archive ? " (setup required)" : " (not installed)";
+            item.label += archive ? i18n::tr(" (setup required)") : i18n::tr(" (not installed)");
             // Let built-in extraction explain which dependency is missing.
             item.enabled = archive;
         }
@@ -110,7 +111,7 @@ void Browser::invoke_action(const core::Action& action, const core::ActionContex
     } else if (action_handoff_) {
         if (action.kind == core::Action::Kind::external && action_available_ &&
             !action_available_(action, context)) {
-            show_message("No installed program supports this action and selection", true);
+            show_message(std::string{i18n::tr("No installed program supports this action and selection")}, true);
             return;
         }
         action_handoff_(action, context);

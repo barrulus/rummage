@@ -20,6 +20,7 @@
 #include "rummage/core/file.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::fs {
 namespace {
@@ -679,7 +680,7 @@ std::filesystem::path templates_dir(const PlaceSources& sources) {
 std::vector<Place> load_places(const PlaceSources& sources) {
     std::vector<Place> places;
     places.push_back({.section = Place::Section::places,
-                      .label = "Home",
+                      .label = std::string{i18n::tr("Home")},
                       .path = sources.home,
                       .icon = "home",
                       .disk = {},
@@ -708,13 +709,13 @@ std::vector<Place> load_places(const PlaceSources& sources) {
         }
     }
     places.push_back({.section = Place::Section::places,
-                      .label = "File system",
+                      .label = std::string{i18n::tr("File system")},
                       .path = "/",
                       .icon = "server",
                       .disk = {},
                       .icon_key = "filesystem"});
     places.push_back({.section = Place::Section::places,
-                      .label = "Trash",
+                      .label = std::string{i18n::tr("Trash")},
                       .path = trash_path(),
                       .icon = "trash",
                       .disk = {},

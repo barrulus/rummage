@@ -3,6 +3,7 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <clocale>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
@@ -30,6 +31,7 @@
 #include "rummage/core/file.hpp"
 #include "rummage/core/file_picker.hpp"
 #include "rummage/core/file_watcher.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/core/memory.hpp"
 #include "rummage/core/worker_pool.hpp"
@@ -74,6 +76,7 @@ namespace core = rummage::core;
 namespace engines = rummage::engines;
 namespace isolate = rummage::isolate;
 namespace fs = rummage::fs;
+namespace i18n = rummage::i18n;
 namespace log = rummage::log;
 namespace platform = rummage::platform;
 namespace theme = rummage::theme;
@@ -376,6 +379,9 @@ platform::Gvfs::Prompts remote_prompts(views::Remotes::Prompts prompts) {
 
 int main(int argc, char** argv) {
     core::give_back_large_blocks();  // before any thread: decoded photos go back to the system
+    // System error texts (strerror, std::error_code) in the user's language, as the interface;
+    // only messages: numbers and sorting stay as they are.
+    std::setlocale(LC_MESSAGES, "");
     const StartupTrace startup;
     startup.mark("main");
     std::filesystem::path config_path;
@@ -676,8 +682,9 @@ int main(int argc, char** argv) {
             display,
             egl,
             fonts,
-            {.title = picker_request ? (picker_request->title.empty() ? "Select a file — rummage"
-                                                                      : picker_request->title)
+            {.title = picker_request ? (picker_request->title.empty()
+                                            ? std::string{i18n::tr("Select a file — rummage")}
+                                            : picker_request->title)
                                      : "rummage",
              .app_id = "rummage",
              .width = remembered.state.window_width,
@@ -910,10 +917,13 @@ int main(int argc, char** argv) {
                             if (path.is_absolute())
                                 chosen(path);
                         });
-                    if (error || !folder_chooser->start(self, {"--pick-directory", "--title",
-                                                               "Choose Folder", start.string()})) {
+                    if (error ||
+                        !folder_chooser->start(
+                            self, {"--pick-directory", "--title",
+                                   std::string{i18n::tr("Choose Folder")}, start.string()})) {
                         folder_chooser.reset();
-                        columns->show_message("The folder chooser could not start", true);
+                        columns->show_message(
+                            std::string{i18n::tr("The folder chooser could not start")}, true);
                     }
                 });
             }

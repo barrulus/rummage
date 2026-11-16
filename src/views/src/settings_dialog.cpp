@@ -10,6 +10,7 @@
 
 #include "rummage/core/config_edit.hpp"
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/shortcuts.hpp"
 
 namespace rummage::views {
@@ -141,12 +142,12 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     for (std::size_t i = 0; i < config.actions.size(); ++i) {
         const auto& action = config.actions[i];
         const auto table = std::format("actions[{}]", i);
-        add(2, table, "label", action.id + " — label", action.label);
+        add(2, table, "label", i18n::trf("{} — label", action.id), action.label);
         if (action.kind == core::Action::Kind::external)
-            add(2, table, "argv", action.id + " — program and arguments", arguments(action.argv),
-                true);
-        add(2, table, "enabled", action.id + " — enabled", action.enabled ? "true" : "false", true,
-            {"true", "false"});
+            add(2, table, "argv", i18n::trf("{} — program and arguments", action.id),
+                arguments(action.argv), true);
+        add(2, table, "enabled", i18n::trf("{} — enabled", action.id),
+            action.enabled ? "true" : "false", true, {"true", "false"});
     }
 }
 
@@ -179,7 +180,7 @@ void SettingsDialog::add_action() {
                            {}});
     };
     add("id", "New action — unique ID", std::format("custom_{}", action_count_ + new_actions_));
-    add("label", "New action — menu label", "New action");
+    add("label", "New action — menu label", std::string{i18n::tr("New action")});
     add("argv", "Program and arguments, e.g. [\"xdg-open\", \"{file}\"]", "[]", true);
     section_ = 2;
     focus_ = "f" + std::to_string(fields_.size() - 3);
@@ -537,8 +538,8 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     for (auto& field : fields_)
         field.bounds = {};
     const float left = card.x + 16, room = std::max(1.0F, width - 32);
-    renderer.draw_text(busy_ ? "Settings · Please wait…" : "Settings", left, card.y + 14, 18,
-                       palette.on_surface, room);
+    renderer.draw_text(i18n::tr(busy_ ? "Settings · Please wait…" : "Settings"), left, card.y + 14,
+                       18, palette.on_surface, room);
     const auto button = [&](std::string id, std::string label, ui::Rect rect) {
         buttons_.push_back({id, label, rect});
         const bool selected = focus_ == id || id == "section" + std::to_string(section_);
@@ -547,7 +548,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                            .radius = {},
                            .border_width = focus_ == id ? 1.0F : 0.0F,
                            .border = palette.primary});
-        renderer.draw_text(label, rect.x + 8, rect.y + 9, 13,
+        renderer.draw_text(i18n::tr(label), rect.x + 8, rect.y + 9, 13,
                            selected ? palette.on_primary : palette.on_surface,
                            std::max(1.0F, rect.width - 16));
     };
@@ -560,7 +561,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         section_ == 0   ? "Choose a theme and preview layout. Save applies live settings."
         : section_ == 1 ? "Enter a chord (Ctrl+J), Default to reset, or empty to disable."
                         : "Edit custom actions here. Open config for filters and advanced options.";
-    renderer.draw_text(hint, left, card.y + 88, 12, palette.on_surface_variant, room);
+    renderer.draw_text(i18n::tr(hint), left, card.y + 88, 12, palette.on_surface_variant, room);
     list_ = {left, card.y + 112, room, std::max(0.0F, height - (section_ != 0 ? 236 : 188))};
     const auto count = std::ranges::count_if(
         fields_, [this](const Field& field) { return field.section == section_; });
@@ -568,15 +569,16 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     scrollbar_.layout(list_);
     renderer.push_clip(list_);
     if (section_ == 2 && count == 0 && !busy_ && valid_)
-        renderer.draw_text("No custom actions yet. Choose Add action to create one.", left,
-                           list_.y + 8, 13, palette.on_surface_variant, room);
+        renderer.draw_text(i18n::tr("No custom actions yet. Choose Add action to create one."),
+                           left, list_.y + 8, 13, palette.on_surface_variant, room);
     float y = list_.y - scroller_.offset();
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
         if (field.section != section_)
             continue;
         if (y + 72 > list_.y && y < list_.bottom()) {
-            renderer.draw_text(field.label, left, y, 13, palette.on_surface_variant, room - 22);
+            renderer.draw_text(i18n::tr(field.label), left, y, 13, palette.on_surface_variant,
+                               room - 22);
             field.bounds = {left, y + 22, room - 22, 32};
             const bool focused = focus_ == "f" + std::to_string(i);
             if (field.choices.empty())
@@ -602,6 +604,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                     label = "On";
                 else if (label == "false")
                     label = "Off";
+                label = i18n::tr(label);
                 renderer.draw_text(label + "  ↔", left + 6, y + 30, 13, palette.on_surface,
                                    room - 40);
             }
@@ -616,7 +619,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         button("add_binding", "New keybinding",
                {left, card.bottom() - 114, std::min(152.0F, room), 32});
     if (!error_.empty())
-        renderer.draw_text(error_, left, card.bottom() - 72, 12, palette.error, room);
+        renderer.draw_text(i18n::tr(error_), left, card.bottom() - 72, 12, palette.error, room);
     const float footer = (room - 12) / 3;
     button("file", "Open config", {left, card.bottom() - 48, footer, 32});
     button("close", "Cancel", {left + footer + 6, card.bottom() - 48, footer, 32});

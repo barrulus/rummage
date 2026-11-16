@@ -7,6 +7,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/config.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -786,7 +787,7 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         next.labels.push_back(folder.string());
         Shortcut entry;
         entry.folder_path = next.labels.back();
-        next.labels.push_back("Go to " + name.substr(3));
+        next.labels.push_back(i18n::trf("Go to {}", name.substr(3)));
         entry.action = next.labels.back();
         next.labels.push_back(name);
         entry.action_id = next.labels.back();
@@ -951,8 +952,9 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                 chord += key.data();
             }
             result.emplace_back(
-                name, std::format("{} · {}", entry.action,
-                                  chord.empty() ? "Unbound by default" : "Default: " + chord));
+                name, std::format("{} · {}", i18n::tr(entry.action),
+                                  chord.empty() ? std::string{i18n::tr("Unbound by default")}
+                                                : i18n::trf("Default: {}", i18n::keys(chord))));
         }
     }
     std::ranges::sort(result, [](const auto& a, const auto& b) {

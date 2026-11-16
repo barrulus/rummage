@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "bus_loop.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/platform/action_handoff.hpp"
 
 namespace {
@@ -34,6 +35,8 @@ struct Notice {
 }  // namespace
 
 int main() {
+    // The checks below compare English texts, whatever the locale of the machine running them.
+    rummage::i18n::set_language(rummage::i18n::kEnglish);
     try {
         rummage::core::EventLoop loop;
         rummage::platform::Notifications notifications{loop};

@@ -9,6 +9,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "draw_helpers.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/format.hpp"
@@ -502,7 +503,7 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     renderer.fill_rect(bounds, palette.scrim.with_alpha(0.78F * fade));
     ui::Rect area{bounds.x + kMargin, bounds.y + kMargin, bounds.width - (2.0F * kMargin),
                   bounds.height - (2.0F * kMargin) - kCaptionHeight};
-    const std::string button = details_ ? "Hide details · I" : "Details · I";
+    const std::string button{i18n::tr(details_ ? "Hide details · I" : "Details · I")};
     const float button_width = text_width(renderer, button, 13.0F) + 24.0F;
     details_button_ = {bounds.right() - button_width - 16.0F, bounds.y + 8.0F, button_width, 28.0F};
     renderer.draw_box(details_button_, {.fill = palette.surface_container_high, .radius = {}});
@@ -573,7 +574,7 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
     const auto row = [&](const std::string& label, const std::string& value) {
         if (value.empty())
             return;
-        renderer.draw_text(label, clip.x, y, 11, palette.on_surface_variant, clip.width);
+        renderer.draw_text(i18n::tr(label), clip.x, y, 11, palette.on_surface_variant, clip.width);
         y += 18;
         y += metadata_.draw(renderer, label, value, {clip.x, y, clip.width, 0}, 13,
                             palette.on_surface, palette.secondary_container) +
@@ -599,7 +600,7 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
         row("Link target", value->info.link_target);
         row("Information", value->info.error);
     } else
-        row("Information", "Loading details…");
+        row("Information", std::string{i18n::tr("Loading details…")});
     row("Location", folder_->path_of(*entry).parent_path().string());
     metadata_.end_frame();
     renderer.pop_clip();
@@ -840,7 +841,7 @@ void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,
     if (!text.language.empty()) {
         caption += "   " + text.language;
         if (text::looks_minified(text)) {
-            caption += " (minified)";
+            caption += i18n::tr(" (minified)");
         }
     }
     caption += "   ";
@@ -850,11 +851,11 @@ void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,
     }
     caption += "   ";
     if (text.tail) {
-        caption += std::format("last {} lines", count);
+        caption += i18n::trf("last {} lines", count);
     } else if (text.truncated) {
-        caption += std::format("first {} lines", count);
+        caption += i18n::trf("first {} lines", count);
     } else {
-        caption += count == 1 ? std::string{"1 line"} : std::format("{} lines", count);
+        caption += count == 1 ? std::string{i18n::tr("1 line")} : i18n::trf("{} lines", count);
     }
     caption += "   " + format_size(entry.size);
     draw_caption(renderer, area, palette, caption, fade);
@@ -910,7 +911,7 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
     for (const Row& row : rows) {
-        const float label_width = renderer.draw_text(row.label, card.x + 20.0F, y, 13.0F,
+        const float label_width = renderer.draw_text(i18n::tr(row.label), card.x + 20.0F, y, 13.0F,
                                                      palette.on_surface_variant.with_alpha(fade));
         // Long values (a link target) are cut in the middle, keeping their end.
         const float room = kCardWidth - 40.0F - label_width - 16.0F;
