@@ -519,3 +519,58 @@ TEST_CASE("picker: overflowing options scroll into view and receive pointer inpu
     CHECK(f.result->choices.back() == "true");
     CHECK(std::count(f.result->choices.begin(), f.result->choices.end(), "true") == 2);
 }
+
+TEST_CASE("picker: save filename supports double click and drag selection") {
+    namespace ui = rummage::ui;
+    using Kind = ui::PointerEvent::Kind;
+    ui::Offscreen gl{800, 600};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    Fixture f;
+    core::PickerRequest request;
+    request.mode = Mode::save;
+    request.name = "sample.txt";
+    auto picker = f.picker(request);
+    REQUIRE(f.settle());
+    renderer.begin_frame(800, 600, 1, {});
+    picker->draw(renderer, {0, 0, 800, 600}, rummage::theme::Palette{}, icons);
+    renderer.end_frame();
+    const float start = 64 + ui::TextField::kPadding;
+    const float end = start + fonts.layout("sample", 14, 1).width;
+    REQUIRE(picker->cursor_at(start, 500) == ui::CursorShape::text);
+    std::string expected;
+    SUBCASE("double click selects the complete filename for replacement") {
+        picker->pointer({.kind = Kind::press,
+                         .x = end,
+                         .y = 500,
+                         .button = ui::PointerButton::left,
+                         .click_count = 2});
+        picker->pointer(
+            {.kind = Kind::release, .x = end, .y = 500, .button = ui::PointerButton::left});
+        CHECK(picker->copy_name(false) == "sample.txt");
+        picker->paste("renamed.md");
+        expected = "renamed.md";
+    }
+    SUBCASE("drag outside the footer selects the stem without changing the browser selection") {
+        picker->pointer({.kind = Kind::press,
+                         .x = end,
+                         .y = 500,
+                         .button = ui::PointerButton::left,
+                         .click_count = 1});
+        picker->pointer({.kind = Kind::motion, .x = start, .y = 100});
+        CHECK(picker->copy_name(false) == "sample");
+        picker->pointer(
+            {.kind = Kind::release, .x = start, .y = 100, .button = ui::PointerButton::left});
+        picker->pointer({.kind = Kind::motion, .x = end, .y = 500});
+        CHECK(picker->copy_name(false) == "sample");
+        picker->paste("renamed");
+        expected = "renamed.txt";
+    }
+    REQUIRE(picker->editing_name());
+    CHECK_FALSE(f.result);
+    picker->accept();
+    REQUIRE(f.result);
+    CHECK(f.result->response == 0);
+    CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / expected).string()});
+}

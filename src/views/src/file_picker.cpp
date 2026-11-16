@@ -513,6 +513,10 @@ void FilePicker::pointer(const ui::PointerEvent& event) {
         browser_.pointer(event, Browser::Clock::now());
         return;
     }
+    if (event.kind != ui::PointerEvent::Kind::press && name_.pointer(event)) {
+        redraw_();
+        return;
+    }
     using Kind = ui::PointerEvent::Kind;
     if (event.kind == Kind::scroll && choices_viewport_.contains(event.x, event.y)) {
         const float delta = event.wheel_y != 0 ? event.wheel_y * 40 : event.scroll_y;
@@ -535,7 +539,7 @@ void FilePicker::pointer(const ui::PointerEvent& event) {
                 }
                 focus_ = static_cast<int>(i);
                 if (i == 1) {
-                    name_.click(event.x, false);
+                    name_.pointer(event);
                 }
                 if (i >= 2) {
                     activate(static_cast<int>(i), false);

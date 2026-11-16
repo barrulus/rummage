@@ -341,7 +341,10 @@ TEST_CASE("trash folder: in the browser, Restore from the menu; nothing else is 
     REQUIRE(browser.context_menu().is_open());
     REQUIRE(browser.context_menu().items().size() == 5);
     CHECK(browser.context_menu().items()[0].id == "restore");
-    CHECK(browser.context_menu().items()[1].id == "erase");
+    CHECK(browser.context_menu().items()[1].id == "action:copy_name");
+    CHECK(browser.context_menu().items()[2].id == "erase");
+    CHECK(browser.context_menu().items()[2].separator);
+    CHECK(browser.context_menu().items().back().id == "properties");
     CHECK(browser.key(key(XKB_KEY_Return), Browser::Clock::now()));
     REQUIRE(settle());
     CHECK(listing(t.photos) == Names{"P1.ORF", "P1.ORF.xmp"});

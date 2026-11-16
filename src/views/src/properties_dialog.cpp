@@ -381,6 +381,11 @@ void PropertiesDialog::paste(std::string_view text) {
 void PropertiesDialog::pointer(const ui::PointerEvent& event) {
     if (!open_ || saving_)
         return;
+    if (event.kind != ui::PointerEvent::Kind::press && picking_ &&
+        (search_.pointer(event) || custom_.pointer(event))) {
+        redraw_();
+        return;
+    }
     if (event.kind == ui::PointerEvent::Kind::scroll && max_scroll_ > 0 &&
         content_.contains(event.x, event.y)) {
         scroll_ = std::clamp(scroll_ + event.wheel_y, 0.0F, max_scroll_);
@@ -402,14 +407,14 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
     if (picking_ && content_.contains(event.x, event.y) &&
         search_.bounds().contains(event.x, event.y)) {
         focus_ = "search";
-        search_.click(event.x, event.modifiers.shift);
+        search_.pointer(event);
         redraw_();
         return;
     }
     if (picking_ && content_.contains(event.x, event.y) &&
         custom_.bounds().contains(event.x, event.y)) {
         focus_ = "custom";
-        custom_.click(event.x, event.modifiers.shift);
+        custom_.pointer(event);
         redraw_();
         return;
     }

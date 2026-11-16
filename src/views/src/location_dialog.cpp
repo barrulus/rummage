@@ -124,6 +124,10 @@ void LocationDialog::pointer(const ui::PointerEvent& event) {
     if (!is_open()) {
         return;
     }
+    if (event.kind != ui::PointerEvent::Kind::press && field_.pointer(event)) {
+        redraw_();
+        return;
+    }
     using Kind = ui::PointerEvent::Kind;
     const Target over = event.kind == Kind::leave ? Target::none : target_at(event.x, event.y);
     if (over != hovered_) {
@@ -150,7 +154,7 @@ void LocationDialog::pointer(const ui::PointerEvent& event) {
     }
     if (field_at(event.x, event.y)) {
         on_toggle_ = false;
-        field_.click(event.x, event.modifiers.shift);
+        field_.pointer(event);
         redraw_();
     }
 }

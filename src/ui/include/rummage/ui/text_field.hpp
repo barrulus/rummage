@@ -77,6 +77,11 @@ public:
     // extend, the selection reaches it from where it starts.
     void click(float x, bool extend);
 
+    // Left click places the caret; Shift extends, double click selects all. A held press
+    // selects through motion/release, even outside the field. Owners must route those events
+    // here before other controls; false means the event belongs elsewhere.
+    bool pointer(const PointerEvent& event);
+
     // A box in rect, the text at size (logical pixels) with the selection behind it and the caret.
     void draw(Renderer& renderer, const Rect& rect, float size, const FieldColors& colors,
               bool masked = false);
@@ -124,6 +129,8 @@ private:
     std::vector<State> redo_;
     Edit last_edit_{Edit::other};  // other: the next edit starts a new one
     bool always_masked_{false};    // set_masked(true): masked whatever draw() is told
+    bool dragging_{false};
+    bool dragging_all_{false};
 };
 
 }  // namespace rummage::ui
