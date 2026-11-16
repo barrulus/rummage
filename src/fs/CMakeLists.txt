@@ -1,4 +1,5 @@
 add_library(rummage_fs
+    src/permissions.cpp
     src/directory.cpp
     src/directory_model.cpp
     src/directory_watcher.cpp

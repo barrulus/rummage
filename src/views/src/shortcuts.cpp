@@ -406,6 +406,13 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .command = Command::copy},
     Shortcut{.group = "Files",
+             .keys = "Ctrl+Shift+C",
+             .action = "Copy the folder's path",
+             .scope = scope::kViews | scope::kQuickLook,
+             .modifiers = kCtrlShift,
+             .keysyms = {XKB_KEY_c, XKB_KEY_C},
+             .command = Command::copy_path},
+    Shortcut{.group = "Files",
              .keys = "Ctrl+Alt+C",
              .action = "Copy Name",
              .scope = scope::kViews,
@@ -532,6 +539,17 @@ constexpr std::array kShortcuts{
              .action = "Back to the view",
              .scope = scope::kSidebar,
              .keysyms = {XKB_KEY_Escape}},
+    Shortcut{.group = "Sidebar",
+             .keys = "F2",
+             .action = "Rename a bookmark",
+             .scope = scope::kSidebar,
+             .keysyms = {XKB_KEY_F2}},
+    Shortcut{.group = "Sidebar",
+             .keys = "Alt+↑  Alt+↓",
+             .action = "Move a bookmark up, down",
+             .scope = scope::kSidebar,
+             .modifiers = kAlt,
+             .keysyms = {XKB_KEY_Up, XKB_KEY_Down}},
 
     // Quick Look
     Shortcut{.group = "Quick Look",
@@ -623,6 +641,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::rename;
     if (name == "new_folder")
         command = Command::new_folder;
+    if (name == "copy_path")
+        command = Command::copy_path;
     if (name == "copy")
         command = Command::copy;
     if (name == "cut")
@@ -817,6 +837,21 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         entry.keys = next.labels.back();
         changed.push_back(*index);
     }
+    // Preserve explicit user bindings when introducing a new default shortcut.
+    // An explicitly configured copy_path still participates in normal conflict checks.
+    if (!bindings.contains("copy_path")) {
+        auto& folder_path = next.entries[*binding_index("copy_path")];
+        for (const auto index : changed) {
+            const auto& entry = next.entries[index];
+            for (const auto symbol : entry.keysyms) {
+                if (folder_path.matches(
+                        {.keysym = symbol, .text = {}, .modifiers = entry.modifiers})) {
+                    folder_path.keysyms = {};
+                    folder_path.keys = {};
+                }
+            }
+        }
+    }
     for (const auto index : changed) {
         const auto& entry = next.entries[index];
         for (std::size_t other = 0; other < next.entries.size(); ++other) {
@@ -874,6 +909,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "new_folder",
                              "copy",
                              "copy_name",
+                             "copy_path",
                              "cut",
                              "paste",
                              "trash",

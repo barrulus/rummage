@@ -12,6 +12,7 @@
 #include "rummage/core/log.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/views/media_details.hpp"
 
 namespace rummage::views {
 namespace {
@@ -91,7 +92,8 @@ std::string QuickLook::key_of(const fs::Entry& entry) const {
 }
 
 void QuickLook::drop(Slot& slot) {
-    for (std::optional<core::CancelToken>* job : {&slot.thumbnail_job, &slot.content_job}) {
+    for (std::optional<core::CancelToken>* job :
+         {&slot.thumbnail_job, &slot.content_job, &slot.summary_job}) {
         if (*job) {
             (*job)->cancel();
             job->reset();
@@ -114,6 +116,8 @@ void QuickLook::close() {
         drop(slot);
     }
     slots_.clear();
+    metadata_.reset();
+    details_bounds_ = details_button_ = {};
     folder_.reset();
     shown_name_.clear();
     shown_key_.clear();
@@ -130,6 +134,24 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     Slot& slot = slots_[key];
     slot.path = folder_->path_of(entry);
     slot.kind = provider.kind();
+    if (current && details_ && !slot.summary && !slot.summary_job) {
+        const auto type = std::string{mime_->name(folder_->mime_of(entry))};
+        slot.summary_job = pool_.submit(
+            core::Priority::visible,
+            [path = slot.path, type, kind = slot.kind](const core::CancelToken& token) {
+                return std::make_shared<preview::Summary>(preview::summarize(
+                    path, type, kind == preview::Kind::text ? preview::Kind::info : kind, token));
+            },
+            [this, alive = alive_, key](std::shared_ptr<preview::Summary> value) {
+                if (!*alive)
+                    return;
+                if (auto it = slots_.find(key); it != slots_.end()) {
+                    it->second.summary_job.reset();
+                    it->second.summary = std::move(value);
+                    redraw_();
+                }
+            });
+    }
     if (!slot.content && !slot.content_job) {
         slot.requested = Clock::now();
         slot.in_advance = !current;
@@ -206,6 +228,8 @@ void QuickLook::follow(std::shared_ptr<Folder> folder) {
     const std::vector<fs::Entry>& entries = folder_->entries();
     const std::size_t index = *cursor;
     if (moved) {
+        metadata_.reset();
+        details_scroller_.jump_to(0);
         folder_->sniff(index == 0 ? 0 : index - 1, index + 2);
         text_scroller_.jump_to(0.0F);
         text_sideways_.jump_to(0.0F);
@@ -241,6 +265,33 @@ const preview::Text* QuickLook::shown_text() const {
 }
 
 bool QuickLook::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (event.kind == ui::PointerEvent::Kind::press && event.button == ui::PointerButton::left &&
+        details_button_.contains(event.x, event.y)) {
+        set_details(!details_);
+        return true;
+    }
+    if (details_ && !details_bounds_.empty()) {
+        if (details_scrollbar_.pointer(event, details_scroller_)) {
+            redraw_();
+            return true;
+        }
+        if (metadata_.pointer(event)) {
+            redraw_();
+            return true;
+        }
+        if (details_bounds_.contains(event.x, event.y)) {
+            if (event.kind == ui::PointerEvent::Kind::scroll) {
+                if (event.wheel_y != 0)
+                    details_scroller_.wheel(event.wheel_y, now);
+                else
+                    details_scroller_.finger(event.scroll_y, now);
+                if (event.scroll_stop)
+                    details_scroller_.release(now);
+                redraw_();
+            }
+            return true;
+        }
+    }
     const preview::Text* const text = shown_text();
     if (text == nullptr) {
         return false;
@@ -338,6 +389,32 @@ bool QuickLook::autoscrolling() const {
 }
 
 bool QuickLook::text_key(const ui::KeyEvent& event, Clock::time_point now) {
+    if (event.modifiers == ui::Modifiers{} &&
+        (event.keysym == XKB_KEY_i || event.keysym == XKB_KEY_I)) {
+        set_details(!details_);
+        return true;
+    }
+    if (details_ && metadata_.focused() && event.modifiers == ui::Modifiers{}) {
+        const float page = details_bounds_.height;
+        switch (event.keysym) {
+            case XKB_KEY_Page_Down:
+                details_scroller_.glide_to(details_scroller_.destination() + page, now);
+                break;
+            case XKB_KEY_Page_Up:
+                details_scroller_.glide_to(details_scroller_.destination() - page, now);
+                break;
+            case XKB_KEY_Home:
+                details_scroller_.jump_to(0);
+                break;
+            case XKB_KEY_End:
+                details_scroller_.jump_to(details_scroller_.max_offset());
+                break;
+            default:
+                return false;
+        }
+        redraw_();
+        return true;
+    }
     if (shown_text() == nullptr || !layout_.valid || event.modifiers != ui::Modifiers{}) {
         return false;
     }
@@ -365,6 +442,11 @@ bool QuickLook::text_key(const ui::KeyEvent& event, Clock::time_point now) {
 }
 
 void QuickLook::select_all_text() {
+    if (details_ && metadata_.focused()) {
+        metadata_.select_all();
+        redraw_();
+        return;
+    }
     if (const preview::Text* const text = shown_text()) {
         selection_.select_all(text->lines);
         redraw_();
@@ -372,18 +454,22 @@ void QuickLook::select_all_text() {
 }
 
 std::string QuickLook::selected_text() const {
+    if (details_ && metadata_.focused())
+        return metadata_.selected_text();
     const preview::Text* const text = shown_text();
     return text == nullptr ? std::string{} : selection_.text(text->lines);
 }
 
 bool QuickLook::animating(Clock::time_point now) const {
     return is_open() && (fade_at(opened_, now) < 1.0F || text_scroller_.animating() ||
-                         text_sideways_.animating() || autoscrolling());
+                         text_sideways_.animating() ||
+                         (details_ && details_scroller_.animating()) || autoscrolling());
 }
 
 bool QuickLook::loading() const {
     const auto it = slots_.find(shown_key_);
-    return it != slots_.end() && it->second.content_job.has_value();
+    return it != slots_.end() &&
+           (it->second.content_job.has_value() || (details_ && it->second.summary_job.has_value()));
 }
 
 const preview::Content* QuickLook::content() const {
@@ -414,8 +500,29 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     Slot& slot = it->second;
     const float fade = fade_at(opened_, now);
     renderer.fill_rect(bounds, palette.scrim.with_alpha(0.78F * fade));
-    const ui::Rect area{bounds.x + kMargin, bounds.y + kMargin, bounds.width - (2.0F * kMargin),
-                        bounds.height - (2.0F * kMargin) - kCaptionHeight};
+    ui::Rect area{bounds.x + kMargin, bounds.y + kMargin, bounds.width - (2.0F * kMargin),
+                  bounds.height - (2.0F * kMargin) - kCaptionHeight};
+    const std::string button = details_ ? "Hide details · I" : "Details · I";
+    const float button_width = text_width(renderer, button, 13.0F) + 24.0F;
+    details_button_ = {bounds.right() - button_width - 16.0F, bounds.y + 8.0F, button_width, 28.0F};
+    renderer.draw_box(details_button_, {.fill = palette.surface_container_high, .radius = {}});
+    renderer.draw_text(button, details_button_.x + 12.0F, details_button_.y + 5.0F, 13.0F,
+                       palette.on_surface);
+    area.y += 16.0F;
+    area.height = std::max(1.0F, area.height - 16.0F);
+    details_bounds_ = {};
+    if (details_) {
+        if (area.width >= 640.0F) {
+            const float width = std::min(340.0F, area.width * 0.4F);
+            details_bounds_ = {area.right() - width, area.y, width, area.height + kCaptionHeight};
+            area.width -= width + 20.0F;
+        } else {
+            const float height = area.height * 0.45F;
+            details_bounds_ = {area.x, area.bottom() + kCaptionHeight - height, area.width, height};
+            area.height = std::max(1.0F, area.height - height - 16.0F);
+        }
+        draw_details(renderer, palette, now);
+    }
     // Images are made for this area, in physical pixels (from the next one on).
     target_width_ = static_cast<std::uint32_t>(std::max(1.0F, area.width * renderer.scale()));
     target_height_ = static_cast<std::uint32_t>(std::max(1.0F, area.height * renderer.scale()));
@@ -433,6 +540,74 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     }
     const auto* const info = shown == nullptr ? nullptr : std::get_if<preview::Info>(shown);
     draw_card(renderer, area, palette, icons, *entry, info, fade);
+}
+
+void QuickLook::set_details(bool shown) {
+    details_ = shown;
+    metadata_.reset();
+    details_scroller_.jump_to(0);
+    if (folder_)
+        follow(folder_);
+    redraw_();
+}
+
+const preview::Summary* QuickLook::summary() const {
+    const auto it = slots_.find(shown_key_);
+    return it == slots_.end() ? nullptr : it->second.summary.get();
+}
+
+void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palette,
+                             Clock::time_point now) {
+    const auto* entry = folder_->cursor_entry();
+    if (!entry)
+        return;
+    renderer.draw_box(details_bounds_, {.fill = palette.surface_container, .radius = {}});
+    const ui::Rect clip{details_bounds_.x + 14, details_bounds_.y + 12,
+                        std::max(1.0F, details_bounds_.width - 34),
+                        std::max(1.0F, details_bounds_.height - 24)};
+    details_scroller_.advance(now);
+    const float start = clip.y - details_scroller_.offset();
+    float y = start;
+    metadata_.begin_frame(clip);
+    renderer.push_clip(clip);
+    const auto row = [&](const std::string& label, const std::string& value) {
+        if (value.empty())
+            return;
+        renderer.draw_text(label, clip.x, y, 11, palette.on_surface_variant, clip.width);
+        y += 18;
+        y += metadata_.draw(renderer, label, value, {clip.x, y, clip.width, 0}, 13,
+                            palette.on_surface, palette.secondary_container) +
+             14;
+    };
+    row("Name", entry->name);
+    row("Type", std::string{mime_->name(folder_->mime_of(*entry))});
+    row("Size", format_size(entry->size));
+    row("Modified", format_time(entry->modified_ns));
+    if (const auto* value = summary()) {
+        if (value->photo) {
+            const auto& photo = *value->photo;
+            if (photo.width && photo.height)
+                row("Dimensions", std::format("{} × {}", photo.width, photo.height));
+            for (const auto& [label, text] : media_details(photo))
+                row(label, text);
+        }
+        if (value->info.created_ns)
+            row("Created", format_time(*value->info.created_ns));
+        row("Permissions", value->info.permissions);
+        row("Owner", value->info.owner);
+        row("Group", value->info.group);
+        row("Link target", value->info.link_target);
+        row("Information", value->info.error);
+    } else
+        row("Information", "Loading details…");
+    row("Location", folder_->path_of(*entry).parent_path().string());
+    metadata_.end_frame();
+    renderer.pop_clip();
+    details_scroller_.set_extent(y - start, clip.height);
+    details_scrollbar_.layout(details_bounds_);
+    const auto thumb = details_scrollbar_.thumb(details_scroller_);
+    if (!thumb.empty())
+        renderer.fill_rect(thumb, palette.on_surface_variant);
 }
 
 void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,

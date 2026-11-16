@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <sys/signalfd.h>
+#include <sys/wait.h>
 #include <system_error>
 #include <unistd.h>
 #include <utility>
@@ -47,6 +48,7 @@
 #include "rummage/platform/gvfs.hpp"
 #include "rummage/platform/opener.hpp"
 #include "rummage/platform/portal.hpp"
+#include "rummage/platform/program_output.hpp"
 #include "rummage/platform/udisks.hpp"
 #include "rummage/theme/app_icon.hpp"
 #include "rummage/theme/theme.hpp"
@@ -686,6 +688,7 @@ int main(int argc, char** argv) {
              .background_opacity = config.appearance.background_opacity,
              .parent_window = picker_request ? picker_request->parent_window : "",
              .modal = picker_request && picker_request->modal}};
+        window.set_zoom(config.font.zoom());
         startup.mark("window");
         ui::Seat seat{display};
         seat.set_multi_click(std::chrono::milliseconds{config.pointer.double_click_ms},
@@ -725,12 +728,23 @@ int main(int argc, char** argv) {
         // The column view and the grid (ROADMAP 4.2, 4.4), unless the renderer test scene was
         // asked for.
         std::unique_ptr<views::Browser> columns;
+        std::unique_ptr<platform::ProgramOutput> folder_chooser;
         std::unique_ptr<views::FilePicker> picker;
         // config.toml is followed while rummage runs: the double click changes at once, the
         // fonts at the next start (`config` keeps the ones in use).
+        std::unique_ptr<platform::Opener> opener;
+        const auto configured_terminal = [](const core::Config& from) {
+            std::vector<std::string> line;
+            if (!from.terminal.program.empty()) {
+                line.push_back(from.terminal.program);
+                line.insert(line.end(), from.terminal.args.begin(), from.terminal.args.end());
+            }
+            return line;
+        };
         std::unique_ptr<core::FileWatcher> config_watcher;
         const auto apply_config = [&](const core::ConfigResult& loaded) {
             const auto& fresh = loaded.config;
+            window.set_zoom(fresh.font.zoom());
             if (columns) {
                 columns->set_motion_config(fresh.animations);
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
@@ -761,6 +775,10 @@ int main(int argc, char** argv) {
                                  static_cast<float>(fresh.pointer.double_click_distance));
             follow_accent = fresh.icon.follow_accent;
             update_icon();
+            if (opener) {
+                opener->set_terminal(configured_terminal(fresh));
+                opener->set_programs(fresh.open.programs && !picker_request);
+            }
         };
         // Writes state.toml as things change; the window's size is the one it has when neither
         // maximized, fullscreen nor tiled, so a maximized window comes back to it.
@@ -784,8 +802,6 @@ int main(int argc, char** argv) {
             }
             keeper.note(state);
         };
-        // Files open with their default applications (ROADMAP 6.1).
-        std::unique_ptr<platform::Opener> opener;
         std::unique_ptr<platform::ActionHandoff> action_handoff;
         if (!test_scene) {
             const std::shared_ptr<const fs::MimeDatabase> mime = fs::MimeDatabase::load();
@@ -794,8 +810,10 @@ int main(int argc, char** argv) {
                 [&](ui::CursorShape shape) { seat.set_cursor(shape); },
                 std::make_shared<thumbs::Cache>(thumbs::default_root(),
                                                 "rummage-" RUMMAGE_VERSION));
+            platform::Environment environment = platform::Environment::from_environment();
+            environment.configured_terminal = configured_terminal(config);
             opener = std::make_unique<platform::Opener>(
-                loop, pool, mime, platform::Environment::from_environment(),
+                loop, pool, mime, std::move(environment),
                 [&](std::string message, bool error) {
                     columns->show_message(std::move(message), error);
                 },
@@ -803,6 +821,12 @@ int main(int argc, char** argv) {
                     activation.request(display.seat(), seat.input_serial(), window.surface(),
                                        std::move(done));
                 });
+            opener->set_programs(config.open.programs && !picker_request);
+            opener->set_ask_to_run(
+                [&](const std::filesystem::path& program, std::function<void()> allow_and_run) {
+                    columns->ask_to_run(program, std::move(allow_and_run));
+                });
+            columns->set_picker_mode(picker_request.has_value());
             columns->set_actions(configured_actions);
             columns->set_motion_config(config.animations);
             columns->set_reduced_motion(portal->appearance().reduced_motion);
@@ -868,6 +892,31 @@ int main(int argc, char** argv) {
                 apply_config);
             columns->set_terminal_handler(
                 [&](const std::filesystem::path& directory) { opener->open_terminal(directory); });
+            if (!picker_request) {
+                columns->set_folder_chooser([&](const std::filesystem::path& start,
+                                                std::function<void(std::filesystem::path)> chosen) {
+                    if (folder_chooser && folder_chooser->running())
+                        return;
+                    std::error_code error;
+                    const auto self = std::filesystem::read_symlink("/proc/self/exe", error);
+                    folder_chooser = std::make_unique<platform::ProgramOutput>(
+                        loop, [chosen = std::move(chosen)](const std::string& output, int status) {
+                            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+                                return;
+                            const auto end = output.find('\0');
+                            if (end == std::string::npos)
+                                return;
+                            const std::filesystem::path path{output.substr(0, end)};
+                            if (path.is_absolute())
+                                chosen(path);
+                        });
+                    if (error || !folder_chooser->start(self, {"--pick-directory", "--title",
+                                                               "Choose Folder", start.string()})) {
+                        folder_chooser.reset();
+                        columns->show_message("The folder chooser could not start", true);
+                    }
+                });
+            }
             columns->set_quit_handler([&] {
                 log::info("quit from the command palette");
                 loop.quit(0);
@@ -917,8 +966,9 @@ int main(int argc, char** argv) {
                     .finish = [&] { clipboard.finish_drop(); },
                     .modifiers = [&] { return seat.modifiers(); },
                 });
-                clipboard.set_drop_handler(
-                    [&](const ui::DropEvent& event) { columns->drop_event(event); });
+                clipboard.set_drop_handler([&](const ui::DropEvent& event) {
+                    columns->drop_event(window.content_map().to_content(event));
+                });
                 clipboard.set_drag_end_handler([&](bool /*dropped*/) {
                     window.drop_drag_icon();
                     columns->drag_ended();
@@ -1022,7 +1072,9 @@ int main(int argc, char** argv) {
              .toggle_maximized = [&] { window.toggle_maximized(); },
              .window_menu =
                  [&](float x, float y) {
-                     window.show_window_menu(display.seat(), seat.input_serial(), x, y);
+                     window.show_window_menu(display.seat(), seat.input_serial(),
+                                             window.content_map().to_surface(x),
+                                             window.content_map().to_surface(y));
                  },
              .close = [&] { window.close(); }},
             [&] { window.request_redraw(); },
@@ -1075,7 +1127,8 @@ int main(int argc, char** argv) {
         bool hovered = false;
         int clicks = 0;
         std::string last_pointer = "Move the pointer, click the button, scroll";
-        seat.set_pointer_handler([&](const ui::PointerEvent& event) {
+        seat.set_pointer_handler([&](const ui::PointerEvent& surface_event) {
+            const auto event = window.content_map().to_content(surface_event);
             using Kind = ui::PointerEvent::Kind;
             if (window.client_decorations() && !content_pressed) {
                 if (title_bar.pointer(event)) {

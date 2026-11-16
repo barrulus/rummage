@@ -6,8 +6,8 @@
 
 namespace rummage::picture {
 
-// What a photo says about itself (EXIF), written as exiv2 printed it ("1/2000 s", "F5.6"). Empty
-// strings where the file does not say.
+// Media metadata: photo EXIF ("1/2000 s", "F5.6") or video stream/container details.
+// The historical name is retained for the shared helper API. Missing fields are empty.
 struct PhotoInfo {
     // The image's size upright (the EXIF orientation applied); 0 when unknown.
     std::uint32_t width{0};
@@ -25,6 +25,19 @@ struct PhotoInfo {
     std::string flash;          // "No, compulsory"
     std::string white_balance;  // "Manual"
     std::string software;       // "Version 1.9"
+    // Video fields, supplied only by the optional media helper. Empty means unavailable.
+    std::string container;
+    std::string duration;
+    std::string video_codec;
+    std::string frame_rate;
+    std::string bitrate;
+    std::string audio_codec;
+    std::string audio_channels;
+    std::string sample_rate;
+    std::string media_title;
+    std::string artist;
+    std::string rotation;
+    std::string pixel_format;
     // rummage's own rating (ROADMAP 5, not yet read: nullopt): 1-5 stars, -1 rejected. Editors'
     // sidecars (darktable's FILE.xmp) are left to a plugin (decided with the author, 2026-11-08).
     std::optional<int> rating;

@@ -189,6 +189,14 @@ public:
 
     [[nodiscard]] const fs::MimeDatabase& mime() const noexcept { return *mime_; }
 
+    // The entry is a regular file of a type that runs: a program, an AppImage, a script
+    // (application/x-executable and its kin, application/x-sharedlib), or a type not known yet.
+    [[nodiscard]] bool type_runs(const fs::Entry& entry) const;
+
+    // The entry may run as a program: type_runs, and its owner's execute bit is set. Never in
+    // the trash. The views mark it with a dot on its icon (issue #17).
+    [[nodiscard]] bool runs_as_program(const fs::Entry& entry) const;
+
     // Sniffs the types of entries [first, last) that the name does not decide, on a worker (the
     // view asks for what it shows).
     void sniff(std::size_t first, std::size_t last);

@@ -48,6 +48,7 @@ enum class Command : std::uint8_t {
     rename,
     new_folder,
     copy,
+    copy_path,  // the shown folder's path, as text
     cut,
     paste,
     trash,

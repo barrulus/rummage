@@ -19,10 +19,12 @@
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/renderer.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/ui/texture.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/selectable_text.hpp"
 #include "rummage/views/text_selection.hpp"
 
 namespace rummage::views {
@@ -54,6 +56,13 @@ public:
     // Opens on folder's cursor entry; does nothing when there is none.
     void open(std::shared_ptr<Folder> folder, Clock::time_point now);
     void close();
+    void set_details(bool shown);
+
+    [[nodiscard]] bool details_shown() const { return details_; }
+
+    [[nodiscard]] const preview::Summary* summary() const;
+
+    [[nodiscard]] ui::Rect details_button() const { return details_button_; }
 
     [[nodiscard]] bool is_open() const noexcept { return folder_ != nullptr; }
 
@@ -71,7 +80,7 @@ public:
     bool text_key(const ui::KeyEvent& event, Clock::time_point now);
 
     // A text page is shown (Ctrl+A and Ctrl+C are then its own).
-    [[nodiscard]] bool shows_text() const { return shown_text() != nullptr; }
+    [[nodiscard]] bool shows_text() const { return shown_text() != nullptr || metadata_.focused(); }
 
     // Selects the whole text shown.
     void select_all_text();
@@ -115,11 +124,20 @@ public:
     [[nodiscard]] Usage usage() const;
 
 private:
+    bool details_{false};
+    ui::Rect details_button_, details_bounds_;
+    SelectableText metadata_;
+    ui::Scroller details_scroller_;
+    ui::Scrollbar details_scrollbar_;
+    void draw_details(ui::Renderer& renderer, const theme::Palette& palette, Clock::time_point now);
+
     struct Slot {
         std::filesystem::path path;
         preview::Kind kind{preview::Kind::info};
         std::optional<core::CancelToken> thumbnail_job;
         std::optional<core::CancelToken> content_job;
+        std::optional<core::CancelToken> summary_job;
+        std::shared_ptr<preview::Summary> summary;
         std::shared_ptr<picture::Image> thumbnail_pixels;
         std::shared_ptr<preview::Content> content;  // once made (for images, the sharp stage)
         std::unique_ptr<ui::Texture> thumbnail_texture;

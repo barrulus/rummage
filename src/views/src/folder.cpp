@@ -1,7 +1,10 @@
 #include "rummage/views/folder.hpp"
 
 #include <algorithm>
+#include <array>
 #include <iterator>
+#include <string_view>
+#include <sys/stat.h>
 #include <utility>
 #include <vector>
 
@@ -362,6 +365,26 @@ fs::MimeId Folder::mime_of(const fs::Entry& entry) const {
     }
     const auto it = sniffed_.find(entry.name);
     return it == sniffed_.end() ? fs::kUnknownMime : it->second;
+}
+
+bool Folder::type_runs(const fs::Entry& entry) const {
+    if (entry.kind != fs::EntryKind::file) {
+        return false;
+    }
+    const fs::MimeId type = mime_of(entry);
+    if (type == fs::kUnknownMime) {
+        return true;
+    }
+    constexpr std::array<std::string_view, 2> running_types{"application/x-executable",
+                                                            "application/x-sharedlib"};
+    return std::ranges::any_of(running_types, [&](std::string_view name) {
+        const fs::MimeId parent = mime_->find(name);
+        return parent != fs::kUnknownMime && mime_->is_a(type, parent);
+    });
+}
+
+bool Folder::runs_as_program(const fs::Entry& entry) const {
+    return (entry.mode & S_IXUSR) != 0 && !is_trash() && type_runs(entry);
 }
 
 std::filesystem::path Folder::path_of(const fs::Entry& entry) const {

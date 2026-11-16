@@ -10,6 +10,7 @@
 #include <wayland-egl.h>
 
 #include "rummage/ui/color.hpp"
+#include "rummage/ui/content_map.hpp"
 #include "rummage/ui/display.hpp"
 #include "rummage/ui/egl_context.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -88,7 +89,8 @@ public:
     Window(Window&&) = delete;
     Window& operator=(Window&&) = delete;
 
-    // Paints the window content each frame. bounds is the window in logical pixels.
+    // Paints the window content each frame. bounds is the window in content pixels: logical
+    // pixels divided by the zoom.
     using DrawHandler = std::function<void(Renderer& renderer, const Rect& bounds)>;
     void set_draw_handler(DrawHandler handler);
 
@@ -139,6 +141,12 @@ public:
     // Output scale chosen by the compositor (1.0, 1.25, 1.5, ...); 1.0 without fractional-scale.
     [[nodiscard]] double scale() const noexcept { return static_cast<double>(scale_120_) / 120.0; }
 
+    void set_zoom(float zoom);
+
+    [[nodiscard]] float zoom() const noexcept { return zoom_; }
+
+    [[nodiscard]] ContentMap content_map() const noexcept { return {.zoom = zoom_}; }
+
     // Size of the rendered buffer in physical pixels.
     [[nodiscard]] std::int32_t buffer_width() const noexcept { return buffer_width_; }
 
@@ -146,8 +154,8 @@ public:
 
     [[nodiscard]] wl_surface* surface() const noexcept { return surface_.get(); }
 
-    // A surface of width × height logical pixels drawn once by draw, at the window's scale: the
-    // image under the pointer in a drag. One at a time: a new one replaces the last.
+    // A surface of width × height content pixels drawn once by draw, at the window's scale and
+    // zoom: the image under the pointer in a drag. One at a time: a new one replaces the last.
     wl_surface* make_drag_icon(std::int32_t width, std::int32_t height, const DrawHandler& draw);
 
     // The drag ended: its image goes.
@@ -187,6 +195,9 @@ private:
     bool client_decorations_{false};
     WindowState state_;
     WindowState pending_state_;  // from configure, applied with its ack
+    float zoom_{1.0F};
+    std::int32_t min_width_;
+    std::int32_t min_height_;
     std::string title_;
     Color background_;
     float background_opacity_;

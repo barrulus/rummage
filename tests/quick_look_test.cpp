@@ -400,3 +400,64 @@ TEST_CASE("quick look: a log opens at its end; keys and Shift+wheel move a text 
     draw();
     CHECK(sideways.offset() == 0.0F);
 }
+
+TEST_CASE("quick look: Details follows the file and exposes EXIF without stale metadata") {
+    Fixture f;
+    fs::copy_file(kData / "shot.jpg", f.dir.path / "photo.jpg");
+    REQUIRE(run_until(f.loop, [&] {
+        const auto& entries = f.browser.columns().column(0).folder().entries();
+        return std::ranges::any_of(entries,
+                                   [](const auto& entry) { return entry.name == "photo.jpg"; });
+    }));
+    auto& folder = f.browser.columns().column(0).folder();
+    folder.select_name("photo.jpg");
+    f.press(XKB_KEY_space);
+    auto& look = f.browser.quick_look();
+    f.press(XKB_KEY_i);
+    REQUIRE(look.details_shown());
+    REQUIRE(run_until(f.loop, [&] { return look.summary() != nullptr && !look.loading(); }));
+    REQUIRE(look.summary()->photo);
+    CHECK_FALSE(look.summary()->photo->camera.empty());
+    CHECK_FALSE(look.summary()->photo->exposure_time.empty());
+    folder.select_name("notes.txt");
+    look.follow(f.browser.columns().column(0).shared_folder());
+    CHECK(look.summary() == nullptr);
+    REQUIRE(run_until(f.loop, [&] { return look.summary() != nullptr && !look.loading(); }));
+    CHECK_FALSE(look.summary()->photo);
+    f.press(XKB_KEY_i);
+    CHECK_FALSE(look.details_shown());
+    look.close();
+    CHECK(look.summary() == nullptr);
+}
+
+TEST_CASE("quick look: Details button stays inside a narrow scaled window") {
+    rummage::ui::Offscreen gl{700, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    REQUIRE(f.settle());
+    f.browser.columns().column(0).folder().select_name("b.jpg");
+    f.press(XKB_KEY_space);
+    auto& look = f.browser.quick_look();
+    REQUIRE(run_until(f.loop, [&] { return !look.loading(); }));
+    for (const float zoom : {1.0F, 1.5F, 2.0F}) {
+        renderer.begin_frame(700, 600, 1, {});
+        renderer.set_zoom(zoom);
+        look.draw(renderer, {0, 0, 700 / zoom, 600 / zoom}, rummage::theme::Palette{}, icons,
+                  QuickLook::Clock::now());
+        renderer.end_frame();
+        const auto button = look.details_button();
+        CHECK(button.right() <= 700 / zoom);
+        CHECK(button.x >= 0);
+        const bool before = look.details_shown();
+        CHECK(look.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                            .x = button.x + 4,
+                            .y = button.y + 4,
+                            .button = rummage::ui::PointerButton::left},
+                           QuickLook::Clock::now()));
+        CHECK(look.details_shown() != before);
+        CHECK(look.is_open());
+        REQUIRE(run_until(f.loop, [&] { return !look.loading(); }));
+    }
+}

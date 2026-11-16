@@ -5,7 +5,7 @@
 # and keeps its default. Check a file without starting rummage: rummage --check-config
 # Created on first normal launch when no config exists; existing files are never replaced.
 # rummage reads the file again when it changes: appearance, status bar, pointer, icons and
-# keybindings at once; fonts at the next start.
+# keybindings, terminal and font size at once; font families at the next start.
 
 [appearance]
 # Background only (0-1); text, icons and thumbnails retain their original opacity.
@@ -69,8 +69,21 @@ folder = "~"      # used by mode = "folder"; absolute path or ~/ path
 [font]
 # fontconfig pattern: a family name, optionally with properties ("Inter", "Inter:weight=medium").
 family = "sans-serif"
+# Logical pixel size (8-32): scales text, controls and spacing together, applied live.
+size = 13.0
 # The same for text previews (Quick Look of text files).
 monospace = "monospace"
+
+[terminal]
+# Program name or absolute path. Empty uses $TERMINAL, xdg-terminal-exec, then known terminals.
+# Arguments are separate strings, not a shell command; the launch syntax is added automatically.
+program = ""
+args = []
+
+[open]
+# Open ELF programs and AppImages directly; scripts still open in their default application.
+# Programs without execute permission ask before allowing and running.
+programs = true
 
 [pointer]
 # Two presses of the same button closer than this (milliseconds, 100-2000)...

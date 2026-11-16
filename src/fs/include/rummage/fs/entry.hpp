@@ -16,6 +16,7 @@ struct Entry {
     std::string name;  // bytes as on disk: usually UTF-8, not guaranteed
     EntryKind kind{EntryKind::unknown};
     bool is_link{false};
+    std::uint16_t mode{0};        // permission bits (07777); for a link, its target's
     std::uint64_t size{0};        // bytes; for a link, its target's
     std::int64_t modified_ns{0};  // mtime, nanoseconds since the epoch
     // Set by the loader when the kind or the name alone decides it (no file read); otherwise

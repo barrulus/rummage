@@ -114,6 +114,29 @@ public:
         out = value->get();
     }
 
+    // A list of strings; anything else keeps out.
+    void read_strings(const toml::node& node, const std::string& path,
+                      std::vector<std::string>& out) {
+        const toml::array* array = node.as_array();
+        if (array == nullptr) {
+            report(node.source(), std::format("'{}' must be a list of strings, got {}; ignored",
+                                              path, type_name(node)));
+            return;
+        }
+        std::vector<std::string> strings;
+        for (const toml::node& item : *array) {
+            const auto* value = item.as_string();
+            if (value == nullptr) {
+                report(item.source(),
+                       std::format("'{}' must be a list of strings, got {} in it; ignored", path,
+                                   type_name(item)));
+                return;
+            }
+            strings.push_back(value->get());
+        }
+        out = std::move(strings);
+    }
+
     void read_bool(const toml::node& node, const std::string& path, bool& out) {
         const auto* value = node.as_boolean();
         if (value == nullptr) {
@@ -129,6 +152,24 @@ public:
         if (!value || !std::isfinite(*value) || *value < 0.0 || *value > 1.0) {
             report(node.source(),
                    std::format("'{}' must be a number between 0 and 1; using {}", path, out));
+            return;
+        }
+        out = static_cast<float>(*value);
+    }
+
+    // An integer or a decimal number between min and max.
+    void read_number(const toml::node& node, const std::string& path, double min, double max,
+                     float& out) {
+        const auto value = node.value<double>();
+        if (!value || !std::isfinite(*value)) {
+            report(node.source(), std::format("'{}' must be a number, got {}; using {:g}", path,
+                                              type_name(node), out));
+            return;
+        }
+        if (*value < min || *value > max) {
+            report(node.source(),
+                   std::format("'{}' must be between {:g} and {:g}, got {:g}; using {:g}", path,
+                               min, max, *value, out));
             return;
         }
         out = static_cast<float>(*value);
@@ -448,15 +489,18 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                       reader.read_text_size(value, path, config.status_bar.text_size);
                   }}});
         } else if (key.str() == "font") {
-            reader.read_section(
-                node, "font",
-                {{"family",
-                  [&](const toml::node& value, const std::string& path) {
-                      reader.read_string(value, path, config.font.family);
-                  }},
-                 {"monospace", [&](const toml::node& value, const std::string& path) {
-                      reader.read_string(value, path, config.font.monospace);
-                  }}});
+            reader.read_section(node, "font",
+                                {{"family",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_string(value, path, config.font.family);
+                                  }},
+                                 {"monospace",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_string(value, path, config.font.monospace);
+                                  }},
+                                 {"size", [&](const toml::node& value, const std::string& path) {
+                                      reader.read_number(value, path, 8.0, 32.0, config.font.size);
+                                  }}});
         } else if (key.str() == "pointer") {
             reader.read_section(
                 node, "pointer",
@@ -467,6 +511,23 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                  {"double_click_distance", [&](const toml::node& value, const std::string& path) {
                       reader.read_int(value, path, 0, 50, config.pointer.double_click_distance);
                   }}});
+        } else if (key.str() == "open") {
+            reader.read_section(
+                node, "open", {{"programs", [&](const toml::node& value, const std::string& path) {
+                                    reader.read_bool(value, path, config.open.programs);
+                                }}});
+        } else if (key.str() == "terminal") {
+            reader.read_section(node, "terminal",
+                                {{"program",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      if (const auto* text = value.as_string())
+                                          config.terminal.program = text->get();
+                                      else
+                                          reader.read_string(value, path, config.terminal.program);
+                                  }},
+                                 {"args", [&](const toml::node& value, const std::string& path) {
+                                      reader.read_strings(value, path, config.terminal.args);
+                                  }}});
         } else if (key.str() == "icon") {
             reader.read_section(
                 node, "icon",
@@ -527,6 +588,8 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "open_with",
                                           "open_tab",
                                           "open_terminal",
+                                          "running",
+                                          "copy_path",
                                           "add_bookmark",
                                           "copy",
                                           "cut",
@@ -558,6 +621,10 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "unmount",
                                           "eject",
                                           "remove_bookmark",
+                                          "rename_bookmark",
+                                          "choose_bookmark_folder",
+                                          "move_bookmark_up",
+                                          "move_bookmark_down",
                                           "panes",
                                           "toggle_split",
                                           "switch_pane",

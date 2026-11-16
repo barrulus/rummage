@@ -1,4 +1,5 @@
 add_library(rummage_platform
+    src/program.cpp
     src/action_handoff.cpp
     src/archives.cpp
     src/about.cpp
@@ -12,6 +13,7 @@ add_library(rummage_platform
     src/file_picker_portal.cpp
     src/launcher.cpp
     src/notifications.cpp
+    src/program_output.cpp
     src/opener.cpp
     src/portal.cpp
     src/udisks.cpp

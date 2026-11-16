@@ -148,3 +148,49 @@ TEST_CASE("media: absent shared libraries disable the helper until restart") {
         helpers.load({.path = fixtures / "red.mp4", .max_width = 128, .max_height = 128}).failure ==
         picture::Failure::unavailable);
 }
+
+TEST_CASE("media: sandboxed metadata includes video dimensions, duration, codec and frame rate") {
+    isolate::Helpers helpers{{.program = RUMMAGE_MEDIA_HELPER, .args = {}}};
+    const auto info = helpers.photo_info(fixtures / "red.mp4");
+    CHECK(info.width == 96);
+    CHECK(info.height == 48);
+    CHECK(info.video_codec == "h264");
+    CHECK_FALSE(info.duration.empty());
+    CHECK_FALSE(info.frame_rate.empty());
+    CHECK_FALSE(info.container.empty());
+    CHECK_FALSE(info.bitrate.empty());
+    CHECK(info.camera.empty());
+    const auto tagged = helpers.photo_info(fixtures / "metadata.mp4");
+    CHECK(tagged.audio_codec == "aac");
+    CHECK(tagged.audio_channels == "2");
+    CHECK(tagged.sample_rate == "48000 Hz");
+    CHECK(tagged.media_title == "Metadata sample");
+    CHECK(tagged.artist == "Rummage tests");
+    const auto rotated = helpers.photo_info(fixtures / "rotated.mp4");
+    CHECK(rotated.width == 48);
+    CHECK(rotated.height == 96);
+    CHECK_FALSE(rotated.rotation.empty());
+    TempDir dir;
+    CHECK(helpers.photo_info(dir.write("broken.mp4", "not video")).video_codec.empty());
+    CHECK(helpers.photo_info(fixtures / "red.mp4").video_codec == "h264");
+}
+
+TEST_CASE("media: summary routes metadata to media and clears it when the helper is absent") {
+    const auto registry = engines::Registry::load(RUMMAGE_ENGINE_DATA, [](std::string_view name) {
+        return fs::path{name == "rummage-media" ? RUMMAGE_MEDIA_HELPER : RUMMAGE_BASE_HELPER};
+    });
+    isolate::use_engines(registry);
+    auto summary = rummage::preview::summarize(fixtures / "red.mp4", "video/mp4",
+                                               rummage::preview::Kind::image, {});
+    REQUIRE(summary.photo);
+    CHECK(summary.photo->video_codec == "h264");
+    const auto base = engines::Registry::load(RUMMAGE_ENGINE_DATA, [](std::string_view name) {
+        return name == "rummage-preview" ? fs::path{RUMMAGE_BASE_HELPER} : fs::path{};
+    });
+    isolate::use_engines(base);
+    summary = rummage::preview::summarize(fixtures / "red.mp4", "video/mp4",
+                                          rummage::preview::Kind::image, {});
+    REQUIRE(summary.photo);
+    CHECK(summary.photo->video_codec.empty());
+    isolate::use_engines(registry);
+}

@@ -24,9 +24,9 @@
 #include <utility>
 #include <vector>
 
+#include "protocol.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/core/worker_pool.hpp"
-#include "protocol.hpp"
 
 extern char** environ;  // NOLINT(readability-redundant-declaration): POSIX, not in a header
 
@@ -572,13 +572,24 @@ void use_engines(const engines::Registry& registry, HelperOptions options) {
         }
         return failed(picture::Failure::unavailable, "no installed engine for this media type");
     });
-    if (const engines::Engine* engine = first_showing(engines::Shows::picture)) {
-        if (std::ranges::any_of(engine->manifest.families, &engines::Family::info)) {
-            auto helpers = helpers_of(*engine);
-            picture::set_info_loader(
-                [helpers](const auto& path) { return helpers->photo_info(path); });
+    picture::set_info_loader([routes, mime, pools](const auto& path, std::string_view type) {
+        const engines::Engine* selected = nullptr;
+        if (!type.empty()) {
+            if (const auto* family = routes->find(*mime, mime->find(type)); family && family->info)
+                selected = routes->engine_of(*family);
+        } else {
+            for (const auto& engine : routes->engines()) {
+                if (engine.manifest.name == "base") {
+                    selected = &engine;
+                    break;
+                }
+            }
         }
-    }
+        if (!selected)
+            return picture::PhotoInfo{};
+        const auto index = static_cast<std::size_t>(selected - routes->engines().data());
+        return pools[index]->photo_info(path);
+    });
     if (const engines::Engine* engine = first_showing(engines::Shows::text)) {
         std::shared_ptr<Helpers> helpers = helpers_of(*engine);
         text::set_loader(

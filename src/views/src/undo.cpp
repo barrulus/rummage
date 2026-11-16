@@ -1,6 +1,7 @@
 #include "rummage/views/undo.hpp"
 
 #include <format>
+#include <sys/stat.h>
 
 namespace rummage::views {
 
@@ -36,6 +37,14 @@ std::string describe(const FileOperation& operation) {
             return std::format("{} made", what);
         case FileOperation::Kind::erase:
             break;
+        case FileOperation::Kind::permissions: {
+            const bool runs =
+                !operation.modes.empty() && (operation.modes.front().after & S_IXUSR) != 0;
+            if (count == 1) {
+                return std::format("{} {} run as a program", what, runs ? "can" : "can no longer");
+            }
+            return std::format("{} {} run as programs", what, runs ? "can" : "can no longer");
+        }
     }
     return what;
 }

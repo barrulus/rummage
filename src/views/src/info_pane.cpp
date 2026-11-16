@@ -12,6 +12,7 @@
 #include "draw_helpers.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/views/media_details.hpp"
 
 namespace rummage::views {
 namespace {
@@ -823,6 +824,10 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     } else {
         out.row("Size", format_size(single->size));
+        // The dot on the icon, in words (issue #17): for a file of a type that runs.
+        if (!folder.is_trash() && folder.type_runs(*single)) {
+            out.row("Runs as program", folder.runs_as_program(*single) ? "Yes" : "No");
+        }
     }
     if (photo != nullptr && photo->width > 0) {
         out.row("Dimensions", std::format("{} × {}", photo->width, photo->height));
@@ -843,7 +848,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     // The shot.
     const std::string exposure = photo == nullptr ? std::string{} : exposure_of(*photo);
-    if (photo != nullptr && (!photo->camera.empty() || !exposure.empty() || photo->rating)) {
+    if (photo != nullptr && !photo->video_codec.empty()) {
+        out.section("VIDEO");
+        for (const auto& [label, value] : media_details(*photo))
+            out.row(label, value);
+    } else if (photo != nullptr && (!media_details(*photo).empty() || photo->rating)) {
         out.section("PHOTO");
         out.row("Camera", photo->camera);
         out.row("Lens", photo->lens);
@@ -873,7 +882,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             }
             out.row("Location", path.parent_path().string());
             out.row("Link to", info->link_target);
-            if (photo != nullptr) {
+            if (photo != nullptr && photo->video_codec.empty()) {
                 out.row("Program", photo->program);
                 out.row("Compensation", photo->exposure_bias);
                 out.row("Metering", photo->metering);

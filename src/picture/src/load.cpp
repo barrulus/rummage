@@ -62,13 +62,13 @@ void set_info_loader(InfoLoader loader) {
     current_info_loader = std::move(loader);
 }
 
-PhotoInfo load_photo_info(const std::filesystem::path& path) {
+PhotoInfo load_photo_info(const std::filesystem::path& path, std::string_view mime) {
     InfoLoader loader;
     {
         const std::scoped_lock lock{info_loader_mutex};
         loader = current_info_loader;
     }
-    return loader ? loader(path) : PhotoInfo{};
+    return loader ? loader(path, mime) : PhotoInfo{};
 }
 
 }  // namespace rummage::picture

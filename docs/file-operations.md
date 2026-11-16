@@ -143,3 +143,11 @@ darktable star ratings; older documents described behavior removed in 0.4.0.
 For compression, extraction, image conversion and other external tools, see
 [actions and context menus](actions.md). External commands own their output and
 overwrite behavior; they do not inherit the built-in transfer engine's guarantees.
+
+## Executable files
+
+For programs and scripts, **Allow Running as Program** adds owner execute permission;
+**Stop Running as Program** removes execute permissions. These changes support Undo/Redo.
+A small icon badge and “Runs as program” in the information pane indicate executable types
+with permission. Direct opening runs ELF programs/AppImages, not scripts or documents renamed
+to look like executables; a filesystem mounted `noexec` reports why running is unavailable.

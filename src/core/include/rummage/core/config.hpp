@@ -24,8 +24,22 @@ struct Config {
     };
 
     struct Font {
-        std::string family{"sans-serif"};    // fontconfig pattern, e.g. "Inter" or "Inter:size=11"
+        static constexpr float kUsualSize = 13.0F;
+        float size{kUsualSize};
+
+        [[nodiscard]] float zoom() const noexcept { return size / kUsualSize; }
+
+        std::string family{"sans-serif"};  // fontconfig pattern, e.g. "Inter" or "Inter:weight=500"
         std::string monospace{"monospace"};  // text previews, e.g. "JetBrains Mono"
+    };
+
+    struct Open {
+        bool programs{true};
+    };
+
+    struct Terminal {
+        std::string program;  // Empty: use desktop/environment defaults.
+        std::vector<std::string> args;
     };
 
     struct Pointer {
@@ -61,6 +75,8 @@ struct Config {
     Startup startup;
     StatusBar status_bar;
     Font font;
+    Terminal terminal;
+    Open open;
     Pointer pointer;
     Icon icon;
 };

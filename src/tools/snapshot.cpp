@@ -63,6 +63,7 @@
 #include <vector>
 #include <xkbcommon/xkbcommon.h>
 
+#include "rummage/core/config.hpp"
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/core/memory.hpp"
@@ -228,6 +229,7 @@ int main(int argc, char** argv) {
     std::string sort;
     int bench_frames = 0;
     int walk_frames = 0;  // --walk N: Down once per frame, N frames, workers' results between
+    float font_size = rummage::core::Config::Font::kUsualSize;
     bool info_expanded = false;
     bool preview_sidebar = false;
     std::filesystem::path settings_config;
@@ -343,6 +345,12 @@ int main(int argc, char** argv) {
                 log::error("--band takes X1,Y1,X2,Y2");
                 return 2;
             }
+        } else if (option == "--font-size") {
+            font_size = std::stof(args[2]);
+            if (!std::isfinite(font_size) || font_size < 8.0F || font_size > 32.0F) {
+                log::error("--font-size takes 8 to 32");
+                return 2;
+            }
         } else if (option == "--csd") {
             csd = args[2];
         } else if (option == "--desktop") {
@@ -421,7 +429,8 @@ int main(int argc, char** argv) {
             std::unique_ptr<rummage::platform::Opener> opener;  // "Open With" lists, no launches
             std::unique_ptr<views::Browser> columns;
             std::unique_ptr<views::FilePicker> picker;
-            const ui::Rect window_bounds{0.0F, 0.0F, width, height};
+            const float zoom = font_size / rummage::core::Config::Font::kUsualSize;
+            const ui::Rect window_bounds{0.0F, 0.0F, width / zoom, height / zoom};
             views::TitleBar title_bar{{.move = [] {},
                                        .resize = [](ui::Edge /*edge*/) {},
                                        .minimize = [] {},
@@ -460,6 +469,7 @@ int main(int argc, char** argv) {
             std::optional<std::pair<float, float>> drag_image;  // where the pointer drags
             const auto frame = [&] {
                 renderer.begin_frame(buffer_width, buffer_height, scale, palette.palette.surface);
+                renderer.set_zoom(zoom);
                 if (csd) {
                     title_bar.draw(renderer, window_bounds, palette.palette, icons, "rummage");
                 }
@@ -654,7 +664,8 @@ int main(int argc, char** argv) {
                          .modifiers = {}});
                 }
                 if (!drag.empty()) {
-                    drag_image = drag_entry(*columns, drag, width, height);
+                    drag_image =
+                        drag_entry(*columns, drag, window_bounds.width, window_bounds.height);
                     frame();
                 }
                 if (band.size() == 4) {

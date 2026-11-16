@@ -347,11 +347,11 @@ TEST_CASE("undo: what the messages say") {
     using Kind = FileOperation::Kind;
     CHECK(rummage::views::describe({.kind = Kind::trash,
                                     .items = {{.from = "/a/x.txt", .to = "/T/files/x.2.txt"},
-                                              {.from = "/a/y.txt", .to = "/T/files/y.txt"}}}) ==
-          "2 items moved to the trash");
-    CHECK(rummage::views::describe(
-              {.kind = Kind::move, .items = {{.from = "/a/x.txt", .to = "/b/x.txt"}}}) ==
-          "“x.txt” back in b");
+                                              {.from = "/a/y.txt", .to = "/T/files/y.txt"}},
+                                    .modes = {}}) == "2 items moved to the trash");
+    CHECK(rummage::views::describe({.kind = Kind::move,
+                                    .items = {{.from = "/a/x.txt", .to = "/b/x.txt"}},
+                                    .modes = {}}) == "“x.txt” back in b");
 }
 
 TEST_CASE("undo: dual-pane merged transfers preserve the destination through undo and redo") {

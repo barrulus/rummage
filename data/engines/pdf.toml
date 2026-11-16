@@ -3,7 +3,7 @@
 [engine]
 name = "pdf"
 program = "rummage-pdf"
-protocol = 4
+protocol = 5
 
 [[family]]
 name = "document"

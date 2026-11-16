@@ -142,6 +142,7 @@ struct Identities {
             group = groups.emplace(info.stx_gid, group_name(info.stx_gid)).first;
         entry.owner = user->second;
         entry.group = group->second;
+        entry.mode = static_cast<std::uint16_t>(info.stx_mode & 07777);
         entry.permissions = file_permissions(info.stx_mode);
         entry.accessed_ns = (info.stx_atime.tv_sec * 1'000'000'000) + info.stx_atime.tv_nsec;
     }

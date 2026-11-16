@@ -109,6 +109,12 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
     status_bar_.set_cancel_handler([this] { cancel_transfer(); });
     sidebar_.set_menu_handler(
         [this](const fs::Place& place, float x, float y) { place_menu(place, x, y); });
+    sidebar_.set_rename_handler(
+        [this](const std::filesystem::path& folder, const std::string& label) {
+            rename_bookmark(folder, label);
+        });
+    sidebar_.set_move_handler(
+        [this](const std::filesystem::path& folder, int step) { move_bookmark(folder, step); });
     home_trash_ = fs::home_trash();
     trash_model_.set_change_handler([this](const fs::ModelChange& /*change*/) {
         const bool full = !trash_model_.listing().entries().empty();
@@ -426,18 +432,31 @@ void Browser::take_selection(bool cut) {
                  false);
 }
 
-void Browser::copy_text(std::string text) {
+void Browser::copy_text(std::string text, std::string message) {
     // The clipboard holds text now, not files: Ctrl+V has nothing to paste here.
     clipboard_ = {};
     cut_marks_ = {};
-    const auto lines = static_cast<std::size_t>(std::ranges::count(text, '\n')) + 1;
-    const std::string what = lines == 1
-                                 ? std::format("{} characters", column_at_byte(text, text.size()))
-                                 : std::format("{} lines", lines);
+    if (message.empty()) {
+        const auto lines = static_cast<std::size_t>(std::ranges::count(text, '\n')) + 1;
+        message = lines == 1
+                      ? std::format("Copied {} characters", column_at_byte(text, text.size()))
+                      : std::format("Copied {} lines", lines);
+    }
     if (system_.offer) {
         system_.offer({{std::string{kText}, text}, {"UTF8_STRING", text}, {"text/plain", text}});
     }
-    show_message(std::format("Copied {}", what), false);
+    show_message(message, false);
+}
+
+void Browser::copy_path() {
+    const std::shared_ptr<Folder> folder = current_folder();
+    if (!folder) {
+        return;
+    }
+    // The entries' paths are Ctrl+C's: as text, other programs paste them too.
+    std::string path = folder->path().string();
+    std::string message = std::format("Copied {}", path);
+    copy_text(std::move(path), std::move(message));
 }
 
 void Browser::paste() {
@@ -635,6 +654,8 @@ void Browser::paste_text() {
                     location_.paste(*text);
                 } else if (palette_.is_open()) {
                     palette_.paste(*text);
+                } else if (sidebar_.renaming()) {
+                    sidebar_.paste(*text);
                 } else if (filter_focused_) {
                     pane().filter_field.insert(
                         std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
@@ -895,7 +916,8 @@ void Browser::submit_erase() {
     const bool emptying = erase_->request.kind == fs::TransferKind::empty_trash;
     submit(std::move(erase_->request), 0);
     erase_.reset();
-    undo_ = FileOperation{.kind = FileOperation::Kind::erase, .items = {}};  // no way back
+    undo_ =
+        FileOperation{.kind = FileOperation::Kind::erase, .items = {}, .modes = {}};  // no way back
     redo_.reset();
     if (!status_bar_.transfer()) {
         status_bar_.set_transfer(TransferStatus{
@@ -938,7 +960,55 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
         ++menu_generation_;
         menu_loaders_.clear();
         std::vector<MenuItem> items;
+        if (place.uri.empty()) {
+            // Where it stands among the bookmarks shown: the first is not moved up, the last not
+            // down.
+            std::vector<std::filesystem::path> shown;
+            for (const fs::Place& other : places_) {
+                if (other.section == fs::Place::Section::bookmarks && other.uri.empty()) {
+                    shown.push_back(other.path);
+                }
+            }
+            const bool first = !shown.empty() && shown.front() == place.path;
+            const bool last = !shown.empty() && shown.back() == place.path;
+            MenuItem rename;
+            rename.id = "rename_bookmark";
+            rename.label = "Rename…";
+            rename.keys = "F2";
+            rename.action = [this, path = place.path] { sidebar_.start_rename(path); };
+            items.push_back(std::move(rename));
+            if (folder_chooser_) {
+                MenuItem choose;
+                choose.id = "choose_bookmark_folder";
+                choose.label = "Choose Folder…";
+                choose.action = [this, path = place.path] {
+                    folder_chooser_(path,
+                                    [this, alive = alive_, path](std::filesystem::path chosen) {
+                                        if (*alive) {
+                                            repoint_bookmark(path, std::move(chosen));
+                                        }
+                                    });
+                };
+                items.push_back(std::move(choose));
+            }
+            MenuItem up;
+            up.id = "move_bookmark_up";
+            up.label = "Move Up";
+            up.keys = "Alt+↑";
+            up.enabled = !first;
+            up.separator = true;
+            up.action = [this, path = place.path] { move_bookmark(path, -1); };
+            items.push_back(std::move(up));
+            MenuItem down;
+            down.id = "move_bookmark_down";
+            down.label = "Move Down";
+            down.keys = "Alt+↓";
+            down.enabled = !last;
+            down.action = [this, path = place.path] { move_bookmark(path, 1); };
+            items.push_back(std::move(down));
+        }
         MenuItem remove;
+        remove.separator = !items.empty();
         remove.id = "remove_bookmark";
         remove.label = "Remove from Sidebar";
         if (!place.uri.empty()) {
@@ -1340,6 +1410,92 @@ void Browser::redo() {
     }
 }
 
+Browser::RunningTargets Browser::running_targets(const Folder& folder) const {
+    RunningTargets found;
+    if (picker_mode_ || folder.is_trash()) {
+        return found;
+    }
+    const std::vector<std::string> names = targets(folder);
+    bool all = true;
+    bool any = false;
+    bool runnable = true;
+    for (const fs::Entry& entry : folder.entries()) {
+        if (entry.kind != fs::EntryKind::file ||
+            std::ranges::find(names, entry.name) == names.end()) {
+            continue;
+        }
+        found.files.push_back(folder.path() / entry.name);
+        const bool runs = (entry.mode & S_IXUSR) != 0;
+        all = all && runs;
+        any = any || runs;
+        runnable = runnable && folder.type_runs(entry);
+    }
+    // Folders among them: not this entry (a folder's execute bit means something else).
+    if (found.files.size() != names.size() || (!any && !runnable)) {
+        found.files.clear();
+    }
+    found.all_run = !found.files.empty() && all;
+    return found;
+}
+
+void Browser::set_running(bool allow) {
+    const std::shared_ptr<Folder> folder = current_folder();
+    if (!folder) {
+        return;
+    }
+    RunningTargets found = running_targets(*folder);
+    if (found.files.empty()) {
+        return;
+    }
+    ++operations_;
+    pool_.submit(
+        core::Priority::visible,
+        [files = std::move(found.files), allow](const core::CancelToken& /*token*/) {
+            return fs::set_running(files, allow);
+        },
+        [this, alive = alive_](const fs::ModeResult& result) {
+            if (*alive) {
+                --operations_;
+                modes_done(result, Purpose::user);
+            }
+        });
+}
+
+void Browser::modes_done(const fs::ModeResult& result, Purpose purpose) {
+    FileOperation operation{.kind = FileOperation::Kind::permissions, .items = {}, .modes = {}};
+    for (const fs::ModeChange& change : result.changed) {
+        operation.items.push_back({.from = change.path, .to = change.path});
+    }
+    operation.modes = result.changed;
+    const bool failed = !result.errors.empty();
+    if (purpose == Purpose::user && !failed && !operation.items.empty()) {
+        show_message(describe(operation), false);
+    }
+    record(std::move(operation), purpose, failed);
+    if (failed) {
+        show_message(
+            result.errors.size() == 1
+                ? result.errors.front()
+                : std::format("{} and {} more", result.errors.front(), result.errors.size() - 1),
+            true);
+    }
+}
+
+void Browser::ask_to_run(const std::filesystem::path& program,
+                         std::function<void()> allow_and_run) {
+    const std::string name = program.filename().string();
+    confirm_.open(
+        std::format("Allow \u201c{}\u201d to run?", name),
+        "It is a program, and it is not allowed to run yet.", "Allow and Run",
+        [allow_and_run = std::move(allow_and_run)](bool confirmed) {
+            if (confirmed) {
+                allow_and_run();
+            }
+        },
+        "Run only programs you trust: they run with your permissions.");
+    redraw_();
+}
+
 void Browser::trash_paths(const std::vector<std::filesystem::path>& paths, Purpose purpose) {
     const std::uint64_t batch = open_batch(purpose, FileOperation::Kind::trash);
     std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> folders;
@@ -1375,6 +1531,21 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
         case FileOperation::Kind::erase:
             show_message("A permanent delete cannot be undone", false);
             return;
+        case FileOperation::Kind::permissions:
+            undoing_ = true;
+            ++operations_;
+            pool_.submit(
+                core::Priority::visible,
+                [modes = operation.modes](const core::CancelToken& /*token*/) {
+                    return fs::restore_modes(modes, true);
+                },
+                [this, alive = alive_, purpose](const fs::ModeResult& result) {
+                    if (*alive) {
+                        --operations_;
+                        modes_done(result, purpose);
+                    }
+                });
+            return;
         case FileOperation::Kind::rename: {
             const fs::PlacedItem item = operation.items.front();
             undoing_ = true;
@@ -1396,7 +1567,8 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
                         return;
                     }
                     record({.kind = FileOperation::Kind::rename,
-                            .items = {{.from = item.to, .to = item.from}}},
+                            .items = {{.from = item.to, .to = item.from}},
+                            .modes = {}},
                            purpose, !renamed.problem.empty());
                     if (!renamed.problem.empty()) {
                         show_message(renamed.problem, true);
@@ -1527,7 +1699,8 @@ void Browser::new_folder() {
             }
             folder->expect_name(made.name);  // lands when the watcher reports it
             record({.kind = FileOperation::Kind::create,
-                    .items = {{.from = {}, .to = folder->path() / made.name}}},
+                    .items = {{.from = {}, .to = folder->path() / made.name}},
+                    .modes = {}},
                    Purpose::user, false);
             if (current_folder() == folder && !editor_.active()) {
                 editor_.start(folder, made.name, true);
@@ -1559,7 +1732,8 @@ void Browser::new_file(const std::string& name, const std::filesystem::path& fro
             }
             folder->expect_name(made.name);  // lands when the watcher reports it
             record({.kind = FileOperation::Kind::create,
-                    .items = {{.from = from, .to = folder->path() / made.name}}},
+                    .items = {{.from = from, .to = folder->path() / made.name}},
+                    .modes = {}},
                    Purpose::user, false);
             if (current_folder() == folder && !editor_.active()) {
                 editor_.start(folder, made.name, false);
@@ -1687,6 +1861,11 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         add("add_bookmark", "Add to Sidebar", count == 1 ? keys_for(Command::add_bookmark) : "",
             [this, folders] { add_to_sidebar(folders); });
     }
+    if (const RunningTargets running = running_targets(*folder); !running.files.empty()) {
+        const bool stop = running.all_run;
+        add("running", stop ? "Stop Running as Program" : "Allow Running as Program", "",
+            [this, stop] { set_running(!stop); });
+    }
     add("copy", "Copy", keys_for(Command::copy), [this] { take_selection(false); }, true);
     add("cut", "Cut", keys_for(Command::cut), [this] { take_selection(true); });
     add(
@@ -1788,6 +1967,12 @@ std::vector<MenuItem> Browser::folder_menu() {
             terminal.action = [this, path = shown->path()] { terminal_(path); };
             items.push_back(std::move(terminal));
         }
+        MenuItem copy_path;
+        copy_path.id = "copy_path";
+        copy_path.label = "Copy Path";
+        copy_path.keys = keys_for(Command::copy_path);
+        copy_path.action = [this] { this->copy_path(); };
+        items.push_back(std::move(copy_path));
     }
     for (auto& item : action_items(action_context(current_folder(), true))) {
         items.push_back(std::move(item));
@@ -1937,7 +2122,8 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
                 folder->expect_name(to);
             }
             record({.kind = FileOperation::Kind::rename,
-                    .items = {{.from = folder->path() / from, .to = folder->path() / to}}},
+                    .items = {{.from = folder->path() / from, .to = folder->path() / to}},
+                    .modes = {}},
                    Purpose::user, false);
             if (!renamed.problem.empty()) {
                 show_message(renamed.problem, true);
@@ -2515,7 +2701,7 @@ void Browser::set_mode(Mode mode) {
 }
 
 void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
-                           const theme::Palette& palette) {
+                           const theme::Palette& palette, ui::IconSet& icons) {
     area().toolbar_bounds = bounds;
     area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
     area().view_menu_bounds = area().settings_bounds = {};
@@ -2582,7 +2768,10 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     };
     if (!area().view_menu_bounds.empty()) {
         button(area().view_menu_bounds, "View");
-        button(area().settings_bounds, "⚙");
+        const auto& box = area().settings_bounds;
+        renderer.draw_box(box, {.fill = palette.surface_container_highest, .radius = {}});
+        icons.draw(renderer, "settings", box.x + (box.width - 18.0F) / 2.0F,
+                   box.y + (box.height - 18.0F) / 2.0F, 18.0F, palette.on_surface);
     }
     if (!area().clear_filter_bounds.empty()) {
         button(area().clear_filter_bounds, "Clear");
@@ -2783,7 +2972,8 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
         }
     }
     const float toolbar_height = std::min(44.0F, std::max(0.0F, view.height - kTitleHeight - bar));
-    draw_toolbar(renderer, {view.x, view.y + kTitleHeight, view.width, toolbar_height}, palette);
+    draw_toolbar(renderer, {view.x, view.y + kTitleHeight, view.width, toolbar_height}, palette,
+                 icons);
     area().view_area = {view.x, view.y + kTitleHeight + toolbar_height, view.width,
                         std::max(0.0F, view.height - kTitleHeight - toolbar_height - bar)};
     pane().columns.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
@@ -3021,6 +3211,9 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     }
     // While a name is edited, a press in its field is the field's; elsewhere it keeps the name,
     // then does what it does.
+    if (sidebar_.rename_pointer(event)) {
+        return;  // the same for a bookmark's label
+    }
     if (editor_.pointer(event)) {
         return;
     }
@@ -3787,12 +3980,37 @@ void Browser::add_to_sidebar(std::vector<std::filesystem::path> folders) {
         show_message("Already in the sidebar", false);
         return;
     }
-    bookmark_changes_.push_back({.add = std::move(folders), .remove = std::nullopt});
+    BookmarkChange change;
+    change.add = std::move(folders);
+    bookmark_changes_.push_back(std::move(change));
     next_bookmark_change();
 }
 
 void Browser::remove_from_sidebar(const std::filesystem::path& folder) {
-    bookmark_changes_.push_back({.add = {}, .remove = folder});
+    BookmarkChange change;
+    change.remove = folder;
+    bookmark_changes_.push_back(std::move(change));
+    next_bookmark_change();
+}
+
+void Browser::rename_bookmark(const std::filesystem::path& folder, std::string label) {
+    BookmarkChange change;
+    change.rename = std::pair{folder, std::move(label)};
+    bookmark_changes_.push_back(std::move(change));
+    next_bookmark_change();
+}
+
+void Browser::repoint_bookmark(const std::filesystem::path& from, std::filesystem::path to) {
+    BookmarkChange change;
+    change.repoint = std::pair{from, std::move(to)};
+    bookmark_changes_.push_back(std::move(change));
+    next_bookmark_change();
+}
+
+void Browser::move_bookmark(const std::filesystem::path& folder, int step) {
+    BookmarkChange change;
+    change.move = std::pair{folder, step};
+    bookmark_changes_.push_back(std::move(change));
     next_bookmark_change();
 }
 
@@ -3818,6 +4036,9 @@ void Browser::next_bookmark_change() {
         std::size_t not_folders{0};
         std::string removed;
         std::string error;
+        std::string edited;  // what a rename or a new folder did, for the message
+        bool changed{false};
+        std::optional<std::filesystem::path> follow;  // where the sidebar's cursor goes now
     };
 
     pool_.submit(
@@ -3871,6 +4092,44 @@ void Browser::next_bookmark_change() {
                     outcome.removed = change.remove_label;
                 }
             }
+            if (change.rename) {
+                const auto& [folder, label] = *change.rename;
+                if (std::optional<std::string> renamed = fs::rename_bookmark(text, folder, label);
+                    renamed && *renamed != text) {
+                    text = std::move(*renamed);
+                    changed = true;
+                    const std::string shown = label.empty() ? folder.filename().string() : label;
+                    outcome.edited = std::format("Renamed “{}” in the sidebar", shown);
+                }
+            }
+            if (change.repoint) {
+                const auto& [from, to] = *change.repoint;
+                std::error_code ignored;
+                const std::vector<fs::Place> bookmarks = fs::parse_bookmarks(text);
+                const bool there = std::ranges::any_of(bookmarks, [&](const fs::Place& place) {
+                    return place.path.lexically_normal() == to.lexically_normal();
+                });
+                if (!std::filesystem::is_directory(to, ignored)) {
+                    ++outcome.not_folders;
+                } else if (there) {
+                    ++outcome.present;
+                } else if (std::optional<std::string> moved =
+                               fs::repoint_bookmark(text, from, to)) {
+                    text = std::move(*moved);
+                    changed = true;
+                    outcome.edited = std::format("The bookmark now opens “{}”",
+                                                 to.lexically_normal().filename().string());
+                    outcome.follow = to.lexically_normal();
+                }
+            }
+            if (change.move) {
+                const auto& [folder, step] = *change.move;
+                if (std::optional<std::string> moved = fs::move_bookmark(text, folder, step)) {
+                    text = std::move(*moved);
+                    changed = true;  // the sidebar shows it: no message
+                }
+            }
+            outcome.changed = changed;
             if (changed) {
                 if (const std::error_code error = core::write_file_atomically(file, text)) {
                     outcome.error = error.message();
@@ -3897,13 +4156,18 @@ void Browser::next_bookmark_change() {
                              false);
             } else if (!outcome.removed.empty()) {
                 show_message(std::format("“{}” removed from the sidebar", outcome.removed), false);
+            } else if (!outcome.edited.empty()) {
+                show_message(outcome.edited, false);
             } else if (outcome.present > 0) {
                 show_message("Already in the sidebar", false);
             } else if (outcome.not_folders > 0) {
                 show_message("Only folders go in the sidebar", false);
             }
-            if ((!outcome.added.empty() || !outcome.removed.empty()) && places_reload_) {
+            if (outcome.changed && outcome.error.empty() && places_reload_) {
                 places_reload_();
+                if (outcome.follow) {
+                    sidebar_.set_cursor_to(*outcome.follow);
+                }
             }
             next_bookmark_change();
         });
@@ -4294,6 +4558,14 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         }
         return editor_.key(event);  // every key is the name's meanwhile
     }
+    if (sidebar_.renaming()) {
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
+            paste_text();
+            return true;
+        }
+        return sidebar_.rename_key(event);  // every key is the bookmark's label meanwhile
+    }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
         if (command_for(event) == Command::new_folder) {
             new_folder();
@@ -4408,6 +4680,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
     }
     // What is not listed for the sidebar is nothing there (Space: Quick Look shows the view's
     // entries; F2: the sidebar's places are not renamed).
+    // F2 and Alt+Up, Alt+Down edit the sidebar's bookmarks: never the view's, off a bookmark too.
+    if (sidebar_.focused() && sidebar_.edit_key(event)) {
+        return true;
+    }
+    // entries).
     const bool ignored = sidebar_.focused() && !listed(event, scope::kSidebar);
     if (command != Command::none && !ignored) {
         run(command, now);
@@ -4543,6 +4820,9 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::copy:
             take_selection(false);
+            break;
+        case Command::copy_path:
+            copy_path();
             break;
         case Command::cut:
             take_selection(true);
