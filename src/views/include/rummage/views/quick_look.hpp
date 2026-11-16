@@ -143,6 +143,9 @@ private:
         // thumbnail is shown at that size, so the sharp one replaces it without a jump.
         std::uint32_t thumbnail_full_width{0};
         std::uint32_t thumbnail_full_height{0};
+        // When the sharp image replaced a thumbnail on screen: the thumbnail stays a moment,
+        // under the sharp one fading in, instead of being swapped in one frame.
+        std::optional<Clock::time_point> sharp_since;
         std::shared_ptr<preview::Content> content;  // once made (for images, the sharp stage)
         std::unique_ptr<ui::Texture> thumbnail_texture;
         std::unique_ptr<ui::Texture> image_texture;
@@ -159,7 +162,8 @@ private:
     Slot& ensure(const fs::Entry& entry, bool current);
     void drop(Slot& slot);
     void draw_image(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
-                    ui::IconSet& icons, const fs::Entry& entry, Slot& slot, float fade);
+                    ui::IconSet& icons, const fs::Entry& entry, Slot& slot, float fade,
+                    Clock::time_point now);
     void draw_text(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
                    const fs::Entry& entry, const preview::Text& text, float fade,
                    Clock::time_point now);

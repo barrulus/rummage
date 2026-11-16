@@ -28,6 +28,7 @@ constexpr float kCardWidth = 340.0F;
 constexpr float kCardIcon = 96.0F;
 constexpr float kRowHeight = 24.0F;
 constexpr auto kFade = std::chrono::milliseconds{140};
+constexpr auto kSharpen = std::chrono::milliseconds{50};  // thumbnail to sharp image
 
 // The text page.
 constexpr float kTextSize = 13.0F;
@@ -51,6 +52,15 @@ ui::Rect shifted_down(ui::Rect rect) {
 float fade_at(QuickLook::Clock::time_point opened, QuickLook::Clock::time_point now) {
     const auto elapsed = std::chrono::duration<float>(now - opened).count();
     return std::clamp(elapsed / std::chrono::duration<float>(kFade).count(), 0.0F, 1.0F);
+}
+
+// How far the sharp image has faded in over its thumbnail: eased in and out (smoothstep), so
+// the detail neither leaps in at the start nor settles abruptly at the end.
+float sharpen_at(QuickLook::Clock::time_point since, QuickLook::Clock::time_point now) {
+    const auto elapsed = std::chrono::duration<float>(now - since).count();
+    const float t =
+        std::clamp(elapsed / std::chrono::duration<float>(kSharpen).count(), 0.0F, 1.0F);
+    return t * t * (3.0F - (2.0F * t));
 }
 
 // A caption in a pill under area.
@@ -474,7 +484,10 @@ std::string QuickLook::selected_text() const {
 }
 
 bool QuickLook::animating(Clock::time_point now) const {
-    return is_open() && (fade_at(opened_, now) < 1.0F || text_scroller_.animating() ||
+    const auto shown = slots_.find(shown_key_);
+    const bool sharpening = shown != slots_.end() && shown->second.sharp_since &&
+                            now - *shown->second.sharp_since < kSharpen;
+    return is_open() && (fade_at(opened_, now) < 1.0F || sharpening || text_scroller_.animating() ||
                          text_sideways_.animating() ||
                          (details_ && details_scroller_.animating()) || autoscrolling());
 }
@@ -540,7 +553,7 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     target_width_ = static_cast<std::uint32_t>(std::max(1.0F, area.width * renderer.scale()));
     target_height_ = static_cast<std::uint32_t>(std::max(1.0F, area.height * renderer.scale()));
     if (slot.kind == preview::Kind::image) {
-        draw_image(renderer, area, palette, icons, *entry, slot, fade);
+        draw_image(renderer, area, palette, icons, *entry, slot, fade, now);
         return;
     }
     const preview::Content* const shown = slot.content.get();
@@ -625,7 +638,7 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
 
 void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
                            const theme::Palette& palette, ui::IconSet& icons,
-                           const fs::Entry& entry, Slot& slot, float fade) {
+                           const fs::Entry& entry, Slot& slot, float fade, Clock::time_point now) {
     auto* const loaded = slot.content ? std::get_if<picture::Loaded>(slot.content.get()) : nullptr;
     // Upload what arrived: the sharp image replaces the thumbnail. The pixels are on the GPU now:
     // they go (the size stays, for the caption).
@@ -637,9 +650,15 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
                    loaded->image.width, loaded->image.height, since(slot.requested),
                    slot.in_advance ? " (made in advance, as a neighbour)" : "");
         if (slot.thumbnail_texture) {
-            retired_.push_back(std::move(slot.thumbnail_texture));
+            slot.sharp_since = now;  // the thumbnail goes once the sharp image has faded in
         }
         slot.thumbnail_pixels.reset();
+    }
+    if (slot.sharp_since && now - *slot.sharp_since >= kSharpen) {
+        slot.sharp_since.reset();
+        if (slot.thumbnail_texture) {
+            retired_.push_back(std::move(slot.thumbnail_texture));
+        }
     }
     if (slot.thumbnail_pixels && !slot.image_texture) {
         slot.thumbnail_texture = std::make_unique<ui::Texture>(slot.thumbnail_pixels->width,
@@ -656,8 +675,11 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
         slot.image_texture ? slot.image_texture.get() : slot.thumbnail_texture.get();
 
     std::string caption = entry.name;
+    // The size from the sharp image, or already from the thumbnail: the caption stays put.
     if (loaded != nullptr && loaded->full_width > 0) {
         caption += std::format("   {} × {}", loaded->full_width, loaded->full_height);
+    } else if (slot.thumbnail_texture && slot.thumbnail_full_width > 0) {
+        caption += std::format("   {} × {}", slot.thumbnail_full_width, slot.thumbnail_full_height);
     }
     caption += "   " + format_size(entry.size);
     if (texture == nullptr && slot.content) {
@@ -686,30 +708,45 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
         // when known (a video frame or a raw preview made smaller than the file), else the
         // pixels at hand. The thumbnail goes where the sharp image will land, so one replaces
         // the other without a jump; with no size known it fills the area, as large pictures do.
-        const auto texture_width = static_cast<float>(texture->width());
-        const auto texture_height = static_cast<float>(texture->height());
-        float fit = std::min(area.width / texture_width, area.height / texture_height);
-        const bool sharp = texture == slot.image_texture.get();
-        std::uint32_t whole_width = sharp && loaded != nullptr ? loaded->full_width : 0;
-        std::uint32_t whole_height = sharp && loaded != nullptr ? loaded->full_height : 0;
-        if (!sharp) {
-            whole_width = slot.thumbnail_full_width;
-            whole_height = slot.thumbnail_full_height;
-        }
-        if (whole_width > 0 && whole_height > 0) {
-            const float whole = std::min(static_cast<float>(whole_width) / texture_width,
-                                         static_cast<float>(whole_height) / texture_height);
-            fit = std::min(fit, std::max(whole, sharp ? 1.0F : 0.0F) / renderer.scale());
-        } else if (sharp) {
-            fit = std::min(fit, 1.0F / renderer.scale());
-        }
-        const float shown_width = texture_width * fit;
-        const float shown_height = texture_height * fit;
-        const ui::Rect rect{area.x + ((area.width - shown_width) / 2.0F),
+        const auto place = [&](const ui::Texture& shown) {
+            const auto texture_width = static_cast<float>(shown.width());
+            const auto texture_height = static_cast<float>(shown.height());
+            float fit = std::min(area.width / texture_width, area.height / texture_height);
+            const bool sharp = &shown == slot.image_texture.get();
+            std::uint32_t whole_width = sharp && loaded != nullptr ? loaded->full_width : 0;
+            std::uint32_t whole_height = sharp && loaded != nullptr ? loaded->full_height : 0;
+            if (!sharp) {
+                whole_width = slot.thumbnail_full_width;
+                whole_height = slot.thumbnail_full_height;
+            }
+            if (whole_width > 0 && whole_height > 0) {
+                const float whole = std::min(static_cast<float>(whole_width) / texture_width,
+                                             static_cast<float>(whole_height) / texture_height);
+                fit = std::min(fit, std::max(whole, sharp ? 1.0F : 0.0F) / renderer.scale());
+            } else if (sharp) {
+                fit = std::min(fit, 1.0F / renderer.scale());
+            }
+            const float shown_width = texture_width * fit;
+            const float shown_height = texture_height * fit;
+            return ui::Rect{area.x + ((area.width - shown_width) / 2.0F),
                             area.y + ((area.height - shown_height) / 2.0F), shown_width,
                             shown_height};
+        };
+        const ui::Rect rect = place(*texture);
         renderer.draw_shadow(shifted_down(rect), {}, 18.0F, palette.shadow.with_alpha(0.6F * fade));
-        renderer.draw_image(*texture, rect, {}, fade);
+        if (slot.sharp_since && slot.thumbnail_texture && texture == slot.image_texture.get()) {
+            // The thumbnail under the sharp image fading in: blurred to sharp, not a swap. One
+            // shown elsewhere (its size was not known) fades out meanwhile.
+            const float sharpened = sharpen_at(*slot.sharp_since, now);
+            const ui::Rect under = place(*slot.thumbnail_texture);
+            const bool same = std::abs(under.width - rect.width) < 1.0F &&
+                              std::abs(under.height - rect.height) < 1.0F;
+            renderer.draw_image(*slot.thumbnail_texture, under, {},
+                                same ? fade : fade * (1.0F - sharpened));
+            renderer.draw_image(*texture, rect, {}, fade * sharpened);
+        } else {
+            renderer.draw_image(*texture, rect, {}, fade);
+        }
     }
     draw_caption(renderer, area, palette, caption, fade);
 }
