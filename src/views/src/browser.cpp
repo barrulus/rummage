@@ -3022,6 +3022,12 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
 }
 
 void Browser::toolbar_pointer(const ui::PointerEvent& event) {
+    if (event.kind != ui::PointerEvent::Kind::press && filter_focused_ &&
+        pane().filter_field.pointer(event)) {
+        redraw_();
+        return;
+    }
+
     if (event.kind != ui::PointerEvent::Kind::press || event.button != ui::PointerButton::left) {
         return;
     }
@@ -3031,7 +3037,7 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
         open_settings();
     } else if (area().filter_bounds.contains(event.x, event.y)) {
         filter_focused_ = true;
-        pane().filter_field.click(event.x, event.modifiers.shift);
+        pane().filter_field.pointer(event);
     } else if (area().clear_filter_bounds.contains(event.x, event.y)) {
         set_name_filter({});
         filter_focused_ = true;

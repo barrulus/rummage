@@ -215,6 +215,27 @@ TEST_CASE("pointer shapes: the text cursor over a name being edited") {
           CursorShape::text);
     CHECK(f.browser.cursor_at(field.x + (field.width / 2.0F), field.bottom() + 40.0F) !=
           CursorShape::text);
+    auto& editor = f.browser.name_editor();
+    const auto original = editor.field().text();
+    REQUIRE_FALSE(original.empty());
+    const float start = field.x + rummage::ui::TextField::kPadding;
+    const float end = start + f.fonts->layout(original.substr(0, 1), 14, 1).width;
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = end,
+                       .y = field.y + 10,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::motion, .x = start, .y = field.bottom() + 40},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = start,
+                       .y = field.bottom() + 40,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    REQUIRE(editor.active());
+    CHECK(editor.field().selection() == std::pair<std::size_t, std::size_t>{0, 1});
+    editor.paste("new");
+    CHECK(editor.field().text() == "new" + original.substr(1));
 }
 
 TEST_CASE("pointer shapes: a card takes them; under a menu, an arrow") {
@@ -420,4 +441,42 @@ TEST_CASE("status bar: enlarged text reserves height and keeps buttons centered"
             CHECK(bar.clickable_at(570, bottom - height / 2));
         }
     }
+}
+
+TEST_CASE("toolbar: filter selection drags stay captured until release") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.browser.open(f.photos);
+    REQUIRE(f.settle());
+    f.browser.set_name_filter("example.txt");
+    f.draw();
+    const auto field = f.browser.filter_bounds();
+    const float start = field.x + rummage::ui::TextField::kPadding;
+    const float end = start + f.fonts->layout("example", 14, 1).width;
+    const auto pointer = [&](PointerEvent::Kind kind, float x, float y, int clicks = 1) {
+        f.browser.pointer({.kind = kind,
+                           .x = x,
+                           .y = y,
+                           .button = rummage::ui::PointerButton::left,
+                           .click_count = clicks},
+                          Browser::Clock::now());
+    };
+    SUBCASE("drag outside the toolbar replaces only the selected prefix") {
+        pointer(PointerEvent::Kind::press, end, field.y + 10);
+        pointer(PointerEvent::Kind::motion, start, field.bottom() + 100);
+        pointer(PointerEvent::Kind::release, start, field.bottom() + 100);
+        pointer(PointerEvent::Kind::motion, end, field.y + 10);
+        f.browser.key({.keysym = XKB_KEY_b, .text = "b"}, Browser::Clock::now());
+        CHECK(f.browser.name_filter() == "b.txt");
+    }
+    SUBCASE("double click replaces the whole filter") {
+        pointer(PointerEvent::Kind::press, end, field.y + 10, 2);
+        pointer(PointerEvent::Kind::release, end, field.y + 10);
+        f.browser.key({.keysym = XKB_KEY_b, .text = "b"}, Browser::Clock::now());
+        CHECK(f.browser.name_filter() == "b");
+    }
+    // The release must also clear Browser's pointer capture so a later click can leave the toolbar.
+    pointer(PointerEvent::Kind::press, start, field.bottom() + 100);
+    pointer(PointerEvent::Kind::release, start, field.bottom() + 100);
+    CHECK_FALSE(f.browser.filtering());
 }

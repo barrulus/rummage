@@ -144,10 +144,9 @@ void ConfirmDialog::pointer(const ui::PointerEvent& event) {
         return;
     }
     using Kind = ui::PointerEvent::Kind;
-    if (password_mode_ && event.kind == Kind::press && event.button == ui::PointerButton::left &&
-        password_field_.bounds().contains(event.x, event.y)) {
-        password_field_.click(event.x, false);
+    if (password_mode_ && password_field_.pointer(event)) {
         redraw_();
+        return;
     }
     std::optional<std::size_t> over;
     if (event.kind != Kind::leave) {

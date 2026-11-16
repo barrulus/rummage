@@ -487,6 +487,14 @@ ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
 void SettingsDialog::pointer(const ui::PointerEvent& event) {
     if (!open_ || busy_)
         return;
+    if (event.kind != ui::PointerEvent::Kind::press) {
+        for (auto& field : fields_) {
+            if (field.section == section_ && field.choices.empty() && field.input.pointer(event)) {
+                redraw_();
+                return;
+            }
+        }
+    }
     if (scrollbar_.pointer(event, scroller_)) {
         redraw_();
         return;
@@ -514,7 +522,7 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
         if (field.section == section_ && field.bounds.contains(event.x, event.y)) {
             focus_ = "f" + std::to_string(i);
             if (field.choices.empty())
-                field.input.click(event.x, event.modifiers.shift);
+                field.input.pointer(event);
             else
                 activate(focus_);
             redraw_();

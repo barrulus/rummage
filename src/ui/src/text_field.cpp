@@ -33,6 +33,7 @@ bool typable(std::string_view text) {
 TextField::TextField(std::string text) { set_text(std::move(text)); }
 
 void TextField::set_text(std::string text) {
+    dragging_ = false;
     text_ = std::move(text);
     caret_ = text_.size();
     anchor_ = caret_;
@@ -131,6 +132,7 @@ std::size_t TextField::next_word(std::size_t at) const noexcept {
 }
 
 void TextField::select(std::size_t begin, std::size_t end) {
+    dragging_ = false;
     const auto boundary = [this](std::size_t at) {
         at = std::min(at, text_.size());
         while (at > 0 && at < text_.size() && continuation(text_[at])) {
@@ -170,6 +172,7 @@ void TextField::insert(std::string_view text) {
 }
 
 bool TextField::key(const KeyEvent& event) {
+    dragging_ = false;
     const bool shift = event.modifiers.shift;
     const bool ctrl = event.modifiers.ctrl;
     const auto [first, last] = selection();
@@ -274,6 +277,42 @@ void TextField::click(float x, bool extend) {
         }
     }
     move_to(best, extend);
+}
+
+bool TextField::pointer(const PointerEvent& event) {
+    using Kind = PointerEvent::Kind;
+    if (event.kind == Kind::press) {
+        dragging_ = false;
+        if (event.button != PointerButton::left || !bounds_.contains(event.x, event.y)) {
+            return false;
+        }
+        dragging_all_ = event.click_count >= 2;
+        if (dragging_all_) {
+            select_all();
+        } else {
+            click(event.x, event.modifiers.shift);
+        }
+        dragging_ = true;
+        return true;
+    }
+    if (!dragging_) {
+        return false;
+    }
+    if (event.kind == Kind::leave) {
+        dragging_ = false;
+        return true;
+    }
+    if (event.kind == Kind::motion ||
+        (event.kind == Kind::release && event.button == PointerButton::left)) {
+        if (!dragging_all_) {
+            click(event.x, true);
+        }
+        if (event.kind == Kind::release) {
+            dragging_ = false;
+        }
+        return true;
+    }
+    return false;
 }
 
 void TextField::draw(Renderer& renderer, const Rect& rect, float size, const FieldColors& colors,

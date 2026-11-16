@@ -45,21 +45,20 @@ bool NameEditor::key(const ui::KeyEvent& event) {
 }
 
 bool NameEditor::pointer(const ui::PointerEvent& event) {
-    if (!active() || event.kind != ui::PointerEvent::Kind::press) {
+    if (!active()) {
+        return false;
+    }
+    if (!busy_ && slot_.rect && field_.pointer(event)) {
+        redraw_();
+        return true;
+    }
+    if (event.kind != ui::PointerEvent::Kind::press) {
         return false;
     }
     const ui::Rect& box = field_.bounds();
     const bool inside = slot_.rect && event.x >= box.x && event.x < box.right() &&
                         event.y >= box.y && event.y < box.bottom();
     if (inside && event.button == ui::PointerButton::left) {
-        if (!busy_) {
-            if (event.click_count >= 2) {
-                field_.select_all();
-            } else {
-                field_.click(event.x, event.modifiers.shift);
-            }
-            redraw_();
-        }
         return true;
     }
     if (!busy_) {

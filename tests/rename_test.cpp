@@ -19,6 +19,7 @@
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/operations.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
@@ -459,4 +460,93 @@ TEST_CASE("archive password: Unicode editing, paste, confirmation and cancellati
     dialog.open_password("secret.7z", false, receive);
     dialog.key(key(XKB_KEY_Return));
     CHECK(answer == "");  // a new prompt cannot reuse the previous password
+}
+
+TEST_CASE("text field: pointer selection captures drags and double clicks") {
+    namespace ui = rummage::ui;
+    using Kind = ui::PointerEvent::Kind;
+    ui::Offscreen gl{400, 100};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    TextField field{"caffè.txt"};
+    const ui::Rect bounds{20, 20, 300, 32};
+    const auto draw = [&] {
+        renderer.begin_frame(400, 100, 1, {});
+        field.draw(renderer, bounds, 14, {});
+        renderer.end_frame();
+    };
+    draw();
+    const auto x = [&](std::string_view prefix) {
+        return bounds.x + TextField::kPadding + fonts.layout(prefix, 14, 1).width;
+    };
+    const auto press = [&](float at, int clicks = 1, bool shift = false) {
+        return field.pointer({.kind = Kind::press,
+                              .x = at,
+                              .y = 30,
+                              .button = ui::PointerButton::left,
+                              .click_count = clicks,
+                              .modifiers = {.shift = shift}});
+    };
+    const auto release = [&](float at) {
+        return field.pointer(
+            {.kind = Kind::release, .x = at, .y = 90, .button = ui::PointerButton::left});
+    };
+    SUBCASE("forward and reverse UTF-8 drag continues outside the box and stops on release") {
+        REQUIRE(press(x("caff")));
+        REQUIRE(field.pointer({.kind = Kind::motion, .x = x("caffè"), .y = 90}));
+        CHECK(selected(field) == "è");
+        REQUIRE(field.pointer({.kind = Kind::motion, .x = 0, .y = 90}));
+        CHECK(selected(field) == "caff");
+        REQUIRE(release(400));
+        CHECK(selected(field) == "è.txt");
+        CHECK_FALSE(field.pointer({.kind = Kind::motion, .x = 0, .y = 30}));
+        CHECK(selected(field) == "è.txt");
+        field.insert("eine");
+        CHECK(field.text() == "caffeine");
+    }
+    SUBCASE("double click keeps all selected across motion and release") {
+        REQUIRE(press(x("caff"), 2));
+        CHECK(selected(field) == "caffè.txt");
+        REQUIRE(field.pointer({.kind = Kind::motion, .x = x("caffè"), .y = 30}));
+        REQUIRE(release(x("caffè")));
+        CHECK(selected(field) == "caffè.txt");
+    }
+    SUBCASE("Shift click extends from the original caret") {
+        REQUIRE(press(x("caffè")));
+        REQUIRE(release(x("caffè")));
+        REQUIRE(press(x("ca"), 1, true));
+        CHECK(selected(field) == "ffè");
+        REQUIRE(release(x("caffè.txt")));
+        CHECK(selected(field) == ".txt");
+    }
+    SUBCASE("leaving the window cancels capture without moving the caret") {
+        REQUIRE(press(x("ca")));
+        REQUIRE(field.pointer({.kind = Kind::leave}));
+        CHECK(field.caret() == 2);
+        CHECK_FALSE(field.pointer({.kind = Kind::motion, .x = 400, .y = 30}));
+        CHECK(field.caret() == 2);
+    }
+    SUBCASE("other buttons do not begin or end a selection drag") {
+        CHECK_FALSE(field.pointer(
+            {.kind = Kind::press, .x = x("ca"), .y = 30, .button = ui::PointerButton::right}));
+        REQUIRE(press(x("ca")));
+        CHECK_FALSE(field.pointer(
+            {.kind = Kind::release, .x = 400, .y = 30, .button = ui::PointerButton::right}));
+        REQUIRE(release(x("caffè")));
+        CHECK(selected(field) == "ffè");
+    }
+    SUBCASE("a scrolled field maps the visible text back to the correct bytes") {
+        field.set_text(std::string(100, 'a') + "caffè.txt");
+        draw();
+        REQUIRE(press(bounds.right() - TextField::kPadding));
+        REQUIRE(release(bounds.right() - TextField::kPadding - fonts.layout(".txt", 14, 1).width));
+        CHECK(selected(field) == ".txt");
+    }
+    SUBCASE("masked text selects without revealing word boundaries") {
+        field.set_masked(true);
+        draw();
+        REQUIRE(press(x("••"), 2));
+        REQUIRE(release(x("••")));
+        CHECK(selected(field) == "caffè.txt");
+    }
 }

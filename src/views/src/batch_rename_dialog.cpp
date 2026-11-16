@@ -194,6 +194,11 @@ void BatchRenameDialog::pointer(const ui::PointerEvent& event) {
     if (!is_open() || busy_) {
         return;
     }
+    if (event.kind != ui::PointerEvent::Kind::press && focus_ < fields_.size() &&
+        fields_[focus_].pointer(event)) {
+        redraw_();
+        return;
+    }
     if (event.kind == ui::PointerEvent::Kind::scroll && body_.contains(event.x, event.y)) {
         const float delta = event.wheel_y != 0.0F ? event.wheel_y * 36.0F : event.scroll_y;
         if (max_form_scroll_ > 0 &&
@@ -211,7 +216,7 @@ void BatchRenameDialog::pointer(const ui::PointerEvent& event) {
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         if (body_.contains(event.x, event.y) && fields_[i].bounds().contains(event.x, event.y)) {
             focus_ = i;
-            fields_[i].click(event.x, event.modifiers.shift);
+            fields_[i].pointer(event);
             redraw_();
             return;
         }
