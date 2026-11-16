@@ -26,6 +26,7 @@ configuration keys and options literally.
 
 | Code | Language | File |
 | --- | --- | --- |
+| `de` | Deutsch | [`data/i18n/de.toml`](../data/i18n/de.toml) |
 
 ## Adding a language
 

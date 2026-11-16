@@ -51,18 +51,26 @@ std::multiset<std::string> fields(std::string_view text) {
 }  // namespace
 
 TEST_CASE("i18n: the language of a locale") {
+    CHECK(i18n::language_of("de_DE.UTF-8") == "de");
+    CHECK(i18n::language_of("de_AT@euro") == "de");
+    CHECK(i18n::language_of("de_AT.UTF-8@euro") == "de");
+    CHECK(i18n::language_of("de") == "de");
     CHECK(i18n::language_of("en_US.UTF-8") == "en");
-    CHECK(i18n::language_of("xx:en") == "en");
     CHECK(i18n::language_of("C") == "en");
     CHECK(i18n::language_of("") == "en");
     CHECK(i18n::language_of("xx_YY.UTF-8") == "en");  // no catalog
+    CHECK(i18n::language_of("xx:de:en") == "de");     // the first with a catalog
+    CHECK(i18n::language_of("en:de") == "en");
+    CHECK(i18n::language_of("de_XX") == "de");  // the language without the region
 }
 
 TEST_CASE("i18n: the compiled-in languages") {
     const auto codes = i18n::languages();
     CHECK(std::ranges::find(codes, i18n::kEnglish) != codes.end());
+    CHECK(std::ranges::find(codes, "de") != codes.end());
     CHECK(std::ranges::is_sorted(codes));
     CHECK(i18n::language_name("en") == "English");
+    CHECK(i18n::language_name("de") == "Deutsch");
     CHECK(i18n::entries("en").empty());
     CHECK(i18n::entries("xx").empty());
     const Speaking unknown{"xx"};
@@ -94,4 +102,22 @@ TEST_CASE("i18n: English stays English") {
     CHECK(i18n::trf("{} of {} selected", 2, 5) == "2 of 5 selected");
     CHECK(i18n::keys("Ctrl+Shift+Z") == "Ctrl+Shift+Z");
     CHECK(rummage::views::format_size(1234) == "1.2 kB");
+}
+
+TEST_CASE("i18n: German") {
+    const Speaking german{"de"};
+    CHECK(i18n::language() == "de");
+    CHECK(i18n::tr("Empty folder") == "Leerer Ordner");
+    CHECK(i18n::tr("not in any table") == "not in any table");
+    CHECK(i18n::trf("{} of {} selected", 2, 5) == "2 von 5 ausgewählt");
+    CHECK(i18n::trf("Delete “{}” permanently?", "a.txt") == "„a.txt“ endgültig löschen?");
+    CHECK(i18n::keys("Ctrl+Shift+Z") == "Strg+Umschalt+Z");
+    CHECK(i18n::keys("Ctrl++  Ctrl+−") == "Strg++  Strg+−");
+    CHECK(i18n::keys("Alt+Left") == "Alt+←");
+    CHECK(i18n::keys("Space  Escape") == "Leertaste  Esc");
+    CHECK(i18n::decimal("1.2 kB · 3.4 MB") == "1,2 kB · 3,4 MB");
+    CHECK(i18n::decimal("v1.") == "v1.");
+    CHECK(rummage::views::format_size(1) == "1 Byte");
+    CHECK(rummage::views::format_size(999) == "999 Bytes");
+    CHECK(rummage::views::format_size(18'100'000) == "18,1 MB");
 }
