@@ -9,7 +9,7 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.5.1 — in development
 
-The fork includes system icon themes and SVG rendering, HEIC/HEIF still previews,
+The fork includes system icon themes, static SVG file previews, HEIC/HEIF still previews,
 visibility of unmounted internal partitions, optional isolated video
 previews, configurable shortcuts/actions/menus, destination pickers and completion
 notifications, optional PDF previews, archive password handling, expandable details, two persistent panes,

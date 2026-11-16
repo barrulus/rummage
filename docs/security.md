@@ -29,6 +29,12 @@ The filter has architecture definitions for x86-64 and AArch64. Crashes, timeout
 and malformed replies are treated as preview failures. The browser does not fall
 back to decoding the same unsupported input in-process.
 
+SVG file previews also run in the base helper, using the existing SVG renderer
+with its input, geometry and work limits. The file adapter reads at most 8 MiB and
+caps the rendered side at 1024 pixels. It reads only the supplied descriptor;
+external SVG resources are never fetched. Theme icons use the separate in-process
+path described below.
+
 ## Parsing and execution boundaries
 
 | Component | Boundary |

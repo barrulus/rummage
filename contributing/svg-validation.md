@@ -63,8 +63,8 @@ under ignored build directories; only selection identifiers are committed.
 ## Hardening checks
 
 Hardening applies to every renderer change. Theme icons render in-process on the
-UI thread. These are deterministic resource ceilings, not a wall-clock deadline
-or a whole-process memory limit.
+UI thread; SVG file previews use the isolated helper. These are deterministic
+resource ceilings, not a wall-clock deadline or a whole-process memory limit.
 
 | Resource | Enforced limit |
 | --- | --- |

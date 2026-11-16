@@ -35,7 +35,8 @@ enum class Failure : std::uint8_t {
 
 struct LoadRequest {
     std::filesystem::path path;
-    // The picture fits in max_width x max_height pixels (scaled down, never up).
+    // The picture fits in max_width x max_height pixels (rasters scaled down, never up;
+    // vectors rendered at the requested size within their reader's limits).
     std::uint32_t max_width{0};
     std::uint32_t max_height{0};
     std::string mime{};  // Empty retains the default image engine for existing callers.

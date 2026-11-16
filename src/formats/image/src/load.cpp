@@ -18,6 +18,7 @@
 #include "jpeg_segments.hpp"
 #include "rummage/formats/image/preview.hpp"
 #include "rummage/picture/scale.hpp"
+#include "rummage/svg/svg.hpp"
 #include "tiff/decode.hpp"
 
 namespace rummage::formats::image {
@@ -35,6 +36,7 @@ constexpr std::size_t kHead = std::size_t{64} * 1024;
 // What a file is, from its first bytes.
 enum class Kind : std::uint8_t {
     image,       // PNG, GIF, WebP, JPEG XL, HEIF, PGM/PPM: decoded whole, never a stored preview
+    svg,         // XML candidate; the SVG parser validates the complete document
     jpeg,        // decoded whole; a camera's (with EXIF) may carry a larger preview first
     container,   // TIFF and the raw formats built like it, RAF, CR3: previews only
     plain_tiff,  // a TIFF that is not a camera raw: decoded here, read piece by piece
@@ -46,6 +48,23 @@ bool starts_with(std::span<const std::uint8_t> data, std::string_view prefix) {
     return data.size() >= prefix.size() &&
            std::equal(prefix.begin(), prefix.end(), data.begin(),
                       [](char a, std::uint8_t b) { return static_cast<std::uint8_t>(a) == b; });
+}
+
+// XML can start with a BOM, whitespace, a declaration or a comment well before the SVG root.
+// Do not search for an <svg substring: only the renderer decides whether the document is SVG.
+bool xml_candidate(std::span<const std::uint8_t> head) {
+    if (starts_with(head, "\xef\xbb\xbf")) {
+        head = head.subspan(3);
+    }
+    if (head.empty()) {
+        return false;
+    }
+    for (const auto byte : head) {
+        if (byte != ' ' && byte != '\t' && byte != '\r' && byte != '\n') {
+            return byte == '<';
+        }
+    }
+    return true;  // the bounded header may end before the first element
 }
 
 Kind kind_of(std::span<const std::uint8_t> head) {
@@ -80,6 +99,9 @@ Kind kind_of(std::span<const std::uint8_t> head) {
     if (starts_with(head, "FOVb") || starts_with(head, "\0MRM"sv) ||
         starts_with(head, "II\x1a\0\0\0HEAPCCDR"sv)) {
         return Kind::no_reader;
+    }
+    if (xml_candidate(head)) {
+        return Kind::svg;
     }
     return Kind::unknown;
 }
@@ -122,6 +144,31 @@ Loaded failed(Failure failure, std::string detail) {
     return result;
 }
 
+Loaded load_svg(const detail::FdFile& file, std::uint32_t max_width, std::uint32_t max_height) {
+    // Match the renderer's input and output ceilings before reading or narrowing dimensions.
+    constexpr std::size_t kMaxSvgBytes = 8U * 1024U * 1024U;
+    constexpr std::uint32_t kMaxSvgSide = 1024;
+    if (file.size() > kMaxSvgBytes) {
+        return failed(Failure::too_large, "SVG input exceeds 8 MiB");
+    }
+    const auto bytes = file.read_exactly(0, static_cast<std::size_t>(file.size()));
+    if (bytes.empty()) {
+        return failed(Failure::unreadable, "cannot read the SVG file");
+    }
+    // A vector has no native raster size. An unspecified bound uses the renderer's ceiling;
+    // larger requests still get a useful bounded preview instead of failing outright.
+    const auto width = max_width == 0 ? kMaxSvgSide : std::min(max_width, kMaxSvgSide);
+    const auto height = max_height == 0 ? kMaxSvgSide : std::min(max_height, kMaxSvgSide);
+    const auto rendered = svg::render(bytes, static_cast<int>(std::max(width, height)));
+    if (rendered.empty()) {
+        return failed(Failure::damaged, "invalid SVG or SVG rendering limit exceeded");
+    }
+    Loaded result;
+    result.image = scale_to_fit(rendered, width, height);
+    // Do not report this rasterization's dimensions as the document's intrinsic dimensions.
+    return result;
+}
+
 }  // namespace
 
 bool recognises(std::span<const std::uint8_t> head) { return kind_of(head) != Kind::unknown; }
@@ -152,6 +199,9 @@ Loaded load(int fd, std::uint32_t max_width, std::uint32_t max_height) {
                       file->size() == 0 ? "empty file" : "cannot read the file");
     }
     Kind kind = kind_of(head);
+    if (kind == Kind::svg) {
+        return load_svg(*file, max_width, max_height);
+    }
     if (kind == Kind::container && sniff(head) == Format::tiff &&
         !tiff::is_camera_raw(tiff::Source{*file})) {
         kind = Kind::plain_tiff;

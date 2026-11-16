@@ -32,6 +32,7 @@ add_executable(rummage-tests
     icon_test.cpp
     icon_theme_test.cpp
     svg_test.cpp
+    svg_preview_test.cpp
     svg_features_test.cpp
     svg_layers_test.cpp
     svg_effects_test.cpp

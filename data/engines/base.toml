@@ -21,6 +21,7 @@ mime = [
     "image/heic",
     "image/heif",
     "image/tiff",
+    "image/svg+xml",
     "image/x-adobe-dng",
     "image/x-canon-cr2",
     "image/x-canon-cr3",

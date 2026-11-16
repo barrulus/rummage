@@ -44,6 +44,7 @@ not implemented.
 
 - Isolated image and text decoding through `rummage-preview`.
 - PNG, JPEG, GIF, WebP, JPEG XL, HEIC/HEIF (HEVC), TIFF/BigTIFF and binary PGM/PPM previews.
+- Static SVG previews and thumbnails using the built-in renderer in the helper.
 - Camera raw embedded previews and development of supported DNG data when needed.
 - Photo metadata, orientation/crop handling and shared freedesktop thumbnail caching.
 - Quick Look for pictures and text, with file-to-file navigation.
@@ -53,8 +54,8 @@ not implemented.
   damage badges.
 
 See [previews and formats](previews.md) for decoder limits. Video playback, rendered
-Markdown, rendered SVG document previews and darktable rating import are not
-current capabilities. SVG theme icons use an in-process renderer.
+Markdown and darktable rating import are not current capabilities. SVG theme icons
+use the same renderer in-process; SVG file previews use the sandboxed helper.
 
 ## Desktop integration and customization
 

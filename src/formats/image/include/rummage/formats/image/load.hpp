@@ -18,11 +18,14 @@ using picture::LoadRequest;
 
 // Whether the first bytes of a file are an image this family reads (PNG, JPEG, GIF, WebP,
 // JPEG XL, PGM/PPM, TIFF and the raw formats built like it, RAF, CR3, CRW, MRW, X3F).
+// XML candidates also enter this family; the SVG renderer validates the complete document.
 [[nodiscard]] bool recognises(std::span<const std::uint8_t> head);
 
 // The picture of request.path: from a preview the file carries when that is at least as large as
 // asked (camera JPEGs, raw files), else from the whole image; a raw file without one large enough
-// gives the largest it has. Scaled down to fit, then turned upright. Blocking. Never throws.
+// gives the largest it has. Raster images are scaled down to fit, then turned upright. SVGs
+// are rendered for the requested bounds, capped at 1024 per side (also the default for a zero
+// bound), without claiming intrinsic pixel dimensions. Blocking. Never throws.
 [[nodiscard]] Loaded load(const LoadRequest& request);
 
 // The same from a file open for reading as fd (kept open, the caller's).
