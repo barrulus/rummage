@@ -18,12 +18,12 @@
 
 #include <doctest/doctest.h>
 
+#include "protocol.hpp"
 #include "rummage/formats/image/load.hpp"
 #include "rummage/formats/image/photo.hpp"
 #include "rummage/formats/text/read.hpp"
 #include "rummage/picture/load.hpp"
 #include "rummage/text/text.hpp"
-#include "protocol.hpp"
 #include "temp_dir.hpp"
 
 namespace fs = std::filesystem;
@@ -31,8 +31,8 @@ namespace image = rummage::formats::image;
 namespace picture = rummage::picture;
 namespace isolate = rummage::isolate;
 namespace text = rummage::text;
-using rummage::test::TempDir;
 using picture::Failure;
+using rummage::test::TempDir;
 
 namespace {
 
@@ -107,6 +107,10 @@ TEST_CASE("helpers: a photo's information travels whole, and nonsense is refused
     info.width = 5220;
     info.height = 3912;
     info.camera = "OM-1";
+    info.duration = "0:00:12.500";
+    info.video_codec = "h264";
+    info.audio_codec = "aac";
+    info.sample_rate = "48000 Hz";
     info.lens = std::string(400, 'L');  // cut at 255 bytes
     info.rating = -1;
     const std::vector<std::byte> bytes = isolate::protocol::encode_info(info);
@@ -115,6 +119,10 @@ TEST_CASE("helpers: a photo's information travels whole, and nonsense is refused
     const picture::PhotoInfo back = decoded.value_or(picture::PhotoInfo{});
     CHECK(back.width == 5220);
     CHECK(back.camera == "OM-1");
+    CHECK(back.duration == info.duration);
+    CHECK(back.video_codec == info.video_codec);
+    CHECK(back.audio_codec == info.audio_codec);
+    CHECK(back.sample_rate == info.sample_rate);
     CHECK(back.lens == std::string(255, 'L'));
     CHECK(back.rating == -1);
     CHECK_FALSE(isolate::protocol::decode_info(std::span{bytes}.first(bytes.size() - 1)));

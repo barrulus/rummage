@@ -1,11 +1,12 @@
 [engine]
 name = "media"
 program = "rummage-media"
-protocol = 4
+protocol = 5
 
 [[family]]
 name = "video"
 shows = "picture"
+info = true
 thumbnails = true
 subclasses = true
 mime = ["video/mp4", "video/quicktime", "video/x-matroska", "video/webm",

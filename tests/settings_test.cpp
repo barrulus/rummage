@@ -220,14 +220,14 @@ TEST_CASE("settings: mouse wheel and keyboard reach fields in a short window") {
     };
     draw();
     f.dialog.pointer(
-        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 100, .y = 160, .wheel_y = 20});
+        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 100, .y = 160, .wheel_y = 1000});
     draw();
     f.dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
                       .x = 100,
                       .y = 160,
                       .button = rummage::ui::PointerButton::left});
     f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
-    CHECK(f.dialog.copy_selection(false) == "monospace");
+    CHECK(f.dialog.copy_selection(false) == "[]");
     f.dialog.pointer(
         {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 100, .y = 160, .scroll_y = -10000});
     draw();
@@ -264,7 +264,7 @@ TEST_CASE("settings: scrollbar drags outside the list and releases capture") {
                       .y = 160,
                       .button = ui::PointerButton::left});
     f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
-    CHECK(f.dialog.copy_selection(false) == "monospace");
+    CHECK(f.dialog.copy_selection(false) == "[]");
     // Click the track above the thumb to return to the start.
     f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
                       .x = 365,
@@ -361,4 +361,28 @@ TEST_CASE(
     CHECK_FALSE(f.dialog.error().empty());
     f.dialog.close();
     CHECK(core::read_text_file(f.path).text == original);
+}
+
+TEST_CASE("settings: interface size, terminal arguments and program opening persist") {
+    Fixture f;
+    f.open();
+    REQUIRE(f.dialog.edit("font", "size", "17.5"));
+    REQUIRE(f.dialog.edit("terminal", "program", "kitty"));
+    REQUIRE(f.dialog.edit("terminal", "args", "['--title', 'My terminal']"));
+    REQUIRE(f.dialog.edit("open", "programs", "false"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    auto loaded = core::load_config(f.path);
+    REQUIRE(loaded.problems.empty());
+    CHECK(loaded.config.font.size == 17.5F);
+    CHECK(loaded.config.terminal.program == "kitty");
+    CHECK(loaded.config.terminal.args == std::vector<std::string>{"--title", "My terminal"});
+    CHECK_FALSE(loaded.config.open.programs);
+    f.open();
+    REQUIRE(f.dialog.edit("terminal", "program", ""));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    CHECK(core::load_config(f.path).config.terminal.program.empty());
 }

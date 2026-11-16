@@ -513,6 +513,7 @@ void Renderer::begin_frame(std::int32_t buffer_width, std::int32_t buffer_height
     buffer_width_ = buffer_width;
     buffer_height_ = buffer_height;
     scale_ = scale;
+    frame_scale_ = scale;
     background_opacity_ = std::clamp(background_opacity, 0.0F, 1.0F);
     boxes_.clear();
     glyphs_.clear();

@@ -5,7 +5,7 @@
 [engine]
 name = "base"
 program = "rummage-preview"
-protocol = 4
+protocol = 5
 
 [[family]]
 name = "image"

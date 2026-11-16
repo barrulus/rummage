@@ -1,12 +1,17 @@
 #include "rummage/platform/opener.hpp"
 
 #include <algorithm>
+#include <array>
 #include <format>
+#include <iterator>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 #include "rummage/core/log.hpp"
+#include "rummage/fs/permissions.hpp"
 #include "rummage/platform/exec.hpp"
+#include "rummage/platform/program.hpp"
 
 namespace rummage::platform {
 namespace {
@@ -23,8 +28,11 @@ void add_problem(std::vector<std::string>& problems, std::string problem) {
     }
 }
 
-// "Opening photo.orf with darktable…", "Opening 5 files with darktable…".
+// "Opening photo.orf with darktable…", "Opening 5 files with darktable…", "Starting tool…".
 std::string opening_message(const OpenPlan& plan) {
+    if (plan.launches.size() == 1 && plan.launches.front().program) {
+        return std::format("Starting {}…", plan.launches.front().app_name);
+    }
     std::vector<std::string_view> apps;
     for (const OpenPlan::Launch& launch : plan.launches) {
         if (std::ranges::find(apps, launch.app_name) == apps.end()) {
@@ -40,7 +48,28 @@ std::string opening_message(const OpenPlan& plan) {
     return std::format("Opening {} files with {}…", plan.files, apps.front());
 }
 
+// The types may_be_program takes, their kin (subclasses) included.
+constexpr std::array<std::string_view, 2> kProgramTypes{"application/x-executable",
+                                                        "application/x-sharedlib"};
+
+// The launch that starts program by itself, in its folder.
+OpenPlan::Launch program_launch(const std::filesystem::path& program) {
+    return {.app_id = "program",
+            .app_name = program.filename().string(),
+            .argv = {program.string()},
+            .directory = program.parent_path(),
+            .files = 1,
+            .program = true};
+}
+
 }  // namespace
+
+bool may_be_program(const fs::MimeDatabase& database, fs::MimeId mime) {
+    return std::ranges::any_of(kProgramTypes, [&](std::string_view type) {
+        const fs::MimeId parent = database.find(type);
+        return parent != fs::kUnknownMime && database.is_a(mime, parent);
+    });
+}
 
 OpenPlan plan_open(std::span<const OpenFile> files, const Applications& apps,
                    const fs::MimeDatabase& database, const Environment& environment,
@@ -78,8 +107,10 @@ OpenPlan plan_open(std::span<const OpenFile> files, const Applications& apps,
             if (app.terminal) {
                 std::optional<std::vector<std::string>> wrapped = in_terminal(line, environment);
                 if (!wrapped) {
-                    add_problem(plan.problems,
-                                std::format("No terminal to run {} in: set $TERMINAL", name));
+                    add_problem(
+                        plan.problems,
+                        std::format("No terminal to run {} in: set terminal.program in config.toml",
+                                    name));
                     break;
                 }
                 line = std::move(*wrapped);
@@ -149,18 +180,48 @@ void Opener::open(const std::filesystem::path& directory, std::vector<fs::Entry>
     pool_.submit(
         core::Priority::visible,
         [directory, entries = std::move(entries), database = database_, environment = environment_,
-         app_id = std::move(app_id)](const core::CancelToken& /*token*/) {
+         app_id = std::move(app_id), programs = programs_](const core::CancelToken& /*token*/) {
             std::vector<OpenFile> files;
+            std::vector<OpenPlan::Launch> started;
+            std::vector<std::filesystem::path> not_allowed;
+            std::vector<std::string> problems;
             for (const fs::Entry& entry : entries) {
-                const fs::MimeId mime = database->to_open(entry.mime != fs::kUnknownMime
-                                                              ? entry.mime
-                                                              : database->detect(directory, entry),
-                                                          entry.name);
-                files.push_back(
-                    {.path = directory / entry.name, .mime = std::string{database->name(mime)}});
+                const fs::MimeId found = entry.mime != fs::kUnknownMime
+                                             ? entry.mime
+                                             : database->detect(directory, entry);
+                const std::filesystem::path path = directory / entry.name;
+                if (programs && app_id.empty() && entry.kind == fs::EntryKind::file &&
+                    may_be_program(*database, found)) {
+                    const ProgramCheck check = check_program(path);
+                    if (check.program) {
+                        if (check.noexec) {
+                            problems.push_back(std::format(
+                                "“{}” is on a disk that does not let programs run", entry.name));
+                        } else if (check.executable) {
+                            started.push_back(program_launch(path));
+                        } else {
+                            not_allowed.push_back(path);
+                        }
+                        continue;
+                    }
+                }
+                const fs::MimeId mime = database->to_open(found, entry.name);
+                files.push_back({.path = path, .mime = std::string{database->name(mime)}});
             }
-            const Applications apps = Applications::load(*environment, *database);
-            return plan_open(files, apps, *database, *environment, app_id);
+            OpenPlan plan;
+            if (!files.empty()) {
+                const Applications apps = Applications::load(*environment, *database);
+                plan = plan_open(files, apps, *database, *environment, app_id);
+            }
+            if (!started.empty() && plan.files == 0) {
+                plan.first_name = started.front().app_name;
+            }
+            plan.files += started.size();
+            plan.launches.insert(plan.launches.begin(), std::make_move_iterator(started.begin()),
+                                 std::make_move_iterator(started.end()));
+            plan.problems.insert(plan.problems.begin(), problems.begin(), problems.end());
+            plan.not_allowed = std::move(not_allowed);
+            return plan;
         },
         [this, alive = alive_](OpenPlan plan) {
             if (*alive) {
@@ -189,6 +250,46 @@ void Opener::choices(const std::filesystem::path& directory, fs::Entry entry,
         });
 }
 
+void Opener::allow_and_run(const std::filesystem::path& program) {
+    if (!programs_)
+        return;
+    ++planning_;
+    pool_.submit(
+        core::Priority::visible,
+        [program](const core::CancelToken& /*token*/) {
+            OpenPlan plan;
+            const fs::ModeResult result = fs::set_running({program}, true);
+            if (!result.errors.empty()) {
+                plan.problems.push_back(
+                    std::format("Could not allow it to run: {}", result.errors.front()));
+                return plan;
+            }
+            const ProgramCheck check = check_program(program);
+            if (!check.program || !check.executable || check.noexec) {
+                plan.problems.push_back(
+                    std::format("“{}” still cannot run", program.filename().string()));
+                return plan;
+            }
+            plan.launches.push_back(program_launch(program));
+            plan.files = 1;
+            plan.first_name = program.filename().string();
+            return plan;
+        },
+        [this, alive = alive_](OpenPlan plan) {
+            if (*alive) {
+                --planning_;
+                start(std::move(plan));
+            }
+        });
+}
+
+void Opener::set_terminal(std::vector<std::string> configured) {
+    // A new copy: the workers planning now keep the one they took.
+    auto fresh = std::make_shared<Environment>(*environment_);
+    fresh->configured_terminal = std::move(configured);
+    environment_ = std::move(fresh);
+}
+
 void Opener::open_terminal(const std::filesystem::path& directory) {
     ++planning_;
     pool_.submit(
@@ -197,7 +298,8 @@ void Opener::open_terminal(const std::filesystem::path& directory) {
             OpenPlan plan;
             std::optional<std::vector<std::string>> line = terminal_alone(*environment);
             if (!line) {
-                plan.problems.emplace_back("No terminal found: set $TERMINAL");
+                plan.problems.emplace_back(
+                    "No terminal found: set terminal.program in config.toml");
                 return plan;
             }
             const std::string name = std::filesystem::path{line->front()}.filename().string();
@@ -220,8 +322,35 @@ void Opener::open_terminal(const std::filesystem::path& directory) {
 }
 
 void Opener::start(OpenPlan plan) {
+    if (!programs_) {
+        std::erase_if(plan.launches, [](const auto& launch) { return launch.program; });
+        plan.not_allowed.clear();
+    }
     for (const std::string& problem : plan.problems) {
         log::info("open: {}", problem);
+    }
+    if (!plan.not_allowed.empty()) {
+        // One question at a time: the first; the others are named.
+        if (plan.not_allowed.size() > 1) {
+            plan.problems.insert(plan.problems.begin(),
+                                 std::format("{} more programs are not allowed to run",
+                                             plan.not_allowed.size() - 1));
+        }
+        const std::filesystem::path first = plan.not_allowed.front();
+        if (ask_) {
+            ask_(first, [this, alive = alive_, first] {
+                if (*alive) {
+                    allow_and_run(first);
+                }
+            });
+        } else {
+            plan.problems.insert(plan.problems.begin(),
+                                 std::format("“{}” is a program but is not allowed to run",
+                                             first.filename().string()));
+        }
+        if (plan.launches.empty() && plan.problems.empty()) {
+            return;  // the question is the answer
+        }
     }
     if (plan.launches.empty()) {
         report_(plan.problems.empty() ? std::string{"Nothing to open"} : plan.problems.front(),
@@ -248,6 +377,8 @@ void Opener::start(OpenPlan plan) {
 }
 
 void Opener::start_one(const OpenPlan::Launch& launch, const std::string& token) {
+    if (launch.program && !programs_)
+        return;
     std::vector<std::string> env;
     if (!token.empty()) {
         // XDG_ACTIVATION_TOKEN for Wayland apps; DESKTOP_STARTUP_ID for the ones that only know

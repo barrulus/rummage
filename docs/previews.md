@@ -188,3 +188,18 @@ See [architecture](architecture.md#preview-engines) for developer details and
 [troubleshooting](troubleshooting.md#previews-are-unavailable) for installation and
 runtime diagnosis. Format-specific limits and process isolation reduce exposure;
 they do not imply all file handling runs in a sandbox.
+
+## Photo and video details
+
+In Quick Look, click **Details** or press **I** to open a scrollable information panel.
+Values wrap and can be selected and copied with Ctrl+C. The panel follows the selected file
+and also works in narrow windows. It includes file type, size, dates, permissions and location.
+
+Photo EXIF includes camera, lens, shutter speed, aperture, ISO, focal length, capture time,
+exposure program/compensation, metering, white balance, flash and software when present.
+
+With the optional media helper installed, video previews also expose container, duration,
+upright resolution, video codec, frame rate, bitrate, pixel format, rotation, audio codec,
+channel count, sample rate and embedded title/artist/recording-time/encoder tags. These values
+also appear in the information pane. Missing fields are omitted; missing media support leaves
+basic file information available. Video parsing stays inside the sandboxed helper.

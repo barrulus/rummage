@@ -14,7 +14,7 @@ Actions lets
 you add commands and edit custom action labels, argument arrays and enabled state. Advanced options remain
 available through **Open config**.
 
-**Save** validates changes and applies live settings; fonts require a restart.
+**Save** validates changes and applies live settings; font family changes require a restart. Font size changes apply immediately.
 **Cancel** or **Escape** discards edits. Use Tab/Shift+Tab to move between controls,
 Alt+1/2/3 to switch sections, and Ctrl+S to save. Scroll within a section for more
 controls using the wheel or by dragging the scrollbar; clicking its track jumps to that position.
@@ -185,3 +185,15 @@ and state into rummage's XDG directories only where absent, preserving originals
 and existing rummage files. Config checks, explicit-config runs and picker/portal
 launches do not migrate. Commands and paths inside copied config stay literal;
 update old executable names yourself. See [migration details](install.md#upgrading-from-nordend).
+
+## Terminal and program opening
+
+Settings → Appearance includes the terminal program and its argument list. `[terminal]`
+`program = "kitty"` and `args = ["--title", "Files"]` take precedence over `$TERMINAL`.
+Leave the program empty for automatic discovery. Arguments are passed literally, without a shell;
+Rummage adds the terminal's command-launch syntax. Changes apply immediately.
+
+`[open] programs = true` enables opening ELF executables and AppImages in their own folder.
+An executable without permission asks before allowing and running; scripts continue to open
+with their associated application. Set it to `false` in Settings or the configuration to disable
+direct program launches. The file chooser never launches programs.

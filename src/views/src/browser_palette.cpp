@@ -103,6 +103,9 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (editable && terminal_) {
         command(Command::open_terminal, "open_terminal", "Open in Terminal");
     }
+    if (folder) {
+        command(Command::copy_path, "copy_path", "Copy Path");
+    }
     if (folder && folder->path().has_parent_path() &&
         folder->path() != folder->path().root_path()) {
         view_command("parent", "Go to Parent Folder", "Alt+↑", XKB_KEY_Up, {.alt = true});
@@ -135,6 +138,13 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (editable && names.size() == 1) {
         command(Command::rename, "rename", "Rename…");
+    }
+    if (folder) {
+        if (const RunningTargets running = running_targets(*folder); !running.files.empty()) {
+            const bool stop = running.all_run;
+            add("command:running", stop ? "Stop Running as Program" : "Allow Running as Program",
+                "", [this, stop] { set_running(!stop); });
+        }
     }
     if (!names.empty() && !in_trash) {
         command(Command::trash, "trash", "Move to Trash");

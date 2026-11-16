@@ -392,6 +392,11 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 icons.draw_file(renderer, (*mime_).name(typed.mime), fs::icon_name(*mime_, typed),
                                 x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, style.icon,
                                 typed.folder_icon);
+                if (folder_->runs_as_program(entry)) {
+                    draw_run_mark(renderer, x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
+                                  style.fill ? style.icon : palette.primary,
+                                  style.fill.value_or(palette.surface));
+                }
                 draw_failure_badge(renderer, icons, palette, failure,
                                    x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
                                    cut ? kCutOpacity : 1.0F);

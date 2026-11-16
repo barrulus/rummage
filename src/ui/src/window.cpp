@@ -57,6 +57,8 @@ Window::Window(Display& display, EglContext& egl, FontSystem& fonts, const Windo
       egl_{egl},
       width_{options.width},
       height_{options.height},
+      min_width_{options.min_width},
+      min_height_{options.min_height},
       title_{options.title},
       background_{options.background},
       background_opacity_{options.background_opacity} {
@@ -78,7 +80,7 @@ Window::Window(Display& display, EglContext& egl, FontSystem& fonts, const Windo
     xdg_toplevel_add_listener(toplevel_.get(), &kToplevelListener, this);
     xdg_toplevel_set_title(toplevel_.get(), options.title.c_str());
     xdg_toplevel_set_app_id(toplevel_.get(), options.app_id.c_str());
-    xdg_toplevel_set_min_size(toplevel_.get(), options.min_width, options.min_height);
+    xdg_toplevel_set_min_size(toplevel_.get(), min_width_, min_height_);
     if (options.maximized) {
         xdg_toplevel_set_maximized(toplevel_.get());  // before the first commit: opens maximized
     }
@@ -193,8 +195,9 @@ void Window::draw() {
     renderer_->begin_frame(buffer_width_, buffer_height_, static_cast<float>(scale()), background_,
                            background_opacity_);
     if (draw_handler_) {
-        draw_handler_(*renderer_,
-                      Rect{0.0F, 0.0F, static_cast<float>(width_), static_cast<float>(height_)});
+        renderer_->set_zoom(zoom_);
+        draw_handler_(*renderer_, Rect{0.0F, 0.0F, static_cast<float>(width_) / zoom_,
+                                       static_cast<float>(height_) / zoom_});
     }
     renderer_->end_frame();
     if (eglSwapBuffers(egl_.display(), egl_surface_) != EGL_TRUE) {
@@ -206,6 +209,8 @@ void Window::draw() {
 wl_surface* Window::make_drag_icon(std::int32_t width, std::int32_t height,
                                    const DrawHandler& draw) {
     drop_drag_icon();
+    width = static_cast<std::int32_t>(std::ceil(static_cast<float>(width) * zoom_));
+    height = static_cast<std::int32_t>(std::ceil(static_cast<float>(height) * zoom_));
     DragIcon icon;
     icon.surface.reset(wl_compositor_create_surface(display_.compositor()));
     // Sharp at a fractional scale through a viewport; else at scale 1.
@@ -228,7 +233,9 @@ wl_surface* Window::make_drag_icon(std::int32_t width, std::int32_t height,
     eglSwapInterval(egl_.display(), 0);
     renderer_->begin_frame(buffer_width, buffer_height,
                            static_cast<float>(scale_120) / kScaleDenominator, background_);
-    draw(*renderer_, Rect{0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)});
+    renderer_->set_zoom(zoom_);
+    draw(*renderer_,
+         Rect{0.0F, 0.0F, static_cast<float>(width) / zoom_, static_cast<float>(height) / zoom_});
     renderer_->end_frame();
     if (eglSwapBuffers(egl_.display(), icon.egl_surface) != EGL_TRUE) {
         log::warn("drag image: eglSwapBuffers failed (0x{:04x})", eglGetError());
@@ -344,6 +351,18 @@ void Window::resize(wl_seat* seat, std::uint32_t serial, Edge edge) {
     if (seat != nullptr) {
         xdg_toplevel_resize(toplevel_.get(), seat, serial, to_xdg_edge(edge));
     }
+}
+
+void Window::set_zoom(float zoom) {
+    if (!std::isfinite(zoom) || zoom < 8.0F / 13.0F || zoom > 32.0F / 13.0F || zoom == zoom_) {
+        return;
+    }
+    zoom_ = zoom;
+    xdg_toplevel_set_min_size(
+        toplevel_.get(),
+        static_cast<std::int32_t>(std::ceil(static_cast<float>(min_width_) * zoom)),
+        static_cast<std::int32_t>(std::ceil(static_cast<float>(min_height_) * zoom)));
+    request_redraw();
 }
 
 void Window::minimize() { xdg_toplevel_set_minimized(toplevel_.get()); }

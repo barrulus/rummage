@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <doctest/doctest.h>
 
@@ -234,6 +235,7 @@ TEST_CASE("every key is read") {
 [font]
 family = "Inter:weight=medium"
 monospace = "JetBrains Mono"
+size = 15
 
 [pointer]
 double_click_ms = 250
@@ -477,4 +479,48 @@ TEST_CASE("startup config: modes, paths and invalid values") {
     CHECK(rummage::core::expand_folder_path("/a/") == "/a");
     CHECK(rummage::core::expand_folder_path("/") == "/");
     CHECK(rummage::core::expand_folder_path(std::string{"/a\0b", 4}).empty());
+}
+
+TEST_CASE("terminal: configuration and automatic fallback") {
+    const auto result = parse_config(
+        "[terminal]\nprogram = 'ghostty'\nargs = ['--gtk-single-instance=false']\n", "test");
+    REQUIRE(result.problems.empty());
+    CHECK(result.config.terminal.program == "ghostty");
+    CHECK(result.config.terminal.args == std::vector<std::string>{"--gtk-single-instance=false"});
+    CHECK(parse_config("[terminal]\nprogram = ''\n", "test").problems.empty());
+    for (const auto* invalid : {"program = 3", "args = 3", "args = ['ok', 1]"}) {
+        CHECK_FALSE(parse_config(std::string{"[terminal]\n"} + invalid, "test").problems.empty());
+    }
+}
+
+TEST_CASE("font size: 8 to 32, whole or not, else the default") {
+    const Config defaults;
+    CHECK(defaults.font.size == 13.0F);
+    CHECK(defaults.font.zoom() == 1.0F);
+    for (const std::string value : {"8", "13", "15", "17.5", "32", "32.0"}) {
+        const auto result = parse("[font]\nsize = " + value);
+        CAPTURE(value);
+        CHECK(result.problems.empty());
+        CHECK(result.config.font.size == doctest::Approx(std::stod(value)));
+    }
+    CHECK(parse("[font]\nsize = 26").config.font.zoom() == 2.0F);
+    for (const std::string value : {"7.9", "33", "0", "-13", "nan", "inf", "\"15\"", "true"}) {
+        const auto result = parse("[font]\nsize = " + value);
+        CAPTURE(value);
+        REQUIRE(result.problems.size() == 1);
+        CHECK(contains(result.problems[0], "'font.size' must be"));
+        CHECK(result.config.font.size == 13.0F);
+    }
+}
+
+TEST_CASE("open: programs may be turned off; anything but a boolean is reported") {
+    const auto off = parse("[open]\nprograms = false\n");
+    CHECK(off.problems.empty());
+    CHECK_FALSE(off.config.open.programs);
+    const auto wrong = parse("[open]\nprograms = \"no\"\n");
+    REQUIRE(wrong.problems.size() == 1);
+    CHECK(contains(wrong.problems[0], "'open.programs'"));
+    CHECK(wrong.config.open.programs);
+    const auto unknown = parse("[open]\nscripts = true\n");
+    CHECK(unknown.problems.size() == 1);
 }

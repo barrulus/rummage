@@ -97,11 +97,20 @@ namespace {
 
 // The text fields of a PhotoInfo, in the order they travel.
 constexpr std::array kFields{
-    &picture::PhotoInfo::camera,   &picture::PhotoInfo::lens,    &picture::PhotoInfo::exposure_time,
-    &picture::PhotoInfo::aperture, &picture::PhotoInfo::iso,     &picture::PhotoInfo::focal_length,
-    &picture::PhotoInfo::taken,    &picture::PhotoInfo::program, &picture::PhotoInfo::exposure_bias,
-    &picture::PhotoInfo::metering, &picture::PhotoInfo::flash,   &picture::PhotoInfo::white_balance,
-    &picture::PhotoInfo::software,
+    &picture::PhotoInfo::camera,        &picture::PhotoInfo::lens,
+    &picture::PhotoInfo::exposure_time, &picture::PhotoInfo::aperture,
+    &picture::PhotoInfo::iso,           &picture::PhotoInfo::focal_length,
+    &picture::PhotoInfo::taken,         &picture::PhotoInfo::program,
+    &picture::PhotoInfo::exposure_bias, &picture::PhotoInfo::metering,
+    &picture::PhotoInfo::flash,         &picture::PhotoInfo::white_balance,
+    &picture::PhotoInfo::software,      &picture::PhotoInfo::container,
+    &picture::PhotoInfo::duration,      &picture::PhotoInfo::video_codec,
+    &picture::PhotoInfo::frame_rate,    &picture::PhotoInfo::bitrate,
+    &picture::PhotoInfo::audio_codec,   &picture::PhotoInfo::audio_channels,
+    &picture::PhotoInfo::sample_rate,   &picture::PhotoInfo::media_title,
+    &picture::PhotoInfo::artist,        &picture::PhotoInfo::rotation,
+    &picture::PhotoInfo::pixel_format,
+
 };
 
 struct InfoHeader {

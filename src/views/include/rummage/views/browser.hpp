@@ -368,6 +368,20 @@ public:
 
     void set_terminal_handler(TerminalHandler terminal) { terminal_ = std::move(terminal); }
 
+    // Lets the user choose a folder, starting in start (Rummage's own folder chooser, a process
+    // of its own): chosen(folder) when one was chosen, nothing when cancelled. Without one, a
+    // bookmark's "Choose Folder…" is not there.
+    using FolderChooser = std::function<void(const std::filesystem::path& start,
+                                             std::function<void(std::filesystem::path)> chosen)>;
+
+    void set_folder_chooser(FolderChooser chooser) { folder_chooser_ = std::move(chooser); }
+
+    // A program the user opened may not run yet (no execute bit): the card asks, and
+    // allow_and_run() is called on "Allow and Run" (issue #17).
+    void ask_to_run(const std::filesystem::path& program, std::function<void()> allow_and_run);
+
+    void set_picker_mode(bool picker) { picker_mode_ = picker; }
+
     using ActionHandoff = std::function<void(const core::Action&, const core::ActionContext&)>;
 
     void set_action_handoff(
@@ -483,8 +497,12 @@ public:
     // move.
     void take_selection(bool cut);
 
-    // Ctrl+C on Quick Look's text page: text on the clipboard (no files any more).
-    void copy_text(std::string text);
+    // Ctrl+C on Quick Look's text page: text on the clipboard (no files any more). message:
+    // what the status bar says; empty: how many characters or lines.
+    void copy_text(std::string text, std::string message = {});
+
+    // Ctrl+Shift+C: the path of the folder shown, as text on the clipboard.
+    void copy_path();
 
     // Ctrl+V: copies or moves what was taken into the folder shown; when another program holds
     // the clipboard, the files it offers (x-special/gnome-copied-files, else text/uri-list).
@@ -533,6 +551,13 @@ public:
 
     // "Remove from Sidebar" on a bookmark.
     void remove_from_sidebar(const std::filesystem::path& folder);
+    // A bookmark renamed (an empty label: the folder's own name), pointed to another folder
+    // (keeping its label and place; refused when that folder has one already), moved among the
+    // shown bookmarks (-1 up, +1 down). Through the same queue as add_to_sidebar().
+    void rename_bookmark(const std::filesystem::path& folder, std::string label);
+    void repoint_bookmark(const std::filesystem::path& from, std::filesystem::path to);
+    void move_bookmark(const std::filesystem::path& folder, int step);
+
     // A remote bookmark's line goes from the bookmarks file; label names it in the message.
     void remove_remote_from_sidebar(const std::string& uri, const std::string& label);
 
@@ -691,6 +716,11 @@ private:
     struct BookmarkChange {
         std::vector<std::filesystem::path> add;
         std::optional<std::filesystem::path> remove;
+        std::optional<std::pair<std::filesystem::path, std::string>> rename{};  // folder, label
+        std::optional<std::pair<std::filesystem::path, std::filesystem::path>>
+            repoint{};                                                // from, to
+        std::optional<std::pair<std::filesystem::path, int>> move{};  // folder, step
+
         std::optional<std::string> add_uri{};  // a remote bookmark, and its name
         std::string add_label{};
         std::optional<std::string> remove_uri{};  // a remote bookmark
@@ -756,6 +786,22 @@ private:
     void start_inverse(const FileOperation& operation, Purpose purpose);
     // Moves paths to the trash as one operation of purpose.
     void trash_paths(const std::vector<std::filesystem::path>& paths, Purpose purpose);
+
+    // The regular files among the targets (what "Allow Running as Program" changes), and
+    // whether every one of them may run already. Offered (files not empty) only when it means
+    // something: one of them may run already, or each is of a type that runs (a program, an
+    // AppImage, a script: application/x-executable and its kin) or not known yet; never with a
+    // folder among them, in the trash or in the file chooser.
+    struct RunningTargets {
+        std::vector<std::filesystem::path> files;
+        bool all_run{false};
+    };
+
+    [[nodiscard]] RunningTargets running_targets(const Folder& folder) const;
+    // Lets the targeted files run as programs (u+x), or no longer (a-x), on a worker.
+    void set_running(bool allow);
+    // A change of permissions done (the user's, an undo or a redo): recorded and said.
+    void modes_done(const fs::ModeResult& result, Purpose purpose);
     void report_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     // Ctrl+V in the name's field: the clipboard's text.
     void paste_text();
@@ -840,6 +886,8 @@ private:
     ChoicesHandler choices_;
     OpenWithHandler open_with_;
     TerminalHandler terminal_;
+    FolderChooser folder_chooser_;
+    bool picker_mode_{false};
     std::optional<std::filesystem::path> templates_dir_;
     fs::PlaceSources place_sources_{
         fs::PlaceSources::from_environment()};  // read at start: where the templates folder is
@@ -970,8 +1018,8 @@ private:
     bool filter_focused_{false};
     void apply_filters();
     void toolbar_pointer(const ui::PointerEvent& event);
-    void draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
-                      const theme::Palette& palette);
+    void draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
+                      ui::IconSet& icons);
     bool sidebar_drawn_{false};  // in the last draw: the window had room for it
     Target pointer_target_{Target::view};
     bool button_held_{false};  // since a press: the pointer stays with its target

@@ -64,13 +64,14 @@ void set_loader(Loader loader);
 // when none is. Thread-safe.
 [[nodiscard]] Loaded load_picture(const LoadRequest& request);
 
-// Where a photo's information is read (the info pane): set like the loader. rummage: its
+// Where photo/video information is read: set like the picture loader. rummage: its
 // isolated helpers; tests and tools: the image family in their process.
-using InfoLoader = std::function<PhotoInfo(const std::filesystem::path&)>;
+using InfoLoader = std::function<PhotoInfo(const std::filesystem::path&, std::string_view mime)>;
 void set_info_loader(InfoLoader loader);
 
-// What path says about itself (EXIF), through the information loader;
+// What path says about itself (EXIF or video metadata), through the information loader;
 // empty when none is set or the file says nothing. Thread-safe.
-[[nodiscard]] PhotoInfo load_photo_info(const std::filesystem::path& path);
+[[nodiscard]] PhotoInfo load_photo_info(const std::filesystem::path& path,
+                                        std::string_view mime = {});
 
 }  // namespace rummage::picture

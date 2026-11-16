@@ -70,6 +70,8 @@ public:
 
     [[nodiscard]] const MotionStats& motion_stats() const noexcept { return motion_stats_; }
 
+    void set_zoom(float zoom) noexcept { scale_ = frame_scale_ * zoom; }
+
     [[nodiscard]] float scale() const noexcept { return scale_; }
 
     [[nodiscard]] FontSystem& fonts() noexcept { return fonts_; }
@@ -141,6 +143,7 @@ private:
     std::int32_t buffer_width_{0};
     std::int32_t buffer_height_{0};
     float scale_{1.0F};
+    float frame_scale_{1.0F};
     float background_opacity_{1.0F};
 };
 

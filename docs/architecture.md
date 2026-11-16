@@ -89,7 +89,7 @@ prefix’s `libexec/rummage`. The optional Nix media package configures this pat
 | --- | --- |
 | `engine.name` | Engine identifier |
 | `engine.program` | Plain executable filename, resolved in the helper locations |
-| `engine.protocol` | Must match the current protocol version (4) |
+| `engine.protocol` | Must match the current protocol version (5) |
 | `family.name` | Reader-family identifier |
 | `family.shows` | `picture` or `text` |
 | `family.info`, `family.thumbnails` | Advertised capabilities |
@@ -168,3 +168,7 @@ For a view interaction, check all three views, shortcuts and picker constraints.
 For a format, update readers, engine MIME registration, bounded failure handling,
 helper tests and preview documentation. Dependency/installation changes must be
 reflected in CMake, applicable packaging and the installation guide.
+
+Protocol 5 adds bounded video metadata fields to the information response. Install matching
+base, media and PDF helpers with the application; incompatible manifests are rejected.
+Metadata requests route by MIME type, just like preview images.

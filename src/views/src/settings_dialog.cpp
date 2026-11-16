@@ -118,10 +118,17 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         : quality == core::MotionConfig::Quality::high ? "high"
                                                        : "auto",
         false, {"auto", "low", "high"});
+    add(0, "font", "size", "Interface text size (8 to 32)", std::format("{:g}", config.font.size),
+        true);
     add(0, "font", "family", "Interface font (restart required)", config.font.family);
     add(0, "font", "monospace", "Preview font (restart required)", config.font.monospace);
     add(0, "status_bar", "text_size", "Status text size (logical pixels)",
         std::format("{:g}", config.status_bar.text_size), true);
+    add(0, "terminal", "program", "Terminal program (empty for automatic)",
+        config.terminal.program);
+    add(0, "terminal", "args", "Terminal arguments", arguments(config.terminal.args), true);
+    add(0, "open", "programs", "Open executable programs", config.open.programs ? "true" : "false",
+        true, {"true", "false"});
     auto bindings = config.keybindings;
     for (const auto& [name, label] : binding_settings()) {
         const auto found = bindings.find(name);

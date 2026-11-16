@@ -16,3 +16,8 @@ run('-display_rotation:v:0','90','-i',str(root/'red.mp4'),'-c','copy',str(root/'
 run('-f','lavfi','-i','color=c=black:s=96x48:r=5:d=2', '-c:v','libx264','-threads','1',str(root/'black.mp4'))
 run('-f','lavfi','-i','color=c=black:s=96x48:r=5:d=1', '-f','lavfi','-i','color=c=red:s=96x48:r=5:d=3',
     '-filter_complex','[0:v][1:v]concat=n=2:v=1:a=0', '-c:v','libx264','-threads','1',str(root/'fade.mp4'))
+run('-f', 'lavfi', '-i', 'color=c=blue:s=96x48:r=10:d=0.5',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=0.5',
+    '-c:v', 'libx264', '-threads', '1', '-c:a', 'aac', '-ac', '2',
+    '-metadata', 'title=Metadata sample', '-metadata', 'artist=Rummage tests',
+    str(root / 'metadata.mp4'))

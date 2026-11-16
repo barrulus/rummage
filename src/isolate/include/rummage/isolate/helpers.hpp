@@ -95,12 +95,10 @@ private:
     std::thread reaper_;       // declared last: started once the rest is ready
 };
 
-// Sends pictures, photo information and texts to the engines of registry that make them, each
-// engine through its own helpers (options.program is set from the engine): pictures to the first
-// engine with a family showing pictures (load_picture names no type to choose by), the
-// information to it when a family of it has info, texts to the first engine with a family
-// showing text. A warning in the log for each that no engine makes. The helpers live as long as
-// the loaders set.
+// Routes pictures and metadata by the request's MIME type to the corresponding engine's
+// helpers. Requests without a MIME type retain the base image/EXIF loader. Text uses the
+// first engine with a text family. Missing metadata support returns empty information;
+// the loaders keep the helper pools alive.
 void use_engines(const engines::Registry& registry, HelperOptions options = {});
 
 }  // namespace rummage::isolate

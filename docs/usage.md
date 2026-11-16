@@ -249,3 +249,15 @@ Press **Space** for Quick Look; use arrows to walk through files and Space/Escap
 to close it. See [previews](previews.md) for image/text support and video limits.
 See [file operations](file-operations.md) for conflicts, clipboard, drag/drop,
 sidecars and undo, or [actions](actions.md) to add external commands.
+
+## Editing bookmarks
+
+Right-click a local bookmark for **Rename**, **Choose Folder**, **Move Up** and **Move Down**.
+Rename changes its label; Choose Folder replaces its destination while keeping its label
+and position. With keyboard focus in Places, F2 edits the label and Alt+Up/Down moves it.
+Enter or a click outside saves the label; Escape cancels. Changes are written to the shared
+GTK bookmarks file, preserving unrelated lines and network bookmarks.
+
+**Copy Path** (Ctrl+Shift+C) copies the active pane's current folder, regardless of selection.
+It is also available from the background menu and command palette. **Copy Location** continues
+to copy selected paths, and **Copy Name** continues to copy filenames.

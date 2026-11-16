@@ -673,3 +673,19 @@ TEST_CASE("shortcuts: stopping a transfer is configurable, disableable, and list
     CHECK(command_for(chord(XKB_KEY_Escape, {.shift = true})) == Command::none);
     CHECK(keys_for(Command::stop_transfer).empty());
 }
+
+TEST_CASE("copy path: default chord yields to existing custom bindings") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    const auto chord_copy = chord(XKB_KEY_c, {.ctrl = true, .shift = true});
+    REQUIRE(configure_shortcuts({}).empty());
+    CHECK(rummage::views::command_for(chord_copy) == Command::copy_path);
+    REQUIRE(configure_shortcuts({{"copy_location", "Ctrl+Shift+C"}}).empty());
+    CHECK(rummage::views::action_for(chord_copy) == "copy_location");
+    CHECK(rummage::views::keys_for(Command::copy_path).empty());
+    CHECK_FALSE(
+        configure_shortcuts({{"copy_path", "Ctrl+Shift+C"}, {"copy_location", "Ctrl+Shift+C"}})
+            .empty());
+    REQUIRE(configure_shortcuts({}).empty());
+    CHECK(rummage::views::command_for(chord_copy) == Command::copy_path);
+}

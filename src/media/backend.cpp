@@ -7,8 +7,10 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <limits>
 #include <memory>
+#include <string>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -18,6 +20,7 @@ extern "C" {
 #include <libavutil/cpu.h>
 #include <libavutil/display.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/pixdesc.h>
 #include <libswscale/swscale.h>
 }
 
@@ -90,6 +93,47 @@ struct Input {
         }
     }
 };
+
+bool open_input(Input& input, Source& source) {
+    auto* buffer = static_cast<unsigned char*>(av_malloc(32768));
+    if (input.format == nullptr || buffer == nullptr) {
+        av_free(buffer);
+        return false;
+    }
+    input.io = avio_alloc_context(buffer, 32768, 0, &source, read_bytes, nullptr, seek);
+    if (input.io == nullptr) {
+        av_free(buffer);
+        return false;
+    }
+    input.format->pb = input.io;
+    input.format->flags |= AVFMT_FLAG_CUSTOM_IO;
+    input.format->io_open = deny_open;  // Containers must never open another path or URL.
+    input.format->interrupt_callback = {.callback = interrupted, .opaque = &source};
+    input.format->probesize = 1024 * 1024;
+    input.format->max_analyze_duration = AV_TIME_BASE;
+    AVDictionary* options = nullptr;
+    av_dict_set(&options, "format_whitelist",
+                "mov,matroska,webm,avi,mpeg,mpegts,ogg,flv,asf,mjpeg,yuv4mpegpipe", 0);
+    const int opened = avformat_open_input(&input.format, nullptr, nullptr, &options);
+    av_dict_free(&options);
+    if (opened < 0) {
+        return false;
+    }
+    // Keep stream discovery single-threaded too; no decoder may create threads inside the cage.
+    std::vector<AVDictionary*> stream_options(input.format->nb_streams, nullptr);
+    for (auto& option : stream_options) {
+        av_dict_set(&option, "threads", "1", 0);
+        av_dict_set(&option, "max_pixels", "32000000", 0);
+    }
+    const int probed = avformat_find_stream_info(input.format, stream_options.data());
+    for (auto*& option : stream_options) {
+        av_dict_free(&option);
+    }
+    if (probed < 0) {
+        return false;
+    }
+    return true;
+}
 
 struct Decoder {
     AVCodecContext* context{nullptr};
@@ -190,43 +234,8 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
     }
     Source source{.fd = fd, .size = st.st_size};
     Input input;
-    auto* buffer = static_cast<unsigned char*>(av_malloc(32768));
-    if (input.format == nullptr || buffer == nullptr) {
-        av_free(buffer);
-        return failure(picture::Failure::unavailable, "allocation failed");
-    }
-    input.io = avio_alloc_context(buffer, 32768, 0, &source, read_bytes, nullptr, seek);
-    if (input.io == nullptr) {
-        av_free(buffer);
-        return failure(picture::Failure::unavailable, "allocation failed");
-    }
-    input.format->pb = input.io;
-    input.format->flags |= AVFMT_FLAG_CUSTOM_IO;
-    input.format->io_open = deny_open;  // Containers must never open another path or URL.
-    input.format->interrupt_callback = {.callback = interrupted, .opaque = &source};
-    input.format->probesize = 1024 * 1024;
-    input.format->max_analyze_duration = AV_TIME_BASE;
-    AVDictionary* options = nullptr;
-    av_dict_set(&options, "format_whitelist",
-                "mov,matroska,webm,avi,mpeg,mpegts,ogg,flv,asf,mjpeg,yuv4mpegpipe", 0);
-    const int opened = avformat_open_input(&input.format, nullptr, nullptr, &options);
-    av_dict_free(&options);
-    if (opened < 0) {
+    if (!open_input(input, source))
         return failure(picture::Failure::damaged, "unreadable video container");
-    }
-    // Keep stream discovery single-threaded too; no decoder may create threads inside the cage.
-    std::vector<AVDictionary*> stream_options(input.format->nb_streams, nullptr);
-    for (auto& option : stream_options) {
-        av_dict_set(&option, "threads", "1", 0);
-        av_dict_set(&option, "max_pixels", "32000000", 0);
-    }
-    const int probed = avformat_find_stream_info(input.format, stream_options.data());
-    for (auto*& option : stream_options) {
-        av_dict_free(&option);
-    }
-    if (probed < 0) {
-        return failure(picture::Failure::damaged, "no video stream information");
-    }
     AVStream* stream = nullptr;
     for (unsigned i = 0; i < input.format->nb_streams; ++i) {
         auto* candidate = input.format->streams[i];
@@ -327,7 +336,84 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
                    "no video frame within the decoding budget");
 }
 
-picture::PhotoInfo photo_info(int) { return {}; }
+picture::PhotoInfo photo_info(int fd) {
+    picture::PhotoInfo info;
+    struct stat st{};
+    if (::fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0)
+        return info;
+    Source source{.fd = fd, .size = st.st_size};
+    Input input;
+    if (!open_input(input, source))
+        return info;
+    AVStream* video = nullptr;
+    AVStream* audio = nullptr;
+    for (unsigned i = 0; i < input.format->nb_streams; ++i) {
+        auto* stream = input.format->streams[i];
+        if (!video && stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
+            !(stream->disposition & AV_DISPOSITION_ATTACHED_PIC))
+            video = stream;
+        if (!audio && stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+            audio = stream;
+    }
+    if (!video)
+        return info;
+    const auto tag = [&](const char* key) {
+        const AVDictionaryEntry* value = av_dict_get(input.format->metadata, key, nullptr, 0);
+        if (!value)
+            value = av_dict_get(video->metadata, key, nullptr, 0);
+        std::string text;
+        if (value && value->value) {
+            for (const char* at = value->value; *at && text.size() < 240; ++at)
+                if (static_cast<unsigned char>(*at) >= 32 && *at != 127)
+                    text += *at;
+        }
+        return text;
+    };
+    info.container = input.format->iformat->long_name ? input.format->iformat->long_name
+                                                      : input.format->iformat->name;
+    if (input.format->duration > 0) {
+        const auto milliseconds = input.format->duration / (AV_TIME_BASE / 1000);
+        const auto seconds = milliseconds / 1000;
+        info.duration = std::format("{}:{:02}:{:02}.{:03}", seconds / 3600, seconds / 60 % 60,
+                                    seconds % 60, milliseconds % 1000);
+    }
+    if (input.format->bit_rate > 0)
+        info.bitrate =
+            std::format("{:.0f} kbit/s", static_cast<double>(input.format->bit_rate) / 1000.0);
+    info.video_codec = avcodec_get_name(video->codecpar->codec_id);
+    info.width = static_cast<std::uint32_t>(std::max(0, video->codecpar->width));
+    info.height = static_cast<std::uint32_t>(std::max(0, video->codecpar->height));
+    const auto rate = video->avg_frame_rate;
+    if (rate.num > 0 && rate.den > 0)
+        info.frame_rate = std::format("{:.3f} fps", av_q2d(rate));
+    if (const char* name = av_get_pix_fmt_name(static_cast<AVPixelFormat>(video->codecpar->format)))
+        info.pixel_format = name;
+    if (const auto* matrix =
+            av_packet_side_data_get(video->codecpar->coded_side_data,
+                                    video->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
+        matrix && matrix->size >= 9 * sizeof(std::int32_t)) {
+        const double angle =
+            av_display_rotation_get(reinterpret_cast<const std::int32_t*>(matrix->data));
+        if (std::isfinite(angle)) {
+            info.rotation = std::format("{:.0f}°", -angle);
+            const int turn = (static_cast<int>(std::lround(-angle / 90.0)) % 4 + 4) % 4;
+            if (turn == 1 || turn == 3)
+                std::swap(info.width, info.height);
+        }
+    }
+    if (audio) {
+        info.audio_codec = avcodec_get_name(audio->codecpar->codec_id);
+        if (audio->codecpar->ch_layout.nb_channels > 0)
+            info.audio_channels = std::to_string(audio->codecpar->ch_layout.nb_channels);
+        if (audio->codecpar->sample_rate > 0)
+            info.sample_rate = std::format("{} Hz", audio->codecpar->sample_rate);
+    }
+    info.media_title = tag("title");
+    info.artist = tag("artist");
+    info.taken = tag("creation_time");
+    info.software = tag("encoder");
+    return info;
+}
 
 text::Loaded read_text(int, const text::Limits&) {
     text::Loaded value;

@@ -281,8 +281,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.select({});
     CHECK(f.press(key(XKB_KEY_Menu)));
     CHECK(ids(f.menu().items()) == Names{"new_folder", "new_file", "paste", "add_bookmark",
-                                         "open_terminal", "action:copy_location", "sort",
-                                         "properties", "panes"});
+                                         "open_terminal", "copy_path", "action:copy_location",
+                                         "sort", "properties", "panes"});
     REQUIRE(f.settle());  // the templates looked for: none
     CHECK(ids(f.menu().items()[1].children) == Names{"empty_file"});
 }
@@ -1519,4 +1519,90 @@ TEST_CASE("selectable text: exact-fit labels and natural wraps retain source byt
         text.select_all();
         CHECK(text.selected_text() == wrap.value);
     }
+}
+
+TEST_CASE(
+    "context menu: Allow Running as Program, Stop, undone and redone; only where it means "
+    "something") {
+    Fixture f;
+    const fs::path app = f.photos / "Tool.AppImage";
+    std::ofstream{app} << "x";
+    ::chmod(app.c_str(), 0644);
+    const auto mode = [&app] {
+        struct stat info{};
+        REQUIRE(::stat(app.c_str(), &info) == 0);
+        return info.st_mode & 07777U;
+    };
+    const auto listed_mode = [&f] {
+        for (const rummage::fs::Entry& entry : f.folder()->entries()) {
+            if (entry.name == "Tool.AppImage") {
+                return static_cast<unsigned>(entry.mode);
+            }
+        }
+        return 0U;
+    };
+    REQUIRE(run_until(f.loop, [&] { return listed_mode() == 0644; }));
+    const auto label = [&f](const std::string& id) {
+        for (const MenuItem& item : f.menu().items()) {
+            if (item.id == id) {
+                return item.label;
+            }
+        }
+        return std::string{};
+    };
+
+    // An AppImage that may not run: "Allow".
+    f.select({"Tool.AppImage"});
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    CHECK(label("running") == "Allow Running as Program");
+    f.choose("running");
+    REQUIRE(run_until(f.loop, [&] { return listed_mode() == 0744; }));
+    CHECK(mode() == 0744U);
+    CHECK(f.browser.status_bar().message() == "“Tool.AppImage” can run as a program");
+
+    // Now it may: "Stop"; undone and redone with the keys.
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    CHECK(label("running") == "Stop Running as Program");
+    f.menu().close();
+    CHECK(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    REQUIRE(run_until(f.loop, [&] { return listed_mode() == 0644; }));
+    CHECK(f.browser.status_bar().message() ==
+          "Undone: “Tool.AppImage” can no longer run as a program");
+    CHECK(f.press(key(XKB_KEY_Z, {.ctrl = true, .shift = true})));
+    REQUIRE(run_until(f.loop, [&] { return listed_mode() == 0744; }));
+    CHECK(f.browser.status_bar().message() == "Redone: “Tool.AppImage” can run as a program");
+
+    // A text file: not offered; one that may run (copied from a FAT stick): "Stop" is.
+    f.select({"a.txt"});
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    CHECK(label("running").empty());
+    f.menu().close();
+    ::chmod((f.photos / "a.txt").c_str(), 0755);
+    REQUIRE(run_until(f.loop, [&] {
+        const auto& entries = f.folder()->entries();
+        const auto it = std::ranges::find(entries, "a.txt", &rummage::fs::Entry::name);
+        return it != entries.end() && it->mode == 0755;
+    }));
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    CHECK(label("running") == "Stop Running as Program");
+    f.menu().close();
+
+    // With a folder among them: never.
+    f.select({"Tool.AppImage", "sub"});
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    CHECK(label("running").empty());
+    f.menu().close();
+}
+
+TEST_CASE("ask to run: the card names the program, and only Allow and Run lets it run") {
+    Fixture f;
+    int allowed = 0;
+    f.browser.ask_to_run(f.photos / "Tool.AppImage", [&allowed] { ++allowed; });
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    CHECK(f.press(key(XKB_KEY_Escape)));
+    CHECK_FALSE(f.browser.confirm_dialog().is_open());
+    CHECK(allowed == 0);
+    f.browser.ask_to_run(f.photos / "Tool.AppImage", [&allowed] { ++allowed; });
+    CHECK(f.press(key(XKB_KEY_Return)));
+    CHECK(allowed == 1);
 }

@@ -147,3 +147,13 @@ their input. Missing destinations show a message and leave the current folder in
 place. Absolute paths, `~` and `~/` paths are supported, without shell or variable
 expansion. Bindings reload live and appear in F1; the usual chord-conflict checks
 and empty-string disabling apply.
+
+### Bookmark and preview additions
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+Shift+C | Copy the active folder's path, regardless of selection (`copy_path`) |
+| F2 with Places focused | Rename the selected local bookmark |
+| Alt+Up / Alt+Down with Places focused | Move the selected local bookmark |
+| I in Quick Look | Show or hide Details |
+| Ctrl+A / Ctrl+C on a selected Details value | Select all / copy that value |

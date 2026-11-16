@@ -1,4 +1,9 @@
+add_executable(rummage-program-fixture program_fixture.cpp)
+target_link_libraries(rummage-program-fixture PRIVATE rummage::warnings)
+
 add_executable(rummage-tests
+    permissions_test.cpp
+    program_test.cpp
     actions_test.cpp
     archives_test.cpp
     main.cpp
@@ -9,6 +14,7 @@ add_executable(rummage-tests
     column_view_test.cpp
     command_palette_test.cpp
     config_test.cpp
+    content_map_test.cpp
     settings_test.cpp
     desktop_palette_test.cpp
     context_menu_test.cpp
@@ -116,7 +122,7 @@ add_executable(rummage-sandbox-probe sandbox_probe.cpp
                                      ${PROJECT_SOURCE_DIR}/src/isolate/src/sandbox.cpp)
 target_include_directories(rummage-sandbox-probe PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src)
 target_link_libraries(rummage-sandbox-probe PRIVATE rummage::warnings)
-add_dependencies(rummage-tests rummage-preview rummage-fake-preview rummage-sandbox-probe)
+add_dependencies(rummage-tests rummage-program-fixture rummage-preview rummage-fake-preview rummage-sandbox-probe)
 # The MIME database the tests read: shared-mime-info as pkg-config finds it at build time, not
 # whatever $XDG_DATA_DIRS says when they run (NixOS keeps it outside /usr/share, Flatpak adds
 # its own). tests/main.cpp points $XDG_DATA_DIRS at it.
@@ -128,7 +134,8 @@ if(NOT RUMMAGE_MIME_PREFIX OR NOT EXISTS "${RUMMAGE_MIME_PREFIX}/share/mime/glob
 endif()
 # The shipped example config must parse clean and match the built-in defaults.
 target_compile_definitions(rummage-tests
-    PRIVATE RUMMAGE_EXAMPLE_CONFIG="${PROJECT_SOURCE_DIR}/docs/config.example.toml"
+    PRIVATE RUMMAGE_TEST_PROGRAM="$<TARGET_FILE:rummage-program-fixture>"
+            RUMMAGE_EXAMPLE_CONFIG="${PROJECT_SOURCE_DIR}/docs/config.example.toml"
             RUMMAGE_TEST_DATA="${PROJECT_SOURCE_DIR}/tests/data"
             RUMMAGE_APP_ICON="${PROJECT_SOURCE_DIR}/data/rummage.svg"
             RUMMAGE_ENGINES="${PROJECT_SOURCE_DIR}/data/engines"

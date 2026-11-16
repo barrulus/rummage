@@ -159,3 +159,11 @@ The compositor can supply server-side decorations; otherwise rummage draws its o
 title bar and resize edges. Cursor shapes use cursor-shape-v1 where available,
 with an Xcursor fallback. See [compatibility](compatibility.md) for protocols,
 fallbacks and diagnostic environment variables.
+
+## Global interface size
+
+Set `[font] size = 16.0`, or use Settings → Appearance → Interface text size. The range is
+8–32 logical pixels; the default is 13. Text, controls, spacing and icons scale together
+and update immediately. List, grid and sidebar zoom remain independent within that scale.
+Font family changes still require a restart. The settings cog uses a bundled icon, so its
+position does not depend on the chosen text font.

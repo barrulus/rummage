@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     rummage::picture::set_loader([](const rummage::picture::LoadRequest& request) {
         return rummage::formats::image::load(request);
     });
-    rummage::picture::set_info_loader([](const std::filesystem::path& path) {
+    rummage::picture::set_info_loader([](const std::filesystem::path& path, std::string_view) {
         return rummage::formats::image::read_photo_info(path);
     });
     rummage::text::set_loader([](const rummage::text::LoadRequest& request) {

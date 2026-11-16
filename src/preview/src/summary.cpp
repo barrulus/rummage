@@ -11,8 +11,8 @@ Summary summarize(const std::filesystem::path& path, std::string_view mime, Kind
                   const core::CancelToken& cancel) {
     Summary summary;
     summary.info = read_info(path, cancel);
-    if (kind == Kind::image && !mime.starts_with("video/")) {
-        summary.photo = picture::load_photo_info(path);
+    if (!cancel.cancelled() && (kind == Kind::image || mime.starts_with("video/"))) {
+        summary.photo = picture::load_photo_info(path, mime);
     } else if (kind == Kind::text) {
         // As much as Quick Look reads: the pane's page scrolls through it. A log's newest lines
         // are at its end.
