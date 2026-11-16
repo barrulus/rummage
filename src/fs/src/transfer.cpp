@@ -120,17 +120,6 @@ std::string numbered(const std::string& name, bool folder, int number) {
 }
 
 // "3.4 GB", as the status bar writes sizes (decimal units).
-std::string human_size(std::uint64_t bytes) {
-    constexpr std::array<std::string_view, 5> units{"bytes", "kB", "MB", "GB", "TB"};
-    auto value = static_cast<double>(bytes);
-    std::size_t unit = 0;
-    while (value >= 1000.0 && unit + 1 < units.size()) {
-        value /= 1000.0;
-        ++unit;
-    }
-    return unit == 0 ? std::format("{} bytes", bytes)
-                     : std::format("{:.1f} {}", value, units.at(unit));
-}
 
 // One top-level item and the sidecars that travel with it.
 struct Group {
@@ -1140,6 +1129,18 @@ TransferResult Engine::run() {
 }
 
 }  // namespace
+
+std::string human_size(std::uint64_t bytes) {
+    constexpr std::array<std::string_view, 5> units{"bytes", "kB", "MB", "GB", "TB"};
+    auto value = static_cast<double>(bytes);
+    std::size_t unit = 0;
+    while (value >= 1000.0 && unit + 1 < units.size()) {
+        value /= 1000.0;
+        ++unit;
+    }
+    return unit == 0 ? std::format("{} bytes", bytes)
+                     : std::format("{:.1f} {}", value, units.at(unit));
+}
 
 std::string free_name(const std::filesystem::path& directory, const std::string& name, bool folder,
                       const std::vector<std::string>& sidecars) {

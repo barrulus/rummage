@@ -1,5 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -11,7 +12,9 @@
 
 #include <doctest/doctest.h>
 
+#include "rummage/archive/archive.hpp"
 #include "rummage/engines/engines.hpp"
+#include "rummage/formats/archive/archive.hpp"
 #include "rummage/formats/image/load.hpp"
 #include "rummage/formats/image/photo.hpp"
 #include "rummage/formats/text/read.hpp"
@@ -59,6 +62,33 @@ int main(int argc, char** argv) {
     rummage::text::set_loader([](const rummage::text::LoadRequest& request) {
         return rummage::formats::text::load(request);
     });
+    rummage::archive::set_lister(
+        [](const std::filesystem::path& path, const rummage::archive::Limits& limits) {
+            const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+            if (fd < 0) {
+                return rummage::archive::Listing{.format = rummage::archive::Format::unknown,
+                                                 .failure = rummage::archive::Failure::unreadable,
+                                                 .detail = "it could not be opened",
+                                                 .entries = {}};
+            }
+            rummage::archive::Listing listing = rummage::formats::archive::list(fd, limits);
+            ::close(fd);
+            return listing;
+        });
+    rummage::archive::set_entry_reader(
+        [](const std::filesystem::path& path, rummage::archive::Format format,
+           const rummage::archive::Entry& entry, int out, std::uint64_t max_bytes) {
+            const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+            if (fd < 0) {
+                return rummage::archive::Read{.failure = rummage::archive::Failure::unreadable,
+                                              .detail = "it could not be opened",
+                                              .bytes = 0};
+            }
+            rummage::archive::Read read =
+                rummage::formats::archive::read_entry(fd, format, entry, out, max_bytes);
+            ::close(fd);
+            return read;
+        });
     doctest::Context context;
     context.applyCommandLine(argc, argv);
     const int result = context.run();

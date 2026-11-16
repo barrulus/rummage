@@ -5,7 +5,7 @@ add_library(rummage_isolate
     src/protocol.cpp)
 add_library(rummage::isolate ALIAS rummage_isolate)
 target_include_directories(rummage_isolate PUBLIC include PRIVATE src)
-target_link_libraries(rummage_isolate PUBLIC rummage::picture rummage::text rummage::engines
+target_link_libraries(rummage_isolate PUBLIC rummage::picture rummage::text rummage::archive rummage::engines
                                       PRIVATE rummage::core rummage::warnings)
 
 # Tiny pictures of every kind the helper reads, decoded once before it closes its cage, so that
@@ -37,6 +37,9 @@ target_include_directories(rummage-preview PRIVATE src)
 # Generated, not ours to lint.
 set_source_files_properties("${warm_up_source}" PROPERTIES SKIP_LINTING ON)
 target_link_libraries(rummage-preview
-    PRIVATE rummage::formats rummage::formats::text rummage::picture rummage::text rummage::warnings)
+    PRIVATE rummage::formats rummage::formats::text rummage::formats::archive rummage::archive
+            rummage::picture rummage::text rummage::warnings)
 # Next to rummage in the build tree, where default_program() looks first.
 set_target_properties(rummage-preview PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+
+target_compile_definitions(rummage-preview PRIVATE RUMMAGE_ARCHIVES=1)

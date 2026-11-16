@@ -418,13 +418,15 @@ follow_accent = true
 # Files/folders: right-click an entry or the current selection.
 # open_tab and add_bookmark apply to folders; open_terminal needs a folder and terminal.
 # Open With keeps its dynamically discovered applications. Paste may be disabled when
-# the clipboard is empty; Rename and Properties are disabled for a multiple selection.
+# the clipboard is empty; Rename opens Batch Rename for a multiple selection.
 # entry = [
 #   { id = "open" },
 #   { id = "open_with" },
 #   { id = "open_tab" },
 #   { id = "open_terminal" },
 #   { id = "add_bookmark" },
+#   { id = "compress_zip", separator = true },
+#   { id = "compress_tar" },
 #   { id = "copy", separator = true },
 #   { id = "cut" },
 #   { id = "paste" },
@@ -549,6 +551,7 @@ follow_accent = true
 # sort:permissions, sort:location, sort:link_target, sort:ascending, sort:descending, actions,
 # panes, toggle_split, switch_pane, swap_panes, orient_panes, open_other_pane,
 # same_other_pane, copy_other_pane, move_other_pane,
+# compress_zip, compress_tar,
 # action:copy_location, action:copy_name, action:extract_here, action:extract_to,
 # mount, unmount, eject, remove_bookmark.
 # open_with and new_file include their dynamically discovered applications/templates;

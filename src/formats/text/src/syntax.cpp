@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "languages.hpp"
+#include "rummage/formats/text/markdown.hpp"
 #include "rummage/text/text.hpp"
 
 namespace rummage::formats::text {
@@ -1882,10 +1883,13 @@ void highlight(rummage::text::Text& text, const Language& language) {
 }
 
 void colour(rummage::text::Text& text, std::string_view name, std::string_view mime) {
+    text.markdown = {};
     const Language* language =
         language_for(name, mime, text.lines.empty() ? std::string_view{} : text.lines.front());
     if (language != nullptr) {
         highlight(text, *language);
+        if (text.language == "Markdown")
+            text.markdown = markdown(text);
     }
 }
 

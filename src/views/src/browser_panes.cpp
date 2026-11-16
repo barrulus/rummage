@@ -145,7 +145,8 @@ void Browser::open_in_other_pane(const std::filesystem::path& directory) {
 void Browser::transfer_to_other_pane(bool move) {
     const auto source = current_folder();
     const auto destination = other_folder();
-    if (!source || source->is_trash() || !destination || destination->is_trash())
+    if (!source || (source->is_trash() || (move && source->is_archive())) || !destination ||
+        (destination->is_trash() || destination->is_archive()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*source))
@@ -254,7 +255,7 @@ std::vector<MenuItem> Browser::pane_items() {
         }
     }
     const auto destination = other_folder();
-    if (!destination || destination->is_trash() || names.empty())
+    if (!destination || (destination->is_trash() || destination->is_archive()) || names.empty())
         return items;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : names)
@@ -264,6 +265,8 @@ std::vector<MenuItem> Browser::pane_items() {
     const std::string direction =
         stacked_ ? (active_area_ == 0 ? "↓" : "↑") : (active_area_ == 0 ? "→" : "←");
     for (const bool move : {false, true}) {
+        if (move && source->is_archive())
+            continue;
         add(move ? "move_other_pane" : "copy_other_pane",
             std::format("{} to “{}” {}", move ? "Move" : "Copy", destination->path().string(),
                         direction),

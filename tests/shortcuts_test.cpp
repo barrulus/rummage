@@ -218,9 +218,24 @@ TEST_CASE("shortcuts: every one listed for the sidebar and Quick Look works ther
                               describe(event) << " in the sidebar");
             }
             if ((shortcut.scope & scope::kQuickLook) != 0) {
-                f.reset(Browser::Mode::grid, "a.txt");
+                const bool markdown = event.keysym == XKB_KEY_m || event.keysym == XKB_KEY_M;
+                if (markdown) {
+                    std::ofstream{f.root / "preview.md"} << "# A Markdown preview\n";
+                }
+                f.reset(Browser::Mode::grid, markdown ? "preview.md" : "a.txt");
+                if (markdown) {
+                    f.browser.go_to(f.root, "preview.md");
+                    REQUIRE(run_until(f.loop, [&] {
+                        return cursor_name_is(*f.folder(), "preview.md") && !f.browser.loading();
+                    }));
+                    f.folder()->sniff(0, f.folder()->entries().size());
+                    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+                }
                 f.browser.key(chord(XKB_KEY_space, {}), Browser::Clock::now());
                 REQUIRE(f.browser.quick_look().is_open());
+                if (markdown) {
+                    REQUIRE(run_until(f.loop, [&] { return !f.browser.quick_look().loading(); }));
+                }
                 CHECK_MESSAGE(f.browser.key(event, Browser::Clock::now()), describe(event)
                                                                                << " in Quick Look");
             }
@@ -401,6 +416,15 @@ TEST_CASE("shortcuts: custom selection and rename work in each view") {
         CHECK(f.folder()->selected_count() == 3);
         CHECK(f.browser.key(chord(XKB_KEY_j, {.ctrl = true}), Browser::Clock::now()));
         CHECK(f.folder()->selected_count() == 2);
+        CHECK(f.browser.key(chord(XKB_KEY_r, {.ctrl = true}), Browser::Clock::now()));
+        REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+        REQUIRE(f.browser.batch_rename_dialog().is_open());
+        CHECK_FALSE(f.browser.name_editor().active());
+        CHECK(f.browser.key(chord(XKB_KEY_Escape, {}), Browser::Clock::now()));
+        CHECK_FALSE(f.browser.batch_rename_dialog().is_open());
+
+        // The same configured shortcut still edits a single entry in place.
+        f.folder()->select_name("a.txt");
         CHECK(f.browser.key(chord(XKB_KEY_r, {.ctrl = true}), Browser::Clock::now()));
         CHECK(f.browser.name_editor().active());
         CHECK(f.browser.key(chord(XKB_KEY_Escape, {}), Browser::Clock::now()));

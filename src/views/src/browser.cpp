@@ -17,6 +17,8 @@
 #include "draw_helpers.hpp"
 #include "rummage/core/file.hpp"
 #include "rummage/core/memory.hpp"
+#include "rummage/engines/engines.hpp"
+#include "rummage/fs/compress.hpp"
 #include "rummage/fs/erase.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/fs/operations.hpp"
@@ -72,6 +74,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       password_{redraw},
       mount_password_{redraw},
       location_{redraw},
+      batch_rename_{redraw},
       errors_{redraw, [this](std::string text) { copy_text(std::move(text)); }},
       properties_{pool, mime, redraw},
       settings_{pool, redraw},
@@ -392,7 +395,7 @@ std::vector<std::string> Browser::targets(const Folder& folder) {
 
 void Browser::take_selection(bool cut) {
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder) {
+    if (!folder || (cut && folder->is_archive())) {
         return;
     }
     std::vector<std::string> names = targets(*folder);
@@ -405,6 +408,13 @@ void Browser::take_selection(bool cut) {
     if (cut) {
         cut_marks_ = {.directory = clipboard_.directory,
                       .names = {clipboard_.names.begin(), clipboard_.names.end()}};
+    }
+    if (folder->is_archive()) {
+        // Claim the clipboard without advertising virtual members as on-disk file URIs.
+        if (system_.offer)
+            system_.offer({{"text/plain", "Archive selection: paste into Rummage to extract"}});
+        show_message("Ctrl+V extracts the selected archive contents", false);
+        return;
     }
     if (system_.offer) {
         // Other programs paste them too: file managers, browsers, terminals.
@@ -461,7 +471,7 @@ void Browser::copy_path() {
 
 void Browser::paste() {
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder) {
+    if (!folder || folder->is_archive()) {
         return;
     }
     if (system_.owned && system_.types && system_.read && !system_.owned()) {
@@ -551,6 +561,11 @@ std::uint64_t Browser::open_batch(Purpose purpose, FileOperation::Kind kind) {
 
 void Browser::submit(fs::TransferRequest request, std::uint64_t batch,
                      std::optional<std::uint64_t> empty_clipboard) {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        batches_.erase(batch);
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     if (const auto it = batches_.find(batch); it != batches_.end()) {
         ++it->second.pending;
     }
@@ -611,6 +626,10 @@ void Browser::paste_text() {
         return;
     }
     const std::vector<std::string> types = system_.types();
+    const bool for_batch_rename = batch_rename_.is_open();
+    const auto batch_rename_generation = batch_rename_.generation();
+    const bool for_confirm = confirm_.is_open();
+    const auto confirm_generation = confirm_.generation();
     const bool for_password = password_.is_open();
     const auto password_generation = password_.generation();
     const bool for_settings = settings_.is_open();
@@ -623,14 +642,26 @@ void Browser::paste_text() {
         }
         ++operations_;
         system_.read(
-            std::string{type}, [this, alive = alive_, for_password, password_generation,
-                                for_properties, properties_generation, for_settings,
-                                settings_generation](const std::optional<std::string>& text) {
+            std::string{type}, [this, alive = alive_, for_confirm, confirm_generation, for_password,
+                                password_generation, for_properties, properties_generation,
+                                for_settings, settings_generation, for_batch_rename,
+                                batch_rename_generation](const std::optional<std::string>& text) {
                 if (!*alive) {
                     return;
                 }
                 --operations_;
                 if (!text) {
+                    return;
+                }
+                if (for_batch_rename) {
+                    if (batch_rename_.is_open() &&
+                        batch_rename_.generation() == batch_rename_generation)
+                        batch_rename_.paste(*text);
+                    return;
+                }
+                if (for_confirm) {
+                    if (confirm_.is_open() && confirm_.generation() == confirm_generation)
+                        confirm_.paste(*text);
                     return;
                 }
                 if (for_password) {
@@ -724,8 +755,12 @@ void Browser::cursor_after(Folder& folder, const std::unordered_set<std::string>
 }
 
 void Browser::trash() {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder) {
+    if (!folder || folder->is_archive()) {
         return;
     }
     std::vector<std::string> names = targets(*folder);
@@ -799,6 +834,10 @@ std::string erase_detail(const fs::ErasePlan& plan, bool emptying) {
 }  // namespace
 
 void Browser::erase() {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
     if (!folder) {
         return;
@@ -1071,6 +1110,15 @@ void Browser::cancel_transfer() {
 }
 
 void Browser::ask(const fs::Conflict& conflict, std::function<void(fs::Resolution)> answer) {
+    if (!conflict.question.empty()) {
+        confirm_.open(
+            "Extract this archive?", conflict.question, "Extract",
+            [answer = std::move(answer)](bool yes) {
+                answer(yes ? fs::Resolution::replace : fs::Resolution::cancel);
+            },
+            "The contents are much larger than the compressed archive.");
+        return;
+    }
     if (for_the_rest_ &&
         (*for_the_rest_ != fs::Resolution::replace ||
          (conflict.directory == conflict.target_directory &&
@@ -1138,6 +1186,16 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
                                       emptying ? "Emptying the trash:" : "Deleting",
                                       progress.files_done, progress.files_total);
         }
+    } else if (request.kind == fs::TransferKind::compress) {
+        status.fraction = progress.bytes_total > 0
+                              ? static_cast<float>(static_cast<double>(progress.bytes_done) /
+                                                   static_cast<double>(progress.bytes_total))
+                              : -1.0F;
+        status.text =
+            progress.preparing
+                ? "Getting ready to compress…"
+                : std::format("Compressing into “{}” · {} of {}", request.archive_name,
+                              format_size(progress.bytes_done), format_size(progress.bytes_total));
     } else if (progress.preparing) {
         status.text = std::format("Getting ready to {} {} {}…", copy ? "copy" : "move", items,
                                   items == 1 ? "item" : "items");
@@ -1226,8 +1284,12 @@ void Browser::report_done(const fs::TransferRequest& request, const fs::Transfer
         erase_done(request, result);
         return;
     }
+    if (request.kind == fs::TransferKind::compress) {
+        compress_done(request, result);
+        return;
+    }
     const bool copy = request.kind == fs::TransferKind::copy;
-    const std::string_view done = copy ? "Copied" : "Moved";
+    const std::string_view done = request.from_archive ? "Extracted" : (copy ? "Copied" : "Moved");
     const std::size_t files = result.files_done;
     const std::string what = std::format("{} {}", files, files == 1 ? "file" : "files");
     if (!result.refused.empty()) {
@@ -1385,6 +1447,10 @@ void Browser::record(FileOperation operation, Purpose purpose, bool failed) {
 }
 
 void Browser::undo() {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     if (undoing_) {
         show_message("Still undoing the last one", false);
     } else if (!undo_) {
@@ -1401,6 +1467,10 @@ void Browser::undo() {
 }
 
 void Browser::redo() {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     if (undoing_) {
         show_message("Still undoing the last one", false);
     } else if (!redo_) {
@@ -1412,7 +1482,7 @@ void Browser::redo() {
 
 Browser::RunningTargets Browser::running_targets(const Folder& folder) const {
     RunningTargets found;
-    if (picker_mode_ || folder.is_trash()) {
+    if (picker_mode_ || folder.is_trash() || folder.is_archive()) {
         return found;
     }
     const std::vector<std::string> names = targets(folder);
@@ -1439,6 +1509,10 @@ Browser::RunningTargets Browser::running_targets(const Folder& folder) const {
 }
 
 void Browser::set_running(bool allow) {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
     if (!folder) {
         return;
@@ -1546,6 +1620,17 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
                     }
                 });
             return;
+        case FileOperation::Kind::batch_rename: {
+            auto changes = operation.renames;
+            for (auto& change : changes) {
+                std::swap(change.from, change.to);
+            }
+            if (!operation.items.empty()) {
+                apply_batch_rename(operation.items.front().to.parent_path(), std::move(changes),
+                                   purpose);
+            }
+            return;
+        }
         case FileOperation::Kind::rename: {
             const fs::PlacedItem item = operation.items.front();
             undoing_ = true;
@@ -1662,8 +1747,22 @@ Browser::~Browser() {
 }
 
 void Browser::start_rename() {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
-    const fs::Entry* const entry = folder ? folder->cursor_entry() : nullptr;
+    if (!folder || folder->is_trash() || folder->is_archive()) {
+        return;
+    }
+    auto names = folder->selected_names();
+    if (names.size() > 1) {
+        if (!picker_mode_) {
+            start_batch_rename(folder, std::move(names));
+        }
+        return;
+    }
+    const fs::Entry* const entry = folder->cursor_entry();
     if (entry == nullptr) {
         return;
     }
@@ -1671,8 +1770,12 @@ void Browser::start_rename() {
 }
 
 void Browser::new_folder() {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || folder->is_trash()) {
+    if (!folder || folder->is_trash() || folder->is_archive()) {
         return;
     }
     // Keep the new folder visible so its name can be edited immediately.
@@ -1709,8 +1812,12 @@ void Browser::new_folder() {
 }
 
 void Browser::new_file(const std::string& name, const std::filesystem::path& from) {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
     std::shared_ptr<Folder> folder = current_folder();
-    if (!folder) {
+    if (!folder || folder->is_archive()) {
         return;
     }
     ++operations_;
@@ -1866,14 +1973,16 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         add("running", stop ? "Stop Running as Program" : "Allow Running as Program", "",
             [this, stop] { set_running(!stop); });
     }
+    add("compress_zip", "Compress to ZIP…", "", [this] { compress(false); }, true);
+    add("compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
     add("copy", "Copy", keys_for(Command::copy), [this] { take_selection(false); }, true);
     add("cut", "Cut", keys_for(Command::cut), [this] { take_selection(true); });
     add(
         "paste", "Paste", keys_for(Command::paste), [this] { paste(); }, false,
         !clipboard_.names.empty());
     add(
-        "rename", "Rename…", keys_for(Command::rename), [this] { start_rename(); }, true,
-        count == 1);
+        "rename", count > 1 ? "Batch Rename…" : "Rename…", keys_for(Command::rename),
+        [this] { start_rename(); }, true, count == 1 || (!picker_mode_ && count > 1));
     add("trash", "Move to Trash", keys_for(Command::trash), [this] { trash(); });
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
@@ -2042,6 +2151,24 @@ void Browser::open_menu(float x, float y, bool keyboard) {
     ++menu_generation_;
     menu_loaders_.clear();
     std::vector<MenuItem> items;
+    if (folder->is_archive()) {
+        if (!targets(*folder).empty()) {
+            MenuItem copy;
+            copy.id = "copy";
+            copy.label = "Copy to Extract";
+            copy.keys = keys_for(Command::copy);
+            copy.action = [this] { take_selection(false); };
+            items.push_back(std::move(copy));
+            MenuItem preview;
+            preview.id = "quick_look";
+            preview.label = "Quick Look";
+            preview.keys = "Space";
+            preview.action = [this, folder] { quick_look_.open(folder, Clock::now()); };
+            items.push_back(std::move(preview));
+            menu_.open(x, y, std::move(items), keyboard);
+        }
+        return;
+    }
     if (!targets(*folder).empty()) {
         items = entry_menu(folder);
     } else if (!folder->is_trash()) {
@@ -2099,6 +2226,9 @@ void Browser::open_menu_from_keyboard() {
 
 void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& from,
                      const std::string& to) {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        return;
+    }
     ++operations_;
     pool_.submit(
         core::Priority::visible,
@@ -2804,9 +2934,9 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
 void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now) {
     if (password_.is_open() || errors_.is_open() || conflict_.is_open() || confirm_.is_open() ||
-        mount_password_.is_open() || location_.is_open() || settings_.is_open() ||
-        properties_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
-        quick_look_.is_open() || editor_.active())
+        mount_password_.is_open() || location_.is_open() || batch_rename_.is_open() ||
+        settings_.is_open() || properties_.is_open() || palette_.is_open() || menu_.is_open() ||
+        shortcuts_.is_open() || quick_look_.is_open() || editor_.active())
         info_pane_.clear_text_focus();
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
@@ -2919,6 +3049,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     confirm_.draw(renderer, bounds, palette);
     errors_.draw(renderer, bounds, palette);
     password_.draw(renderer, bounds, palette);
+    batch_rename_.draw(renderer, bounds, palette);
     location_.draw(renderer, bounds, palette);
     mount_password_.draw(renderer, bounds, palette);
     if (thumbnails_)
@@ -3097,6 +3228,9 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (mount_password_.is_open()) {
         return hand(mount_password_.clickable_at(x, y));
     }
+    if (batch_rename_.is_open()) {
+        return batch_rename_.cursor_at(x, y);
+    }
     if (location_.is_open()) {
         return location_.field_at(x, y) ? Shape::text : hand(location_.clickable_at(x, y));
     }
@@ -3157,9 +3291,9 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     }
     if (event.kind == ui::PointerEvent::Kind::release &&
         (errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
-         location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
-         properties_.is_open() || settings_.is_open() || palette_.is_open() || menu_.is_open() ||
-         shortcuts_.is_open() || quick_look_.is_open())) {
+         location_.is_open() || batch_rename_.is_open() || conflict_.is_open() ||
+         confirm_.is_open() || properties_.is_open() || settings_.is_open() || palette_.is_open() ||
+         menu_.is_open() || shortcuts_.is_open() || quick_look_.is_open())) {
         // Taken by what the press opened (a menu from a right click): the button is up all the
         // same, and the next press finds its target again.
         button_held_ = false;
@@ -3184,6 +3318,10 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     }
     if (mount_password_.is_open()) {
         mount_password_.pointer(event);
+        return;
+    }
+    if (batch_rename_.is_open()) {
+        batch_rename_.pointer(event);
         return;
     }
     if (location_.is_open()) {
@@ -3687,8 +3825,9 @@ std::optional<ViewHit> Browser::view_hit(float x, float y) const {
 void Browser::start_drag(Press press) {
     Folder& folder = *press.hit.folder;
     folder.forget_press();
-    if (folder.is_trash() || !press.hit.entry || *press.hit.entry >= folder.entries().size()) {
-        return;  // the trash only gives back: Restore
+    if (folder.is_trash() || folder.is_archive() || !press.hit.entry ||
+        *press.hit.entry >= folder.entries().size()) {
+        return;  // the trash only gives back (Restore); an archive's entries are extracted
     }
     const fs::Entry& entry = folder.entries()[*press.hit.entry];
     std::vector<std::string> names = folder.is_selected(entry.name)
@@ -3768,11 +3907,23 @@ std::optional<Browser::DropTarget> Browser::drop_target_at(float x, float y) con
         if (!areas_[i] || (!split_visible_ && i != active_area_))
             continue;
         if (const auto crumb = areas_[i]->breadcrumb.path_at(x, y)) {
+            const auto& shown_pane = *areas_[i]->tabs[areas_[i]->active];
+            const auto shown_folder =
+                shown_pane.mode == Mode::columns
+                    ? shown_pane.columns.focused_folder()
+                    : (shown_pane.mode == Mode::details ? shown_pane.details.folder()
+                                                        : shown_pane.grid.folder());
+            if (shown_folder && shown_folder->is_archive()) {
+                const auto& archive = shown_folder->model().archive_location().archive;
+                const auto relative = crumb->lexically_relative(archive);
+                if (!relative.empty() && *relative.begin() != "..")
+                    return std::nullopt;
+            }
             return DropTarget{.folder = *crumb, .mark = {}, .place = {}, .crumb = crumb};
         }
     }
     const std::optional<ViewHit> hit = view_hit(x, y);
-    if (!hit || hit->folder->is_trash()) {
+    if (!hit || hit->folder->is_trash() || hit->folder->is_archive()) {
         return std::nullopt;
     }
     if (hit->entry && *hit->entry < hit->folder->entries().size()) {
@@ -4462,6 +4613,12 @@ void Browser::view_pointer(const ui::PointerEvent& event, Clock::time_point now)
 std::shared_ptr<Folder> Browser::current_folder() const { return folder_of(pane()); }
 
 bool Browser::key(const ui::KeyEvent& event, Clock::time_point now) {
+    if (batch_rename_preparing_ && event.keysym == XKB_KEY_Escape) {
+        ++batch_rename_generation_;
+        batch_rename_preparing_ = false;
+        batch_rename_.close();
+        return true;
+    }
     context_area_ = active_area_;
     note_location();  // the cursor of the folder the key may leave
     const bool handled = take_key(event, now);
@@ -4491,6 +4648,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return conflict_.key(event);  // a copy waits for the answer: every key is the card's
     }
     if (confirm_.is_open()) {
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
+            paste_text();
+            return true;
+        }
         return confirm_.key(event);
     }
     if (mount_password_.is_open()) {
@@ -4500,6 +4662,14 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             return true;
         }
         return mount_password_.key(event);  // every key is the card's meanwhile
+    }
+    if (batch_rename_.is_open()) {
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
+            paste_text();
+            return true;
+        }
+        return batch_rename_.key(event);
     }
     if (location_.is_open()) {
         if (event.modifiers == ui::Modifiers{.ctrl = true} &&
@@ -4708,6 +4878,9 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
 }
 
 void Browser::run(Command command, Clock::time_point now) {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        return;
+    }
     if (command < Command::scroll_preview_up || command > Command::scroll_preview_page_down)
         info_pane_.clear_text_focus();
     if (!panes_enabled_ && command >= Command::toggle_split)
@@ -4723,6 +4896,21 @@ void Browser::run(Command command, Clock::time_point now) {
                 return;
             case Command::trash:
                 erase();  // from the trash, only for good
+                return;
+            default:
+                break;
+        }
+    }
+    if (const auto shown = current_folder(); shown && shown->is_archive()) {
+        switch (command) {
+            case Command::rename:
+            case Command::new_folder:
+            case Command::cut:
+            case Command::paste:
+            case Command::trash:
+            case Command::erase:
+            case Command::move_other_pane:
+                show_message(std::string{kArchiveReadOnly} + "; extract the archive first", false);
                 return;
             default:
                 break;
@@ -4904,6 +5092,12 @@ void Browser::run(Command command, Clock::time_point now) {
     }
 }
 
+bool Browser::opens_as_folder(const fs::Entry& file) const {
+    const auto type = file.mime != fs::kUnknownMime ? file.mime : mime_->by_name(file.name).mime;
+    const auto* family = engines::installed()->find(*mime_, type);
+    return family != nullptr && family->shows == engines::Shows::archive;
+}
+
 bool Browser::open_selection() {
     const std::shared_ptr<Folder> folder = current_folder();
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
@@ -4913,6 +5107,14 @@ bool Browser::open_selection() {
     if (folder->is_trash()) {
         show_message("Restore it first to open it", false);
         return true;
+    }
+    if (!picker_mode_ && (!folder->is_selected(cursor->name) || folder->selected_count() == 1)) {
+        fs::Entry typed = *cursor;
+        typed.mime = folder->mime_of(*cursor);
+        if (opens_as_folder(typed)) {
+            open(folder->path() / cursor->name);
+            return true;
+        }
     }
     if (!open_) {
         return false;
@@ -4931,7 +5133,10 @@ bool Browser::open_selection() {
             }
         }
     }
-    open_(folder->path(), std::move(files));
+    if (folder->is_archive())
+        open_archive_members(folder->path(), std::move(files));
+    else
+        open_(folder->path(), std::move(files));
     return true;
 }
 
@@ -4942,6 +5147,10 @@ void Browser::open_terminal() {
     }
     if (folder->is_trash()) {
         show_message("Restore it first to open it", false);
+        return;
+    }
+    if (folder->is_archive()) {
+        show_message("A terminal cannot open inside an archive", false);
         return;
     }
     const fs::Entry* const cursor = folder->cursor_entry();

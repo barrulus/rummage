@@ -252,27 +252,29 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.select({"a.txt"});
     CHECK(f.press(key(XKB_KEY_Menu)));
     REQUIRE(f.menu().is_open());
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "copy", "cut", "-paste", "rename",
-                                         "trash", "erase", "properties", "action:copy_location",
-                                         "action:copy_name", "sort", "panes"});
-    CHECK(f.menu().items()[2].keys == "Ctrl+C");  // from the shortcuts table
-    CHECK(f.menu().items()[6].keys == "Delete");
+    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "compress_zip", "compress_tar",
+                                         "copy", "cut", "-paste", "rename", "trash", "erase",
+                                         "properties", "action:copy_location", "action:copy_name",
+                                         "sort", "panes"});
+    CHECK(f.menu().items()[4].keys == "Ctrl+C");  // from the shortcuts table
+    CHECK(f.menu().items()[8].keys == "Delete");
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.menu().is_open());
 
-    // Several: no Rename. A folder: Open With and a terminal too.
+    // Several: batch Rename. A folder: Open With and a terminal too.
     f.select({"a.txt", "b.txt"});
     f.browser.open_menu(100, 100, false);
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "copy", "cut", "-paste", "-rename",
-                                         "trash", "erase", "-properties", "action:copy_location",
-                                         "action:copy_name", "sort", "panes"});
+    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "compress_zip", "compress_tar",
+                                         "copy", "cut", "-paste", "rename", "trash", "erase",
+                                         "-properties", "action:copy_location", "action:copy_name",
+                                         "sort", "panes"});
     f.menu().close();
     f.select({"sub"});
     CHECK(f.press(key(XKB_KEY_F10, {.shift = true})));
-    CHECK(ids(f.menu().items()) == Names{"open", "open_with", "open_tab", "open_terminal",
-                                         "add_bookmark", "copy", "cut", "-paste", "rename", "trash",
-                                         "erase", "properties", "action:copy_location",
-                                         "action:copy_name", "sort", "panes"});
+    CHECK(ids(f.menu().items()) ==
+          Names{"open", "open_with", "open_tab", "open_terminal", "add_bookmark", "compress_zip",
+                "compress_tar", "copy", "cut", "-paste", "rename", "trash", "erase", "properties",
+                "action:copy_location", "action:copy_name", "sort", "panes"});
 
     // Copy from the menu; then Paste can be chosen, here and on empty space.
     f.choose("copy");

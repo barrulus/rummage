@@ -590,6 +590,8 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "open_terminal",
                                           "running",
                                           "copy_path",
+                                          "compress_zip",
+                                          "compress_tar",
                                           "add_bookmark",
                                           "copy",
                                           "cut",

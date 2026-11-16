@@ -1,24 +1,33 @@
 #include "rummage/isolate/helpers.hpp"
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <ios>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <thread>
+#include <unistd.h>
 #include <vector>
+#include <zlib.h>
 
 #include <doctest/doctest.h>
 
 #include "protocol.hpp"
+#include "rummage/archive/archive.hpp"
+#include "rummage/formats/archive/archive.hpp"
 #include "rummage/formats/image/load.hpp"
 #include "rummage/formats/image/photo.hpp"
 #include "rummage/formats/text/read.hpp"
@@ -412,4 +421,207 @@ TEST_CASE("helpers: a text's payload travels whole, and spans out of place are r
                                               2, true, {}, out));
     CHECK_FALSE(protocol::decode_text_payload(payload, 2, 13, 2, true, {}, out));  // lines
     CHECK_FALSE(protocol::decode_text_payload(payload, 3, 13, 2, true, {.max_line_bytes = 5}, out));
+}
+
+TEST_CASE("helpers: the helper lists and reads archives in its cage as this process does") {
+    isolate::Helpers helpers{real(1)};
+    const fs::path archives = fs::path{RUMMAGE_TEST_DATA} / "archive";
+    for (const char* name :
+         {"basic.zip", "aes.zip", "symlink.zip", "gnu.tar", "pax.tar.gz", "notes.txt.gz"}) {
+        CAPTURE(name);
+        const rummage::archive::Listing there = helpers.list_archive(archives / name, {});
+        const int fd = ::open((archives / name).c_str(), O_RDONLY | O_CLOEXEC);
+        REQUIRE(fd >= 0);
+        const rummage::archive::Listing here = rummage::formats::archive::list(fd, {});
+        CHECK(there.failure == here.failure);
+        CHECK(there.format == here.format);
+        CHECK(there.entries == here.entries);
+        for (const rummage::archive::Entry& entry : there.entries) {
+            CAPTURE(entry.path);
+            const int out_there = ::memfd_create("there", MFD_CLOEXEC);
+            const int out_here = ::memfd_create("here", MFD_CLOEXEC);
+            const rummage::archive::Read read_there = helpers.read_archive_entry(
+                archives / name, there.format, entry, out_there, 1 << 20);
+            const rummage::archive::Read read_here =
+                rummage::formats::archive::read_entry(fd, here.format, entry, out_here, 1 << 20);
+            CHECK(read_there.failure == read_here.failure);
+            CHECK(read_there.detail == read_here.detail);
+            CHECK(read_there.bytes == read_here.bytes);
+            struct stat a{};
+            struct stat b{};
+            REQUIRE(::fstat(out_there, &a) == 0);
+            REQUIRE(::fstat(out_here, &b) == 0);
+            CHECK(a.st_size == b.st_size);
+            ::close(out_there);
+            ::close(out_here);
+        }
+        ::close(fd);
+    }
+    // Not an archive: said, nothing else.
+    const rummage::archive::Listing text = helpers.list_archive(kData / "blocks.png", {});
+    CHECK(text.failure == rummage::archive::Failure::not_archive);
+    CHECK(helpers.running() == 1);
+}
+
+TEST_CASE("helpers: a sequence reads a tar.gz's entries in one helper, as this process does") {
+    auto helpers = std::make_shared<isolate::Helpers>(real(2));
+    const fs::path archive = fs::path{RUMMAGE_TEST_DATA} / "archive" / "pax.tar.gz";
+    const rummage::archive::Listing listing = helpers->list_archive(archive, {});
+    REQUIRE(listing.failure == rummage::archive::Failure::none);
+    const int fd = ::open(archive.c_str(), O_RDONLY | O_CLOEXEC);
+    REQUIRE(fd >= 0);
+    const auto bytes_of = [](int out) {
+        std::string bytes;
+        std::array<char, 4096> buffer{};
+        off_t at = 0;
+        ssize_t got = 0;
+        while ((got = ::pread(out, buffer.data(), buffer.size(), at)) > 0) {
+            bytes.append(buffer.data(), static_cast<std::size_t>(got));
+            at += got;
+        }
+        return bytes;
+    };
+    {
+        const std::unique_ptr<rummage::archive::EntrySequence> sequence =
+            isolate::Helpers::open_sequence(helpers, archive, listing.format);
+        std::size_t files = 0;
+        for (const rummage::archive::Entry& entry : listing.entries) {
+            if (entry.type != rummage::archive::Type::file) {
+                continue;
+            }
+            CAPTURE(entry.path);
+            ++files;
+            const int out_there = ::memfd_create("there", MFD_CLOEXEC);
+            const int out_here = ::memfd_create("here", MFD_CLOEXEC);
+            const rummage::archive::Read there = sequence->read(entry, out_there, 1 << 20);
+            const rummage::archive::Read here =
+                rummage::formats::archive::read_entry(fd, listing.format, entry, out_here, 1 << 20);
+            CHECK(there.failure == rummage::archive::Failure::none);
+            CHECK(there.bytes == here.bytes);
+            CHECK(bytes_of(out_there) == bytes_of(out_here));
+            ::close(out_there);
+            ::close(out_here);
+        }
+        CHECK(files >= 4);
+        CHECK(helpers->running() == 1);  // one helper, taken for the whole sequence
+    }
+    ::close(fd);
+    // Given back: the next request finds it idle.
+    CHECK(helpers->list_archive(archive, {}).failure == rummage::archive::Failure::none);
+    CHECK(helpers->running() == 1);
+}
+
+TEST_CASE("helpers: a sequence's read is stopped mid-entry, the helper with it") {
+    // 4 GiB of zeros once inflated: one 64 MiB gzip member, 64 times over (gzip allows that).
+    std::string member;
+    {
+        z_stream z{};
+        REQUIRE(deflateInit2(&z, 1, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY) == Z_OK);
+        const std::string zeros(std::size_t{64} << 20, '\0');
+        member.resize(deflateBound(&z, static_cast<uLong>(zeros.size())));
+        z.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(zeros.data()));  // NOLINT: zlib
+        z.avail_in = static_cast<uInt>(zeros.size());
+        z.next_out = reinterpret_cast<Bytef*>(member.data());  // NOLINT: zlib's API
+        z.avail_out = static_cast<uInt>(member.size());
+        REQUIRE(deflate(&z, Z_FINISH) == Z_STREAM_END);
+        member.resize(z.total_out);
+        deflateEnd(&z);
+    }
+    const TempDir dir;
+    {
+        std::ofstream out{dir.path / "zeros.gz", std::ios::binary};
+        for (int i = 0; i < 64; ++i) {
+            out.write(member.data(), static_cast<std::streamsize>(member.size()));
+        }
+    }
+    auto helpers = std::make_shared<isolate::Helpers>(real(1));
+    const rummage::archive::Listing listing = helpers->list_archive(dir.path / "zeros.gz", {});
+    REQUIRE(listing.format == rummage::archive::Format::gzip);
+    REQUIRE(listing.entries.size() == 1);
+    std::atomic<bool> stop{false};
+    const std::unique_ptr<rummage::archive::EntrySequence> sequence =
+        isolate::Helpers::open_sequence(helpers, dir.path / "zeros.gz", listing.format,
+                                        [&stop] { return stop.load(); });
+    const int sink = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
+    REQUIRE(sink >= 0);
+    std::thread stopper{[&stop] {
+        std::this_thread::sleep_for(std::chrono::milliseconds{200});
+        stop = true;
+    }};
+    const auto started = std::chrono::steady_clock::now();
+    const rummage::archive::Read read = sequence->read(listing.entries.front(), sink, UINT64_MAX);
+    const auto took = std::chrono::steady_clock::now() - started;
+    stopper.join();
+    ::close(sink);
+    CHECK(read.failure == rummage::archive::Failure::unreadable);
+    CHECK(read.detail == "preview cancelled");
+    CHECK(took < std::chrono::seconds{2});  // inflating it all takes far longer
+    CHECK(helpers->running() == 0);         // stopped: let go of, not given back
+}
+
+TEST_CASE("helpers: an archive's entries travel whole, and nonsense is refused") {
+    namespace protocol = rummage::isolate::protocol;
+    std::vector<rummage::archive::Entry> entries(3);
+    entries[0].path = "docs/";
+    entries[0].type = rummage::archive::Type::directory;
+    entries[1].path = "docs/a.txt";
+    entries[1].size = 13;
+    entries[1].packed = 9;
+    entries[1].mode = 0644;
+    entries[1].mtime = 1794744000;
+    entries[1].locator = 1234;
+    entries[2].path = "link";
+    entries[2].link = "docs/a.txt";
+    entries[2].type = rummage::archive::Type::symlink;
+    entries[2].unreadable = rummage::archive::Unreadable::encrypted;
+    const std::vector<std::byte> payload = protocol::encode_archive_payload(entries);
+    CHECK(payload.size() % 8 == 0);
+    const auto back = protocol::decode_archive_payload(payload, 3, {});
+    REQUIRE(back.has_value());
+    CHECK(back.value_or(std::vector<rummage::archive::Entry>{}) == entries);
+
+    CHECK_FALSE(protocol::decode_archive_payload(payload, 2, {}).has_value());  // bytes left over
+    CHECK_FALSE(protocol::decode_archive_payload(payload, 4, {}).has_value());  // too few
+    CHECK_FALSE(
+        protocol::decode_archive_payload(std::span{payload}.first(payload.size() - 8), 3, {})
+            .has_value());
+    CHECK_FALSE(
+        protocol::decode_archive_payload(payload, 3, {.max_entries = 2, .max_path_bytes = 4096})
+            .has_value());
+    CHECK_FALSE(
+        protocol::decode_archive_payload(payload, 3, {.max_entries = 10, .max_path_bytes = 5})
+            .has_value());
+    std::vector<std::byte> wrong = payload;
+    wrong[0] = std::byte{9};  // no such type
+    CHECK_FALSE(protocol::decode_archive_payload(wrong, 3, {}).has_value());
+
+    rummage::archive::Format format{};
+    const protocol::ArchiveReadRequest request =
+        protocol::encode_archive_read(rummage::archive::Format::tar_gzip, entries[1], 4096);
+    const auto entry = protocol::decode_archive_read(request, format);
+    REQUIRE(entry.has_value());
+    CHECK(format == rummage::archive::Format::tar_gzip);
+    CHECK(entry.value_or(rummage::archive::Entry{}).locator == 1234);
+    CHECK(entry.value_or(rummage::archive::Entry{}).size == 13);
+    protocol::ArchiveReadRequest bad = request;
+    bad.format = 7;
+    CHECK_FALSE(protocol::decode_archive_read(bad, format).has_value());
+}
+
+TEST_CASE("helpers: rendered Markdown crosses the sandbox boundary with its source intact") {
+    const TempDir dir;
+    const auto path = dir.path / "README.md";
+    std::ofstream{path} << "# Heading\n\nA **bold** [link](https://example.com).\n\n"
+                           "| Name | Value |\n| --- | --- |\n| first | 42 |\n\n"
+                           "```cpp\nint answer = 42;\n```\n";
+    isolate::Helpers helpers{real(1)};
+    const text::LoadRequest request{.path = path, .mime = "text/markdown", .limits = {}};
+    const auto there = helpers.load_text(request);
+    const auto here = rummage::formats::text::load(request);
+    REQUIRE(there.failure == text::Failure::none);
+    REQUIRE_FALSE(there.text.markdown.blocks.empty());
+    CHECK(there.text.markdown == here.text.markdown);
+    CHECK(there.text.lines == here.text.lines);
+    CHECK(there.text.spans == here.text.spans);
+    CHECK(helpers.running() == 1);
 }

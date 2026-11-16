@@ -86,6 +86,9 @@ public:
     // The trash folder (fs::trash_path()): nothing is made, pasted or renamed in it.
     [[nodiscard]] bool is_trash() const noexcept { return model_.is_trash(); }
 
+    // A folder inside an archive (0.9.0): read-only.
+    [[nodiscard]] bool is_archive() const noexcept { return model_.is_archive(); }
+
     [[nodiscard]] const std::vector<fs::Entry>& entries() const noexcept {
         return model_.listing().entries();
     }
@@ -186,6 +189,10 @@ public:
 
     // The entry's type: from the name, else sniffed from the content, else unknown (yet).
     [[nodiscard]] fs::MimeId mime_of(const fs::Entry& entry) const;
+
+    [[nodiscard]] const std::shared_ptr<const fs::MimeDatabase>& shared_mime() const {
+        return mime_;
+    }
 
     [[nodiscard]] const fs::MimeDatabase& mime() const noexcept { return *mime_; }
 

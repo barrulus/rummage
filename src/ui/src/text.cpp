@@ -221,16 +221,17 @@ struct FontSystem::Impl {
     FT_Library library{nullptr};
     std::vector<Font> fonts;  // every font: the chains below and add_font_file's
     // The fontconfig fallback chain of each typeface, primary first, as indexes into fonts.
-    std::array<std::vector<std::uint32_t>, 2> chains;
+    std::array<std::vector<std::uint32_t>, 5> chains;
+    std::array<bool, 5> found{};
+    std::string proportional_family;
     std::string monospace_family;
-    bool monospace_found{false};
     hb_buffer_t* buffer{hb_buffer_create()};
     std::unordered_map<std::string, TextLayout> cache;
     RenderSettings render;
     float ptem{0.0F};  // point size of the text being shaped; 0: harfbuzz's default
 
     Impl(const std::string& family, std::string monospace)
-        : monospace_family{std::move(monospace)} {
+        : proportional_family{family}, monospace_family{std::move(monospace)} {
         if (FT_Init_FreeType(&library) != 0) {
             throw std::runtime_error{"FreeType initialization failed"};
         }
@@ -243,24 +244,22 @@ struct FontSystem::Impl {
         render = render_settings(family);
     }
 
-    // The chain of a typeface; the monospace one is looked up the first time, and is the
-    // proportional one when no monospace font loads.
+    // Alternate faces are discovered lazily, with the same glyph coverage fallback policy.
     const std::vector<std::uint32_t>& chain(Typeface typeface) {
-        if (typeface == Typeface::proportional) {
+        const auto index = static_cast<std::size_t>(typeface);
+        if (index == 0)
             return chains[0];
+        if (!found.at(index)) {
+            found.at(index) = true;
+            const bool mono = typeface == Typeface::monospace;
+            const bool bold = typeface == Typeface::bold || typeface == Typeface::bold_italic;
+            const bool italic = typeface == Typeface::italic || typeface == Typeface::bold_italic;
+            chains.at(index) =
+                discover(mono ? monospace_family : proportional_family, bold, italic);
+            if (chains.at(index).empty() || !load(chains.at(index).front()))
+                chains.at(index) = chains[0];
         }
-        if (!monospace_found) {
-            monospace_found = true;
-            chains[1] = discover(monospace_family);
-            if (chains[1].empty() || !load(chains[1].front())) {
-                log::warn("no usable monospace font for '{}'", monospace_family);
-                chains[1] = chains[0];
-            } else {
-                log::info("monospace font: {} ({} fallbacks)", fonts[chains[1].front()].path,
-                          chains[1].size() - 1);
-            }
-        }
-        return chains[1];
+        return chains.at(index);
     }
 
     ~Impl() {
@@ -282,10 +281,19 @@ struct FontSystem::Impl {
     Impl(Impl&&) = delete;
     Impl& operator=(Impl&&) = delete;
 
-    std::vector<std::uint32_t> discover(const std::string& family) {
+    std::vector<std::uint32_t> discover(const std::string& family, bool bold = false,
+                                        bool italic = false) {
         std::vector<std::uint32_t> chain;
         FcPattern* pattern =
             FcNameParse(reinterpret_cast<const FcChar8*>(family.c_str()));  // NOLINT
+        if (bold) {
+            FcPatternDel(pattern, FC_WEIGHT);
+            FcPatternAddInteger(pattern, FC_WEIGHT, FC_WEIGHT_BOLD);
+        }
+        if (italic) {
+            FcPatternDel(pattern, FC_SLANT);
+            FcPatternAddInteger(pattern, FC_SLANT, FC_SLANT_ITALIC);
+        }
         FcConfigSubstitute(nullptr, pattern, FcMatchPattern);
         FcDefaultSubstitute(pattern);
         FcResult result = FcResultNoMatch;

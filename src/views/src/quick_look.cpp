@@ -3,12 +3,18 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fcntl.h>
 #include <format>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <unordered_set>
 #include <variant>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "archive_text.hpp"
 #include "draw_helpers.hpp"
+#include "rummage/archive/archive.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/format.hpp"
@@ -16,6 +22,91 @@
 
 namespace rummage::views {
 namespace {
+
+// An entry inside an archive (0.9.0), as Quick Look reads it: the archive, and the entry
+// (nullopt for a folder the archive only names).
+struct ArchiveSource {
+    std::filesystem::path archive;
+    archive::Format format{archive::Format::unknown};
+    std::optional<archive::Entry> entry;
+    bool directory{false};
+    std::shared_ptr<const fs::ArchiveTree> tree;
+};
+
+// The most of an archive's entry Quick Look reads into memory.
+constexpr std::uint64_t kMaxArchiveEntryBytes = std::uint64_t{256} * 1024 * 1024;
+
+// An archive's entry as a provider shows it: read by the engine into a memfd, which the provider
+// opens as /proc/self/fd/N; folders and types without a picture or text get the information
+// card from what the archive says. Nothing is written to disk.
+preview::Content load_from_archive(const preview::Provider& provider, preview::Request request,
+                                   const ArchiveSource& source, const core::CancelToken& cancel) {
+    const bool readable = source.entry && (source.entry->type == archive::Type::file) &&
+                          source.entry->unreadable == archive::Unreadable::none;
+    // An archive inside an archive is not opened: the card, as for a file of no known kind.
+    if (provider.kind() == preview::Kind::info || provider.kind() == preview::Kind::archive ||
+        !readable) {
+        preview::Info info;
+        std::uint32_t mode = source.entry ? source.entry->mode : 0755U;
+        if (source.directory) {
+            mode |= S_IFDIR;
+        } else if (source.entry && source.entry->type == archive::Type::symlink) {
+            mode |= S_IFLNK;
+            info.link_target = source.entry->link;
+        } else {
+            mode |= S_IFREG;
+        }
+        info.permissions = preview::permissions_text(mode);
+        if (source.entry && source.entry->unreadable == archive::Unreadable::encrypted) {
+            info.error = "it is encrypted";
+        } else if (source.entry && source.entry->unreadable == archive::Unreadable::method) {
+            info.error = "its compression is not read yet";
+        }
+        return info;
+    }
+    const int fd = ::memfd_create("rummage-quick-look", MFD_CLOEXEC);
+    if (fd < 0) {
+        return preview::Info{.permissions = {},
+                             .owner = {},
+                             .group = {},
+                             .link_target = {},
+                             .items = std::nullopt,
+                             .hidden_items = 0,
+                             .created_ns = std::nullopt,
+                             .error = "out of memory"};
+    }
+    const int input = ::open(source.archive.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+    const std::filesystem::path pinned = "/proc/self/fd/" + std::to_string(input);
+    if (input < 0 || !source.tree || !source.tree->unchanged(pinned)) {
+        if (input >= 0)
+            ::close(input);
+        ::close(fd);
+        preview::Info info;
+        info.error = "Archive changed; reopen it to preview";
+        return info;
+    }
+    auto sequence = archive::open_entry_sequence(pinned, source.format,
+                                                 [&cancel] { return cancel.cancelled(); });
+    archive::Read read = sequence->read(*source.entry, fd, kMaxArchiveEntryBytes);
+    if (!source.tree->unchanged(pinned)) {
+        read.failure = archive::Failure::unreadable;
+        read.detail = "Archive changed while reading";
+    }
+    sequence.reset();
+    ::close(input);
+    if (read.failure != archive::Failure::none) {
+        ::close(fd);
+        preview::Info info;
+        info.error = read.failure == archive::Failure::too_large
+                         ? "too large to show from inside the archive"
+                         : read.detail;
+        return info;
+    }
+    request.path = "/proc/self/fd/" + std::to_string(fd);
+    preview::Content content = provider.load(request, cancel);
+    ::close(fd);
+    return content;
+}
 
 // Milliseconds from then to now.
 double since(QuickLook::Clock::time_point then) {
@@ -27,6 +118,10 @@ constexpr float kCaptionHeight = 44.0F;  // under it
 constexpr float kCardWidth = 340.0F;
 constexpr float kCardIcon = 96.0F;
 constexpr float kRowHeight = 24.0F;
+constexpr float kArchiveCardWidth = 420.0F;
+constexpr float kArchiveIcon = 64.0F;
+constexpr float kEntryHeight = 24.0F;  // an archive's entry, under its summary
+constexpr float kEntryIcon = 16.0F;
 constexpr auto kFade = std::chrono::milliseconds{140};
 
 // The text page.
@@ -51,6 +146,24 @@ ui::Rect shifted_down(ui::Rect rect) {
 float fade_at(QuickLook::Clock::time_point opened, QuickLook::Clock::time_point now) {
     const auto elapsed = std::chrono::duration<float>(now - opened).count();
     return std::clamp(elapsed / std::chrono::duration<float>(kFade).count(), 0.0F, 1.0F);
+}
+
+// A label at the card's left, its value at its right (long values, a link target, cut in the
+// middle, keeping their end).
+void draw_row(ui::Renderer& renderer, const ui::Rect& card, float y, std::string_view label,
+              const std::string& value, ui::Typeface typeface, const theme::Palette& palette,
+              float fade) {
+    const float label_width = renderer.draw_text(label, card.x + 20.0F, y, 13.0F,
+                                                 palette.on_surface_variant.with_alpha(fade));
+    const float room = card.width - 40.0F - label_width - 16.0F;
+    const float full =
+        renderer.fonts()
+            .layout(value, 13.0F, renderer.scale(), 0.0F, ui::Ellipsis::end, typeface)
+            .width /
+        renderer.scale();
+    const float width = std::min(full, room);
+    renderer.draw_text(value, card.right() - 20.0F - width, y, 13.0F,
+                       palette.on_surface.with_alpha(fade), room, ui::Ellipsis::middle, typeface);
 }
 
 // A caption in a pill under area.
@@ -117,6 +230,8 @@ void QuickLook::close() {
     }
     slots_.clear();
     metadata_.reset();
+    markdown_.reset();
+    markdown_button_ = {};
     details_bounds_ = details_button_ = {};
     folder_.reset();
     shown_name_.clear();
@@ -134,7 +249,18 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     Slot& slot = slots_[key];
     slot.path = folder_->path_of(entry);
     slot.kind = provider.kind();
-    if (current && details_ && !slot.summary && !slot.summary_job) {
+    std::optional<ArchiveSource> source;
+    if (folder_->is_archive()) {
+        const auto& model = folder_->model();
+        source = ArchiveSource{.archive = model.archive_location().archive,
+                               .format = model.archive_format(),
+                               .entry = std::nullopt,
+                               .directory = entry.is_directory(),
+                               .tree = model.archive_tree()};
+        if (const auto* found = model.archive_entry(entry.name))
+            source->entry = *found;
+    }
+    if (current && details_ && !folder_->is_archive() && !slot.summary && !slot.summary_job) {
         const auto type = std::string{mime_->name(folder_->mime_of(entry))};
         slot.summary_job = pool_.submit(
             core::Priority::visible,
@@ -157,12 +283,15 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
         slot.in_advance = !current;
         slot.content_job = pool_.submit(
             current ? core::Priority::visible : core::Priority::nearby,
-            [&provider,
+            [&provider, source = std::move(source),
              request = preview::Request{.path = slot.path,
                                         .mime = std::string{mime_->name(folder_->mime_of(entry))},
                                         .width = target_width_,
-                                        .height = target_height_}](const core::CancelToken& token) {
-                return std::make_shared<preview::Content>(provider.load(request, token));
+                                        .height = target_height_,
+                                        .types = mime_}](const core::CancelToken& token) {
+                return std::make_shared<preview::Content>(
+                    source ? load_from_archive(provider, request, *source, token)
+                           : provider.load(request, token));
             },
             [this, alive = alive_, key](std::shared_ptr<preview::Content> content) {
                 if (!*alive) {
@@ -179,8 +308,8 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     }
     // The first stage of an image, while the sharp one is made: the thumbnail, usually cached
     // already.
-    if (current && slot.kind == preview::Kind::image && thumbnails_ && !slot.content &&
-        !slot.thumbnail_job && !slot.thumbnail_pixels && !slot.thumbnail_texture) {
+    if (current && slot.kind == preview::Kind::image && thumbnails_ && !folder_->is_archive() &&
+        !slot.content && !slot.thumbnail_job && !slot.thumbnail_pixels && !slot.thumbnail_texture) {
         slot.thumbnail_job = pool_.submit(
             core::Priority::visible,
             [cache = thumbnails_, path = slot.path,
@@ -228,6 +357,8 @@ void QuickLook::follow(std::shared_ptr<Folder> folder) {
     const std::vector<fs::Entry>& entries = folder_->entries();
     const std::size_t index = *cursor;
     if (moved) {
+        markdown_.reset();
+        markdown_button_ = {};
         metadata_.reset();
         details_scroller_.jump_to(0);
         folder_->sniff(index == 0 ? 0 : index - 1, index + 2);
@@ -264,7 +395,31 @@ const preview::Text* QuickLook::shown_text() const {
     return shown == nullptr ? nullptr : std::get_if<preview::Text>(shown);
 }
 
+bool QuickLook::markdown_rendered() const {
+    const auto* text = shown_text();
+    return render_markdown_ && text && !text->markdown.blocks.empty();
+}
+
+void QuickLook::toggle_markdown() {
+    const auto* text = shown_text();
+    if (!text || text->markdown.blocks.empty())
+        return;
+    render_markdown_ = !render_markdown_;
+    selection_.clear();
+    selecting_ = false;
+    markdown_.reset();
+    layout_ = {};
+    text_scroller_.jump_to(0);
+    text_sideways_.jump_to(0);
+    redraw_();
+}
+
 bool QuickLook::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (event.kind == ui::PointerEvent::Kind::press && event.button == ui::PointerButton::left &&
+        markdown_button_.contains(event.x, event.y)) {
+        toggle_markdown();
+        return true;
+    }
     if (event.kind == ui::PointerEvent::Kind::press && event.button == ui::PointerButton::left &&
         details_button_.contains(event.x, event.y)) {
         set_details(!details_);
@@ -297,6 +452,12 @@ bool QuickLook::pointer(const ui::PointerEvent& event, Clock::time_point now) {
         return false;
     }
     using Kind = ui::PointerEvent::Kind;
+    if (markdown_rendered() && event.kind != Kind::scroll) {
+        const bool handled = markdown_.pointer(event);
+        if (handled)
+            redraw_();
+        return handled || (event.kind == Kind::press && layout_.page.contains(event.x, event.y));
+    }
     switch (event.kind) {
         case Kind::scroll:
             // Shift turns the wheel sideways; a touchpad and a tilting wheel go both ways.
@@ -390,6 +551,14 @@ bool QuickLook::autoscrolling() const {
 
 bool QuickLook::text_key(const ui::KeyEvent& event, Clock::time_point now) {
     if (event.modifiers == ui::Modifiers{} &&
+        (event.keysym == XKB_KEY_m || event.keysym == XKB_KEY_M)) {
+        const auto* text = shown_text();
+        if (text && !text->markdown.blocks.empty()) {
+            toggle_markdown();
+            return true;
+        }
+    }
+    if (event.modifiers == ui::Modifiers{} &&
         (event.keysym == XKB_KEY_i || event.keysym == XKB_KEY_I)) {
         set_details(!details_);
         return true;
@@ -447,6 +616,11 @@ void QuickLook::select_all_text() {
         redraw_();
         return;
     }
+    if (markdown_rendered()) {
+        markdown_.select_all();
+        redraw_();
+        return;
+    }
     if (const preview::Text* const text = shown_text()) {
         selection_.select_all(text->lines);
         redraw_();
@@ -456,6 +630,8 @@ void QuickLook::select_all_text() {
 std::string QuickLook::selected_text() const {
     if (details_ && metadata_.focused())
         return metadata_.selected_text();
+    if (markdown_rendered())
+        return markdown_.selected_text();
     const preview::Text* const text = shown_text();
     return text == nullptr ? std::string{} : selection_.text(text->lines);
 }
@@ -508,6 +684,15 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     renderer.draw_box(details_button_, {.fill = palette.surface_container_high, .radius = {}});
     renderer.draw_text(button, details_button_.x + 12.0F, details_button_.y + 5.0F, 13.0F,
                        palette.on_surface);
+    markdown_button_ = {};
+    if (const auto* text = shown_text(); text && !text->markdown.blocks.empty()) {
+        const std::string label = render_markdown_ ? "Source · M" : "Rendered · M";
+        const float width = text_width(renderer, label, 13.0F) + 24;
+        markdown_button_ = {bounds.x + 16, bounds.y + 8, width, 28};
+        renderer.draw_box(markdown_button_, {.fill = palette.surface_container_high, .radius = {}});
+        renderer.draw_text(label, markdown_button_.x + 12, markdown_button_.y + 5, 13,
+                           palette.on_surface);
+    }
     area.y += 16.0F;
     area.height = std::max(1.0F, area.height - 16.0F);
     details_bounds_ = {};
@@ -532,10 +717,18 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     }
     const preview::Content* const shown = slot.content.get();
     if (const auto* text = shown == nullptr ? nullptr : std::get_if<preview::Text>(shown)) {
-        draw_text(renderer, area, palette, *entry, *text, fade, now);
+        if (markdown_rendered())
+            draw_markdown(renderer, area, palette, *entry, *text, fade, now);
+        else
+            draw_text(renderer, area, palette, *entry, *text, fade, now);
         return;
     }
-    if (slot.kind == preview::Kind::text && shown == nullptr) {
+    if (const auto* held = shown == nullptr ? nullptr : std::get_if<preview::Archive>(shown)) {
+        draw_archive(renderer, area, palette, icons, *entry, *held, fade);
+        return;
+    }
+    if ((slot.kind == preview::Kind::text || slot.kind == preview::Kind::archive) &&
+        shown == nullptr) {
         return;  // a moment: the card would flash before the text
     }
     const auto* const info = shown == nullptr ? nullptr : std::get_if<preview::Info>(shown);
@@ -686,6 +879,41 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
         renderer.draw_image(*texture, rect, {}, fade);
     }
     draw_caption(renderer, area, palette, caption, fade);
+}
+
+void QuickLook::draw_markdown(ui::Renderer& renderer, const ui::Rect& area,
+                              const theme::Palette& palette, const fs::Entry& entry,
+                              const preview::Text& text, float fade, Clock::time_point now) {
+    const float width = std::min(area.width, 860.0F);
+    const float inner_width = std::max(1.0F, width - 40);
+    const float content = markdown_.layout(renderer, text.markdown, inner_width);
+    const float height = std::min(area.height, content + 32);
+    const ui::Rect page{area.x + (area.width - width) / 2, area.y, width, height};
+    const ui::Rect inner{page.x + 20, page.y + 16, inner_width, std::max(1.0F, page.height - 32)};
+    renderer.draw_shadow(shifted_down(page), {}, 18, palette.shadow.with_alpha(0.6F * fade));
+    renderer.draw_box(page, {.fill = palette.surface_container.with_alpha(fade), .radius = {}});
+    text_scroller_.set_extent(content, inner.height);
+    text_scroller_.advance(now);
+    text_sideways_.set_extent(0, inner_width);
+    layout_ = {.page = page,
+               .lines = inner,
+               .text_x = inner.x,
+               .text_room = inner.width,
+               .char_width = 0,
+               .valid = true};
+    markdown_.draw(renderer, inner, text_scroller_.offset(), palette, fade);
+    if (text_scroller_.max_offset() > 0) {
+        const float thumb = std::max(kScrollbarMinThumb, inner.height * inner.height / content);
+        const float y = inner.y + (inner.height - thumb) * text_scroller_.offset() /
+                                      text_scroller_.max_offset();
+        renderer.fill_rect({page.right() - 8, y, 4, thumb},
+                           palette.on_surface_variant.with_alpha(0.45F * fade));
+    }
+    draw_caption(
+        renderer, area, palette,
+        entry.name + "   Markdown" +
+            (text.markdown.truncated || markdown_.truncated() ? "   Preview truncated" : ""),
+        fade);
 }
 
 void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,
@@ -910,23 +1138,104 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
     for (const Row& row : rows) {
-        const float label_width = renderer.draw_text(row.label, card.x + 20.0F, y, 13.0F,
-                                                     palette.on_surface_variant.with_alpha(fade));
-        // Long values (a link target) are cut in the middle, keeping their end.
-        const float room = kCardWidth - 40.0F - label_width - 16.0F;
-        const float full =
-            renderer.fonts()
-                .layout(row.value, 13.0F, renderer.scale(), 0.0F, ui::Ellipsis::end, row.typeface)
-                .width /
-            renderer.scale();
-        const float width = std::min(full, room);
-        renderer.draw_text(row.value, card.right() - 20.0F - width, y, 13.0F,
-                           palette.on_surface.with_alpha(fade), room, ui::Ellipsis::middle,
-                           row.typeface);
+        draw_row(renderer, card, y, row.label, row.value, row.typeface, palette, fade);
         y += kRowHeight;
     }
     if (error) {
         draw_centered(renderer, info->error, card, y, 13.0F, palette.error.with_alpha(fade));
+    }
+}
+
+void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
+                             const theme::Palette& palette, ui::IconSet& icons,
+                             const fs::Entry& entry, const preview::Archive& archive, float fade) {
+    fs::Entry typed = entry;
+    typed.mime = folder_->mime_of(entry);
+    const std::string_view type =
+        typed.mime == fs::kUnknownMime ? std::string_view{"…"} : mime_->name(typed.mime);
+
+    // The summary: the file's own size, then what it holds.
+    const ArchiveRows held = archive_rows(archive);
+    std::vector<std::pair<std::string_view, std::string>> rows;
+    const auto add = [&](std::string_view label, std::string value) {
+        if (!value.empty()) {
+            rows.emplace_back(label, std::move(value));
+        }
+    };
+    add("Size", format_size(entry.size));
+    add("Contains", held.contains);
+    add("Unpacked", held.unpacked);
+    add("Encrypted", held.encrypted);
+    add("Not readable yet", held.unsupported);
+    add("Modified", format_time(entry.modified_ns));
+    const std::string problem = archive_problem(archive);
+
+    // Its first entries, as many as there is room for, then how many more.
+    const float width = std::min(kArchiveCardWidth, area.width);
+    const float head = 28.0F + kArchiveIcon + 16.0F + 24.0F + 20.0F + 4.0F +
+                       (static_cast<float>(rows.size()) * kRowHeight) +
+                       (problem.empty() ? 0.0F : kRowHeight) + 20.0F;
+    const float list_top = archive.top.empty() ? 0.0F : 4.0F + 1.0F + 12.0F;
+    const float more = kRowHeight;
+    const float room = std::max(0.0F, area.height - head - list_top - more);
+    const std::size_t shown =
+        std::min(archive.top.size(), static_cast<std::size_t>(room / kEntryHeight));
+    const std::uint64_t left = archive.top_count - shown;
+    const float height = head + (archive.top.empty() ? 0.0F : list_top) +
+                         (static_cast<float>(shown) * kEntryHeight) +
+                         (left > 0 && archive.top_count > 0 ? more : 0.0F);
+    const ui::Rect card{area.x + ((area.width - width) / 2.0F),
+                        area.y + std::max(0.0F, (area.height - height) / 2.0F), width, height};
+    renderer.draw_shadow(shifted_down(card), ui::Corners::all(14.0F), 18.0F,
+                         palette.shadow.with_alpha(0.6F * fade));
+    renderer.draw_box(card, {.fill = palette.surface_container_high.with_alpha(fade),
+                             .radius = ui::Corners::all(14.0F)});
+
+    float y = card.y + 28.0F;
+    icons.draw(renderer, fs::icon_name(*mime_, typed), card.x + ((width - kArchiveIcon) / 2.0F), y,
+               kArchiveIcon, palette.on_surface_variant.with_alpha(fade));
+    y += kArchiveIcon + 16.0F;
+    draw_centered(renderer, entry.name, card, y, 15.0F, palette.on_surface.with_alpha(fade));
+    y += 24.0F;
+    draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
+    y += 20.0F + 4.0F;
+    for (const auto& [label, value] : rows) {
+        draw_row(renderer, card, y, label, value, ui::Typeface::proportional, palette, fade);
+        y += kRowHeight;
+    }
+    if (!problem.empty()) {
+        draw_centered(renderer, problem, card, y, 13.0F, palette.error.with_alpha(fade));
+        y += kRowHeight;
+    }
+    if (archive.top.empty()) {
+        return;
+    }
+    y += 4.0F;
+    renderer.fill_rect({card.x + 20.0F, y, width - 40.0F, 1.0F / renderer.scale()},
+                       palette.outline_variant.with_alpha(fade));
+    y += 1.0F + 12.0F;
+    const float name_left = card.x + 20.0F + kEntryIcon + 10.0F;
+    for (std::size_t i = 0; i < shown; ++i) {
+        const fs::Entry& item = archive.top[i];
+        icons.draw(
+            renderer, fs::icon_name(*mime_, item), card.x + 20.0F,
+            y + ((kEntryHeight - kEntryIcon) / 2.0F) - 3.0F, kEntryIcon,
+            (item.is_directory() ? palette.primary : palette.on_surface_variant).with_alpha(fade));
+        float name_room = card.right() - 20.0F - name_left;
+        if (!item.is_directory() && !item.is_link) {
+            const std::string size = format_size(item.size);
+            const float size_width = text_width(renderer, size, 12.0F);
+            renderer.draw_text(size, card.right() - 20.0F - size_width, y + 1.0F, 12.0F,
+                               palette.on_surface_variant.with_alpha(fade));
+            name_room -= size_width + 16.0F;
+        }
+        renderer.draw_text(item.name, name_left, y, 13.0F, palette.on_surface.with_alpha(fade),
+                           std::max(1.0F, name_room), ui::Ellipsis::middle);
+        y += kEntryHeight;
+    }
+    if (left > 0) {
+        draw_centered(renderer, std::format("and {} more", left), card, y + 2.0F, 12.0F,
+                      palette.on_surface_variant.with_alpha(fade));
     }
 }
 

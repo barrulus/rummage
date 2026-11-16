@@ -22,6 +22,7 @@ aliases follow the `rummage::` namespace.
 | `src/engines` | Manifest parsing, program discovery and MIME-family routing |
 | `src/picture` | Image types, geometry/scaling, cache image support and loader interface |
 | `src/text` | Text representation, loading interface, selection and syntax support |
+| `src/archive` | Archive metadata and reader interfaces; parsing stays in the helper |
 | `src/formats` | Actual file readers linked into the helper; image and text families |
 | `src/isolate` | Helper startup/pooling, descriptor protocol, resource limits and sandbox |
 | `src/thumbs` | Shared thumbnail cache |
@@ -90,9 +91,9 @@ prefix’s `libexec/rummage`. The optional Nix media package configures this pat
 | --- | --- |
 | `engine.name` | Engine identifier |
 | `engine.program` | Plain executable filename, resolved in the helper locations |
-| `engine.protocol` | Must match the current protocol version (5) |
+| `engine.protocol` | Must match the current protocol version (6) |
 | `family.name` | Reader-family identifier |
-| `family.shows` | `picture` or `text` |
+| `family.shows` | `picture`, `text` or `archive` |
 | `family.info`, `family.thumbnails` | Advertised capabilities |
 | `family.mime` | Types handled by this family |
 | `family.subclasses` | Also match MIME subtypes when true |
@@ -183,6 +184,7 @@ For a format, update readers, engine MIME registration, bounded failure handling
 helper tests and preview documentation. Dependency/installation changes must be
 reflected in CMake, applicable packaging and the installation guide.
 
-Protocol 5 adds bounded video metadata fields to the information response. Install matching
+Protocol 6 adds archive listing/member reads and bounded Markdown presentation data,
+alongside the video metadata fields introduced in protocol 5. Install matching
 base, media and PDF helpers with the application; incompatible manifests are rejected.
 Metadata requests route by MIME type, just like preview images.

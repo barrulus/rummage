@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "backend.hpp"
+#include "rummage/formats/archive/archive.hpp"
 #include "rummage/formats/formats.hpp"
 #include "rummage/formats/text/read.hpp"
 #include "rummage/formats/text/syntax.hpp"
@@ -58,5 +59,15 @@ text::Loaded read_text(int fd, const text::Limits& limits) {
 
 void colour(text::Text& value, std::string_view name, std::string_view mime) {
     formats::text::colour(value, name, mime);
+}
+
+archive::Listing list_archive(int fd, const archive::Limits& limits) {
+    return formats::archive::list(fd, limits);
+}
+
+archive::Read read_archive_entry(int fd, archive::Format format, const archive::Entry& entry,
+                                 int out, std::uint64_t max_bytes) {
+    static formats::archive::Sequence sequence;
+    return sequence.read(fd, format, entry, out, max_bytes);
 }
 }  // namespace rummage::isolate::backend

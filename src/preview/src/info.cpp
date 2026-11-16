@@ -63,4 +63,8 @@ Info read_info(const std::filesystem::path& path, const core::CancelToken& cance
     return info;
 }
 
+std::string permissions_text(std::uint32_t mode) {
+    return fs::file_permissions(static_cast<mode_t>(mode));
+}
+
 }  // namespace rummage::preview

@@ -73,10 +73,14 @@ std::vector<PaletteItem> Browser::palette_items() {
     const bool in_trash = folder && folder->is_trash();
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
-    const bool editable = folder && !in_trash;
-    if (folder && names.size() <= 1 && (!in_trash || !names.empty()))
+    const bool editable = folder && !in_trash && !folder->is_archive();
+    if (folder && !folder->is_archive() && names.size() <= 1 && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
+    if (editable && !names.empty() && !picker_mode_) {
+        add("command:compress_zip", "Compress to ZIP…", "", [this] { compress(false); });
+        add("command:compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
+    }
     // Opening and moving.
     if (cursor != nullptr) {
         add("command:open", "Open", "Enter", [this] {
@@ -85,7 +89,7 @@ std::vector<PaletteItem> Browser::palette_items() {
             view_key(enter, Clock::now());
         });
     }
-    if (cursor != nullptr && !in_trash && choices_ && open_with_) {
+    if (cursor != nullptr && editable && choices_ && open_with_) {
         add("command:open_with", "Open With…", "", [this] { open_with_palette(); });
     }
     if (folder && !in_trash && !names.empty()) {
@@ -125,7 +129,8 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (!names.empty() && !in_trash) {
         command(Command::copy, "copy", "Copy");
-        command(Command::cut, "cut", "Cut");
+        if (!folder->is_archive())
+            command(Command::cut, "cut", "Cut");
     }
     bool can_paste = !clipboard_.names.empty();
     if (!can_paste && system_.types) {
@@ -136,20 +141,20 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (editable && can_paste) {
         command(Command::paste, "paste", "Paste");
     }
-    if (editable && names.size() == 1) {
-        command(Command::rename, "rename", "Rename…");
+    if (editable && !names.empty() && (names.size() == 1 || !picker_mode_)) {
+        command(Command::rename, "rename", names.size() > 1 ? "Batch Rename…" : "Rename…");
     }
-    if (folder) {
+    if (folder && !folder->is_archive()) {
         if (const RunningTargets running = running_targets(*folder); !running.files.empty()) {
             const bool stop = running.all_run;
             add("command:running", stop ? "Stop Running as Program" : "Allow Running as Program",
                 "", [this, stop] { set_running(!stop); });
         }
     }
-    if (!names.empty() && !in_trash) {
+    if (!names.empty() && !in_trash && !folder->is_archive()) {
         command(Command::trash, "trash", "Move to Trash");
     }
-    if (!names.empty()) {
+    if (!names.empty() && !folder->is_archive()) {
         command(Command::erase, "erase", "Delete Permanently…");
     }
     if (!names.empty() && in_trash) {
@@ -350,6 +355,10 @@ void Browser::open_finder() {
     }
     if (folder->is_trash()) {
         show_message("Files are not looked for in the trash", false);
+        return;
+    }
+    if (folder->is_archive()) {
+        show_message("Files are not looked for inside an archive", false);
         return;
     }
     menu_.close();

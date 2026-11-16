@@ -257,6 +257,11 @@ void FilePicker::accept() {
     if (!folder || folder->model().loading()) {
         return;
     }
+    if (folder->is_archive()) {
+        error_ = "Extract archive contents before choosing them";
+        redraw_();
+        return;
+    }
     if (request_.mode == Mode::save && valid_name(name_.text()) && folder->path().is_absolute() &&
         !folder->is_trash()) {
         std::error_code ec;

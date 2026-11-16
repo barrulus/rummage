@@ -75,14 +75,14 @@ selection gestures are covered in [Using rummage](usage.md#navigate-and-select).
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
 | Alt+Enter | Properties / folder icon selection | `properties` |
-| F2 | Rename | `rename` |
+| F2 | Rename; Batch Rename with several entries selected | `rename` |
 | Ctrl+Shift+N | New folder | `new_folder` |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste | `copy`, `cut`, `paste` |
 | Ctrl+Alt+C | Copy selected filenames, including extensions | `copy_name` |
 | Delete | Trash; permanent delete when already in Trash | `trash` |
 | Shift+Delete | Delete permanently with confirmation | `erase` |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo | `undo`, `redo` |
-| Shift+Escape | Stop the active copy, move or delete | `stop_transfer` |
+| Shift+Escape | Stop the active transfer, extraction, compression or delete | `stop_transfer` |
 | F4 | Open terminal in folder | `open_terminal` |
 
 Copy Location, Extract Here and Extract To have no default shortcuts. Bind their
@@ -96,9 +96,11 @@ Copy Name copies plain text, with multiple names separated by newlines. Its
 | --- | --- |
 | Quick Look | Space/Escape closes; arrows change file |
 | Text Quick Look | Home/End, Page Up/Down scroll; Ctrl+A selects text; Ctrl+C copies selection; Shift+wheel scrolls horizontally |
+| Markdown Quick Look | M switches between rendered text and source |
 | Palette/search | Arrows/Page Up/Down choose; Enter runs/reveals; Escape closes |
 | File search | Space previews; Shift+Enter opens in application |
 | Rename editor | Enter accepts, Escape cancels, Ctrl+arrows moves words, Ctrl+V pastes, Ctrl+Z / Ctrl+Shift+Z edits undo history |
+| Batch Rename | Tab/Shift+Tab moves between fields and controls; Enter applies valid changes; Escape cancels; Page Up/Down scrolls the preview |
 | Conflict dialog | R replaces a file or merges folders, S skips, Enter keeps both, A applies to rest, Escape stops |
 | Permanent-delete dialog | Enter confirms, Escape cancels |
 | Context menu | Up/Down chooses, Right enters a submenu, Left/Escape backs out, Enter runs |

@@ -2,6 +2,7 @@
 # them in order. Linked into the isolated helper (rummage-preview), never into rummage.
 add_subdirectory(image)  # photos and images
 add_subdirectory(text)   # text files (3b)
+add_subdirectory(archive)  # zip, tar, gzip (0.9.0)
 
 add_library(rummage_formats src/registry.cpp)
 add_library(rummage::formats ALIAS rummage_formats)

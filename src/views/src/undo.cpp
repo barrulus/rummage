@@ -11,6 +11,8 @@ std::string describe(const FileOperation& operation) {
                            ? std::format("“{}”", operation.items.front().to.filename().string())
                            : std::format("{} items", count);
     switch (operation.kind) {
+        case FileOperation::Kind::batch_rename:
+            return std::format("{} renamed", what);
         case FileOperation::Kind::rename:
             if (count == 1) {
                 return std::format("“{}” is “{}” again",
