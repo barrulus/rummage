@@ -81,6 +81,19 @@ public:
     [[nodiscard]] const views::StatusPart* status(const views::Folder& folder) override;
     [[nodiscard]] const views::DetailSection* details(const views::Folder& folder) override;
 
+    void set_host(views::DecorationHost host) override { host_ = std::move(host); }
+
+    // Git's commands for names in folder (stage, commit, ignore...), or for the whole repository
+    // on the folder's background (commit, fetch, pull, push...).
+    [[nodiscard]] std::optional<views::MenuItem> menu(
+        const views::Folder& folder, const std::vector<std::string>& names) override;
+
+    // A command that changes a repository is running (tests).
+    [[nodiscard]] bool acting() const;
+
+    // How long a fetch, pull or push may take before it is stopped.
+    static constexpr std::chrono::milliseconds kNetworkLimit{120000};
+
     // Ignored entries, with Ignored::hide.
     [[nodiscard]] bool hides_any() const override {
         return options_.ignored == Options::Ignored::hide;
@@ -107,6 +120,16 @@ private:
     void finished(Repo& repo, const std::string& output, int wait_status, Operation operation);
     void read_commit(Repo& repo);
     void rebuild(Repo& repo);
+    using Steps = std::vector<std::vector<std::string>>;
+    void act(Repo& repo, std::string name, Steps steps, std::string done,
+             std::function<void()> after = {});
+    struct Acting;
+    void step(Repo& repo, std::shared_ptr<Acting> acting);
+    void ask_commit(Repo& repo, Steps before, std::vector<std::string> paths);
+    void commit_all(Repo& repo);
+    void discard(Repo& repo, const std::vector<std::string>& paths);
+    void ignore(Repo& repo, std::vector<std::string> paths);
+    [[nodiscard]] std::vector<views::DetailSection::Button> buttons(Repo& repo);
     [[nodiscard]] const views::Badge* badge_at(Place& place, const std::string& name);
     [[nodiscard]] const views::Badge* lookup(const Repo& repo, const Place& place,
                                              const std::string& name) const;
@@ -117,6 +140,7 @@ private:
     std::filesystem::path git_;
     std::function<void()> redraw_;
     std::function<void()> refilter_;
+    views::DecorationHost host_;
     Options options_;
     std::chrono::milliseconds time_limit_{kTimeLimit};
     std::unordered_map<std::string, std::unique_ptr<Repo>> repos_;    // by working tree

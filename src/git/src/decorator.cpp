@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <utility>
 
+#include "repo.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/platform/program_output.hpp"
@@ -14,7 +15,6 @@ namespace {
 using views::Badge;
 using Tone = views::Badge::Tone;
 
-constexpr std::string_view kSeparator = "  ·  ";
 // Changes keep coming (a build): status is read at the latest this long after the first.
 constexpr std::chrono::milliseconds kMostDelay{2000};
 // Folders remembered at once; more and the memory starts over.
@@ -45,30 +45,6 @@ std::string_view change_name(char change) {
         default:
             return {};
     }
-}
-
-std::string_view operation_name(Operation operation) {
-    switch (operation) {
-        case Operation::merge:
-            return i18n::tr("Merging");
-        case Operation::rebase:
-            return i18n::tr("Rebasing");
-        case Operation::cherry_pick:
-            return i18n::tr("Cherry-picking");
-        case Operation::revert:
-            return i18n::tr("Reverting");
-        case Operation::bisect:
-            return i18n::tr("Bisecting");
-        case Operation::none:
-            break;
-    }
-    return {};
-}
-
-std::int64_t seconds_now() {
-    return std::chrono::duration_cast<std::chrono::seconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
 }
 
 }  // namespace
@@ -187,44 +163,6 @@ std::string commit_line(const Commit& commit, std::int64_t now) {
     return std::format("{} {}{}{}{}{}", commit.hash, commit.subject, kSeparator, commit.author,
                        kSeparator, time_ago(commit.time, now));
 }
-
-struct Decorator::Repo {
-    Repository repository;
-    std::string key;  // the working tree, as repos_ knows it
-    std::vector<fs::DirectoryWatcher::WatchId> watches;
-    std::unique_ptr<platform::ProgramOutput> query;
-    std::unique_ptr<platform::ProgramOutput> commit_query;
-    core::EventLoop::SourceId settle{0};
-    core::EventLoop::SourceId limit{0};
-    std::chrono::steady_clock::time_point pending_since{};
-    bool again{false};      // something changed while a query ran
-    bool paused{false};     // the last query took too long
-    bool failed{false};     // git would not tell (not a repository after all, unsafe owner...)
-    bool reading{false};    // a query or what follows it is on its way
-    std::string paused_in;  // the folder shown when it did
-    std::optional<Status> status;
-    Operation operation{Operation::none};
-    std::optional<Commit> commit;
-    // Badges by path in the working tree; folders' summaries apart from git's own entries.
-    std::unordered_map<std::string, Badge> files;
-    std::unordered_map<std::string, Badge> folders;
-    std::unordered_map<std::string, std::size_t> index;  // path -> status->files
-    std::vector<std::string> ignored_folders;            // "build/"
-    std::size_t ignored_signature{0};                    // of every ignored path, to see changes
-    std::uint64_t generation{0};                         // rebuilt
-    std::uint64_t asked{0};
-};
-
-struct Decorator::Place {
-    std::string folder;
-    Repo* repo{nullptr};  // nullptr: in none, or not known yet
-    std::string prefix;   // the folder in the working tree: "" at its top, else "src/deep/"
-    std::uint64_t revision{0};
-    bool known{false};
-    bool detecting{false};
-    std::uint64_t ignored_generation{~std::uint64_t{0}};
-    bool ignored{false};  // inside an ignored folder, as of ignored_generation
-};
 
 Decorator::Decorator(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                      std::filesystem::path git, std::function<void()> redraw, Options options)
@@ -712,7 +650,7 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
     if (place == nullptr || place->repo == nullptr) {
         return nullptr;
     }
-    const Repo& repo = *place->repo;
+    Repo& repo = *place->repo;
     if (repo.failed || !repo.status) {
         return nullptr;
     }
@@ -759,8 +697,12 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
         add(i18n::tr("Author"), repo.commit->author);
         add(i18n::tr("Committed"), time_ago(repo.commit->time, now));
     }
+    if (!repo.action_name.empty()) {
+        add(i18n::tr("Running"), repo.action_name + "…");
+    }
     section_.title = std::string{i18n::tr("GIT")};
     section_.rows = std::move(rows);
+    section_.buttons = buttons(*place->repo);
     return &section_;
 }
 

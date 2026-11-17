@@ -682,3 +682,210 @@ TEST_CASE("git settings: the dialog lists them and saves a new [git] table") {
     CHECK_FALSE(saved.git.folder_status);
     CHECK(saved.icon.theme == "system");
 }
+
+namespace {
+
+// git run by the decorator commits as a fixed person, without the user's configuration.
+struct GitIdentity {
+    static constexpr std::array<std::pair<const char*, const char*>, 6> kVariables{{
+        {"GIT_CONFIG_NOSYSTEM", "1"},
+        {"GIT_CONFIG_GLOBAL", "/dev/null"},
+        {"GIT_AUTHOR_NAME", "Ada"},
+        {"GIT_AUTHOR_EMAIL", "ada@example.org"},
+        {"GIT_COMMITTER_NAME", "Ada"},
+        {"GIT_COMMITTER_EMAIL", "ada@example.org"},
+    }};
+
+    GitIdentity() {
+        for (const auto& [name, value] : kVariables) {
+            setenv(name, value, 1);
+        }
+    }
+
+    ~GitIdentity() {
+        for (const auto& [name, value] : kVariables) {
+            unsetenv(name);
+        }
+    }
+
+    GitIdentity(const GitIdentity&) = delete;
+    GitIdentity& operator=(const GitIdentity&) = delete;
+    GitIdentity(GitIdentity&&) = delete;
+    GitIdentity& operator=(GitIdentity&&) = delete;
+};
+
+// The browser's side, answered by the test.
+struct TestHost {
+    std::vector<std::pair<std::string, bool>> messages;
+    std::string message_to_type = "A message";
+    std::string refused;  // what accept said about the typed text
+    bool confirm_answer = true;
+    std::vector<std::filesystem::path> trashed;
+
+    rummage::views::DecorationHost host() {
+        return {.message = [this](std::string text,
+                                  bool error) { messages.emplace_back(std::move(text), error); },
+                .ask_text =
+                    [this](std::string /*title*/, std::string /*detail*/, std::string /*initial*/,
+                           std::function<std::string(const std::string&)> accept) {
+                        refused = accept(message_to_type);
+                    },
+                .confirm = [this](std::string /*title*/, std::string /*detail*/,
+                                  std::string /*action*/, std::string /*warning*/,
+                                  std::function<void(bool)> answer) { answer(confirm_answer); },
+                .trash =
+                    [this](std::vector<std::filesystem::path> paths) {
+                        for (const auto& path : paths) {
+                            std::filesystem::remove_all(path);
+                            trashed.push_back(path);
+                        }
+                    }};
+    }
+};
+
+// Runs the git menu's item id for names (empty: the background menu); false when not there or
+// not enabled.
+bool choose(Shown& shown, const std::vector<std::string>& names, std::string_view id) {
+    const auto menu = shown.decorator.menu(*shown.folder, names);
+    REQUIRE(menu.has_value());
+    for (const auto& item : menu->children) {
+        if (item.id == id) {
+            if (!item.enabled) {
+                return false;
+            }
+            item.action();
+            return true;
+        }
+    }
+    FAIL("no menu item " << id);
+    return false;
+}
+
+bool enabled(Shown& shown, const std::vector<std::string>& names, std::string_view id) {
+    const auto menu = shown.decorator.menu(*shown.folder, names);
+    REQUIRE(menu.has_value());
+    for (const auto& item : menu->children) {
+        if (item.id == id) {
+            return item.enabled;
+        }
+    }
+    return false;
+}
+
+std::string read_file(const std::filesystem::path& file) {
+    std::ifstream in{file};
+    return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
+}  // namespace
+
+TEST_CASE("git actions: stage, unstage, commit, ignore and discard from the menu") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "a.txt", "two\n");
+    write(repo / "b.txt", "b\n");
+    write(repo / "d" / "x.txt", "x\n");
+    Shown shown{repo};
+    TestHost host;
+    shown.decorator.set_host(host.host());
+    REQUIRE(shown.wait_for([&] { return shown.badge("a.txt") != nullptr; }));
+    const auto idle_and = [&](const std::function<bool()>& done) {
+        return shown.wait_for([&] { return !shown.decorator.acting() && done(); });
+    };
+
+    CHECK_FALSE(enabled(shown, {"a.txt"}, "git_unstage"));
+    REQUIRE(choose(shown, {"a.txt"}, "git_stage"));
+    // One command at a time: a second waits for nothing and says why.
+    CHECK_FALSE(choose(shown, {"b.txt"}, "git_stage"));
+    REQUIRE(
+        idle_and([&] { return shown.badge("a.txt") != nullptr && shown.badge("a.txt")->strong; }));
+    REQUIRE(choose(shown, {"a.txt"}, "git_unstage"));
+    REQUIRE(
+        idle_and([&] { return shown.badge("a.txt") != nullptr && !shown.badge("a.txt")->strong; }));
+
+    SUBCASE("commit the selection, an untracked file included") {
+        host.message_to_type = "  ";
+        REQUIRE(choose(shown, {"b.txt"}, "git_commit"));
+        CHECK(host.refused == "Enter a commit message");
+        host.message_to_type = "Add b";
+        REQUIRE(choose(shown, {"b.txt"}, "git_commit"));
+        CHECK(host.refused.empty());
+        REQUIRE(idle_and([&] { return shown.badge("b.txt") == nullptr; }));
+        CHECK(shown.badge("a.txt") != nullptr);  // not part of it
+        CHECK(run_git(repo, {"log", "-1", "--format=%s"}) == "Add b\n");
+        CHECK(host.messages.back() == std::pair<std::string, bool>{"Committed", false});
+    }
+    SUBCASE("ignore a folder, once") {
+        REQUIRE(choose(shown, {"d"}, "git_ignore"));
+        REQUIRE(idle_and([&] { return shown.badge("d") != nullptr && shown.badge("d")->faded; }));
+        CHECK(read_file(repo / ".gitignore") == "/d/\n");
+        CHECK_FALSE(enabled(shown, {"d"}, "git_ignore"));
+    }
+    SUBCASE("discard: tracked back to the commit, new files to the trash") {
+        REQUIRE(choose(shown, {"a.txt", "b.txt"}, "git_discard"));
+        REQUIRE(
+            idle_and([&] { return shown.badge("a.txt") == nullptr && host.trashed.size() == 1; }));
+        CHECK(read_file(repo / "a.txt") == "one\n");
+        CHECK(host.trashed.front() == repo / "b.txt");
+        CHECK_FALSE(enabled(shown, {"a.txt"}, "git_stage"));
+    }
+    SUBCASE("discard asks first") {
+        host.confirm_answer = false;
+        REQUIRE(choose(shown, {"a.txt"}, "git_discard"));
+        run_for(shown.loop, 200ms);
+        CHECK(read_file(repo / "a.txt") == "two\n");
+    }
+    SUBCASE("commit everything when nothing is staged, after asking") {
+        host.message_to_type = "Everything";
+        REQUIRE(choose(shown, {}, "git_commit"));
+        REQUIRE(idle_and([&] { return shown.text().starts_with("main ✓"); }));
+        CHECK(run_git(repo, {"log", "-1", "--format=%s"}) == "Everything\n");
+    }
+}
+
+TEST_CASE("git actions: fetch, pull and push with a local remote") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path remote = dir.path / "remote.git";
+    std::filesystem::create_directories(remote);
+    run_git(remote, {"init", "-q", "--bare"});
+    const std::filesystem::path repo = make_repository(dir);
+    run_git(repo, {"remote", "add", "origin", remote.string()});
+    Shown shown{repo};
+    TestHost host;
+    shown.decorator.set_host(host.host());
+    REQUIRE(shown.wait_for([&] { return shown.text().starts_with("main"); }));
+    const auto idle_and = [&](const std::function<bool()>& done) {
+        return shown.wait_for([&] { return !shown.decorator.acting() && done(); });
+    };
+    CHECK_FALSE(enabled(shown, {}, "git_pull"));  // no upstream yet
+
+    // The first push sets the upstream.
+    REQUIRE(choose(shown, {}, "git_push"));
+    REQUIRE(idle_and([&] {
+        return shown.decorator.details(*shown.folder) != nullptr &&
+               !shown.decorator.details(*shown.folder)->rows.empty() &&
+               shown.decorator.details(*shown.folder)->rows[1].value == "origin/main  ↑0 ↓0";
+    }));
+    CHECK(host.messages.back() == std::pair<std::string, bool>{"Pushed", false});
+
+    // Someone else pushes; fetch shows it behind, pull brings it.
+    run_git(dir.path, {"clone", "-q", remote.string(), "other"});
+    write(dir.path / "other" / "theirs.txt", "t\n");
+    run_git(dir.path / "other", {"add", "theirs.txt"});
+    run_git(dir.path / "other", {"commit", "-q", "-m", "Theirs"});
+    run_git(dir.path / "other", {"push", "-q"});
+    REQUIRE(choose(shown, {}, "git_fetch"));
+    REQUIRE(idle_and([&] { return shown.text().starts_with("main ↓1"); }));
+    REQUIRE(choose(shown, {}, "git_pull"));
+    REQUIRE(idle_and([&] {
+        return std::filesystem::exists(repo / "theirs.txt") && shown.text().starts_with("main ✓");
+    }));
+
+    // A remote that is not there: git's own words, no hang.
+    run_git(repo, {"remote", "set-url", "origin", (dir.path / "gone.git").string()});
+    REQUIRE(choose(shown, {}, "git_fetch"));
+    REQUIRE(idle_and([&] { return !host.messages.empty() && host.messages.back().second; }));
+    CHECK(host.messages.back().first.starts_with("Fetch failed: "));
+}

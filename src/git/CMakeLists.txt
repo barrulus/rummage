@@ -2,6 +2,7 @@
 # state from the git program (`git status --porcelain=v2`), so rummage links no git library.
 # Without git in the PATH it stays out of sight.
 add_library(rummage_git
+    src/actions.cpp
     src/decorator.cpp
     src/repository.cpp
     src/status.cpp)
