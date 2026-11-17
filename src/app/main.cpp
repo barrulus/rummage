@@ -648,11 +648,18 @@ int main(int argc, char** argv) {
         startup.mark("fonts");
         theme::Theme theme{theme::default_colors_path()};
         theme.watch(loop);
-        theme.set_dark_override(
-            config.appearance.color_scheme == "system"
-                ? std::nullopt
-                : std::optional<bool>{config.appearance.color_scheme == "dark"});
-        // Without colors.toml, the desktop's light/dark and accent (ROADMAP 7.4).
+        const auto apply_theme = [&](const core::Config::Appearance& appearance) {
+            using Source = theme::Theme::Source;
+            theme.set_source(appearance.palette_source == "desktop"   ? Source::desktop
+                             : appearance.palette_source == "file"    ? Source::file
+                             : appearance.palette_source == "builtin" ? Source::builtin
+                                                                      : Source::automatic);
+            theme.set_dark_override(appearance.color_scheme == "system"
+                                        ? std::nullopt
+                                        : std::optional<bool>{appearance.color_scheme == "dark"});
+        };
+        apply_theme(config.appearance);
+        // Keep desktop preferences current even when another palette source is selected.
         std::unique_ptr<platform::DesktopPortal> portal;
         std::function<void(bool)> motion_preference;
         const auto follow_desktop = [&] {
@@ -785,10 +792,7 @@ int main(int argc, char** argv) {
                 log::warn("config: keeping previous actions, keybindings and menus");
             }
             window.request_redraw();
-            theme.set_dark_override(
-                fresh.appearance.color_scheme == "system"
-                    ? std::nullopt
-                    : std::optional<bool>{fresh.appearance.color_scheme == "dark"});
+            apply_theme(fresh.appearance);
             icons.set_theme(fresh.icon.theme);
             icons.set_place_icons(fresh.icon.places);
             window.set_background_opacity(fresh.appearance.background_opacity);
@@ -902,6 +906,7 @@ int main(int argc, char** argv) {
                     std::string app_id) {
                     opener->open(directory, std::move(files), std::move(app_id));
                 });
+            columns->settings_dialog().set_theme_status_handler([&] { return theme.status(); });
             columns->set_settings_handler(
                 config_path,
                 [&] {

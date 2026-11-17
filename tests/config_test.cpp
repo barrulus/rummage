@@ -129,6 +129,8 @@ void check_defaults(const Config& config) {
     const Config defaults;
     CHECK(config.status_bar.text_size == defaults.status_bar.text_size);
     CHECK(config.appearance.background_opacity == defaults.appearance.background_opacity);
+    CHECK(config.appearance.palette_source == defaults.appearance.palette_source);
+    CHECK(config.appearance.color_scheme == defaults.appearance.color_scheme);
     CHECK(config.font.family == defaults.font.family);
     CHECK(config.font.monospace == defaults.font.monospace);
     CHECK(config.pointer.double_click_ms == defaults.pointer.double_click_ms);
@@ -523,4 +525,23 @@ TEST_CASE("open: programs may be turned off; anything but a boolean is reported"
     CHECK(wrong.config.open.programs);
     const auto unknown = parse("[open]\nscripts = true\n");
     CHECK(unknown.problems.size() == 1);
+}
+
+TEST_CASE("palette source: defaults preserve automatic precedence and values are validated") {
+    CHECK(parse_config("", "test").config.appearance.palette_source == "auto");
+    for (const auto value : {"auto", "desktop", "file", "builtin"}) {
+        const auto result = parse_config(
+            std::string{"[appearance]\npalette_source = '"} + value + "'\ncolor_scheme = 'light'\n",
+            "test");
+        REQUIRE(result.problems.empty());
+        CHECK(result.config.appearance.palette_source == value);
+        CHECK(result.config.appearance.color_scheme == "light");
+    }
+    for (const auto value : {"'system'", "'noctalia'", "''", "42", "false", "[]", "{}"}) {
+        const auto result =
+            parse_config(std::string{"[appearance]\npalette_source = "} + value + "\n", "test");
+        REQUIRE(result.problems.size() == 1);
+        CHECK(result.problems.front().find("appearance.palette_source") != std::string::npos);
+        CHECK(result.config.appearance.palette_source == "auto");
+    }
 }

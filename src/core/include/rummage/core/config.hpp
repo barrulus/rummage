@@ -58,7 +58,8 @@ struct Config {
 
     struct Appearance {
         float background_opacity{1.0F};         // background only; foreground content stays solid
-        std::string color_scheme{"system"};     // system (desktop / colors.toml), light, dark
+        std::string palette_source{"auto"};     // auto, desktop, file, builtin
+        std::string color_scheme{"system"};     // system (selected source's mode), light, dark
         std::string preview_position{"right"};  // right or sidebar
     };
 

@@ -5,10 +5,11 @@
 ## Quick settings
 
 Open the toolbar cog or press **Ctrl+,** for **Settings → Appearance**. Choose
-Desktop/Noctalia, light, or dark colours; an icon theme; opacity; fonts; and preview
-placement. Light/dark overrides retain the source accent without changing
-`colors.toml`. Selecting Desktop/Noctalia resumes its current palette. Font changes
-apply at the next start; the other appearance changes apply when saved.
+a palette source (Automatic, Desktop, Palette file or Built-in) and a separate
+colour mode (Follow source, light or dark); an icon theme; opacity; fonts; and
+preview placement. The active-palette line reports the applied source, including
+fallback and any light/dark override. Unsaved choices do not change that status.
+Font changes apply at the next start; other appearance changes apply when saved.
 
 The same panel controls motion effects, speed, quality and reduced motion. See
 [motion effects](motion.md) for per-event mappings, durations and resource limits.
@@ -20,7 +21,8 @@ file. Rendering and semantic roles remain owned by rummage; generators only writ
 data and are never launched by the application. No Qt, GTK or GLib integration is
 needed for this interface. Fonts and transparency belong in `config.toml`.
 
-With `appearance.color_scheme = "system"`, sources have this precedence:
+With the defaults `appearance.palette_source = "auto"` and
+`appearance.color_scheme = "system"`, sources have this precedence:
 
 1. A valid `$XDG_CONFIG_HOME/rummage/colors.toml` (normally
    `~/.config/rummage/colors.toml`).
@@ -29,13 +31,45 @@ With `appearance.color_scheme = "system"`, sources have this precedence:
 
 The portal supplies preferences, not a standardized full application palette;
 availability depends on the installed desktop portal backend. Desktop changes
-apply live while no palette file is active. Remove `colors.toml` to resume the
-current desktop preferences, or the built-in fallback. `--config` changes only the
-settings file, not the palette path.
+apply live when Desktop is active. Select Desktop to follow those preferences
+without removing a generated file. `--config` changes only the settings file,
+not the palette path.
 
-Choosing light or dark in Settings generates a palette from the source accent.
-It does not select a corresponding variant of an imported palette. Select
-Desktop/Noctalia (`"system"`) to use the generated file's exact colours and mode.
+### Choosing a source
+
+| Palette source | Config value | Behavior |
+| --- | --- | --- |
+| Automatic | `"auto"` | File, then desktop, then built-in; preserves existing precedence |
+| Desktop | `"desktop"` | Desktop light/dark/accent preferences; ignores the palette file |
+| Palette file | `"file"` | `colors.toml`; ignores desktop colours |
+| Built-in | `"builtin"` | Built-in dark palette; ignores both external colour sources |
+
+An unavailable explicit source falls back to Built-in, and Appearance explains
+which source is unavailable. The saved preference stays selected, so a palette
+file that appears later or desktop preferences that become available take effect
+automatically. An invalid file update retains its last usable palette; it only
+counts as unavailable if no valid file has been loaded or the file was removed.
+
+For example, keep Matugen's output on disk while following the desktop:
+
+```toml
+[appearance]
+palette_source = "desktop"
+color_scheme = "system"
+```
+
+Switching sources never modifies or deletes `colors.toml`. The file and desktop
+preferences keep updating in the background, so switching back uses their latest
+usable values. The application accent icon also follows the selected source;
+Built-in restores the installed icon when accent following is enabled. The source
+choice affects colours only: desktop reduced-motion preferences and icon-theme
+selection continue independently.
+
+Choosing light or dark in Settings generates a palette from the active source's
+accent (or the default blue when it supplies none). It does not select a
+corresponding variant of an imported palette. Select Follow source
+(`color_scheme = "system"`) to use the chosen source's exact colours and mode.
+Source selection and colour mode are independent and both reload live.
 
 ### Palette file interface
 
@@ -91,8 +125,9 @@ after writes close or a replacement is renamed into place. No restart, signal or
 reload command is needed. Generators should write a temporary file in the same
 directory and rename it over `colors.toml` to avoid exposing a valid but incomplete
 partial palette. Invalid updates leave the current palette visible. Deleting the
-file restores the desktop or built-in fallback; creating it again resumes file
-colours. Keep the containing directory in place while rummage is running.
+file in Automatic restores the desktop or built-in fallback; in Palette file
+it restores Built-in. Creating it again resumes file colours for those two
+choices. Desktop and Built-in ignore file changes until you switch sources. Keep the containing directory in place while rummage is running.
 
 ## Matugen colours
 
@@ -130,10 +165,10 @@ matugen image ~/Pictures/wallpaper.jpg --mode dark
 The template maps Material roles directly, with `hover` from `primary` and
 `on_hover` from `on_primary`. Matugen's selected mode supplies all 33 roles, so
 none rely on rummage's missing-role defaults. Keep rummage's colour scheme on
-Desktop/Noctalia (`"system"`) to follow these generated palettes. No Matugen
-`post_hook` is needed for rummage. Other configured Matugen templates or hooks
-still run normally. Choose one generator to own the file; if Noctalia and Matugen
-both write it, the last valid update wins. See Matugen's
+Follow source (`color_scheme = "system"`) and select Automatic or Palette file to
+follow these generated palettes. No Matugen `post_hook` is needed for rummage.
+Other configured Matugen templates or hooks still run normally. Choose one generator to own the file; if Noctalia and Matugen
+both write it, the last valid update wins when file colours are selected. See Matugen's
 [configuration example](https://github.com/InioX/matugen/blob/main/example/config.toml)
 for generator options.
 
@@ -160,7 +195,8 @@ output_path = "~/.config/rummage/colors.toml"
 ```
 
 Select a theme in Noctalia, even the current one, to generate the file. Later theme
-changes update rummage live. `--config` changes the settings file only; it does not
+changes update rummage live when Automatic or Palette file is selected with
+Follow source colour mode. `--config` changes the settings file only; it does not
 change the palette path.
 
 ## Fonts

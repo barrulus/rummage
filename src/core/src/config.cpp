@@ -452,6 +452,16 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                   [&](const toml::node& value, const std::string& path) {
                       reader.read_opacity(value, path, config.appearance.background_opacity);
                   }},
+                 {"palette_source",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto selection = value.value<std::string>();
+                      if (selection && (*selection == "auto" || *selection == "desktop" ||
+                                        *selection == "file" || *selection == "builtin"))
+                          config.appearance.palette_source = *selection;
+                      else
+                          reader.report(value.source(),
+                                        path + " must be auto, desktop, file, or builtin");
+                  }},
                  {"color_scheme",
                   [&](const toml::node& value, const std::string& path) {
                       const auto scheme = value.value<std::string>();

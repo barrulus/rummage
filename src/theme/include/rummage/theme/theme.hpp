@@ -12,24 +12,34 @@
 
 namespace rummage::theme {
 
-// The current palette: loaded from colors.toml, reloaded when a producer writes or replaces it.
-// A missing file means the default palette; a file that fails syntax or value validation
-// keeps the palette in use, so a half-written or hand-broken file never flashes the default
-// colors. Problems are logged. Without the file, the desktop's look (set_desktop) when known,
-// otherwise the default palette.
+// Palette sources stay current independently of the selected source. Invalid file updates
+// retain the last usable file palette; removing the file makes that source unavailable.
 class Theme {
 public:
     using ChangeHandler = std::function<void()>;
+    enum class Source { automatic, desktop, file, builtin };
+
+    struct Status {
+        Source requested;
+        Source active;  // never automatic; the source before any light/dark override
+        std::optional<bool> dark_override;
+    };
 
     explicit Theme(std::filesystem::path path);
 
     // Starts following the file. The theme must not outlive the loop.
     void watch(core::EventLoop& loop);
 
-    // What the desktop says about its look; nullopt when it says nothing (no portal). Used while
-    // there is no colors.toml.
+    // What the desktop says about its look; nullopt when it says nothing (no portal).
     void set_desktop(std::optional<Desktop> desktop);
-    // A Settings preference. nullopt restores the live desktop / colors.toml palette.
+    // Automatic prefers file, then desktop, then built-in. Explicit sources fall back to
+    // built-in when unavailable, without changing the preference or touching colors.toml.
+    void set_source(Source source);
+    [[nodiscard]] Source active_source() const;
+
+    [[nodiscard]] Status status() const { return {source_, active_source(), dark_override_}; }
+
+    // A Settings preference. nullopt restores the selected source's exact palette.
     void set_dark_override(std::optional<bool> dark);
 
     // Called after the palette changed through a reload or the desktop.
@@ -39,20 +49,18 @@ public:
         return dark_override_ ? override_palette_ : palette_;
     }
 
-    // The accent the palette follows: colors.toml's primary, else the desktop's own accent;
-    // nullopt with the default palette or a desktop that gives none (ROADMAP 9.2).
+    // The active source's accent: file primary, desktop accent, or nullopt for built-in.
     [[nodiscard]] std::optional<Color> accent() const;
 
     // Reads the file again; public so the reload rules can be tested without inotify.
     void reload();
 
 private:
-    // The palette when colors.toml is missing.
-    [[nodiscard]] Palette fallback() const;
     void changed();
 
     std::filesystem::path path_;
-    bool from_file_{false};
+    Source source_{Source::automatic};
+    std::optional<Palette> file_palette_;
     std::optional<Desktop> desktop_;
     Palette palette_;
     Palette override_palette_;
