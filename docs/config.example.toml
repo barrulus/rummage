@@ -12,7 +12,8 @@
 # Transparency is disabled by default (1.0). Keep compositor window opacity at 1.0.
 # Compositor blur can still be enabled.
 background_opacity = 1.0
-# "system" follows colors.toml / the desktop; "light" and "dark" override the palette.
+# "system" follows colors.toml (any producer, e.g. Noctalia/Matugen) / the desktop.
+# "light" and "dark" generate a palette from the source accent; they do not select file variants.
 color_scheme = "system"
 # "right" keeps the current preview location; "sidebar" puts it below Places.
 # With the sidebar hidden or the window too short, preview falls back to the right.

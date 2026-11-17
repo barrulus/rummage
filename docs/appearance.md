@@ -15,12 +15,127 @@ The same panel controls motion effects, speed, quality and reduced motion. See
 
 ## Colours
 
-rummage uses `$XDG_CONFIG_HOME/rummage/colors.toml` (normally
-`~/.config/rummage/colors.toml`) when present.
-Otherwise it follows light/dark style and accent through the desktop settings
-portal. Without either source it uses its built-in palette. Palette changes reload
-live. The [Noctalia template](../data/noctalia/rummage) shows the palette keys;
-font choices and transparency belong in `config.toml`.
+rummage accepts a palette from any producer: Noctalia, Matugen or a hand-written
+file. Rendering and semantic roles remain owned by rummage; generators only write
+data and are never launched by the application. No Qt, GTK or GLib integration is
+needed for this interface. Fonts and transparency belong in `config.toml`.
+
+With `appearance.color_scheme = "system"`, sources have this precedence:
+
+1. A valid `$XDG_CONFIG_HOME/rummage/colors.toml` (normally
+   `~/.config/rummage/colors.toml`).
+2. Desktop light/dark and accent preferences from the Settings portal.
+3. The built-in dark palette when neither source is available.
+
+The portal supplies preferences, not a standardized full application palette;
+availability depends on the installed desktop portal backend. Desktop changes
+apply live while no palette file is active. Remove `colors.toml` to resume the
+current desktop preferences, or the built-in fallback. `--config` changes only the
+settings file, not the palette path.
+
+Choosing light or dark in Settings generates a palette from the source accent.
+It does not select a corresponding variant of an imported palette. Select
+Desktop/Noctalia (`"system"`) to use the generated file's exact colours and mode.
+
+### Palette file interface
+
+A minimal light palette is:
+
+```toml
+mode = "light"
+
+[colors]
+primary = "#6750a4"
+```
+
+`mode` accepts `"light"` or `"dark"`; omission means `"dark"` for compatibility.
+The `[colors]` section is required but may be empty. Missing roles use a complete
+baseline generated from that mode and the supplied `primary` accent (or the
+built-in blue accent `#3584e4`). Supplied roles then override the baseline exactly.
+The file's baseline does not depend on desktop preferences. A complete Noctalia
+palette therefore retains all its colours, while a partial light file gets light
+surfaces and dark text rather than missing roles from the built-in dark palette.
+
+Every supported colour is a quoted `"#RRGGBB"` or `"#RRGGBBAA"` hexadecimal value;
+letter case is immaterial and omitted alpha means opaque. Prefer opaque palettes
+and use `appearance.background_opacity` for window transparency. Supplied colours
+are not adjusted for contrast: when overriding backgrounds, provide readable
+foregrounds too, especially `primary`/`on_primary` and `hover`/`on_hover`.
+
+| Roles | Purpose |
+| --- | --- |
+| `primary`, `on_primary` | Accent controls and their foreground |
+| `primary_container`, `on_primary_container` | Selections and their foreground |
+| `secondary`, `on_secondary`, `secondary_container`, `on_secondary_container` | Secondary semantic accents and foregrounds |
+| `tertiary`, `on_tertiary`, `tertiary_container`, `on_tertiary_container` | Additional semantic accents and foregrounds |
+| `error`, `on_error`, `error_container`, `on_error_container` | Errors and destructive actions |
+| `surface`, `on_surface` | Main background and text |
+| `surface_variant`, `on_surface_variant` | Alternate surfaces and subdued text |
+| `surface_dim`, `surface_bright` | Dimmer and brighter surfaces |
+| `surface_container_lowest`, `surface_container_low`, `surface_container`, `surface_container_high`, `surface_container_highest` | Layered pane, control, popup and dialog surfaces |
+| `outline`, `outline_variant` | Borders, separators and subdued details |
+| `shadow`, `scrim` | Shadows and overlay dimming |
+| `hover`, `on_hover` | Highlighted menu rows and their foreground; rummage-specific roles |
+
+Additional keys within `[colors]` are ignored so producers can share a larger
+palette. Unknown top-level keys produce a warning and are ignored. Missing roles
+are valid and do not produce warnings. Invalid TOML, invalid `mode`, a missing or
+non-table `[colors]`, or an invalid value for any supported role rejects the whole
+file and logs its location. At startup this falls back to the desktop or built-in
+palette; during reload it preserves the last usable palette, including its accent.
+
+### Live updates
+
+rummage watches the palette's directory, coalesces changes briefly, and reloads
+after writes close or a replacement is renamed into place. No restart, signal or
+reload command is needed. Generators should write a temporary file in the same
+directory and rename it over `colors.toml` to avoid exposing a valid but incomplete
+partial palette. Invalid updates leave the current palette visible. Deleting the
+file restores the desktop or built-in fallback; creating it again resumes file
+colours. Keep the containing directory in place while rummage is running.
+
+## Matugen colours
+
+Install [Matugen](https://github.com/InioX/matugen) separately, then copy the shipped
+[template](../data/matugen/rummage.toml):
+
+```sh
+mkdir -p ~/.config/matugen/templates ~/.config/rummage
+cp /usr/share/rummage/matugen/rummage.toml ~/.config/matugen/templates/rummage.toml
+```
+
+For a user install use `~/.local/share/rummage/matugen/rummage.toml`; from a checkout
+use `data/matugen/rummage.toml`; for a local Nix build use
+`result/share/rummage/matugen/rummage.toml`. Adjust paths for your install prefix
+and `XDG_CONFIG_HOME`.
+
+Add this entry to Matugen's `~/.config/matugen/config.toml` (create it with an empty
+`[config]` section first if needed):
+
+```toml
+[templates.rummage]
+input_path = "~/.config/matugen/templates/rummage.toml"
+output_path = "~/.config/rummage/colors.toml"
+```
+
+Generate either mode, for example:
+
+```sh
+matugen color hex '#6750a4' --mode light
+matugen color hex '#6750a4' --mode dark
+# Or use a wallpaper as the colour source:
+matugen image ~/Pictures/wallpaper.jpg --mode dark
+```
+
+The template maps Material roles directly, with `hover` from `primary` and
+`on_hover` from `on_primary`. Matugen's selected mode supplies all 33 roles, so
+none rely on rummage's missing-role defaults. Keep rummage's colour scheme on
+Desktop/Noctalia (`"system"`) to follow these generated palettes. No Matugen
+`post_hook` is needed for rummage. Other configured Matugen templates or hooks
+still run normally. Choose one generator to own the file; if Noctalia and Matugen
+both write it, the last valid update wins. See Matugen's
+[configuration example](https://github.com/InioX/matugen/blob/main/example/config.toml)
+for generator options.
 
 ## Noctalia colours
 

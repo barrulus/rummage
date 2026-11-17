@@ -4,9 +4,8 @@
 
 #include "rummage/theme/palette.hpp"
 
-// A palette for desktops without Noctalia (ROADMAP 7.4): built from what the desktop says about
-// its look through the freedesktop portal (light or dark, accent colour), so rummage matches
-// GNOME and Plasma when there is no colors.toml.
+// Generated palettes use light/dark and an accent. The Settings portal supplies these
+// preferences without a palette file; partial palette files use the same builder for defaults.
 namespace rummage::theme {
 
 struct Desktop {

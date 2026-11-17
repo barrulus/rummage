@@ -110,9 +110,13 @@ mind other file managers use the same cache.
 
 ## Colours, icons or text are wrong
 
-An existing `colors.toml` overrides desktop colours. Confirm Noctalia generated
-the file, or move it aside to try the settings portal. Re-selecting a Noctalia
-theme triggers template output. Check [appearance](appearance.md) for paths.
+A valid `colors.toml` overrides desktop colours. Confirm your generator wrote the
+expected file, or move it aside to try the settings portal. Re-select a Noctalia
+theme or run Matugen again to generate a new palette. Invalid updates retain the
+last usable palette; check stderr for the file, line and invalid role. Select
+Desktop/Noctalia in Appearance to follow the file exactly: forced light/dark
+settings generate their own palette from its accent. See the
+[palette interface](appearance.md#palette-file-interface) for paths and validation.
 
 Use `icon.theme = "builtin"` to distinguish theme-loading problems from rendering
 problems. Confirm an explicit theme is installed and that custom icon paths are

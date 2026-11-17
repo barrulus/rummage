@@ -13,6 +13,7 @@ for file in \
     share/applications/rummage.desktop \
     share/icons/hicolor/scalable/apps/rummage.svg \
     share/rummage/noctalia/rummage \
+    share/rummage/matugen/rummage.toml \
     share/xdg-desktop-portal/portals/rummage.portal \
     share/dbus-1/services/org.freedesktop.impl.portal.desktop.rummage.service; do
     test -s "$prefix/$file"

@@ -1,11 +1,14 @@
 #include "rummage/theme/palette.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <string>
 #include <string_view>
 
 #include <doctest/doctest.h>
 
+#include "rummage/core/event_loop.hpp"
+#include "rummage/core/file.hpp"
 #include "rummage/theme/theme.hpp"
 #include "temp_dir.hpp"
 
@@ -93,13 +96,39 @@ TEST_CASE("alpha and upper case hex") {
 
 TEST_CASE("light mode") { CHECK_FALSE(parse("mode = \"light\"\n[colors]\n").palette.dark); }
 
-TEST_CASE("missing roles keep their default and are listed once") {
-    const PaletteResult result = parse("[colors]\nprimary = \"#88c0d0\"\n");
-    CHECK(same(result.palette.primary, Color::rgb(0x88C0D0)));
-    CHECK(same(result.palette.surface, Palette{}.surface));
-    REQUIRE(result.problems.size() == 1);
-    CHECK(contains(result.problems[0], "missing colors, defaults used for: on_primary, "));
-    CHECK(contains(result.problems[0], "on_hover"));
+TEST_CASE("partial palettes use the declared mode and accent for missing roles") {
+    for (const bool dark : {false, true}) {
+        const std::string text = std::string{"mode = \""} + (dark ? "dark" : "light") +
+                                 "\"\n[colors]\nprimary = \"#6750a4\"\n";
+        const PaletteResult result = parse(text);
+        REQUIRE(result.from_file);
+        CHECK(result.problems.empty());
+        CHECK(result.palette.dark == dark);
+        CHECK(same(result.palette.primary, Color::rgb(0x6750A4)));
+        const auto baseline =
+            rummage::theme::desktop_palette({.dark = dark, .accent = Color::rgb(0x6750A4)});
+        CHECK(same(result.palette.surface, baseline.surface));
+        CHECK(same(result.palette.surface_container_highest, baseline.surface_container_highest));
+        CHECK(same(result.palette.error, baseline.error));
+        CHECK(rummage::theme::contrast(result.palette.surface, result.palette.on_surface) >= 4.5F);
+        CHECK(rummage::theme::contrast(result.palette.primary_container,
+                                       result.palette.on_primary_container) >= 4.5F);
+    }
+}
+
+TEST_CASE("partial palettes have deterministic defaults without a mode or accent") {
+    const auto result = parse("[colors]\n");
+    REQUIRE(result.from_file);
+    CHECK(result.problems.empty());
+    CHECK(result.palette.dark);
+    const auto baseline = rummage::theme::desktop_palette({.dark = true, .accent = std::nullopt});
+    CHECK(same(result.palette.primary, baseline.primary));
+    CHECK(same(result.palette.surface, baseline.surface));
+    const auto light = parse("mode = \"light\"\n[colors]\nsurface = \"#fffefa\"\n");
+    REQUIRE(light.from_file);
+    CHECK_FALSE(light.palette.dark);
+    CHECK(same(light.palette.surface, Color::rgb(0xFFFEFA)));
+    CHECK(rummage::theme::contrast(light.palette.surface, light.palette.on_surface) >= 4.5F);
 }
 
 TEST_CASE("bad values are reported where they are") {
@@ -110,24 +139,23 @@ secondary = "#81a1c"
 tertiary = "#5e81zz"
 error = 12
 )");
-    // The missing roles are reported on the [colors] line, so they come second.
-    REQUIRE(result.problems.size() == 6);
+    CHECK_FALSE(result.from_file);
+    REQUIRE(result.problems.size() == 5);
     CHECK(contains(result.problems[0], "colors.toml:1:8: 'mode' must be"));
-    CHECK(contains(result.problems[1], "colors.toml:2:1: missing colors"));
-    CHECK(contains(result.problems[2], "colors.toml:3:11: 'colors.primary' must be"));
-    CHECK(contains(result.problems[3], "colors.toml:4:13: 'colors.secondary'"));
-    CHECK(contains(result.problems[4], "colors.toml:5:12: 'colors.tertiary'"));
-    CHECK(contains(result.problems[5], "colors.toml:6:9: 'colors.error'"));
+    CHECK(contains(result.problems[1], "colors.toml:3:11: 'colors.primary' must be"));
+    CHECK(contains(result.problems[2], "colors.toml:4:13: 'colors.secondary'"));
+    CHECK(contains(result.problems[3], "colors.toml:5:12: 'colors.tertiary'"));
+    CHECK(contains(result.problems[4], "colors.toml:6:9: 'colors.error'"));
     CHECK(same(result.palette.primary, Palette{}.primary));
     CHECK(result.palette.dark);
 }
 
 TEST_CASE("no [colors] section, unknown top-level key") {
     const PaletteResult result = parse("colour = 1\n");
-    CHECK(result.from_file);
+    CHECK_FALSE(result.from_file);
     REQUIRE(result.problems.size() == 2);
-    CHECK(result.problems[0] == "colors.toml:1:1: unknown key 'colour'; ignored");
-    CHECK(contains(result.problems[1], "no [colors] section"));
+    CHECK(contains(result.problems[0], "no [colors] section"));
+    CHECK(result.problems[1] == "colors.toml:1:1: unknown key 'colour'; ignored");
 }
 
 TEST_CASE("a syntax error is not from_file") {
@@ -183,4 +211,103 @@ TEST_CASE("settings: colour overrides preserve the live source palette") {
     CHECK(theme.palette().dark);
     theme.set_dark_override(std::nullopt);
     CHECK_FALSE(theme.palette().dark);
+}
+
+TEST_CASE("invalid palette updates never replace the last usable palette") {
+    const TempDir dir;
+    const auto file = dir.write("colors.toml", kNord);
+    Theme theme{file};
+    int changes = 0;
+    theme.set_change_handler([&] { ++changes; });
+    for (const auto text :
+         {"", "mode = \"light\"\n", "colors = 12\n", "mode = 12\n[colors]\n",
+          "mode = \"dusk\"\n[colors]\n", "[colors]\nprimary = \"#123456\"\nhover = \"bad\"\n",
+          "[colors]\nprimary = false\n", "[colors]\nprimary = \"#xyzxyz\"\n",
+          "[colors]\nprimary = \"#1234567\"\n", "[colors]\nprimary = \"#123456789\"\n",
+          "[colors]\nprimary = \"#123456\"\nprimary = \"#ffffff\"\n"}) {
+        CAPTURE(text);
+        const auto result = parse(text);
+        CHECK_FALSE(result.from_file);
+        CHECK_FALSE(result.problems.empty());
+        dir.write("colors.toml", text);
+        theme.reload();
+        CHECK(changes == 0);
+        CHECK(same(theme.palette().primary, Color::rgb(0x88C0D0)));
+        CHECK(same(theme.palette().surface, Color::rgb(0x2E3440)));
+    }
+}
+
+TEST_CASE("Matugen light and dark palettes preserve supplied roles and readable pairs") {
+    for (const bool dark : {false, true}) {
+        const auto path = std::filesystem::path{RUMMAGE_TEST_DATA} / "theme" /
+                          (dark ? "matugen-dark.toml" : "matugen-light.toml");
+        const auto result = rummage::theme::load_palette(path);
+        REQUIRE(result.from_file);
+        CHECK(result.problems.empty());
+        const auto& p = result.palette;
+        CHECK(p.dark == dark);
+        CHECK(same(p.primary, Color::rgb(dark ? 0xCFBDFE : 0x65558F)));
+        CHECK(same(p.surface, Color::rgb(dark ? 0x141218 : 0xFDF7FF)));
+        CHECK(same(p.hover, p.primary));
+        CHECK(same(p.on_hover, p.on_primary));
+        CHECK(rummage::theme::contrast(p.on_surface, p.surface) >= 7.0F);
+        CHECK(rummage::theme::contrast(p.on_surface, p.surface_container_highest) >= 4.5F);
+        CHECK(rummage::theme::contrast(p.on_primary_container, p.primary_container) >= 4.5F);
+        CHECK(rummage::theme::contrast(p.on_hover, p.hover) >= 4.5F);
+        CHECK(rummage::theme::contrast(p.on_error, p.error) >= 4.5F);
+    }
+}
+
+TEST_CASE("Theme watches palette writes, replacements, invalid updates and removal") {
+    using namespace std::chrono_literals;
+    const TempDir dir;
+    const auto file = dir.path / "colors.toml";
+    rummage::core::EventLoop loop;
+    Theme theme{file};
+    theme.set_desktop(rummage::theme::Desktop{.dark = false, .accent = Color::rgb(0x3584E4)});
+    const Palette fallback = theme.palette();
+    int changes = 0;
+    theme.set_change_handler([&] { ++changes; });
+    theme.watch(loop);
+    const auto settle = [&] {
+        loop.add_timer(300ms, 0ms, [&] { loop.quit(0); });
+        loop.run();
+    };
+
+    dir.write("colors.toml", kNord);
+    settle();
+    CHECK(changes == 1);
+    CHECK(same(theme.palette().surface, Color::rgb(0x2E3440)));
+
+    const auto fixture = std::filesystem::path{RUMMAGE_TEST_DATA} / "theme";
+    const auto light = rummage::core::read_text_file(fixture / "matugen-light.toml");
+    REQUIRE(light.error.empty());
+    REQUIRE(light.exists);
+    const auto temp = dir.write("colors.tmp", light.text);
+    std::filesystem::rename(temp, file);
+    settle();
+    CHECK(changes == 2);
+    CHECK_FALSE(theme.palette().dark);
+    CHECK(same(theme.palette().primary, Color::rgb(0x65558F)));
+
+    dir.write("colors.toml", "[colors]\nprimary = \"invalid\"\n");
+    settle();
+    CHECK(changes == 2);
+    CHECK_FALSE(theme.palette().dark);
+    CHECK(same(theme.palette().primary, Color::rgb(0x65558F)));
+
+    std::filesystem::remove(file);
+    settle();
+    CHECK(changes == 3);
+    CHECK(same(theme.palette().surface, fallback.surface));
+    CHECK(same(theme.palette().primary, fallback.primary));
+
+    const auto dark = rummage::core::read_text_file(fixture / "matugen-dark.toml");
+    REQUIRE(dark.error.empty());
+    REQUIRE(dark.exists);
+    dir.write("colors.toml", dark.text);
+    settle();
+    CHECK(changes == 4);
+    CHECK(same(theme.palette().primary, Color::rgb(0xCFBDFE)));
+    CHECK(theme.palette().dark);
 }

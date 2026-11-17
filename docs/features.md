@@ -70,7 +70,7 @@ use the same renderer in-process; SVG file previews use the sandboxed helper.
 
 - Wayland input, clipboard, drag/drop, activation and fractional scaling where protocols exist.
 - Server-side decorations or rummage's title bar; cursor-shape or Xcursor fallback.
-- Desktop light/dark/accent settings, Noctalia palette template and live palette changes.
+- Desktop light/dark/accent settings, generic partial/full palettes, Noctalia and Matugen templates, and live palette changes.
 - Desktop SVG/PNG icon themes, custom place icons and an accent application icon.
 - Fonts, pointer settings, background opacity, keybindings, actions and menu layouts in TOML.
 - Remembered two-pane/multi-tab sessions and window/view state, without saving navigation history.
