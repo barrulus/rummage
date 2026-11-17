@@ -923,3 +923,23 @@ TEST_CASE("git decorator: sorting by status, again when it changes") {
     const std::vector<std::string> clean{".git", ".gitignore", "a.txt", "b.txt", "c.txt", "d.log"};
     REQUIRE(shown.wait_for([&] { return names() == clean; }));
 }
+
+TEST_CASE("git decorator: never in a trash, even one inside a repository") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    for (const std::filesystem::path& trash :
+         {repo / "data" / "Trash" / "files", repo / ".Trash-1000" / "files", repo / ".Trash"}) {
+        write(trash / "gone.txt", "g\n");
+        Shown shown{trash};
+        shown.draw();
+        run_for(shown.loop, 300ms);
+        CHECK(shown.draw() == nullptr);
+        CHECK(shown.badge("gone.txt") == nullptr);
+        CHECK(shown.decorator.details(*shown.folder) == nullptr);
+        CHECK_FALSE(shown.decorator.menu(*shown.folder, {"gone.txt"}).has_value());
+        CHECK(shown.decorator.queries() == 0);
+    }
+    // The repository around it still has its status.
+    Shown top{repo};
+    CHECK(top.wait_for([&] { return top.text().starts_with("main"); }));
+}

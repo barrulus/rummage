@@ -42,9 +42,14 @@ changes. The status bar spells out which, for the current file. Columns and the 
 view draw badges at the end of the name, the grid at the top right of the icon. Names of
 changed entries take the badge's colour.
 
-**Sort By › Status** (also in the command palette) puts conflicts first, then changes,
-new and untracked files, unchanged entries and ignored ones; folders by the changes
+The details view has a **Status** column with the badge (shown by default, hidden like
+any other column from its header menu); there the badge is not repeated after the name.
+Clicking its title, **Sort By › Status** or the command palette sorts conflicts first, then
+changes, new and untracked files, unchanged entries and ignored ones; folders by the changes
 inside them. The order follows the status as it changes.
+
+Git status never shows in the trash, in its folders opened by path (`Trash/files`,
+`.Trash-1000`) or inside archives.
 
 ## Information pane
 

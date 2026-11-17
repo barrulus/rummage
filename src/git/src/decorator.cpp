@@ -47,6 +47,21 @@ std::string_view change_name(char change) {
     }
 }
 
+// A trash's own folders (freedesktop: $XDG_DATA_HOME/Trash/files and info, .Trash and
+// .Trash-$UID at a mount's top), even opened by path: git status never shows in them.
+bool in_a_trash(const std::filesystem::path& folder) {
+    std::string_view previous;
+    for (const std::filesystem::path& part : folder) {
+        const std::string_view name{part.native()};
+        if (name == ".Trash" || name.starts_with(".Trash-") ||
+            (previous == "Trash" && (name == "files" || name == "info"))) {
+            return true;
+        }
+        previous = name;
+    }
+    return false;
+}
+
 }  // namespace
 
 std::optional<Badge> badge_of(const FileStatus& file) {
@@ -207,6 +222,9 @@ void Decorator::set_options(const Options& options) {
 }
 
 Decorator::Place* Decorator::place_of(const views::Folder& folder) {
+    if (folder.is_trash() || folder.is_archive() || in_a_trash(folder.path())) {
+        return nullptr;  // not a working tree, whatever path it has
+    }
     const std::uint64_t revision = folder.model().revision();
     if (&folder == last_folder_ && revision == last_revision_ && last_place_ != nullptr) {
         return last_place_;
