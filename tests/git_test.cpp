@@ -507,6 +507,22 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
         shown.draw();
         CHECK(shown.decorator.queries() - before <= 2);
     }
+    SUBCASE("switching the branch is seen through HEAD") {
+        run_git(repo, {"switch", "-q", "-c", "feature"});
+        REQUIRE(shown.wait_for([&] { return shown.text().starts_with("feature"); }));
+    }
+    SUBCASE("changes that keep coming are still read, at the latest 2 s after the first") {
+        const std::size_t before = shown.decorator.queries();
+        for (int i = 0; i < 30; ++i) {  // 3 s, one file every 100 ms
+            write(repo / ("steady" + std::to_string(i) + ".txt"), "s");
+            run_for(shown.loop, 100ms);
+            shown.draw();
+        }
+        CHECK(shown.decorator.queries() - before >= 1);
+        CHECK(shown.decorator.queries() - before <= 3);
+        REQUIRE(
+            shown.wait_for([&] { return shown.text().find("32 untracked") != std::string::npos; }));
+    }
     SUBCASE("a commit changes the last commit") {
         run_git(repo, {"commit", "-q", "-am", "Second"});
         REQUIRE(shown.wait_for([&] {
