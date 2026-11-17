@@ -9,6 +9,10 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.0 — in development
 
+File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your
+configured terminal, then exit the shell to return its folder to the picker.
+Selection and confirmation remain in the GUI, with the original filters and mode.
+
 Local bookmarks now use the selected system or named icon theme, including custom
 `.directory` artwork and XDG special-folder icons. Missing artwork falls back to
 the theme's folder icon, and the builtin theme retains Tabler bookmark glyphs.

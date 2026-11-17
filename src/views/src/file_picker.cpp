@@ -1,5 +1,4 @@
 #include "rummage/views/file_picker.hpp"
-#include "rummage/core/i18n.hpp"
 
 #include <algorithm>
 #include <fnmatch.h>
@@ -8,6 +7,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "draw_helpers.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -186,7 +186,7 @@ FilePicker::FilePicker(Browser& browser, core::PickerRequest request,
       name_{request_.name},
       menu_{redraw_},
       confirm_{redraw_},
-      controls_(5 + request_.choices.size()) {
+      controls_(6 + request_.choices.size()) {
     browser_.set_panes_enabled(false);
     focus_ = request_.mode == Mode::save ? 1 : 0;
     if (focus_ == 1) {
@@ -216,8 +216,42 @@ FilePicker::FilePicker(Browser& browser, core::PickerRequest request,
 }
 
 FilePicker::~FilePicker() {
+    if (terminal_cancel_)
+        terminal_cancel_();
     browser_.set_open_handler({});
     browser_.set_entry_filter({});
+}
+
+void FilePicker::set_terminal_navigation(std::function<void(const std::filesystem::path&)> launch,
+                                         std::function<void()> cancel) {
+    terminal_launch_ = std::move(launch);
+    terminal_cancel_ = std::move(cancel);
+    redraw_();
+}
+
+void FilePicker::navigate_in_terminal() {
+    if (!done_ || !terminal_launch_)
+        return;
+    const auto folder = browser_.picker_folder();
+    if (!folder || folder->is_archive() || folder->is_trash() || !folder->path().is_absolute()) {
+        error_ = std::string{i18n::tr("Choose a local folder before navigating in a terminal.")};
+        redraw_();
+        return;
+    }
+    terminal_launch_(folder->path());
+}
+
+void FilePicker::return_from_terminal(const std::filesystem::path& directory) {
+    if (!done_)
+        return;
+    // Keep the request, filters, choices and save name; only change the browser location.
+    // A pending overwrite question refers to the previous folder and must be dismissed.
+    confirm_.key({.keysym = XKB_KEY_Escape, .text = {}});
+    menu_.close();
+    browser_.open(directory);
+    sync_selection();
+    focus_ = 0;
+    redraw_();
 }
 
 void FilePicker::set_name(std::string name) {
@@ -257,6 +291,8 @@ void FilePicker::finish(std::vector<std::string> paths) {
     for (const auto& choice : request_.choices) {
         result.choices.push_back(choice.selected);
     }
+    if (terminal_cancel_)
+        terminal_cancel_();
     auto done = std::move(done_);
     done(std::move(result));
 }
@@ -302,7 +338,8 @@ void FilePicker::accept() {
                         finish(paths);
                     }
                 },
-                std::string{i18n::tr("The application will overwrite the selected file when it saves.")});
+                std::string{
+                    i18n::tr("The application will overwrite the selected file when it saves.")});
         } else {
             finish(result.paths);
         }
@@ -311,6 +348,8 @@ void FilePicker::accept() {
 }
 
 void FilePicker::cancel() {
+    if (terminal_cancel_)
+        terminal_cancel_();
     if (done_) {
         auto done = std::move(done_);
         done(core::PickerResult{});
@@ -353,7 +392,8 @@ ui::CursorShape FilePicker::cursor_at(float x, float y) const {
         return ui::CursorShape::text;
     }
     for (std::size_t i = 2; i < controls_.size(); ++i) {
-        if (controls_[i].contains(x, y) && (i < 5 || choices_viewport_.contains(x, y))) {
+        if (controls_[i].contains(x, y) &&
+            (i < 5 || i == controls_.size() - 1 || choices_viewport_.contains(x, y))) {
             return ui::CursorShape::pointer;
         }
     }
@@ -416,7 +456,8 @@ void FilePicker::choice_control(std::size_t index, bool keyboard) {
 
 bool FilePicker::focusable(int control) const {
     return !(control == 1 && request_.mode == Mode::save_files) &&
-           !(control == 2 && request_.filters.empty());
+           !(control == 2 && request_.filters.empty()) &&
+           !(control == static_cast<int>(controls_.size() - 1) && !terminal_launch_);
 }
 
 void FilePicker::activate(int control, bool keyboard) {
@@ -424,6 +465,8 @@ void FilePicker::activate(int control, bool keyboard) {
         filters_menu(keyboard);
     } else if (control == 3) {
         cancel();
+    } else if (control == static_cast<int>(controls_.size() - 1)) {
+        navigate_in_terminal();
     } else if (control >= 5) {
         choice_control(static_cast<std::size_t>(control - 5), keyboard);
     } else {
@@ -463,17 +506,17 @@ bool FilePicker::key(const ui::KeyEvent& event) {
         !event.modifiers.ctrl && !event.modifiers.alt) {
         const int step = event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab ? -1 : 1;
         std::vector<int> order{0, 1, 2};
-        for (std::size_t i = 5; i < controls_.size(); ++i) {
+        for (std::size_t i = 5; i + 1 < controls_.size(); ++i) {
             order.push_back(static_cast<int>(i));
         }
-        order.insert(order.end(), {3, 4});
+        order.insert(order.end(), {static_cast<int>(controls_.size() - 1), 3, 4});
         auto index = static_cast<int>(std::ranges::find(order, focus_) - order.begin());
         do {
             const int count = static_cast<int>(order.size());
             index = (index + step + count) % count;
             focus_ = order[static_cast<std::size_t>(index)];
         } while (!focusable(focus_));
-        reveal_choice_ = focus_ >= 5;
+        reveal_choice_ = focus_ >= 5 && focus_ < static_cast<int>(controls_.size() - 1);
         redraw_();
         return true;
     }
@@ -534,7 +577,8 @@ void FilePicker::pointer(const ui::PointerEvent& event) {
             browser_.pointer({.kind = Kind::leave}, Browser::Clock::now());
             for (std::size_t i = 1; i < controls_.size(); ++i) {
                 if (!controls_[i].contains(event.x, event.y) ||
-                    (i >= 5 && !choices_viewport_.contains(event.x, event.y))) {
+                    (i >= 5 && i + 1 < controls_.size() &&
+                     !choices_viewport_.contains(event.x, event.y))) {
                     continue;
                 }
                 focus_ = static_cast<int>(i);
@@ -594,14 +638,17 @@ void FilePicker::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     const float visible_choices = std::min(choice_height, bounds.height < 480 ? 40.0F : 80.0F);
     choices_scroll_max_ = choice_height - visible_choices;
     choices_scroll_ = std::clamp(choices_scroll_, 0.0F, choices_scroll_max_);
-    if (reveal_choice_ && focus_ >= 5) {
+    if (reveal_choice_ && focus_ >= 5 && focus_ < static_cast<int>(controls_.size() - 1)) {
         const auto& rect = choices.at(static_cast<std::size_t>(focus_ - 5));
         choices_scroll_ = std::clamp(choices_scroll_, rect.bottom() - visible_choices, rect.y);
         choices_scroll_ = std::clamp(choices_scroll_, 0.0F, choices_scroll_max_);
-        reveal_choice_ = false;
     }
-    const float height =
-        78 + (has_name ? 40.0F : 0.0F) + (has_filter ? 40.0F : 0.0F) + visible_choices;
+    reveal_choice_ = false;
+    const std::string terminal_label{i18n::tr("Navigate in terminal…")};
+    const float terminal_width = text_width(renderer, terminal_label, 13) + 20;
+    const bool terminal_row = terminal_launch_ && available < terminal_width + 240;
+    const float height = (terminal_row ? 118 : 78) + (has_name ? 40.0F : 0.0F) +
+                         (has_filter ? 40.0F : 0.0F) + visible_choices;
     ui::Rect content = bounds;
     content.height = std::max(0.0F, content.height - height);
     browser_.draw(renderer, content, palette, icons, Browser::Clock::now());
@@ -666,17 +713,25 @@ void FilePicker::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
             palette.outline);
     }
     y += visible_choices;
+    if (terminal_launch_) {
+        button(controls_.size() - 1, terminal_label,
+               {bounds.x + 12, y, std::min(available, terminal_width), 32}, false);
+        if (terminal_row)
+            y += 40;
+    }
     const float right = bounds.right() - 12;
     const float action_width = std::min(108.0F, (available - 8) / 2);
     button(4,
-           request_.accept_label.empty() ? std::string{request_.mode == Mode::open ? i18n::tr("Select") : i18n::tr("Save")}
-                                         : request_.accept_label,
+           request_.accept_label.empty()
+               ? std::string{request_.mode == Mode::open ? i18n::tr("Select") : i18n::tr("Save")}
+               : request_.accept_label,
            {right - action_width, y, action_width, 32}, true);
-    button(3, std::string{i18n::tr("Cancel")}, {right - 2 * action_width - 8, y, action_width, 32}, false);
-    renderer.draw_text(error_.empty() ? std::string{i18n::tr("Ctrl+Enter selects · Esc cancels")} : error_, bounds.x + 12,
-                       footer_.bottom() - 27, 13,
-                       error_.empty() ? palette.on_surface_variant : palette.error,
-                       bounds.width - 24);
+    button(3, std::string{i18n::tr("Cancel")}, {right - 2 * action_width - 8, y, action_width, 32},
+           false);
+    renderer.draw_text(
+        error_.empty() ? std::string{i18n::tr("Ctrl+Enter selects · Esc cancels")} : error_,
+        bounds.x + 12, footer_.bottom() - 27, 13,
+        error_.empty() ? palette.on_surface_variant : palette.error, bounds.width - 24);
     menu_.draw(renderer, bounds, palette);
     confirm_.draw(renderer, bounds, palette);
 }

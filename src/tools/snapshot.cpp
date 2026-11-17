@@ -565,6 +565,7 @@ int main(int argc, char** argv) {
                                         "utf8"}};
                     picker = std::make_unique<views::FilePicker>(
                         *columns, request, mime, [] {}, [](auto) {});
+                    picker->set_terminal_navigation([](const auto&) {}, [] {});
                 }
                 if (!settings_config.empty()) {
                     columns->open_settings();

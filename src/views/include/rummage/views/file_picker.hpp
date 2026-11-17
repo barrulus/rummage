@@ -51,6 +51,10 @@ public:
     }
 
     void set_filter(std::uint32_t index);
+    void set_terminal_navigation(std::function<void(const std::filesystem::path&)> launch,
+                                 std::function<void()> cancel);
+    void navigate_in_terminal();
+    void return_from_terminal(const std::filesystem::path& directory);
 
 private:
     void sync_selection();
@@ -64,6 +68,8 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_;
     Done done_;
+    std::function<void(const std::filesystem::path&)> terminal_launch_;
+    std::function<void()> terminal_cancel_;
     ui::TextField name_;
     ContextMenu menu_;
     ConfirmDialog confirm_;
@@ -74,7 +80,7 @@ private:
     float choices_scroll_max_{};
     bool reveal_choice_{};
     std::vector<ui::Rect> controls_;
-    int focus_{};  // browser, name, filter, cancel, accept, then application choices
+    int focus_{};  // browser, name, filter, cancel, accept, then application choices, then terminal
     bool browser_pressed_{};
     std::vector<std::string> last_selection_;
 };

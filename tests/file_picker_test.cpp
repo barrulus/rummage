@@ -574,3 +574,117 @@ TEST_CASE("picker: save filename supports double click and drag selection") {
     CHECK(f.result->response == 0);
     CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / expected).string()});
 }
+
+TEST_CASE(
+    "picker: terminal action is keyboard accessible and returning preserves GUI selection rules") {
+    Fixture f;
+    core::PickerRequest request;
+    request.filters = {{"Text", {{0, "*.txt"}}}};
+    request.choices = {{"readonly", "Read only", {}, "true"}};
+    auto picker = f.picker(request);
+    fs::path launched;
+    int cancelled = 0;
+    picker->set_terminal_navigation([&](const auto& directory) { launched = directory; },
+                                    [&] { ++cancelled; });
+    REQUIRE(f.settle());
+    // Browser -> name -> filter -> application choice -> terminal.
+    for (int i = 0; i < 4; ++i)
+        picker->key({.keysym = XKB_KEY_Tab, .text = {}});
+    picker->key({.keysym = XKB_KEY_Return, .text = {}});
+    CHECK(launched == f.temp.path);
+    CHECK_FALSE(f.result);
+    const auto target = f.temp.path / "folder";
+    std::ofstream{target / "returned.txt"} << "text";
+    std::ofstream{target / "hidden.png"} << "png";
+    picker->return_from_terminal(target);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.result);
+    CHECK(f.browser.picker_folder()->path() == target);
+    CHECK(f.browser.picker_folder()->entries().size() == 1);
+    picker->set_name("returned.txt");
+    picker->accept();
+    REQUIRE(f.result);
+    CHECK(f.result->paths == std::vector<std::string>{(target / "returned.txt").string()});
+    CHECK(f.result->filter == 0);
+    CHECK(f.result->choices == std::vector<std::string>{"true"});
+    CHECK(cancelled == 1);
+    picker->return_from_terminal(f.temp.path);  // late callback after acceptance is ignored
+    CHECK(f.browser.picker_folder()->path() == target);
+}
+
+TEST_CASE(
+    "picker: terminal return preserves save name and directory mode and cancellation invalidates "
+    "it") {
+    Fixture f;
+    core::PickerRequest request;
+    SUBCASE("save") {
+        request.mode = Mode::save;
+        request.name = "saved.txt";
+    }
+    SUBCASE("directory") { request.directory = true; }
+    auto picker = f.picker(request);
+    int cancelled = 0;
+    picker->set_terminal_navigation([](const auto&) {}, [&] { ++cancelled; });
+    REQUIRE(f.settle());
+    const auto target = f.temp.path / "folder";
+    picker->return_from_terminal(target);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.result);
+    picker->accept();
+    REQUIRE(f.result);
+    CHECK(f.result->paths ==
+          std::vector<std::string>{(request.directory ? target : target / "saved.txt").string()});
+    CHECK(cancelled == 1);
+}
+
+TEST_CASE("picker: closing or cancelling invalidates terminal navigation") {
+    Fixture f;
+    auto picker = f.picker({});
+    int cancelled = 0;
+    picker->set_terminal_navigation([](const auto&) {}, [&] { ++cancelled; });
+    REQUIRE(f.settle());
+    SUBCASE("cancel") {
+        picker->cancel();
+        CHECK(cancelled == 1);
+        picker->return_from_terminal(f.temp.path / "folder");
+        CHECK(f.browser.picker_folder()->path() == f.temp.path);
+    }
+    SUBCASE("destroy") {
+        picker.reset();
+        CHECK(cancelled == 1);
+    }
+}
+
+TEST_CASE("picker: terminal button remains clickable at wide and narrow window sizes") {
+    namespace ui = rummage::ui;
+    Fixture f;
+    core::PickerRequest request;
+    request.choices = {{"option", "Option", {}, "false"}};
+    auto picker = f.picker(request);
+    int launched = 0;
+    picker->set_terminal_navigation([&](const auto&) { ++launched; }, [] {});
+    REQUIRE(f.settle());
+    ui::Offscreen gl{800, 600};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    for (float width : {800.0F, 360.0F}) {
+        renderer.begin_frame(800, 600, 1, {});
+        picker->draw(renderer, {0, 0, width, 600}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+        // Queue keyboard focus on a choice, then a pointer activation before the next draw.
+        for (int i = 0; i < 2; ++i)
+            picker->key({.keysym = XKB_KEY_Tab, .text = {}});
+        const float y = width == 800 ? 545.0F : 505.0F;
+        CHECK(picker->cursor_at(30, y) == ui::CursorShape::pointer);
+        picker->pointer({.kind = ui::PointerEvent::Kind::press,
+                         .x = 30,
+                         .y = y,
+                         .button = ui::PointerButton::left});
+        renderer.begin_frame(800, 600, 1, {});
+        picker->draw(renderer, {0, 0, width, 600}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    }
+    CHECK(launched == 2);
+    CHECK_FALSE(f.result);
+}

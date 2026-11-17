@@ -33,6 +33,21 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+# Terminal navigation in file pickers
+"Cannot access returned folder “{}”. It may have been removed or its permissions changed." = "Auf den zurückgegebenen Ordner „{}“ kann nicht zugegriffen werden. Er wurde möglicherweise entfernt oder seine Zugriffsrechte wurden geändert."
+"Cannot create a private terminal navigation session." = "Eine private Sitzung zur Terminalnavigation konnte nicht erstellt werden."
+"Cannot find shell “{}”." = "Die Shell „{}“ wurde nicht gefunden."
+"Cannot launch terminal: {}" = "Terminal konnte nicht gestartet werden: {}"
+"Cannot locate Rummage's terminal navigation helper." = "Rummages Hilfsprogramm zur Terminalnavigation wurde nicht gefunden."
+"Cannot prepare the terminal navigation session." = "Die Sitzung zur Terminalnavigation konnte nicht vorbereitet werden."
+"Choose a local folder before navigating in a terminal." = "Wähle einen lokalen Ordner, bevor du im Terminal navigierst."
+"Choose an accessible local folder before navigating in a terminal." = "Wähle einen zugänglichen lokalen Ordner, bevor du im Terminal navigierst."
+"Navigate in terminal supports Bash, Zsh and Fish. Use the picker to navigate with other shells." = "Die Terminalnavigation unterstützt Bash, Zsh und Fish. Verwende bei anderen Shells die Ordnernavigation der Dateiauswahl."
+"Navigate in terminal…" = "Im Terminal navigieren…"
+"Navigate to your folder, then type exit to return here." = "Navigiere zu deinem Ordner und gib dann exit ein, um hierher zurückzukehren."
+"Terminal launch failed or the terminal closed without returning a folder." = "Das Terminal konnte nicht gestartet werden oder wurde geschlossen, ohne einen Ordner zurückzugeben."
+"Terminal navigation ended without a folder. You can keep navigating in the picker." = "Die Terminalnavigation wurde ohne Ordner beendet. Du kannst in der Dateiauswahl weiter navigieren."
+
 # Sizes and counts
 "1 byte" = "1 Byte"
 "{} bytes" = { one = "{} Byte", other = "{} Bytes" }
