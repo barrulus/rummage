@@ -351,12 +351,14 @@ Decorator::Repo& Decorator::follow(const Repository& repository) {
     repo->asked = ++asked_;
     Repo& added = *repo;
     repos_.emplace(key, std::move(repo));
-    // HEAD, the index and an operation's files; packed-refs and FETCH_HEAD; branches.
+    // HEAD, the index and an operation's files; packed-refs and FETCH_HEAD; branches; the
+    // reflog, written whenever HEAD moves (a commit on a branch in a folder, "feature/x").
     std::vector<std::filesystem::path> watched{repository.git_dir};
     if (repository.common_dir != repository.git_dir) {
         watched.push_back(repository.common_dir);
     }
     watched.push_back(repository.common_dir / "refs" / "heads");
+    watched.push_back(repository.git_dir / "logs");
     for (const auto& dir : watched) {
         std::error_code error;
         const auto id = watcher_.watch(

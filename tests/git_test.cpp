@@ -526,6 +526,17 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
         REQUIRE(
             shown.wait_for([&] { return shown.text().find("32 untracked") != std::string::npos; }));
     }
+    SUBCASE("a commit on a branch in a folder is seen through the reflog") {
+        run_git(repo, {"switch", "-q", "-c", "feature/deep"});
+        REQUIRE(shown.wait_for([&] { return shown.text().starts_with("feature/deep"); }));
+        run_git(repo, {"add", "a.txt"});
+        REQUIRE(shown.wait_for([&] { return shown.text().find("1 staged") != std::string::npos; }));
+        run_git(repo, {"commit", "-q", "-m", "Deep"});
+        REQUIRE(shown.wait_for([&] {
+            const rummage::views::StatusPart* const now = shown.draw();
+            return now != nullptr && now->detail.find(" Deep  ·  ") != std::string::npos;
+        }));
+    }
     SUBCASE("a commit changes the last commit") {
         run_git(repo, {"commit", "-q", "-am", "Second"});
         REQUIRE(shown.wait_for([&] {
