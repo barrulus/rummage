@@ -702,7 +702,8 @@ public:
     [[nodiscard]] const CutMarks& cut_marks() const noexcept { return cut_marks_; }
 
     // What an optional part of rummage adds to the views and the status bar (nullptr: nothing).
-    // Not owned; it must outlive the browser or be unset first.
+    // Not owned; it must outlive the browser or be unset first. Call it again when what it hides
+    // changes: the listings are filtered again.
     void set_decorations(Decorations* decorations);
 
     [[nodiscard]] std::size_t transfers_pending() const noexcept { return transfers_.pending(); }

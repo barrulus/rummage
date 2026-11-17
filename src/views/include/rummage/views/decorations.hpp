@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
+#include <utility>
 
 #include "rummage/fs/entry.hpp"
+#include "rummage/fs/sort.hpp"
 #include "rummage/views/folder.hpp"
 
 namespace rummage::views {
@@ -51,6 +54,29 @@ public:
 
     // The status bar's part for folder, the one it shows; nullptr when there is none.
     [[nodiscard]] virtual const StatusPart* status(const Folder& folder) = 0;
+
+    // Whether entries may be left out of listings at all; hides() is asked only then.
+    [[nodiscard]] virtual bool hides_any() const { return false; }
+
+    // Whether entry of folder is left out of its listing. Asked while listings are filtered: the
+    // decorator's owner filters them again when the answers change.
+    [[nodiscard]] virtual bool hides(const std::filesystem::path& /*folder*/,
+                                     const fs::Entry& /*entry*/) {
+        return false;
+    }
 };
+
+// filter, also leaving out what decorations hide in folder.
+[[nodiscard]] inline fs::Listing::Predicate hiding(fs::Listing::Predicate filter,
+                                                   Decorations* decorations,
+                                                   std::filesystem::path folder) {
+    if (decorations == nullptr || !decorations->hides_any()) {
+        return filter;
+    }
+    return [filter = std::move(filter), decorations,
+            folder = std::move(folder)](const fs::Entry& entry) {
+        return (!filter || filter(entry)) && !decorations->hides(folder, entry);
+    };
+}
 
 }  // namespace rummage::views

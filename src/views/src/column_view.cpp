@@ -52,7 +52,8 @@ void ColumnView::set_entry_filter(fs::Listing::Predicate filter) {
     // Filtering can remove the selection and synchronously truncate later columns through
     // on_cursor_changed(). Recheck the size instead of retaining invalidated iterators.
     for (std::size_t i = 0; i < columns_.size(); ++i) {
-        columns_[i].column->folder().set_entry_filter(entry_filter_);
+        Folder& folder = columns_[i].column->folder();
+        folder.set_entry_filter(hiding(entry_filter_, decorations_, folder.path()));
     }
     redraw_();
 }
@@ -92,7 +93,7 @@ void ColumnView::zoom(std::size_t index) {
 }
 
 std::unique_ptr<Column> ColumnView::make_column(std::shared_ptr<Folder> folder) {
-    folder->set_entry_filter(entry_filter_);
+    folder->set_entry_filter(hiding(entry_filter_, decorations_, folder->path()));
     folder->set_order(order_);
     // The folder reports its cursor changes with its own address.
     folder->set_changed_handler([this, self = folder.get()] { on_cursor_changed(self); });

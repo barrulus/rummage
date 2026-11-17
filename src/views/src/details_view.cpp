@@ -60,7 +60,7 @@ DetailsView::DetailsView(core::EventLoop& loop, core::WorkerPool& pool,
 void DetailsView::show(std::shared_ptr<Folder> folder) {
     scrollbar_ = ui::Scrollbar{};
     if (folder) {
-        folder->set_entry_filter(entry_filter_);
+        folder->set_entry_filter(hiding(entry_filter_, decorations_, folder->path()));
     }
     expanded_.clear();
     tree_rows_.clear();
@@ -171,7 +171,7 @@ void DetailsView::toggle_row(std::size_t row) {
         auto child =
             std::make_shared<Folder>(loop_, pool_, watcher_, mime_, path, redraw_, show_hidden_);
         child->set_order(order_);
-        child->set_entry_filter(entry_filter_);
+        child->set_entry_filter(hiding(entry_filter_, decorations_, child->path()));
         expanded_.emplace(path, std::move(child));
     }
     rebuild_rows();
@@ -241,10 +241,10 @@ void DetailsView::band_scroll(const Folder& folder, float pixels) {
 void DetailsView::set_entry_filter(fs::Listing::Predicate filter) {
     entry_filter_ = std::move(filter);
     if (root_) {
-        root_->set_entry_filter(entry_filter_);
+        root_->set_entry_filter(hiding(entry_filter_, decorations_, root_->path()));
     }
     for (auto& [path, child] : expanded_) {
-        child->set_entry_filter(entry_filter_);
+        child->set_entry_filter(hiding(entry_filter_, decorations_, child->path()));
     }
     rebuild_rows();
     redraw_();
@@ -377,7 +377,7 @@ void DetailsView::apply_order() {
     for (auto& [path, child] : expanded_) {
         if (!same_order(child->order(), order_))
             child->set_order(order_);
-        child->set_entry_filter(entry_filter_);
+        child->set_entry_filter(hiding(entry_filter_, decorations_, child->path()));
     }
     rebuild_rows();
 }

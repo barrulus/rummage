@@ -143,7 +143,12 @@ public:
     // The entries cut and not pasted yet, drawn faded (the browser's).
     void set_cut_marks(const CutMarks* cut) { cut_ = cut; }
 
-    void set_decorations(Decorations* decorations) { decorations_ = decorations; }
+    // A decorator's badges, and the entries it hides (filtered again here: call it again when
+    // those change).
+    void set_decorations(Decorations* decorations) {
+        decorations_ = decorations;
+        set_entry_filter(entry_filter_);
+    }
 
     // Where a drag over the window would drop (the browser's).
     void set_drop_mark(const DropMark* drop) { drop_ = drop; }
