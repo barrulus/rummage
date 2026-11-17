@@ -170,9 +170,6 @@ endif()
 add_subdirectory(src/platform)  # default applications (freedesktop), launching processes
 add_subdirectory(src/views)     # column view and grid
 option(RUMMAGE_GIT "Build the optional git integration (status bar and file badges)" OFF)
-if(RUMMAGE_GIT)
-    add_subdirectory(src/git)
-endif()
 
 # Renderer test scene (ROADMAP 1.4), shared by the app and rummage-snapshot.
 add_library(rummage_test_scene STATIC src/app/test_scene.cpp)
@@ -206,12 +203,22 @@ add_executable(rummage-svg-render src/tools/svg_render.cpp)
 target_include_directories(rummage-svg-render PRIVATE tests)
 target_link_libraries(rummage-svg-render PRIVATE rummage::svg rummage::picture rummage::warnings)
 
+if(RUMMAGE_GIT)
+    add_subdirectory(src/git)
+    target_compile_definitions(rummage PRIVATE RUMMAGE_GIT)
+    target_link_libraries(rummage PRIVATE rummage::git)
+endif()
+
 # Development tool: offscreen render of the test scene or a folder list to a PPM file, and the
 # list scrolling benchmark. Not installed.
 add_executable(rummage-snapshot src/tools/snapshot.cpp)
 target_link_libraries(rummage-snapshot
     PRIVATE rummage::core rummage::ui rummage::theme rummage::views rummage::platform
             rummage::isolate rummage_test_scene rummage::warnings)
+if(RUMMAGE_GIT)
+    target_compile_definitions(rummage-snapshot PRIVATE RUMMAGE_GIT)
+    target_link_libraries(rummage-snapshot PRIVATE rummage::git)
+endif()
 
 # Development tool: directory loading benchmark (ROADMAP 3.1). Not installed.
 add_executable(rummage-bench-dir src/tools/bench_dir.cpp)

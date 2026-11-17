@@ -22,8 +22,9 @@ ROOT = Path(__file__).resolve().parent.parent
 LITERAL = r'"(?:[^"\\\n]|\\.)*"'
 ADJACENT = re.compile(rf"(?:{LITERAL}\s*){{2,}}")
 CALL = re.compile(rf"\b(?:i18n::)?(trnc|trn|trcf|trc|trf|tr)\(\s*({LITERAL})(?:\s*,\s*({LITERAL}))?(?:\s*,\s*({LITERAL}))?")
-# Interface code: views, the app, and the platform/fs messages the views show.
-INTERFACE = ["src/views", "src/app", "src/platform/src", "src/fs/src", "src/ui/src"]
+# Interface code: views, the app, the platform/fs messages the views show, and git status.
+INTERFACE = [
+    "src/views", "src/app", "src/platform/src", "src/fs/src", "src/ui/src", "src/git/src"]
 
 
 def unescape(literal):

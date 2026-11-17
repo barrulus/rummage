@@ -73,6 +73,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/isolate/helpers.hpp"
+#include "rummage/platform/desktop_entry.hpp"
 #include "rummage/platform/opener.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/desktop.hpp"
@@ -85,6 +86,9 @@
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/ui/text.hpp"
+#ifdef RUMMAGE_GIT
+#  include "rummage/git/decorator.hpp"
+#endif
 #include "rummage/views/browser.hpp"
 #include "rummage/views/file_picker.hpp"
 #include "rummage/views/title_bar.hpp"
@@ -428,6 +432,9 @@ int main(int argc, char** argv) {
             }
             rummage::fs::DirectoryWatcher watcher{loop};
             std::unique_ptr<rummage::platform::Opener> opener;  // "Open With" lists, no launches
+#ifdef RUMMAGE_GIT
+            std::unique_ptr<rummage::git::Decorator> git_status;  // outlives the browser
+#endif
             std::unique_ptr<views::Browser> columns;
             std::unique_ptr<views::FilePicker> picker;
             const float zoom = font_size / rummage::core::Config::Font::kUsualSize;
@@ -515,6 +522,14 @@ int main(int argc, char** argv) {
                          .icon = "usb",
                          .disk = {.volume = "sdc1", .mounted = true, .ejectable = true}});
                 }
+#ifdef RUMMAGE_GIT
+                if (auto git = rummage::platform::find_program(
+                        "git", rummage::platform::Environment::from_environment().path)) {
+                    git_status = std::make_unique<rummage::git::Decorator>(loop, pool, watcher,
+                                                                           std::move(*git), [] {});
+                    columns->set_decorations(git_status.get());
+                }
+#endif
                 columns->status_bar().set_text_size(status_text_size);
                 columns->set_preview_in_sidebar(preview_sidebar);
                 if (!settings_config.empty())

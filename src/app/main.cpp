@@ -66,6 +66,9 @@
 #include "rummage/ui/text.hpp"
 #include "rummage/ui/window.hpp"
 #include "rummage/views/browser.hpp"
+#ifdef RUMMAGE_GIT
+#  include "rummage/git/decorator.hpp"
+#endif
 #include "rummage/views/file_picker.hpp"
 #include "rummage/views/state.hpp"
 #include "rummage/views/title_bar.hpp"
@@ -749,6 +752,10 @@ int main(int argc, char** argv) {
         startup.mark("icons");
         ui::Activation activation{display, loop};
         ui::Clipboard clipboard{display, loop};  // before the browser that uses it
+#ifdef RUMMAGE_GIT
+        // Git status in the views (optional build); before the browser, which points at it.
+        std::unique_ptr<rummage::git::Decorator> git_status;
+#endif
         // The column view and the grid (ROADMAP 4.2, 4.4), unless the renderer test scene was
         // asked for.
         std::unique_ptr<views::Browser> columns;
@@ -851,6 +858,19 @@ int main(int argc, char** argv) {
                     columns->ask_to_run(program, std::move(allow_and_run));
                 });
             columns->set_picker_mode(picker_request.has_value());
+#ifdef RUMMAGE_GIT
+            // Without git in the PATH there is nothing to show; pickers stay without it.
+            if (!picker_request) {
+                const platform::Environment found = platform::Environment::from_environment();
+                if (auto program = platform::find_program("git", found.path)) {
+                    git_status = std::make_unique<rummage::git::Decorator>(
+                        loop, pool, watcher, std::move(*program), [&] { window.request_redraw(); });
+                    columns->set_decorations(git_status.get());
+                } else {
+                    log::debug("git: not in the PATH, no git status");
+                }
+            }
+#endif
             columns->set_actions(configured_actions);
             columns->set_motion_config(config.animations);
             columns->set_reduced_motion(portal->appearance().reduced_motion);

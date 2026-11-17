@@ -1,8 +1,11 @@
 #include <array>
+#include <chrono>
 #include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <spawn.h>
 #include <string>
@@ -13,13 +16,22 @@
 
 #include <doctest/doctest.h>
 
+#include "rummage/core/event_loop.hpp"
+#include "rummage/core/i18n.hpp"
+#include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/directory_watcher.hpp"
+#include "rummage/fs/mime.hpp"
+#include "rummage/git/decorator.hpp"
 #include "rummage/git/repository.hpp"
 #include "rummage/git/status.hpp"
+#include "rummage/platform/desktop_entry.hpp"
+#include "rummage/views/folder.hpp"
 #include "temp_dir.hpp"
 
 namespace git = rummage::git;
 using git::FileStatus;
 using rummage::test::TempDir;
+using namespace std::chrono_literals;
 
 namespace {
 
@@ -346,4 +358,232 @@ TEST_CASE("git: output that is not porcelain v2") {
     CHECK(status->branch.name.empty());
     CHECK_FALSE(git::parse_commit("abc\0subject"sv).has_value());
     CHECK_FALSE(git::parse_commit("abc\0s\0a\0soon"sv).has_value());
+}
+
+namespace {
+
+// Runs the loop until done() holds or 5 s pass.
+bool run_until(rummage::core::EventLoop& loop, const std::function<bool()>& done) {
+    bool ok = false;
+    const auto poll = loop.add_timer(2ms, 2ms, [&] {
+        if (done()) {
+            ok = true;
+            loop.quit(0);
+        }
+    });
+    const auto watchdog = loop.add_timer(5s, 0ms, [&loop] { loop.quit(1); });
+    loop.run();
+    loop.remove(poll);
+    loop.remove(watchdog);
+    return ok;
+}
+
+void run_for(rummage::core::EventLoop& loop, std::chrono::milliseconds time) {
+    loop.add_timer(time, 0ms, [&loop] { loop.quit(0); });
+    loop.run();
+}
+
+std::filesystem::path git_program() {
+    const auto found = rummage::platform::find_program("git", path_variable());
+    REQUIRE(found.has_value());
+    return *found;
+}
+
+// A folder shown with the git decorator, as the browser would draw it.
+struct Shown {
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    git::Decorator decorator;
+    std::unique_ptr<rummage::views::Folder> folder;
+
+    explicit Shown(const std::filesystem::path& directory,
+                   std::filesystem::path program = git_program(), git::Options options = {})
+        : decorator{loop, pool, watcher, std::move(program), [] {}, options} {
+        rummage::i18n::set_language("en");
+        folder = std::make_unique<rummage::views::Folder>(
+            loop, pool, watcher, rummage::fs::MimeDatabase::load(), directory, [] {});
+        REQUIRE(run_until(loop, [this] { return !folder->model().loading(); }));
+    }
+
+    // What the views would ask for each entry and the status bar for the folder.
+    const rummage::views::StatusPart* draw() {
+        for (const auto& entry : folder->entries()) {
+            (void)decorator.badge(*folder, entry);
+        }
+        return decorator.status(*folder);
+    }
+
+    std::string text() {
+        const rummage::views::StatusPart* const part = draw();
+        return part != nullptr ? part->text : std::string{};
+    }
+
+    const rummage::views::Badge* badge(std::string_view name) {
+        for (const auto& entry : folder->entries()) {
+            if (entry.name == name) {
+                return decorator.badge(*folder, entry);
+            }
+        }
+        FAIL("no entry " << name);
+        return nullptr;
+    }
+
+    bool hides(std::string_view name) {
+        for (const auto& entry : folder->entries()) {
+            if (entry.name == name) {
+                return decorator.hides(*folder, entry);
+            }
+        }
+        return false;
+    }
+
+    bool wait_for(const std::function<bool()>& done) {
+        return run_until(loop, [&] {
+            draw();
+            return done();
+        });
+    }
+};
+
+}  // namespace
+
+TEST_CASE("git decorator: the status bar part and the badges of a working tree") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "a.txt", "two\n");
+    write(repo / "sub" / "deep" / "new.txt", "n\n");
+    write(repo / ".gitignore", "*.log\nbuild/\n");
+    write(repo / "debug.log", "l");
+    write(repo / "build" / "out.o", "o");
+    Shown shown{repo};
+    REQUIRE(shown.wait_for([&] { return shown.text().starts_with("main"); }));
+    CHECK(shown.text() == "main  ·  1 changed  ·  2 untracked");
+
+    const rummage::views::Badge* const a = shown.badge("a.txt");
+    REQUIRE(a != nullptr);
+    CHECK(a->text == "M");
+    CHECK_FALSE(a->strong);
+    const rummage::views::Badge* const sub = shown.badge("sub");
+    REQUIRE(sub != nullptr);
+    CHECK(sub->text == "•");
+    CHECK(sub->tone == rummage::views::Badge::Tone::added);
+    const rummage::views::Badge* const log = shown.badge("debug.log");
+    REQUIRE(log != nullptr);
+    CHECK(log->faded);
+    REQUIRE(shown.badge("build") != nullptr);
+    CHECK(shown.badge("build")->faded);
+    CHECK(shown.badge(".gitignore") != nullptr);  // untracked too
+
+    // The last commit, while the pointer is on the part.
+    REQUIRE(shown.wait_for([&] {
+        const rummage::views::StatusPart* const now = shown.draw();
+        return now != nullptr && !now->detail.empty();
+    }));
+    const std::string detail = shown.draw()->detail;
+    CHECK(detail.find(" First  ·  Ada  ·  ") != std::string::npos);
+    CHECK(detail.ends_with(" ago"));
+
+    // The cursor's entry says what its badge means.
+    shown.folder->select_name("a.txt");
+    CHECK(shown.text().ends_with("  ·  Modified, not staged"));
+
+    SUBCASE("staging is seen through the index, and the badge becomes strong") {
+        run_git(repo, {"add", "a.txt"});
+        REQUIRE(shown.wait_for([&] {
+            const rummage::views::Badge* const now = shown.badge("a.txt");
+            return now != nullptr && now->strong;
+        }));
+        CHECK(shown.text().starts_with("main  ·  1 staged  ·  2 untracked"));
+    }
+    SUBCASE("a burst of new files is read once or twice, not once per file") {
+        const std::size_t before = shown.decorator.queries();
+        for (int i = 0; i < 50; ++i) {
+            write(repo / ("burst" + std::to_string(i) + ".txt"), "b");
+        }
+        REQUIRE(
+            shown.wait_for([&] { return shown.text().find("52 untracked") != std::string::npos; }));
+        run_for(shown.loop, 500ms);
+        shown.draw();
+        CHECK(shown.decorator.queries() - before <= 2);
+    }
+    SUBCASE("a commit changes the last commit") {
+        run_git(repo, {"commit", "-q", "-am", "Second"});
+        REQUIRE(shown.wait_for([&] {
+            const rummage::views::StatusPart* const now = shown.draw();
+            return now != nullptr && now->detail.find("Second") != std::string::npos;
+        }));
+        CHECK(shown.badge("a.txt") == nullptr);
+    }
+    SUBCASE("options: ignored shown plainly or hidden, folders without a summary") {
+        shown.decorator.set_options(
+            {.ignored = git::Options::Ignored::hide, .folder_status = false});
+        CHECK(shown.hides("debug.log"));
+        CHECK_FALSE(shown.hides("a.txt"));
+        CHECK(shown.badge("sub") == nullptr);
+        shown.decorator.set_options(
+            {.ignored = git::Options::Ignored::show, .folder_status = true});
+        REQUIRE(shown.wait_for([&] { return shown.badge("sub") != nullptr; }));
+        CHECK(shown.badge("debug.log") == nullptr);
+        CHECK_FALSE(shown.hides("debug.log"));
+    }
+}
+
+TEST_CASE("git decorator: inside an ignored folder everything is faded") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / ".gitignore", "build/\n");
+    write(repo / "build" / "out.o", "o");
+    Shown shown{repo / "build"};
+    REQUIRE(shown.wait_for([&] { return !shown.text().empty(); }));
+    REQUIRE(shown.wait_for([&] { return shown.badge("out.o") != nullptr; }));
+    CHECK(shown.badge("out.o")->faded);
+}
+
+TEST_CASE("git decorator: nothing outside a repository, nothing when git fails") {
+    const TempDir dir;
+    SUBCASE("no repository: no part, no badge, no git run") {
+        write(dir.path / "a.txt", "a");
+        Shown shown{dir.path};
+        shown.draw();
+        run_for(shown.loop, 200ms);
+        CHECK(shown.draw() == nullptr);
+        CHECK(shown.badge("a.txt") == nullptr);
+        CHECK(shown.decorator.queries() == 0);
+    }
+    SUBCASE("git cannot be started") {
+        const std::filesystem::path repo = make_repository(dir);
+        Shown shown{repo, dir.path / "no-git-here"};
+        shown.draw();
+        run_for(shown.loop, 200ms);
+        CHECK(shown.draw() == nullptr);
+        CHECK(shown.badge("a.txt") == nullptr);
+    }
+    SUBCASE("git refuses: no part") {
+        const std::filesystem::path repo = make_repository(dir);
+        const std::filesystem::path fake = dir.write("git", "#!/bin/sh\necho nope >&2\nexit 128\n");
+        std::filesystem::permissions(fake, std::filesystem::perms::owner_all);
+        Shown shown{repo, fake};
+        shown.draw();
+        run_for(shown.loop, 300ms);
+        CHECK(shown.draw() == nullptr);
+        CHECK(shown.decorator.queries() == 1);
+    }
+}
+
+TEST_CASE("git decorator: a status that takes too long is stopped and paused") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    std::filesystem::create_directories(repo / "other");
+    const std::filesystem::path fake = dir.write("git", "#!/bin/sh\nexec sleep 10\n");
+    std::filesystem::permissions(fake, std::filesystem::perms::owner_all);
+    Shown shown{repo, fake};
+    shown.decorator.set_time_limit(100ms);
+    REQUIRE(shown.wait_for([&] { return shown.text() == "Git: paused"; }));
+    // Changes while paused start nothing.
+    write(repo / "new.txt", "n");
+    run_for(shown.loop, 600ms);
+    shown.draw();
+    CHECK(shown.decorator.queries() == 1);
+    CHECK(shown.text() == "Git: paused");
 }

@@ -906,6 +906,36 @@ moves = "Bewegung"
 "Automatic, Desktop, Palette file or Built-in" = "Automatisch, Desktop, Palettendatei oder integriert"
 "Follow the selected source or choose light or dark" = "Der gewählten Quelle folgen oder Hell/Dunkel wählen"
 "Use the palette accent for Rummage’s app icon" = "Palettenakzent für das Anwendungssymbol nutzen"
+# Git integration (optional build): status bar and file badges.
+"Type changed" = "Typ geändert"
+"Added" = "Hinzugefügt"
+"Renamed" = "Umbenannt"
+"Copied" = "Kopiert"
+"Merging" = "Merge läuft"
+"Rebasing" = "Rebase läuft"
+"Cherry-picking" = "Cherry-Pick läuft"
+"Reverting" = "Revert läuft"
+"Bisecting" = "Bisect läuft"
+"Conflict" = "Konflikt"
+"Untracked" = "Nicht versioniert"
+"Ignored" = "Ignoriert"
+"{}, staged" = "{}, bereitgestellt"
+"{}, not staged" = "{}, nicht bereitgestellt"
+"{}, partly staged" = "{}, teils bereitgestellt"
+"Detached at {}" = "Losgelöst bei {}"
+"{} conflicts" = { one = "{} Konflikt", other = "{} Konflikte" }
+"{} staged" = { one = "{} bereitgestellt", other = "{} bereitgestellt" }
+"{} changed" = { one = "{} geändert", other = "{} geändert" }
+"{} untracked" = { one = "{} unversioniert", other = "{} unversioniert" }
+"just now" = "gerade eben"
+"{} minutes ago" = { one = "vor {} Minute", other = "vor {} Minuten" }
+"{} hours ago" = { one = "vor {} Stunde", other = "vor {} Stunden" }
+"{} days ago" = { one = "vor {} Tag", other = "vor {} Tagen" }
+"{} months ago" = { one = "vor {} Monat", other = "vor {} Monaten" }
+"{} years ago" = { one = "vor {} Jahr", other = "vor {} Jahren" }
+"Changes inside" = "Enthält Änderungen"
+"Git: paused" = "Git: pausiert"
+"git status took more than {} seconds here; open another folder to retry" = "git status brauchte hier über {} Sekunden; zum erneuten Versuch anderen Ordner öffnen"
 
 [contexts.file-action]
 "Open" = "Öffnen"
