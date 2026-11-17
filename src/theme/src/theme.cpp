@@ -19,8 +19,9 @@ void log_problems(const PaletteResult& result) {
 Theme::Theme(std::filesystem::path path) : path_{std::move(path)} {
     const PaletteResult result = load_palette(path_);
     log_problems(result);
-    palette_ = result.palette;
-    from_file_ = result.from_file;
+    if (result.from_file)
+        file_palette_ = result.palette;
+    changed();
     log::info("theme: {}", result.from_file ? path_.string() : "default palette");
 }
 
@@ -33,21 +34,30 @@ void Theme::set_desktop(std::optional<Desktop> desktop) {
         log::info("theme: desktop is {}{}", desktop_->dark ? "dark" : "light",
                   desktop_->accent ? ", with an accent colour" : "");
     }
-    if (from_file_) {
-        return;  // colors.toml wins
-    }
-    palette_ = fallback();
-    changed();
+    if (source_ == Source::desktop || (source_ == Source::automatic && !file_palette_))
+        changed();
 }
 
 std::optional<Color> Theme::accent() const {
-    if (from_file_) {
-        return palette_.primary.with_alpha(1.0F);
-    }
-    return desktop_ ? desktop_->accent : std::nullopt;
+    if (active_source() == Source::file)
+        return file_palette_->primary.with_alpha(1.0F);
+    return active_source() == Source::desktop ? desktop_->accent : std::nullopt;
 }
 
-Palette Theme::fallback() const { return desktop_ ? desktop_palette(*desktop_) : Palette{}; }
+Theme::Source Theme::active_source() const {
+    if ((source_ == Source::automatic || source_ == Source::file) && file_palette_)
+        return Source::file;
+    if ((source_ == Source::automatic || source_ == Source::desktop) && desktop_)
+        return Source::desktop;
+    return Source::builtin;
+}
+
+void Theme::set_source(Source source) {
+    if (source == source_)
+        return;
+    source_ = source;
+    changed();
+}
 
 void Theme::set_dark_override(std::optional<bool> dark) {
     if (dark == dark_override_)
@@ -57,6 +67,18 @@ void Theme::set_dark_override(std::optional<bool> dark) {
 }
 
 void Theme::changed() {
+    switch (active_source()) {
+        case Source::file:
+            palette_ = *file_palette_;
+            break;
+        case Source::desktop:
+            palette_ = desktop_palette(*desktop_);
+            break;
+        case Source::builtin:
+        case Source::automatic:
+            palette_ = Palette{};
+            break;
+    }
     if (dark_override_)
         override_palette_ = desktop_palette({.dark = *dark_override_, .accent = accent()});
     if (change_handler_) {
@@ -77,15 +99,14 @@ void Theme::reload() {
     if (result.from_file) {
         log::info("theme: reloaded {}", path_.string());
     } else if (result.problems.empty()) {
-        log::info("theme: {} removed, {} palette", path_.string(),
-                  desktop_ ? "the desktop's" : "default");
+        log::info("theme: {} removed; palette file unavailable", path_.string());
     } else {
         log::warn("theme: keeping the current palette");
         return;
     }
-    from_file_ = result.from_file;
-    palette_ = from_file_ ? result.palette : fallback();
-    changed();
+    file_palette_ = result.from_file ? std::optional{result.palette} : std::nullopt;
+    if (source_ == Source::automatic || source_ == Source::file)
+        changed();
 }
 
 }  // namespace rummage::theme

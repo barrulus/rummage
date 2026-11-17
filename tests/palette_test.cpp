@@ -311,3 +311,121 @@ TEST_CASE("Theme watches palette writes, replacements, invalid updates and remov
     CHECK(same(theme.palette().primary, Color::rgb(0xCFBDFE)));
     CHECK(theme.palette().dark);
 }
+
+TEST_CASE("palette sources: automatic precedence and explicit fallback") {
+    using Source = Theme::Source;
+    const TempDir dir;
+    const auto file = dir.path / "colors.toml";
+    const rummage::theme::Desktop desktop{.dark = false, .accent = Color::rgb(0x3584E4)};
+    for (const bool has_file : {false, true}) {
+        for (const bool has_desktop : {false, true}) {
+            if (has_file)
+                dir.write("colors.toml", kNord);
+            else
+                std::filesystem::remove(file);
+            Theme theme{file};
+            if (has_desktop)
+                theme.set_desktop(desktop);
+            for (const auto requested :
+                 {Source::automatic, Source::desktop, Source::file, Source::builtin}) {
+                theme.set_source(requested);
+                const Source expected =
+                    has_file && (requested == Source::automatic || requested == Source::file)
+                        ? Source::file
+                    : has_desktop &&
+                            (requested == Source::automatic || requested == Source::desktop)
+                        ? Source::desktop
+                        : Source::builtin;
+                CHECK(theme.active_source() == expected);
+                CHECK(theme.status().requested == requested);
+                CHECK(theme.status().active == expected);
+                const Palette palette = expected == Source::file ? parse(kNord).palette
+                                        : expected == Source::desktop
+                                            ? rummage::theme::desktop_palette(desktop)
+                                            : Palette{};
+                CHECK(theme.palette().surface == palette.surface);
+                CHECK(theme.palette().primary == palette.primary);
+                CHECK(theme.palette().dark == palette.dark);
+                if (has_file)
+                    CHECK(rummage::core::read_text_file(file).text == kNord);
+            }
+        }
+    }
+}
+
+TEST_CASE("palette sources: inactive sources stay current without changing the active palette") {
+    using Source = Theme::Source;
+    const TempDir dir;
+    const auto file = dir.write("colors.toml", kNord);
+    Theme theme{file};
+    const rummage::theme::Desktop desktop{.dark = false, .accent = Color::rgb(0x3584E4)};
+    theme.set_desktop(desktop);
+    theme.set_source(Source::desktop);
+    const Palette original = theme.palette();
+    int changes = 0;
+    theme.set_change_handler([&] { ++changes; });
+    dir.write("colors.toml", "mode = 'light'\n[colors]\nprimary = '#6750a4'\n");
+    theme.reload();
+    CHECK(changes == 0);
+    CHECK(theme.palette().primary == original.primary);
+    CHECK(theme.accent() == desktop.accent);
+    dir.write("colors.toml", "[colors]\nprimary = 'invalid'\n");
+    theme.reload();
+    CHECK(changes == 0);
+    theme.set_source(Source::file);
+    CHECK(changes == 1);
+    CHECK_FALSE(theme.palette().dark);
+    CHECK(theme.palette().primary == Color::rgb(0x6750A4));
+    CHECK(theme.accent() == Color::rgb(0x6750A4));
+
+    const rummage::theme::Desktop newer{.dark = true, .accent = Color::rgb(0xED5B00)};
+    theme.set_desktop(newer);
+    CHECK(changes == 1);
+    theme.set_source(Source::builtin);
+    CHECK_FALSE(theme.accent());
+    CHECK(theme.palette().surface == Palette{}.surface);
+    std::filesystem::remove(file);
+    theme.reload();
+    CHECK(changes == 2);
+    theme.set_source(Source::file);
+    CHECK(theme.active_source() == Source::builtin);
+    CHECK(theme.status().requested == Source::file);
+    theme.set_source(Source::automatic);
+    CHECK(theme.active_source() == Source::desktop);
+    CHECK(theme.palette().primary == rummage::theme::desktop_palette(newer).primary);
+    CHECK(theme.accent() == newer.accent);
+    theme.set_desktop(std::nullopt);
+    CHECK(theme.active_source() == Source::builtin);
+    dir.write("colors.toml", kNord);
+    theme.reload();
+    CHECK(theme.active_source() == Source::file);
+    CHECK(theme.palette().primary == Color::rgb(0x88C0D0));
+}
+
+TEST_CASE("palette sources: light and dark overrides use the selected source's accent") {
+    using Source = Theme::Source;
+    const TempDir dir;
+    Theme theme{dir.write("colors.toml", kNord)};
+    const auto desktop_accent = Color::rgb(0xED5B00);
+    theme.set_desktop(rummage::theme::Desktop{.dark = false, .accent = desktop_accent});
+    for (const bool dark : {false, true}) {
+        theme.set_dark_override(dark);
+        for (const auto source :
+             {Source::automatic, Source::desktop, Source::file, Source::builtin}) {
+            theme.set_source(source);
+            std::optional<Color> accent;
+            if (source != Source::builtin)
+                accent = source == Source::desktop ? desktop_accent : Color::rgb(0x88C0D0);
+            CHECK(theme.accent() == accent);
+            const auto expected = rummage::theme::desktop_palette({.dark = dark, .accent = accent});
+            CHECK(theme.palette().primary == expected.primary);
+            CHECK(theme.palette().dark == dark);
+            CHECK(theme.status().dark_override == dark);
+        }
+    }
+    theme.set_source(Source::file);
+    theme.set_dark_override(std::nullopt);
+    CHECK_FALSE(theme.status().dark_override);
+    CHECK(theme.palette().primary == Color::rgb(0x88C0D0));
+    CHECK(theme.palette().surface == Color::rgb(0x2E3440));
+}

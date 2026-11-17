@@ -129,6 +129,7 @@ TEST_CASE("settings: save uses the selected file and Cancel leaves it unchanged"
     REQUIRE_FALSE(core::write_file_atomically(f.path, original));
     f.open();
     REQUIRE(f.dialog.edit("icon", "theme", "builtin"));
+    REQUIRE(f.dialog.edit("appearance", "palette_source", "desktop"));
     f.dialog.close();
     CHECK(core::read_text_file(f.path).text == original);
     f.open();
@@ -393,7 +394,7 @@ TEST_CASE("settings: interface size, terminal arguments and program opening pers
 TEST_CASE("settings: keyboard choices open a list and save the selected value") {
     Fixture f;
     f.open();
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
         f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
     // Open with Space, choose the final theme with End, and confirm with Enter.
     f.dialog.key({.keysym = XKB_KEY_space, .text = {}});
@@ -412,7 +413,7 @@ TEST_CASE("settings: keyboard choices open a list and save the selected value") 
 TEST_CASE("settings: choice cancellation and Tab preserve values and text editing") {
     Fixture f;
     f.open();
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
         f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
@@ -451,22 +452,70 @@ TEST_CASE("settings: pointer choices select from a menu and outside clicks only 
                           .button = ui::PointerButton::left});
     };
     draw();
-    click(100, 170);  // Colour theme, at the top of Appearance.
+    click(100, 242);  // Colour mode, below palette source.
     draw();
-    click(100, 267);  // Third menu choice: dark.
+    click(100, 339);  // Third menu choice: dark.
     draw();
-    click(100, 170);
+    click(100, 242);
     draw();
     click(400, 640);  // Cancel button is behind the open menu: dismiss only.
     CHECK(f.dialog.is_open());
     draw();
-    click(100, 458);  // Follow desktop accent: On/Off choices.
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::scroll, .x = 100, .y = 250, .scroll_y = 144});
     draw();
-    click(100, 527);  // Off.
+    click(100, 386);  // Follow palette accent: On/Off choices, scrolled into view.
+    draw();
+    click(100, 455);  // Off.
     f.dialog.save();
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(f.dialog.error().empty());
     const auto config = core::load_config(f.path);
     CHECK(config.config.appearance.color_scheme == "dark");
     CHECK_FALSE(config.config.icon.follow_accent);
+}
+
+TEST_CASE("settings: source selection saves independently of colour mode") {
+    Fixture f;
+    f.open();
+    // First field: source. Select Desktop with the keyboard.
+    for (int i = 0; i < 3; ++i)
+        f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(f.dialog.edit("appearance", "color_scheme", "dark"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.error().empty());
+    const auto loaded = core::load_config(f.path);
+    CHECK(loaded.config.appearance.palette_source == "desktop");
+    CHECK(loaded.config.appearance.color_scheme == "dark");
+}
+
+TEST_CASE("settings: active palette reports applied state, live updates and source fallback") {
+    Fixture f;
+    using Theme = rummage::theme::Theme;
+    using Source = Theme::Source;
+    Theme theme{f.dir.path / "colors.toml"};
+    f.dialog.set_theme_status_handler([&] { return theme.status(); });
+    f.open();
+    CHECK(f.dialog.palette_status() == "Active palette: Built-in");
+    REQUIRE(f.dialog.edit("appearance", "palette_source", "file"));
+    CHECK(f.dialog.palette_status() == "Active palette: Built-in");  // unsaved
+    theme.set_source(Source::file);
+    CHECK(f.dialog.palette_status() == "Active palette: Built-in (palette file unavailable)");
+    f.dir.write("colors.toml", "mode = 'light'\n[colors]\n");
+    theme.reload();
+    CHECK(f.dialog.palette_status() == "Active palette: Palette file");
+    theme.set_source(Source::desktop);
+    CHECK(f.dialog.palette_status() == "Active palette: Built-in (desktop unavailable)");
+    theme.set_desktop(rummage::theme::Desktop{.dark = true, .accent = std::nullopt});
+    CHECK(f.dialog.palette_status() == "Active palette: Desktop");
+    theme.set_dark_override(false);
+    CHECK(f.dialog.palette_status() == "Active palette: Desktop · light override");
+    theme.set_dark_override(true);
+    CHECK(f.dialog.palette_status() == "Active palette: Desktop · dark override");
+    theme.set_dark_override(std::nullopt);
+    theme.set_source(Source::automatic);
+    CHECK(f.dialog.palette_status() == "Active palette: Palette file");
 }

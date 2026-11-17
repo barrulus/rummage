@@ -8,6 +8,7 @@
 #include "rummage/core/config.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/theme/palette.hpp"
+#include "rummage/theme/theme.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
@@ -44,6 +45,15 @@ public:
     void add_action();
     void add_keybinding();
 
+    // Reports applied state, independently of unsaved edits in this dialog.
+    void set_theme_status_handler(std::function<theme::Theme::Status()> status) {
+        theme_status_ = std::move(status);
+        if (open_)
+            redraw_();
+    }
+
+    [[nodiscard]] std::string palette_status() const;
+
 private:
     struct Field {
         int section;
@@ -67,6 +77,7 @@ private:
     core::WorkerPool& pool_;
     std::function<void()> redraw_, open_file_;
     std::function<void(const core::ConfigResult&)> applied_;
+    std::function<theme::Theme::Status()> theme_status_;
     core::CancelToken job_;
     std::filesystem::path path_;
     std::string original_, error_;

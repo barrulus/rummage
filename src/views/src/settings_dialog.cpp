@@ -94,7 +94,9 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
                            std::move(choices),
                            {}});
     };
-    add(0, "appearance", "color_scheme", "Colour theme", config.appearance.color_scheme, false,
+    add(0, "appearance", "palette_source", "Palette source", config.appearance.palette_source,
+        false, {"auto", "desktop", "file", "builtin"});
+    add(0, "appearance", "color_scheme", "Colour mode", config.appearance.color_scheme, false,
         {"system", "light", "dark"});
     add(0, "icon", "theme", "Icon theme (system, builtin, or an installed theme)",
         config.icon.theme);
@@ -102,7 +104,7 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         std::format("{:g}", config.appearance.background_opacity), true);
     add(0, "appearance", "preview_position", "Preview placement: right side / below Places",
         config.appearance.preview_position, false, {"right", "sidebar"});
-    add(0, "icon", "follow_accent", "Follow desktop accent",
+    add(0, "icon", "follow_accent", "Follow palette accent",
         config.icon.follow_accent ? "true" : "false", true, {"true", "false"});
     add(0, "animations", "enabled", "Motion effects", config.animations.enabled ? "true" : "false",
         true, {"true", "false"});
@@ -356,11 +358,47 @@ void SettingsDialog::reveal_focus() {
 std::string SettingsDialog::choice_label(const Field& field, std::string_view value) {
     if (field.key == "preview_position")
         return std::string{i18n::tr(value == "right" ? "Right side" : "Below Places")};
+    if (field.key == "palette_source") {
+        if (value == "auto")
+            return std::string{i18n::tr("Automatic")};
+        if (value == "desktop")
+            return std::string{i18n::tr("Desktop")};
+        if (value == "file")
+            return std::string{i18n::tr("Palette file")};
+        return std::string{i18n::tr("Built-in")};
+    }
     if (field.key == "color_scheme" && value == "system")
-        return std::string{i18n::tr("Desktop / Noctalia")};
+        return std::string{i18n::tr("Follow source")};
     if (value == "true" || value == "false")
         return std::string{i18n::tr(value == "true" ? "On" : "Off")};
     return std::string{i18n::tr(value)};
+}
+
+std::string SettingsDialog::palette_status() const {
+    if (!theme_status_)
+        return {};
+    const auto status = theme_status_();
+    using Source = theme::Theme::Source;
+    std::string source;
+    switch (status.active) {
+        case Source::file:
+            source = i18n::tr("Palette file");
+            break;
+        case Source::desktop:
+            source = i18n::tr("Desktop");
+            break;
+        case Source::automatic:
+        case Source::builtin:
+            source =
+                status.requested == Source::desktop ? i18n::tr("Built-in (desktop unavailable)")
+                : status.requested == Source::file ? i18n::tr("Built-in (palette file unavailable)")
+                                                   : i18n::tr("Built-in");
+            break;
+    }
+    if (status.dark_override)
+        return *status.dark_override ? i18n::trf("Active palette: {} · dark override", source)
+                                     : i18n::trf("Active palette: {} · light override", source);
+    return i18n::trf("Active palette: {}", source);
 }
 
 void SettingsDialog::activate(std::string_view id, bool keyboard) {
@@ -606,11 +644,15 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                std::array{"Appearance", "Keybindings", "Actions"}[static_cast<std::size_t>(i)],
                {left + static_cast<float>(i) * (tab_width + 4), card.y + 44, tab_width, 34});
     const char* hint =
-        section_ == 0   ? "Choose a theme and preview layout. Save applies live settings."
+        section_ == 0   ? "Choose a palette source and colour mode. Save applies changes."
         : section_ == 1 ? "Enter a chord (Ctrl+J), Default to reset, or empty to disable."
                         : "Edit custom actions here. Open config for filters and advanced options.";
     renderer.draw_text(i18n::tr(hint), left, card.y + 88, 12, palette.on_surface_variant, room);
-    list_ = {left, card.y + 112, room, std::max(0.0F, height - (section_ != 0 ? 236 : 188))};
+    const float status_height = section_ == 0 && theme_status_ ? 24.0F : 0.0F;
+    if (status_height > 0)
+        renderer.draw_text(palette_status(), left, card.y + 112, 12, palette.on_surface, room);
+    list_ = {left, card.y + 112 + status_height, room,
+             std::max(0.0F, height - (section_ != 0 ? 236 : 188) - status_height)};
     const auto count = std::ranges::count_if(
         fields_, [this](const Field& field) { return field.section == section_; });
     scroller_.set_extent(static_cast<float>(count) * 72, list_.height);
