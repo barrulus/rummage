@@ -198,6 +198,8 @@ Settings → Appearance includes the terminal program and its argument list. `[t
 `program = "kitty"` and `args = ["--title", "Files"]` take precedence over `$TERMINAL`.
 Leave the program empty for automatic discovery. Arguments are passed literally, without a shell;
 Rummage adds the terminal's command-launch syntax. Changes apply immediately.
+The file picker's [Navigate in terminal…](file-picker.md#navigate-in-a-terminal)
+action uses the same terminal settings and an interactive Bash, Zsh or Fish from `$SHELL`.
 
 `[open] programs = true` enables opening ELF executables and AppImages in their own folder.
 An executable without permission asks before allowing and running; scripts continue to open

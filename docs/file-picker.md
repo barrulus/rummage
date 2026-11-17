@@ -194,3 +194,41 @@ location, and selects its name for editing. When choosing a folder, the picker l
 the input **Folder**. Typing a nonexistent folder does not create it: the error points
 to New Folder. Missing selections, broken links, wrong item types, and access errors
 have distinct messages; changing the name or selection clears a previous error.
+
+## Navigate in a terminal
+
+Choose **Navigate in terminal…** to open a terminal in the picker's current local
+folder. Navigate with `cd`, shell completion, or tools such as `zoxide`, then type
+`exit` or press Ctrl+D. Rummage displays the final folder; select the file or folder
+and confirm in the picker as usual. Returning a directory does not accept the
+selection, change the picker mode, or remove its filters and application options.
+Switching focus back to the picker alone does not update the folder.
+
+The initial supported shells are **Bash, Zsh and Fish**, selected from `$SHELL` (or the
+account's login shell when unset). Rummage starts an interactive, non-login shell
+and loads its normal interactive configuration. Temporary exit hooks belong only
+to this session; startup files are never edited. Zsh's `ZDOTDIR` is restored for
+user configuration, and existing exit hooks remain in use. Fish loads its usual
+`config.fish`, `conf.d` snippets and autoloaded functions before the temporary
+`fish_exit` hook is installed. Session-local signal handling prevents hangups from
+returning a directory, including when a user signal handler calls `exit`. Startup configurations
+that replace the shell with `exec`, disable startup files, or replace the installed
+exit hook can prevent a handoff; ordinary GUI navigation remains available.
+
+The terminal uses the existing [terminal configuration](configuration.md#terminal-and-program-opening):
+`[terminal]`, then `$TERMINAL`, `xdg-terminal-exec`, or a supported terminal on
+`PATH`. The terminal must support running a supplied command. Its own default-shell
+setting does not override `$SHELL` for this action. Other shells currently produce
+an explanatory message without launching a session.
+
+Closing the terminal window, a shell crash, or a failed launch does not choose a
+folder. An inaccessible or removed returned folder produces an error and leaves
+the current view usable. Each picker has its own private session; starting the
+action again replaces that picker's previous session. Accepting, cancelling, or
+closing the picker removes the session, and late returns are ignored even if the
+terminal remains open. Only paths accessible in the picker's local filesystem
+are supported; remote-shell and container path translation is not provided.
+
+Shell integration follows the [Bash startup-file rules](https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html)
+[Zsh startup-file rules](https://zsh.sourceforge.io/Doc/Release/Files.html),
+and [Fish initialization options](https://fishshell.com/docs/current/cmds/fish.html).

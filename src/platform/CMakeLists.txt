@@ -11,6 +11,7 @@ add_library(rummage_platform
     src/file_manager.cpp
     src/file_manager_config.cpp
     src/file_picker_portal.cpp
+    src/terminal_navigation.cpp
     src/launcher.cpp
     src/notifications.cpp
     src/program_output.cpp

@@ -51,6 +51,7 @@
 #include "rummage/platform/opener.hpp"
 #include "rummage/platform/portal.hpp"
 #include "rummage/platform/program_output.hpp"
+#include "rummage/platform/terminal_navigation.hpp"
 #include "rummage/platform/udisks.hpp"
 #include "rummage/theme/app_icon.hpp"
 #include "rummage/theme/theme.hpp"
@@ -380,6 +381,8 @@ platform::Gvfs::Prompts remote_prompts(views::Remotes::Prompts prompts) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 5 && std::string_view{argv[1]} == "--terminal-navigation-session")
+        return platform::run_terminal_navigation(argv[2], argv[3], argv[4]);
     core::give_back_large_blocks();  // before any thread: decoded photos go back to the system
     // System error texts (strerror, std::error_code) in the user's language, as the interface;
     // only messages: numbers and sorting stay as they are.
@@ -743,6 +746,8 @@ int main(int argc, char** argv) {
         // asked for.
         std::unique_ptr<views::Browser> columns;
         std::unique_ptr<platform::ProgramOutput> folder_chooser;
+        // Picker destruction cancels its terminal session; the session must outlive it.
+        std::unique_ptr<platform::TerminalNavigation> terminal_navigation;
         std::unique_ptr<views::FilePicker> picker;
         // config.toml is followed while rummage runs: the double click changes at once, the
         // fonts at the next start (`config` keeps the ones in use).
@@ -755,9 +760,11 @@ int main(int argc, char** argv) {
             }
             return line;
         };
+        auto picker_terminal = configured_terminal(config);
         std::unique_ptr<core::FileWatcher> config_watcher;
         const auto apply_config = [&](const core::ConfigResult& loaded) {
             const auto& fresh = loaded.config;
+            picker_terminal = configured_terminal(fresh);
             window.set_zoom(fresh.font.zoom());
             if (columns) {
                 columns->set_motion_config(fresh.animations);
@@ -1021,6 +1028,21 @@ int main(int argc, char** argv) {
                         picker_result = std::move(result);
                         loop.quit(0);
                     });
+                terminal_navigation = std::make_unique<platform::TerminalNavigation>(
+                    loop,
+                    [&](const std::filesystem::path& directory) {
+                        picker->return_from_terminal(directory);
+                    },
+                    [&](std::string message, bool error) {
+                        columns->show_message(std::move(message), error);
+                    });
+                picker->set_terminal_navigation(
+                    [&](const std::filesystem::path& directory) {
+                        auto terminal_environment = platform::Environment::from_environment();
+                        terminal_environment.configured_terminal = picker_terminal;
+                        terminal_navigation->start(directory, terminal_environment);
+                    },
+                    [&] { terminal_navigation->cancel(); });
             }
             memory_lines = [&columns] { return columns->memory_lines(); };
         }
