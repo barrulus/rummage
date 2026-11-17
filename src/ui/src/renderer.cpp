@@ -673,6 +673,16 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     ++motion_stats_.passes;
 }
 
+void Renderer::release_motion_textures() {
+    if (!motion_gl_ || motion_gl_->capturing || motion_stats_.texture_bytes == 0)
+        return;
+    glDeleteTextures(2, motion_gl_->textures.data());
+    motion_gl_->textures = {};
+    motion_gl_->storage_width = 0;
+    motion_gl_->storage_height = 0;
+    motion_stats_.texture_bytes = 0;
+}
+
 void Renderer::release_motion() {
     motion_gl_.reset();
     motion_stats_.texture_bytes = 0;

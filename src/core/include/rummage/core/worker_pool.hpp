@@ -34,6 +34,8 @@ private:
 };
 
 // Fixed pool of worker threads for blocking work (directory reads, decoding, thumbnails).
+// Sequential jobs prefer the most recently idle worker, reusing its allocator arena and
+// caches instead of retaining the same temporary allocation footprint on every thread.
 //
 // submit() queues work with a priority; a worker runs it, and its result is handed to done() on
 // the EventLoop thread. done() is not called if the job was cancelled, or if the pool was
@@ -113,14 +115,23 @@ private:
     }
 
     void enqueue(Priority priority, CancelToken token, std::function<void()> run);
-    void worker_main();
+
+    struct Sleeper {
+        std::condition_variable wake;
+        bool notified{false};  // protected by mutex_; distinguishes a wake from a spurious one
+    };
+
+    void worker_main(Sleeper& sleeper);
 
     EventLoop& loop_;
     // Shared with posted deliveries so they can tell the pool (and its owner) are gone.
     std::shared_ptr<std::atomic<bool>> alive_{std::make_shared<std::atomic<bool>>(true)};
 
     std::mutex mutex_;
-    std::condition_variable wake_;
+    // Pointees stay stable while threads start. idle_ is a stack: a notified worker is
+    // removed before it wakes, so a burst of jobs wakes distinct workers.
+    std::vector<std::unique_ptr<Sleeper>> sleepers_;
+    std::vector<Sleeper*> idle_;
     std::array<std::deque<Job>, 3> queues_;  // indexed by Priority
     bool stopping_{false};
     std::vector<std::thread> threads_;

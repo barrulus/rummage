@@ -6,6 +6,7 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <set>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -272,4 +273,61 @@ TEST_CASE("submit_streaming: partial results in order, then done; cancel stops t
     loop.run();
     CHECK(received == 1);
     CHECK_FALSE(done_called);
+}
+
+TEST_CASE(
+    "worker pool: a burst uses every worker and spaced jobs reuse the most recently idle one") {
+    EventLoop loop;
+    add_watchdog(loop);
+    constexpr int workers = 4;
+    std::promise<void> all_running;
+    auto running = all_running.get_future();
+    std::promise<void> release;
+    auto gate = release.get_future().share();
+    std::atomic<int> started{0};
+    int delivered = 0;
+    std::set<std::thread::id> burst_threads;
+    WorkerPool pool{loop, workers};  // joins before the work's captured state is destroyed
+    for (int i = 0; i < workers; ++i) {
+        pool.submit(
+            Priority::visible,
+            [&](const CancelToken& /*token*/) {
+                if (++started == workers)
+                    all_running.set_value();
+                gate.wait();
+                return std::this_thread::get_id();
+            },
+            [&](std::thread::id id) {
+                burst_threads.insert(id);
+                if (++delivered == workers)
+                    loop.quit(0);
+            });
+    }
+    const auto ready = running.wait_for(5s);
+    release.set_value();  // also unblock the pool before an assertion fails
+    REQUIRE(ready == std::future_status::ready);
+    REQUIRE(loop.run() == 0);
+    CHECK(burst_threads.size() == workers);
+
+    // Like keyboard-paced previews: each result is delivered, then the workers can
+    // sleep before the next job arrives. A shared condition variable rotates these
+    // jobs through all workers, retaining an allocation footprint on each one.
+    std::set<std::thread::id> sequential_threads;
+    int completed = 0;
+    std::function<void()> submit;
+    submit = [&] {
+        pool.submit(
+            Priority::visible,
+            [](const CancelToken& /*token*/) { return std::this_thread::get_id(); },
+            [&](std::thread::id id) {
+                sequential_threads.insert(id);
+                if (++completed == 32)
+                    loop.quit(0);
+                else
+                    loop.add_timer(2ms, 0ms, submit);
+            });
+    };
+    loop.add_timer(10ms, 0ms, submit);
+    REQUIRE(loop.run() == 0);
+    CHECK(sequential_threads.size() == 1);
 }

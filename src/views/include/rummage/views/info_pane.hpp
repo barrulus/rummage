@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -70,6 +71,7 @@ public:
     InfoPane(InfoPane&&) = delete;
     InfoPane& operator=(InfoPane&&) = delete;
 
+    // The renderer's font system must remain alive while this drawn page handles input.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, const Folder& folder, Clock::time_point now);
 
@@ -167,6 +169,9 @@ public:
         return page_sideways_.max_offset();
     }
 
+    // Selection geometry is bounded independently of the number of preview lines.
+    [[nodiscard]] std::size_t text_geometry_lines() const noexcept { return page_clusters_.size(); }
+
     // What was read about the entry shown last; nullptr before it arrives (tests).
     [[nodiscard]] const preview::Summary* summary() const noexcept { return summary_.get(); }
 
@@ -187,7 +192,8 @@ private:
     [[nodiscard]] std::string size_text() const;
 
     [[nodiscard]] const preview::Text* shown_text() const;
-    [[nodiscard]] TextPoint point_at(float x, float y) const;
+    [[nodiscard]] TextPoint point_at(float x, float y);
+    const std::vector<SelectableText::GlyphSpan>& text_clusters(std::size_t line);
     [[nodiscard]] bool autoscrolling() const noexcept;
     void measure_text(ui::Renderer& renderer, const preview::Text& text);
 
@@ -216,7 +222,10 @@ private:
     bool selecting_{false};
     float pointer_x_{0.0F};
     float pointer_y_{0.0F};
-    std::vector<std::vector<SelectableText::GlyphSpan>> page_clusters_;
+    std::unordered_map<std::size_t, std::vector<SelectableText::GlyphSpan>> page_clusters_;
+    // The window's font system outlives drawing and pointer handling. Bound on draw and
+    // forgotten with the preview; offscreen hit tests can shape one line on demand.
+    ui::FontSystem* page_fonts_{nullptr};
     float page_text_width_{0.0F};
     float page_metrics_scale_{0.0F};
     Clock::time_point autoscrolled_{};

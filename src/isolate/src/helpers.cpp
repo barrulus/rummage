@@ -757,7 +757,8 @@ archive::Read Helpers::read_archive_entry(const std::filesystem::path& path, arc
     return result;
 }
 
-void use_engines(const engines::Registry& registry, HelperOptions options) {
+void use_engines(const engines::Registry& registry, HelperOptions options,
+                 std::shared_ptr<const fs::MimeDatabase> mime) {
     // One set of helpers per engine, shared by what it makes.
     std::vector<std::pair<const engines::Engine*, std::shared_ptr<Helpers>>> started;
     const auto helpers_of = [&](const engines::Engine& engine) {
@@ -788,7 +789,8 @@ void use_engines(const engines::Registry& registry, HelperOptions options) {
 
     // Route by the caller's MIME type; empty requests retain the base image loader.
     auto routes = std::make_shared<const engines::Registry>(registry);
-    const auto mime = fs::MimeDatabase::load();
+    if (!mime)
+        mime = fs::MimeDatabase::load();
     std::vector<std::shared_ptr<Helpers>> pools;
     for (const auto& engine : registry.engines()) {
         pools.push_back(helpers_of(engine));

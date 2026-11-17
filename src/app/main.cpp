@@ -710,13 +710,17 @@ int main(int argc, char** argv) {
         });
 
         core::WorkerPool pool{loop};
+        startup.mark("workers");
+        const auto mime = fs::MimeDatabase::load();
+        startup.mark("mime");
         // Pictures are made by the engines in their cages (ROADMAP 2b, 3a), never here.
         {
             auto registry =
                 std::make_shared<const engines::Registry>(engines::Registry::load_installed());
-            isolate::use_engines(*registry);
+            isolate::use_engines(*registry, {}, mime);
             engines::set_installed(std::move(registry));
         }
+        startup.mark("engines");
         // rummage's icon in the desktop's accent (ROADMAP 9.2), written on a worker.
         bool follow_accent = config.icon.follow_accent;
         theme::AppIconKeeper app_icon{pool, theme::default_app_icon_place()};
@@ -732,6 +736,7 @@ int main(int argc, char** argv) {
         ui::IconSet icons{fonts};
         icons.set_theme(config.icon.theme);
         icons.set_place_icons(config.icon.places);
+        startup.mark("icons");
         ui::Activation activation{display, loop};
         ui::Clipboard clipboard{display, loop};  // before the browser that uses it
         // The column view and the grid (ROADMAP 4.2, 4.4), unless the renderer test scene was
@@ -813,7 +818,6 @@ int main(int argc, char** argv) {
         };
         std::unique_ptr<platform::ActionHandoff> action_handoff;
         if (!test_scene) {
-            const std::shared_ptr<const fs::MimeDatabase> mime = fs::MimeDatabase::load();
             columns = std::make_unique<views::Browser>(
                 loop, pool, watcher, mime, [&] { window.request_redraw(); },
                 [&](ui::CursorShape shape) { seat.set_cursor(shape); },
@@ -1020,6 +1024,7 @@ int main(int argc, char** argv) {
             }
             memory_lines = [&columns] { return columns->memory_lines(); };
         }
+        startup.mark("browser");
         // The sidebar's places, kept current as things are mounted and bookmarked (ROADMAP 5.9),
         // with the disks udisks2 knows, mounted or not (ROADMAP 7.3).
         std::unique_ptr<fs::PlacesWatcher> places;
@@ -1038,7 +1043,9 @@ int main(int argc, char** argv) {
             };
             places = std::make_unique<fs::PlacesWatcher>(loop, fs::PlaceSources::from_environment(),
                                                          show_places);
+            startup.mark("places");
             udisks = std::make_unique<platform::Udisks>(loop, show_places);
+            startup.mark("udisks");
             if (udisks->available()) {
                 columns->set_devices({
                     .mount =
@@ -1058,6 +1065,7 @@ int main(int argc, char** argv) {
             // Remote bookmarks (smb://, sftp://, ftp://, WebDAV), mounted through gvfs on the
             // session bus.
             gvfs = std::make_unique<platform::Gvfs>(loop, show_places);
+            startup.mark("gvfs");
             if (gvfs->available()) {
                 columns->set_remotes({
                     .mount =
@@ -1221,6 +1229,7 @@ int main(int argc, char** argv) {
             });
         }
         window.set_draw_handler([&](ui::Renderer& renderer, const ui::Rect& bounds) {
+            const bool initial_draw = startup.active() && !first_drawn;
             const bool ready = !columns || !columns->loading();
             seat.set_cursor_scale(window.scale());  // the xcursor fallback's images follow it
             const theme::Palette& palette = theme.palette();
@@ -1253,6 +1262,8 @@ int main(int argc, char** argv) {
                     window.request_redraw();  // next frame, paced by the compositor
                 }
                 note_state();  // every change shows in a frame, so frames are where to look
+                if (initial_draw)
+                    startup.mark("first-draw-finished");
                 return;
             }
             rummage::app::draw_test_scene(renderer, content, palette);

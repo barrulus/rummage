@@ -592,6 +592,62 @@ TEST_CASE(
     CHECK(f.pane().selected_text() == "END");
 }
 
+TEST_CASE("info pane: large previews retain selection at the end of the document") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    {
+        std::ofstream source{f.dir.path / "large.c"};
+        for (int i = 0; i < 5000; ++i) {
+            source << "int variable_" << i << " = " << i << ";\n";
+        }
+        source << "last_line\n";
+    }
+    auto& folder = f.browser.columns().column(0).folder();
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::any_of(folder.entries(),
+                                   [](const auto& entry) { return entry.name == "large.c"; });
+    }));
+    folder.select_name("large.c");
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    REQUIRE(f.pane().summary()->text);
+    REQUIRE(f.pane().summary()->text->lines.size() == 5001);
+    CHECK(f.pane().text_geometry_lines() == 0);
+    const auto page = f.pane().text_page();
+    REQUIRE_FALSE(page.empty());
+    f.click(page.x + 12.0F, page.y + 10.0F);
+    f.press(XKB_KEY_End);
+    f.draw(2000ms);
+    CHECK(f.pane().text_offset() == f.pane().text_max_offset());
+    const float last_y =
+        page.y + 8.0F + 5000.0F * InfoPane::kTextLineHeight - f.pane().text_offset() + 2.0F;
+    REQUIRE(last_y < page.bottom());
+    f.click(page.x + 12.0F, last_y, 2);
+    CHECK(f.pane().selected_text() == "last_line");
+    CHECK(f.pane().text_geometry_lines() <= 64);
+
+    // Selecting and painting many pages must not keep geometry for every visited line.
+    f.press(XKB_KEY_a, {.ctrl = true});
+    for (int i = 0; i < 8; ++i) {
+        f.press(XKB_KEY_Page_Up);
+        f.draw(1000ms);
+        CHECK(f.pane().text_geometry_lines() <= 64);
+    }
+    CHECK(f.pane().selected_text().ends_with("last_line"));
+
+    // Hit testing remains exact even outside the painted page during a drag.
+    f.press(XKB_KEY_Home);
+    f.draw(1000ms);
+    f.pointer(rummage::ui::PointerEvent::Kind::press, page.x + 8.0F, page.y + 10.0F);
+    f.pointer(rummage::ui::PointerEvent::Kind::release, page.right() + 100.0F,
+              page.y + 8.0F + 100.0F * InfoPane::kTextLineHeight + 2.0F);
+    CHECK(f.pane().selected_text().ends_with("int variable_100 = 100;"));
+    CHECK(f.pane().text_geometry_lines() <= 64);
+}
+
 TEST_CASE("info pane: a short wide preview pans sideways but vertical wheel scrolls its metadata") {
     const auto gl = offscreen();
     if (!gl) {

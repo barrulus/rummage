@@ -117,6 +117,8 @@ private:
 // helpers. Requests without a MIME type retain the base image/EXIF loader. Text uses the
 // first engine with a text family. Missing metadata support returns empty information;
 // the loaders keep the helper pools alive.
-void use_engines(const engines::Registry& registry, HelperOptions options = {});
+// Share the application's immutable MIME database when available; otherwise load one.
+void use_engines(const engines::Registry& registry, HelperOptions options = {},
+                 std::shared_ptr<const fs::MimeDatabase> mime = {});
 
 }  // namespace rummage::isolate
