@@ -2,7 +2,7 @@
 # rummage's xbps-src template for Void Linux. Copy this folder into a
 # void-packages checkout as srcpkgs/rummage, then: ./xbps-src pkg rummage
 pkgname=rummage
-version=0.5.1
+version=0.6.0
 revision=1
 build_style=cmake
 # RUMMAGE_WERROR: a newer compiler's new warning must not break the package

@@ -2,12 +2,19 @@
 
 [Documentation](README.md) · [Current features](features.md) · [Installation](install.md)
 
-rummage is a fork of Nordend. The current source version is 0.5.1; the source
+rummage is a fork of Nordend. The current source version is 0.6.0; the source
 commit identifies development builds more precisely than that number.
 The development download tag is a moving snapshot, not a new upstream release.
 See [installation](install.md#development-downloads) for package/source identity.
 
-## 0.5.1 — in development
+## 0.6.0 — in development
+
+Local bookmarks now use the selected system or named icon theme, including custom
+`.directory` artwork and XDG special-folder icons. Missing artwork falls back to
+the theme's folder icon, and the builtin theme retains Tabler bookmark glyphs.
+Folder icon changes made through Properties also refresh bookmarks.
+
+## 0.5.1
 
 The fork includes system icon themes, static SVG file previews, HEIC/HEIF still previews,
 visibility of unmounted internal partitions, optional isolated video

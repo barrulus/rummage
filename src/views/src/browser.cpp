@@ -22,6 +22,7 @@
 #include "rummage/engines/engines.hpp"
 #include "rummage/fs/compress.hpp"
 #include "rummage/fs/erase.hpp"
+#include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
@@ -1105,8 +1106,31 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
 }
 
 void Browser::set_places(std::vector<fs::Place> places) {
+    bookmark_icons_job_.cancel();
     places_ = std::move(places);
     show_places();
+    if (std::ranges::none_of(places_, [](const fs::Place& place) {
+            return place.section == fs::Place::Section::bookmarks && place.uri.empty() &&
+                   !place.path.empty();
+        }))
+        return;
+    bookmark_icons_job_ = pool_.submit(
+        core::Priority::visible,
+        [places = places_, sources = place_sources_](const core::CancelToken& token) mutable {
+            const fs::FolderIcons icons{sources};
+            for (auto& place : places) {
+                if (token.cancelled())
+                    break;
+                if (place.section == fs::Place::Section::bookmarks && place.uri.empty() &&
+                    !place.path.empty())
+                    place.folder_icon = icons.for_folder(place.path);
+            }
+            return places;
+        },
+        [this](std::vector<fs::Place> resolved) {
+            places_ = std::move(resolved);
+            show_places();
+        });
 }
 
 void Browser::show_places() {
@@ -1784,6 +1808,7 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 }
 
 Browser::~Browser() {
+    bookmark_icons_job_.cancel();
     *alive_ = false;
     loop_.remove(auto_scroll_timer_);
     loop_.remove(band_timer_);
@@ -2164,6 +2189,7 @@ void Browser::show_properties() {
     properties_.open(
         path,
         [this, folder, path] {
+            set_places(places_);
             const auto refresh = [&path](Folder& owner) {
                 if (owner.path() == path.parent_path())
                     owner.refresh_entry(path.filename().string());

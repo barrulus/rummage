@@ -3,7 +3,7 @@
 [Project overview](../README.md)
 
 Guides and references for installing, using and configuring rummage. These pages
-describe the 0.5.1 sources; include the source commit and package identity when
+describe the 0.6.0 sources; include the source commit and package identity when
 reporting behavior in a development build.
 
 ## Get started

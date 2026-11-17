@@ -1149,6 +1149,7 @@ private:
     std::size_t undo_excluded_{0};       // items excluded from the undo on its way
     std::filesystem::path home_trash_;
     std::vector<fs::Place> places_;
+    core::CancelToken bookmark_icons_job_;
     fs::DirectoryModel trash_model_;  // every trash, for the sidebar's icon
     bool trash_full_{false};
     CutMarks cut_marks_;

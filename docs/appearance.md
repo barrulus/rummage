@@ -109,6 +109,11 @@ Built-in names are listed in [icons.txt](../third_party/tabler-icons/icons.txt) 
 the `-filled` suffix. Theme names need a theme other than `builtin`. Missing icons
 fall back to the usual icon. Changes reload live.
 
+Local bookmarks use their target folder's `.directory` icon or XDG special-folder
+icon with system/named themes, falling back to the theme's normal folder icon.
+The `builtin` theme keeps the Tabler bookmark glyph. Changes made through
+Properties refresh bookmark icons; restart rummage after changing them externally.
+
 ### Application accent icon
 
 With `icon.follow_accent = true`, rummage writes an accent-coloured application
