@@ -167,6 +167,49 @@ TEST_CASE("volumes: ignored and non-filesystem internal partitions stay hidden")
     CHECK(rummage::platform::volumes_from({drive("/d/nvme", ""), object}).empty());
 }
 
+TEST_CASE("volumes: UUID mount folders use the disk's friendly name") {
+    const fs::path mount = "/run/media/me/c8fc8300-1234-5678-9abc-000000de18e8";
+    auto object = partition("/b/usb", "/d/usb", "", {mount});
+    object.size = 4'000'787'030'016;
+    std::string expected = "4.0 TB Volume";
+    SUBCASE("unlabelled disk uses capacity") {}
+    SUBCASE("labelled disk uses its label") {
+        object.id_label = "Photo backup";
+        expected = object.id_label;
+    }
+    auto mounts =
+        rummage::fs::parse_mounts("36 25 8:1 / " + mount.string() + " rw - ext4 /dev/sdb1 rw\n");
+    REQUIRE(mounts.size() == 1);
+    CHECK(mounts.front().label == mount.filename().string());
+    mounts.push_back({.section = Place::Section::bookmarks,
+                      .label = "My backup",
+                      .path = mount,
+                      .icon = "bookmark"});
+    const auto volumes = rummage::platform::volumes_from({drive("/d/usb", "usb"), object});
+    const auto places = rummage::platform::with_volumes(mounts, volumes);
+    REQUIRE(places.size() == 2);
+    CHECK(places[0].label == expected);
+    CHECK(places[0].path == mount);
+    CHECK(places[0].icon == "usb");
+    CHECK(places[0].disk.volume == "/b/usb");
+    CHECK(places[0].disk.mounted);
+    CHECK(places[0].disk.ejectable);
+    CHECK(places[1] == mounts[1]);
+    CHECK(rummage::platform::with_volumes(places, volumes) == places);
+
+    // Its name stays the same when unmounted, and changes when the filesystem label does.
+    object.mount_points.clear();
+    const auto unmounted = rummage::platform::with_volumes(
+        {}, rummage::platform::volumes_from({drive("/d/usb", "usb"), object}));
+    REQUIRE(unmounted.size() == 1);
+    CHECK(unmounted[0].label == expected);
+    object.mount_points = {mount};
+    object.id_label = "Renamed backup";
+    const auto renamed = rummage::platform::with_volumes(
+        places, rummage::platform::volumes_from({drive("/d/usb", "usb"), object}));
+    CHECK(renamed[0].label == "Renamed backup");
+}
+
 TEST_CASE("volumes: an internal partition stays listed across mount and unmount") {
     UdisksObject object = partition("/b/nvme0n1p2", "/d/nvme", "Data", {}, true);
     const auto places = [&] {

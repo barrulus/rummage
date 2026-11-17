@@ -1,5 +1,6 @@
 #include "rummage/platform/about.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -26,6 +27,14 @@ std::filesystem::path script(const TempDir& dir, const std::string& name, const 
 }
 
 }  // namespace
+
+TEST_CASE("about: the running executable has a stable SHA-1 build ID") {
+    const std::string id = rummage::platform::build_id();
+    CHECK(id.size() == 40);
+    CHECK(std::ranges::all_of(
+        id, [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }));
+    CHECK(rummage::platform::build_id() == id);
+}
 
 TEST_CASE("about: the distribution's name from os-release") {
     CHECK(distribution_name("NAME=\"Void\"\nID=\"void\"\nPRETTY_NAME=\"Void Linux\"\n") ==

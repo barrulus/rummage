@@ -287,6 +287,8 @@ int print_about() {
     lines.push_back({.label = "rummage",
                      .value = commit.empty() ? std::string{RUMMAGE_VERSION}
                                              : std::format("{} ({})", RUMMAGE_VERSION, commit)});
+    const std::string build = platform::build_id();
+    lines.push_back({.label = "Build", .value = build.empty() ? "unknown" : build});
     std::ranges::move(platform::system_about(), std::back_inserter(lines));
     // The engines found, and where their programs are: an installation in one line.
     const std::filesystem::path directory = engines::default_directory();

@@ -17,6 +17,10 @@ struct AboutLine {
     bool operator==(const AboutLine&) const = default;
 };
 
+// The running executable's ELF build ID in hex. Read from its loaded notes so an upgrade
+// on disk cannot change the reported identity. Empty if the linker supplied no build ID.
+[[nodiscard]] std::string build_id();
+
 // os-release's PRETTY_NAME, else its NAME (quotes and escapes as the spec has them); empty when
 // it has neither.
 [[nodiscard]] std::string distribution_name(std::string_view os_release);

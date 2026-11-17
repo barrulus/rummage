@@ -58,7 +58,8 @@ struct Volume {
 [[nodiscard]] std::vector<Volume> volumes_from(const std::vector<UdisksObject>& objects);
 
 // The places with the volumes in: a mounted disk's place (from the mount table) learns its
-// volume and whether it ejects; a volume not mounted is added to the devices, without a path.
+// friendly label, volume and whether it ejects; a volume not mounted is added to the devices,
+// without a path.
 [[nodiscard]] std::vector<fs::Place> with_volumes(std::vector<fs::Place> places,
                                                   const std::vector<Volume>& volumes);
 

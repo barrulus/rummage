@@ -24,4 +24,4 @@ target_include_directories(rummage_platform PUBLIC include)
 # thumbs: file_uri(), the file:// URIs %u and %U take, escaped as GLib does.
 target_link_libraries(rummage_platform
     PUBLIC rummage::core rummage::fs
-    PRIVATE rummage::thumbs rummage::warnings PkgConfig::SDBUSCPP)
+    PRIVATE rummage::thumbs rummage::warnings PkgConfig::SDBUSCPP ${CMAKE_DL_LIBS})

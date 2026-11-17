@@ -18,12 +18,15 @@ rummage --help
 | `--config FILE` | Select a settings file; does not relocate state or palette |
 | `--check-config` | Validate settings, actions, menus and bindings without a window |
 | `--version` | Print the compiled project version |
-| `--about` | Print version/commit, system, desktop, GPU and discovered engines for a report |
+| `--about` | Print version/commit, build ID, system, desktop, GPU and discovered engines for a report |
 | `--help`, `-h` | Print usage |
 | `--test-scene` | Open the developer renderer/input test scene |
 
 `--about` probes the GPU with a surfaceless context; failures can leave GPU details
-unavailable. An uncommitted source change is not encoded in the version string.
+unavailable. Include the **Build** line in bug reports: it identifies the linked
+executable even between version bumps, including builds with uncommitted changes
+and packages built without Git metadata. It is a content-derived ELF build ID,
+not a sequential release number; identical builds retain the same ID.
 The command line accepts one positional directory. Use `--` before a path whose
 name starts with `-`, for example `rummage -- ./-downloads`.
 

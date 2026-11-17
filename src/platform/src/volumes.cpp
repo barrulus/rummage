@@ -66,6 +66,7 @@ std::vector<fs::Place> with_volumes(std::vector<fs::Place> places,
             return candidate.mount_point && *candidate.mount_point == place.path;
         });
         if (volume != volumes.end()) {
+            place.label = volume->name;
             place.disk = {.volume = volume->object, .mounted = true, .ejectable = volume->external};
             if (volume->external) {
                 place.icon = "usb";
