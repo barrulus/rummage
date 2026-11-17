@@ -545,6 +545,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             ui::Rect{table_left, y + kRowInset, table_width, size_.row - 2.0F * kRowInset}, rows_,
             cursor == i, owner->is_selected(entry.name));
         const bool selected = owner->is_selected(entry.name);
+        const Badge* const badge =
+            decorations_ != nullptr ? decorations_->badge(*owner, entry) : nullptr;
         const ItemStyle style =
             item_style(palette, entry,
                        {.selected = selected,
@@ -552,7 +554,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                         .ring = cursor_ring,
                         .focused = true,
                         .hovered = hovered_ == i,
-                        .cut = cut_ != nullptr && cut_->holds(owner->path(), entry),
+                        .cut = (cut_ != nullptr && cut_->holds(owner->path(), entry)) ||
+                               (badge != nullptr && badge->faded),
                         .drop = drop_ != nullptr && drop_->holds(owner->path(), entry)});
         if (style.fill || style.ring) {
             renderer.draw_box(
@@ -587,8 +590,15 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                           style.fill.value_or(palette.surface));
         }
         const float name_x = name_left + size_.icon + kIconGap;
-        const float name_room = layout_.left.at(index(Field::name)) +
-                                layout_.width.at(index(Field::name)) - kCellPadding - name_x;
+        float name_room = layout_.left.at(index(Field::name)) +
+                          layout_.width.at(index(Field::name)) - kCellPadding - name_x;
+        if (badge != nullptr) {
+            const float width =
+                draw_badge(renderer, palette, *badge, name_x + name_room,
+                           y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
+                           selected ? std::optional<ui::Color>{style.text} : std::nullopt);
+            name_room -= width > 0.0F ? width + 4.0F : 0.0F;
+        }
         if (edit_ != nullptr && edit_->holds(*owner, entry)) {
             edit_->place(
                 {name_x - ui::TextField::kPadding, y + 3.0F,

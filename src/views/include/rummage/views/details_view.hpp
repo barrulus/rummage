@@ -25,6 +25,7 @@
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/cut_marks.hpp"
+#include "rummage/views/decorations.hpp"
 #include "rummage/views/details_columns.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
@@ -161,6 +162,8 @@ public:
     // The entries cut and not pasted yet, drawn faded (the browser's).
     void set_cut_marks(const CutMarks* cut) { cut_ = cut; }
 
+    void set_decorations(Decorations* decorations) { decorations_ = decorations; }
+
     // The folder has loaded and its cursor landed (snapshots, tests).
     [[nodiscard]] bool loading() const;
 
@@ -228,6 +231,7 @@ private:
     std::function<void(float, float)> menu_;
     EditSlot* edit_{nullptr};
     const CutMarks* cut_{nullptr};
+    Decorations* decorations_{nullptr};
     std::function<void(ui::CursorShape)> set_cursor_;
     bool info_visible_{true};
     InfoPane* info_pane_;

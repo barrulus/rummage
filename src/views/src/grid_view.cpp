@@ -10,11 +10,11 @@
 
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/engines/engines.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -331,10 +331,14 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 ui::Rect{x + kCellInset, y + kCellInset, cell_width_ - 2.0F * kCellInset,
                          height - 2.0F * kCellInset},
                 area_, cursor == i, folder_->is_selected(entry.name));
-            const bool cut = cut_ != nullptr && cut_->holds(folder_->path(), entry);
+            const Badge* const badge =
+                decorations_ != nullptr ? decorations_->badge(*folder_, entry) : nullptr;
+            const bool cut = (cut_ != nullptr && cut_->holds(folder_->path(), entry)) ||
+                             (badge != nullptr && badge->faded);
+            const bool selected = folder_->is_selected(entry.name);
             const ItemStyle style =
                 item_style(palette, entry,
-                           {.selected = folder_->is_selected(entry.name),
+                           {.selected = selected,
                             .cursor = cursor == i,
                             .ring = cursor_ring,
                             .focused = true,
@@ -402,6 +406,12 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 draw_failure_badge(renderer, icons, palette, failure,
                                    x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
                                    cut ? kCutOpacity : 1.0F);
+            }
+            if (badge != nullptr) {
+                // At the icon's top right corner, just outside it.
+                draw_badge(renderer, palette, *badge, x + ((cell_width_ + icon) / 2.0F) + kTextSize,
+                           y + kIconTop, kTextSize,
+                           selected ? std::optional<ui::Color>{style.text} : std::nullopt);
             }
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {
                 // One line across the cell, where the name starts.

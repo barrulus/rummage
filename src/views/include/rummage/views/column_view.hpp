@@ -23,6 +23,7 @@
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/column.hpp"
 #include "rummage/views/cut_marks.hpp"
+#include "rummage/views/decorations.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
 #include "rummage/views/info_pane.hpp"
@@ -142,6 +143,8 @@ public:
     // The entries cut and not pasted yet, drawn faded (the browser's).
     void set_cut_marks(const CutMarks* cut) { cut_ = cut; }
 
+    void set_decorations(Decorations* decorations) { decorations_ = decorations; }
+
     // Where a drag over the window would drop (the browser's).
     void set_drop_mark(const DropMark* drop) { drop_ = drop; }
 
@@ -211,6 +214,7 @@ private:
     std::function<void(float, float)> menu_;
     EditSlot* edit_{nullptr};
     const CutMarks* cut_{nullptr};
+    Decorations* decorations_{nullptr};
     const DropMark* drop_{nullptr};
     std::function<void(ui::CursorShape)> set_cursor_;
     InfoPane* info_pane_;

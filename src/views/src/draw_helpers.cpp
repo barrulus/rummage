@@ -9,6 +9,36 @@ float text_width(ui::Renderer& renderer, std::string_view text, float size) {
     return renderer.fonts().layout(text, size, renderer.scale()).width / renderer.scale();
 }
 
+float draw_badge(ui::Renderer& renderer, const theme::Palette& palette, const Badge& badge,
+                 float right, float y, float size, std::optional<ui::Color> on) {
+    if (badge.text.empty()) {
+        return 0.0F;
+    }
+    ui::Color color = palette.outline;
+    switch (badge.tone) {
+        case Badge::Tone::accent:
+            color = palette.primary;
+            break;
+        case Badge::Tone::added:
+            color = palette.tertiary;
+            break;
+        case Badge::Tone::renamed:
+            color = palette.secondary;
+            break;
+        case Badge::Tone::removed:
+            color = palette.error;
+            break;
+        case Badge::Tone::muted:
+            break;
+    }
+    const float box = std::max(size, text_width(renderer, badge.text, size) + 2.0F);
+    const float width = text_width(renderer, badge.text, size);
+    renderer.draw_text(badge.text, right - box + ((box - width) / 2.0F), y, size,
+                       on.value_or(color), 0.0F, ui::Ellipsis::end,
+                       badge.strong ? ui::Typeface::bold : ui::Typeface::proportional);
+    return box;
+}
+
 void draw_centered(ui::Renderer& renderer, std::string_view text, const ui::Rect& bounds, float y,
                    float size, ui::Color color) {
     const float max = bounds.width - 24.0F;

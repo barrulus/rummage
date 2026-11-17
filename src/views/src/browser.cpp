@@ -135,6 +135,16 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
 
 void Browser::set_decorations(Decorations* decorations) {
     decorations_ = decorations;
+    for (const auto& owner : areas_) {
+        if (!owner) {
+            continue;
+        }
+        for (const auto& tab : owner->tabs) {
+            tab->columns.set_decorations(decorations);
+            tab->grid.set_decorations(decorations);
+            tab->details.set_decorations(decorations);
+        }
+    }
     redraw_();
 }
 
@@ -151,6 +161,7 @@ Pane& Browser::add_pane(std::size_t at) {
         view.set_menu_handler([this](float x, float y) { open_menu(x, y, false); });
         view.set_drop_mark(&drop_mark_);
         view.set_cut_marks(&cut_marks_);
+        view.set_decorations(decorations_);
     };
     wire(added.columns);
     wire(added.grid);

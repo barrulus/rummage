@@ -6,10 +6,10 @@
 
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -75,7 +75,7 @@ void Column::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 
 void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                   ui::IconSet& icons, bool focused, Clock::time_point now, EditSlot* edit,
-                  const CutMarks* cut, const DropMark* drop) {
+                  const CutMarks* cut, const DropMark* drop, Decorations* decorations) {
     motion_bounds_ = {};
     const std::vector<fs::Entry>& entries = folder_->entries();
     rows_area_ = bounds;
@@ -98,13 +98,17 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         motion_bounds_.include(ui::Rect{bounds.x + kRowInset, y + 1.0F,
                                         bounds.width - 2.0F * kRowInset, size_.row - 2.0F},
                                bounds, cursor == i, folder_->is_selected(entry.name));
+        const Badge* const badge =
+            decorations != nullptr ? decorations->badge(*folder_, entry) : nullptr;
+        const bool selected = folder_->is_selected(entry.name);
         const ItemStyle style = item_style(palette, entry,
-                                           {.selected = folder_->is_selected(entry.name),
+                                           {.selected = selected,
                                             .cursor = cursor == i,
                                             .ring = cursor_ring,
                                             .focused = focused,
                                             .hovered = hovered_ == i,
-                                            .cut = cut != nullptr && cut->holds(path(), entry),
+                                            .cut = (cut != nullptr && cut->holds(path(), entry)) ||
+                                                   (badge != nullptr && badge->faded),
                                             .drop = drop != nullptr && drop->holds(path(), entry)});
         if (style.fill || style.ring) {
             renderer.draw_box({bounds.x + kRowInset, y + 1.0F, bounds.width - (2.0F * kRowInset),
@@ -130,6 +134,13 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
             name_right -= kChevronSize + 6.0F;
             icons.draw(renderer, "chevron-right", bounds.right() - kRightPadding - kChevronSize,
                        y + ((size_.row - kChevronSize) / 2.0F), kChevronSize, style.chevron);
+        }
+        if (badge != nullptr) {
+            const float width = draw_badge(
+                renderer, palette, *badge, name_right, y + ((size_.row - size_.text) / 2.0F) - 2.0F,
+                size_.text,
+                selected && focused ? std::optional<ui::Color>{style.text} : std::nullopt);
+            name_right -= width > 0.0F ? width + 4.0F : 0.0F;
         }
         if (edit != nullptr && edit->holds(*folder_, entry)) {
             edit->place({name_x - ui::TextField::kPadding, y + 3.0F,

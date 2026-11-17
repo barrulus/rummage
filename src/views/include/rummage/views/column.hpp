@@ -14,6 +14,7 @@
 #include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/scroller.hpp"
 #include "rummage/views/cut_marks.hpp"
+#include "rummage/views/decorations.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
 #include "rummage/views/folder.hpp"
@@ -53,10 +54,12 @@ public:
 
     // Lays out and draws into bounds at time now (advancing the scroll animation). The cursor is
     // strong in the focused column, quiet in the others (the path that leads to it). A name
-    // being edited (edit) is left out and its place noted there; cut entries are faded.
+    // being edited (edit) is left out and its place noted there; cut entries are faded. A
+    // decorator's badges go at the end of the rows.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, bool focused, Clock::time_point now, EditSlot* edit = nullptr,
-              const CutMarks* cut = nullptr, const DropMark* drop = nullptr);
+              const CutMarks* cut = nullptr, const DropMark* drop = nullptr,
+              Decorations* decorations = nullptr);
 
     // A scroll animation is running: the window should keep drawing frames.
     [[nodiscard]] bool animating() const noexcept { return scroller_.animating(); }
