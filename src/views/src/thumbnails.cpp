@@ -1,20 +1,33 @@
 #include "rummage/views/thumbnails.hpp"
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <utility>
 #include <vector>
 
-namespace rummage::views {
+#include "rummage/core/log.hpp"
 
-Thumbnails::Thumbnails(core::WorkerPool& pool, std::shared_ptr<const thumbs::Cache> cache,
-                       std::function<void()> redraw)
-    : pool_{pool}, cache_{std::move(cache)}, redraw_{std::move(redraw)} {}
+namespace rummage::views {
+namespace {
+
+// Give a busy helper pool time to recover without endlessly retrying a missing helper.
+constexpr std::array kRetryDelays{std::chrono::milliseconds{250}, std::chrono::milliseconds{1000}};
+
+}  // namespace
+
+Thumbnails::Thumbnails(core::EventLoop& loop, core::WorkerPool& pool,
+                       std::shared_ptr<const thumbs::Cache> cache, std::function<void()> redraw)
+    : loop_{loop}, pool_{pool}, cache_{std::move(cache)}, redraw_{std::move(redraw)} {}
 
 Thumbnails::~Thumbnails() {
     *alive_ = false;
     for (auto& [key, slot] : slots_) {
         if (slot.job) {
             slot.job->cancel();
+        }
+        if (slot.retry) {
+            loop_.remove(*slot.retry);
         }
     }
 }
@@ -32,32 +45,7 @@ const ui::Texture* Thumbnails::get(const std::filesystem::path& file, std::int64
     Slot& slot = it->second;
     slot.used = frame_;
     if (added) {
-        ++in_flight_;
-        slot.job = pool_.submit(
-            core::Priority::visible,
-            [cache = cache_, file, size, mime = std::string{mime}](const core::CancelToken& token) {
-                thumbs::Thumbnail thumbnail = cache->get(file, size, mime, &token);
-                return std::make_shared<thumbs::Thumbnail>(std::move(thumbnail));
-            },
-            [this, alive = alive_, key](const std::shared_ptr<thumbs::Thumbnail>& made) {
-                if (!*alive) {
-                    return;
-                }
-                const auto found = slots_.find(key);
-                if (found == slots_.end()) {
-                    return;  // dropped meanwhile
-                }
-                --in_flight_;
-                found->second.job.reset();
-                if (made->image.empty()) {
-                    found->second.failed = true;
-                    found->second.failure = made->failure;
-                } else {
-                    found->second.pixels = std::make_shared<picture::Image>(std::move(made->image));
-                }
-                redraw_();
-            });
-        return nullptr;
+        request(key, file, size, std::string{mime});
     }
     if (failure != nullptr) {
         *failure = slot.failed ? slot.failure : picture::Failure::none;
@@ -71,13 +59,67 @@ const ui::Texture* Thumbnails::get(const std::filesystem::path& file, std::int64
     return slot.texture.get();
 }
 
+void Thumbnails::request(const std::string& key, const std::filesystem::path& file,
+                         thumbs::Size size, const std::string& mime) {
+    Slot& slot = slots_.at(key);
+    slot.failed = false;
+    slot.failure = picture::Failure::none;
+    ++slot.attempts;
+    ++in_flight_;
+    slot.job = pool_.submit(
+        core::Priority::visible,
+        [cache = cache_, file, size, mime = std::string{mime}](const core::CancelToken& token) {
+            thumbs::Thumbnail thumbnail = cache->get(file, size, mime, &token);
+            return std::make_shared<thumbs::Thumbnail>(std::move(thumbnail));
+        },
+        [this, alive = alive_, key, file, size,
+         mime](const std::shared_ptr<thumbs::Thumbnail>& made) {
+            if (!*alive) {
+                return;
+            }
+            const auto found = slots_.find(key);
+            if (found == slots_.end()) {
+                return;  // dropped meanwhile
+            }
+            --in_flight_;
+            found->second.job.reset();
+            if (made->image.empty()) {
+                found->second.failed = true;
+                found->second.failure = made->failure;
+                log::debug("thumbnail: {} ({}, attempt {}): {}", file.string(),
+                           thumbs::directory_name(size), found->second.attempts, made->error);
+                if (made->failure == picture::Failure::unavailable &&
+                    found->second.attempts <= kRetryDelays.size()) {
+                    ++in_flight_;
+                    found->second.retry = loop_.add_timer(
+                        kRetryDelays.at(found->second.attempts - 1), std::chrono::milliseconds{0},
+                        [this, key, file, size, mime] {
+                            slots_.at(key).retry.reset();
+                            --in_flight_;
+                            request(key, file, size, mime);
+                            redraw_();
+                        });
+                }
+            } else {
+                found->second.pixels = std::make_shared<picture::Image>(std::move(made->image));
+            }
+            redraw_();
+        });
+}
+
 void Thumbnails::end_frame() {
-    // Not asked for this frame and still being made: no longer wanted.
+    // Cancel unseen work. Temporary failures must also get a fresh attempt on return,
+    // including those that exhausted their automatic retries while visible.
     for (auto it = slots_.begin(); it != slots_.end();) {
         Slot& slot = it->second;
-        if (slot.used != frame_ && (slot.job || slot.pixels)) {
+        if (slot.used != frame_ &&
+            (slot.job || slot.pixels || slot.failure == picture::Failure::unavailable)) {
             if (slot.job) {
                 slot.job->cancel();
+                --in_flight_;
+            }
+            if (slot.retry) {
+                loop_.remove(*slot.retry);
                 --in_flight_;
             }
             it = slots_.erase(it);

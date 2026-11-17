@@ -27,8 +27,8 @@ class Thumbnails {
 public:
     static constexpr std::size_t kBudgetBytes = std::size_t{256} << 20;
 
-    Thumbnails(core::WorkerPool& pool, std::shared_ptr<const thumbs::Cache> cache,
-               std::function<void()> redraw);
+    Thumbnails(core::EventLoop& loop, core::WorkerPool& pool,
+               std::shared_ptr<const thumbs::Cache> cache, std::function<void()> redraw);
     ~Thumbnails();
 
     Thumbnails(const Thumbnails&) = delete;
@@ -47,7 +47,7 @@ public:
     // After each frame: cancels what this frame did not ask for, keeps to the budget.
     void end_frame();
 
-    // Thumbnails are being made (snapshots, tests).
+    // Thumbnails are being made or waiting for a bounded retry (snapshots, tests).
     [[nodiscard]] bool loading() const noexcept { return in_flight_ > 0; }
 
     [[nodiscard]] std::size_t texture_bytes() const noexcept { return bytes_; }
@@ -64,7 +64,9 @@ public:
 
 private:
     struct Slot {
-        std::optional<core::CancelToken> job;    // being made
+        std::optional<core::CancelToken> job;  // being made
+        std::optional<core::EventLoop::SourceId> retry;
+        unsigned attempts{0};
         std::shared_ptr<picture::Image> pixels;  // made, not uploaded yet
         std::unique_ptr<ui::Texture> texture;
         bool failed{false};
@@ -72,6 +74,10 @@ private:
         std::uint64_t used{0};                             // the frame that last asked for it
     };
 
+    void request(const std::string& key, const std::filesystem::path& file, thumbs::Size size,
+                 const std::string& mime);
+
+    core::EventLoop& loop_;
     core::WorkerPool& pool_;
     std::shared_ptr<const thumbs::Cache> cache_;
     std::function<void()> redraw_;
