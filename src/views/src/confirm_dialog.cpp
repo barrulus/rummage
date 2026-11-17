@@ -7,18 +7,16 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 
 namespace rummage::views {
 namespace {
 
 constexpr float kCardWidth = 480.0F;
-constexpr float kMargin = 24.0F;
 constexpr float kPadding = 24.0F;
-constexpr float kTitleSize = 16.0F;
 constexpr float kTextSize = 13.0F;
 constexpr float kButtonHeight = 34.0F;
 constexpr float kButtonGap = 8.0F;
-constexpr float kCancelWidth = 116.0F;
 constexpr float kActionWidth = 116.0F;
 
 bool contains(const ui::Rect& rect, float x, float y) {
@@ -42,6 +40,7 @@ void ConfirmDialog::open(std::string title, std::string detail, std::string acti
     action_ = std::move(action);
     answer_ = std::move(answer);
     hovered_.reset();
+    focused_ = static_cast<int>(kAction);
     redraw_();
 }
 
@@ -61,12 +60,14 @@ void ConfirmDialog::open_password(std::string name, bool retry,
         },
         "");
     password_mode_ = true;
+    focused_ = -1;
 }
 
 void ConfirmDialog::open_name(std::string title, std::string detail, std::string initial,
                               std::function<std::string(const std::string&)> accept) {
     open(std::move(title), std::move(detail), "Compress", [](bool) {}, "");
     password_mode_ = true;
+    focused_ = -1;
     field_masked_ = false;
     password_field_.set_masked(false);
     password_field_.set_text(std::move(initial));
@@ -115,8 +116,19 @@ bool ConfirmDialog::key(const ui::KeyEvent& event) {
     if (!is_open()) {
         return false;
     }
-    if (password_mode_ && event.keysym != XKB_KEY_Return && event.keysym != XKB_KEY_KP_Enter &&
-        event.keysym != XKB_KEY_Escape) {
+    if (event.keysym == XKB_KEY_Tab || event.keysym == XKB_KEY_ISO_Left_Tab) {
+        const int first = password_mode_ ? -1 : 0;
+        const int count = password_mode_ ? 3 : 2;
+        focused_ =
+            first +
+            (focused_ - first +
+             (event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab ? count - 1 : 1)) %
+                count;
+        redraw_();
+        return true;
+    }
+    if (password_mode_ && focused_ == -1 && event.keysym != XKB_KEY_Return &&
+        event.keysym != XKB_KEY_KP_Enter && event.keysym != XKB_KEY_Escape) {
         if (event.text.find_first_of(std::string_view{"\r\n\0", 3}) == std::string::npos)
             password_field_.key(event);
         redraw_();
@@ -128,7 +140,7 @@ bool ConfirmDialog::key(const ui::KeyEvent& event) {
     switch (event.keysym) {
         case XKB_KEY_Return:
         case XKB_KEY_KP_Enter:
-            choose(true);
+            choose(focused_ != static_cast<int>(kCancel));
             break;
         case XKB_KEY_Escape:
             choose(false);
@@ -145,6 +157,7 @@ void ConfirmDialog::pointer(const ui::PointerEvent& event) {
     }
     using Kind = ui::PointerEvent::Kind;
     if (password_mode_ && password_field_.pointer(event)) {
+        focused_ = -1;
         redraw_();
         return;
     }
@@ -170,21 +183,13 @@ void ConfirmDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (!is_open()) {
         return;
     }
-    renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
-    const float width = std::min(kCardWidth, bounds.width - (2.0F * kMargin));
-    const float height = kPadding + 30.0F + 22.0F + 36.0F + kButtonHeight + kPadding;
-    const ui::Rect card{bounds.x + ((bounds.width - width) / 2.0F),
-                        bounds.y + ((bounds.height - height) / 2.0F), width, height};
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = {},
-                             .border_width = 1.0F,
-                             .border = palette.outline_variant});
+    const auto frame = DialogFrame::fit(bounds, kCardWidth, 250);
+    const auto card = frame.card;
+    frame.draw(renderer, bounds, palette, title_);
     renderer.push_clip(card);
     const float left = card.x + kPadding;
-    const float room = width - (2.0F * kPadding);
-    float y = card.y + kPadding;
-    renderer.draw_text(title_, left, y, kTitleSize, palette.on_surface, room, ui::Ellipsis::middle);
-    y += 30.0F;
+    const float room = std::max(1.0F, card.width - (2.0F * kPadding));
+    float y = frame.body.y + 16;
     renderer.draw_text(detail_, left, y, kTextSize, palette.on_surface, room);
     y += 22.0F;
     if (password_mode_) {
@@ -198,31 +203,20 @@ void ConfirmDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     } else {
         renderer.draw_text(warning_, left, y, kTextSize, palette.on_surface_variant, room);
     }
-    y += 36.0F;
+    y = frame.footer.y + 10;
 
-    buttons_.at(kAction) = {card.right() - kPadding - kActionWidth, y, kActionWidth, kButtonHeight};
-    buttons_.at(kCancel) = {buttons_.at(kAction).x - kButtonGap - kCancelWidth, y, kCancelWidth,
+    const float button_width = std::min(kActionWidth, std::max(1.0F, (room - kButtonGap) / 2));
+    buttons_.at(kAction) = {card.right() - kPadding - button_width, y, button_width, kButtonHeight};
+    buttons_.at(kCancel) = {buttons_.at(kAction).x - kButtonGap - button_width, y, button_width,
                             kButtonHeight};
     for (std::size_t i = 0; i < kButtons; ++i) {
         const ui::Rect& button = buttons_.at(i);
         const bool action = i == kAction;
-        ui::Color fill = action ? (password_mode_ ? palette.primary : palette.error)
-                                : palette.surface_container_highest;
-        ui::Color text =
-            action ? (password_mode_ ? palette.on_primary : palette.on_error) : palette.on_surface;
-        if (hovered_ == i) {
-            fill = action ? (password_mode_ ? palette.primary_container : palette.error_container)
-                          : palette.surface_bright;
-            text = action ? (password_mode_ ? palette.on_primary_container
-                                            : palette.on_error_container)
-                          : palette.on_surface;
-        }
-        renderer.draw_box(button, {.fill = fill, .radius = {}});
-        const std::string label =
-            action ? std::format("{}   ↵", action_) : std::string{i18n::tr("Cancel   Esc")};
-        renderer.draw_text(label, button.x + 14.0F,
-                           button.y + ((kButtonHeight - kTextSize) / 2.0F) - 2.0F, kTextSize, text,
-                           button.width - 20.0F);
+        const std::string label = action ? action_ : std::string{i18n::tr("Cancel")};
+        draw_dialog_button(
+            renderer, button, palette, label, focused_ == static_cast<int>(i) || hovered_ == i,
+            action ? (password_mode_ ? DialogButton::primary : DialogButton::destructive)
+                   : DialogButton::normal);
     }
     renderer.pop_clip();
 }

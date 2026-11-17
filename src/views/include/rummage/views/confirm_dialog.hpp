@@ -80,6 +80,7 @@ private:
     std::string action_;
     std::string warning_;
     Answer answer_;
+    int focused_{1};
     bool password_mode_{false};
     bool field_masked_{true};
     std::function<std::string(const std::string&)> name_accept_;

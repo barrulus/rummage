@@ -8,8 +8,9 @@ Open the toolbar cog or press **Ctrl+,** for **Settings → Appearance**. Choose
 a palette source (Automatic, Desktop, Palette file or Built-in) and a separate
 colour mode (Follow source, light or dark); an icon theme; opacity; fonts; and
 preview placement. The active-palette line reports the applied source, including
-fallback and any light/dark override. Unsaved choices do not change that status.
-Font changes apply at the next start; other appearance changes apply when saved.
+fallback and any light/dark override. Changes save automatically when valid; the
+status reports the applied palette after saving completes. Font family changes
+apply at the next start; text sizes and other appearance changes apply immediately.
 
 The same panel controls motion effects, speed, quality and reduced motion. See
 [motion effects](motion.md) for per-event mappings, durations and resource limits.

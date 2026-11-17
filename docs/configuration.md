@@ -3,28 +3,44 @@
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
 Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or the
-command palette. Appearance includes colour and icon themes, opacity, fonts and
-preview placement. Keybindings lets you replace a default with a chord (for example
-`Ctrl+J`), type `Default` to reset it, or clear a field to disable it. **New keybinding**
-adds a chord for an action (`action:ID`) or folder (`go:/path` or `go:~/path`).
+command palette. Categories appear in a sidebar, or a category selector in narrow windows:
+
+- **General:** startup/session behavior, executable opening, double-click timing and terminal.
+- **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement and motion.
+- **Keyboard shortcuts:** replace a default with a chord (for example `Ctrl+J`), type
+  `Default` to reset it, or clear a field to disable it. **New shortcut** adds a binding
+  for an action (`action:ID`) or folder (`go:/path` or `go:~/path`).
+- **Actions:** add commands and edit their labels, argument arrays and enabled state.
+  Advanced options remain available through **Open config**.
+
 Copy Name defaults to **Ctrl+Alt+C** and can be changed with `copy_name`; it copies
 selected filenames, including extensions, with newlines between multiple names.
-Create custom commands in Actions first; you can save the action and its binding together.
-Actions lets
-you add commands and edit custom action labels, argument arrays and enabled state. Advanced options remain
-available through **Open config**.
 
-Choice fields have a dropdown arrow. Click one or press Enter/Space while focused
-to see its options; use the arrow keys and Enter/Space to choose, or Escape to
-cancel. Tab dismisses the list and moves to the next control.
+**Valid changes save automatically.** Toggles and dropdowns commit immediately; text and
+number fields commit on Enter or when focus leaves them. Numeric controls also support
+plus/minus buttons and Up/Down while the field is focused. Settings stays open after saving.
+The header reports saving, saved, editing or changes needing attention. Font family changes
+require a restart; font size changes apply immediately.
 
-**Save** validates changes and applies live settings; font family changes require a restart. Font size changes apply immediately.
-**Cancel** or **Escape** discards edits. Use Tab/Shift+Tab to move between controls,
-Alt+1/2/3 to switch sections, and Ctrl+S to save. Scroll within a section for more
-controls using the wheel or by dragging the scrollbar; clicking its track jumps to that position.
-Existing comments and unrelated configuration are retained. If another
-editor changes the file while Settings is open, saving stops; reopen Settings to
-load that version. Invalid files and save failures display an error. Settings uses the active `--config` file when specified.
+Invalid input stays in its field with an error and **Details** for the complete message.
+The last valid value remains active. New actions and shortcuts stay drafts until their
+required fields are valid; unrelated valid preferences can still save. Create custom
+commands in Actions before assigning their shortcuts.
+
+**Close** or **Escape** commits pending valid edits and waits for writes. If edits cannot be
+saved, Settings stays open: correct them, use **Retry** for a write failure, or explicitly
+choose **Discard unsaved**. Discarding does not undo changes already saved.
+
+Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4 to switch categories, and
+Ctrl+S to commit pending fields or retry a save. Scroll within a category with the wheel
+or scrollbar. Choice fields open with Enter/Space; arrow keys move through options,
+Enter/Space selects, Escape dismisses, and Tab dismisses and moves focus.
+
+Existing comments and unrelated configuration are retained. Writes are serialized so quick
+successive changes are retained. If another editor changes the file while Settings is open,
+saving stops without overwriting that edit. Keep a copy of any unsaved values, discard those
+edits and reopen Settings to load the external version. Invalid files and write failures
+have readable error details. Settings uses the active `--config` file when specified.
 
 rummage stores settings in TOML. Every configuration key is optional. The first
 normal launch creates the complete reference when no config exists. First-run setup
@@ -195,7 +211,7 @@ update old executable names yourself. See [migration details](install.md#upgradi
 
 ## Terminal and program opening
 
-Settings → Appearance includes the terminal program and its argument list. `[terminal]`
+Settings → General includes the terminal program and its argument list. `[terminal]`
 `program = "kitty"` and `args = ["--title", "Files"]` take precedence over `$TERMINAL`.
 Leave the program empty for automatic discovery. Arguments are passed literally, without a shell;
 Rummage adds the terminal's command-launch syntax. Changes apply immediately.
