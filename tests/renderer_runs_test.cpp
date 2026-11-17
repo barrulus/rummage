@@ -3,7 +3,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -17,6 +19,7 @@
 #include "rummage/ui/text.hpp"
 #include "rummage/views/confirm_dialog.hpp"
 #include "rummage/views/error_dialog.hpp"
+#include "rummage/views/sidebar.hpp"
 #include "temp_dir.hpp"
 
 namespace ui = rummage::ui;
@@ -248,6 +251,76 @@ TEST_CASE("folder icons: rendered override, missing or broken artwork, and built
     CHECK(draw("rummage-nonexistent-folder-icon") == normal);
     icons.set_theme("builtin");
     const auto builtin = draw({});
+    CHECK(draw(custom.string()) == builtin);
+}
+
+TEST_CASE("bookmark icons: sidebar uses theme folders, custom artwork and builtin fallback") {
+    const auto gl = offscreen(200, 100);
+    REQUIRE(gl);
+    rummage::test::TempDir dir;
+
+    // Restore the theme search path even if an assertion aborts the case.
+    struct DataHome {
+        std::optional<std::string> previous;
+
+        DataHome() {
+            if (const char* value = std::getenv("XDG_DATA_HOME"))
+                previous = value;
+        }
+
+        ~DataHome() {
+            if (previous)
+                setenv("XDG_DATA_HOME", previous->c_str(), 1);
+            else
+                unsetenv("XDG_DATA_HOME");
+        }
+    } restore;
+
+    REQUIRE(setenv("XDG_DATA_HOME", dir.path.c_str(), 1) == 0);
+    std::filesystem::create_directories(dir.path / "icons/bookmark-test/32");
+    dir.write("icons/bookmark-test/index.theme",
+              "[Icon Theme]\nDirectories=32\n[32]\nSize=32\nType=Fixed\n");
+    dir.write("icons/bookmark-test/32/folder.svg",
+              "<svg width='32' height='32'><rect width='32' height='32' fill='lime'/></svg>");
+    const auto custom =
+        dir.write("custom.svg",
+                  "<svg width='32' height='32'><rect width='32' height='32' fill='red'/></svg>");
+    const auto broken = dir.write("broken.svg", "not svg");
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    icons.set_theme("bookmark-test");
+    rummage::views::Sidebar sidebar{[] {}, [](ui::CursorShape) {},
+                                    [](const rummage::fs::Place&) {}};
+    const auto draw = [&](std::string preferred) {
+        sidebar.set_places({{.section = rummage::fs::Place::Section::bookmarks,
+                             .label = "Projects",
+                             .path = "/projects",
+                             .icon = "bookmark",
+                             .folder_icon = std::move(preferred)}});
+        renderer.begin_frame(200, 100, 1, ui::Color::rgb(0x000000));
+        sidebar.draw(renderer, {0, 0, 200, 100}, {}, icons, {},
+                     rummage::views::Sidebar::Clock::now());
+        renderer.end_frame();
+        const auto rect = sidebar.place_icon_rect("/projects");
+        REQUIRE(rect);
+        std::array<std::uint8_t, 4> pixel{};
+        glReadPixels(static_cast<int>(rect->x + rect->width / 2),
+                     99 - static_cast<int>(rect->y + rect->height / 2), 1, 1, GL_RGBA,
+                     GL_UNSIGNED_BYTE, pixel.data());
+        return pixel;
+    };
+    const auto normal = draw({});
+    CHECK(normal[0] == 0);
+    CHECK(normal[1] == 255);
+    const auto override = draw(custom.string());
+    CHECK(override[0] == 255);
+    CHECK(override[1] == 0);
+    CHECK(draw(broken.string()) == normal);
+    CHECK(draw("missing-folder-icon") == normal);
+    icons.set_theme("builtin");
+    const auto builtin = draw({});
+    CHECK(builtin != normal);
     CHECK(draw(custom.string()) == builtin);
 }
 

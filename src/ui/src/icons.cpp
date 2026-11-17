@@ -29,6 +29,7 @@ constexpr std::string_view kFilled = "-filled";
 std::string_view theme_name(std::string_view name) {
     static constexpr std::pair<std::string_view, std::string_view> names[]{
         {"folder", "folder"},
+        {"bookmark", "folder"},
         {"folder-symlink", "folder"},
         {"file", "text-x-generic"},
         {"photo", "image-x-generic"},

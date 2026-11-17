@@ -1,3 +1,10 @@
+rummage (0.6.0-1) unstable; urgency=medium
+
+  * Bump source and package versions to 0.6.0.
+  * Use themed folder icons for local sidebar bookmarks.
+
+ -- rummage fork maintainers <barrulus@users.noreply.github.com>  Tue, 17 Nov 2026 12:00:00 +0000
+
 rummage (0.5.1-1) unstable; urgency=medium
 
   * Bump the source and package versions to 0.5.1.

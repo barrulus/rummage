@@ -1,5 +1,5 @@
 Name:           rummage
-Version:        0.5.1
+Version:        0.6.0
 Release:        1%{?dist}
 Summary:        Native Wayland file manager
 License:        MIT AND (MIT OR Apache-2.0)

@@ -334,6 +334,47 @@ TEST_CASE("places: the place holding a folder") {
     CHECK_FALSE(place_holding(std::vector<Place>{places[1]}, "/etc").has_value());
 }
 
+TEST_CASE(
+    "places: bookmark folder icons resolve asynchronously and refresh without stale results") {
+    TempDir dir;
+    dir.write(".directory", "[Desktop Entry]\nIcon=folder-development\n");
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop,    pool,
+                    watcher, rummage::fs::MimeDatabase::load(),
+                    [] {},   [](rummage::ui::CursorShape) {}};
+    const auto bookmarks = [&] {
+        return rummage::fs::parse_bookmarks("file://" + dir.path.string() +
+                                            " Projects\nsftp://host/share Remote\n");
+    };
+    browser.set_places(bookmarks());
+    REQUIRE(run_until(
+        loop, [&] { return browser.sidebar().places()[0].folder_icon == "folder-development"; }));
+    CHECK(browser.sidebar().places()[0].icon == "bookmark");
+    CHECK(browser.sidebar().places()[1].folder_icon.empty());
+    CHECK(browser.sidebar().places()[1].icon == "server");
+
+    dir.write(".directory", "[Desktop Entry]\nIcon=./custom.svg\n");
+    browser.set_places(bookmarks());
+    REQUIRE(run_until(loop, [&] {
+        return browser.sidebar().places()[0].folder_icon == (dir.path / "custom.svg").string();
+    }));
+    dir.write(".directory", "[Desktop Entry]\nIcon=\n");
+    browser.set_places(browser.sidebar().places());
+    REQUIRE(run_until(loop, [&] { return browser.sidebar().places()[0].folder_icon.empty(); }));
+
+    // An old completion must not restore a removed bookmark.
+    browser.set_places(bookmarks());
+    browser.set_places({});
+    bool drained = false;
+    pool.submit(
+        rummage::core::Priority::prefetch, [](const rummage::core::CancelToken&) { return true; },
+        [&](bool result) { drained = result; });
+    REQUIRE(run_until(loop, [&] { return drained; }));
+    CHECK(browser.sidebar().places().empty());
+}
+
 TEST_CASE("places: the sidebar opens a place from the keyboard") {
     TempDir dir;
     fs::create_directories(dir.path / "a" / "inner");

@@ -1,6 +1,6 @@
 # Build from the checksum-verified checkout archive supplied by scripts/ci/native.sh.
 pkgname=('rummage' 'rummage-media' 'rummage-pdf' 'rummage-previews')
-pkgver=0.5.1
+pkgver=0.6.0
 pkgrel=1
 pkgdesc='Native Wayland file manager'
 arch=('x86_64')

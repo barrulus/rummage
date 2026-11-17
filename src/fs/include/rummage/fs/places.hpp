@@ -41,6 +41,9 @@ struct Place {
     // ("smb://server/share"); empty for local places.
     std::string uri{};
 
+    // Local bookmark's preferred folder icon, resolved on a worker before drawing.
+    std::string folder_icon{};
+
     bool operator==(const Place&) const = default;
 };
 
