@@ -514,6 +514,12 @@ FontSystem::FontSystem(const std::string& family, std::string monospace)
 
 FontSystem::~FontSystem() = default;
 
+TextLayout FontSystem::layout_uncached(std::string_view utf8, float size, float scale,
+                                       Typeface typeface) {
+    impl_->ptem = size * kPointsPerPixel;
+    return impl_->shape(utf8, size * scale, typeface);
+}
+
 const TextLayout& FontSystem::layout(std::string_view utf8, float size, float scale,
                                      float max_width, Ellipsis ellipsis, Typeface typeface) {
     const float pixel_size = size * scale;
@@ -529,8 +535,7 @@ const TextLayout& FontSystem::layout(std::string_view utf8, float size, float sc
     if (cache.size() >= kMaxCachedLayouts) {
         cache.clear();
     }
-    impl_->ptem = size * kPointsPerPixel;
-    TextLayout layout = impl_->shape(utf8, pixel_size, typeface);
+    TextLayout layout = layout_uncached(utf8, size, scale, typeface);
     // A measured width may come back a hair short from logical pixels.
     if (max_px > 0.0F && layout.width > max_px + (1.0F / kFixedPoint)) {
         layout = impl_->truncate(utf8, layout, max_px, ellipsis, typeface);

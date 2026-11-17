@@ -229,6 +229,19 @@ TEST_CASE("motion: every GLES effect renders, preserves alpha and restores rende
     renderer.end_frame();
     CHECK(pixel(16, 224)[0] == 255);  // smaller captures sample only their valid subregion
     CHECK(renderer.motion_stats().allocations == 1);
+    renderer.release_motion_textures();
+    CHECK(renderer.motion_stats().texture_bytes == 0);
+    renderer.begin_frame(320, 240, 1, ui::Color::rgb(0));
+    REQUIRE(renderer.begin_motion({0, 0, 32, 32}, core::MotionConfig::Quality::automatic));
+    // A release while capturing must leave the current pass intact.
+    renderer.release_motion_textures();
+    CHECK(renderer.motion_stats().texture_bytes == 32 * 32 * 8);
+    renderer.fill_rect({0, 0, 32, 32}, ui::Color::rgb(0x00FF00));
+    renderer.end_motion({.effect = Effect::fade, .progress = 1}, 16, 16, ui::Color::rgb(0));
+    renderer.end_frame();
+    CHECK(pixel(16, 224)[1] == 255);
+    CHECK(renderer.motion_stats().allocations == 2);
+    CHECK(glGetError() == GL_NO_ERROR);
     renderer.release_motion();
     CHECK(renderer.motion_stats().texture_bytes == 0);
 }
@@ -310,6 +323,7 @@ TEST_CASE("motion: browser navigation settles, reduced mode cancels and idle sta
     now += 3s;
     draw();
     CHECK_FALSE(browser.motion().active());
+    CHECK(renderer.motion_stats().texture_bytes == 0);
     const auto passes = renderer.motion_stats().passes;
     draw();
     CHECK(renderer.motion_stats().passes == passes);
@@ -318,6 +332,7 @@ TEST_CASE("motion: browser navigation settles, reduced mode cancels and idle sta
     draw();
     REQUIRE(browser.motion().frame(Channel::first_pane, now));
     CHECK(browser.motion().frame(Channel::first_pane, now)->effect == Effect::ripple);
+    CHECK(renderer.motion_stats().texture_bytes > 0);
     browser.set_reduced_motion(true);
     CHECK_FALSE(browser.motion().active());
     draw();

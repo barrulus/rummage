@@ -80,6 +80,11 @@ public:
                              Ellipsis ellipsis = Ellipsis::end,
                              Typeface typeface = Typeface::proportional);
 
+    // Full-line geometry for one-off measurements. Does not retain the text or glyphs in
+    // the drawing cache, or invalidate references returned by layout().
+    [[nodiscard]] TextLayout layout_uncached(std::string_view utf8, float size, float scale,
+                                             Typeface typeface = Typeface::proportional);
+
     // Loads a font file outside the fontconfig fallback chain (an icon font): text never falls
     // back to it. Returns its font id, or nullopt when the file cannot be loaded.
     std::optional<std::uint32_t> add_font_file(const std::string& path);

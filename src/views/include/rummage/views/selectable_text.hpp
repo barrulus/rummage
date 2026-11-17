@@ -30,13 +30,20 @@ public:
                                               float size, float scale,
                                               ui::Typeface typeface = ui::Typeface::proportional) {
         const auto& shaped = fonts.layout(value, size, scale, 0, ui::Ellipsis::end, typeface);
+        return glyph_spans(value, shaped, scale);
+    }
 
+    // Reuse an existing layout when measuring a preview: offscreen lines need selection
+    // geometry, but need not also occupy the font system's drawing cache.
+    static std::vector<GlyphSpan> glyph_spans(std::string_view value, const ui::TextLayout& shaped,
+                                              float scale) {
         struct Cluster {
             GlyphSpan span;
             std::uint32_t font;
         };
 
         std::vector<Cluster> clusters;
+        clusters.reserve(shaped.glyphs.size());
         float pen = 0;
         for (const auto& glyph : shaped.glyphs) {
             const float end = pen + glyph.advance / scale;
@@ -77,6 +84,7 @@ public:
         }
         std::ranges::sort(clusters, {}, [](const Cluster& cluster) { return cluster.span.begin; });
         std::vector<GlyphSpan> result;
+        result.reserve(clusters.size());
         for (std::size_t index = 0; index < clusters.size(); ++index) {
             auto span = clusters[index].span;
             span.end = index + 1 < clusters.size() ? clusters[index + 1].span.begin : value.size();

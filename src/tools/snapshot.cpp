@@ -418,11 +418,12 @@ int main(int argc, char** argv) {
             icons.set_theme(icon_theme);
             core::EventLoop loop;
             core::WorkerPool pool{loop};
+            const auto mime = rummage::fs::MimeDatabase::load();
             // Pictures are made by the engines in their cages (ROADMAP 2b, 3a), never here.
             {
                 auto registry =
                     std::make_shared<const engines::Registry>(engines::Registry::load_installed());
-                isolate::use_engines(*registry);
+                isolate::use_engines(*registry, {}, mime);
                 engines::set_installed(std::move(registry));
             }
             rummage::fs::DirectoryWatcher watcher{loop};
@@ -493,7 +494,6 @@ int main(int argc, char** argv) {
                 renderer.end_frame();
             };
             if (!columns_dir.empty()) {
-                const auto mime = rummage::fs::MimeDatabase::load();
                 columns = std::make_unique<views::Browser>(
                     loop, pool, watcher, mime, [] {}, [](ui::CursorShape /*shape*/) {},
                     thumbnails.empty()
@@ -805,6 +805,9 @@ int main(int argc, char** argv) {
                      columns ? columns->memory_lines() : std::vector<std::string>{}) {
                     std::printf("memory: %s\n", line.c_str());
                 }
+                const auto& motion = renderer.motion_stats();
+                std::printf("memory: motion textures %zu bytes, %zu allocations, %zu passes\n",
+                            motion.texture_bytes, motion.allocations, motion.passes);
             }
         }
         write_ppm(out, buffer_width, buffer_height, pixels);

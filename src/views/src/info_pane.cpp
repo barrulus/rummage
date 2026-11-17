@@ -209,9 +209,27 @@ std::string InfoPane::selected_text() const {
                                             : metadata_.selected_text();
 }
 
-TextPoint InfoPane::point_at(float x, float y) const {
+const std::vector<SelectableText::GlyphSpan>& InfoPane::text_clusters(std::size_t line) {
+    if (const auto found = page_clusters_.find(line); found != page_clusters_.end()) {
+        return found->second;
+    }
+    // At most 30 lines are painted; allow a second page and pointer endpoints without
+    // retaining geometry for every line visited while scrolling a large file.
+    constexpr std::size_t kCachedLines = 64;
+    if (page_clusters_.size() >= kCachedLines) {
+        page_clusters_.clear();
+    }
+    const auto& value = shown_text()->lines.at(line);
+    const auto shaped = page_fonts_->layout_uncached(value, kLineSize, page_metrics_scale_,
+                                                     ui::Typeface::monospace);
+    return page_clusters_
+        .emplace(line, SelectableText::glyph_spans(value, shaped, page_metrics_scale_))
+        .first->second;
+}
+
+TextPoint InfoPane::point_at(float x, float y) {
     const preview::Text* const text = shown_text();
-    if (text == nullptr || text->lines.empty() || page_clusters_.empty()) {
+    if (text == nullptr || text->lines.empty() || page_fonts_ == nullptr) {
         return {};
     }
     const float from_top = y - page_.y - kPagePadding + page_scroller_.offset();
@@ -223,7 +241,7 @@ TextPoint InfoPane::point_at(float x, float y) const {
         return {text->lines.size() - 1, text->lines.back().size()};
     }
     const float local = x - page_.x - kPagePadding + page_sideways_.offset();
-    const auto& clusters = page_clusters_[line];
+    const auto& clusters = text_clusters(line);
     float nearest = std::numeric_limits<float>::max();
     std::size_t byte = 0;
     for (const SelectableText::GlyphSpan& cluster : clusters) {
@@ -242,19 +260,17 @@ TextPoint InfoPane::point_at(float x, float y) const {
 }
 
 void InfoPane::measure_text(ui::Renderer& renderer, const preview::Text& text) {
-    if (!page_clusters_.empty() && page_metrics_scale_ == renderer.scale()) {
+    if (page_fonts_ == &renderer.fonts() && page_metrics_scale_ == renderer.scale()) {
         return;
     }
     page_clusters_.clear();
+    page_fonts_ = &renderer.fonts();
     page_text_width_ = 0.0F;
     page_metrics_scale_ = renderer.scale();
-    page_clusters_.reserve(text.lines.size());
     for (const std::string& line : text.lines) {
-        const ui::TextLayout& shaped = renderer.fonts().layout(
-            line, kLineSize, renderer.scale(), 0.0F, ui::Ellipsis::end, ui::Typeface::monospace);
+        const ui::TextLayout shaped = renderer.fonts().layout_uncached(
+            line, kLineSize, renderer.scale(), ui::Typeface::monospace);
         page_text_width_ = std::max(page_text_width_, shaped.width / renderer.scale());
-        page_clusters_.push_back(SelectableText::glyph_spans(
-            renderer.fonts(), line, kLineSize, renderer.scale(), ui::Typeface::monospace));
     }
 }
 
@@ -458,6 +474,7 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
     page_sideways_.jump_to(0.0F);
     page_placed_ = false;
     page_clusters_.clear();
+    page_fonts_ = nullptr;
     if (job_) {
         job_->cancel();
     }
@@ -481,6 +498,8 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
 void InfoPane::forget_summary() {
     key_.clear();
     summary_.reset();
+    page_clusters_.clear();
+    page_fonts_ = nullptr;
     if (job_) {
         job_->cancel();
         job_.reset();
@@ -762,7 +781,8 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             for (std::size_t i = std::max(first, from.line); i < last && i <= to.line; ++i) {
                 const std::size_t start = i == from.line ? from.byte : 0;
                 const std::size_t end = i == to.line ? to.byte : lines[i].size();
-                for (const SelectableText::GlyphSpan& cluster : page_clusters_[i]) {
+                const auto& clusters = text_clusters(i);
+                for (const SelectableText::GlyphSpan& cluster : clusters) {
                     if (cluster.end <= start || cluster.begin >= end) {
                         continue;
                     }
@@ -773,8 +793,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 }
                 if (i < to.line) {
                     // Include a small mark for a selected line break, including empty lines.
-                    const float end_x =
-                        page_clusters_[i].empty() ? 0.0F : page_clusters_[i].back().right;
+                    const float end_x = clusters.empty() ? 0.0F : clusters.back().right;
                     renderer.fill_rect({inner.x - sideways + end_x,
                                         inner.y + static_cast<float>(i) * kLineHeight - page_offset,
                                         kLineSize * 0.5F, kLineHeight},

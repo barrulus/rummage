@@ -1,6 +1,6 @@
 # Contributing
 
-[Documentation](docs/README.md) · [Development](contributing/development.md) · [Architecture](contributing/architecture.md)
+[Documentation](docs/README.md) · [Development](contributing/development.md) · [Architecture](contributing/architecture.md) · [Performance measurements](contributing/performance.md)
 
 Start with the code and tests for the affected module. rummage is a C++20 Wayland
 application with its own UI; changes should preserve responsive browsing, clear

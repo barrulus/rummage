@@ -276,6 +276,8 @@ void Browser::end_overlay_motion(ui::Renderer& renderer,
     if (frame)
         renderer.end_motion(*frame, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2,
                             palette.primary);
+    if (!motion_.active())
+        renderer.release_motion_textures();
 }
 
 void Browser::leave_motion() {

@@ -182,3 +182,21 @@ fallback counts and last/maximum CPU frame-submission time. These timings exclud
 GPU completion and compositor presentation; they are not frame-pacing or integrated
 GPU performance claims. Compare hardware, scale, dimensions, theme, build mode and
 revision when profiling. The texture counters exclude driver overhead.
+
+`rummage-snapshot --columns DIR --memory /tmp/preview.ppm` also reports motion
+texture bytes, allocation count and pass count. Capture textures are released once
+all effects finish; the compiled shader stays available for the next effect.
+Allocator and driver caches can retain freed storage, so compare live allocations
+as well as process RSS when investigating preview memory.
+
+## Preview memory
+
+Use the [paired performance harness](performance.md) to measure live preview
+processes under the same rendering conditions.
+
+The worker pool assigns spaced jobs to the most recently idle worker. This lets
+sequential previews reuse that thread's allocator arena instead of retaining a
+preview-sized free block on every worker. Bursts still wake additional workers;
+queued work keeps its visible/nearby/prefetch priority order. When investigating
+retention, distinguish live allocations from freed blocks held by allocator
+arenas, and check both repeated navigation and concurrent work.
