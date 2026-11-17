@@ -7,23 +7,23 @@
 
 #include "rummage/ui/color.hpp"
 
-// The color palette, in Noctalia's (Material) role names. Noctalia renders it to
-// ~/.config/rummage/colors.toml through the rummage template:
+// Rummage's palette interface, using Material-style semantic roles. Any producer can write
+// ~/.config/rummage/colors.toml (see docs/appearance.md):
 //
 //   mode = "dark"
 //   [colors]
 //   primary = "#fff59b"
 //   ...
 //
-// The template writes every token Noctalia has; rummage reads the roles below and ignores the
-// rest, so the template does not change when rummage starts using another role.
+// Complete palettes are used as supplied; partial palettes overlay a mode/accent baseline.
+// Extra colour roles are ignored for compatibility with generators such as Noctalia.
 namespace rummage::theme {
 
 using ui::Color;
 
 // Defaults: Noctalia 5.3.0's built-in "Noctalia" palette, dark mode, as Noctalia expands it
-// (src/theme/fixed_palette.cpp). Used when colors.toml is missing, and per role when a role is
-// missing from it.
+// (src/theme/fixed_palette.cpp). Used when neither a palette file nor desktop preferences
+// are available. Missing roles in a palette file use desktop_palette instead.
 struct Palette {
     bool dark{true};
 
@@ -66,7 +66,7 @@ struct Palette {
 
 struct PaletteResult {
     Palette palette;
-    bool from_file{false};  // the file existed and parsed; false means the default palette
+    bool from_file{false};  // the file existed and validated; false means the default palette
     // One line per problem, ready to print: "<file>:<line>:<column>: <what>".
     std::vector<std::string> problems;
 };
@@ -74,7 +74,7 @@ struct PaletteResult {
 // colors.toml next to config.toml (see core::default_config_path); empty when that is empty.
 [[nodiscard]] std::filesystem::path default_colors_path();
 
-// Parses colors.toml text. source names the file in problem messages. A file that does not parse
+// Parses colors.toml text. source names the file in problem messages. An invalid file
 // gives the default palette with from_file = false: on a reload, keep the current palette.
 [[nodiscard]] PaletteResult parse_palette(std::string_view text, std::string_view source);
 

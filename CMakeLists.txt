@@ -124,7 +124,7 @@ pkg_check_modules(TURBOJPEG IMPORTED_TARGET libturbojpeg)  # optional for now: t
 # ---------------------------------------------------------------------------
 add_subdirectory(src/core)      # logging, event loop, worker pool, config
 add_subdirectory(src/ui)        # Wayland connection, windows, rendering
-add_subdirectory(src/theme)     # Noctalia palette, hot reload
+add_subdirectory(src/theme)     # Semantic palette, hot reload
 add_subdirectory(src/archive)   # archive data shared with the isolated reader
 add_subdirectory(src/fs)        # directory loading and sorting
 add_subdirectory(src/engines)   # engines' manifests: who shows which type (3a)
@@ -291,8 +291,9 @@ install(TARGETS rummage-preview RUNTIME DESTINATION libexec/rummage)
 install(FILES data/rummage.desktop DESTINATION share/applications)
 # Its icon, named after the app id (the desktop entry's Icon=rummage).
 install(FILES data/rummage.svg DESTINATION share/icons/hicolor/scalable/apps)
-# The Noctalia template that writes ~/.config/rummage/colors.toml (README, "On Noctalia").
+# Palette generator templates; see docs/appearance.md.
 install(FILES data/noctalia/rummage DESTINATION share/rummage/noctalia)
+install(FILES data/matugen/rummage.toml DESTINATION share/rummage/matugen)
 
 # Full reference, also embedded for per-user first-run setup.
 install(FILES docs/config.example.toml DESTINATION share/rummage)

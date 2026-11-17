@@ -12,8 +12,8 @@
 
 namespace rummage::theme {
 
-// The current palette: loaded from colors.toml, reloaded when the file changes (Noctalia rewrites
-// it on every theme change). A missing file means the default palette; a file that does not parse
+// The current palette: loaded from colors.toml, reloaded when a producer writes or replaces it.
+// A missing file means the default palette; a file that fails syntax or value validation
 // keeps the palette in use, so a half-written or hand-broken file never flashes the default
 // colors. Problems are logged. Without the file, the desktop's look (set_desktop) when known,
 // otherwise the default palette.

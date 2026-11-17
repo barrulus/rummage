@@ -36,7 +36,7 @@ never replaces existing files. You can keep a small file with only your changes,
 | File or directory | Default location | Ownership |
 | --- | --- | --- |
 | Settings | `~/.config/rummage/config.toml` | Edited by you or Settings |
-| Palette | `~/.config/rummage/colors.toml` | Written by Noctalia or edited by you |
+| Palette | `~/.config/rummage/colors.toml` | Written by any palette producer (e.g. Noctalia or Matugen), or edited by you; see [Appearance](appearance.md#palette-file-interface) |
 | Window/tab/folder state | `~/.local/state/rummage/state.toml` | Written by rummage |
 | Picker window/view/last folder | `~/.local/state/rummage/picker.toml` | Written by the file picker |
 | Thumbnail cache | `~/.cache/thumbnails/` | Shared freedesktop cache |

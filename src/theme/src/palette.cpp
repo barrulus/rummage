@@ -14,6 +14,7 @@
 
 #include "rummage/core/config.hpp"
 #include "rummage/core/file.hpp"
+#include "rummage/theme/desktop.hpp"
 
 namespace rummage::theme {
 namespace {
@@ -108,36 +109,32 @@ private:
     std::vector<Problem> problems_;
 };
 
-void read_colors(const toml::node& node, Problems& problems, Palette& palette) {
+bool read_colors(const toml::node& node, Problems& problems, Palette& palette) {
     const toml::table* table = node.as_table();
     if (table == nullptr) {
-        problems.report(node.source(), "'colors' must be a section ([colors]); using defaults");
-        return;
+        problems.report(node.source(), "'colors' must be a section ([colors]); file ignored");
+        return false;
     }
-    std::string missing;
+    bool valid = true;
     for (const Role& role : kRoles) {
         const toml::node* value = table->get(role.name);
         if (value == nullptr) {
-            missing += missing.empty() ? "" : ", ";
-            missing += role.name;
             continue;
         }
         const auto* text = value->as_string();
         const std::optional<Color> color = text != nullptr ? parse_hex(text->get()) : std::nullopt;
         if (!color) {
             problems.report(value->source(),
-                            std::format("'colors.{}' must be \"#rrggbb\" or \"#rrggbbaa\"; using "
-                                        "the default",
+                            std::format("'colors.{}' must be \"#rrggbb\" or \"#rrggbbaa\"; "
+                                        "file ignored",
                                         role.name));
+            valid = false;
             continue;
         }
         palette.*role.member = *color;
     }
-    // Other keys are fine: the template writes every Noctalia token, rummage uses some.
-    if (!missing.empty()) {
-        problems.report(node.source(),
-                        std::format("missing colors, defaults used for: {}", missing));
-    }
+    // Producers may include extra roles. Missing roles deliberately keep the generated baseline.
+    return valid;
 }
 
 }  // namespace
@@ -152,26 +149,37 @@ PaletteResult parse_palette(std::string_view text, std::string_view source) {
     Problems problems{source};
     try {
         const toml::table root = toml::parse(text, source);
-        result.from_file = true;
-        bool has_colors = false;
-        for (const auto& [key, node] : root) {
-            if (key.str() == "colors") {
-                has_colors = true;
-                read_colors(node, problems, result.palette);
-            } else if (key.str() == "mode") {
-                const std::optional<std::string_view> mode = node.value<std::string_view>();
-                if (mode == "dark" || mode == "light") {
-                    result.palette.dark = mode == "dark";
-                } else {
-                    problems.report(node.source(),
-                                    R"('mode' must be "dark" or "light"; using "dark")");
-                }
+        bool valid = true;
+        bool dark = true;
+        if (const toml::node* node = root.get("mode")) {
+            const auto mode = node->value<std::string_view>();
+            if (mode == "dark" || mode == "light") {
+                dark = mode == "dark";
             } else {
+                problems.report(node->source(),
+                                R"('mode' must be "dark" or "light"; file ignored)");
+                valid = false;
+            }
+        }
+        std::optional<Color> accent;
+        if (const auto primary = root["colors"]["primary"].value<std::string_view>()) {
+            accent = parse_hex(*primary);
+        }
+        Palette palette = desktop_palette({.dark = dark, .accent = accent});
+        if (const toml::node* colors = root.get("colors")) {
+            valid = read_colors(*colors, problems, palette) && valid;
+        } else {
+            problems.report(root.source(), "no [colors] section; file ignored");
+            valid = false;
+        }
+        for (const auto& [key, node] : root) {
+            if (key.str() != "colors" && key.str() != "mode") {
                 problems.report(key.source(), std::format("unknown key '{}'; ignored", key.str()));
             }
         }
-        if (!has_colors) {
-            problems.report(root.source(), "no [colors] section; using the default palette");
+        if (valid) {
+            result.palette = palette;
+            result.from_file = true;
         }
     } catch (const toml::parse_error& e) {
         result.from_file = false;

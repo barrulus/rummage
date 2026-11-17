@@ -386,6 +386,7 @@ The install prefix contains:
 | `share/applications/rummage.desktop` | Launcher and folder association |
 | `share/icons/hicolor/scalable/apps/rummage.svg` | Application icon |
 | `share/rummage/noctalia/rummage` | Noctalia colour template |
+| `share/rummage/matugen/rummage.toml` | Matugen colour template |
 | `share/rummage/config.example.toml` | Complete annotated settings reference |
 | `share/xdg-desktop-portal/portals/rummage.portal` | Portal registration |
 | `share/dbus-1/services/org.freedesktop.impl.portal.desktop.rummage.service` | On-demand portal activation |
