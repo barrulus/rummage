@@ -144,6 +144,12 @@ public:
             bad(*node, key, "unique column names starting with name");
             return;
         }
+        // Saved before the Status column existed (no width for it): it joins once, as for new
+        // states; hidden later, it stays hidden.
+        if (find(std::string{prefix} + "mark_width") == nullptr &&
+            std::ranges::find(chosen, fs::SortKey::mark) == chosen.end()) {
+            chosen.push_back(fs::SortKey::mark);
+        }
         columns = std::move(chosen);
     }
 

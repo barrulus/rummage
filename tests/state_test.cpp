@@ -549,6 +549,18 @@ TEST_CASE("state: old column layouts keep defaults and malformed choices are rej
         CHECK_FALSE(invalid.problems.empty());
         CHECK(invalid.state.details_columns == rummage::views::kDefaultDetailsColumns);
     }
-    CHECK(parse("[details]\ncolumns = ['name']").state.details_columns ==
+    CHECK(parse("[details]\ncolumns = ['name']\nmark_width = 72").state.details_columns ==
           std::vector{SortKey::name});
+    // Saved before the Status column: it joins (see the test below).
+    CHECK(parse("[details]\ncolumns = ['name']").state.details_columns ==
+          std::vector{SortKey::name, SortKey::mark});
+}
+
+TEST_CASE("state: a saved column list from before the Status column gains it once") {
+    using rummage::fs::SortKey;
+    const auto old = parse("[details]\ncolumns = ['name', 'size']\n");
+    CHECK(old.problems.empty());
+    CHECK(old.state.details_columns == std::vector{SortKey::name, SortKey::size, SortKey::mark});
+    const auto hidden = parse("[details]\ncolumns = ['name', 'size']\nmark_width = 72\n");
+    CHECK(hidden.state.details_columns == std::vector{SortKey::name, SortKey::size});
 }
