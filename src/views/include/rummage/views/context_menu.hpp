@@ -11,6 +11,7 @@
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/renderer.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/seat.hpp"
 
 namespace rummage::views {
@@ -96,7 +97,7 @@ private:
     static void draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
                            const std::vector<MenuItem>& items,
                            std::optional<std::size_t> highlighted, std::vector<ui::Rect>& rects,
-                           const theme::Palette& palette);
+                           const theme::Palette& palette, float offset, bool scrolling);
 
     std::function<void()> redraw_;
     std::vector<MenuItem> items_;
@@ -108,6 +109,9 @@ private:
         std::optional<std::size_t> highlighted;
         ui::Rect panel{};
         std::vector<ui::Rect> rects;
+        ui::Scroller scroller;
+        ui::Scrollbar scrollbar;
+        bool reveal{true};
     };
 
     std::vector<Level> levels_;

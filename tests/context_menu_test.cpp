@@ -1743,3 +1743,94 @@ TEST_CASE("i18n: templates and custom actions keep their names beside translated
     REQUIRE(command != palette.end());
     CHECK(command->label == "Home");
 }
+
+TEST_CASE("context menu: tall menus scroll and keep the keyboard selection reachable") {
+    namespace ui = rummage::ui;
+    ui::Offscreen surface{320, 200};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ContextMenu menu{[] {}};
+    int chosen = -1;
+    std::vector<MenuItem> items;
+    for (int i = 0; i < 80; ++i)
+        items.push_back(item(std::to_string(i), true, [&, i] { chosen = i; }));
+    menu.open(280, 190, std::move(items), true);
+    const auto draw = [&] {
+        renderer.begin_frame(320, 200, 1, {});
+        menu.draw(renderer, {0, 0, 320, 200}, rummage::theme::Palette{});
+        renderer.end_frame();
+    };
+    draw();
+    SUBCASE("End reveals the last row") {
+        menu.key(key(XKB_KEY_End));
+        CHECK(menu.highlighted() == 79);
+    }
+    SUBCASE("wheel reaches the last row") {
+        menu.pointer({.kind = ui::PointerEvent::Kind::scroll, .x = 100, .y = 60, .wheel_y = 1000});
+    }
+    SUBCASE("scrollbar retains capture outside the panel") {
+        menu.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 269,
+                      .y = 20,
+                      .button = ui::PointerButton::left});
+        menu.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 400, .y = 400});
+        menu.pointer({.kind = ui::PointerEvent::Kind::release,
+                      .x = 400,
+                      .y = 400,
+                      .button = ui::PointerButton::left});
+    }
+    SUBCASE("page navigation advances by a viewport") {
+        menu.key(key(XKB_KEY_Page_Down));
+        CHECK(menu.highlighted() > 1);
+        CHECK(menu.highlighted() < 10);
+        menu.key(key(XKB_KEY_End));
+    }
+    draw();
+    // Padding is not a clipped row's hit target.
+    menu.pointer({.kind = ui::PointerEvent::Kind::press,
+                  .x = 100,
+                  .y = 5,
+                  .button = ui::PointerButton::left});
+    CHECK(chosen == -1);
+    menu.pointer({.kind = ui::PointerEvent::Kind::press,
+                  .x = 100,
+                  .y = 176,
+                  .button = ui::PointerButton::left});
+    CHECK(chosen == 79);
+    CHECK_FALSE(menu.is_open());
+}
+
+TEST_CASE("context menu: scrolling a parent closes its child and restores keyboard routing") {
+    namespace ui = rummage::ui;
+    ui::Offscreen surface{640, 240};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ContextMenu menu{[] {}};
+    MenuItem parent = item("Applications");
+    parent.submenu = true;
+    parent.children = {item("First app"), item("Second app")};
+    std::vector<MenuItem> items{parent};
+    for (int i = 0; i < 40; ++i)
+        items.push_back(item(std::to_string(i)));
+    menu.open(10, 10, std::move(items), true);
+    const auto draw = [&] {
+        renderer.begin_frame(640, 240, 1, {});
+        menu.draw(renderer, {0, 0, 640, 240}, rummage::theme::Palette{});
+        renderer.end_frame();
+    };
+    draw();
+    menu.key(key(XKB_KEY_Right));
+    draw();
+    REQUIRE(menu.submenu_open());
+    menu.pointer({.kind = ui::PointerEvent::Kind::scroll, .x = 30, .y = 100, .wheel_y = 10});
+    CHECK_FALSE(menu.submenu_open());
+    menu.key(key(XKB_KEY_End));
+    draw();
+    CHECK(menu.highlighted() == 40);
+    menu.key(key(XKB_KEY_Home));
+    draw();
+    CHECK(menu.highlighted() == 0);
+    menu.key(key(XKB_KEY_Right));
+    draw();
+    CHECK(menu.submenu_open());
+}

@@ -1,4 +1,6 @@
 #include <chrono>
+#include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <string>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -7,7 +9,9 @@
 
 #include "rummage/core/config_edit.hpp"
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/ui/offscreen.hpp"
+#include "rummage/views/confirm_dialog.hpp"
 #include "rummage/views/settings_dialog.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "temp_dir.hpp"
@@ -123,24 +127,26 @@ TEST_CASE("settings: invalid replacement cannot inject another setting") {
     CHECK(core::edit_config_text("", {{"font", "family", quoted}}).error.empty());
 }
 
-TEST_CASE("settings: save uses the selected file and Cancel leaves it unchanged") {
+TEST_CASE("settings: Close commits to the selected file and waits for persistence") {
     Fixture f;
     const std::string original = "# preserved\n[icon]\ntheme = 'system'\n";
     REQUIRE_FALSE(core::write_file_atomically(f.path, original));
     f.open();
     REQUIRE(f.dialog.edit("icon", "theme", "builtin"));
-    REQUIRE(f.dialog.edit("appearance", "palette_source", "desktop"));
     f.dialog.close();
-    CHECK(core::read_text_file(f.path).text == original);
+    REQUIRE(f.dialog.is_open());
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK_FALSE(f.dialog.is_open());
+    CHECK(core::load_config(f.path).config.icon.theme == "builtin");
     f.open();
     REQUIRE(f.dialog.edit("appearance", "preview_position", "sidebar"));
     f.dialog.save();
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
-    CHECK_FALSE(f.dialog.is_open());
-    CHECK(f.applied == 1);
+    CHECK(f.dialog.is_open());
+    CHECK(f.applied == 2);
     CHECK(core::load_config(f.path).config.appearance.preview_position == "sidebar");
-    CHECK(core::read_text_file(f.path).text.starts_with(original));
+    CHECK(core::read_text_file(f.path).text.starts_with("# preserved\n"));
 }
 
 TEST_CASE("settings: validation and concurrent edits protect the configuration") {
@@ -208,35 +214,7 @@ TEST_CASE("settings: saving through a symlink retains the symlink") {
     CHECK(core::load_config(target).config.appearance.color_scheme == "dark");
 }
 
-TEST_CASE("settings: mouse wheel and keyboard reach fields in a short window") {
-    Fixture f;
-    f.open();
-    rummage::ui::Offscreen gl{400, 360};
-    rummage::ui::FontSystem fonts;
-    rummage::ui::Renderer renderer{fonts};
-    rummage::ui::IconSet icons{fonts};
-    const auto draw = [&] {
-        renderer.begin_frame(400, 360, 1, {});
-        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{}, icons);
-        renderer.end_frame();
-    };
-    draw();
-    f.dialog.pointer(
-        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 100, .y = 160, .wheel_y = 1000});
-    draw();
-    f.dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                      .x = 100,
-                      .y = 160,
-                      .button = rummage::ui::PointerButton::left});
-    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
-    CHECK(f.dialog.copy_selection(false) == "[]");
-    f.dialog.pointer(
-        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 100, .y = 160, .scroll_y = -10000});
-    draw();
-    CHECK(f.dialog.cursor_at(100, 160) == rummage::ui::CursorShape::pointer);
-}
-
-TEST_CASE("settings: scrollbar drags outside the list and releases capture") {
+TEST_CASE("settings: scrolling and scrollbar drag reach controls in a short window") {
     Fixture f;
     f.open();
     namespace ui = rummage::ui;
@@ -250,90 +228,78 @@ TEST_CASE("settings: scrollbar drags outside the list and releases capture") {
         renderer.end_frame();
     };
     draw();
-    CHECK(f.dialog.cursor_at(365, 135) == ui::CursorShape::pointer);
-    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
-                      .x = 365,
-                      .y = 135,
-                      .button = ui::PointerButton::left});
-    f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 500, .y = 500});
-    f.dialog.pointer({.kind = ui::PointerEvent::Kind::release,
-                      .x = 500,
-                      .y = 500,
-                      .button = ui::PointerButton::left});
-    f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 365, .y = 120});
+    SUBCASE("wheel") {
+        f.dialog.pointer(
+            {.kind = ui::PointerEvent::Kind::scroll, .x = 100, .y = 160, .wheel_y = 1000});
+    }
+    SUBCASE("scrollbar capture") {
+        CHECK(f.dialog.cursor_at(381, 126) == ui::CursorShape::pointer);
+        f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                          .x = 381,
+                          .y = 126,
+                          .button = ui::PointerButton::left});
+        f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 500, .y = 500});
+        f.dialog.pointer({.kind = ui::PointerEvent::Kind::release,
+                          .x = 500,
+                          .y = 500,
+                          .button = ui::PointerButton::left});
+        f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 381, .y = 120});
+    }
     draw();
     f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
                       .x = 100,
-                      .y = 160,
+                      .y = 244,
                       .button = ui::PointerButton::left});
     f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
     CHECK(f.dialog.copy_selection(false) == "[]");
-    // Click the track above the thumb to return to the start.
     f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
-                      .x = 365,
-                      .y = 121,
+                      .x = 381,
+                      .y = 117,
                       .button = ui::PointerButton::left});
     f.dialog.pointer({.kind = ui::PointerEvent::Kind::release,
-                      .x = 365,
-                      .y = 121,
+                      .x = 381,
+                      .y = 117,
                       .button = ui::PointerButton::left});
     draw();
-    CHECK(f.dialog.cursor_at(100, 160) == ui::CursorShape::pointer);
-    // Switching sections cancels an in-progress drag.
+    CHECK(f.dialog.cursor_at(100, 210) == ui::CursorShape::pointer);
+    // Switching categories cancels an in-progress scrollbar drag.
     f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
-                      .x = 365,
-                      .y = 135,
+                      .x = 381,
+                      .y = 126,
                       .button = ui::PointerButton::left});
     f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
     f.dialog.key({.keysym = XKB_KEY_1, .text = {}, .modifiers = {.alt = true}});
     f.dialog.pointer({.kind = ui::PointerEvent::Kind::motion, .x = 500, .y = 500});
     draw();
-    CHECK(f.dialog.cursor_at(100, 160) == ui::CursorShape::pointer);
+    CHECK(f.dialog.cursor_at(100, 210) == ui::CursorShape::pointer);
 }
 
-TEST_CASE(
-    "settings: new keybinding button is keyboard accessible and saves action and folder bindings") {
+TEST_CASE("settings: action and folder shortcuts save together without duplicating drafts") {
     Fixture f;
     f.open();
     f.dialog.add_action();
     REQUIRE(f.dialog.edit("new:0", "id", "hello"));
     REQUIRE(f.dialog.edit("new:0", "argv", "['echo', '{file}']"));
-    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
-    namespace ui = rummage::ui;
-    ui::Offscreen gl{800, 700};
-    ui::FontSystem fonts;
-    ui::Renderer renderer{fonts};
-    ui::IconSet icons{fonts};
-    const auto draw = [&] {
-        renderer.begin_frame(800, 700, 1, {});
-        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{}, icons);
-        renderer.end_frame();
-    };
-    draw();
-    for (int i = 0; i < 5; ++i)
-        f.dialog.key({.keysym = XKB_KEY_ISO_Left_Tab, .text = {}});
-    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
-    draw();
-    f.dialog.paste("action:hello");
-    // Both new fields are visible immediately, including the chord below the target.
-    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
-                      .x = 100,
-                      .y = 515,
-                      .button = ui::PointerButton::left});
-    f.dialog.paste("Ctrl+Alt+J");
+    f.dialog.add_keybinding();
+    REQUIRE(f.dialog.edit("binding:0", "target", "action:hello"));
+    REQUIRE(f.dialog.edit("binding:0", "chord", "Ctrl+Alt+J"));
     f.dialog.add_keybinding();
     REQUIRE(f.dialog.edit("binding:1", "target", "go:~/Projects"));
     REQUIRE(f.dialog.edit("binding:1", "chord", "Ctrl+Alt+Y"));
     f.dialog.save();
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    f.dialog.save();
     const auto config = core::load_config(f.path);
     REQUIRE(config.problems.empty());
+    REQUIRE(config.config.actions.size() == 1);
     CHECK(config.config.keybindings.at("action:hello") == "Ctrl+Alt+J");
     CHECK(config.config.keybindings.at("go:~/Projects") == "Ctrl+Alt+Y");
-    f.open();
     CHECK(f.dialog.edit("keybindings", "action:hello", "Default"));
     CHECK(f.dialog.edit("keybindings", "go:~/Projects", "Default"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.keybindings.empty());
 }
 
 TEST_CASE(
@@ -363,8 +329,10 @@ TEST_CASE(
     REQUIRE(f.dialog.edit("binding:1", "chord", "F9"));
     f.dialog.save();
     CHECK_FALSE(f.dialog.error().empty());
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.keybindings.at("go:/tmp") == "F8");
     f.dialog.close();
-    CHECK(core::read_text_file(f.path).text == original);
+    CHECK(f.dialog.is_open());  // The duplicate draft needs explicit discard.
 }
 
 TEST_CASE("settings: interface size, terminal arguments and program opening persist") {
@@ -394,6 +362,7 @@ TEST_CASE("settings: interface size, terminal arguments and program opening pers
 TEST_CASE("settings: keyboard choices open a list and save the selected value") {
     Fixture f;
     f.open();
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
     for (int i = 0; i < 4; ++i)
         f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
     // Open with Space, choose the final theme with End, and confirm with Enter.
@@ -413,6 +382,7 @@ TEST_CASE("settings: keyboard choices open a list and save the selected value") 
 TEST_CASE("settings: choice cancellation and Tab preserve values and text editing") {
     Fixture f;
     f.open();
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
     for (int i = 0; i < 4; ++i)
         f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
@@ -451,21 +421,19 @@ TEST_CASE("settings: pointer choices select from a menu and outside clicks only 
                           .y = y,
                           .button = ui::PointerButton::left});
     };
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
     draw();
-    click(100, 242);  // Colour mode, below palette source.
+    click(560, 204);  // Colour mode, below palette source.
     draw();
-    click(100, 339);  // Third menu choice: dark.
+    click(560, 297);  // Third menu choice: dark.
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
     draw();
-    click(100, 242);
+    click(560, 204);
     draw();
-    click(400, 640);  // Cancel button is behind the open menu: dismiss only.
+    click(700, 648);  // Close button is behind the open menu: dismiss only.
     CHECK(f.dialog.is_open());
     draw();
-    f.dialog.pointer({.kind = ui::PointerEvent::Kind::scroll, .x = 100, .y = 250, .scroll_y = 144});
-    draw();
-    click(100, 386);  // Follow palette accent: On/Off choices, scrolled into view.
-    draw();
-    click(100, 455);  // Off.
+    click(560, 332);  // Follow palette accent is an immediate toggle.
     f.dialog.save();
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(f.dialog.error().empty());
@@ -474,10 +442,183 @@ TEST_CASE("settings: pointer choices select from a menu and outside clicks only 
     CHECK_FALSE(config.config.icon.follow_accent);
 }
 
+TEST_CASE("settings: automatic choice saves serialize edits made during an earlier write") {
+    Fixture f;
+    f.open();
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
+    for (int i = 0; i < 4; ++i)
+        f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(f.dialog.busy());
+    // Do not run the loop yet: the first write's completion is still pending.
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    f.dialog.paste("builtin");
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});    // Commit the text on blur.
+    f.dialog.key({.keysym = XKB_KEY_space, .text = {}});  // Toggle accent while saving.
+    f.dialog.close();
+    CHECK(f.dialog.is_open());
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK_FALSE(f.dialog.is_open());
+    CHECK(f.dialog.error().empty());
+    const auto loaded = core::load_config(f.path);
+    CHECK(loaded.config.appearance.color_scheme == "dark");
+    CHECK(loaded.config.icon.theme == "builtin");
+    CHECK_FALSE(loaded.config.icon.follow_accent);
+    CHECK(f.applied == 2);
+}
+
+TEST_CASE("settings: invalid fields and incomplete drafts do not block independent preferences") {
+    Fixture f;
+    f.open();
+    f.dialog.add_action();
+    REQUIRE(f.dialog.edit("new:0", "id", "unfinished"));
+    REQUIRE(f.dialog.edit("font", "size", "200"));
+    REQUIRE(f.dialog.edit("appearance", "color_scheme", "dark"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK_FALSE(f.dialog.error().empty());
+    auto loaded = core::load_config(f.path);
+    CHECK(loaded.config.appearance.color_scheme == "dark");
+    CHECK(loaded.config.font.size == core::Config{}.font.size);
+    CHECK(loaded.config.actions.empty());
+    f.dialog.close();
+    CHECK(f.dialog.is_open());
+    // Correcting drafts retains the other edits and commits the action once.
+    REQUIRE(f.dialog.edit("font", "size", "17"));
+    REQUIRE(f.dialog.edit("new:0", "argv", "['echo', '{file}']"));
+    f.dialog.close();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK_FALSE(f.dialog.is_open());
+    REQUIRE(f.dialog.error().empty());
+    loaded = core::load_config(f.path);
+    REQUIRE(loaded.config.actions.size() == 1);
+    CHECK(loaded.config.actions[0].id == "unfinished");
+    CHECK(loaded.config.font.size == 17);
+}
+
+TEST_CASE("settings: failed writes retain edits and Retry can persist them") {
+    Fixture f;
+    REQUIRE_FALSE(core::write_file_atomically(f.path, "# original\n"));
+    f.open();
+    REQUIRE(f.dialog.edit("startup", "mode", "folder"));
+    REQUIRE(f.dialog.edit("startup", "folder", "/tmp"));
+    REQUIRE_FALSE(core::write_file_atomically(f.path, "# external\n"));
+    f.dialog.close();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(f.dialog.is_open());
+    CHECK_FALSE(f.dialog.error().empty());
+    CHECK(core::read_text_file(f.path).text == "# external\n");
+    REQUIRE_FALSE(core::write_file_atomically(f.path, "# original\n"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.error().empty());
+    const auto loaded = core::load_config(f.path);
+    CHECK(loaded.config.startup.mode == core::Config::Startup::Mode::folder);
+    CHECK(loaded.config.startup.folder == "/tmp");
+}
+
+TEST_CASE("settings: discarding unsaved drafts keeps earlier automatic saves") {
+    Fixture f;
+    f.open();
+    REQUIRE(f.dialog.edit("appearance", "color_scheme", "dark"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.edit("font", "size", "invalid"));
+    f.dialog.close();
+    REQUIRE(f.dialog.is_open());
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{400, 360};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    renderer.begin_frame(400, 360, 1, {});
+    f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{}, icons);
+    renderer.end_frame();
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 300,
+                      .y = 275,
+                      .button = ui::PointerButton::left});
+    CHECK_FALSE(f.dialog.is_open());
+    CHECK(core::load_config(f.path).config.appearance.color_scheme == "dark");
+    CHECK(core::load_config(f.path).config.font.size == core::Config{}.font.size);
+}
+
+TEST_CASE("settings: translated compact navigation preserves keyboard editing and dropdown focus") {
+    namespace ui = rummage::ui;
+
+    struct RestoreLanguage {
+        ~RestoreLanguage() { rummage::i18n::set_language("en"); }
+    } restore;
+
+    rummage::i18n::set_language("de");
+    Fixture f;
+    f.open();
+    ui::Offscreen surface{400, 360};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const auto draw = [&](const std::string& name) {
+        renderer.begin_frame(400, 360, 1, {});
+        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+        // Optional review artifacts, following the motion tests' offscreen-frame convention.
+        if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
+            std::vector<unsigned char> pixels(400 * 360 * 4);
+            glReadPixels(0, 0, 400, 360, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            std::ofstream file{std::filesystem::path{output} / (name + ".ppm"), std::ios::binary};
+            file << "P6\n400 360\n255\n";
+            for (int y = 359; y >= 0; --y)
+                for (int x = 0; x < 400; ++x)
+                    file.write(reinterpret_cast<const char*>(pixels.data() + (y * 400 + x) * 4), 3);
+        }
+    };
+    draw("compact-general-de");
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});  // Compact category selector.
+    f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});  // Appearance.
+    draw("compact-appearance-de");
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});  // Palette source.
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});  // Colour mode.
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    draw("compact-choice-de");
+    f.dialog.key({.keysym = XKB_KEY_Escape, .text = {}});
+    REQUIRE(f.dialog.is_open());
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    f.dialog.paste("builtin");
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.icon.theme == "builtin");
+    REQUIRE(f.dialog.edit("font", "size", "invalid"));
+    f.dialog.close();
+    REQUIRE(f.dialog.is_open());
+    draw("compact-unsaved-de");
+}
+
+TEST_CASE("dialogs: confirmation buttons participate in keyboard focus") {
+    views::ConfirmDialog dialog{[] {}};
+    bool confirmed = true;
+    dialog.open("Remove file?", "A file", "Remove", [&](bool answer) { confirmed = answer; });
+    dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+    dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    CHECK_FALSE(confirmed);
+    CHECK_FALSE(dialog.is_open());
+    std::optional<std::string> password;
+    dialog.open_password("archive.zip", false, [&](auto answer) { password = std::move(answer); });
+    dialog.paste("secret");
+    dialog.key({.keysym = XKB_KEY_ISO_Left_Tab, .text = {}});
+    dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    CHECK(password == "secret");
+}
+
 TEST_CASE("settings: source selection saves independently of colour mode") {
     Fixture f;
     f.open();
-    // First field: source. Select Desktop with the keyboard.
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
+    // First field in Appearance: source. Select Desktop with the keyboard.
     for (int i = 0; i < 3; ++i)
         f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});

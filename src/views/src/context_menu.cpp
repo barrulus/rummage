@@ -117,6 +117,7 @@ void ContextMenu::set_submenu(std::string_view id, std::vector<MenuItem> childre
         levels_.resize(path.size() + 1);
         auto& level = levels_.back();
         level.rects.clear();
+        level.reveal = true;
         level.highlighted = keyboard ? step(found->children, std::nullopt, 1) : std::nullopt;
         active_ = std::min(active_, path.size());
     }
@@ -149,10 +150,16 @@ void ContextMenu::open_submenu(std::size_t depth, std::size_t index, bool keyboa
     levels_[depth].highlighted = index;
     if (levels_.size() <= depth + 1 || levels_[depth + 1].parent != index) {
         levels_.resize(depth + 1);
-        levels_.push_back(
-            Level{.parent = index, .highlighted = std::nullopt, .panel = {}, .rects = {}});
+        levels_.push_back(Level{.parent = index,
+                                .highlighted = std::nullopt,
+                                .panel = {},
+                                .rects = {},
+                                .scroller = {},
+                                .scrollbar = ui::Scrollbar{},
+                                .reveal = true});
     }
     if (keyboard) {
+        levels_[depth].reveal = true;
         active_ = depth + 1;
         if (!levels_[active_].highlighted) {
             levels_[active_].highlighted = step(level_items(active_), std::nullopt, 1);
@@ -177,11 +184,26 @@ bool ContextMenu::key(const ui::KeyEvent& event) {
         case XKB_KEY_Down:
         case XKB_KEY_Up:
         case XKB_KEY_Home:
-        case XKB_KEY_End: {
-            const bool forward = event.keysym == XKB_KEY_Down || event.keysym == XKB_KEY_Home;
+        case XKB_KEY_End:
+        case XKB_KEY_Page_Down:
+        case XKB_KEY_Page_Up: {
+            const bool forward = event.keysym == XKB_KEY_Down || event.keysym == XKB_KEY_Home ||
+                                 event.keysym == XKB_KEY_Page_Down;
             const bool edge = event.keysym == XKB_KEY_Home || event.keysym == XKB_KEY_End;
             levels_[active_].highlighted =
                 step(items, edge ? std::nullopt : selected, forward ? 1 : -1);
+            if (event.keysym == XKB_KEY_Page_Down || event.keysym == XKB_KEY_Page_Up) {
+                const int rows =
+                    std::max(1, static_cast<int>(levels_[active_].panel.height / kItemHeight) - 1);
+                for (int row = 1; row < rows; ++row) {
+                    const auto next = step(items, levels_[active_].highlighted, forward ? 1 : -1);
+                    if (!next || (forward ? next <= levels_[active_].highlighted
+                                          : next >= levels_[active_].highlighted))
+                        break;
+                    levels_[active_].highlighted = next;
+                }
+            }
+            levels_[active_].reveal = true;
             levels_.resize(active_ + 1);
             break;
         }
@@ -217,7 +239,19 @@ bool ContextMenu::pointer(const ui::PointerEvent& event) {
     if (!is_open())
         return false;
     using Kind = ui::PointerEvent::Kind;
-    if (event.kind != Kind::enter && event.kind != Kind::motion && event.kind != Kind::press) {
+    for (std::size_t i = 0; i < levels_.size(); ++i) {
+        auto& level = levels_[i];
+        if (level.scrollbar.dragging() && level.scrollbar.pointer(event, level.scroller)) {
+            levels_.resize(i + 1);
+            active_ = i;
+            level.reveal = false;
+            level.rects.clear();
+            redraw_();
+            return true;
+        }
+    }
+    if (event.kind != Kind::enter && event.kind != Kind::motion && event.kind != Kind::press &&
+        event.kind != Kind::scroll) {
         return true;
     }
     // Deepest panels are drawn last and receive the pointer first when panels overlap.
@@ -234,6 +268,20 @@ bool ContextMenu::pointer(const ui::PointerEvent& event) {
         return true;
     }
     const auto depth = *over;
+    auto& level = levels_[depth];
+    if (level.scrollbar.pointer(event, level.scroller) || event.kind == Kind::scroll) {
+        if (event.kind == Kind::scroll)
+            level.scroller.jump_to(level.scroller.offset() +
+                                   (event.wheel_y != 0 ? event.wheel_y * 48.0F : event.scroll_y));
+        level.reveal = false;
+        level.rects.clear();
+        levels_.resize(depth + 1);
+        active_ = depth;
+        redraw_();
+        return true;
+    }
+    if (event.kind == Kind::press && event.button != ui::PointerButton::left)
+        return true;
     const auto index = index_at(levels_[depth].rects, event.x, event.y);
     const auto& items = level_items(depth);
     if (index && *index < items.size()) {
@@ -274,7 +322,7 @@ ui::Rect ContextMenu::measure(ui::Renderer& renderer, const std::vector<MenuItem
 void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
                              const std::vector<MenuItem>& items,
                              std::optional<std::size_t> highlighted, std::vector<ui::Rect>& rects,
-                             const theme::Palette& palette) {
+                             const theme::Palette& palette, float offset, bool scrolling) {
     renderer.draw_shadow({panel.x, panel.y + 4.0F, panel.width, panel.height}, {}, 12.0F,
                          palette.shadow.with_alpha(0.6F));
     renderer.draw_box(panel, {.fill = palette.surface_container_high,
@@ -283,7 +331,10 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
                               .border = palette.outline_variant});
     rects.clear();
     const float label_x = panel.x + kTextInset + (has_marks(items) ? kMarkWidth : 0.0F);
-    float y = panel.y + kPadding;
+    const ui::Rect viewport{panel.x, panel.y + kPadding, panel.width,
+                            std::max(0.0F, panel.height - 2 * kPadding)};
+    renderer.push_clip(viewport);
+    float y = panel.y + kPadding - offset;
     for (std::size_t i = 0; i < items.size(); ++i) {
         const MenuItem& item = items[i];
         if (item.separator) {
@@ -293,7 +344,7 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
             y += kSeparatorHeight;
         }
         const ui::Rect rect{panel.x + kInset, y, panel.width - (2.0F * kInset), kItemHeight};
-        rects.push_back(rect);
+        rects.push_back(rect.intersect(viewport));
         const bool lit = highlighted == i && item.enabled;
         if (lit) {
             renderer.draw_box(rect, {.fill = palette.hover, .radius = {}});
@@ -305,7 +356,7 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
             dim = palette.on_hover;
         }
         const float text_y = y + ((kItemHeight - kTextSize) / 2.0F) - 2.0F;
-        float right = panel.right() - kTextInset;
+        float right = panel.right() - kTextInset - (scrolling ? 18.0F : 0.0F);
         if (item.submenu) {
             const float arrow = text_width(renderer, "›");
             renderer.draw_text("›", right - arrow, text_y, kTextSize, dim);
@@ -336,6 +387,7 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
         renderer.draw_text(item.label, label_x, text_y, kTextSize, text, std::max(room, 1.0F));
         y += kItemHeight;
     }
+    renderer.pop_clip();
 }
 
 void ContextMenu::draw(ui::Renderer& renderer, const ui::Rect& bounds,
@@ -353,7 +405,10 @@ void ContextMenu::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         }
         const auto& items = actual.empty() ? placeholder : actual;
         const auto size = measure(renderer, items);
-        const float width = std::min(size.width, std::max(1.0F, bounds.width - 2.0F * kEdge));
+        const float height = std::min(size.height, std::max(1.0F, bounds.height - 2 * kEdge));
+        const bool scrolling = size.height > height;
+        const float width = std::min(size.width + (scrolling ? 18.0F : 0.0F),
+                                     std::max(1.0F, bounds.width - 2.0F * kEdge));
         float x = x_;
         float y = y_;
         if (depth > 0) {
@@ -362,6 +417,12 @@ void ContextMenu::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             if (x + width > bounds.right() - kEdge) {
                 x = parent.panel.x - width + kOverlap;
             }
+            if (levels_[depth].parent >= parent.rects.size() ||
+                parent.rects[levels_[depth].parent].empty()) {
+                levels_.resize(depth);
+                active_ = std::min(active_, depth - 1);
+                break;
+            }
             y = parent.rects[levels_[depth].parent].y - kPadding;
         } else if (x + width > bounds.right() - kEdge) {
             x -= width;
@@ -369,10 +430,31 @@ void ContextMenu::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         x = std::clamp(x, bounds.x + kEdge,
                        std::max(bounds.x + kEdge, bounds.right() - kEdge - width));
         y = std::clamp(y, bounds.y + kEdge,
-                       std::max(bounds.y + kEdge, bounds.bottom() - kEdge - size.height));
+                       std::max(bounds.y + kEdge, bounds.bottom() - kEdge - height));
         auto& level = levels_[depth];
-        level.panel = {x, y, width, size.height};
-        draw_panel(renderer, level.panel, items, level.highlighted, level.rects, palette);
+        if (level.panel.height != height)
+            level.reveal = true;
+        level.panel = {x, y, width, height};
+        const ui::Rect viewport{x, y + kPadding, width, std::max(0.0F, height - 2 * kPadding)};
+        level.scroller.set_extent(size.height - 2 * kPadding, viewport.height);
+        level.scrollbar.layout(viewport);
+        if (level.reveal && level.highlighted) {
+            float top = 0;
+            for (std::size_t i = 0; i <= *level.highlighted && i < items.size(); ++i) {
+                top += items[i].separator ? kSeparatorHeight : 0;
+                if (i == *level.highlighted) {
+                    if (top < level.scroller.offset())
+                        level.scroller.jump_to(top);
+                    else if (top + kItemHeight > level.scroller.offset() + viewport.height)
+                        level.scroller.jump_to(top + kItemHeight - viewport.height);
+                }
+                top += kItemHeight;
+            }
+        }
+        level.reveal = false;
+        draw_panel(renderer, level.panel, items, level.highlighted, level.rects, palette,
+                   level.scroller.offset(), scrolling);
+        renderer.fill_rect(level.scrollbar.thumb(level.scroller), palette.outline);
     }
 }
 

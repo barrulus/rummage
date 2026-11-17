@@ -29,6 +29,7 @@ add_library(rummage_views
     src/details_view.cpp
     src/file_clipboard.cpp
     src/draw_helpers.cpp
+    src/dialog_chrome.cpp
     src/folder.cpp
     src/format.cpp
     src/file_finder.cpp

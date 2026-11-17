@@ -110,6 +110,11 @@ extra actions, view controls and Properties. Copy Location is the single current
 path command there. Trash keeps restoration separate from permanent deletion; archive
 members put Quick Look before Copy to Extract.
 
+Long menus stay within the window and scroll with the wheel or scrollbar. Up/Down,
+Home/End and Page Up/Page Down keep the selected command visible. Right opens a submenu;
+Left or Escape returns to its parent. An outside click dismisses without activating the
+content behind it.
+
 ## Arrange and nest menus
 
 Actions default to the **Actions** submenu. `placement = "menu"` puts an action directly
