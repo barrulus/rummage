@@ -73,12 +73,19 @@ public:
 
     [[nodiscard]] const Options& options() const noexcept { return options_; }
 
-    // Whether entry is left out (an ignored one with Ignored::hide). The browser filters with it.
-    [[nodiscard]] bool hides(const views::Folder& folder, const fs::Entry& entry);
+    // Runs when what hides() answers changes: the listings must be filtered again.
+    void set_refilter_handler(std::function<void()> refilter) { refilter_ = std::move(refilter); }
 
     [[nodiscard]] const views::Badge* badge(const views::Folder& folder,
                                             const fs::Entry& entry) override;
     [[nodiscard]] const views::StatusPart* status(const views::Folder& folder) override;
+
+    // Ignored entries, with Ignored::hide.
+    [[nodiscard]] bool hides_any() const override {
+        return options_.ignored == Options::Ignored::hide;
+    }
+
+    [[nodiscard]] bool hides(const std::filesystem::path& folder, const fs::Entry& entry) override;
 
     // How long git status may take before the repository is paused (tests shorten it).
     void set_time_limit(std::chrono::milliseconds limit) { time_limit_ = limit; }
@@ -99,6 +106,7 @@ private:
     void finished(Repo& repo, const std::string& output, int wait_status, Operation operation);
     void read_commit(Repo& repo);
     void rebuild(Repo& repo);
+    [[nodiscard]] const views::Badge* badge_at(Place& place, const std::string& name);
     [[nodiscard]] const views::Badge* lookup(const Repo& repo, const Place& place,
                                              const std::string& name) const;
 
@@ -107,6 +115,7 @@ private:
     fs::DirectoryWatcher& watcher_;
     std::filesystem::path git_;
     std::function<void()> redraw_;
+    std::function<void()> refilter_;
     Options options_;
     std::chrono::milliseconds time_limit_{kTimeLimit};
     std::unordered_map<std::string, std::unique_ptr<Repo>> repos_;    // by working tree

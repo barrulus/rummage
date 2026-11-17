@@ -151,6 +151,15 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(0, "Opening files", "pointer", "double_click_distance", "Double-click distance",
         "Logical pixels · 0–50", std::to_string(config.pointer.double_click_distance), true, {},
         Number{0, 50, 1});
+#ifdef RUMMAGE_GIT
+    add(0, "Git", "git", "enabled", "Git status",
+        "Branch and changes in the status bar and on files", config.git.enabled ? "true" : "false",
+        true, {"true", "false"});
+    add(0, "Git", "git", "ignored", "Ignored files", "How files git ignores are shown",
+        config.git.ignored, false, {"show", "dim", "hide"});
+    add(0, "Git", "git", "folder_status", "Folder status", "Folders mark the changes inside them",
+        config.git.folder_status ? "true" : "false", true, {"true", "false"});
+#endif
     add(0, "Terminal", "terminal", "program", "Terminal program",
         "Leave empty for automatic discovery", config.terminal.program);
     add(0, "Terminal", "terminal", "args", "Terminal arguments",
@@ -537,6 +546,13 @@ std::string SettingsDialog::choice_label(const Field& field, std::string_view va
         if (value == "file")
             return std::string{i18n::tr("Palette file")};
         return std::string{i18n::tr("Built-in")};
+    }
+    if (field.table == "git" && field.key == "ignored") {
+        if (value == "show")
+            return std::string{i18n::tr("Show plainly")};
+        if (value == "hide")
+            return std::string{i18n::tr("Hide")};
+        return std::string{i18n::tr("Dim")};
     }
     if (field.key == "color_scheme" && value == "system")
         return std::string{i18n::tr("Follow source")};

@@ -67,6 +67,13 @@ struct Config {
         float text_size{12.0F};  // logical pixels, independent of file-list zoom
     };
 
+    // The git status in the status bar and on files (builds with RUMMAGE_GIT only).
+    struct Git {
+        bool enabled{true};
+        std::string ignored{"dim"};  // ignored files: show, dim or hide
+        bool folder_status{true};    // folders mark the changes inside them
+    };
+
     std::map<std::string, std::string> keybindings;
     std::vector<Action> actions;
     MenuLayout context_menu;
@@ -80,6 +87,7 @@ struct Config {
     Open open;
     Pointer pointer;
     Icon icon;
+    Git git;
 };
 
 struct ConfigResult {

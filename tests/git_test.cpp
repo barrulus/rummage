@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdlib>
@@ -16,6 +17,7 @@
 
 #include <doctest/doctest.h>
 
+#include "rummage/core/config.hpp"
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/core/worker_pool.hpp"
@@ -26,6 +28,7 @@
 #include "rummage/git/status.hpp"
 #include "rummage/platform/desktop_entry.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/settings_dialog.hpp"
 #include "temp_dir.hpp"
 
 namespace git = rummage::git;
@@ -432,7 +435,7 @@ struct Shown {
     bool hides(std::string_view name) {
         for (const auto& entry : folder->entries()) {
             if (entry.name == name) {
-                return decorator.hides(*folder, entry);
+                return decorator.hides(folder->path(), entry);
             }
         }
         return false;
@@ -545,6 +548,30 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
     }
 }
 
+TEST_CASE("git decorator: hidden ignored entries leave the listing, and come back") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / ".gitignore", "*.log\n");
+    write(repo / "debug.log", "l");
+    Shown shown{repo, git_program(), {.ignored = git::Options::Ignored::hide}};
+    const auto listed = [&](std::string_view name) {
+        return std::ranges::any_of(shown.folder->entries(),
+                                   [&](const auto& entry) { return entry.name == name; });
+    };
+    const auto refilter = [&] {
+        shown.folder->set_entry_filter(
+            rummage::views::hiding({}, &shown.decorator, shown.folder->path()));
+    };
+    shown.decorator.set_refilter_handler(refilter);
+    refilter();
+    REQUIRE(shown.wait_for([&] { return !listed("debug.log"); }));
+    CHECK(listed("a.txt"));
+
+    shown.decorator.set_options({.ignored = git::Options::Ignored::dim, .folder_status = true});
+    REQUIRE(shown.wait_for([&] { return listed("debug.log"); }));
+    CHECK(shown.badge("debug.log")->faded);
+}
+
 TEST_CASE("git decorator: inside an ignored folder everything is faded") {
     const TempDir dir;
     const std::filesystem::path repo = make_repository(dir);
@@ -602,4 +629,28 @@ TEST_CASE("git decorator: a status that takes too long is stopped and paused") {
     shown.draw();
     CHECK(shown.decorator.queries() == 1);
     CHECK(shown.text() == "Git: paused");
+}
+
+TEST_CASE("git settings: the dialog lists them and saves a new [git] table") {
+    const TempDir dir;
+    const std::filesystem::path path =
+        dir.write("config.toml", "# mine\n[icon]\ntheme = 'system'\n");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::views::SettingsDialog dialog{pool, [] {}};
+    int applied = 0;
+    dialog.open(path, [] {}, [&](const rummage::core::ConfigResult&) { ++applied; });
+    REQUIRE(run_until(loop, [&] { return !dialog.busy(); }));
+    REQUIRE(dialog.error().empty());
+    REQUIRE(dialog.edit("git", "ignored", "hide"));
+    REQUIRE(dialog.edit("git", "folder_status", "false"));
+    dialog.save();
+    REQUIRE(run_until(loop, [&] { return !dialog.busy(); }));
+    REQUIRE_MESSAGE(dialog.error().empty(), dialog.error());
+    CHECK(applied == 1);
+    const rummage::core::Config saved = rummage::core::load_config(path).config;
+    CHECK(saved.git.enabled);
+    CHECK(saved.git.ignored == "hide");
+    CHECK_FALSE(saved.git.folder_status);
+    CHECK(saved.icon.theme == "system");
 }

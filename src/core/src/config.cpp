@@ -498,6 +498,25 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                 {{"text_size", [&](const toml::node& value, const std::string& path) {
                       reader.read_text_size(value, path, config.status_bar.text_size);
                   }}});
+        } else if (key.str() == "git") {
+            reader.read_section(
+                node, "git",
+                {{"enabled",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, config.git.enabled);
+                  }},
+                 {"ignored",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto ignored = value.value<std::string>();
+                      if (ignored &&
+                          (*ignored == "show" || *ignored == "dim" || *ignored == "hide"))
+                          config.git.ignored = *ignored;
+                      else
+                          reader.report(value.source(), path + " must be show, dim, or hide");
+                  }},
+                 {"folder_status", [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, config.git.folder_status);
+                  }}});
         } else if (key.str() == "font") {
             reader.read_section(node, "font",
                                 {{"family",

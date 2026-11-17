@@ -138,6 +138,9 @@ void check_defaults(const Config& config) {
     CHECK(config.icon.follow_accent == defaults.icon.follow_accent);
     CHECK(config.icon.theme == defaults.icon.theme);
     CHECK(config.icon.places == defaults.icon.places);
+    CHECK(config.git.enabled == defaults.git.enabled);
+    CHECK(config.git.ignored == defaults.git.ignored);
+    CHECK(config.git.folder_status == defaults.git.folder_status);
 }
 
 bool contains(const std::string& text, std::string_view part) {
@@ -407,6 +410,18 @@ TEST_CASE("background opacity accepts finite numbers from zero to one") {
         CHECK(result.problems.size() == 1);
         CHECK(result.config.appearance.background_opacity == 1.0F);
     }
+}
+
+TEST_CASE("config: git status settings") {
+    const auto result = parse("[git]\nenabled = false\nignored = 'hide'\nfolder_status = false\n");
+    CHECK(result.problems.empty());
+    CHECK_FALSE(result.config.git.enabled);
+    CHECK(result.config.git.ignored == "hide");
+    CHECK_FALSE(result.config.git.folder_status);
+    const auto wrong = parse("[git]\nignored = 'gone'\nenabled = 'yes'\nbranch = true\n");
+    CHECK(wrong.problems.size() == 3);
+    CHECK(wrong.config.git.ignored == "dim");
+    CHECK(wrong.config.git.enabled);
 }
 
 TEST_CASE("config: keybindings accept overrides and disabling") {

@@ -207,6 +207,7 @@ struct Decorator::Repo {
     std::unordered_map<std::string, Badge> folders;
     std::unordered_map<std::string, std::size_t> index;  // path -> status->files
     std::vector<std::string> ignored_folders;            // "build/"
+    std::size_t ignored_signature{0};                    // of every ignored path, to see changes
     std::uint64_t generation{0};                         // rebuilt
     std::uint64_t asked{0};
 };
@@ -248,7 +249,12 @@ void Decorator::set_options(const Options& options) {
     }
     const bool requery =
         (options.ignored == Options::Ignored::show) != (options_.ignored == Options::Ignored::show);
+    const bool refilter =
+        (options.ignored == Options::Ignored::hide) != (options_.ignored == Options::Ignored::hide);
     options_ = options;
+    if (refilter && refilter_) {
+        refilter_();
+    }
     for (auto& [key, repo] : repos_) {
         if (requery) {
             schedule(*repo);
@@ -326,6 +332,9 @@ void Decorator::detect(const std::filesystem::path& folder) {
             place.ignored_generation = ~std::uint64_t{0};
             if (place.repo != before) {
                 last_place_ = nullptr;
+                if (hides_any() && place.repo != nullptr && place.repo->status && refilter_) {
+                    refilter_();
+                }
                 redraw_();
             }
         });
@@ -529,6 +538,7 @@ void Decorator::rebuild(Repo& repo) {
     repo.folders.clear();
     repo.index.clear();
     repo.ignored_folders.clear();
+    std::size_t signature = 0;
     if (repo.status && !repo.failed) {
         const std::vector<FileStatus>& files = repo.status->files;
         for (std::size_t i = 0; i < files.size(); ++i) {
@@ -539,6 +549,7 @@ void Decorator::rebuild(Repo& repo) {
             }
             repo.index.emplace(file.path, i);
             if (file.kind == FileStatus::Kind::ignored) {
+                signature = (signature * 31U) ^ std::hash<std::string>{}(file.path);
                 if (file.path.ends_with('/')) {
                     repo.ignored_folders.push_back(file.path);
                 }
@@ -558,6 +569,12 @@ void Decorator::rebuild(Repo& repo) {
                     it->second = summary;
                 }
             }
+        }
+    }
+    if (signature != repo.ignored_signature) {
+        repo.ignored_signature = signature;
+        if (hides_any() && refilter_) {
+            refilter_();
         }
     }
     redraw_();
@@ -582,33 +599,41 @@ const views::Badge* Decorator::lookup(const Repo& repo, const Place& place,
     return nullptr;
 }
 
-const views::Badge* Decorator::badge(const views::Folder& folder, const fs::Entry& entry) {
-    Place* const place = place_of(folder);
-    if (place == nullptr || place->repo == nullptr) {
+const views::Badge* Decorator::badge_at(Place& place, const std::string& name) {
+    if (place.repo == nullptr) {
         return nullptr;
     }
-    const Repo& repo = *place->repo;
+    const Repo& repo = *place.repo;
     if (repo.failed || repo.paused || (repo.files.empty() && repo.ignored_folders.empty())) {
         return nullptr;
     }
-    if (place->ignored_generation != repo.generation) {
-        place->ignored_generation = repo.generation;
-        place->ignored = std::ranges::any_of(repo.ignored_folders, [&](const std::string& dir) {
-            return place->prefix.starts_with(dir);
+    if (place.ignored_generation != repo.generation) {
+        place.ignored_generation = repo.generation;
+        place.ignored = std::ranges::any_of(repo.ignored_folders, [&](const std::string& dir) {
+            return place.prefix.starts_with(dir);
         });
     }
-    const Badge* const found = lookup(repo, *place, place->prefix + entry.name);
+    const Badge* const found = lookup(repo, place, place.prefix + name);
     if (found != nullptr && found->faded && options_.ignored == Options::Ignored::show) {
         return nullptr;
     }
     return found;
 }
 
-bool Decorator::hides(const views::Folder& folder, const fs::Entry& entry) {
-    if (options_.ignored != Options::Ignored::hide) {
+const views::Badge* Decorator::badge(const views::Folder& folder, const fs::Entry& entry) {
+    Place* const place = place_of(folder);
+    return place != nullptr ? badge_at(*place, entry.name) : nullptr;
+}
+
+bool Decorator::hides(const std::filesystem::path& folder, const fs::Entry& entry) {
+    if (!hides_any()) {
         return false;
     }
-    const Badge* const found = badge(folder, entry);
+    const auto it = places_.find(folder.native());
+    if (it == places_.end()) {
+        return false;
+    }
+    const Badge* const found = badge_at(*it->second, entry.name);
     return found != nullptr && found->faded;
 }
 

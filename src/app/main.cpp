@@ -776,6 +776,40 @@ int main(int argc, char** argv) {
         };
         auto picker_terminal = configured_terminal(config);
         std::unique_ptr<core::FileWatcher> config_watcher;
+#ifdef RUMMAGE_GIT
+        // The git status as configured: started, changed or stopped. Without git in the PATH there
+        // is nothing to show; pickers stay without it.
+        const auto apply_git = [&](const core::Config::Git& settings) {
+            if (!columns) {
+                return;
+            }
+            if (!settings.enabled) {
+                columns->set_decorations(nullptr);
+                git_status.reset();
+                return;
+            }
+            const rummage::git::Options options{
+                .ignored = settings.ignored == "show"   ? rummage::git::Options::Ignored::show
+                           : settings.ignored == "hide" ? rummage::git::Options::Ignored::hide
+                                                        : rummage::git::Options::Ignored::dim,
+                .folder_status = settings.folder_status};
+            if (git_status) {
+                git_status->set_options(options);
+                return;
+            }
+            const platform::Environment found = platform::Environment::from_environment();
+            auto program = platform::find_program("git", found.path);
+            if (!program) {
+                log::debug("git: not in the PATH, no git status");
+                return;
+            }
+            git_status = std::make_unique<rummage::git::Decorator>(
+                loop, pool, watcher, std::move(*program), [&] { window.request_redraw(); },
+                options);
+            git_status->set_refilter_handler([&] { columns->set_decorations(git_status.get()); });
+            columns->set_decorations(git_status.get());
+        };
+#endif
         const auto apply_config = [&](const core::ConfigResult& loaded) {
             const auto& fresh = loaded.config;
             picker_terminal = configured_terminal(fresh);
@@ -784,6 +818,11 @@ int main(int argc, char** argv) {
                 columns->set_motion_config(fresh.animations);
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
                 columns->set_preview_in_sidebar(fresh.appearance.preview_position == "sidebar");
+#ifdef RUMMAGE_GIT
+                if (!picker_request) {
+                    apply_git(fresh.git);
+                }
+#endif
             }
             if (loaded.actions_valid && loaded.context_menu_valid) {
                 const auto problems = views::configure_shortcuts(fresh.keybindings, fresh.actions);
@@ -859,16 +898,8 @@ int main(int argc, char** argv) {
                 });
             columns->set_picker_mode(picker_request.has_value());
 #ifdef RUMMAGE_GIT
-            // Without git in the PATH there is nothing to show; pickers stay without it.
             if (!picker_request) {
-                const platform::Environment found = platform::Environment::from_environment();
-                if (auto program = platform::find_program("git", found.path)) {
-                    git_status = std::make_unique<rummage::git::Decorator>(
-                        loop, pool, watcher, std::move(*program), [&] { window.request_redraw(); });
-                    columns->set_decorations(git_status.get());
-                } else {
-                    log::debug("git: not in the PATH, no git status");
-                }
+                apply_git(config.git);
             }
 #endif
             columns->set_actions(configured_actions);

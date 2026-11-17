@@ -205,6 +205,8 @@ target_link_libraries(rummage-svg-render PRIVATE rummage::svg rummage::picture r
 
 if(RUMMAGE_GIT)
     add_subdirectory(src/git)
+    # The settings dialog lists the git settings only in builds that use them.
+    target_compile_definitions(rummage_views PRIVATE RUMMAGE_GIT)
     target_compile_definitions(rummage PRIVATE RUMMAGE_GIT)
     target_link_libraries(rummage PRIVATE rummage::git)
 endif()
