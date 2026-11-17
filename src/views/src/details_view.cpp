@@ -368,10 +368,26 @@ void DetailsView::move_column(Field field, int direction) {
     const auto at = std::ranges::find(columns, field);
     if (at == columns.end() || at == columns.begin())
         return;
-    if (direction < 0 && at > columns.begin() + 1)
-        std::iter_swap(at, at - 1);
-    if (direction > 0 && at + 1 < columns.end())
-        std::iter_swap(at, at + 1);
+    // A column that is not laid out (Status without a decorator) is passed over.
+    const auto hidden = [this](Field each) {
+        return each == Field::mark && decorations_ == nullptr;
+    };
+    auto to = at;
+    do {
+        if (direction < 0 && to > columns.begin() + 1) {
+            --to;
+        } else if (direction > 0 && to + 1 < columns.end()) {
+            ++to;
+        } else {
+            return;
+        }
+    } while (hidden(*to));
+    // Taken out and put back on the far side of to: the columns between keep their order.
+    if (direction < 0) {
+        std::rotate(to, at, at + 1);
+    } else {
+        std::rotate(at, at + 1, to + 1);
+    }
     set_columns(columns);
 }
 
@@ -408,6 +424,9 @@ void DetailsView::lay_out() {
     layout_ = {};
     float fixed = 0.0F;
     for (const auto field : columns_) {
+        if (field == Field::mark && decorations_ == nullptr) {
+            continue;  // nothing to show in it
+        }
         layout_.shown.at(index(field)) = true;
         if (field != Field::name)
             fixed += shown_width(index(field));
@@ -598,7 +617,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const float name_x = name_left + size_.icon + kIconGap;
         float name_room = layout_.left.at(index(Field::name)) +
                           layout_.width.at(index(Field::name)) - kCellPadding - name_x;
-        if (badge != nullptr) {
+        if (badge != nullptr && !layout_.shown.at(index(Field::mark))) {
             const float width =
                 draw_badge(renderer, palette, *badge, name_x + name_room,
                            y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
@@ -654,6 +673,11 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         cell(Field::owner, entry.owner, false);
         cell(Field::group, entry.group, false);
         cell(Field::permissions, entry.permissions, false);
+        if (badge != nullptr && layout_.shown.at(index(Field::mark))) {
+            const float left = layout_.left.at(index(Field::mark)) + kCellPadding;
+            draw_badge(renderer, palette, *badge, left + size_.text + 2.0F, detail_y, size_.detail,
+                       selected ? std::optional<ui::Color>{style.text} : std::nullopt);
+        }
         if (layout_.shown.at(index(Field::location)))
             cell(Field::location, owner->path().string(), false);
         cell(Field::link_target, entry.link_target, false);

@@ -90,6 +90,7 @@
 #  include "rummage/git/decorator.hpp"
 #endif
 #include "rummage/views/browser.hpp"
+#include "rummage/views/details_columns.hpp"
 #include "rummage/views/file_picker.hpp"
 #include "rummage/views/title_bar.hpp"
 #include "test_scene.hpp"
@@ -527,6 +528,8 @@ int main(int argc, char** argv) {
                         "git", rummage::platform::Environment::from_environment().path)) {
                     git_status = std::make_unique<rummage::git::Decorator>(loop, pool, watcher,
                                                                            std::move(*git), [] {});
+                    git_status->set_refilter_handler(
+                        [&] { columns->set_decorations(git_status.get()); });
                     columns->set_decorations(git_status.get());
                 }
 #endif
@@ -633,12 +636,10 @@ int main(int argc, char** argv) {
                     fields.remove_prefix(std::min(comma + 1, fields.size()));
                     using Field = views::DetailsView::Field;
                     Field chosen = Field::name;
-                    if (field == "size") {
-                        chosen = Field::size;
-                    } else if (field == "modified") {
-                        chosen = Field::modified;
-                    } else if (field == "type") {
-                        chosen = Field::type;
+                    for (const auto& column : views::kDetailsColumns) {
+                        if (field == column.id) {
+                            chosen = column.field;
+                        }
                     }
                     const auto start = std::chrono::steady_clock::now();
                     columns->details().sort_by(chosen);

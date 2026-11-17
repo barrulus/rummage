@@ -2681,6 +2681,9 @@ MenuItem Browser::details_columns_menu() {
     menu.submenu = true;
     menu.separator = true;
     for (const auto& column : kDetailsColumns) {
+        if (column.field == fs::SortKey::mark && decorations_ == nullptr) {
+            continue;
+        }
         MenuItem item;
         item.id = "column:" + std::string{column.id};
         item.label = i18n::tr(column.title);
@@ -2724,15 +2727,12 @@ MenuItem Browser::sort_menu() {
     };
 
     for (const auto& column : kDetailsColumns) {
+        if (column.field == fs::SortKey::mark && decorations_ == nullptr) {
+            continue;
+        }
         sort.children.push_back(choice(
             "sort:" + std::string{column.id}, std::string{column.title}, now.key == column.field,
             [this, key = column.field] { set_sort(key, sort_order().descending); }));
-    }
-    // A decorator's status (git's), where there is one.
-    if (decorations_ != nullptr) {
-        sort.children.push_back(choice("sort:mark", "Status", now.key == fs::SortKey::mark, [this] {
-            set_sort(fs::SortKey::mark, sort_order().descending);
-        }));
     }
     sort.children.push_back(choice(
         "sort:ascending", "Ascending", !now.descending,

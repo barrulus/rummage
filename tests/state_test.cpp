@@ -64,7 +64,7 @@ State changed() {
     s.info_expanded = true;
     s.sort_key = SortKey::modified;
     s.sort_descending = true;
-    s.details_widths = {80.0F, 170.0F, 240.0F, 150, 150, 110, 110, 130, 220, 220};
+    s.details_widths = {80.0F, 170.0F, 240.0F, 150, 150, 110, 110, 130, 220, 220, 90};
     s.list_size = 3;
     s.grid_icon = 192;
     s.window_width = 1400;
@@ -171,7 +171,7 @@ TEST_CASE("state: the browser gives back what it was given") {
 
     // Narrower than a column's minimum: the view keeps its minimum.
     State narrow = wanted;
-    narrow.details_widths = {10.0F, 10.0F, 10.0F, 150, 150, 110, 110, 130, 220, 220};
+    narrow.details_widths = {10.0F, 10.0F, 10.0F, 150, 150, 110, 110, 130, 220, 220, 10.0F};
     browser.apply(narrow);
     for (const float width : browser.state().details_widths) {
         CHECK(width >= 64.0F);
@@ -434,7 +434,7 @@ TEST_CASE("state: folder preferences round trip, stay bounded and share unchange
         .mode = State::Mode::grid,
         .sort_key = SortKey::modified,
         .sort_descending = true,
-        .details_widths = {80, 170, 240, 150, 150, 110, 110, 130, 220, 220},
+        .details_widths = {80, 170, 240, 150, 150, 110, 110, 130, 220, 220, 90},
         .list_size = 3,
         .grid_icon = 192};
     state.last_folder = "/folder with \"quotes\"/é";

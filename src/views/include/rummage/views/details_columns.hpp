@@ -27,7 +27,9 @@ inline constexpr std::array kDetailsColumns{
     DetailsColumn{fs::SortKey::group, "group", "Group", 110.0F, 80.0F},
     DetailsColumn{fs::SortKey::permissions, "permissions", "Permissions", 130.0F, 110.0F},
     DetailsColumn{fs::SortKey::location, "location", "Location", 220.0F, 100.0F},
-    DetailsColumn{fs::SortKey::link_target, "link_target", "Link target", 220.0F, 100.0F}};
+    DetailsColumn{fs::SortKey::link_target, "link_target", "Link target", 220.0F, 100.0F},
+    // A decorator's status (git's); laid out only while there is a decorator.
+    DetailsColumn{fs::SortKey::mark, "mark", "Status", 72.0F, 64.0F}};
 inline constexpr std::size_t kDetailsColumnCount = kDetailsColumns.size();
 using DetailsWidths = std::array<float, kDetailsColumnCount - 1>;
 inline constexpr DetailsWidths kDetailsWidths = [] {
@@ -42,7 +44,8 @@ static_assert([] {
             return false;
     return true;
 }());
-inline const std::vector<fs::SortKey> kDefaultDetailsColumns{
-    fs::SortKey::name, fs::SortKey::size, fs::SortKey::modified, fs::SortKey::type};
+inline const std::vector<fs::SortKey> kDefaultDetailsColumns{fs::SortKey::name, fs::SortKey::size,
+                                                             fs::SortKey::modified,
+                                                             fs::SortKey::type, fs::SortKey::mark};
 
 }  // namespace rummage::views

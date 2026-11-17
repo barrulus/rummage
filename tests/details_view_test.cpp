@@ -281,7 +281,7 @@ TEST_CASE("details: choosing and ordering columns keeps the selection and restor
     f.details.set_column_visible(Field::owner, true);
     f.details.move_column(Field::owner, -1);
     CHECK(f.details.columns() ==
-          std::vector<Field>{Field::name, Field::size, Field::owner, Field::modified});
+          std::vector<Field>{Field::name, Field::size, Field::owner, Field::modified, Field::mark});
     f.details.set_column_visible(Field::name, false);
     CHECK(f.details.column_visible(Field::name));
     f.details.set_columns(f.details.columns());  // Safe even with its own list.
@@ -358,7 +358,8 @@ TEST_CASE("details: header chooser and sorting use the visible column layout") {
     const auto columns =
         std::ranges::find(menu.items(), "details_columns", &rummage::views::MenuItem::id);
     REQUIRE(columns != menu.items().end());
-    CHECK(columns->children.size() == rummage::views::kDetailsColumnCount + 1);
+    // Status is offered only with a decorator (the git integration).
+    CHECK(columns->children.size() == rummage::views::kDetailsColumnCount);
 }
 
 TEST_CASE("info pane: a folder's size, or a selection's, is added up once the cursor rests") {
