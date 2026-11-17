@@ -1269,7 +1269,7 @@ TEST_CASE("properties: thumbnails replace the icon without moving the compact di
     rummage::ui::Renderer renderer{fonts};
     rummage::ui::IconSet icons{fonts};
     auto cache = std::make_shared<rummage::thumbs::Cache>(f.dir.path / "cache", "properties-test");
-    rummage::views::Thumbnails thumbnails{f.pool, cache, [] {}};
+    rummage::views::Thumbnails thumbnails{f.loop, f.pool, cache, [] {}};
     auto& properties = f.browser.properties_dialog();
     properties.open(f.photos / "photo.jpg", [] {});
     REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));

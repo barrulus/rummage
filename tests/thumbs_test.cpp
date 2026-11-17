@@ -1,14 +1,22 @@
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <memory>
 #include <string>
 #include <sys/stat.h>
 
 #include <doctest/doctest.h>
 
+#include "rummage/core/event_loop.hpp"
+#include "rummage/core/worker_pool.hpp"
+#include "rummage/formats/image/load.hpp"
+#include "rummage/picture/load.hpp"
 #include "rummage/picture/png.hpp"
 #include "rummage/thumbs/cache.hpp"
 #include "rummage/thumbs/md5.hpp"
+#include "rummage/views/thumbnails.hpp"
 #include "temp_dir.hpp"
 
 namespace thumbs = rummage::thumbs;
@@ -181,4 +189,178 @@ TEST_CASE("thumbs: the cache never thumbnails its own files") {
     const thumbs::Thumbnail own =
         cache.get(cache.path_for(photo, thumbs::Size::normal), thumbs::Size::normal);
     CHECK(own.source == thumbs::Source::failed);
+}
+
+namespace {
+
+using namespace std::chrono_literals;
+namespace picture = rummage::picture;
+namespace thumbs = rummage::thumbs;
+
+struct RestoreLoader {
+    ~RestoreLoader() {
+        picture::set_loader([](const picture::LoadRequest& request) {
+            return rummage::formats::image::load(request);
+        });
+    }
+};
+
+struct Fixture {
+    rummage::test::TempDir dir;
+    std::filesystem::path file{dir.write("photo.heic", "injected picture loader")};
+    std::atomic<unsigned> calls{0};
+    std::atomic<unsigned> failures{1};
+    picture::Failure reason{picture::Failure::unavailable};
+    unsigned redraws{0};
+    RestoreLoader restore;  // restored after the workers have joined
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    std::shared_ptr<thumbs::Cache> cache{
+        std::make_shared<thumbs::Cache>(dir.path / "cache", "test")};
+    std::unique_ptr<rummage::views::Thumbnails> view{
+        std::make_unique<rummage::views::Thumbnails>(loop, pool, cache, [this] { ++redraws; })};
+
+    Fixture() {
+        picture::set_loader([this](const picture::LoadRequest&) {
+            picture::Loaded result;
+            if (++calls <= failures.load()) {
+                result.failure = reason;
+                result.detail = "injected failure";
+            } else {
+                result.image = {.width = 1, .height = 1, .rgba = {255, 0, 0, 255}};
+            }
+            return result;
+        });
+    }
+
+    // Successful pixels are inspected before GPU upload, so no GL context is needed.
+    void ask(thumbs::Size size = thumbs::Size::large) {
+        static_cast<void>(view->get(file, 1, size, "image/heic"));
+    }
+
+    bool until(const std::function<bool()>& done) {
+        bool reached = false;
+        const auto poll = loop.add_timer(1ms, 1ms, [&] {
+            if (done()) {
+                reached = true;
+                loop.quit();
+            }
+        });
+        const auto watchdog = loop.add_timer(5s, 0ms, [&] { loop.quit(); });
+        loop.run();
+        loop.remove(poll);
+        loop.remove(watchdog);
+        return reached;
+    }
+
+    void wait(std::chrono::milliseconds duration) {
+        loop.add_timer(duration, 0ms, [this] { loop.quit(); });
+        loop.run();
+    }
+
+    void leave() {
+        view->end_frame();
+        view->end_frame();  // no request in this frame
+    }
+};
+
+}  // namespace
+
+TEST_CASE("thumbnails: a transient failure recovers without another frame") {
+    Fixture f;
+    f.ask();
+    REQUIRE(f.until([&] { return f.redraws > 0; }));
+    CHECK(f.calls == 1);
+    CHECK(f.view->loading());  // the delayed retry is outstanding
+    for (int i = 0; i < 100; ++i) {
+        f.ask();
+        f.view->end_frame();
+    }
+    CHECK(f.calls == 1);  // redraws cannot bypass the backoff
+    REQUIRE(f.until([&] { return !f.view->loading(); }));
+    CHECK(f.calls == 2);
+    CHECK(f.view->usage().pixel_bytes == 4);
+    CHECK(f.cache->get(f.file, thumbs::Size::large, "image/heic").source == thumbs::Source::cache);
+}
+
+TEST_CASE("thumbnails: retries are bounded and returning to the file starts afresh") {
+    Fixture f;
+    f.failures = 100;
+    f.ask();
+    REQUIRE(f.until([&] { return !f.view->loading(); }));
+    CHECK(f.calls == 3);
+    for (int i = 0; i < 100; ++i) {
+        f.ask();
+        f.view->end_frame();
+    }
+    f.wait(300ms);
+    CHECK(f.calls == 3);
+    CHECK_FALSE(f.view->loading());
+
+    f.leave();
+    CHECK(f.view->usage().slots == 0);
+    f.failures = 0;
+    f.ask();
+    REQUIRE(f.until([&] { return !f.view->loading(); }));
+    CHECK(f.calls == 4);
+    CHECK(f.view->usage().pixel_bytes == 4);
+}
+
+TEST_CASE("thumbnails: permanent failures are not retried") {
+    Fixture f;
+    f.failures = 100;
+    f.reason = picture::Failure::damaged;
+    f.ask();
+    REQUIRE(f.until([&] { return !f.view->loading(); }));
+    f.leave();
+    CHECK(f.view->usage().slots == 1);
+    f.ask();
+    f.wait(300ms);
+    CHECK(f.calls == 1);
+    CHECK_FALSE(f.view->loading());
+    picture::Failure reason{};
+    static_cast<void>(f.view->get(f.file, 1, thumbs::Size::large, "image/heic", &reason));
+    CHECK(reason == picture::Failure::damaged);
+}
+
+TEST_CASE("thumbnails: leaving cancels a retry without affecting a replacement slot") {
+    Fixture f;
+    f.ask();
+    REQUIRE(f.until([&] { return f.redraws > 0; }));
+    REQUIRE(f.view->loading());
+    f.leave();
+    CHECK_FALSE(f.view->loading());
+    CHECK(f.view->usage().slots == 0);
+    f.ask();
+    REQUIRE(f.until([&] { return !f.view->loading(); }));
+    const auto redraws = f.redraws;
+    f.wait(350ms);  // the removed slot's timer must not touch its replacement
+    CHECK(f.calls == 2);
+    CHECK(f.redraws == redraws);
+    CHECK_FALSE(f.view->loading());
+    CHECK(f.view->usage().pixel_bytes == 4);
+}
+
+TEST_CASE("thumbnails: destruction cancels pending retries") {
+    Fixture f;
+    f.ask();
+    REQUIRE(f.until([&] { return f.redraws > 0; }));
+    REQUIRE(f.view->loading());
+    f.view.reset();
+    const auto redraws = f.redraws;
+    f.wait(350ms);
+    CHECK(f.calls == 1);
+    CHECK(f.redraws == redraws);
+}
+
+TEST_CASE("thumbnails: another size succeeding does not strand a failed size") {
+    Fixture f;
+    f.ask();
+    REQUIRE(f.until([&] { return f.redraws > 0; }));
+    f.ask(thumbs::Size::normal);
+    REQUIRE(f.until([&] { return !f.view->loading(); }));
+    CHECK(f.calls == 3);
+    CHECK(f.view->usage().pixel_bytes == 8);
+    CHECK(f.cache->get(f.file, thumbs::Size::large, "image/heic").source == thumbs::Source::cache);
+    CHECK(f.cache->get(f.file, thumbs::Size::normal, "image/heic").source == thumbs::Source::cache);
 }

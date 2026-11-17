@@ -221,6 +221,11 @@ Thumbnails use the shared freedesktop cache under `$XDG_CACHE_HOME/thumbnails`
 modification metadata; failed previews can be cached too. This cache is shared
 with other applications, not a private photo library.
 
+If a thumbnail helper stops or times out, visible thumbnails retry twice after
+short delays. Leaving the view cancels pending retries; returning tries again.
+These temporary failures are not saved to disk. With `RUMMAGE_LOG=debug`, failed
+thumbnail attempts log the file, requested size and underlying error.
+
 ## Engines and failure behavior
 
 Image and text requests go through `rummage-preview`. A crashed, timed-out or
