@@ -487,6 +487,23 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
     CHECK(detail.find(" First  ·  Ada  ·  ") != std::string::npos);
     CHECK(detail.ends_with(" ago"));
 
+    // The information pane's section says the same, for good.
+    const rummage::views::DetailSection* const section = shown.decorator.details(*shown.folder);
+    REQUIRE(section != nullptr);
+    CHECK(section->title == "GIT");
+    const auto value_of = [&](std::string_view label) {
+        for (const auto& row : section->rows) {
+            if (row.label == label) {
+                return row.value;
+            }
+        }
+        return std::string{};
+    };
+    CHECK(value_of("Branch") == "main");
+    CHECK(value_of("Changes") == "1 changed, 2 untracked");
+    CHECK(value_of("Last commit").ends_with(" First"));
+    CHECK(value_of("Author") == "Ada");
+
     // The cursor's entry says what its badge means.
     shown.folder->select_name("a.txt");
     CHECK(shown.text().ends_with("  ·  Modified, not staged"));

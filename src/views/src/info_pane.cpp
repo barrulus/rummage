@@ -13,6 +13,7 @@
 #include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 #include "rummage/views/format.hpp"
 #include "rummage/views/media_details.hpp"
 
@@ -449,7 +450,28 @@ bool InfoPane::scroll_text(TextScroll how, Clock::time_point now) {
     return true;
 }
 
+bool InfoPane::clickable_at(float x, float y) const {
+    return toggle_.contains(x, y) || extra_toggle_.contains(x, y) ||
+           std::ranges::any_of(extra_buttons_,
+                               [&](const auto& button) { return button.first.contains(x, y); });
+}
+
 bool InfoPane::click(float x, float y) {
+    if (extra_toggle_.contains(x, y)) {
+        extra_open_ = !extra_open_;
+        redraw_();
+        return true;
+    }
+    for (const auto& [bounds, action] : extra_buttons_) {
+        if (bounds.contains(x, y)) {
+            if (action) {
+                const std::function<void()> run = action;  // the section may be rebuilt
+                run();
+            }
+            redraw_();
+            return true;
+        }
+    }
     if (toggle_.width <= 0.0F || x < toggle_.x || x >= toggle_.right() || y < toggle_.y ||
         y >= toggle_.bottom()) {
         return false;
@@ -586,7 +608,58 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     metadata_.begin_frame(bounds);
     Writer out{
         renderer, {bounds.x, bounds.y - offset, bounds.width, bounds.height}, palette, metadata_};
+    // A decorator's section, folded under its heading, then its buttons in lines.
+    const auto extra = [&] {
+        extra_toggle_ = {};
+        extra_buttons_.clear();
+        const DetailSection* const section =
+            decorations_ != nullptr ? decorations_->details(folder) : nullptr;
+        if (section == nullptr) {
+            return;
+        }
+        out.skip(10.0F);
+        renderer.fill_rect({out.left(), out.y(), out.width(), 1.0F / renderer.scale()},
+                           palette.outline_variant);
+        out.skip(12.0F);
+        renderer.draw_text(section->title, out.left(), out.y(), kSectionSize,
+                           palette.on_surface_variant);
+        icons.draw(renderer, extra_open_ ? "chevron-up" : "chevron-down",
+                   out.left() + out.width() - 12.0F, out.y() + 1.0F, 12.0F,
+                   palette.on_surface_variant);
+        extra_toggle_ = {out.left(), out.y() - 6.0F, out.width(), 26.0F};
+        out.skip(20.0F);
+        if (!extra_open_) {
+            return;
+        }
+        for (const DetailSection::Row& row : section->rows) {
+            out.row(row.label, row.value);
+        }
+        constexpr float kButtonHeight = 28.0F;
+        constexpr float kGap = 6.0F;
+        float x = out.left();
+        float y = out.y() + 4.0F;
+        for (const DetailSection::Button& button : section->buttons) {
+            const float width =
+                std::min(text_width(renderer, button.label, kTextSize) + 24.0F, out.width());
+            if (x > out.left() && x + width > out.left() + out.width()) {
+                x = out.left();
+                y += kButtonHeight + kGap;
+            }
+            const ui::Rect area{x, y, width, kButtonHeight};
+            draw_dialog_button(renderer, area, palette, button.label, false);
+            if (button.enabled) {
+                extra_buttons_.emplace_back(area, button.action);
+            } else {
+                renderer.fill_rect(area, palette.surface.with_alpha(0.6F));
+            }
+            x += width + kGap;
+        }
+        if (!section->buttons.empty()) {
+            out.skip(y + kButtonHeight + 4.0F - out.y());
+        }
+    };
     const auto finish = [&] {
+        extra();
         if (page_.height <= 0.0F) {
             // Multiple selection can replace a text page without requesting another summary.
             page_scroller_.jump_to(page_scroller_.offset());

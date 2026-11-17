@@ -23,6 +23,7 @@
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/views/decorations.hpp"
 #include "rummage/views/folder.hpp"
 #include "rummage/views/selectable_text.hpp"
 #include "rummage/views/text_selection.hpp"
@@ -93,7 +94,14 @@ public:
         return metadata_.bounds(id);
     }
 
-    // A click at (x, y): true when the pane took it ("More details").
+    // A decorator's section at the end (nullptr: none). Not owned.
+    void set_decorations(Decorations* decorations) {
+        decorations_ = decorations;
+        redraw_();
+    }
+
+    // A click at (x, y): true when the pane took it ("More details", a decorator's heading or
+    // button).
     bool click(float x, float y);
 
     // A wheel or touchpad scroll: true when it was over the pane, which scrolls when its content
@@ -119,7 +127,7 @@ public:
     [[nodiscard]] bool expanded() const noexcept { return expanded_; }
 
     // "More details" is there, as last drawn.
-    [[nodiscard]] bool clickable_at(float x, float y) const { return toggle_.contains(x, y); }
+    [[nodiscard]] bool clickable_at(float x, float y) const;
 
     // Before a frame: what it drew is gone unless it is drawn again (a view without the pane).
     void forget_layout() noexcept {
@@ -214,7 +222,11 @@ private:
     float width_{kWidth};
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
-    ui::Rect page_{};    // a text file's page, as last drawn; empty when not shown
+    Decorations* decorations_{nullptr};
+    bool extra_open_{true};    // the decorator's section is unfolded
+    ui::Rect extra_toggle_{};  // its heading, as last drawn
+    std::vector<std::pair<ui::Rect, std::function<void()>>> extra_buttons_;  // as last drawn
+    ui::Rect page_{};  // a text file's page, as last drawn; empty when not shown
     SelectableText metadata_;
     TextSelection selection_;
     std::function<void(std::string)> copy_;

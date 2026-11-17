@@ -413,6 +413,9 @@ void Decorator::forget_oldest() {
         if (part_repo_ == repo) {
             part_repo_ = nullptr;
         }
+        if (section_repo_ == repo) {
+            section_repo_ = nullptr;
+        }
         const std::string key = repo->key;
         repos_.erase(key);
     }
@@ -702,6 +705,63 @@ const views::StatusPart* Decorator::status(const views::Folder& folder) {
     part_.text = text.substr(head);
     part_.detail = repo.commit ? commit_line(*repo.commit, now) : std::string{};
     return &part_;
+}
+
+const views::DetailSection* Decorator::details(const views::Folder& folder) {
+    Place* const place = place_of(folder);
+    if (place == nullptr || place->repo == nullptr) {
+        return nullptr;
+    }
+    const Repo& repo = *place->repo;
+    if (repo.failed || !repo.status) {
+        return nullptr;
+    }
+    const std::int64_t now = seconds_now();
+    if (section_repo_ == &repo && section_generation_ == repo.generation &&
+        section_minute_ == now / 60) {
+        return &section_;
+    }
+    section_repo_ = &repo;
+    section_generation_ = repo.generation;
+    section_minute_ = now / 60;
+    const Branch& branch = repo.status->branch;
+    std::vector<views::DetailSection::Row> rows;
+    const auto add = [&rows](std::string_view label, std::string value) {
+        if (!value.empty()) {
+            rows.push_back({std::string{label}, std::move(value)});
+        }
+    };
+    add(i18n::tr("Branch"),
+        branch.name.empty()
+            ? i18n::trf("Detached at {}", repo.commit ? repo.commit->hash : branch.oid.substr(0, 7))
+            : branch.name);
+    if (!branch.upstream.empty()) {
+        add(i18n::tr("Upstream"),
+            std::format("{}  ↑{} ↓{}", branch.upstream, branch.ahead, branch.behind));
+    }
+    if (const std::string_view doing = operation_name(repo.operation); !doing.empty()) {
+        add(i18n::tr("In progress"), std::string{doing});
+    }
+    const Status::Counts counts = repo.status->counts();
+    std::string changes;
+    const auto count = [&changes](std::size_t n, const std::string& words) {
+        if (n > 0) {
+            changes.append(changes.empty() ? "" : ", ").append(words);
+        }
+    };
+    count(counts.conflicts, i18n::trn("{} conflict", "{} conflicts", counts.conflicts));
+    count(counts.staged, i18n::trn("{} staged", "{} staged", counts.staged));
+    count(counts.changed, i18n::trn("{} changed", "{} changed", counts.changed));
+    count(counts.untracked, i18n::trn("{} untracked", "{} untracked", counts.untracked));
+    add(i18n::tr("Changes"), changes.empty() ? std::string{i18n::tr("None")} : changes);
+    if (repo.commit) {
+        add(i18n::tr("Last commit"), repo.commit->hash + " " + repo.commit->subject);
+        add(i18n::tr("Author"), repo.commit->author);
+        add(i18n::tr("Committed"), time_ago(repo.commit->time, now));
+    }
+    section_.title = std::string{i18n::tr("GIT")};
+    section_.rows = std::move(rows);
+    return &section_;
 }
 
 }  // namespace rummage::git

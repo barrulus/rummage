@@ -135,6 +135,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
 
 void Browser::set_decorations(Decorations* decorations) {
     decorations_ = decorations;
+    info_pane_.set_decorations(decorations);
     for (const auto& owner : areas_) {
         if (!owner) {
             continue;

@@ -2,8 +2,10 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/sort.hpp"
@@ -35,6 +37,25 @@ struct StatusPart {
     bool operator==(const StatusPart&) const = default;
 };
 
+// A section a decorator adds at the end of the information pane: a heading that folds it, rows of
+// label and value, and buttons. Texts are shown as given (translated by the decorator).
+struct DetailSection {
+    struct Row {
+        std::string label;
+        std::string value;
+    };
+
+    struct Button {
+        std::string label;
+        bool enabled{true};
+        std::function<void()> action;  // runs on a click, the section may change after
+    };
+
+    std::string title;
+    std::vector<Row> rows;
+    std::vector<Button> buttons;
+};
+
 // What an optional part of rummage adds to the views (the git integration): marks beside
 // entries and a part of the status bar. Views and the status bar ask while they draw, so a
 // decorator learns which folders are on screen and, through Folder::model().revision(), when
@@ -56,6 +77,9 @@ public:
 
     // The status bar's part for folder, the one it shows; nullptr when there is none.
     [[nodiscard]] virtual const StatusPart* status(const Folder& folder) = 0;
+
+    // The information pane's section for folder (what it shows); nullptr for none.
+    [[nodiscard]] virtual const DetailSection* details(const Folder& /*folder*/) { return nullptr; }
 
     // Whether entries may be left out of listings at all; hides() is asked only then.
     [[nodiscard]] virtual bool hides_any() const { return false; }

@@ -79,6 +79,7 @@ public:
     [[nodiscard]] const views::Badge* badge(const views::Folder& folder,
                                             const fs::Entry& entry) override;
     [[nodiscard]] const views::StatusPart* status(const views::Folder& folder) override;
+    [[nodiscard]] const views::DetailSection* details(const views::Folder& folder) override;
 
     // Ignored entries, with Ignored::hide.
     [[nodiscard]] bool hides_any() const override {
@@ -132,6 +133,10 @@ private:
     std::uint64_t part_generation_{0};
     std::string part_cursor_;
     std::int64_t part_minute_{0};
+    views::DetailSection section_;
+    const Repo* section_repo_{nullptr};
+    std::uint64_t section_generation_{0};
+    std::int64_t section_minute_{0};
     // False once destroyed: results still on their way find out here.
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
 };
