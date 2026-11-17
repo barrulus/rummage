@@ -169,6 +169,10 @@ else()
 endif()
 add_subdirectory(src/platform)  # default applications (freedesktop), launching processes
 add_subdirectory(src/views)     # column view and grid
+option(RUMMAGE_GIT "Build the optional git integration (status bar and file badges)" OFF)
+if(RUMMAGE_GIT)
+    add_subdirectory(src/git)
+endif()
 
 # Renderer test scene (ROADMAP 1.4), shared by the app and rummage-snapshot.
 add_library(rummage_test_scene STATIC src/app/test_scene.cpp)

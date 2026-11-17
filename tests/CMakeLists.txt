@@ -104,6 +104,12 @@ add_executable(rummage-tests
     xcursor_test.cpp)
 target_link_libraries(rummage-tests PRIVATE rummage::svg rummage::core rummage::theme rummage::fs rummage::views rummage::picture rummage::formats rummage::formats::image rummage::formats::text rummage::formats::archive rummage::text rummage::thumbs rummage::preview rummage::engines rummage::isolate rummage::platform doctest::doctest rummage::warnings)
 
+# The optional git integration and its tests (git itself must be installed to run them).
+if(RUMMAGE_GIT)
+    target_sources(rummage-tests PRIVATE git_test.cpp)
+    target_link_libraries(rummage-tests PRIVATE rummage::git)
+endif()
+
 # The helper protocol's private header, for its tests; the image family's private readers (TIFF,
 # DNG, lossless JPEG), for theirs.
 target_include_directories(rummage-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src
