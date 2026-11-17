@@ -14,6 +14,7 @@ add_executable(rummage-tests
     batch_rename_test.cpp
     permissions_test.cpp
     program_test.cpp
+    program_output_test.cpp
     actions_test.cpp
     archives_test.cpp
     compress_test.cpp

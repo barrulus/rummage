@@ -1,5 +1,6 @@
 #include "rummage/platform/program_output.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <csignal>
@@ -7,6 +8,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <spawn.h>
+#include <string_view>
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -47,7 +49,7 @@ ProgramOutput::~ProgramOutput() {
 }
 
 bool ProgramOutput::start(const std::filesystem::path& program,
-                          const std::vector<std::string>& arguments) {
+                          const std::vector<std::string>& arguments, const Options& options) {
     std::array<int, 2> pipe_fds{-1, -1};
     if (pipe2(pipe_fds.data(), O_CLOEXEC) != 0) {
         log::warn("no pipe for {}: {}", program.string(), std::strerror(errno));
@@ -66,6 +68,28 @@ bool ProgramOutput::start(const std::filesystem::path& program,
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
     posix_spawn_file_actions_adddup2(&actions, pipe_fds[1], STDOUT_FILENO);
+    if (options.merge_stderr) {
+        posix_spawn_file_actions_adddup2(&actions, pipe_fds[1], STDERR_FILENO);
+    }
+    // rummage's environment, with the options' variables added or replaced.
+    std::vector<std::string> variables;
+    for (char** each = environ; each != nullptr && *each != nullptr; ++each) {
+        const std::string_view variable{*each};
+        const std::string_view name = variable.substr(0, variable.find('='));
+        const bool replaced = std::ranges::any_of(options.environment, [&](const std::string& own) {
+            return own.size() > name.size() && own.starts_with(name) && own[name.size()] == '=';
+        });
+        if (!replaced) {
+            variables.emplace_back(variable);
+        }
+    }
+    variables.insert(variables.end(), options.environment.begin(), options.environment.end());
+    std::vector<char*> envp;
+    envp.reserve(variables.size() + 1);
+    for (std::string& variable : variables) {
+        envp.push_back(variable.data());
+    }
+    envp.push_back(nullptr);
     // Rummage and its services block the signals they read from a signalfd: the program starts
     // without that.
     posix_spawnattr_t attributes{};
@@ -81,7 +105,7 @@ bool ProgramOutput::start(const std::filesystem::path& program,
     posix_spawnattr_setsigdefault(&attributes, &defaults);
     posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
     const int spawned =
-        posix_spawn(&pid_, argv.front(), &actions, &attributes, argv.data(), environ);
+        posix_spawn(&pid_, argv.front(), &actions, &attributes, argv.data(), envp.data());
     posix_spawnattr_destroy(&attributes);
     posix_spawn_file_actions_destroy(&actions);
     close(pipe_fds[1]);

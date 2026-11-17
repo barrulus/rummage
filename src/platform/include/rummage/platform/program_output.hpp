@@ -26,8 +26,18 @@ public:
     ProgramOutput(ProgramOutput&&) = delete;
     ProgramOutput& operator=(ProgramOutput&&) = delete;
 
+    struct Options {
+        bool merge_stderr{false};  // its standard error into the output too (messages to show)
+        std::vector<std::string> environment;  // "NAME=value", added to or replacing rummage's
+    };
+
     // Starts program with arguments; false (and done never called) when it cannot be started.
-    bool start(const std::filesystem::path& program, const std::vector<std::string>& arguments);
+    bool start(const std::filesystem::path& program, const std::vector<std::string>& arguments,
+               const Options& options);
+
+    bool start(const std::filesystem::path& program, const std::vector<std::string>& arguments) {
+        return start(program, arguments, Options{});
+    }
 
     // Asks the program to close (SIGTERM, SIGKILL 3 s later): done follows when it has.
     void stop();
