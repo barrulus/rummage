@@ -3,12 +3,14 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/sort.hpp"
+#include "rummage/views/context_menu.hpp"
 #include "rummage/views/folder.hpp"
 
 namespace rummage::views {
@@ -46,6 +48,7 @@ struct DetailSection {
     };
 
     struct Button {
+        std::string id;  // stable, for menus and tests ("commit")
         std::string label;
         bool enabled{true};
         std::function<void()> action;  // runs on a click, the section may change after
@@ -54,6 +57,23 @@ struct DetailSection {
     std::string title;
     std::vector<Row> rows;
     std::vector<Button> buttons;
+};
+
+// What a decorator may ask of the window it decorates. Set by the browser that uses it.
+struct DecorationHost {
+    // A message in the status bar (error: in the error colour).
+    std::function<void(std::string text, bool error)> message;
+    // One line of text on a card: accept returns what is wrong with it (the card stays), or empty.
+    std::function<void(std::string title, std::string detail, std::string initial,
+                       std::function<std::string(const std::string&)> accept)>
+        ask_text;
+    // A question before something that cannot be undone; action names its button, warning is
+    // the line under the question.
+    std::function<void(std::string title, std::string detail, std::string action,
+                       std::string warning, std::function<void(bool confirmed)> answer)>
+        confirm;
+    // Moves files to the trash, as Delete does (undoable).
+    std::function<void(std::vector<std::filesystem::path> paths)> trash;
 };
 
 // What an optional part of rummage adds to the views (the git integration): marks beside
@@ -77,6 +97,16 @@ public:
 
     // The status bar's part for folder, the one it shows; nullptr when there is none.
     [[nodiscard]] virtual const StatusPart* status(const Folder& folder) = 0;
+
+    // The browser's services; called again when the decorator is set.
+    virtual void set_host(DecorationHost /*host*/) {}
+
+    // A submenu for the context menu of names in folder (empty: the folder's background);
+    // nullopt for none. Its items' actions run once the menu has closed.
+    [[nodiscard]] virtual std::optional<MenuItem> menu(const Folder& /*folder*/,
+                                                       const std::vector<std::string>& /*names*/) {
+        return std::nullopt;
+    }
 
     // The information pane's section for folder (what it shows); nullptr for none.
     [[nodiscard]] virtual const DetailSection* details(const Folder& /*folder*/) { return nullptr; }

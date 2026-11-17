@@ -136,6 +136,27 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
 void Browser::set_decorations(Decorations* decorations) {
     decorations_ = decorations;
     info_pane_.set_decorations(decorations);
+    if (decorations != nullptr) {
+        decorations->set_host(
+            {.message = [this](std::string text,
+                               bool error) { show_message(std::move(text), error); },
+             .ask_text =
+                 [this](std::string title, std::string detail, std::string initial,
+                        std::function<std::string(const std::string&)> accept) {
+                     confirm_.open_name(std::move(title), std::move(detail), std::move(initial),
+                                        std::move(accept));
+                 },
+             .confirm =
+                 [this](std::string title, std::string detail, std::string action,
+                        std::string warning, std::function<void(bool)> answer) {
+                     confirm_.open(std::move(title), std::move(detail), std::move(action),
+                                   std::move(answer), std::move(warning));
+                 },
+             .trash =
+                 [this](std::vector<std::filesystem::path> paths) {
+                     trash_paths(paths, Purpose::user);
+                 }});
+    }
     for (const auto& owner : areas_) {
         if (!owner) {
             continue;
@@ -2327,6 +2348,12 @@ void Browser::open_menu(float x, float y, bool keyboard) {
     const auto& layout = folder->is_trash()          ? menu_layout_.trash
                          : !targets(*folder).empty() ? menu_layout_.entry
                                                      : menu_layout_.background;
+    if (decorations_ != nullptr && !folder->is_trash()) {
+        if (auto extra = decorations_->menu(*folder, targets(*folder))) {
+            extra->separator = true;
+            items.push_back(std::move(*extra));
+        }
+    }
     auto pane_commands = pane_items();
     if (!pane_commands.empty()) {
         MenuItem submenu;
