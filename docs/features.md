@@ -74,8 +74,9 @@ use the same renderer in-process; SVG file previews use the sandboxed helper.
 - Desktop SVG/PNG icon themes, custom place icons and an accent application icon.
 - Fonts, pointer settings, background opacity, keybindings, actions and menu layouts in TOML.
 - Remembered two-pane/multi-tab sessions and window/view state, without saving navigation history.
-- Optional read-only [git status](git.md): branch, ahead/behind and changes in the status bar,
-  and badges on changed, untracked, conflicted and ignored files.
+- Optional [git integration](git.md): branch, ahead/behind and changes in the status bar and
+  information pane, badges and coloured names, sorting by status, and stage, commit, discard,
+  ignore, fetch, pull and push from the context menu and the pane.
 
 See [configuration](configuration.md), [appearance](appearance.md) and
 [compatibility](compatibility.md). Open **Settings** with **Ctrl+,** for appearance,

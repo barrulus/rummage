@@ -190,8 +190,9 @@ maintenance, see the [package builder guide](../contributing/ci-packaging.md#nat
 
 ## Optional git status
 
-Builds with git support show the branch and changes of a repository in the status bar
-and a badge on each changed file; see [git status](git.md). rummage runs the `git`
+Builds with git support show the branch and changes of a repository in the status bar,
+the information pane and on each changed file, and offer git's everyday commands; see
+[git status](git.md). rummage runs the `git`
 program at run time and links no git library, so the only requirement is git itself.
 Without git in the `PATH` nothing is shown.
 

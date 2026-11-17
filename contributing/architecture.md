@@ -64,8 +64,10 @@ supported settings; font construction is a startup operation.
 ## Decorations
 
 `views::Decorations` lets an optional part of rummage add to the views without the
-views knowing it: a badge per entry, a status-bar part with a detail shown on hover,
-and entries left out of listings. The views and the status bar ask while they draw,
+views knowing it: a badge per entry (which may tint the name), a status-bar part with a
+detail shown on hover, entries left out of listings, ranks for `SortKey::mark`, a section
+at the end of the information pane, and a context submenu. Through `DecorationHost` it asks
+the browser for messages, a text card, a confirmation and the trash. The views and the status bar ask while they draw,
 so a decorator learns which folders are on screen and, through the listing revision,
 when they change. The browser holds at most one; the application owns it.
 
@@ -73,7 +75,9 @@ when they change. The browser holds at most one; the application owns it.
 up to `.git`, runs `git --no-optional-locks status --porcelain=v2 -z --branch` through
 `platform::ProgramOutput` and watches the git directory and branch refs through the
 shared `fs::DirectoryWatcher`. Reads are debounced, capped in delay and stopped after a
-time limit; at most six repositories are followed at once.
+time limit; at most six repositories are followed at once. Commands that change a
+repository (`src/git/src/actions.cpp`) run one at a time per repository with standard error
+kept and no interactive prompts.
 
 ## Preview engines
 

@@ -65,8 +65,8 @@ search_results = 180
 # The bar grows to fit larger text. Use 15 to match the large file-list text.
 text_size = 12.0
 
-# Git status in the status bar and on files, in builds with git support (RUMMAGE_GIT); applied
-# live. Read-only: rummage never changes a repository. See docs/git.md.
+# Git status, menu and commands, in builds with git support (RUMMAGE_GIT); applied live.
+# rummage changes a repository only through the commands you choose. See docs/git.md.
 [git]
 enabled = true
 # Ignored files: show (plainly), dim, or hide.

@@ -53,6 +53,7 @@ counts are bounded before the browser constructs its tree. Archive contents are 
 | Optional video previews | `rummage-media` links FFmpeg libraries inside the same descriptor-based sandbox, with separate decode/time limits |
 | Optional PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline |
 | Desktop applications and custom actions | Ordinary user processes, outside the preview sandbox |
+| Optional git integration | The `git` program as an ordinary user process: `git status` runs on its own for repositories on screen, commands that change one only when chosen. Repository configuration applies as in a terminal, so a `.git/config` from an untrusted source (for example `core.fsmonitor`) can run commands; git's `safe.directory` check still refuses repositories owned by others |
 | Archive member extraction | Archive decoding in the helper; rummage creates destination entries through confined directory descriptors |
 | External archive extraction | External archive tools; their parser and extraction behavior remains their responsibility |
 | Archive creation | A worker reads selected local files and writes ZIP/tar.gz; it is outside the preview sandbox |

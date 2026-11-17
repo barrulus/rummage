@@ -3,15 +3,17 @@
 [Documentation](README.md) · [Configuration](configuration.md) · [Installation](install.md#optional-git-status)
 
 In a build with git support, rummage shows the state of the git repository a folder
-belongs to: the branch and the changes in the status bar, and a badge on each changed
-file. It only reads. rummage never stages, commits, fetches or changes a repository.
-Outside a repository nothing is shown and no git command runs.
+belongs to: the branch and the changes in the status bar and the information pane, and
+a badge on each changed file. The context menu and the information pane offer the
+everyday commands: stage, commit, discard, ignore, fetch, pull and push. Outside a
+repository nothing is shown and no git command runs.
 
 ## Status bar
 
 The right part of the status bar, before the view buttons, shows:
 
-- the branch, or `Detached at a1b2c3d` for a detached HEAD;
+- the branch in the accent colour, or `Detached at a1b2c3d` for a detached HEAD, with a
+  check mark when nothing has changed;
 - `↑2 ↓1`: commits ahead of and behind the upstream, when one is set. rummage does
   not fetch, so these numbers are as of your last fetch;
 - an operation in progress: merging, rebasing, cherry-picking, reverting or bisecting;
@@ -37,7 +39,46 @@ status: abbreviated hash, subject, author and age.
 
 A bold letter means the change is entirely staged; a regular one still has unstaged
 changes. The status bar spells out which, for the current file. Columns and the details
-view draw badges at the end of the name, the grid at the top right of the icon.
+view draw badges at the end of the name, the grid at the top right of the icon. Names of
+changed entries take the badge's colour.
+
+**Sort By › Status** (also in the command palette) puts conflicts first, then changes,
+new and untracked files, unchanged entries and ignored ones; folders by the changes
+inside them. The order follows the status as it changes.
+
+## Information pane
+
+At the end of the information pane, a **GIT** section (folded by its heading) shows the
+branch, the upstream with ahead/behind, an operation in progress, the changes and the last
+commit with its author and age. Its buttons:
+
+| Button | What it does |
+| --- | --- |
+| Commit… | Asks for a message and commits what is staged. With nothing staged, it asks first whether to commit every change, new files included |
+| Stage All / Unstage All | `git add -A` / takes everything out of the index |
+| Fetch, Pull, Push | `git fetch`, `git pull --no-edit`, `git push`; a branch without an upstream is pushed with `-u origin HEAD` |
+
+The same commands are in the context menu's **Git** submenu on a folder's background.
+
+## Context menu
+
+With files or folders selected, **Git** offers:
+
+| Item | What it does |
+| --- | --- |
+| Stage / Unstage | Adds the selection to the index, or takes it out |
+| Commit… | Commits only the selection (new files included), with a message you enter |
+| Discard Changes… | After asking: changed files go back to the last commit, new files go to the trash (undo brings them back) |
+| Add to .gitignore | Appends `/path` (`/folder/` for a folder) to the repository's `.gitignore`, once |
+
+Items that do not apply to the selection are dimmed. One command runs at a time per
+repository; the pane shows which, and the status is read again when it ends. When a
+command fails, the status bar shows git's own last lines.
+
+git never waits for input: there is no terminal prompt, SSH runs in batch mode and no
+editor opens. Fetch, pull and push therefore need an ssh-agent or a credential helper
+for repositories that ask for a login; without one they fail with git's message. They
+stop after 120 seconds.
 
 ## Updates
 
@@ -65,7 +106,8 @@ read (for example one owned by another user, see `safe.directory`) shows nothing
 | `git.ignored` | `"dim"` | Ignored files: `"show"` (plainly), `"dim"`, or `"hide"`; live |
 | `git.folder_status` | `true` | Folders mark the changes inside them; live |
 
-The same settings are in **Settings** (**Ctrl+,**). Hidden ignored files reappear when
+The same settings are in **Settings** (**Ctrl+,**). With `enabled = false` the menu, the
+information pane section and the sort order are gone too. Hidden ignored files reappear when
 you set `ignored` back to `"show"` or `"dim"`.
 
 ## Requirements

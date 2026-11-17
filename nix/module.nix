@@ -50,10 +50,11 @@ in
 
     git.enable = lib.mkEnableOption "the git status in the status bar and on files" // {
       description = ''
-        Build rummage with its read-only git integration: the branch and changes of the
-        repository shown in the status bar, and a badge on each changed file. It runs the
-        git found in the PATH (this package's git otherwise) and can be turned off in
-        config.toml ([git] enabled = false).
+        Build rummage with its git integration: the branch and changes of the repository in
+        the status bar and the information pane, a badge on each changed file, and stage,
+        commit, discard, ignore, fetch, pull and push from the context menu. It runs the git
+        found in the PATH (this package's git otherwise) and can be turned off in config.toml
+        ([git] enabled = false).
       '';
     };
 
