@@ -35,6 +35,7 @@
 #include "rummage/views/conflict_dialog.hpp"
 #include "rummage/views/context_menu.hpp"
 #include "rummage/views/cut_marks.hpp"
+#include "rummage/views/decorations.hpp"
 #include "rummage/views/details_view.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/error_dialog.hpp"
@@ -700,6 +701,10 @@ public:
 
     [[nodiscard]] const CutMarks& cut_marks() const noexcept { return cut_marks_; }
 
+    // What an optional part of rummage adds to the views and the status bar (nullptr: nothing).
+    // Not owned; it must outlive the browser or be unset first.
+    void set_decorations(Decorations* decorations);
+
     [[nodiscard]] std::size_t transfers_pending() const noexcept { return transfers_.pending(); }
 
     // What the views hold, as lines for the memory report (ROADMAP 6.3b).
@@ -1153,6 +1158,7 @@ private:
     fs::DirectoryModel trash_model_;  // every trash, for the sidebar's icon
     bool trash_full_{false};
     CutMarks cut_marks_;
+    Decorations* decorations_{nullptr};
     std::optional<fs::Resolution> for_the_rest_;
     // A folder merge for the rest never authorizes replacing files met inside it.
     bool for_the_rest_folder_{false};

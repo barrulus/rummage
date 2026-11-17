@@ -58,7 +58,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       pool_{pool},
       redraw_{redraw},
       set_cursor_{std::move(set_cursor)},
-      thumbnails_{thumbnails ? std::make_unique<Thumbnails>(loop, pool, thumbnails, redraw) : nullptr},
+      thumbnails_{thumbnails ? std::make_unique<Thumbnails>(loop, pool, thumbnails, redraw)
+                             : nullptr},
       info_pane_{loop, pool, thumbnails_.get(), redraw},
       watcher_{watcher},
       mime_{mime},
@@ -130,6 +131,11 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
         }
     });
     trash_model_.open(fs::trash_path());
+}
+
+void Browser::set_decorations(Decorations* decorations) {
+    decorations_ = decorations;
+    redraw_();
 }
 
 Pane& Browser::add_pane(std::size_t at) {
@@ -3130,7 +3136,8 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     const float bar = std::min(status_bar_.height(renderer), std::max(0.0F, content.height));
     if (folder)
         status_bar_.draw(renderer, {content.x, content.bottom() - bar, content.width, bar}, palette,
-                         icons, *folder, static_cast<std::size_t>(pane().mode));
+                         icons, *folder, static_cast<std::size_t>(pane().mode),
+                         decorations_ != nullptr ? decorations_->status(*folder) : nullptr);
     content.height -= bar;
     if (split_visible_ && info_visible_ && !preview_below_places_) {
         const float width =

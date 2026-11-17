@@ -139,7 +139,8 @@ float StatusBar::height(ui::Renderer& renderer) const {
 }
 
 void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-                     ui::IconSet& icons, const Folder& folder, std::size_t view) {
+                     ui::IconSet& icons, const Folder& folder, std::size_t view,
+                     const StatusPart* part) {
     bounds_ = bounds;
     renderer.push_clip(bounds);
     update(folder);
@@ -203,12 +204,16 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         }
     }
 
-    // The message, else a transfer, else the status and the free space; cut in the middle when
-    // the buttons leave too little room.
+    // The message, else a transfer, else a decorator's part's detail while the pointer is on the
+    // part, else the status and the free space.
+    const bool has_part = part != nullptr && !part->text.empty();
     std::string text = message_;
     ui::Color color = message_error_ ? palette.error : palette.on_surface;
     if (message_.empty() && transfer_) {
         text = transfer_->text;
+        color = palette.on_surface;
+    } else if (message_.empty() && part_hovered_ && has_part && !part->detail.empty()) {
+        text = part->detail;
         color = palette.on_surface;
     } else if (message_.empty()) {
         text = status_of(folder);
@@ -218,6 +223,29 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         }
         color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }
+
+    // The part, before the buttons: the room the text leaves, at least half of it.
+    const float last_part_width = part_bounds_.width;
+    part_bounds_ = {};
+    if (has_part) {
+        const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
+        const float wanted =
+            renderer.fonts().layout(text, text_size_, renderer.scale()).width / renderer.scale();
+        // While the detail is shown the part keeps its width, so it stays under the pointer.
+        const float most = std::max(
+            {room / 2.0F, room - wanted - kPadding, part_hovered_ ? last_part_width : 0.0F});
+        const auto& part_line = renderer.fonts().layout(part->text, text_size_, renderer.scale(),
+                                                        most, ui::Ellipsis::end);
+        const float part_width = part_line.width / renderer.scale();
+        const float part_height = (part_line.ascent + part_line.descent) / renderer.scale();
+        part_bounds_ = {text_right - part_width, bounds.y, part_width, bounds.height};
+        renderer.draw_layout(part_line, part_bounds_.x,
+                             bounds.y + (bounds.height - part_height) / 2.0F,
+                             part_hovered_ ? palette.on_surface : palette.on_surface_variant);
+        text_right = part_bounds_.x - kPadding;
+    }
+
+    // Cut in the middle when the buttons and the part leave too little room.
     const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     const auto& line =
         renderer.fonts().layout(text, text_size_, renderer.scale(), room, ui::Ellipsis::middle);
@@ -260,6 +288,11 @@ void StatusBar::pointer(const ui::PointerEvent& event) {
             cancel_();
         }
         return;
+    }
+    const bool on_part = event.kind != Kind::leave && part_bounds_.contains(event.x, event.y);
+    if (on_part != part_hovered_) {
+        part_hovered_ = on_part;
+        redraw_();
     }
     const std::optional<std::size_t> over =
         event.kind == Kind::leave ? std::nullopt : button_at(event.x, event.y);

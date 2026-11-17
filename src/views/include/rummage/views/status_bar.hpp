@@ -17,6 +17,7 @@
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/views/decorations.hpp"
 #include "rummage/views/folder.hpp"
 
 namespace rummage::views {
@@ -44,7 +45,8 @@ struct TransferStatus {
 
 // The bar under the view: at the left the folder's status and the free space of its file system
 // (read on a worker when the folder or its listing changes, so it follows copies into it), or for
-// a few seconds a message ("Opening photo.orf with darktable…"); at the right a button for each
+// a few seconds a message ("Opening photo.orf with darktable…"); at the right a part a decorator
+// adds (StatusPart: its detail replaces the status while the pointer is on it), a button for each
 // view, the one shown marked, and "?" for the shortcuts.
 //
 // Loop thread only. Must not outlive the loop or the pool.
@@ -71,9 +73,10 @@ public:
 
     [[nodiscard]] float height(ui::Renderer& renderer) const;
 
-    // view: the index of the view shown.
+    // view: the index of the view shown; part: a decorator's, nullptr for none.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons, const Folder& folder, std::size_t view);
+              ui::IconSet& icons, const Folder& folder, std::size_t view,
+              const StatusPart* part = nullptr);
 
     // Reads the free space of folder unless it is known for its current listing (draw() does
     // this; tests call it without drawing).
@@ -135,6 +138,8 @@ private:
     core::EventLoop::SourceId message_timer_{0};
 
     ui::Rect bounds_{};
+    ui::Rect part_bounds_{};  // as last drawn; empty without a part
+    bool part_hovered_{false};
     float text_size_{12.0F};
     std::array<ui::Rect, kViews + 1> buttons_{};  // as last drawn
     std::optional<std::size_t> hovered_;
