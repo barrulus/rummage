@@ -100,6 +100,10 @@ public:
     // to the cursor.
     void set_order(const fs::SortOrder& order);
 
+    // What SortKey::mark sorts by (a decorator's ranks); empty: nothing, by name. Sorts again when
+    // sorted by it.
+    void set_ranks(std::function<int(const fs::Entry&)> rank_of);
+
     void set_entry_filter(fs::Listing::Predicate filter) {
         model_.set_predicate(std::move(filter));
     }
@@ -216,6 +220,16 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_;
     std::function<void()> changed_;
+
+    struct Ranks final : fs::EntryRanks {
+        std::function<int(const fs::Entry&)> rank_of;
+
+        [[nodiscard]] int rank(const fs::Entry& entry) const override {
+            return rank_of ? rank_of(entry) : 0;
+        }
+    };
+
+    Ranks ranks_;  // before model_: its order may point here
     fs::DirectoryModel model_;
 
     std::string cursor_name_;                  // empty: no cursor

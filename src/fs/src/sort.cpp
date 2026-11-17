@@ -122,6 +122,11 @@ bool SortOrder::operator()(const Entry& a, const Entry& b) const noexcept {
         case SortKey::link_target:
             result = natural_compare(a.link_target, b.link_target);
             break;
+        case SortKey::mark:
+            if (ranks != nullptr) {
+                result = three_way(ranks->rank(a), ranks->rank(b));
+            }
+            break;
         case SortKey::location:  // Siblings share a location; use their names to break the tie.
         case SortKey::name:
             break;

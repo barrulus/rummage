@@ -521,11 +521,19 @@ void Decorator::rebuild(Repo& repo) {
             }
         }
     }
-    if (signature != repo.ignored_signature) {
-        repo.ignored_signature = signature;
-        if (hides_any() && refilter_) {
-            refilter_();
+    std::size_t ranks = repo.files.size() * 31U + repo.folders.size();
+    for (const auto& map : {&repo.files, &repo.folders}) {
+        for (const auto& [path, badge] : *map) {
+            ranks += std::hash<std::string>{}(path) ^ (std::hash<std::string>{}(badge.text) << 1U);
         }
+    }
+    const bool hidden_changed = signature != repo.ignored_signature;
+    const bool ranks_changed = ranks != repo.rank_signature;
+    repo.ignored_signature = signature;
+    repo.rank_signature = ranks;
+    // Listings filter and sort with what changed: hidden entries, and the order by status.
+    if (((hidden_changed && hides_any()) || ranks_changed) && refilter_) {
+        refilter_();
     }
     redraw_();
 }
@@ -585,6 +593,21 @@ bool Decorator::hides(const std::filesystem::path& folder, const fs::Entry& entr
     }
     const Badge* const found = badge_at(*it->second, entry.name);
     return found != nullptr && found->faded;
+}
+
+int Decorator::rank(const std::filesystem::path& folder, const fs::Entry& entry) {
+    const auto it = places_.find(folder.native());
+    const Badge* const found = it != places_.end() ? badge_at(*it->second, entry.name) : nullptr;
+    if (found == nullptr) {
+        return 3;
+    }
+    if (found->faded) {
+        return 4;
+    }
+    if (found->text == "!") {
+        return 0;
+    }
+    return found->tone == views::Badge::Tone::added ? 2 : 1;
 }
 
 const views::StatusPart* Decorator::status(const views::Folder& folder) {

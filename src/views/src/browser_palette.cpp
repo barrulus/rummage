@@ -232,6 +232,10 @@ std::vector<PaletteItem> Browser::palette_items() {
             pane().show_hidden ? "Hide Hidden Files" : "Show Hidden Files");
     const fs::SortOrder& order = sort_order();
 
+    if (decorations_ != nullptr && order.key != fs::SortKey::mark) {
+        add("sort:mark", i18n::trf("Sort by {}", i18n::tr("Status")), "",
+            [this] { set_sort(fs::SortKey::mark, sort_order().descending); });
+    }
     for (const auto& column : kDetailsColumns) {
         if (order.key != column.field) {
             add("sort:" + std::string{column.id}, i18n::trf("Sort by {}", i18n::tr(column.title)),

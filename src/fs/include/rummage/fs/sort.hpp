@@ -28,7 +28,21 @@ enum class SortKey : std::uint8_t {
     group,
     permissions,
     location,
-    link_target
+    link_target,
+    mark  // a decorator's status (git's): the ranks of SortOrder::ranks
+};
+
+// Ranks entries for SortKey::mark, lower first; ties fall back to the name.
+class EntryRanks {
+public:
+    EntryRanks() = default;
+    virtual ~EntryRanks() = default;
+    EntryRanks(const EntryRanks&) = delete;
+    EntryRanks& operator=(const EntryRanks&) = delete;
+    EntryRanks(EntryRanks&&) = delete;
+    EntryRanks& operator=(EntryRanks&&) = delete;
+
+    [[nodiscard]] virtual int rank(const Entry& entry) const = 0;
 };
 
 struct SortOrder {
@@ -38,6 +52,8 @@ struct SortOrder {
     // For SortKey::type: the type names, alphabetically ("image/jpeg" < "text/plain"); entries
     // whose name does not tell their type come last. Without it, types group in no set order.
     const MimeDatabase* mime{nullptr};
+    // For SortKey::mark: where the ranks come from; without it, by name.
+    const EntryRanks* ranks{nullptr};
 
     // Strict weak order on entries; ties on size, date or type fall back to the name. By size,
     // directories compare by name among themselves.

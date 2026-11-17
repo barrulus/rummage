@@ -2728,6 +2728,12 @@ MenuItem Browser::sort_menu() {
             "sort:" + std::string{column.id}, std::string{column.title}, now.key == column.field,
             [this, key = column.field] { set_sort(key, sort_order().descending); }));
     }
+    // A decorator's status (git's), where there is one.
+    if (decorations_ != nullptr) {
+        sort.children.push_back(choice("sort:mark", "Status", now.key == fs::SortKey::mark, [this] {
+            set_sort(fs::SortKey::mark, sort_order().descending);
+        }));
+    }
     sort.children.push_back(choice(
         "sort:ascending", "Ascending", !now.descending,
         [this] { set_sort(sort_order().key, false); }, true));

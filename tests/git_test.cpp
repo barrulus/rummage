@@ -889,3 +889,37 @@ TEST_CASE("git actions: fetch, pull and push with a local remote") {
     REQUIRE(idle_and([&] { return !host.messages.empty() && host.messages.back().second; }));
     CHECK(host.messages.back().first.starts_with("Fetch failed: "));
 }
+
+TEST_CASE("git decorator: sorting by status, again when it changes") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "b.txt", "b\n");
+    run_git(repo, {"add", "b.txt"});
+    run_git(repo, {"commit", "-q", "-m", "b"});
+    write(repo / ".gitignore", "*.log\n");
+    write(repo / "a.txt", "changed\n");  // modified
+    write(repo / "c.txt", "new\n");      // untracked
+    write(repo / "d.log", "l");          // ignored
+    Shown shown{repo};
+    const auto apply = [&] {
+        shown.folder->set_ranks(rummage::views::ranking(&shown.decorator, shown.folder->path()));
+    };
+    shown.decorator.set_refilter_handler(apply);
+    apply();
+    shown.folder->set_order({.key = rummage::fs::SortKey::mark, .directories_first = false});
+    const auto names = [&] {
+        std::vector<std::string> listed;
+        for (const auto& entry : shown.folder->entries()) {
+            listed.push_back(entry.name);
+        }
+        return listed;
+    };
+    // Changed, new (by name), unchanged (.git too), ignored.
+    const std::vector<std::string> expected{"a.txt", ".gitignore", "c.txt",
+                                            ".git",  "b.txt",      "d.log"};
+    REQUIRE(shown.wait_for([&] { return names() == expected; }));
+    run_git(repo, {"add", "-A"});
+    run_git(repo, {"commit", "-q", "-m", "all"});
+    const std::vector<std::string> clean{".git", ".gitignore", "a.txt", "b.txt", "c.txt", "d.log"};
+    REQUIRE(shown.wait_for([&] { return names() == clean; }));
+}

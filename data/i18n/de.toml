@@ -935,6 +935,7 @@ moves = "Bewegung"
 "{} years ago" = { one = "vor {} Jahr", other = "vor {} Jahren" }
 "Changes inside" = "Enthält Änderungen"
 "Git: paused" = "Git: pausiert"
+"Status" = "Status"
 "Stage" = "Bereitstellen"
 "Unstage" = "Bereitstellung aufheben"
 "Stage All" = "Alle bereitstellen"

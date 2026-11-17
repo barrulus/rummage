@@ -67,8 +67,10 @@ struct Decorator::Repo {
     std::unordered_map<std::string, Badge> folders;
     std::unordered_map<std::string, std::size_t> index;  // path -> status->files
     std::vector<std::string> ignored_folders;            // "build/"
-    std::size_t ignored_signature{0};                    // of every ignored path, to see changes
-    std::uint64_t generation{0};                         // rebuilt
+    std::size_t ignored_signature{0};
+    std::size_t rank_signature{0};  // of every badge, to sort by status again when one changes //
+                                    // of every ignored path, to see changes
+    std::uint64_t generation{0};    // rebuilt
     std::uint64_t asked{0};
     // A command that changes the repository (stage, commit, push...): one at a time, its steps in
     // order, stopping at the first that fails.

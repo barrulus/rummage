@@ -53,6 +53,7 @@ void ColumnView::set_entry_filter(fs::Listing::Predicate filter) {
     // on_cursor_changed(). Recheck the size instead of retaining invalidated iterators.
     for (std::size_t i = 0; i < columns_.size(); ++i) {
         Folder& folder = columns_[i].column->folder();
+        folder.set_ranks(ranking(decorations_, folder.path()));
         folder.set_entry_filter(hiding(entry_filter_, decorations_, folder.path()));
     }
     redraw_();
@@ -93,6 +94,7 @@ void ColumnView::zoom(std::size_t index) {
 }
 
 std::unique_ptr<Column> ColumnView::make_column(std::shared_ptr<Folder> folder) {
+    folder->set_ranks(ranking(decorations_, folder->path()));
     folder->set_entry_filter(hiding(entry_filter_, decorations_, folder->path()));
     folder->set_order(order_);
     // The folder reports its cursor changes with its own address.

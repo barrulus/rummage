@@ -34,7 +34,8 @@ constexpr std::array kSortKeys{std::pair{"name", fs::SortKey::name},
                                std::pair{"group", fs::SortKey::group},
                                std::pair{"permissions", fs::SortKey::permissions},
                                std::pair{"location", fs::SortKey::location},
-                               std::pair{"link_target", fs::SortKey::link_target}};
+                               std::pair{"link_target", fs::SortKey::link_target},
+                               std::pair{"mark", fs::SortKey::mark}};
 
 // The limits the views themselves keep (Sidebar, InfoPane, DetailsView, WindowOptions).
 constexpr float kSidebarMin = 140.0F;

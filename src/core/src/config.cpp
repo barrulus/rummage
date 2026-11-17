@@ -645,6 +645,7 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "sort:permissions",
                                           "sort:location",
                                           "sort:link_target",
+                                          "sort:mark",
                                           "sort:ascending",
                                           "sort:descending",
                                           "actions",

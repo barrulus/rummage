@@ -111,6 +111,12 @@ public:
     // The information pane's section for folder (what it shows); nullptr for none.
     [[nodiscard]] virtual const DetailSection* details(const Folder& /*folder*/) { return nullptr; }
 
+    // Where entry of folder sorts by status (SortKey::mark), lower first; asked while sorting.
+    [[nodiscard]] virtual int rank(const std::filesystem::path& /*folder*/,
+                                   const fs::Entry& /*entry*/) {
+        return 0;
+    }
+
     // Whether entries may be left out of listings at all; hides() is asked only then.
     [[nodiscard]] virtual bool hides_any() const { return false; }
 
@@ -121,6 +127,17 @@ public:
         return false;
     }
 };
+
+// The ranks decorations give the entries of folder; empty without decorations.
+[[nodiscard]] inline std::function<int(const fs::Entry&)> ranking(Decorations* decorations,
+                                                                  std::filesystem::path folder) {
+    if (decorations == nullptr) {
+        return {};
+    }
+    return [decorations, folder = std::move(folder)](const fs::Entry& entry) {
+        return decorations->rank(folder, entry);
+    };
+}
 
 // filter, also leaving out what decorations hide in folder.
 [[nodiscard]] inline fs::Listing::Predicate hiding(fs::Listing::Predicate filter,

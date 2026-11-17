@@ -100,6 +100,8 @@ public:
     }
 
     [[nodiscard]] bool hides(const std::filesystem::path& folder, const fs::Entry& entry) override;
+    // Conflicts first, then changes, new files, unchanged and ignored ones.
+    [[nodiscard]] int rank(const std::filesystem::path& folder, const fs::Entry& entry) override;
 
     // How long git status may take before the repository is paused (tests shorten it).
     void set_time_limit(std::chrono::milliseconds limit) { time_limit_ = limit; }

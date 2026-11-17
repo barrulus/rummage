@@ -90,13 +90,23 @@ void Folder::selection_changed(bool feedback) {
     }
 }
 
-void Folder::set_order(const fs::SortOrder& order) {
+void Folder::set_order(const fs::SortOrder& wanted) {
+    fs::SortOrder order = wanted;
+    order.ranks = order.key == fs::SortKey::mark ? &ranks_ : nullptr;
     if (order == this->order()) {
         return;  // already so: no re-sort, no jump
     }
     model_.set_order(order);
     reveal_ = Reveal::jump;
     redraw_();
+}
+
+void Folder::set_ranks(std::function<int(const fs::Entry&)> rank_of) {
+    ranks_.rank_of = std::move(rank_of);
+    if (order().key == fs::SortKey::mark) {
+        model_.set_order(order());  // the same order, new ranks
+        redraw_();
+    }
 }
 
 void Folder::on_change(const fs::ModelChange& change) {
