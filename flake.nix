@@ -26,6 +26,7 @@
         rummage-media = self.packages.${system}.rummage-with-media.media;
         rummage-with-pdf = self.packages.${system}.rummage.override { withPdf = true; };
         rummage-pdf = self.packages.${system}.rummage-with-pdf.pdf;
+        rummage-with-git = self.packages.${system}.rummage.override { withGit = true; };
         # Both optional preview engines: video stills and PDF pages.
         rummage-with-previews = self.packages.${system}.rummage.override {
           withMedia = true;
@@ -39,6 +40,7 @@
           withTests = true;
           withMedia = true;
           withPdf = true;
+          withGit = true;
         };
         nixos-module = import ./nix/module-check.nix { inherit self nixpkgs system; };
         smoke = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {

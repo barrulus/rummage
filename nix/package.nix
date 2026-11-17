@@ -33,9 +33,13 @@
   _7zz,
   unzip,
   writeShellScriptBin,
+  git,
   withTests ? false,
   withMedia ? false,
   withPdf ? false,
+  # Git status in the status bar and on files; git itself is found in the PATH at run time,
+  # with this package's git as the fallback.
+  withGit ? false,
   rummage-pdfium ? callPackage ./pdfium.nix { },
 }:
 
@@ -105,15 +109,18 @@ stdenv.mkDerivation {
     "-DRUMMAGE_WERROR=OFF"
     "-DRUMMAGE_MEDIA=${if withMedia then "ON" else "OFF"}"
     "-DRUMMAGE_PDF=${if withPdf then "ON" else "OFF"}"
+    "-DRUMMAGE_GIT=${if withGit then "ON" else "OFF"}"
     "-DRUMMAGE_BUILD_TESTS=${if withTests then "ON" else "OFF"}"
   ];
 
   doCheck = withTests;
-  nativeCheckInputs = lib.optionals withTests [
-    _7zz
-    unzip
-    (writeShellScriptBin "7z" ''exec ${_7zz}/bin/7zz "$@"'')
-  ];
+  nativeCheckInputs =
+    lib.optionals withTests [
+      _7zz
+      unzip
+      (writeShellScriptBin "7z" ''exec ${_7zz}/bin/7zz "$@"'')
+    ]
+    ++ lib.optional (withTests && withGit) git;
   # These two fixtures create executable scripts at runtime, after patchShebangs runs.
   postPatch = lib.optionalString withTests ''
     substituteInPlace tests/about_test.cpp tests/platform_test.cpp \
@@ -154,6 +161,7 @@ stdenv.mkDerivation {
       wrapProgram "$out/bin/rummage" \
         ${lib.optionalString withMedia "--suffix RUMMAGE_ENGINE_PATH : $media/share/rummage/engines"} \
         ${lib.optionalString withPdf "--suffix RUMMAGE_ENGINE_PATH : $pdf/share/rummage/engines"} \
+        ${lib.optionalString withGit "--suffix PATH : ${lib.makeBinPath [ git ]}"} \
         --set-default XDG_DATA_DIRS /usr/local/share:/usr/share \
         --suffix XDG_DATA_DIRS : "${
           lib.makeSearchPath "share" [

@@ -51,6 +51,7 @@ let
       expected = self.packages.${system}.rummage.override {
         withMedia = cfg.preview.thumbnails;
         withPdf = cfg.preview.pdf;
+        withGit = cfg.git.enable;
       };
     in
     package == expected
@@ -100,6 +101,12 @@ let
       filePicker.enable = true;
     };
   };
+  withGit = evaluate {
+    programs.rummage = {
+      enable = true;
+      git.enable = true;
+    };
+  };
   invalid = evaluate { programs.rummage.filePicker.enable = true; };
   emptyDesktops = evaluate {
     programs.rummage = {
@@ -120,6 +127,10 @@ assert !app.programs.rummage.preview.thumbnails;
 assert !app.programs.rummage.preview.pdf;
 assert app.programs.rummage.package == self.packages.${system}.default;
 assert lib.all previewWorks previewCases;
+assert !app.programs.rummage.git.enable;
+assert
+  withGit.programs.rummage.package == self.packages.${system}.rummage.override { withGit = true; };
+assert lib.elem withGit.programs.rummage.package withGit.environment.systemPackages;
 assert customPreviews.programs.rummage.package.pname == "rummage-custom";
 assert lib.elem "media" customPreviews.programs.rummage.package.outputs;
 assert lib.elem "pdf" customPreviews.programs.rummage.package.outputs;

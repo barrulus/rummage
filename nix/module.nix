@@ -18,17 +18,18 @@ in
       defaultText = lib.literalExpression "inputs.rummage.packages.\${pkgs.stdenv.hostPlatform.system}.default";
       apply =
         package:
-        if cfg.preview.thumbnails || cfg.preview.pdf then
+        if cfg.preview.thumbnails || cfg.preview.pdf || cfg.git.enable then
           package.override (
             lib.optionalAttrs cfg.preview.thumbnails { withMedia = true; }
             // lib.optionalAttrs cfg.preview.pdf { withPdf = true; }
+            // lib.optionalAttrs cfg.git.enable { withGit = true; }
           )
         else
           package;
       description = ''
         rummage package to install and use for the file picker. Enabled preview
-        options override this package's withMedia and withPdf arguments; a custom
-        package must support those arguments. Features already enabled in the
+        and git options override this package's withMedia, withPdf and withGit
+        arguments; a custom package must support those arguments. Features already enabled in the
         selected package are preserved.
       '';
     };
@@ -45,6 +46,15 @@ in
         };
 
       pdf = lib.mkEnableOption "PDF thumbnails and first-page previews through the PDFium-based PDF engine";
+    };
+
+    git.enable = lib.mkEnableOption "the git status in the status bar and on files" // {
+      description = ''
+        Build rummage with its read-only git integration: the branch and changes of the
+        repository shown in the status bar, and a badge on each changed file. It runs the
+        git found in the PATH (this package's git otherwise) and can be turned off in
+        config.toml ([git] enabled = false).
+      '';
     };
 
     filePicker = {
