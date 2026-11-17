@@ -209,8 +209,10 @@ right-click offers removal and, for local bookmarks, renaming, destination chang
 and reordering. rummage shares the GTK bookmarks file and preserves unrelated
 entries and labels. See [editing bookmarks](#editing-bookmarks) for the controls.
 
-With udisks2 available, unmounted internal partitions and removable disks appear
-in the sidebar without mounting themselves. Click to mount and open, with
+With udisks2 available, internal partitions and removable disks appear in the
+sidebar with their volume label, or a capacity-based name such as **4.0 TB Volume**
+when unlabelled, rather than the mount folder's UUID. Unmounted disks appear
+without mounting themselves. Click to mount and open, with
 authorization requested when required; use the context menu to mount, unmount or eject. Ejecting an external
 disk unmounts its partitions and powers it off when supported. Busy or read-only
 devices report errors in the status bar. Encrypted-device unlocking is not

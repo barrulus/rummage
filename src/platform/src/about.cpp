@@ -6,9 +6,11 @@
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
 #include <format>
 #include <fstream>
+#include <link.h>
 #include <poll.h>
 #include <spawn.h>
 #include <sys/stat.h>
@@ -74,6 +76,54 @@ private:
 };
 
 }  // namespace
+
+std::string build_id() {
+    std::string result;
+    dl_iterate_phdr(
+        [](dl_phdr_info* info, std::size_t /*size*/, void* data) {
+            auto& id = *static_cast<std::string*>(data);
+            // The main executable is the first object; do not use a shared library's ID.
+            for (std::size_t i = 0; i < info->dlpi_phnum; ++i) {
+                const auto& segment = info->dlpi_phdr[i];
+                if (segment.p_type != PT_NOTE) {
+                    continue;
+                }
+                const auto* note = reinterpret_cast<const unsigned char*>(  // NOLINT
+                    info->dlpi_addr + segment.p_vaddr);
+                std::size_t remaining = segment.p_memsz;
+                while (remaining >= sizeof(ElfW(Nhdr))) {
+                    ElfW(Nhdr) header{};
+                    std::memcpy(&header, note, sizeof(header));
+                    note += sizeof(header);
+                    remaining -= sizeof(header);
+                    // ELF note names and descriptors are padded to four-byte boundaries.
+                    const auto padded = [](std::size_t size) {
+                        return (size + 3U) & ~std::size_t{3};
+                    };
+                    const std::size_t name_size = padded(header.n_namesz);
+                    const std::size_t value_size = padded(header.n_descsz);
+                    if (name_size > remaining || value_size > remaining - name_size) {
+                        break;
+                    }
+                    if (header.n_type == NT_GNU_BUILD_ID && header.n_namesz == 4 &&
+                        std::memcmp(note, "GNU", 4) == 0) {
+                        constexpr std::string_view hex = "0123456789abcdef";
+                        for (std::size_t byte = 0; byte < header.n_descsz; ++byte) {
+                            const unsigned char value = note[name_size + byte];
+                            id += hex[value >> 4U];
+                            id += hex[value & 0x0FU];
+                        }
+                        return 1;
+                    }
+                    note += name_size + value_size;
+                    remaining -= name_size + value_size;
+                }
+            }
+            return 1;
+        },
+        &result);
+    return result;
+}
 
 std::string distribution_name(std::string_view os_release) {
     std::string pretty;
