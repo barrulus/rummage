@@ -36,3 +36,10 @@ target_link_options(rummage-fuzz-svg PRIVATE -fsanitize=fuzzer)
 add_executable(rummage-fuzz-archive fuzz_archive.cpp)
 target_link_libraries(rummage-fuzz-archive PRIVATE rummage::formats::archive rummage::warnings)
 target_link_options(rummage-fuzz-archive PRIVATE -fsanitize=fuzzer)
+
+# The git integration's parsers (RUMMAGE_GIT): seeds are git's own porcelain v2 and log output.
+if(RUMMAGE_GIT)
+    add_executable(rummage-fuzz-git-status fuzz_git_status.cpp)
+    target_link_libraries(rummage-fuzz-git-status PRIVATE rummage::git rummage::warnings)
+    target_link_options(rummage-fuzz-git-status PRIVATE -fsanitize=fuzzer)
+endif()

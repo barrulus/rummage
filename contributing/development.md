@@ -124,7 +124,7 @@ mkdir -p /tmp/rummage-fuzz-tiff-corpus
 
 The example is a smoke run, not a release qualification. Targets are `tiff`,
 `camera`, `picture`, `dng`, `ljpeg`, `text` and `svg` with the
-`rummage-fuzz-` prefix. Keep generated corpus files separate from committed seeds;
+`rummage-fuzz-` prefix, and `git-status` when configured with `-DRUMMAGE_GIT=ON`. Keep generated corpus files separate from committed seeds;
 preserve crash inputs and reproduce them in the same instrumented build.
 Camera corpora may require local samples; SVG corpus references are not all shipped.
 SVG changes have the longer fuzzing and visual requirements in

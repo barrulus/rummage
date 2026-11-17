@@ -9,6 +9,11 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.0 — in development
 
+Builds with the optional git integration show the branch, ahead/behind, an operation in
+progress and the counts of changes in the status bar, and badges on changed, untracked,
+conflicted and ignored files, as in code editors. It only reads repositories, follows
+changes live and can dim or hide ignored files. See [git status](git.md).
+
 File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your
 configured terminal, then exit the shell to return its folder to the picker.
 Selection and confirmation remain in the GUI, with the original filters and mode.
