@@ -35,8 +35,9 @@ struct ItemState {
     bool ring{false};  // the cursor needs its own mark
     bool focused{false};
     bool hovered{false};
-    bool cut{false};   // cut with Ctrl+X, not pasted yet: faded
-    bool drop{false};  // a drag over it would drop into it
+    bool cut{false};                // cut with Ctrl+X, not pasted yet: faded
+    bool drop{false};               // a drag over it would drop into it
+    std::optional<ui::Color> tint;  // the name's colour (a decorator's badge), unless selected
 };
 
 inline ItemStyle item_style(const theme::Palette& palette, const fs::Entry& entry,
@@ -65,6 +66,9 @@ inline ItemStyle item_style(const theme::Palette& palette, const fs::Entry& entr
         style.icon = palette.on_primary_container;
         style.chevron = palette.on_primary_container;
         style.text = palette.on_primary_container;
+    }
+    if (item.tint && !item.drop && !(item.selected && item.focused)) {
+        style.text = *item.tint;
     }
     if (item.cut) {
         style.icon.a *= kCutOpacity;

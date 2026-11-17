@@ -37,6 +37,17 @@ void draw_right_aligned(ui::Renderer& renderer, std::string_view text, float rig
 void draw_run_mark(ui::Renderer& renderer, float x, float y, float size, ui::Color dot,
                    ui::Color behind);
 
+// The palette colour of a badge's tone.
+ui::Color tone_color(const theme::Palette& palette, Badge::Tone tone);
+
+// The name colour a badge asks for; nullopt when it does not tint names.
+inline std::optional<ui::Color> tint_of(const theme::Palette& palette, const Badge* badge) {
+    if (badge == nullptr || !badge->tint || badge->tone == Badge::Tone::muted) {
+        return std::nullopt;
+    }
+    return tone_color(palette, badge->tone);
+}
+
 // A decorator's badge: its text in its tone (bold when strong), centered in a box about one
 // letter wide whose right edge is at right and top at y. on: the item's text colour when its fill
 // is the strong selection, which the tones would not stand out on. Returns the box's width; 0 for

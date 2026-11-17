@@ -419,7 +419,7 @@ struct Shown {
 
     std::string text() {
         const rummage::views::StatusPart* const part = draw();
-        return part != nullptr ? part->text : std::string{};
+        return part != nullptr ? part->lead + part->text : std::string{};
     }
 
     const rummage::views::Badge* badge(std::string_view name) {

@@ -206,7 +206,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
 
     // The message, else a transfer, else a decorator's part's detail while the pointer is on the
     // part, else the status and the free space.
-    const bool has_part = part != nullptr && !part->text.empty();
+    const bool has_part = part != nullptr && (!part->lead.empty() || !part->text.empty());
     std::string text = message_;
     ui::Color color = message_error_ ? palette.error : palette.on_surface;
     if (message_.empty() && transfer_) {
@@ -234,14 +234,30 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         // While the detail is shown the part keeps its width, so it stays under the pointer.
         const float most = std::max(
             {room / 2.0F, room - wanted - kPadding, part_hovered_ ? last_part_width : 0.0F});
+        // The lead whole (in the accent colour), the rest cut at its end.
+        const float lead_width =
+            part->lead.empty()
+                ? 0.0F
+                : renderer.fonts()
+                          .layout(part->lead, text_size_, renderer.scale(), most, ui::Ellipsis::end)
+                          .width /
+                      renderer.scale();
+        const float rest_room = std::max(1.0F, most - lead_width);
         const auto& part_line = renderer.fonts().layout(part->text, text_size_, renderer.scale(),
-                                                        most, ui::Ellipsis::end);
-        const float part_width = part_line.width / renderer.scale();
+                                                        rest_room, ui::Ellipsis::end);
+        const float text_width = part->text.empty() ? 0.0F : part_line.width / renderer.scale();
         const float part_height = (part_line.ascent + part_line.descent) / renderer.scale();
-        part_bounds_ = {text_right - part_width, bounds.y, part_width, bounds.height};
-        renderer.draw_layout(part_line, part_bounds_.x,
-                             bounds.y + (bounds.height - part_height) / 2.0F,
-                             part_hovered_ ? palette.on_surface : palette.on_surface_variant);
+        const float part_y = bounds.y + (bounds.height - part_height) / 2.0F;
+        part_bounds_ = {text_right - lead_width - text_width, bounds.y, lead_width + text_width,
+                        bounds.height};
+        if (!part->text.empty()) {
+            renderer.draw_layout(part_line, part_bounds_.x + lead_width, part_y,
+                                 part_hovered_ ? palette.on_surface : palette.on_surface_variant);
+        }
+        if (!part->lead.empty()) {
+            renderer.draw_text(part->lead, part_bounds_.x, part_y, text_size_, palette.primary,
+                               most, ui::Ellipsis::end);
+        }
         text_right = part_bounds_.x - kPadding;
     }
 

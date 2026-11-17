@@ -556,7 +556,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                         .hovered = hovered_ == i,
                         .cut = (cut_ != nullptr && cut_->holds(owner->path(), entry)) ||
                                (badge != nullptr && badge->faded),
-                        .drop = drop_ != nullptr && drop_->holds(owner->path(), entry)});
+                        .drop = drop_ != nullptr && drop_->holds(owner->path(), entry),
+                        .tint = tint_of(palette, badge)});
         if (style.fill || style.ring) {
             renderer.draw_box(
                 {table_left, y + kRowInset, table_width, size_.row - (2.0F * kRowInset)},

@@ -76,9 +76,11 @@ std::int64_t seconds_now() {
 std::optional<Badge> badge_of(const FileStatus& file) {
     switch (file.kind) {
         case FileStatus::Kind::conflict:
-            return Badge{.text = "!", .tone = Tone::removed, .strong = true, .faded = false};
+            return Badge{
+                .text = "!", .tone = Tone::removed, .strong = true, .faded = false, .tint = true};
         case FileStatus::Kind::untracked:
-            return Badge{.text = "U", .tone = Tone::added, .strong = false, .faded = false};
+            return Badge{
+                .text = "U", .tone = Tone::added, .strong = false, .faded = false, .tint = true};
         case FileStatus::Kind::ignored:
             return Badge{.text = {}, .tone = Tone::muted, .strong = false, .faded = true};
         case FileStatus::Kind::tracked:
@@ -88,7 +90,8 @@ std::optional<Badge> badge_of(const FileStatus& file) {
     Badge badge{.text = std::string(1, change),
                 .tone = Tone::accent,
                 .strong = file.unstaged == '.',  // all of it staged
-                .faded = false};
+                .faded = false,
+                .tint = true};
     switch (change) {
         case 'A':
             badge.tone = Tone::added;
@@ -565,7 +568,11 @@ void Decorator::rebuild(Repo& repo) {
             // Every folder above it shows that something inside changed.
             for (std::size_t slash = file.path.find('/'); slash != std::string::npos;
                  slash = file.path.find('/', slash + 1)) {
-                Badge summary{.text = "•", .tone = badge->tone, .strong = false, .faded = false};
+                Badge summary{.text = "•",
+                              .tone = badge->tone,
+                              .strong = false,
+                              .faded = false,
+                              .tint = true};
                 auto [it, added] = repo.folders.try_emplace(file.path.substr(0, slash), summary);
                 if (!added && weight(summary) > weight(it->second)) {
                     it->second = summary;
@@ -651,7 +658,8 @@ const views::StatusPart* Decorator::status(const views::Folder& folder) {
     }
     if (repo.paused) {
         part_repo_ = nullptr;
-        part_ = {.text = std::string{i18n::tr("Git: paused")},
+        part_ = {.lead = {},
+                 .text = std::string{i18n::tr("Git: paused")},
                  .detail = i18n::trf(
                      "git status took more than {} seconds here; open another folder to retry",
                      kTimeLimit.count() / 1000)};
@@ -685,7 +693,13 @@ const views::StatusPart* Decorator::status(const views::Folder& folder) {
             text.append(kSeparator).append(i18n::tr("Changes inside"));
         }
     }
-    part_.text = std::move(text);
+    // The branch (and ahead/behind) stands out; a clean tree says so.
+    const std::size_t head = std::min(text.find(kSeparator), text.size());
+    part_.lead = text.substr(0, head);
+    if (repo.status->counts() == Status::Counts{} && repo.operation == Operation::none) {
+        part_.lead += " ✓";
+    }
+    part_.text = text.substr(head);
     part_.detail = repo.commit ? commit_line(*repo.commit, now) : std::string{};
     return &part_;
 }

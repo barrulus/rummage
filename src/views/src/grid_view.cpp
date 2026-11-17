@@ -344,7 +344,8 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                             .focused = true,
                             .hovered = hovered_ == i,
                             .cut = cut,
-                            .drop = drop_ != nullptr && drop_->holds(folder_->path(), entry)});
+                            .drop = drop_ != nullptr && drop_->holds(folder_->path(), entry),
+                            .tint = tint_of(palette, badge)});
             if (style.fill || style.ring) {
                 renderer.draw_box({x + kCellInset, y + kCellInset,
                                    cell_width_ - (2.0F * kCellInset), height - (2.0F * kCellInset)},

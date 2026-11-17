@@ -9,28 +9,28 @@ float text_width(ui::Renderer& renderer, std::string_view text, float size) {
     return renderer.fonts().layout(text, size, renderer.scale()).width / renderer.scale();
 }
 
+ui::Color tone_color(const theme::Palette& palette, Badge::Tone tone) {
+    switch (tone) {
+        case Badge::Tone::accent:
+            return palette.primary;
+        case Badge::Tone::added:
+            return palette.tertiary;
+        case Badge::Tone::renamed:
+            return palette.secondary;
+        case Badge::Tone::removed:
+            return palette.error;
+        case Badge::Tone::muted:
+            break;
+    }
+    return palette.outline;
+}
+
 float draw_badge(ui::Renderer& renderer, const theme::Palette& palette, const Badge& badge,
                  float right, float y, float size, std::optional<ui::Color> on) {
     if (badge.text.empty()) {
         return 0.0F;
     }
-    ui::Color color = palette.outline;
-    switch (badge.tone) {
-        case Badge::Tone::accent:
-            color = palette.primary;
-            break;
-        case Badge::Tone::added:
-            color = palette.tertiary;
-            break;
-        case Badge::Tone::renamed:
-            color = palette.secondary;
-            break;
-        case Badge::Tone::removed:
-            color = palette.error;
-            break;
-        case Badge::Tone::muted:
-            break;
-    }
+    const ui::Color color = tone_color(palette, badge.tone);
     const float box = std::max(size, text_width(renderer, badge.text, size) + 2.0F);
     const float width = text_width(renderer, badge.text, size);
     renderer.draw_text(badge.text, right - box + ((box - width) / 2.0F), y, size,

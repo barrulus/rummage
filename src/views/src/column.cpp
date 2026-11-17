@@ -109,7 +109,8 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
                                             .hovered = hovered_ == i,
                                             .cut = (cut != nullptr && cut->holds(path(), entry)) ||
                                                    (badge != nullptr && badge->faded),
-                                            .drop = drop != nullptr && drop->holds(path(), entry)});
+                                            .drop = drop != nullptr && drop->holds(path(), entry),
+                                            .tint = tint_of(palette, badge)});
         if (style.fill || style.ring) {
             renderer.draw_box({bounds.x + kRowInset, y + 1.0F, bounds.width - (2.0F * kRowInset),
                                size_.row - 2.0F},

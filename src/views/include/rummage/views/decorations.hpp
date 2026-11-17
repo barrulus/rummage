@@ -20,13 +20,15 @@ struct Badge {
     Tone tone{Tone::muted};
     bool strong{false};  // drawn bold
     bool faded{false};   // the entry is drawn faded, as a cut one is
+    bool tint{false};    // the entry's name is drawn in the badge's tone too
 
     bool operator==(const Badge&) const = default;
 };
 
-// A part of the status bar, right of the folder's status: text, and what the bar shows in place
-// of the status while the pointer is on it (empty: nothing more).
+// A part of the status bar, right of the folder's status: lead and text, and what the bar shows in
+// place of the status while the pointer is on it (empty: nothing more).
 struct StatusPart {
+    std::string lead;  // drawn first, in the accent colour ("main ↑1")
     std::string text;
     std::string detail;
 
