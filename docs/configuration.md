@@ -103,6 +103,9 @@ rename = "Ctrl+r"
 | `animations.events.EVENT` | Per event | Built-in effect or `none`; see [motion effects](motion.md) |
 | `animations.durations.EVENT` | Per event | Integer milliseconds 0–2000 before duration scaling |
 | `status_bar.text_size` | `12.0` | Number from 8 to 32 logical pixels; applies live |
+| `git.enabled` | `true` | [Git status](git.md) in builds with git support; live |
+| `git.ignored` | `"dim"` | Ignored files: `"show"`, `"dim"`, or `"hide"`; live |
+| `git.folder_status` | `true` | Folders mark the changes inside them; live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |
 | `font.monospace` | `"monospace"` | Fontconfig pattern for text previews |
 | `pointer.double_click_ms` | `400` | Integer from 100 to 2000 milliseconds |

@@ -28,6 +28,7 @@ aliases follow the `rummage::` namespace.
 | `src/thumbs` | Shared thumbnail cache |
 | `src/media` | Optional isolated FFmpeg video engine |
 | `src/pdf` | Optional isolated PDFium PDF engine |
+| `src/git` | Optional git status (`RUMMAGE_GIT`): repository discovery, porcelain v2 parsing, the views' decorator |
 | `src/svg` | FreeType-based SVG rendering, shared by theme icons and sandboxed file previews |
 | `src/tools` | Developer renderers, inspectors and benchmarks |
 | `tests` | Doctest suite, standalone integrations, fixtures and fuzz targets |
@@ -59,6 +60,20 @@ location/view/sort/hidden/filter state; sidebar, information pane and undo serve
 the window. The browser owns split orientation, divider and active-pane state.
 `views::StateKeeper` writes remembered state. Config and palette watchers reload
 supported settings; font construction is a startup operation.
+
+## Decorations
+
+`views::Decorations` lets an optional part of rummage add to the views without the
+views knowing it: a badge per entry, a status-bar part with a detail shown on hover,
+and entries left out of listings. The views and the status bar ask while they draw,
+so a decorator learns which folders are on screen and, through the listing revision,
+when they change. The browser holds at most one; the application owns it.
+
+`git::Decorator` is the one rummage has. It finds repositories on a worker by walking
+up to `.git`, runs `git --no-optional-locks status --porcelain=v2 -z --branch` through
+`platform::ProgramOutput` and watches the git directory and branch refs through the
+shared `fs::DirectoryWatcher`. Reads are debounced, capped in delay and stopped after a
+time limit; at most six repositories are followed at once.
 
 ## Preview engines
 

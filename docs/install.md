@@ -188,6 +188,18 @@ Native `rummage-pdf` packages include a private `libpdfium.so` beside the helper
 they do not replace a system PDFium library. For source-package builds and renderer
 maintenance, see the [package builder guide](../contributing/ci-packaging.md#native-pdf-previews).
 
+## Optional git status
+
+Builds with git support show the branch and changes of a repository in the status bar
+and a badge on each changed file; see [git status](git.md). rummage runs the `git`
+program at run time and links no git library, so the only requirement is git itself.
+Without git in the `PATH` nothing is shown.
+
+For a source build, add `-DRUMMAGE_GIT=ON`; it defaults to OFF. Its tests run git
+against temporary repositories. For Nix, `nix build .#rummage-with-git` builds the
+application with it; the package's wrapper falls back to its own git when none is in
+the `PATH`.
+
 ## Nix
 
 With flakes enabled, from this checkout:
@@ -299,9 +311,11 @@ always included. `preview.pdf` adds PDF thumbnails and first-page previews.
 The module configures the matching helpers for both the file manager and picker,
 so you do not need to select a `rummage-with-*` package or install helpers separately.
 
-`programs.rummage.package` can select another package. Enabled preview options
-override that package's `withMedia` / `withPdf` arguments, which custom packages
-must support. Features already enabled in the selected package are preserved.
+`git.enable` (default `false`) adds the [git status](git.md).
+
+`programs.rummage.package` can select another package. Enabled preview and git options
+override that package's `withMedia` / `withPdf` / `withGit` arguments, which custom
+packages must support. Features already enabled in the selected package are preserved.
 Enabling the application
 alone does not change portal preferences. For Open/Save dialogs also enable
 `programs.rummage.filePicker.enable`; see the [picker guide](file-picker.md) for
@@ -343,6 +357,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
 | Desktop services | `sdbus-c++` |
 | Optional media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; enable `RUMMAGE_MEDIA` |
+| Optional git status | No library; `git` at run time and for its tests; enable `RUMMAGE_GIT` |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
 
 HEIC decoding requires libheif's **libde265** decoder at runtime (built in or

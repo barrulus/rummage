@@ -14,6 +14,7 @@ reporting behavior in a development build.
 | Learn views, tabs, search and selection | [Using rummage](usage.md) |
 | Copy, move, rename, trash or restore files | [File operations](file-operations.md) |
 | Preview pictures, raw photos, text and videos | [Previews and formats](previews.md) |
+| See the git branch and changed files | [Git status](git.md) |
 | See supported capabilities and limits | [Feature overview](features.md) |
 | Fix a problem or prepare a report | [Troubleshooting](troubleshooting.md) |
 
