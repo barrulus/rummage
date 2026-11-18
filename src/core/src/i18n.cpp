@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -203,7 +204,39 @@ std::atomic<const Language*>& current() {
 
 const Language* speaking() { return current().load(std::memory_order_relaxed); }
 
+// Contexts that speak a language of their own (nullptr: English), by context.
+struct ContextLanguages {
+    std::mutex mutex;
+    std::unordered_map<std::string, const Language*> chosen;
+};
+
+ContextLanguages& context_languages() {
+    static ContextLanguages kLanguages;
+    return kLanguages;
+}
+
+// The language context's texts are in: its own when one was chosen, else the interface's.
+const Language* speaking(std::string_view context) {
+    if (context.empty()) {
+        return speaking();
+    }
+    ContextLanguages& languages = context_languages();
+    const std::lock_guard lock{languages.mutex};
+    const auto it = languages.chosen.find(std::string{context});
+    return it != languages.chosen.end() ? it->second : speaking();
+}
+
 }  // namespace
+
+void set_context_language(std::string_view context, std::string_view code) {
+    ContextLanguages& languages = context_languages();
+    const std::lock_guard lock{languages.mutex};
+    if (code.empty()) {
+        languages.chosen.erase(std::string{context});
+    } else {
+        languages.chosen[std::string{context}] = find(code);
+    }
+}
 
 std::string_view language() {
     const Language* now = speaking();
@@ -302,7 +335,7 @@ std::size_t category(const Language* language, std::uint64_t count) {
 }  // namespace
 
 std::string_view trc(std::string_view context, std::string_view english) {
-    const auto* message = message_of(speaking(), context, english);
+    const auto* message = message_of(speaking(context), context, english);
     return message && !message->text.empty() ? std::string_view{message->text} : english;
 }
 
@@ -314,7 +347,7 @@ std::string_view plural_category(std::uint64_t count) {
 
 std::string_view detail::plural_text(std::string_view context, std::string_view singular,
                                      std::string_view plural, std::uint64_t count) {
-    const auto* language = speaking();
+    const auto* language = speaking(context);
     const auto* message = message_of(language, context, plural);
     if (message && !message->forms.back().empty()) {
         const auto& chosen = message->forms[category(language, count)];

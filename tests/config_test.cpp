@@ -422,6 +422,9 @@ TEST_CASE("config: git status settings") {
     CHECK(wrong.problems.size() == 3);
     CHECK(wrong.config.git.ignored == "dim");
     CHECK(wrong.config.git.enabled);
+    CHECK(parse("[git]\nlanguage = 'en'\n").config.git.language == "en");
+    CHECK(parse("[git]\nlanguage = ''\n").problems.empty());
+    CHECK(parse("[git]\nlanguage = 'xx'\n").problems.size() == 1);
 }
 
 TEST_CASE("config: keybindings accept overrides and disabling") {

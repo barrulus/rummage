@@ -15,6 +15,7 @@
 
 #include "config_template.hpp"
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::core {
 namespace {
@@ -514,8 +515,20 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                       else
                           reader.report(value.source(), path + " must be show, dim, or hide");
                   }},
-                 {"folder_status", [&](const toml::node& value, const std::string& path) {
+                 {"folder_status",
+                  [&](const toml::node& value, const std::string& path) {
                       reader.read_bool(value, path, config.git.folder_status);
+                  }},
+                 {"language", [&](const toml::node& value, const std::string& path) {
+                      const auto language = value.value<std::string>();
+                      const auto known = i18n::languages();
+                      if (language &&
+                          (language->empty() || std::ranges::find(known, *language) != known.end()))
+                          config.git.language = *language;
+                      else
+                          reader.report(
+                              value.source(),
+                              path + " must be empty (the interface's) or a language code");
                   }}});
         } else if (key.str() == "font") {
             reader.read_section(node, "font",

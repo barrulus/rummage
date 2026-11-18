@@ -64,8 +64,9 @@ void ConfirmDialog::open_password(std::string name, bool retry,
 }
 
 void ConfirmDialog::open_name(std::string title, std::string detail, std::string initial,
-                              std::function<std::string(const std::string&)> accept) {
-    open(std::move(title), std::move(detail), "Compress", [](bool) {}, "");
+                              std::function<std::string(const std::string&)> accept,
+                              std::string action) {
+    open(std::move(title), std::move(detail), std::move(action), [](bool) {}, "");
     password_mode_ = true;
     focused_ = -1;
     field_masked_ = false;

@@ -564,12 +564,12 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
     }
     SUBCASE("options: ignored shown plainly or hidden, folders without a summary") {
         shown.decorator.set_options(
-            {.ignored = git::Options::Ignored::hide, .folder_status = false});
+            {.ignored = git::Options::Ignored::hide, .folder_status = false, .language = {}});
         CHECK(shown.hides("debug.log"));
         CHECK_FALSE(shown.hides("a.txt"));
         CHECK(shown.badge("sub") == nullptr);
         shown.decorator.set_options(
-            {.ignored = git::Options::Ignored::show, .folder_status = true});
+            {.ignored = git::Options::Ignored::show, .folder_status = true, .language = {}});
         REQUIRE(shown.wait_for([&] { return shown.badge("sub") != nullptr; }));
         CHECK(shown.badge("debug.log") == nullptr);
         CHECK_FALSE(shown.hides("debug.log"));
@@ -581,7 +581,9 @@ TEST_CASE("git decorator: hidden ignored entries leave the listing, and come bac
     const std::filesystem::path repo = make_repository(dir);
     write(repo / ".gitignore", "*.log\n");
     write(repo / "debug.log", "l");
-    Shown shown{repo, git_program(), {.ignored = git::Options::Ignored::hide}};
+    Shown shown{repo,
+                git_program(),
+                {.ignored = git::Options::Ignored::hide, .folder_status = true, .language = {}}};
     const auto listed = [&](std::string_view name) {
         return std::ranges::any_of(shown.folder->entries(),
                                    [&](const auto& entry) { return entry.name == name; });
@@ -595,7 +597,8 @@ TEST_CASE("git decorator: hidden ignored entries leave the listing, and come bac
     REQUIRE(shown.wait_for([&] { return !listed("debug.log"); }));
     CHECK(listed("a.txt"));
 
-    shown.decorator.set_options({.ignored = git::Options::Ignored::dim, .folder_status = true});
+    shown.decorator.set_options(
+        {.ignored = git::Options::Ignored::dim, .folder_status = true, .language = {}});
     REQUIRE(shown.wait_for([&] { return listed("debug.log"); }));
     CHECK(shown.badge("debug.log")->faded);
 }
@@ -672,6 +675,7 @@ TEST_CASE("git settings: the dialog lists them and saves a new [git] table") {
     REQUIRE(dialog.error().empty());
     REQUIRE(dialog.edit("git", "ignored", "hide"));
     REQUIRE(dialog.edit("git", "folder_status", "false"));
+    REQUIRE(dialog.edit("git", "language", "en"));
     dialog.save();
     REQUIRE(run_until(loop, [&] { return !dialog.busy(); }));
     REQUIRE_MESSAGE(dialog.error().empty(), dialog.error());
@@ -680,6 +684,7 @@ TEST_CASE("git settings: the dialog lists them and saves a new [git] table") {
     CHECK(saved.git.enabled);
     CHECK(saved.git.ignored == "hide");
     CHECK_FALSE(saved.git.folder_status);
+    CHECK(saved.git.language == "en");
     CHECK(saved.icon.theme == "system");
 }
 
@@ -721,25 +726,28 @@ struct TestHost {
     std::string refused;  // what accept said about the typed text
     bool confirm_answer = true;
     std::vector<std::filesystem::path> trashed;
+    std::vector<std::string> actions;  // the buttons of the text cards asked for
 
     rummage::views::DecorationHost host() {
-        return {.message = [this](std::string text,
-                                  bool error) { messages.emplace_back(std::move(text), error); },
-                .ask_text =
-                    [this](std::string /*title*/, std::string /*detail*/, std::string /*initial*/,
-                           std::function<std::string(const std::string&)> accept) {
-                        refused = accept(message_to_type);
-                    },
-                .confirm = [this](std::string /*title*/, std::string /*detail*/,
-                                  std::string /*action*/, std::string /*warning*/,
-                                  std::function<void(bool)> answer) { answer(confirm_answer); },
-                .trash =
-                    [this](std::vector<std::filesystem::path> paths) {
-                        for (const auto& path : paths) {
-                            std::filesystem::remove_all(path);
-                            trashed.push_back(path);
-                        }
-                    }};
+        return {
+            .message = [this](std::string text,
+                              bool error) { messages.emplace_back(std::move(text), error); },
+            .ask_text =
+                [this](std::string /*title*/, std::string /*detail*/, std::string /*initial*/,
+                       std::string action, std::function<std::string(const std::string&)> accept) {
+                    actions.push_back(std::move(action));
+                    refused = accept(message_to_type);
+                },
+            .confirm = [this](std::string /*title*/, std::string /*detail*/, std::string /*action*/,
+                              std::string /*warning*/,
+                              std::function<void(bool)> answer) { answer(confirm_answer); },
+            .trash =
+                [this](std::vector<std::filesystem::path> paths) {
+                    for (const auto& path : paths) {
+                        std::filesystem::remove_all(path);
+                        trashed.push_back(path);
+                    }
+                }};
     }
 };
 
@@ -808,6 +816,7 @@ TEST_CASE("git actions: stage, unstage, commit, ignore and discard from the menu
         host.message_to_type = "  ";
         REQUIRE(choose(shown, {"b.txt"}, "git_commit"));
         CHECK(host.refused == "Enter a commit message");
+        CHECK(host.actions.back() == "Commit");
         host.message_to_type = "Add b";
         REQUIRE(choose(shown, {"b.txt"}, "git_commit"));
         CHECK(host.refused.empty());
@@ -888,6 +897,8 @@ TEST_CASE("git actions: fetch, pull and push with a local remote") {
     REQUIRE(choose(shown, {}, "git_fetch"));
     REQUIRE(idle_and([&] { return !host.messages.empty() && host.messages.back().second; }));
     CHECK(host.messages.back().first.starts_with("Fetch failed: "));
+    CHECK(host.messages.back().first.find("does not appear to be a git repository") !=
+          std::string::npos);
 }
 
 TEST_CASE("git decorator: sorting by status, again when it changes") {
@@ -942,4 +953,90 @@ TEST_CASE("git decorator: never in a trash, even one inside a repository") {
     // The repository around it still has its status.
     Shown top{repo};
     CHECK(top.wait_for([&] { return top.text().starts_with("main"); }));
+}
+
+TEST_CASE("git language: git's texts apart from the interface's") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "a.txt", "two\n");
+    Shown shown{repo};
+    rummage::i18n::set_language("de");
+    REQUIRE(shown.wait_for([&] { return shown.text() == "main  ·  1 geändert"; }));
+    CHECK(shown.decorator.menu(*shown.folder, {"a.txt"})->children.front().label ==
+          "Zum Commit vormerken");
+
+    rummage::i18n::set_context_language("git", "en");
+    shown.decorator.set_options(
+        {.ignored = git::Options::Ignored::dim, .folder_status = true, .language = "en"});
+    CHECK(shown.text() == "main  ·  1 changed");
+    CHECK(shown.decorator.menu(*shown.folder, {"a.txt"})->children.front().label == "Stage");
+    CHECK(rummage::i18n::tr("Delete") != "Delete");  // the interface stays German
+
+    rummage::i18n::set_context_language("git", "");
+    shown.decorator.set_options(
+        {.ignored = git::Options::Ignored::dim, .folder_status = true, .language = {}});
+    CHECK(shown.text() == "main  ·  1 geändert");
+    rummage::i18n::set_language("en");
+}
+
+TEST_CASE("git: a remote as shown, a link only for https and the big hosts") {
+    using View = git::RemoteView;
+    CHECK(git::view_of_remote("git@github.com:barrulus/rummage.git") ==
+          View{"github.com/barrulus/rummage", "https://github.com/barrulus/rummage"});
+    CHECK(git::view_of_remote("ssh://git@codeberg.org/a/b.git") ==
+          View{"codeberg.org/a/b", "https://codeberg.org/a/b"});
+    CHECK(git::view_of_remote("https://user:secret-token@forge.example.org/group/repo.git/") ==
+          View{"forge.example.org/group/repo", "https://forge.example.org/group/repo"});
+    // An own server over ssh: shown, no link (its web page may be anywhere).
+    CHECK(git::view_of_remote("ssh://git@192.168.20.1:2222/dquolke/repo") ==
+          View{"ssh://192.168.20.1:2222/dquolke/repo", std::nullopt});
+    CHECK(git::view_of_remote("git@forge.example.org:a/b.git") ==
+          View{"git@forge.example.org:a/b.git", std::nullopt});
+    CHECK(git::view_of_remote("http://user:pw@forge.example.org/a/b") ==
+          View{"http://forge.example.org/a/b", std::nullopt});
+    CHECK(git::view_of_remote("file:///srv/git/repo.git") ==
+          View{"file:///srv/git/repo.git", std::nullopt});
+    CHECK(git::view_of_remote("/srv/git/repo.git") == View{"/srv/git/repo.git", std::nullopt});
+}
+
+TEST_CASE("git decorator: the repository link in the information pane") {
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    run_git(repo, {"remote", "add", "origin", "git@github.com:someone/project.git"});
+    Shown shown{repo};
+    const auto link = [&]() -> const rummage::views::DetailSection::Row* {
+        const auto* section = shown.decorator.details(*shown.folder);
+        if (section == nullptr) {
+            return nullptr;
+        }
+        for (const auto& row : section->rows) {
+            if (row.label == "Repository") {
+                return &row;
+            }
+        }
+        return nullptr;
+    };
+    REQUIRE(shown.wait_for([&] { return link() != nullptr; }));
+    const auto value_of = [&] {
+        const rummage::views::DetailSection::Row* const row = link();
+        return row != nullptr ? row->value : std::string{};
+    };
+    CHECK(value_of() == "github.com/someone/project");
+    const rummage::views::DetailSection::Row* const row = link();
+    CHECK((row != nullptr && row->action != nullptr));
+    // A changed remote is read again through .git/config.
+    run_git(repo, {"remote", "set-url", "origin", "https://codeberg.org/other/thing.git"});
+    REQUIRE(shown.wait_for([&] { return value_of() == "codeberg.org/other/thing"; }));
+}
+
+TEST_CASE("git: the message of what went wrong, in any language git speaks") {
+    CHECK(git::message_of("fatal: 'x' does not appear to be a git repository\nfatal: Could not "
+                          "read from remote repository.\n\nPlease make sure\n") ==
+          "'x' does not appear to be a git repository");
+    CHECK(git::message_of("Schwerwiegend: Konnte nicht vom Remote-Repository lesen.\n\nBitte "
+                          "stellen Sie sicher\n") == "Konnte nicht vom Remote-Repository lesen.");
+    CHECK(git::message_of("hint: Updates were rejected\nerror: failed to push some refs\n") ==
+          "failed to push some refs");
+    CHECK(git::message_of("Everything up-to-date\n") == "Everything up-to-date");
+    CHECK(git::message_of("\n\n").empty());
 }

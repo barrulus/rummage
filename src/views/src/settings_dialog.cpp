@@ -159,6 +159,13 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         config.git.ignored, false, {"show", "dim", "hide"});
     add(0, "Git", "git", "folder_status", "Folder status", "Folders mark the changes inside them",
         config.git.folder_status ? "true" : "false", true, {"true", "false"});
+    std::vector<std::string> git_languages{""};
+    for (const std::string_view code : i18n::languages()) {
+        git_languages.emplace_back(code);
+    }
+    add(0, "Git", "git", "language", "Git language",
+        "Git's menus, messages and output, apart from the interface", config.git.language, false,
+        std::move(git_languages));
 #endif
     add(0, "Terminal", "terminal", "program", "Terminal program",
         "Leave empty for automatic discovery", config.terminal.program);
@@ -546,6 +553,11 @@ std::string SettingsDialog::choice_label(const Field& field, std::string_view va
         if (value == "file")
             return std::string{i18n::tr("Palette file")};
         return std::string{i18n::tr("Built-in")};
+    }
+    if (field.table == "git" && field.key == "language") {
+        if (value.empty())
+            return std::string{i18n::tr("Same as the interface")};
+        return value == "en" ? std::string{"English"} : std::string{i18n::language_name(value)};
     }
     if (field.table == "git" && field.key == "ignored") {
         if (value == "show")

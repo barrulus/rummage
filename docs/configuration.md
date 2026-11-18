@@ -106,6 +106,7 @@ rename = "Ctrl+r"
 | `git.enabled` | `true` | [Git status](git.md) in builds with git support; live |
 | `git.ignored` | `"dim"` | Ignored files: `"show"`, `"dim"`, or `"hide"`; live |
 | `git.folder_status` | `true` | Folders mark the changes inside them; live |
+| `git.language` | `""` | Language of git's texts and git's output (`"en"`, `"de"`, …); empty follows the interface; live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |
 | `font.monospace` | `"monospace"` | Fontconfig pattern for text previews |
 | `pointer.double_click_ms` | `400` | Integer from 100 to 2000 milliseconds |

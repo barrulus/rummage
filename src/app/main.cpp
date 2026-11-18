@@ -783,6 +783,7 @@ int main(int argc, char** argv) {
             if (!columns) {
                 return;
             }
+            i18n::set_context_language("git", settings.language);
             if (!settings.enabled) {
                 columns->set_decorations(nullptr);
                 git_status.reset();
@@ -792,7 +793,8 @@ int main(int argc, char** argv) {
                 .ignored = settings.ignored == "show"   ? rummage::git::Options::Ignored::show
                            : settings.ignored == "hide" ? rummage::git::Options::Ignored::hide
                                                         : rummage::git::Options::Ignored::dim,
-                .folder_status = settings.folder_status};
+                .folder_status = settings.folder_status,
+                .language = settings.language};
             if (git_status) {
                 git_status->set_options(options);
                 return;

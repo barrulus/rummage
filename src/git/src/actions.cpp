@@ -16,32 +16,20 @@ namespace rummage::git {
 namespace {
 
 // Nothing git runs may wait for an answer: no terminal prompt, no SSH question, no editor.
-std::vector<std::string> quiet_environment() {
+std::vector<std::string> quiet_environment(const std::string& language) {
     std::vector<std::string> variables{"GIT_TERMINAL_PROMPT=0", "GIT_EDITOR=true",
                                        "GIT_MERGE_AUTOEDIT=no"};
     if (std::getenv("GIT_SSH_COMMAND") == nullptr && std::getenv("GIT_SSH") == nullptr) {
         variables.emplace_back("GIT_SSH_COMMAND=ssh -o BatchMode=yes");
     }
+    // git's own messages in the language chosen for git: English needs the C locale's messages.
+    if (language == "en") {
+        variables.emplace_back("LC_MESSAGES=C.UTF-8");
+        variables.emplace_back("LANGUAGE=");
+    } else if (!language.empty()) {
+        variables.emplace_back("LANGUAGE=" + language);
+    }
     return variables;
-}
-
-// The last lines git wrote, for a message: what went wrong is at the end.
-std::string tail_of(const std::string& output) {
-    std::vector<std::string> lines;
-    std::istringstream in{output};
-    for (std::string line; std::getline(in, line);) {
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
-            line.pop_back();
-        }
-        if (!line.empty()) {
-            lines.push_back(std::move(line));
-        }
-    }
-    std::string text;
-    for (std::size_t i = lines.size() > 2 ? lines.size() - 2 : 0; i < lines.size(); ++i) {
-        text.append(text.empty() ? "" : kSeparator).append(lines[i]);
-    }
-    return text;
 }
 
 // The paths git reports at path or inside it (a folder).
@@ -66,6 +54,25 @@ std::string trimmed(const std::string& text) {
 
 }  // namespace
 
+std::string message_of(const std::string& output) {
+    std::istringstream in{output};
+    for (std::string line; std::getline(in, line);) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
+            line.pop_back();
+        }
+        const std::size_t colon = line.find(": ");
+        const bool prefixed =
+            colon != std::string::npos && colon > 0 && colon <= 16 && line.find(' ') > colon;
+        const std::string_view prefix =
+            prefixed ? std::string_view{line}.substr(0, colon) : std::string_view{};
+        if (line.empty() || prefix == "hint" || prefix == "Hinweis") {
+            continue;
+        }
+        return prefixed ? line.substr(colon + 2) : line;
+    }
+    return {};
+}
+
 struct Decorator::Acting {
     std::string name;
     Steps steps;
@@ -84,7 +91,7 @@ void Decorator::act(Repo& repo, std::string name, Steps steps, std::string done,
                     std::function<void()> after) {
     if (repo.action) {
         if (host_.message) {
-            host_.message(i18n::trf("Git is busy: {}", repo.action_name), true);
+            host_.message(i18n::trcf("git", "Git is busy: {}", repo.action_name), true);
         }
         return;
     }
@@ -130,21 +137,22 @@ void Decorator::step(Repo& repo, std::shared_ptr<Acting> acting) {
     repo.action = std::make_unique<platform::ProgramOutput>(
         loop_, [this, &repo, acting, finish](const std::string& output, int wait_status) {
             if (!WIFEXITED(wait_status) || WEXITSTATUS(wait_status) != 0) {
-                const std::string why = tail_of(output);
+                const std::string why = message_of(output);
                 log::info("git {} in {} failed: {}", acting->name, repo.key, why);
                 repo.action.reset();  // ends this callback's object: only locals after
                 finish(false,
-                       why.empty() ? i18n::trf("{} failed", acting->name)
-                                   : i18n::trf("{} failed: {}", acting->name, why),
+                       why.empty() ? i18n::trcf("git", "{} failed", acting->name)
+                                   : i18n::trcf("git", "{} failed: {}", acting->name, why),
                        *acting);
                 return;
             }
             step(repo, acting);
         });
-    if (!repo.action->start(git_, arguments,
-                            {.merge_stderr = true, .environment = quiet_environment()})) {
+    if (!repo.action->start(
+            git_, arguments,
+            {.merge_stderr = true, .environment = quiet_environment(options_.language)})) {
         repo.action.reset();
-        finish(false, i18n::trf("{} failed", acting->name), *acting);
+        finish(false, i18n::trcf("git", "{} failed", acting->name), *acting);
         return;
     }
     loop_.remove(repo.action_limit);
@@ -160,13 +168,14 @@ void Decorator::ask_commit(Repo& repo, Steps before, std::vector<std::string> pa
     if (!host_.ask_text) {
         return;
     }
-    host_.ask_text(std::string{i18n::tr("Commit")}, std::string{i18n::tr("Commit message")},
-                   std::string{},
+    host_.ask_text(std::string{i18n::trc("git", "Commit")},
+                   std::string{i18n::trc("git", "Commit message")}, std::string{},
+                   std::string{i18n::trc("git", "Commit")},
                    [this, key = repo.key, before = std::move(before),
                     paths = std::move(paths)](const std::string& typed) -> std::string {
                        const std::string message = trimmed(typed);
                        if (message.empty()) {
-                           return std::string{i18n::tr("Enter a commit message")};
+                           return std::string{i18n::trc("git", "Enter a commit message")};
                        }
                        const auto it = repos_.find(key);
                        if (it == repos_.end()) {
@@ -181,8 +190,8 @@ void Decorator::ask_commit(Repo& repo, Steps before, std::vector<std::string> pa
                            commit.insert(commit.end(), paths.begin(), paths.end());
                        }
                        steps.push_back(std::move(commit));
-                       act(*it->second, std::string{i18n::tr("Commit")}, std::move(steps),
-                           std::string{i18n::tr("Committed")});
+                       act(*it->second, std::string{i18n::trc("git", "Commit")}, std::move(steps),
+                           std::string{i18n::trc("git", "Committed")});
                        return {};
                    });
 }
@@ -199,9 +208,9 @@ void Decorator::commit_all(Repo& repo) {
     if (!host_.confirm) {
         return;
     }
-    host_.confirm(std::string{i18n::tr("Nothing is staged. Commit all changes?")},
-                  std::string{i18n::tr("Every change is staged and committed, new files too.")},
-                  std::string{i18n::tr("Commit all")}, std::string{},
+    host_.confirm(std::string{i18n::trc("git", "Commit all changes?")},
+                  std::string{i18n::trc("git", "Nothing is staged; new files are staged too.")},
+                  std::string{i18n::trc("git", "Commit all")}, std::string{},
                   [this, key = repo.key](bool confirmed) {
                       const auto it = repos_.find(key);
                       if (confirmed && it != repos_.end()) {
@@ -263,20 +272,37 @@ void Decorator::discard(Repo& repo, const std::vector<std::string>& paths) {
     for (const std::string& path : trash) {
         to_trash.push_back(repo.repository.worktree / path);
     }
+    // Which files (the first few by name), and what happens to them in one short line.
+    std::string names;
+    std::size_t listed = 0;
+    for (const auto* list : {&restore, &trash}) {
+        for (const std::string& path : *list) {
+            if (listed == 3) {
+                break;
+            }
+            names.append(names.empty() ? "" : ", ")
+                .append(std::filesystem::path{path}.filename().string());
+            ++listed;
+        }
+    }
+    if (count > listed) {
+        names += i18n::trnc("git", " and {} more", " and {} more", count - listed);
+    }
     host_.confirm(
-        i18n::trn("Discard the changes of {} file?", "Discard the changes of {} files?", count),
-        std::string{
-            i18n::tr("Changed files go back to the last commit; new files go to the trash.")},
-        std::string{i18n::tr("Discard")},
-        std::string{i18n::tr("Changes that were never committed cannot be restored.")},
+        i18n::trnc("git", "Discard the changes of {} file?", "Discard the changes of {} files?",
+                   count),
+        std::move(names), std::string{i18n::trc("git", "Discard")},
+        std::string{trash.empty()
+                        ? i18n::trc("git", "Uncommitted changes are lost.")
+                        : i18n::trc("git", "Changes are lost; new files go to the trash.")},
         [this, key = repo.key, steps = std::move(steps),
          to_trash = std::move(to_trash)](bool confirmed) {
             const auto it = repos_.find(key);
             if (!confirmed || it == repos_.end()) {
                 return;
             }
-            act(*it->second, std::string{i18n::tr("Discard")}, steps,
-                std::string{i18n::tr("Changes discarded")}, [this, to_trash] {
+            act(*it->second, std::string{i18n::trc("git", "Discard")}, steps,
+                std::string{i18n::trc("git", "Changes discarded")}, [this, to_trash] {
                     if (!to_trash.empty() && host_.trash) {
                         host_.trash(to_trash);
                     }
@@ -288,7 +314,7 @@ void Decorator::ignore(Repo& repo, std::vector<std::string> paths) {
     if (repo.action) {
         return;
     }
-    repo.action_name = std::string{i18n::tr("Add to .gitignore")};
+    repo.action_name = std::string{i18n::trc("git", "Add to .gitignore")};
     ++repo.generation;
     // On a worker: the file is read and written, the tree may be remote.
     pool_.submit(
@@ -327,7 +353,8 @@ void Decorator::ignore(Repo& repo, std::vector<std::string> paths) {
             }
             out << added;
             out.flush();
-            return out ? std::string{} : std::string{i18n::tr("Could not write .gitignore")};
+            return out ? std::string{}
+                       : std::string{i18n::trc("git", "Could not write .gitignore")};
         },
         [this, alive = alive_, key = repo.key](const std::string& problem) {
             if (!*alive) {
@@ -341,9 +368,9 @@ void Decorator::ignore(Repo& repo, std::vector<std::string> paths) {
             done.action_name.clear();
             ++done.generation;
             if (host_.message) {
-                host_.message(
-                    problem.empty() ? std::string{i18n::tr("Added to .gitignore")} : problem,
-                    !problem.empty());
+                host_.message(problem.empty() ? std::string{i18n::trc("git", "Added to .gitignore")}
+                                              : problem,
+                              !problem.empty());
             }
             run(done);
         });
@@ -415,22 +442,23 @@ std::optional<views::MenuItem> Decorator::menu(const views::Folder& folder,
         arguments.insert(arguments.end(), paths.begin(), paths.end());
         return arguments;
     };
-    item("stage", i18n::tr("Stage"), stageable,
+    item("stage", i18n::trc("git", "Stage"), stageable,
          with_repo([this, steps = Steps{with_paths({"add", "-A"})}](Repo& at) {
-             act(at, std::string{i18n::tr("Stage")}, steps, {});
+             act(at, std::string{i18n::trc("git", "Stage")}, steps, {});
          }));
-    item("unstage", i18n::tr("Unstage"), staged,
-         with_repo([this, steps = Steps{has_head ? with_paths({"restore", "--staged"})
-                                                 : with_paths({"rm", "--cached", "-r", "-q"})}](
-                       Repo& at) { act(at, std::string{i18n::tr("Unstage")}, steps, {}); }));
-    item("commit", i18n::tr("Commit…"), changed,
+    item(
+        "unstage", i18n::trc("git", "Unstage"), staged,
+        with_repo([this, steps = Steps{has_head ? with_paths({"restore", "--staged"})
+                                                : with_paths({"rm", "--cached", "-r", "-q"})}](
+                      Repo& at) { act(at, std::string{i18n::trc("git", "Unstage")}, steps, {}); }));
+    item("commit", i18n::trc("git", "Commit…"), changed,
          with_repo([this, add = Steps{with_paths({"add", "-A"})}, paths](Repo& at) {
              ask_commit(at, add, paths);
          }),
          true);
-    item("discard", i18n::tr("Discard Changes…"), changed,
+    item("discard", i18n::trc("git", "Discard Changes…"), changed,
          with_repo([this, paths](Repo& at) { discard(at, paths); }));
-    item("ignore", i18n::tr("Add to .gitignore"), ignorable,
+    item("ignore", i18n::trc("git", "Add to .gitignore"), ignorable,
          with_repo([this, paths](Repo& at) { ignore(at, paths); }), true);
     return git;
 }
@@ -455,27 +483,28 @@ std::vector<views::DetailSection::Button> Decorator::buttons(Repo& repo) {
                        done = std::string{done}](Repo& at) { act(at, name, {arguments}, done); });
     };
     std::vector<views::DetailSection::Button> result;
-    result.push_back({"commit", std::string{i18n::tr("Commit…")}, idle && any,
+    result.push_back({"commit", std::string{i18n::trc("git", "Commit…")}, idle && any,
                       run_on([this](Repo& at) { commit_all(at); })});
-    result.push_back({"stage_all", std::string{i18n::tr("Stage All")}, idle && any,
-                      simple(i18n::tr("Stage All"), {"add", "-A"}, {})});
+    result.push_back({"stage_all", std::string{i18n::trc("git", "Stage All")}, idle && any,
+                      simple(i18n::trc("git", "Stage All"), {"add", "-A"}, {})});
     result.push_back(
-        {"unstage_all", std::string{i18n::tr("Unstage All")}, idle && counts.staged > 0,
-         simple(i18n::tr("Unstage All"),
+        {"unstage_all", std::string{i18n::trc("git", "Unstage All")}, idle && counts.staged > 0,
+         simple(i18n::trc("git", "Unstage All"),
                 has_head ? std::vector<std::string>{"restore", "--staged", ":/"}
                          : std::vector<std::string>{"rm", "--cached", "-r", "-q", ":/"},
                 {})});
-    result.push_back({"fetch", std::string{i18n::tr("Fetch")}, idle,
-                      simple(i18n::tr("Fetch"), {"fetch", "--quiet"}, i18n::tr("Fetched"))});
     result.push_back(
-        {"pull", std::string{i18n::tr("Pull")}, idle && upstream,
-         simple(i18n::tr("Pull"), {"pull", "--no-edit", "--quiet"}, i18n::tr("Pulled"))});
+        {"fetch", std::string{i18n::trc("git", "Fetch")}, idle,
+         simple(i18n::trc("git", "Fetch"), {"fetch", "--quiet"}, i18n::trc("git", "Fetched"))});
+    result.push_back({"pull", std::string{i18n::trc("git", "Pull")}, idle && upstream,
+                      simple(i18n::trc("git", "Pull"), {"pull", "--no-edit", "--quiet"},
+                             i18n::trc("git", "Pulled"))});
     result.push_back(
-        {"push", std::string{i18n::tr("Push")}, idle && has_head,
-         simple(i18n::tr("Push"),
+        {"push", std::string{i18n::trc("git", "Push")}, idle && has_head,
+         simple(i18n::trc("git", "Push"),
                 upstream ? std::vector<std::string>{"push", "--quiet"}
                          : std::vector<std::string>{"push", "--quiet", "-u", "origin", "HEAD"},
-                i18n::tr("Pushed"))});
+                i18n::trc("git", "Pushed"))});
     return result;
 }
 

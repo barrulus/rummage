@@ -142,9 +142,9 @@ void Browser::set_decorations(Decorations* decorations) {
                                bool error) { show_message(std::move(text), error); },
              .ask_text =
                  [this](std::string title, std::string detail, std::string initial,
-                        std::function<std::string(const std::string&)> accept) {
+                        std::string action, std::function<std::string(const std::string&)> accept) {
                      confirm_.open_name(std::move(title), std::move(detail), std::move(initial),
-                                        std::move(accept));
+                                        std::move(accept), std::move(action));
                  },
              .confirm =
                  [this](std::string title, std::string detail, std::string action,

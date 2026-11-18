@@ -31,6 +31,9 @@ struct Options {
 
     Ignored ignored{Ignored::dim};
     bool folder_status{true};  // folders show the changes inside them
+    // What git's texts and git's own messages are in: a language code ("en"), or empty for the
+    // interface's. Its texts follow i18n's "git" context, which the owner sets alike.
+    std::string language;
 
     bool operator==(const Options&) const = default;
 };
@@ -48,6 +51,22 @@ struct Options {
 
 // "Just now", "5 minutes ago", "3 days ago"; then: seconds since the epoch.
 [[nodiscard]] std::string time_ago(std::int64_t then, std::int64_t now);
+
+// A remote as the information pane shows it: its address without any user, password or token,
+// and a web page to open only for https remotes and the big hosts (GitHub, GitLab, Bitbucket,
+// Codeberg, SourceHut), whose ssh addresses map to their pages.
+struct RemoteView {
+    std::string shown;                // "github.com/a/b", "ssh://host:2222/a/b.git", a path
+    std::optional<std::string> link;  // "https://github.com/a/b"
+
+    bool operator==(const RemoteView&) const = default;
+};
+
+[[nodiscard]] RemoteView view_of_remote(std::string_view remote);
+
+// What git said went wrong, for a message: its first line that is not a hint, without git's
+// prefix ("fatal: ", "error: ", or theirs in git's language: "Schwerwiegend: ").
+[[nodiscard]] std::string message_of(const std::string& output);
 
 // "a1b2c3d Fix the thing  ·  Ada  ·  3 days ago".
 [[nodiscard]] std::string commit_line(const Commit& commit, std::int64_t now);
@@ -121,6 +140,8 @@ private:
     void run(Repo& repo);
     void finished(Repo& repo, const std::string& output, int wait_status, Operation operation);
     void read_commit(Repo& repo);
+    void read_remote(Repo& repo);
+    void open_link(const std::string& url);
     void rebuild(Repo& repo);
     using Steps = std::vector<std::vector<std::string>>;
     void act(Repo& repo, std::string name, Steps steps, std::string done,
@@ -143,6 +164,7 @@ private:
     std::function<void()> redraw_;
     std::function<void()> refilter_;
     views::DecorationHost host_;
+    std::vector<std::unique_ptr<platform::ProgramOutput>> openers_;  // xdg-open, until they end
     Options options_;
     std::chrono::milliseconds time_limit_{kTimeLimit};
     std::unordered_map<std::string, std::unique_ptr<Repo>> repos_;    // by working tree

@@ -113,10 +113,11 @@ public:
     }
 
     // Labels and values stay readable in narrow panes; soft wraps preserve copied text.
-    void row(std::string_view label, const std::string& value,
-             ui::Typeface typeface = ui::Typeface::proportional) {
+    // Returns where the value went (empty when there is none); link draws it as one.
+    ui::Rect row(std::string_view label, const std::string& value,
+                 ui::Typeface typeface = ui::Typeface::proportional, bool link = false) {
         if (value.empty()) {
-            return;
+            return {};
         }
         const std::string_view shown_label = i18n::tr(label);
         const float label_width =
@@ -132,10 +133,13 @@ public:
                 .width /
             renderer_.scale();
         const float shown = std::min(full, room);
-        const float height = text_.draw(
-            renderer_, id + ".value", value, {left_ + width_ - shown, y_, shown, 0.0F}, kTextSize,
-            palette_.on_surface, palette_.secondary_container, 0.0F, typeface);
+        const float height =
+            text_.draw(renderer_, id + ".value", value, {left_ + width_ - shown, y_, shown, 0.0F},
+                       kTextSize, link ? palette_.primary : palette_.on_surface,
+                       palette_.secondary_container, 0.0F, typeface);
+        const ui::Rect where{left_ + width_ - shown, y_, shown, std::max(height, kTextSize + 4.0F)};
         y_ += std::max(kRowHeight, std::max(height, label_height) + 5.0F);
+        return where;
     }
 
 private:
@@ -632,7 +636,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             return;
         }
         for (const DetailSection::Row& row : section->rows) {
-            out.row(row.label, row.value);
+            const ui::Rect value =
+                out.row(row.label, row.value, ui::Typeface::proportional, row.action != nullptr);
+            if (row.action && !value.empty()) {
+                extra_buttons_.emplace_back(value, row.action);
+            }
         }
         constexpr float kButtonHeight = 28.0F;
         constexpr float kGap = 6.0F;

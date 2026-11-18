@@ -1,12 +1,15 @@
 #include "rummage/git/decorator.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdlib>
 #include <sys/wait.h>
 #include <utility>
 
 #include "repo.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
+#include "rummage/platform/desktop_entry.hpp"
 #include "rummage/platform/program_output.hpp"
 
 namespace rummage::git {
@@ -31,17 +34,17 @@ int weight(const Badge& badge) {
 std::string_view change_name(char change) {
     switch (change) {
         case 'M':
-            return i18n::tr("Modified");
+            return i18n::trc("git", "Modified");
         case 'T':
-            return i18n::tr("Type changed");
+            return i18n::trc("git", "Type changed");
         case 'A':
-            return i18n::tr("Added");
+            return i18n::trc("git", "Added");
         case 'D':
-            return i18n::tr("Deleted");
+            return i18n::trc("git", "Deleted");
         case 'R':
-            return i18n::tr("Renamed");
+            return i18n::trc("git", "Renamed");
         case 'C':
-            return i18n::tr("Copied");
+            return i18n::trc("git", "Copied");
         default:
             return {};
     }
@@ -106,26 +109,27 @@ std::optional<Badge> badge_of(const FileStatus& file) {
 std::string meaning_of(const FileStatus& file) {
     switch (file.kind) {
         case FileStatus::Kind::conflict:
-            return std::string{i18n::tr("Conflict")};
+            return std::string{i18n::trc("git", "Conflict")};
         case FileStatus::Kind::untracked:
-            return std::string{i18n::tr("Untracked")};
+            return std::string{i18n::trc("git", "Untracked")};
         case FileStatus::Kind::ignored:
-            return std::string{i18n::tr("Ignored")};
+            return std::string{i18n::trc("git", "Ignored")};
         case FileStatus::Kind::tracked:
             break;
     }
     if (file.unstaged == '.') {
-        return i18n::trf("{}, staged", change_name(file.staged));
+        return i18n::trcf("git", "{}, staged", change_name(file.staged));
     }
     if (file.staged == '.') {
-        return i18n::trf("{}, not staged", change_name(file.unstaged));
+        return i18n::trcf("git", "{}, not staged", change_name(file.unstaged));
     }
-    return i18n::trf("{}, partly staged", change_name(file.unstaged));
+    return i18n::trcf("git", "{}, partly staged", change_name(file.unstaged));
 }
 
 std::string summary_of(const Status& status, Operation operation, std::string_view short_hash) {
     const Branch& branch = status.branch;
-    std::string text = branch.name.empty() ? i18n::trf("Detached at {}", short_hash) : branch.name;
+    std::string text =
+        branch.name.empty() ? i18n::trcf("git", "Detached at {}", short_hash) : branch.name;
     if (!branch.upstream.empty()) {
         if (branch.ahead > 0) {
             text += std::format(" ↑{}", branch.ahead);
@@ -143,10 +147,10 @@ std::string summary_of(const Status& status, Operation operation, std::string_vi
             text.append(kSeparator).append(words);
         }
     };
-    add(counts.conflicts, i18n::trn("{} conflict", "{} conflicts", counts.conflicts));
-    add(counts.staged, i18n::trn("{} staged", "{} staged", counts.staged));
-    add(counts.changed, i18n::trn("{} changed", "{} changed", counts.changed));
-    add(counts.untracked, i18n::trn("{} untracked", "{} untracked", counts.untracked));
+    add(counts.conflicts, i18n::trnc("git", "{} conflict", "{} conflicts", counts.conflicts));
+    add(counts.staged, i18n::trnc("git", "{} staged", "{} staged", counts.staged));
+    add(counts.changed, i18n::trnc("git", "{} changed", "{} changed", counts.changed));
+    add(counts.untracked, i18n::trnc("git", "{} untracked", "{} untracked", counts.untracked));
     return text;
 }
 
@@ -157,21 +161,81 @@ std::string time_ago(std::int64_t then, std::int64_t now) {
     constexpr std::int64_t kHour = 60 * kMinute;
     constexpr std::int64_t kDay = 24 * kHour;
     if (seconds < kMinute) {
-        return std::string{i18n::tr("just now")};
+        return std::string{i18n::trc("git", "just now")};
     }
     if (seconds < kHour) {
-        return i18n::trn("{} minute ago", "{} minutes ago", count(seconds / kMinute));
+        return i18n::trnc("git", "{} minute ago", "{} minutes ago", count(seconds / kMinute));
     }
     if (seconds < kDay) {
-        return i18n::trn("{} hour ago", "{} hours ago", count(seconds / kHour));
+        return i18n::trnc("git", "{} hour ago", "{} hours ago", count(seconds / kHour));
     }
     if (seconds < 30 * kDay) {
-        return i18n::trn("{} day ago", "{} days ago", count(seconds / kDay));
+        return i18n::trnc("git", "{} day ago", "{} days ago", count(seconds / kDay));
     }
     if (seconds < 365 * kDay) {
-        return i18n::trn("{} month ago", "{} months ago", count(seconds / (30 * kDay)));
+        return i18n::trnc("git", "{} month ago", "{} months ago", count(seconds / (30 * kDay)));
     }
-    return i18n::trn("{} year ago", "{} years ago", count(seconds / (365 * kDay)));
+    return i18n::trnc("git", "{} year ago", "{} years ago", count(seconds / (365 * kDay)));
+}
+
+RemoteView view_of_remote(std::string_view remote) {
+    // The hosts whose web pages sit where their ssh addresses point.
+    constexpr std::array<std::string_view, 5> kKnown{"github.com", "gitlab.com", "bitbucket.org",
+                                                     "codeberg.org", "git.sr.ht"};
+    RemoteView view;
+    std::string_view scheme;
+    std::string_view host;
+    std::string_view path;
+    if (const std::size_t marker = remote.find("://"); marker != std::string_view::npos) {
+        scheme = remote.substr(0, marker);
+        const std::string_view rest = remote.substr(marker + 3);
+        const std::size_t slash = rest.find('/');
+        std::string_view authority = rest.substr(0, slash);
+        if (const std::size_t at = authority.rfind('@'); at != std::string_view::npos) {
+            authority.remove_prefix(at + 1);  // a user, password or token is never shown
+        }
+        host = authority;
+        path = slash == std::string_view::npos ? std::string_view{} : rest.substr(slash + 1);
+        view.shown = std::string{scheme} + "://" + std::string{host} + "/" + std::string{path};
+    } else if (const std::size_t colon = remote.find(':');
+               colon != std::string_view::npos && remote.find('/') > colon) {
+        // scp-like: [user@]host:owner/repo
+        std::string_view authority = remote.substr(0, colon);
+        if (const std::size_t at = authority.rfind('@'); at != std::string_view::npos) {
+            authority.remove_prefix(at + 1);
+        }
+        scheme = "ssh";
+        host = authority;
+        path = remote.substr(colon + 1);
+        view.shown = std::string{remote};
+    } else {
+        view.shown = std::string{remote};  // a path
+        return view;
+    }
+    if (scheme == "file" || host.empty()) {
+        return view;
+    }
+    std::string page{path};
+    while (page.ends_with('/')) {
+        page.pop_back();
+    }
+    if (page.ends_with(".git")) {
+        page.resize(page.size() - 4);
+    }
+    while (page.starts_with('/')) {
+        page.erase(0, 1);
+    }
+    std::string bare_host{host};
+    if (const std::size_t colon = bare_host.find(':'); colon != std::string::npos) {
+        bare_host.resize(colon);  // an ssh port is not the web page's
+    }
+    const bool known = std::ranges::find(kKnown, bare_host) != kKnown.end();
+    if (page.empty() || !(scheme == "https" || known)) {
+        return view;
+    }
+    view.link = "https://" + (scheme == "https" ? std::string{host} : bare_host) + "/" + page;
+    view.shown = view.link->substr(std::string_view{"https://"}.size());
+    return view;
 }
 
 std::string commit_line(const Commit& commit, std::int64_t now) {
@@ -208,6 +272,8 @@ void Decorator::set_options(const Options& options) {
     const bool refilter =
         (options.ignored == Options::Ignored::hide) != (options_.ignored == Options::Ignored::hide);
     options_ = options;
+    part_repo_ = nullptr;  // texts may be in another language now
+    section_repo_ = nullptr;
     if (refilter && refilter_) {
         refilter_();
     }
@@ -326,6 +392,10 @@ Decorator::Repo& Decorator::follow(const Repository& repository) {
                 const bool relevant = std::ranges::any_of(events, [](const auto& event) {
                     return !std::string_view{event.name}.ends_with(".lock");
                 });
+                if (std::ranges::any_of(events,
+                                        [](const auto& event) { return event.name == "config"; })) {
+                    added.remote_stale = true;
+                }
                 if (relevant) {
                     schedule(added);
                 }
@@ -468,8 +538,63 @@ void Decorator::finished(Repo& repo, const std::string& output, int wait_status,
     repo.status = std::move(status);
     rebuild(repo);
     read_commit(repo);
+    read_remote(repo);
     if (repo.again) {
         schedule(repo);
+    }
+}
+
+void Decorator::read_remote(Repo& repo) {
+    if (!repo.status || repo.remote_query) {
+        return;
+    }
+    const std::string& upstream = repo.status->branch.upstream;
+    const std::string name =
+        upstream.empty() ? std::string{"origin"} : upstream.substr(0, upstream.find('/'));
+    if (name == repo.remote_name && !repo.remote_stale) {
+        return;
+    }
+    repo.remote_name = name;
+    repo.remote_stale = false;
+    repo.remote_query = std::make_unique<platform::ProgramOutput>(
+        loop_, [this, &repo](const std::string& output, int wait_status) {
+            std::string url = output;
+            while (!url.empty() && (url.back() == '\n' || url.back() == '\r')) {
+                url.pop_back();
+            }
+            repo.remote = WIFEXITED(wait_status) && WEXITSTATUS(wait_status) == 0 && !url.empty()
+                              ? std::optional<RemoteView>{view_of_remote(url)}
+                              : std::nullopt;
+            ++repo.generation;
+            redraw_();
+            repo.remote_query.reset();  // ends this callback's object: nothing after
+        });
+    if (!repo.remote_query->start(
+            git_, {"--no-optional-locks", "-C", repo.repository.worktree.string(), "config",
+                   "--get", "remote." + name + ".url"})) {
+        repo.remote_query.reset();
+    }
+}
+
+void Decorator::open_link(const std::string& url) {
+    const char* const path = std::getenv("PATH");
+    const auto opener =
+        platform::find_program("xdg-open", path != nullptr ? path : "/usr/bin:/bin");
+    if (!opener) {
+        if (host_.message) {
+            host_.message(i18n::trcf("git", "Cannot open {}: xdg-open is missing", url), true);
+        }
+        return;
+    }
+    // Kept until it ends; it then removes itself (done may end its object).
+    auto self = std::make_shared<platform::ProgramOutput*>(nullptr);
+    auto program = std::make_unique<platform::ProgramOutput>(
+        loop_, [this, self](const std::string& /*output*/, int /*status*/) {
+            std::erase_if(openers_, [&self](const auto& each) { return each.get() == *self; });
+        });
+    *self = program.get();
+    if (program->start(*opener, {url})) {
+        openers_.push_back(std::move(program));
     }
 }
 
@@ -640,11 +765,12 @@ const views::StatusPart* Decorator::status(const views::Folder& folder) {
     }
     if (repo.paused) {
         part_repo_ = nullptr;
-        part_ = {.lead = {},
-                 .text = std::string{i18n::tr("Git: paused")},
-                 .detail = i18n::trf(
-                     "git status took more than {} seconds here; open another folder to retry",
-                     kTimeLimit.count() / 1000)};
+        part_ = {
+            .lead = {},
+            .text = std::string{i18n::trc("git", "Git: paused")},
+            .detail = i18n::trcf(
+                "git", "git status took more than {} seconds here; open another folder to retry",
+                kTimeLimit.count() / 1000)};
         return &part_;
     }
     if (repo.failed || !repo.status) {
@@ -672,7 +798,7 @@ const views::StatusPart* Decorator::status(const views::Folder& folder) {
             text.append(kSeparator).append(meaning_of(repo.status->files[it->second]));
         } else if (cursor->is_directory() && options_.folder_status &&
                    repo.folders.contains(path)) {
-            text.append(kSeparator).append(i18n::tr("Changes inside"));
+            text.append(kSeparator).append(i18n::trc("git", "Changes inside"));
         }
     }
     // The branch (and ahead/behind) stands out; a clean tree says so.
@@ -707,19 +833,27 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
     std::vector<views::DetailSection::Row> rows;
     const auto add = [&rows](std::string_view label, std::string value) {
         if (!value.empty()) {
-            rows.push_back({std::string{label}, std::move(value)});
+            rows.push_back({std::string{label}, std::move(value), nullptr});
         }
     };
-    add(i18n::tr("Branch"),
-        branch.name.empty()
-            ? i18n::trf("Detached at {}", repo.commit ? repo.commit->hash : branch.oid.substr(0, 7))
-            : branch.name);
+    add(i18n::trc("git", "Branch"),
+        branch.name.empty() ? i18n::trcf("git", "Detached at {}",
+                                         repo.commit ? repo.commit->hash : branch.oid.substr(0, 7))
+                            : branch.name);
     if (!branch.upstream.empty()) {
-        add(i18n::tr("Upstream"),
+        add(i18n::trc("git", "Upstream"),
             std::format("{}  ↑{} ↓{}", branch.upstream, branch.ahead, branch.behind));
     }
+    if (repo.remote) {
+        std::function<void()> open;
+        if (repo.remote->link) {
+            open = [this, url = *repo.remote->link] { open_link(url); };
+        }
+        rows.push_back(
+            {std::string{i18n::trc("git", "Repository")}, repo.remote->shown, std::move(open)});
+    }
     if (const std::string_view doing = operation_name(repo.operation); !doing.empty()) {
-        add(i18n::tr("In progress"), std::string{doing});
+        add(i18n::trc("git", "In progress"), std::string{doing});
     }
     const Status::Counts counts = repo.status->counts();
     std::string changes;
@@ -728,20 +862,21 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
             changes.append(changes.empty() ? "" : ", ").append(words);
         }
     };
-    count(counts.conflicts, i18n::trn("{} conflict", "{} conflicts", counts.conflicts));
-    count(counts.staged, i18n::trn("{} staged", "{} staged", counts.staged));
-    count(counts.changed, i18n::trn("{} changed", "{} changed", counts.changed));
-    count(counts.untracked, i18n::trn("{} untracked", "{} untracked", counts.untracked));
-    add(i18n::tr("Changes"), changes.empty() ? std::string{i18n::tr("None")} : changes);
+    count(counts.conflicts, i18n::trnc("git", "{} conflict", "{} conflicts", counts.conflicts));
+    count(counts.staged, i18n::trnc("git", "{} staged", "{} staged", counts.staged));
+    count(counts.changed, i18n::trnc("git", "{} changed", "{} changed", counts.changed));
+    count(counts.untracked, i18n::trnc("git", "{} untracked", "{} untracked", counts.untracked));
+    add(i18n::trc("git", "Changes"),
+        changes.empty() ? std::string{i18n::trc("git", "None")} : changes);
     if (repo.commit) {
-        add(i18n::tr("Last commit"), repo.commit->hash + " " + repo.commit->subject);
-        add(i18n::tr("Author"), repo.commit->author);
-        add(i18n::tr("Committed"), time_ago(repo.commit->time, now));
+        add(i18n::trc("git", "Last commit"), repo.commit->hash + " " + repo.commit->subject);
+        add(i18n::trc("git", "Author"), repo.commit->author);
+        add(i18n::trc("git", "Committed"), time_ago(repo.commit->time, now));
     }
     if (!repo.action_name.empty()) {
-        add(i18n::tr("Running"), repo.action_name + "…");
+        add(i18n::trc("git", "Running"), repo.action_name + "…");
     }
-    section_.title = std::string{i18n::tr("GIT")};
+    section_.title = std::string{i18n::trc("git", "GIT")};
     section_.rows = std::move(rows);
     section_.buttons = buttons(*place->repo);
     return &section_;

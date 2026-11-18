@@ -73,6 +73,9 @@ enabled = true
 ignored = "dim"
 # Folders mark the changes inside them.
 folder_status = true
+# Git's menus, messages and git's own output in another language than the interface ("en"),
+# or empty for the interface's.
+language = ""
 
 # Startup applies on the next launch. An explicit DIR always takes precedence.
 [startup]

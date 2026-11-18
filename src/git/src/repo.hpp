@@ -24,15 +24,15 @@ inline constexpr std::string_view kSeparator = "  ·  ";
 inline std::string_view operation_name(Operation operation) {
     switch (operation) {
         case Operation::merge:
-            return i18n::tr("Merging");
+            return i18n::trc("git", "Merging");
         case Operation::rebase:
-            return i18n::tr("Rebasing");
+            return i18n::trc("git", "Rebasing");
         case Operation::cherry_pick:
-            return i18n::tr("Cherry-picking");
+            return i18n::trc("git", "Cherry-picking");
         case Operation::revert:
-            return i18n::tr("Reverting");
+            return i18n::trc("git", "Reverting");
         case Operation::bisect:
-            return i18n::tr("Bisecting");
+            return i18n::trc("git", "Bisecting");
         case Operation::none:
             break;
     }
@@ -77,6 +77,11 @@ struct Decorator::Repo {
     std::unique_ptr<platform::ProgramOutput> action;
     core::EventLoop::SourceId action_limit{0};
     std::string action_name;  // what runs, for the information pane ("Push")
+    // The upstream's remote (or origin) as a web page, for the information pane's link.
+    std::unique_ptr<platform::ProgramOutput> remote_query;
+    std::string remote_name;  // what remote_url is about; empty: not read yet
+    bool remote_stale{true};  // .git/config changed
+    std::optional<RemoteView> remote;
 };
 
 struct Decorator::Place {

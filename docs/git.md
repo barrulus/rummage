@@ -54,8 +54,11 @@ Git status never shows in the trash, in its folders opened by path (`Trash/files
 ## Information pane
 
 At the end of the information pane, a **GIT** section (folded by its heading) shows the
-branch, the upstream with ahead/behind, an operation in progress, the changes and the last
-commit with its author and age. Its buttons:
+branch, the remote, the upstream with ahead/behind, an operation in progress, the changes
+and the last commit with its author and age. The remote (the upstream's, else `origin`) is
+shown without any user, password or token; it is a link to its web page when it is an
+`https://` remote or on GitHub, GitLab, Bitbucket, Codeberg or SourceHut, whose ssh
+addresses map to their pages. Other remotes, such as your own server over ssh, are text. Its buttons:
 
 | Button | What it does |
 | --- | --- |
@@ -85,6 +88,9 @@ editor opens. Fetch, pull and push therefore need an ssh-agent or a credential h
 for repositories that ask for a login; without one they fail with git's message. They
 stop after 120 seconds.
 
+The German texts follow git's own German translation (git-l10n): *zum Commit vormerken*,
+*aus der Staging-Area entfernen*, *unversioniert*, *HEAD losgelöst bei*.
+
 ## Updates
 
 rummage reads the status again when a folder on screen changes, and when git changes
@@ -110,6 +116,7 @@ read (for example one owned by another user, see `safe.directory`) shows nothing
 | `git.enabled` | `true` | Show the git status; live |
 | `git.ignored` | `"dim"` | Ignored files: `"show"` (plainly), `"dim"`, or `"hide"`; live |
 | `git.folder_status` | `true` | Folders mark the changes inside them; live |
+| `git.language` | `""` | Language of git's menus, messages and git's own output, e.g. `"en"` with a German interface; empty follows the interface; live |
 
 The same settings are in **Settings** (**Ctrl+,**). With `enabled = false` the menu, the
 information pane section and the sort order are gone too. Hidden ignored files reappear when

@@ -537,14 +537,14 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     f.browser.set_sort(rummage::fs::SortKey::modified, true);
     f.browser.set_grid_size(4);
     f.browser.set_list_size(3);
-    f.browser.details().set_widths({80, 170, 240, 150, 150, 110, 110, 130, 220, 220});
+    f.browser.details().set_widths({80, 170, 240, 150, 150, 110, 110, 130, 220, 220, 72});
     f.browser.open(f.b);
     REQUIRE(f.settle());
     f.browser.set_mode(Browser::Mode::details);
     f.browser.set_sort(rummage::fs::SortKey::size, false);
     f.browser.set_grid_size(0);
     f.browser.set_list_size(0);
-    f.browser.details().set_widths({90, 180, 250, 150, 150, 110, 110, 130, 220, 220});
+    f.browser.details().set_widths({90, 180, 250, 150, 150, 110, 110, 130, 220, 220, 80});
     f.browser.back();
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::grid);
@@ -553,7 +553,7 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     CHECK(f.browser.grid().size_index() == 4);
     CHECK(f.browser.details().list_size() == 3);
     CHECK(f.browser.details().widths() ==
-          rummage::views::DetailsWidths{80, 170, 240, 150, 150, 110, 110, 130, 220, 220});
+          rummage::views::DetailsWidths{80, 170, 240, 150, 150, 110, 110, 130, 220, 220, 72});
     f.browser.forward();
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::details);
@@ -562,7 +562,7 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     CHECK(f.browser.grid().size_index() == 0);
     CHECK(f.browser.details().list_size() == 0);
     CHECK(f.browser.details().widths() ==
-          rummage::views::DetailsWidths{90, 180, 250, 150, 150, 110, 110, 130, 220, 220});
+          rummage::views::DetailsWidths{90, 180, 250, 150, 150, 110, 110, 130, 220, 220, 80});
     const auto saved =
         rummage::views::parse_state(rummage::views::format_state(f.browser.state()), "state.toml");
     REQUIRE(saved.problems.empty());

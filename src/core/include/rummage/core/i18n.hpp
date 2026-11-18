@@ -31,6 +31,10 @@ struct Entry {
 // Overrides the environment's choice (tests, a setting). A code without a catalog is English.
 void set_language(std::string_view code);
 
+// The language of one context's texts ("git"), apart from the interface's: code ("en" for
+// English), or empty to follow the interface again. Loop thread only.
+void set_context_language(std::string_view context, std::string_view code);
+
 // The language of a POSIX locale or LANGUAGE list ("de_DE.UTF-8", "de:en"): the first entry
 // with a catalog, region first ("pt_BR", then "pt"). "en" when none has one; "C" and "POSIX"
 // are English.

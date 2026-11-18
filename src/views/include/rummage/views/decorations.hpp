@@ -45,6 +45,7 @@ struct DetailSection {
     struct Row {
         std::string label;
         std::string value;
+        std::function<void()> action;  // set: the value is a link, run on a click
     };
 
     struct Button {
@@ -63,9 +64,10 @@ struct DetailSection {
 struct DecorationHost {
     // A message in the status bar (error: in the error colour).
     std::function<void(std::string text, bool error)> message;
-    // One line of text on a card: accept returns what is wrong with it (the card stays), or empty.
+    // One line of text on a card: accept returns what is wrong with it (the card stays), or empty;
+    // action names the button that accepts it.
     std::function<void(std::string title, std::string detail, std::string initial,
-                       std::function<std::string(const std::string&)> accept)>
+                       std::string action, std::function<std::string(const std::string&)> accept)>
         ask_text;
     // A question before something that cannot be undone; action names its button, warning is
     // the line under the question.

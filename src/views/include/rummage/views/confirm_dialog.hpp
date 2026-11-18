@@ -36,8 +36,11 @@ public:
     // A separate instance can be used for archive passwords without replacing a confirmation.
     void open_password(std::string name, bool retry,
                        std::function<void(std::optional<std::string>)> answer);
+    // One line of text: accept returns what is wrong with it (the card stays), or empty; action
+    // names the button that accepts it.
     void open_name(std::string title, std::string detail, std::string initial,
-                   std::function<std::string(const std::string&)> accept);
+                   std::function<std::string(const std::string&)> accept,
+                   std::string action = "Compress");
     void paste(std::string_view text);
 
     [[nodiscard]] std::size_t generation() const { return generation_; }
