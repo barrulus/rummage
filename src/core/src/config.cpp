@@ -519,6 +519,14 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                   [&](const toml::node& value, const std::string& path) {
                       reader.read_bool(value, path, config.git.folder_status);
                   }},
+                 {"colors",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto colors = value.value<std::string>();
+                      if (colors && (*colors == "editor" || *colors == "git"))
+                          config.git.colors = *colors;
+                      else
+                          reader.report(value.source(), path + " must be editor or git");
+                  }},
                  {"commit_action",
                   [&](const toml::node& value, const std::string& path) {
                       const auto action = value.value<std::string>();

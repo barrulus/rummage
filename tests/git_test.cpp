@@ -470,7 +470,7 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
     const rummage::views::Badge* const sub = shown.badge("sub");
     REQUIRE(sub != nullptr);
     CHECK(sub->text == "•");
-    CHECK(sub->tone == rummage::views::Badge::Tone::added);
+    CHECK(sub->tone == rummage::views::Badge::Tone::untracked);
     const rummage::views::Badge* const log = shown.badge("debug.log");
     REQUIRE(log != nullptr);
     CHECK(log->faded);
@@ -564,14 +564,16 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
         shown.decorator.set_options({.ignored = git::Options::Ignored::hide,
                                      .folder_status = false,
                                      .language = {},
-                                     .commit_action = git::Options::CommitAction::commit});
+                                     .commit_action = git::Options::CommitAction::commit,
+                                     .colors = git::Options::Colors::editor});
         CHECK(shown.hides("debug.log"));
         CHECK_FALSE(shown.hides("a.txt"));
         CHECK(shown.badge("sub") == nullptr);
         shown.decorator.set_options({.ignored = git::Options::Ignored::show,
                                      .folder_status = true,
                                      .language = {},
-                                     .commit_action = git::Options::CommitAction::commit});
+                                     .commit_action = git::Options::CommitAction::commit,
+                                     .colors = git::Options::Colors::editor});
         REQUIRE(shown.wait_for([&] { return shown.badge("sub") != nullptr; }));
         CHECK(shown.badge("debug.log") == nullptr);
         CHECK_FALSE(shown.hides("debug.log"));
@@ -588,7 +590,8 @@ TEST_CASE("git decorator: hidden ignored entries leave the listing, and come bac
                 {.ignored = git::Options::Ignored::hide,
                  .folder_status = true,
                  .language = {},
-                 .commit_action = git::Options::CommitAction::commit}};
+                 .commit_action = git::Options::CommitAction::commit,
+                 .colors = git::Options::Colors::editor}};
     const auto listed = [&](std::string_view name) {
         return std::ranges::any_of(shown.folder->entries(),
                                    [&](const auto& entry) { return entry.name == name; });
@@ -605,7 +608,8 @@ TEST_CASE("git decorator: hidden ignored entries leave the listing, and come bac
     shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
                                  .folder_status = true,
                                  .language = {},
-                                 .commit_action = git::Options::CommitAction::commit});
+                                 .commit_action = git::Options::CommitAction::commit,
+                                 .colors = git::Options::Colors::editor});
     REQUIRE(shown.wait_for([&] { return listed("debug.log"); }));
     CHECK(shown.badge("debug.log")->faded);
 }
@@ -1002,7 +1006,8 @@ TEST_CASE("git language: git's texts apart from the interface's") {
     shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
                                  .folder_status = true,
                                  .language = "en",
-                                 .commit_action = git::Options::CommitAction::commit});
+                                 .commit_action = git::Options::CommitAction::commit,
+                                 .colors = git::Options::Colors::editor});
     CHECK(shown.text() == "main  ·  1 changed");
     CHECK(shown.decorator.menu(*shown.folder, {"a.txt"})->children.front().label == "Stage");
     CHECK(rummage::i18n::tr("Delete") != "Delete");  // the interface stays German
@@ -1011,7 +1016,8 @@ TEST_CASE("git language: git's texts apart from the interface's") {
     shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
                                  .folder_status = true,
                                  .language = {},
-                                 .commit_action = git::Options::CommitAction::commit});
+                                 .commit_action = git::Options::CommitAction::commit,
+                                 .colors = git::Options::Colors::editor});
     CHECK(shown.text() == "main  ·  1 geändert");
     rummage::i18n::set_language("en");
 }
@@ -1209,7 +1215,8 @@ TEST_CASE("git section: header, message field, commit button and folded file gro
     shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
                                  .folder_status = true,
                                  .language = {},
-                                 .commit_action = git::Options::CommitAction::commit_push});
+                                 .commit_action = git::Options::CommitAction::commit_push,
+                                 .colors = git::Options::Colors::editor});
     CHECK(shown.decorator.details(*shown.folder)->split->label == "✓ Commit & Push");
 }
 
@@ -1425,4 +1432,34 @@ TEST_CASE("git section: the changes of a file, and the arrows through the list")
         return !shown.decorator.acting() &&
                group_named(*shown.decorator.details(*shown.folder), "git_staged") == nullptr;
     }));
+}
+
+TEST_CASE("git: colours as editors use them, or as git does") {
+    using Tone = rummage::views::Badge::Tone;
+    const auto tone = [](git::FileStatus file, git::Options::Colors colors) {
+        return git::in_scheme(*git::badge_of(file), file, colors).tone;
+    };
+    using Kind = git::FileStatus::Kind;
+    const git::FileStatus modified{
+        .path = "a", .original = {}, .kind = Kind::tracked, .staged = '.', .unstaged = 'M'};
+    const git::FileStatus staged{
+        .path = "a", .original = {}, .kind = Kind::tracked, .staged = 'M', .unstaged = '.'};
+    const git::FileStatus added{
+        .path = "a", .original = {}, .kind = Kind::tracked, .staged = 'A', .unstaged = '.'};
+    const git::FileStatus untracked{
+        .path = "a", .original = {}, .kind = Kind::untracked, .staged = '.', .unstaged = '.'};
+    const git::FileStatus conflict{
+        .path = "a", .original = {}, .kind = Kind::conflict, .staged = 'U', .unstaged = 'U'};
+    const auto editor = git::Options::Colors::editor;
+    CHECK(tone(modified, editor) == Tone::modified);
+    CHECK(tone(staged, editor) == Tone::modified);
+    CHECK(tone(added, editor) == Tone::added);
+    CHECK(tone(untracked, editor) == Tone::untracked);
+    CHECK(tone(conflict, editor) == Tone::conflict);
+    const auto as_git = git::Options::Colors::git;  // staged green, the rest red
+    CHECK(tone(modified, as_git) == Tone::deleted);
+    CHECK(tone(staged, as_git) == Tone::added);
+    CHECK(tone(added, as_git) == Tone::added);
+    CHECK(tone(untracked, as_git) == Tone::deleted);
+    CHECK(tone(conflict, as_git) == Tone::deleted);
 }

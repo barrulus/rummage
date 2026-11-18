@@ -799,7 +799,9 @@ int main(int argc, char** argv) {
                                      ? rummage::git::Options::CommitAction::commit_push
                                  : settings.commit_action == "commit_sync"
                                      ? rummage::git::Options::CommitAction::commit_sync
-                                     : rummage::git::Options::CommitAction::commit};
+                                     : rummage::git::Options::CommitAction::commit,
+                .colors = settings.colors == "git" ? rummage::git::Options::Colors::git
+                                                   : rummage::git::Options::Colors::editor};
             if (git_status) {
                 git_status->set_options(options);
                 return;

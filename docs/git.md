@@ -51,6 +51,16 @@ inside them. The order follows the status as it changes.
 Git status never shows in the trash, in its folders opened by path (`Trash/files`,
 `.Trash-1000`) or inside archives.
 
+## Colours
+
+File states are coloured as editors do by default: modified amber, added and untracked green,
+deleted red, renamed blue-green, conflicts magenta, ignored subdued. With
+`git.colors = "git"` they follow git's own `git status`: what is staged green, everything else
+(not staged, untracked, unmerged) red. The hues are made from the current palette so they read
+on any theme; a palette file (or a Matugen or Noctalia template) can set them with the
+`git_*` roles described in [appearance](appearance.md#palette-file-interface). Diffs use the
+syntax colours: added lines green, removed lines in the error colour.
+
 ## Information pane
 
 At the end of the information pane, a **GIT** section (folded by its heading) works like an
@@ -127,6 +137,7 @@ read (for example one owned by another user, see `safe.directory`) shows nothing
 | `git.enabled` | `true` | Show the git status; live |
 | `git.ignored` | `"dim"` | Ignored files: `"show"` (plainly), `"dim"`, or `"hide"`; live |
 | `git.folder_status` | `true` | Folders mark the changes inside them; live |
+| `git.colors` | `"editor"` | `"editor"` (by kind of change) or `"git"` (staged green, the rest red); live |
 | `git.commit_action` | `"commit"` | What the commit button and Ctrl+Enter do: `"commit"`, `"commit_push"` or `"commit_sync"`; live |
 | `git.language` | `""` | Language of git's menus, messages and git's own output, e.g. `"en"` with a German interface; empty follows the interface; live |
 

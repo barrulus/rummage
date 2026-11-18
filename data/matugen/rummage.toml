@@ -37,3 +37,13 @@ scrim = "{{ colors.scrim.default.hex }}"
 # Rummage menu highlight roles are not part of Material.
 hover = "{{ colors.primary.default.hex }}"
 on_hover = "{{ colors.on_primary.default.hex }}"
+
+# The git integration's file states. Unset, rummage makes them from this palette (editor hues,
+# readable on it). To take them from the theme instead, uncomment and adjust, for example:
+# git_added = "{{ colors.tertiary.default.hex }}"
+# git_modified = "{{ colors.secondary.default.hex }}"
+# git_deleted = "{{ colors.error.default.hex }}"
+# git_renamed = "{{ colors.primary.default.hex }}"
+# git_untracked = "{{ colors.tertiary.default.hex }}"
+# git_conflict = "{{ colors.error_container.default.hex }}"
+# git_ignored = "{{ colors.outline.default.hex }}"

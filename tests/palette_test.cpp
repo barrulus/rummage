@@ -429,3 +429,19 @@ TEST_CASE("palette sources: light and dark overrides use the selected source's a
     CHECK(theme.palette().primary == Color::rgb(0x88C0D0));
     CHECK(theme.palette().surface == Color::rgb(0x2E3440));
 }
+
+TEST_CASE("git colours in colors.toml: optional, used when given, checked") {
+    const PaletteResult none = parse("[colors]\n");
+    CHECK_FALSE(none.palette.git_added.has_value());
+    const PaletteResult given =
+        parse("[colors]\ngit_added = \"#00ff00\"\ngit_conflict = \"#ff00ff80\"\n");
+    CHECK(given.problems.empty());
+    CHECK(given.from_file);
+    REQUIRE(given.palette.git_added.has_value());
+    CHECK(*given.palette.git_added == rummage::ui::Color::rgb(0x00FF00));
+    REQUIRE(given.palette.git_conflict.has_value());
+    CHECK_FALSE(given.palette.git_modified.has_value());
+    const PaletteResult wrong = parse("[colors]\ngit_deleted = \"red\"\n");
+    CHECK_FALSE(wrong.from_file);
+    CHECK(wrong.problems.size() == 1);
+}

@@ -24,6 +24,21 @@ struct Role {
     Color Palette::* member;
 };
 
+struct OptionalRole {
+    std::string_view name;
+    std::optional<Color> Palette::* member;
+};
+
+constexpr std::array kOptionalRoles{
+    OptionalRole{"git_added", &Palette::git_added},
+    OptionalRole{"git_modified", &Palette::git_modified},
+    OptionalRole{"git_deleted", &Palette::git_deleted},
+    OptionalRole{"git_renamed", &Palette::git_renamed},
+    OptionalRole{"git_untracked", &Palette::git_untracked},
+    OptionalRole{"git_conflict", &Palette::git_conflict},
+    OptionalRole{"git_ignored", &Palette::git_ignored},
+};
+
 constexpr std::array kRoles{
     Role{"primary", &Palette::primary},
     Role{"on_primary", &Palette::on_primary},
@@ -117,6 +132,24 @@ bool read_colors(const toml::node& node, Problems& problems, Palette& palette) {
     }
     bool valid = true;
     for (const Role& role : kRoles) {
+        const toml::node* value = table->get(role.name);
+        if (value == nullptr) {
+            continue;
+        }
+        const auto* text = value->as_string();
+        const std::optional<Color> color = text != nullptr ? parse_hex(text->get()) : std::nullopt;
+        if (!color) {
+            problems.report(value->source(),
+                            std::format("'colors.{}' must be \"#rrggbb\" or \"#rrggbbaa\"; "
+                                        "file ignored",
+                                        role.name));
+            valid = false;
+            continue;
+        }
+        palette.*role.member = *color;
+    }
+    // The file states' colours: optional, made from the palette when missing.
+    for (const OptionalRole& role : kOptionalRoles) {
         const toml::node* value = table->get(role.name);
         if (value == nullptr) {
             continue;

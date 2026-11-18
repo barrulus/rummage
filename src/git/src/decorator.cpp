@@ -27,10 +27,17 @@ constexpr std::size_t kPlaces = 4096;
 
 // How much a folder's summary badge says about what is inside it: the strongest wins.
 int weight(const Badge& badge) {
-    if (badge.tone == Tone::removed) {
-        return 3;
+    switch (badge.tone) {
+        case Tone::conflict:
+            return 4;
+        case Tone::deleted:
+            return 3;
+        case Tone::added:
+        case Tone::untracked:
+            return 1;
+        default:
+            return 2;
     }
-    return badge.tone == Tone::added ? 1 : 2;
 }
 
 std::string_view change_name(char change) {
@@ -69,14 +76,27 @@ bool in_a_trash(const std::filesystem::path& folder) {
 
 }  // namespace
 
+Badge in_scheme(Badge badge, const FileStatus& file, Options::Colors colors) {
+    if (colors != Options::Colors::git || badge.faded) {
+        return badge;
+    }
+    // git's own: what is staged green, the rest (not staged, untracked, unmerged) red.
+    const bool staged = file.kind == FileStatus::Kind::tracked && file.unstaged == '.';
+    badge.tone = staged ? Tone::added : Tone::deleted;
+    return badge;
+}
+
 std::optional<Badge> badge_of(const FileStatus& file) {
     switch (file.kind) {
         case FileStatus::Kind::conflict:
             return Badge{
-                .text = "!", .tone = Tone::removed, .strong = true, .faded = false, .tint = true};
+                .text = "!", .tone = Tone::conflict, .strong = true, .faded = false, .tint = true};
         case FileStatus::Kind::untracked:
-            return Badge{
-                .text = "U", .tone = Tone::added, .strong = false, .faded = false, .tint = true};
+            return Badge{.text = "U",
+                         .tone = Tone::untracked,
+                         .strong = false,
+                         .faded = false,
+                         .tint = true};
         case FileStatus::Kind::ignored:
             return Badge{.text = {}, .tone = Tone::muted, .strong = false, .faded = true};
         case FileStatus::Kind::tracked:
@@ -84,7 +104,7 @@ std::optional<Badge> badge_of(const FileStatus& file) {
     }
     const char change = file.unstaged != '.' ? file.unstaged : file.staged;
     Badge badge{.text = std::string(1, change),
-                .tone = Tone::accent,
+                .tone = Tone::modified,
                 .strong = file.unstaged == '.',  // all of it staged
                 .faded = false,
                 .tint = true};
@@ -93,7 +113,7 @@ std::optional<Badge> badge_of(const FileStatus& file) {
             badge.tone = Tone::added;
             break;
         case 'D':
-            badge.tone = Tone::removed;
+            badge.tone = Tone::deleted;
             break;
         case 'R':
         case 'C':
@@ -789,7 +809,10 @@ void Decorator::rebuild(Repo& repo) {
         const std::vector<FileStatus>& files = repo.status->files;
         for (std::size_t i = 0; i < files.size(); ++i) {
             const FileStatus& file = files[i];
-            const std::optional<Badge> badge = badge_of(file);
+            std::optional<Badge> badge = badge_of(file);
+            if (badge) {
+                badge = in_scheme(*badge, file, options_.colors);
+            }
             if (!badge) {
                 continue;
             }
@@ -907,7 +930,8 @@ int Decorator::rank(const std::filesystem::path& folder, const fs::Entry& entry)
     if (found->text == "!") {
         return 0;
     }
-    return found->tone == views::Badge::Tone::added ? 2 : 1;
+    // By the letter, whatever colours show it: new files after changes.
+    return found->text == "A" || found->text == "U" ? 2 : 1;
 }
 
 const views::StatusPart* Decorator::status(const views::Folder& folder) {
@@ -1142,7 +1166,8 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
                      entries.push_back(
                          {.name = path.filename().string(),
                           .detail = path.parent_path().string(),
-                          .badge = badge_of(shown).value_or(views::Badge{}),
+                          .badge = in_scheme(badge_of(shown).value_or(views::Badge{}), shown,
+                                             options_.colors),
                           // A click: its changes, the arrows going through this list.
                           .open =
                               [this, key, which, file_path = file.path] {

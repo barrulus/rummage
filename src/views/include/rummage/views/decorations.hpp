@@ -18,8 +18,16 @@ namespace rummage::views {
 
 // A short mark at the end of an entry's row or under its grid cell ("M", "U").
 struct Badge {
-    // The palette role it is drawn in.
-    enum class Tone : std::uint8_t { muted, accent, added, renamed, removed };
+    // What it is drawn in: a file state's colour (theme::status_colors), or subdued.
+    enum class Tone : std::uint8_t {
+        muted,
+        added,
+        modified,
+        deleted,
+        renamed,
+        untracked,
+        conflict,
+    };
 
     std::string text;  // one or two characters, the same in every language
     Tone tone{Tone::muted};

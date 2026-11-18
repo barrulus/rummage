@@ -3,8 +3,8 @@
 #include <cmath>
 #include <numbers>
 
-#include "rummage/theme/desktop.hpp"
 #include "oklch.hpp"
+#include "rummage/theme/desktop.hpp"
 
 namespace rummage::theme {
 namespace {
@@ -58,6 +58,38 @@ SyntaxColors syntax_colors(const Palette& palette) {
         readable({.l = primary.l, .c = kGreenChroma, .h = kGreenHue}, page),  // added
         readable(error, page),                                                // removed
     };
+}
+
+StatusColors status_colors(const Palette& palette) {
+    const Color page = palette.surface.with_alpha(1.0F);
+    // A fixed, middle lightness as editors' colours have (not the accent's, which may be nearly
+    // white or black), lighter on a dark page; hues in OKLCH radians: amber, blue-green, magenta.
+    const double lightness = to_lch(page).l < 0.6 ? 0.80 : 0.52;
+    constexpr double kAmberHue = 1.31;
+    constexpr double kTealHue = 3.49;
+    constexpr double kMagentaHue = 5.76;
+    const auto hue = [&](double h, double c) {
+        return readable({.l = lightness, .c = c, .h = h}, page);
+    };
+    const Color green = hue(kGreenHue, 0.17);
+    StatusColors colors{
+        green,                                  // added
+        hue(kAmberHue, 0.13),                   // modified
+        readable(to_lch(palette.error), page),  // deleted
+        hue(kTealHue, 0.10),                    // renamed
+        green,                                  // untracked
+        hue(kMagentaHue, 0.15),                 // conflict
+        palette.outline,                        // ignored (drawn faded anyway)
+    };
+    const std::array overrides{palette.git_added,   palette.git_modified,  palette.git_deleted,
+                               palette.git_renamed, palette.git_untracked, palette.git_conflict,
+                               palette.git_ignored};
+    for (std::size_t i = 0; i < colors.size(); ++i) {
+        if (overrides.at(i)) {
+            colors.at(i) = *overrides.at(i);
+        }
+    }
+    return colors;
 }
 
 }  // namespace rummage::theme

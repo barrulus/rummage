@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -62,6 +63,19 @@ struct Palette {
     Color scrim{Color::rgb(0x000000)};
     Color hover{Color::rgb(0x9BFECE)};
     Color on_hover{Color::rgb(0x0E0E43)};
+
+    // The colours of a file's state (git's): unset, status_colors() makes them from the palette.
+    // colors.toml may set them as git_added, git_modified, git_deleted, git_renamed,
+    // git_untracked, git_conflict and git_ignored.
+    std::optional<Color> git_added;
+    std::optional<Color> git_modified;
+    std::optional<Color> git_deleted;
+    std::optional<Color> git_renamed;
+    std::optional<Color> git_untracked;
+    std::optional<Color> git_conflict;
+    std::optional<Color> git_ignored;
+
+    bool operator==(const Palette&) const = default;
 };
 
 struct PaletteResult {

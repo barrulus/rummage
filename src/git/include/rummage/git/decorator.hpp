@@ -39,9 +39,17 @@ struct Options {
     // What the commit button and Ctrl+Enter in the message field do; the button's menu has all.
     enum class CommitAction : std::uint8_t { commit, commit_push, commit_sync };
     CommitAction commit_action{CommitAction::commit};
+    // How states are coloured: as editors do (by kind of change), or as git does (staged green,
+    // the rest red).
+    enum class Colors : std::uint8_t { editor, git };
+    Colors colors{Colors::editor};
 
     bool operator==(const Options&) const = default;
 };
+
+// badge in a colour scheme: as is for Options::Colors::editor; git's for Options::Colors::git.
+[[nodiscard]] views::Badge in_scheme(views::Badge badge, const FileStatus& file,
+                                     Options::Colors colors);
 
 // The badge of one path git reports; nullopt for one without (an unchanged path).
 [[nodiscard]] std::optional<views::Badge> badge_of(const FileStatus& file);

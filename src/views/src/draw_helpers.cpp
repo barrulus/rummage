@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cstddef>
 
+#include "rummage/theme/syntax.hpp"
+
 namespace rummage::views {
 
 float text_width(ui::Renderer& renderer, std::string_view text, float size) {
@@ -10,19 +12,39 @@ float text_width(ui::Renderer& renderer, std::string_view text, float size) {
 }
 
 ui::Color tone_color(const theme::Palette& palette, Badge::Tone tone) {
+    if (tone == Badge::Tone::muted) {
+        return palette.outline;
+    }
+    // Made once per palette: the hues are moved in lightness until they read.
+    thread_local std::optional<theme::Palette> made_for;
+    thread_local theme::StatusColors colors{};
+    if (made_for != palette) {
+        colors = theme::status_colors(palette);
+        made_for = palette;
+    }
+    using Role = theme::StatusRole;
+    Role role = Role::modified;
     switch (tone) {
-        case Badge::Tone::accent:
-            return palette.primary;
         case Badge::Tone::added:
-            return palette.tertiary;
+            role = Role::added;
+            break;
+        case Badge::Tone::deleted:
+            role = Role::deleted;
+            break;
         case Badge::Tone::renamed:
-            return palette.secondary;
-        case Badge::Tone::removed:
-            return palette.error;
+            role = Role::renamed;
+            break;
+        case Badge::Tone::untracked:
+            role = Role::untracked;
+            break;
+        case Badge::Tone::conflict:
+            role = Role::conflict;
+            break;
+        case Badge::Tone::modified:
         case Badge::Tone::muted:
             break;
     }
-    return palette.outline;
+    return colors.at(static_cast<std::size_t>(role));
 }
 
 float draw_badge(ui::Renderer& renderer, const theme::Palette& palette, const Badge& badge,

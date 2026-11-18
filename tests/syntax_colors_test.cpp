@@ -94,3 +94,44 @@ TEST_CASE("syntax colours: a palette whose colours do not read on its page is me
     light.on_surface_variant = Color::rgb(0xD0D0D0);
     every_colour_reads(light);
 }
+
+TEST_CASE("status colours: readable on every desktop palette, apart from each other") {
+    using rummage::theme::status_colors;
+    using rummage::theme::StatusRole;
+    for (const bool dark : {true, false}) {
+        for (const std::uint32_t accent : kAccents) {
+            CAPTURE(std::format("#{:06x} {}", accent, dark ? "dark" : "light"));
+            const Palette palette = desktop_palette({.dark = dark, .accent = Color::rgb(accent)});
+            const auto colours = status_colors(palette);
+            for (std::size_t i = 0; i < colours.size(); ++i) {
+                if (i == static_cast<std::size_t>(StatusRole::ignored)) {
+                    continue;  // drawn faded on purpose
+                }
+                CAPTURE(i);
+                CHECK(contrast(colours.at(i), palette.surface) >= 4.5F);
+            }
+            const auto at = [&](StatusRole role) {
+                return colours.at(static_cast<std::size_t>(role));
+            };
+            // Modified, added, deleted, renamed and conflicts tell apart.
+            CHECK_FALSE(same(at(StatusRole::modified), at(StatusRole::added)));
+            CHECK_FALSE(same(at(StatusRole::added), at(StatusRole::deleted)));
+            CHECK_FALSE(same(at(StatusRole::renamed), at(StatusRole::added)));
+            CHECK_FALSE(same(at(StatusRole::conflict), at(StatusRole::deleted)));
+            CHECK(same(at(StatusRole::untracked), at(StatusRole::added)));  // as editors do
+        }
+    }
+}
+
+TEST_CASE("status colours: a palette's own git colours are used as given") {
+    using rummage::theme::status_colors;
+    using rummage::theme::StatusRole;
+    Palette palette;
+    palette.git_modified = Color::rgb(0x123456);
+    palette.git_conflict = Color::rgb(0xFF00FF);
+    const auto colours = status_colors(palette);
+    CHECK(same(colours.at(static_cast<std::size_t>(StatusRole::modified)), Color::rgb(0x123456)));
+    CHECK(same(colours.at(static_cast<std::size_t>(StatusRole::conflict)), Color::rgb(0xFF00FF)));
+    CHECK_FALSE(
+        same(colours.at(static_cast<std::size_t>(StatusRole::added)), Color::rgb(0x123456)));
+}

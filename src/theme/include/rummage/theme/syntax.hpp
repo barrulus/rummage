@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 #include "rummage/theme/palette.hpp"
 
@@ -18,5 +19,23 @@ inline constexpr std::size_t kSyntaxColors = 8;
 using SyntaxColors = std::array<Color, kSyntaxColors>;
 
 [[nodiscard]] SyntaxColors syntax_colors(const Palette& palette);
+
+// The colours of a file's state (in git's sense), as editors use them: modified amber, added
+// and untracked green, deleted in the error colour, renamed blue-green, conflicts magenta,
+// ignored subdued. Made from fixed hues at a middle lightness (lighter on dark pages), moved until
+// they read on surface (WCAG AA), unless the palette sets them (Palette::git_*).
+enum class StatusRole : std::uint8_t {
+    added,
+    modified,
+    deleted,
+    renamed,
+    untracked,
+    conflict,
+    ignored
+};
+inline constexpr std::size_t kStatusColors = 7;
+using StatusColors = std::array<Color, kStatusColors>;
+
+[[nodiscard]] StatusColors status_colors(const Palette& palette);
 
 }  // namespace rummage::theme
