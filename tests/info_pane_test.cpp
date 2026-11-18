@@ -724,3 +724,68 @@ TEST_CASE("info pane: modifier keys keep text focus and file navigation drops it
     CHECK(offered.front().first == "x-special/gnome-copied-files");
     CHECK(offered.front().second.ends_with("short.txt"));
 }
+
+TEST_CASE("info pane: moving to the next file keeps the summary before until the next is read") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    f.press(XKB_KEY_Down);  // short.txt
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    const float page = f.pane().text_page().height;
+    const float size_row = f.pane().property_bounds("Size.value").y;
+    REQUIRE(page > 0.0F);
+
+    // long.txt: its summary is read on a worker. Until it arrives the page of short.txt stays,
+    // so the rows under it do not jump up (an icon in its place) and back for a frame.
+    f.press(XKB_KEY_Up);
+    f.draw();
+    CHECK(f.pane().summary() == nullptr);
+    CHECK(f.pane().text_page().empty());  // drawn only: nothing to point at or select
+    CHECK(f.pane().property_bounds("Size.value").y == size_row);
+    CHECK(f.pane().selected_text().empty());  // drawn only
+    // Its rows are short.txt's: they cannot be selected (or copied) under long.txt's name.
+    const auto name = f.pane().property_bounds("name");
+    REQUIRE_FALSE(name.empty());
+    f.click(name.x + 2.0F, name.y + 2.0F, 2);
+    CHECK_FALSE(f.pane().text_focused());
+    CHECK(f.pane().selected_text().empty());
+
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    REQUIRE(f.pane().summary()->text);
+    CHECK(f.pane().summary()->text->lines.size() == 200);
+    CHECK(f.pane().text_offset() == 0.0F);
+    CHECK(f.pane().text_page().height > page);  // long.txt's page is taller
+}
+
+TEST_CASE("info pane: the summary before keeps where it was scrolled to until it is replaced") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);  // long.txt
+    REQUIRE(f.settle());
+    const auto page = f.pane().text_page();
+    REQUIRE(page.height > 0.0F);
+    f.wheel(page.x + (page.width / 2.0F), page.y + (page.height / 2.0F), 3.0F);
+    f.draw(1000ms);
+    const float scrolled = f.pane().text_offset();
+    REQUIRE(scrolled > 0.0F);
+
+    // short.txt: until its summary arrives, long.txt's page stays where it was, not at its top.
+    f.press(XKB_KEY_Down);
+    f.draw();
+    REQUIRE(f.pane().summary() == nullptr);
+    CHECK(f.pane().text_offset() == scrolled);
+
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    CHECK(f.pane().text_offset() == 0.0F);  // the next one starts at the top
+}
