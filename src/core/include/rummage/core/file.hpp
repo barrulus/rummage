@@ -22,6 +22,15 @@ struct TextFile {
 // Returns an error message, or an empty string for success/no legacy file.
 [[nodiscard]] std::string migrate_nordend_file(const std::filesystem::path& destination);
 
+struct AtomicWriteTarget {
+    std::filesystem::path destination;
+    std::string error;
+};
+
+// Resolves symlinks and checks the directory/filesystem needed for atomic replacement.
+// This is advisory; callers must still handle errors from the actual write.
+[[nodiscard]] AtomicWriteTarget atomic_write_target(const std::filesystem::path& path);
+
 // Replaces path's content with text, all or nothing: written to a hidden file beside it, synced,
 // then renamed over it. Its folder is made when missing. Returns what failed.
 // With replace=false, publish without overwriting any existing entry (including symlinks);

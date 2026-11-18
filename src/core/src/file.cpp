@@ -9,6 +9,7 @@
 #include <ios>
 #include <string_view>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <system_error>
 #include <unistd.h>
 #include <utility>
@@ -54,6 +55,48 @@ std::string file_uri(const std::filesystem::path& absolute) {
         }
     }
     return uri;
+}
+
+AtomicWriteTarget atomic_write_target(const std::filesystem::path& path) {
+    AtomicWriteTarget result;
+    std::error_code error;
+    const auto absolute = std::filesystem::absolute(path, error);
+    if (error) {
+        result.error = error.message();
+        return result;
+    }
+    const bool link = std::filesystem::is_symlink(absolute, error);
+    error.clear();
+    result.destination = link ? std::filesystem::canonical(absolute, error)
+                              : std::filesystem::weakly_canonical(absolute, error);
+    if (error) {
+        result.error = error.message();
+        return result;
+    }
+    auto directory = result.destination.parent_path();
+    while (!directory.empty() && !std::filesystem::exists(directory, error)) {
+        if (error)
+            break;
+        directory = directory.parent_path();
+    }
+    struct stat info{};
+    struct statvfs filesystem{};
+    if (error || directory.empty() || ::stat(directory.c_str(), &info) != 0) {
+        result.error = error ? error.message() : last_error().message();
+    } else if (!S_ISDIR(info.st_mode) || !(info.st_mode & 0222) ||
+               ::faccessat(AT_FDCWD, directory.c_str(), W_OK | X_OK, AT_EACCESS) != 0) {
+        result.error = "The configuration directory is not writable.";
+    } else if (::statvfs(directory.c_str(), &filesystem) != 0) {
+        result.error = last_error().message();
+    } else if (filesystem.f_flag & ST_RDONLY) {
+        result.error = "The configuration filesystem is read-only.";
+    } else if (info.st_mode & S_ISVTX) {
+        struct stat target{};
+        if (::stat(result.destination.c_str(), &target) == 0 && ::geteuid() != 0 &&
+            ::geteuid() != info.st_uid && ::geteuid() != target.st_uid)
+            result.error = "The configuration cannot be replaced in this directory.";
+    }
+    return result;
 }
 
 std::error_code write_file_atomically(const std::filesystem::path& path, std::string_view text,

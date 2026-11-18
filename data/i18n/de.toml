@@ -907,5 +907,25 @@ moves = "Bewegung"
 "Follow the selected source or choose light or dark" = "Der gewählten Quelle folgen oder Hell/Dunkel wählen"
 "Use the palette accent for Rummage’s app icon" = "Palettenakzent für das Anwendungssymbol nutzen"
 
+"Change the declared configuration, then reopen Settings." = "Ändere die deklarierte Konfiguration und öffne die Einstellungen erneut."
+"Edit the declared configuration to change settings." = "Änderungen sind in der deklarierten Konfiguration möglich."
+"Read-only configuration" = "Schreibgeschützte Konfiguration"
+"Search settings… (Ctrl+F)" = "Einstellungen suchen… (Strg+F)"
+"No settings match your search." = "Keine passenden Einstellungen gefunden."
+"Reset category to defaults" = "Kategorie auf Standardwerte zurücksetzen"
+"Reset to default" = "Auf Standard zurücksetzen"
+"Menus" = "Menüs"
+"Arrange menu items, separators and submenus" = "Menüeinträge, Trennlinien und Untermenüs anordnen"
+"Common layout" = "Gemeinsames Layout"
+"Files and folders" = "Dateien und Ordner"
+"Folder background" = "Ordnerhintergrund"
+
+" (reload failed; last valid palette)" = " (Neuladen fehlgeschlagen; letzte gültige Palette)"
+" (palette file rejected)" = " (Palettendatei abgelehnt)"
+
+"Settings details" = "Einstellungsdetails"
+
+"Edit action availability, selection and arguments" = "Verfügbarkeit, Auswahl und Argumente von Aktionen bearbeiten"
+
 [contexts.file-action]
 "Open" = "Öffnen"

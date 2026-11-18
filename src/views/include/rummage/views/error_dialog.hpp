@@ -14,7 +14,8 @@ namespace rummage::views {
 // Action failures remain readable until dismissed. Concurrent failures are queued.
 class ErrorDialog {
 public:
-    ErrorDialog(std::function<void()> redraw, std::function<void(std::string)> copy);
+    ErrorDialog(std::function<void()> redraw, std::function<void(std::string)> copy,
+                std::string title = "Action failed");
     void push(std::string detail);
 
     [[nodiscard]] bool is_open() const { return !messages_.empty(); }
@@ -38,6 +39,7 @@ private:
     std::function<void()> redraw_;
     std::function<void(std::string)> copy_;
     std::deque<std::string> messages_;
+    std::string title_;
     std::vector<std::string> lines_;
     float wrapped_width_{0};
     float wrapped_scale_{0};

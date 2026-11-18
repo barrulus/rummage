@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <charconv>
 #include <cmath>
 #include <format>
 #include <unordered_set>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "rummage/core/actions.hpp"
 #include "rummage/core/config_edit.hpp"
 #include "rummage/core/file.hpp"
 #include "rummage/core/i18n.hpp"
@@ -16,7 +18,9 @@
 
 namespace rummage::views {
 namespace {
-constexpr std::array kSections{"General", "Appearance", "Keyboard shortcuts", "Actions"};
+constexpr std::array kSections{"General", "Appearance", "Keyboard shortcuts", "Actions", "Menus"};
+constexpr std::array kMenuContexts{"Common layout", "Files and folders", "Folder background",
+                                   "Trash", "Sidebar"};
 
 std::string arguments(const std::vector<std::string>& argv) {
     std::string result = "[";
@@ -31,7 +35,16 @@ std::string arguments(const std::vector<std::string>& argv) {
 }  // namespace
 
 SettingsDialog::SettingsDialog(core::WorkerPool& pool, std::function<void()> redraw)
-    : pool_{pool}, redraw_{std::move(redraw)}, choices_{redraw_}, details_{redraw_, {}} {}
+    : pool_{pool},
+      redraw_{std::move(redraw)},
+      choices_{redraw_},
+      details_{redraw_, {}, "Settings details"},
+      editors_{
+          [this](const auto& edits, std::string_view append) { return apply_edits(edits, append); },
+          redraw_},
+      menus_{redraw_, [this](const auto& edits, std::string_view append) {
+                 return apply_edits(edits, append);
+             }} {}
 
 SettingsDialog::~SettingsDialog() { job_.cancel(); }
 
@@ -51,6 +64,8 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
     original_.clear();
     staged_.clear();
     fields_.clear();
+    search_.set_text("");
+    read_only_reason_.clear();
     buttons_.clear();
     new_actions_ = new_bindings_ = 0;
     change_section(0);
@@ -69,6 +84,11 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
                 else {
                     valid_ = true;
                     populate(parsed);
+                    refresh_editability();
+                    editors_.reset(parsed.config, editable());
+                    menus_.discard();
+                    menus_.sync(parsed.config, editable());
+                    menus_.context(0);
                 }
             }
             update_error();
@@ -80,6 +100,9 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
 
 void SettingsDialog::finish_close() {
     choices_.close();
+    editors_.discard();
+    menus_.discard();
+    menus_.dismiss();
     open_ = false;
     close_requested_ = discard_prompt_ = false;
     ++generation_;
@@ -87,11 +110,12 @@ void SettingsDialog::finish_close() {
 }
 
 bool SettingsDialog::has_drafts() const {
-    return std::ranges::any_of(fields_, [](const Field& field) {
-        return field.section >= 0 &&
-               (field.table.starts_with("new:") || field.table.starts_with("binding:") ||
-                field.input.text() != field.original);
-    });
+    return editors_.has_drafts() || menus_.has_draft() ||
+           std::ranges::any_of(fields_, [](const Field& field) {
+               return field.section >= 0 &&
+                      (field.table.starts_with("new:") || field.table.starts_with("binding:") ||
+                       field.input.text() != field.original);
+           });
 }
 
 void SettingsDialog::maybe_close() {
@@ -114,6 +138,7 @@ void SettingsDialog::close() {
 }
 
 void SettingsDialog::populate(const core::ConfigResult& loaded) {
+    accepted_config_ = loaded;
     const auto& config = loaded.config;
     const auto add = [&](int section, std::string group, std::string table, std::string key,
                          std::string label, std::string description, std::string value,
@@ -129,6 +154,7 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         field.original = value;
         field.input.set_text(std::move(value));
         field.raw = raw;
+        field.resettable = section < 2 || field.table == "keybindings";
         field.choices = std::move(choices);
         field.number = number;
         fields_.push_back(std::move(field));
@@ -225,8 +251,188 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     }
 }
 
-bool SettingsDialog::edit(std::string_view table, std::string_view key, std::string value) {
+bool SettingsDialog::refresh_editability() {
     if (!valid_)
+        return false;
+    const auto target = core::atomic_write_target(path_);
+    read_only_reason_ =
+        target.error.empty()
+            ? std::string{}
+            : target.destination.string() + "\n" + target.error + "\n" +
+                  std::string{i18n::tr("Change the declared configuration, then reopen Settings.")};
+    if (!read_only_reason_.empty())
+        choices_.close();
+    return editable();
+}
+
+std::string SettingsDialog::apply_edits(const std::vector<core::ConfigEdit>& edits,
+                                        std::string_view append) {
+    if (!refresh_editability())
+        return read_only_reason_.empty() ? "Settings are not loaded." : read_only_reason_;
+    auto changed = core::edit_config_text(staged_, edits, append);
+    if (!changed.error.empty())
+        return changed.error;
+    auto parsed = core::parse_config(changed.text, path_.string());
+    if (!parsed.problems.empty())
+        return parsed.problems.front();
+    const auto problems =
+        configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
+    if (!problems.empty())
+        return problems.front();
+    staged_ = std::move(changed.text);
+    accepted_config_ = std::move(parsed);
+    refresh_values(edits);
+    saved_ = false;
+    flush();
+    redraw_();
+    return {};
+}
+
+void SettingsDialog::refresh_values(const std::vector<core::ConfigEdit>& reset) {
+    auto previous = std::move(fields_);
+    fields_.clear();
+    const auto accepted = accepted_config_;
+    populate(accepted);
+    for (auto& field : fields_) {
+        const bool resetting = std::ranges::any_of(reset, [&](const core::ConfigEdit& edit) {
+            return edit.table == field.table && edit.key == field.key;
+        });
+        const auto old = std::ranges::find_if(previous, [&](const Field& before) {
+            return before.table == field.table && before.key == field.key;
+        });
+        if (!resetting && old != previous.end() && old->input.text() != old->original) {
+            field.input.set_text(old->input.text());
+            field.error = old->error;
+        }
+    }
+    // Preserve incomplete action and shortcut drafts, which are not represented in Config.
+    for (auto& field : previous)
+        if (field.table.starts_with("new:") || field.table.starts_with("binding:"))
+            fields_.push_back(std::move(field));
+    update_error();
+    layout_rows();
+}
+
+bool SettingsDialog::reset_setting(std::string_view table, std::string_view key) {
+    const auto field = std::ranges::find_if(fields_, [&](const Field& item) {
+        return item.table == table && item.key == key && item.resettable;
+    });
+    if (field == fields_.end())
+        return false;
+    const std::vector<core::ConfigEdit> edits{{std::string{table}, std::string{key}, "", true}};
+    const auto error = apply_edits(edits);
+    if (!error.empty()) {
+        field->error = error;
+        update_error();
+        return false;
+    }
+    return true;
+}
+
+bool SettingsDialog::reset_category(int section) {
+    if (section < 0 || section > 2)
+        return false;
+    std::vector<core::ConfigEdit> edits;
+    for (const auto& field : fields_)
+        if (field.section == section && field.resettable)
+            edits.push_back({field.table, field.key, "", true});
+    const auto error = apply_edits(edits);
+    if (!error.empty()) {
+        write_error_ = error;
+        update_error();
+        return false;
+    }
+    return true;
+}
+
+void SettingsDialog::search(std::string query) {
+    commit_focus();
+    search_.set_text(std::move(query));
+    scroller_.jump_to(0);
+    redraw_();
+}
+
+std::vector<SettingsDialog::SearchResult> SettingsDialog::search_results() const {
+    const auto folded = [](std::string text) {
+        std::ranges::transform(text, text.begin(), [](unsigned char c) { return std::tolower(c); });
+        return text;
+    };
+    const auto query = folded(search_.text());
+    std::vector<SearchResult> results;
+    for (std::size_t i = 0; i < fields_.size(); ++i) {
+        const auto& field = fields_[i];
+        if (field.section < 0)
+            continue;
+        const auto searchable =
+            std::string{i18n::tr(field.label)} + " " + std::string{i18n::tr(field.description)} +
+            " " + field.label + " " + field.description + " " + field.group + " " + field.table +
+            "." + field.key +
+            (field.section == 3 && field.key == "label" ? " " + field.original : "");
+        if (folded(searchable).find(query) != std::string::npos)
+            results.push_back({i, field.section, field.label, field.description});
+    }
+    for (std::size_t i = 0; i < kMenuContexts.size(); ++i) {
+        const auto label = std::string{i18n::tr(kMenuContexts[i])};
+        const std::string description = "Arrange menu items, separators and submenus";
+        if (folded(label + " " + std::string{i18n::tr(description)} + " " + description)
+                .find(query) != std::string::npos)
+            results.push_back({fields_.size() + i, 4, kMenuContexts[i], description});
+    }
+    const auto actions = core::action_registry(accepted_config_.config.actions);
+    for (std::size_t i = 0; i < actions.size(); ++i) {
+        const auto& action = actions[i];
+        const std::string description = "Edit action availability, selection and arguments";
+        if (folded(action.label + " " + action.id + " " + std::string{i18n::tr(description)} + " " +
+                   description)
+                .find(query) != std::string::npos)
+            results.push_back(
+                {fields_.size() + kMenuContexts.size() + i, 3, action.label, description});
+    }
+    return results;
+}
+
+void SettingsDialog::jump_to_result(std::size_t field) {
+    if (field >= fields_.size()) {
+        if (field - fields_.size() < kMenuContexts.size()) {
+            const auto context = field - fields_.size();
+            search_.set_text("");
+            change_section(4);
+            menus_.context(context);
+            set_focus("editor");
+        } else {
+            const auto index = field - fields_.size() - kMenuContexts.size();
+            const auto actions = core::action_registry(accepted_config_.config.actions);
+            if (index < actions.size()) {
+                const auto id = actions[index].id;
+                search_.set_text("");
+                change_section(3);
+                editors_.select_action(id);
+                set_focus("editor");
+            }
+        }
+        return;
+    }
+    if (fields_[field].section < 0)
+        return;
+    const auto section = fields_[field].section;
+    const auto table = fields_[field].table;
+    const auto key = fields_[field].key;
+    const auto group = fields_[field].group;
+    search_.set_text("");
+    change_section(section);
+    if (section == 2) {
+        editors_.focus_shortcut(key);
+        set_focus("editor");
+    } else if (section == 3) {
+        editors_.select_action(group);
+        set_focus("editor");
+    } else {
+        set_focus("f" + std::to_string(field));
+    }
+}
+
+bool SettingsDialog::edit(std::string_view table, std::string_view key, std::string value) {
+    if (!refresh_editability())
         return false;
     for (auto& field : fields_) {
         if (field.table == table && field.key == key) {
@@ -239,7 +445,7 @@ bool SettingsDialog::edit(std::string_view table, std::string_view key, std::str
 }
 
 void SettingsDialog::add_action() {
-    if (!valid_)
+    if (!refresh_editability())
         return;
     commit_focus();
     const auto table = std::format("new:{}", new_actions_++);
@@ -268,7 +474,7 @@ void SettingsDialog::add_action() {
 }
 
 void SettingsDialog::add_keybinding() {
-    if (!valid_)
+    if (!refresh_editability())
         return;
     commit_focus();
     const auto table = std::format("binding:{}", new_bindings_++);
@@ -293,6 +499,10 @@ void SettingsDialog::add_keybinding() {
 void SettingsDialog::update_error() {
     error_ = write_error_;
     if (error_.empty())
+        error_ = editors_.error();
+    if (error_.empty())
+        error_ = menus_.error();
+    if (error_.empty())
         for (const auto& field : fields_)
             if (!field.error.empty()) {
                 error_ = field.error;
@@ -303,7 +513,7 @@ void SettingsDialog::update_error() {
 // Validate one logical entry against all previously accepted changes. Incomplete action and
 // binding drafts never stop independent preferences from being saved.
 void SettingsDialog::commit(std::size_t index) {
-    if (!valid_ || index >= fields_.size() || fields_[index].section < 0)
+    if (!refresh_editability() || index >= fields_.size() || fields_[index].section < 0)
         return;
     const auto table = fields_[index].table;
     const bool action = table.starts_with("actions[") || table.starts_with("new:");
@@ -369,6 +579,7 @@ void SettingsDialog::commit(std::size_t index) {
         fields_[i].error = problem;
     if (problem.empty()) {
         staged_ = std::move(changed_text.text);
+        accepted_config_ = core::parse_config(staged_, path_.string());
         saved_ = false;
         for (const auto i : group) {
             auto& field = fields_[i];
@@ -383,6 +594,7 @@ void SettingsDialog::commit(std::size_t index) {
                     field.table = "saved-draft";
                 } else {
                     field.table = "keybindings";
+                    field.resettable = true;
                     field.key = target;
                     field.label = target;
                     field.group = "Custom shortcuts";
@@ -397,7 +609,7 @@ void SettingsDialog::commit(std::size_t index) {
 }
 
 void SettingsDialog::flush() {
-    if (busy_ || !valid_ || staged_ == original_ || !write_error_.empty())
+    if (busy_ || !valid_ || staged_ == original_ || !write_error_.empty() || !refresh_editability())
         return;
     busy_ = true;
     const auto replacement = staged_;
@@ -414,19 +626,17 @@ void SettingsDialog::flush() {
                        "reopen Settings.";
             if (token.cancelled())
                 return "Save cancelled";
-            std::error_code path_error;
-            const auto destination = std::filesystem::is_symlink(path, path_error)
-                                         ? std::filesystem::canonical(path, path_error)
-                                         : path;
-            if (path_error && path_error != std::errc::no_such_file_or_directory)
-                return path_error.message();
-            if (const auto error = core::write_file_atomically(destination, replacement))
+            const auto target = core::atomic_write_target(path);
+            if (!target.error.empty())
+                return target.error;
+            if (const auto error = core::write_file_atomically(target.destination, replacement))
                 return error.message();
             return {};
         },
         [this, parsed, replacement](std::string error) {
             busy_ = false;
             write_error_ = std::move(error);
+            refresh_editability();
             if (write_error_.empty()) {
                 original_ = replacement;
                 existed_ = saved_ = true;
@@ -442,8 +652,12 @@ void SettingsDialog::flush() {
 }
 
 void SettingsDialog::save() {
-    if (!valid_)
+    if (!refresh_editability())
         return;
+    editors_.sync(accepted_config_.config, editable());
+    menus_.sync(accepted_config_.config, editable());
+    editors_.commit();
+    menus_.commit();
     // Actions first: a new shortcut can refer to an action completed in this same commit.
     std::unordered_set<std::string> groups;
     for (int pass = 0; pass < 2; ++pass)
@@ -465,6 +679,13 @@ void SettingsDialog::save() {
 }
 
 void SettingsDialog::commit_focus() {
+    if (focus_ == "editor") {
+        if (section_ == 4)
+            menus_.commit();
+        else
+            editors_.commit();
+        update_error();
+    }
     for (std::size_t i = 0; i < fields_.size(); ++i)
         if (focus_ == "f" + std::to_string(i)) {
             commit(i);
@@ -474,8 +695,15 @@ void SettingsDialog::commit_focus() {
 }
 
 void SettingsDialog::set_focus(std::string focus) {
-    if (focus_ != focus)
+    if (focus_ != focus) {
         commit_focus();
+        if (focus_ == "editor") {
+            editors_.blur();
+            menus_.blur();
+        }
+        editor_focus_pending_ = focus == "editor";
+        editor_reverse_focus_ = false;
+    }
     focus_ = std::move(focus);
     reveal_focus();
     redraw_();
@@ -484,7 +712,15 @@ void SettingsDialog::set_focus(std::string focus) {
 void SettingsDialog::change_section(int section) {
     commit_focus();
     choices_.close();
+    editors_.dismiss();
+    editors_.blur();
+    menus_.dismiss();
+    menus_.blur();
+    editor_focus_pending_ = false;
     section_ = section;
+    if (section == 2 || section == 3)
+        editors_.set_page(section == 2 ? SettingsEditors::Page::shortcuts
+                                       : SettingsEditors::Page::actions);
     scroller_.jump_to(0);
     scrollbar_ = ui::Scrollbar{};
     focus_ = "section" + std::to_string(section);
@@ -494,6 +730,10 @@ void SettingsDialog::change_section(int section) {
 }
 
 void SettingsDialog::layout_rows() {
+    if (!search_.text().empty()) {
+        scroller_.set_extent(static_cast<float>(search_results().size()) * 76 + 12, list_.height);
+        return;
+    }
     float top = 0;
     std::string group;
     for (auto& field : fields_) {
@@ -504,8 +744,9 @@ void SettingsDialog::layout_rows() {
             group = field.group;
         }
         field.top = top;
-        field.height =
-            (list_.width - 44 >= 500 ? 64.0F : 94.0F) + (field.error.empty() ? 0.0F : 40.0F);
+        field.height = (list_.width - 44 >= 500 ? 64.0F : 94.0F) +
+                       (field.section < 2 && editable() ? 28.0F : 0.0F) +
+                       (field.error.empty() ? 0.0F : 40.0F);
         top += field.height;
     }
     scroller_.set_extent(top + 12, list_.height);
@@ -515,13 +756,19 @@ void SettingsDialog::reveal_focus() {
     layout_rows();
     for (const auto& field : fields_) {
         const auto id = std::to_string(&field - fields_.data());
-        if (field.section != section_ || (focus_ != "f" + id && focus_ != "minus" + id &&
-                                          focus_ != "plus" + id && focus_ != "error" + id))
+        if (field.section != section_ ||
+            (focus_ != "f" + id && focus_ != "minus" + id && focus_ != "plus" + id &&
+             focus_ != "error" + id && focus_ != "reset" + id))
             continue;
-        if (field.top < scroller_.offset())
-            scroller_.jump_to(field.top);
-        else if (field.top + field.height > scroller_.offset() + list_.height)
-            scroller_.jump_to(field.top + std::min(field.height, list_.height) - list_.height);
+        const float top = field.top + (focus_ == "reset" + id
+                                           ? field.height - (field.error.empty() ? 34.0F : 74.0F)
+                                       : focus_ == "error" + id  ? field.height - 38
+                                       : list_.width - 44 >= 500 ? 5.0F
+                                                                 : 44.0F);
+        if (top < scroller_.offset())
+            scroller_.jump_to(top);
+        else if (top + 32 > scroller_.offset() + list_.height)
+            scroller_.jump_to(top + 32 - list_.height);
         return;
     }
 }
@@ -573,7 +820,7 @@ std::string SettingsDialog::choice_label(const Field& field, std::string_view va
 
 void SettingsDialog::step_number(std::size_t index, int direction) {
     auto& field = fields_[index];
-    if (!field.number)
+    if (!refresh_editability() || !field.number)
         return;
     float value = 0;
     const auto& text = field.input.text();
@@ -614,6 +861,11 @@ std::string SettingsDialog::palette_status() const {
                                                    : i18n::tr("Built-in");
             break;
     }
+    if (status.file_state == theme::Theme::FileState::invalid) {
+        source += status.retaining_last_valid_file && status.active == Source::file
+                      ? std::string{i18n::tr(" (reload failed; last valid palette)")}
+                      : std::string{i18n::tr(" (palette file rejected)")};
+    }
     if (status.dark_override)
         return *status.dark_override ? i18n::trf("Active palette: {} · dark override", source)
                                      : i18n::trf("Active palette: {} · light override", source);
@@ -621,6 +873,21 @@ std::string SettingsDialog::palette_status() const {
 }
 
 void SettingsDialog::activate(std::string_view id, bool keyboard) {
+    if (id == "palette_details" && theme_status_) {
+        auto text = palette_status();
+        for (const auto& problem : theme_status_().file_problems)
+            text += "\n" + problem;
+        details_.push(std::move(text));
+        return;
+    }
+    if (id == "readonly") {
+        details_.push(read_only_reason_);
+        return;
+    }
+    if (id.starts_with("result")) {
+        jump_to_result(static_cast<std::size_t>(std::stoul(std::string{id.substr(6)})));
+        return;
+    }
     if (id == "details" && !error_.empty()) {
         details_.push(error_);
         return;
@@ -668,6 +935,13 @@ void SettingsDialog::activate(std::string_view id, bool keyboard) {
             item.action = [this, i] { change_section(static_cast<int>(i)); };
             items.push_back(std::move(item));
         }
+        if (section_ <= 2 && editable()) {
+            MenuItem reset;
+            reset.label = i18n::tr("Reset category to defaults");
+            reset.separator = true;
+            reset.action = [this] { reset_category(section_); };
+            items.push_back(std::move(reset));
+        }
         const auto button = std::ranges::find_if(
             buttons_, [](const Button& each) { return each.id == "category"; });
         if (button != buttons_.end())
@@ -678,8 +952,18 @@ void SettingsDialog::activate(std::string_view id, bool keyboard) {
         change_section(id.back() - '0');
         return;
     }
+    if (!refresh_editability())
+        return;
+    if (id == "reset_category") {
+        reset_category(section_);
+        return;
+    }
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
+        if (id == "reset" + std::to_string(i)) {
+            reset_setting(field.table, field.key);
+            return;
+        }
         if (id == "minus" + std::to_string(i) || id == "plus" + std::to_string(i)) {
             step_number(i, id.starts_with("minus") ? -1 : 1);
             return;
@@ -699,6 +983,8 @@ void SettingsDialog::activate(std::string_view id, bool keyboard) {
                 item.radio = true;
                 item.checked = value == field.input.text();
                 item.action = [this, i, value] {
+                    if (!refresh_editability())
+                        return;
                     fields_[i].input.set_text(value);
                     commit(i);
                     flush();
@@ -737,11 +1023,55 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
             return choices_.key(choice_event);
         }
     }
+    refresh_editability();
+    editors_.sync(accepted_config_.config, editable());
+    menus_.sync(accepted_config_.config, editable());
+    if (section_ == 4 && menus_.popup_open()) {
+        menus_.key(event);
+        update_error();
+        return true;
+    }
+    if (section_ == 2 && editors_.recording()) {
+        editors_.key(event);
+        update_error();
+        return true;
+    }
+    if (event.modifiers.ctrl && (event.keysym == XKB_KEY_f || event.keysym == XKB_KEY_F)) {
+        set_focus("search");
+        search_.select_all();
+        return true;
+    }
+    if (event.keysym == XKB_KEY_Escape && !search_.text().empty()) {
+        search("");
+        return true;
+    }
+    if (focus_ == "search" && event.keysym != XKB_KEY_Tab && event.keysym != XKB_KEY_ISO_Left_Tab &&
+        event.keysym != XKB_KEY_Escape &&
+        !(event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_5) &&
+        !(event.modifiers.ctrl && (event.keysym == XKB_KEY_s || event.keysym == XKB_KEY_S))) {
+        if (event.keysym == XKB_KEY_Return) {
+            const auto results = search_results();
+            if (!results.empty())
+                jump_to_result(results.front().field);
+        } else if (search_.key(event)) {
+            scroller_.jump_to(0);
+            redraw_();
+        }
+        return true;
+    }
+    if (focus_ == "editor" && search_.text().empty() &&
+        !(event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_5) &&
+        !(event.modifiers.ctrl && (event.keysym == XKB_KEY_s || event.keysym == XKB_KEY_S))) {
+        if (section_ == 4 ? menus_.key(event) : editors_.key(event)) {
+            update_error();
+            return true;
+        }
+    }
     if (event.keysym == XKB_KEY_Escape) {
         close();
         return true;
     }
-    if (event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_4) {
+    if (event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_5) {
         change_section(static_cast<int>(event.keysym - XKB_KEY_1));
         return true;
     }
@@ -756,26 +1086,37 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         else
             for (std::size_t i = 0; i < kSections.size(); ++i)
                 order.push_back("section" + std::to_string(i));
-        for (std::size_t i = 0; i < fields_.size(); ++i) {
+        order.push_back("search");
+        if (!search_.text().empty())
+            for (const auto& result : search_results())
+                order.push_back("result" + std::to_string(result.field));
+        if (section_ >= 2 && search_.text().empty())
+            order.push_back("editor");
+        for (std::size_t i = 0; section_ < 2 && i < fields_.size() && search_.text().empty(); ++i) {
             const auto& field = fields_[i];
             if (field.section != section_)
                 continue;
             order.push_back("f" + std::to_string(i));
-            if (field.number) {
+            if (editable() && field.section < 2)
+                order.push_back("reset" + std::to_string(i));
+            if (editable() && field.number) {
                 order.push_back("minus" + std::to_string(i));
                 order.push_back("plus" + std::to_string(i));
             }
             if (!field.error.empty())
                 order.push_back("error" + std::to_string(i));
         }
-        if (section_ == 3)
-            order.push_back("add");
-        if (section_ == 2)
-            order.push_back("add_binding");
+        if (editable() && section_ <= 2 && search_.text().empty() && last_card_.width >= 640)
+            order.push_back("reset_category");
+
+        if (section_ == 1 && theme_status_ && !theme_status_().file_problems.empty())
+            order.push_back("palette_details");
         if (!error_.empty())
             order.push_back("details");
-        if (!write_error_.empty())
+        if (!write_error_.empty() && editable())
             order.push_back("retry");
+        if (!read_only_reason_.empty())
+            order.push_back("readonly");
         if (discard_prompt_)
             order.push_back("discard");
         order.insert(order.end(), {"file", "close"});
@@ -785,11 +1126,13 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
                                    ? order.size() - 1
                                    : 1)) %
                         order.size()]);
+        if (focus_ == "editor")
+            editor_reverse_focus_ = event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab;
         return true;
     }
     if (focus_.starts_with("section") &&
         (event.keysym == XKB_KEY_Up || event.keysym == XKB_KEY_Down)) {
-        change_section((section_ + (event.keysym == XKB_KEY_Down ? 1 : 3)) % 4);
+        change_section((section_ + (event.keysym == XKB_KEY_Down ? 1 : 4)) % 5);
         return true;
     }
     if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter ||
@@ -802,6 +1145,14 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         auto& field = fields_[i];
         if (focus_ != "f" + std::to_string(i))
             continue;
+        if (!editable()) {
+            if (event.keysym == XKB_KEY_Left || event.keysym == XKB_KEY_Right ||
+                event.keysym == XKB_KEY_Home || event.keysym == XKB_KEY_End ||
+                (event.modifiers.ctrl && (event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A)))
+                field.input.key(event);
+            redraw_();
+            return true;
+        }
         if (field.number && (event.keysym == XKB_KEY_Up || event.keysym == XKB_KEY_Down))
             step_number(i, event.keysym == XKB_KEY_Up ? 1 : -1);
         else if (!field.choices.empty()) {
@@ -820,13 +1171,24 @@ std::string SettingsDialog::copy_selection(bool cut) {
         return details_.detail();
     if (!valid_ || !open_ || choices_.is_open())
         return {};
+    if (focus_ == "editor")
+        return section_ == 4 ? menus_.copy_selection(cut && editable()) : editors_.copy_selection();
+    if (focus_ == "search") {
+        const auto [first, last] = search_.selection();
+        const auto text = search_.text().substr(first, last - first);
+        if (cut) {
+            search_.insert("");
+            redraw_();
+        }
+        return text;
+    }
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
         if (focus_ != "f" + std::to_string(i) || !field.choices.empty())
             continue;
         const auto [first, last] = field.input.selection();
         const auto text = field.input.text().substr(first, last - first);
-        if (cut && !text.empty()) {
+        if (cut && refresh_editability() && !text.empty()) {
             field.input.insert("");
             redraw_();
         }
@@ -838,6 +1200,21 @@ std::string SettingsDialog::copy_selection(bool cut) {
 void SettingsDialog::paste(std::string_view text) {
     if (!valid_ || !open_ || choices_.is_open() || details_.is_open())
         return;
+    if (focus_ == "search") {
+        search_.insert(text.substr(0, text.find_first_of("\r\n")));
+        scroller_.jump_to(0);
+        redraw_();
+        return;
+    }
+    if (!refresh_editability())
+        return;
+    if (focus_ == "editor") {
+        if (section_ == 4)
+            menus_.paste(text);
+        else
+            editors_.paste(text);
+        return;
+    }
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
         if (focus_ == "f" + std::to_string(i) && field.choices.empty()) {
@@ -852,6 +1229,10 @@ ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
         return details_.clickable_at(x, y) ? ui::CursorShape::pointer : ui::CursorShape::standard;
     if (choices_.is_open())
         return ui::CursorShape::pointer;
+    if (section_ >= 2 && editor_bounds_.contains(x, y) && search_.text().empty())
+        return section_ == 4 ? ui::CursorShape::standard : editors_.cursor_at(x, y);
+    if (search_bounds_.contains(x, y))
+        return ui::CursorShape::text;
     if (scrollbar_.dragging() || scrollbar_.hit(scroller_, x, y))
         return ui::CursorShape::pointer;
     for (const auto& button : buttons_)
@@ -871,8 +1252,38 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
         details_.pointer(event);
         return;
     }
+    refresh_editability();
+    editors_.sync(accepted_config_.config, editable());
+    menus_.sync(accepted_config_.config, editable());
+    if (section_ == 4 && menus_.popup_open()) {
+        menus_.pointer(event);
+        update_error();
+        return;
+    }
     if (choices_.pointer(event))
         return;
+    if ((event.kind == ui::PointerEvent::Kind::press &&
+         search_bounds_.contains(event.x, event.y)) ||
+        (event.kind != ui::PointerEvent::Kind::press && focus_ == "search")) {
+        if (event.kind == ui::PointerEvent::Kind::press)
+            set_focus("search");
+        if (search_.pointer(event)) {
+            redraw_();
+            return;
+        }
+    }
+    if (section_ >= 2 && search_.text().empty() && editor_bounds_.contains(event.x, event.y)) {
+        if (event.kind == ui::PointerEvent::Kind::press) {
+            set_focus("editor");
+            editor_focus_pending_ = false;
+        }
+        if (section_ == 4)
+            menus_.pointer(event);
+        else
+            editors_.pointer(event);
+        update_error();
+        return;
+    }
     if (event.kind != ui::PointerEvent::Kind::press)
         for (auto& field : fields_)
             if (field.section == section_ && field.choices.empty() && field.input.pointer(event)) {
@@ -918,6 +1329,9 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                           const theme::Palette& palette, ui::IconSet& icons) {
     if (!open_)
         return;
+    refresh_editability();
+    editors_.sync(accepted_config_.config, editable());
+    menus_.sync(accepted_config_.config, editable());
     auto frame = DialogFrame::fit(bounds, 880, 740);
     const bool narrow = frame.card.width < 640;
     const bool compact_retry = narrow && valid_ && !write_error_.empty();
@@ -939,14 +1353,19 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         buttons_.push_back({id, label, hit});
         draw_dialog_button(renderer, rect, palette, i18n::tr(label), focus_ == id, style);
     };
-    const std::string status = !error_.empty() ? "Changes need attention"
-                               : busy_         ? (valid_ ? "Saving…" : "Loading…")
-                               : has_drafts()  ? "Editing…"
-                               : saved_        ? "Saved"
-                                               : "Changes save automatically";
+    const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
+                               : !error_.empty()          ? "Changes need attention"
+                               : busy_                    ? (valid_ ? "Saving…" : "Loading…")
+                               : has_drafts()             ? "Editing…"
+                               : saved_                   ? "Saved"
+                                                          : "Changes save automatically";
     const float status_width = narrow ? std::max(1.0F, frame.header.width - 40) : 230.0F;
     const float status_x = narrow ? frame.header.x + 20 : frame.header.right() - status_width - 20;
-    if (!error_.empty())
+    if (!read_only_reason_.empty())
+        button("readonly", "Read-only configuration",
+               {status_x, frame.header.y + (narrow ? 40.0F : 14.0F), status_width,
+                narrow ? 18.0F : 32.0F});
+    else if (!error_.empty())
         button("details", "Changes need attention",
                {status_x, frame.header.y + (narrow ? 40.0F : 14.0F), status_width,
                 narrow ? 18.0F : 32.0F});
@@ -976,18 +1395,60 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         content.x += nav_width;
         content.width -= nav_width;
     }
-    if (section_ == 2 || section_ == 3) {
-        button(section_ == 2 ? "add_binding" : "add", section_ == 2 ? "New shortcut" : "Add action",
-               {content.x + 16, content.bottom() - 42, std::min(160.0F, content.width - 32), 32});
+    search_bounds_ = {content.x + 16, content.y + 8, std::max(1.0F, content.width - 32), 32};
+    search_.draw(
+        renderer, search_bounds_, 13,
+        {.background = palette.surface_container_highest,
+         .border = focus_ == "search" ? palette.primary : palette.outline_variant,
+         .text = palette.on_surface,
+         .selection = palette.secondary_container,
+         .caret = focus_ == "search" ? palette.on_surface : palette.on_surface.with_alpha(0)});
+    if (search_.text().empty() && focus_ != "search")
+        renderer.draw_text(i18n::tr("Search settings… (Ctrl+F)"), search_bounds_.x + 6,
+                           search_bounds_.y + 8, 13, palette.on_surface_variant,
+                           search_bounds_.width - 12);
+    content.y += 48;
+    content.height = std::max(0.0F, content.height - 48);
+    if (!read_only_reason_.empty()) {
+        renderer.draw_text(i18n::tr("Edit the declared configuration to change settings."),
+                           content.x + 16, content.y + 4, 11, palette.on_surface_variant,
+                           std::max(1.0F, content.width - 32));
+        content.y += 28;
+        content.height = std::max(0.0F, content.height - 28);
+    }
+    if (section_ <= 2 && editable() && search_.text().empty() && !narrow) {
+        button("reset_category", "Reset category to defaults",
+               {content.x + 16, content.bottom() - 42, std::max(1.0F, content.width - 32), 32});
         content.height = std::max(0.0F, content.height - 48);
     }
-    if (section_ == 1 && theme_status_) {
+    if (section_ == 1 && theme_status_ && search_.text().empty()) {
+        const auto palette_state = theme_status_();
+        const bool diagnostics = !palette_state.file_problems.empty();
         renderer.draw_text(palette_status(), content.x + 16, content.y + 8, 12,
-                           palette.on_surface_variant, std::max(1.0F, content.width - 32));
+                           palette.on_surface_variant,
+                           std::max(1.0F, content.width - (diagnostics ? 116 : 32)));
+        if (diagnostics)
+            button("palette_details", "Details", {content.right() - 92, content.y, 76, 28});
         content.y += 28;
         content.height = std::max(0.0F, content.height - 28);
     }
     list_ = content;
+    editor_bounds_ = {};
+    const bool embedded = section_ >= 2 && search_.text().empty();
+    if (embedded) {
+        editor_bounds_ = content;
+        if (section_ == 4)
+            menus_.draw(renderer, content, palette);
+        else
+            editors_.draw(renderer, content, palette);
+        if (focus_ == "editor" && editor_focus_pending_) {
+            if (section_ == 4)
+                menus_.enter_focus(editor_reverse_focus_);
+            else
+                editors_.enter_focus(editor_reverse_focus_);
+            editor_focus_pending_ = false;
+        }
+    }
     layout_rows();
     if (resized)
         reveal_focus();
@@ -995,17 +1456,37 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     renderer.push_clip(list_);
     std::string group;
     bool any = false;
+    if (!search_.text().empty()) {
+        const auto results = search_results();
+        scroller_.set_extent(static_cast<float>(results.size()) * 76 + 12, list_.height);
+        for (std::size_t n = 0; n < results.size(); ++n) {
+            const auto& result = results[n];
+            const float y = list_.y + static_cast<float>(n) * 76 + 8 - scroller_.offset();
+            button("result" + std::to_string(result.field),
+                   std::string{i18n::tr(kSections[static_cast<std::size_t>(result.section)])} +
+                       " · " + std::string{i18n::tr(result.label)},
+                   {list_.x + 16, y, std::max(1.0F, list_.width - 44), 32}, DialogButton::normal,
+                   true);
+            renderer.draw_text(i18n::tr(result.description), list_.x + 20, y + 40, 11,
+                               palette.on_surface_variant, std::max(1.0F, list_.width - 48));
+        }
+        if (results.empty())
+            renderer.draw_text(i18n::tr("No settings match your search."), list_.x + 16,
+                               list_.y + 20, 13, palette.on_surface_variant, list_.width - 32);
+    }
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
         field.bounds = {};
-        if (field.section != section_)
+        if (embedded || field.section != section_ || !search_.text().empty())
             continue;
         any = true;
         const float y = list_.y + field.top - scroller_.offset();
         const ui::Rect row{list_.x + 16, y, std::max(1.0F, list_.width - 44), field.height};
         if (group != field.group) {
-            renderer.draw_text(i18n::tr(field.group), row.x, y - 24, 14, palette.primary,
-                               row.width);
+            renderer.draw_text(
+                i18n::tr(field.group), row.x, y - 24, 14,
+                theme::readable_foreground(palette.primary, palette.surface_container_high),
+                row.width);
             group = field.group;
         }
         if (y + field.height <= list_.y || y >= list_.bottom())
@@ -1017,14 +1498,15 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (field.toggle()) {
             const bool on = field.input.text() == "true";
             const ui::Rect toggle{control.x, control.y + 4, 44, 24};
-            renderer.draw_box(toggle,
-                              {.fill = on ? palette.primary : palette.surface_container_highest,
-                               .radius = ui::Corners::all(12),
-                               .border_width = focused ? 2.0F : 1.0F,
-                               .border = focused ? palette.on_surface : palette.outline});
-            renderer.draw_box({toggle.x + (on ? 24.0F : 4.0F), toggle.y + 4, 16, 16},
-                              {.fill = on ? palette.on_primary : palette.on_surface_variant,
-                               .radius = ui::Corners::all(8)});
+            renderer.draw_box(toggle, {.fill = on && editable() ? palette.primary
+                                                                : palette.surface_container_highest,
+                                       .radius = ui::Corners::all(12),
+                                       .border_width = focused ? 2.0F : 1.0F,
+                                       .border = focused ? palette.on_surface : palette.outline});
+            renderer.draw_box(
+                {toggle.x + (on ? 24.0F : 4.0F), toggle.y + 4, 16, 16},
+                {.fill = on && editable() ? palette.on_primary : palette.on_surface_variant,
+                 .radius = ui::Corners::all(8)});
             renderer.draw_text(choice_label(field, field.input.text()), control.x + 54,
                                control.y + 8, 13, palette.on_surface);
         } else if (!field.choices.empty()) {
@@ -1033,23 +1515,28 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             icons.draw(renderer, "chevron-down", control.right() - 24, control.y + 8, 16,
                        palette.on_surface_variant);
         } else {
-            if (field.number) {
+            if (field.number && editable()) {
                 field.bounds.width = std::max(1.0F, control.width - 76);
                 button("minus" + std::to_string(i), "−", {control.right() - 70, control.y, 32, 32},
                        DialogButton::normal, true);
                 button("plus" + std::to_string(i), "+", {control.right() - 32, control.y, 32, 32},
                        DialogButton::normal, true);
             }
-            field.input.draw(
-                renderer, field.bounds, 13,
-                {.background = palette.surface_container_highest,
-                 .border = !field.error.empty() ? palette.error
-                           : focused            ? palette.primary
-                                                : palette.outline_variant,
-                 .text = palette.on_surface,
-                 .selection = palette.secondary_container,
-                 .caret = focused ? palette.on_surface : palette.on_surface.with_alpha(0)});
+            field.input.draw(renderer, field.bounds, 13,
+                             {.background = palette.surface_container_highest,
+                              .border = !field.error.empty() ? palette.error
+                                        : focused            ? palette.primary
+                                                             : palette.outline_variant,
+                              .text = palette.on_surface,
+                              .selection = palette.secondary_container,
+                              .caret = focused && editable() ? palette.on_surface
+                                                             : palette.on_surface.with_alpha(0)});
         }
+        if (field.section < 2 && editable())
+            button("reset" + std::to_string(i), "Reset to default",
+                   {row.x, y + field.height - (field.error.empty() ? 34.0F : 74.0F),
+                    std::min(150.0F, row.width), 24},
+                   DialogButton::normal, true);
         if (!field.error.empty()) {
             const float error_y = y + field.height - 38;
             renderer.draw_text(i18n::tr(field.error), row.x, error_y + 8, 11, palette.error,
@@ -1060,11 +1547,12 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.fill_rect({row.x, y + field.height - 8, row.width, 1},
                            palette.outline_variant.with_alpha(0.5F));
     }
-    if (!any && valid_)
+    if (!embedded && !any && valid_ && search_.text().empty())
         renderer.draw_text(i18n::tr("No custom actions yet. Choose Add action to create one."),
                            list_.x + 16, list_.y + 20, 13, palette.on_surface_variant,
                            std::max(1.0F, list_.width - 32));
-    renderer.fill_rect(scrollbar_.thumb(scroller_), palette.outline);
+    if (!embedded)
+        renderer.fill_rect(scrollbar_.thumb(scroller_), palette.outline);
     renderer.pop_clip();
     const auto button_width = [&](std::string_view label, float minimum) {
         return std::max(minimum,
@@ -1080,7 +1568,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     button("file", "Open config", {frame.footer.x + 16, bottom, file_width, 32});
     button("close", "Close", {frame.footer.right() - close_width - 16, bottom, close_width, 32},
            DialogButton::primary);
-    if (!write_error_.empty() && valid_) {
+    if (!write_error_.empty() && editable()) {
         const ui::Rect retry =
             compact_retry ? ui::Rect{frame.footer.x + 16, frame.footer.y + 8, retry_width, 32}
                           : ui::Rect{frame.footer.right() - close_width - retry_width - 24, bottom,
