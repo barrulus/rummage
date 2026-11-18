@@ -82,8 +82,20 @@ editor's source control view:
   (an empty message keeps the last one), **Commit & Push** and **Commit & Sync**.
   `git.commit_action` chooses what the button and Ctrl+Enter do.
 - **Merge Changes**, **Staged Changes** and **Changes** with their counts, folded: their files
-  are listed (and only then looked up) when you open a group. A click shows the file in the
-  browser; a right click opens the Git menu for it.
+  are listed (and only then looked up) when you open a group. A click shows the file's changes;
+  with the pointer on a line, its buttons appear: **+** stage (**−** unstage in Staged Changes),
+  **↶** discard, **⇄** show changes, **↗** open the file; the status bar says what each does. A
+  right click offers Show in Browser, Open File and the Git menu for the file.
+
+## Changes of a file
+
+A file's changes open in Quick Look, in one column as `git diff` shows them: removed lines in
+the error colour, added lines green, hunk headers and git's headers set apart. Unstaged
+changes, staged changes and a new file (all of it added) each show as their list holds them.
+**Left**/**Right** (or **Up**/**Down**) go to the previous or next file of the same list;
+**Escape** or **Space** closes; text can be selected and copied. Very long diffs show their
+first 20,000 lines. **Show Changes** in the Git menu of the browser does the same for the
+selection.
 
 Pull merges when neither `pull.rebase` nor `pull.ff` is configured, as editors do; otherwise
 your configuration applies. The same commands are in the context menu's **Git** submenu on a
@@ -97,6 +109,7 @@ With files or folders selected, **Git** offers:
 | --- | --- |
 | Stage / Unstage | Adds the selection to the index, or takes it out |
 | Commit… | Commits only the selection (new files included), with a message you enter |
+| Show Changes | The selection's changes in Quick Look |
 | Discard Changes… | After asking: changed files go back to the last commit, new files go to the trash (undo brings them back) |
 | Add to .gitignore | Appends `/path` (`/folder/` for a folder) to the repository's `.gitignore`, once |
 

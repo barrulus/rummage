@@ -14,7 +14,8 @@ progress and the counts of changes in the status bar and the information pane, a
 and coloured names on changed, untracked, conflicted and ignored files, as in code editors.
 A Git submenu and a source-control section in the information pane stage, commit (with a
 message field, amend, commit & push or sync), discard, ignore, fetch, pull, push and switch
-branches; folders can be sorted by status. It follows changes live and can dim or hide ignored files. See
+branches; a file's changes open in Quick Look, and buttons on each file's line act on it.
+Folders can be sorted by status; the colours follow the theme, as editors or as git use them. It follows changes live and can dim or hide ignored files. See
 [git status](git.md).
 
 File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your
