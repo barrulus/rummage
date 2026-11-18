@@ -606,10 +606,14 @@ TEST_CASE("info pane: large previews retain selection at the end of the document
         }
         source << "last_line\n";
     }
+    // The folder is listed on a worker while the file is written: wait for its full size, or the
+    // summary may be of a part of it (an empty file has no text).
+    const auto size = std::filesystem::file_size(f.dir.path / "large.c");
     auto& folder = f.browser.columns().column(0).folder();
     REQUIRE(run_until(f.loop, [&] {
-        return std::ranges::any_of(folder.entries(),
-                                   [](const auto& entry) { return entry.name == "large.c"; });
+        return std::ranges::any_of(folder.entries(), [&](const auto& entry) {
+            return entry.name == "large.c" && entry.size == size;
+        });
     }));
     folder.select_name("large.c");
     REQUIRE(f.settle());
