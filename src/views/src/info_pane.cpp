@@ -163,6 +163,22 @@ InfoPane::~InfoPane() {
     if (size_timer_ != 0) {
         loop_.remove(size_timer_);
     }
+    if (hold_timer_ != 0) {
+        loop_.remove(hold_timer_);
+    }
+}
+
+void InfoPane::drop_held() {
+    if (hold_timer_ != 0) {
+        loop_.remove(hold_timer_);
+        hold_timer_ = 0;
+    }
+    if (held_) {
+        held_.reset();
+        // Its lines may have been measured; the next text is measured afresh.
+        page_clusters_.clear();
+        page_fonts_ = nullptr;
+    }
 }
 
 void InfoPane::set_width(float width) {
@@ -466,7 +482,20 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
         return;
     }
     key_ = std::move(key);
-    summary_.reset();
+    if (summary_) {
+        held_ = std::move(summary_);
+        summary_.reset();
+    }
+    if (held_ && hold_timer_ == 0) {
+        // Not restarted by the next file: moving on and on shows the icons after kHold.
+        hold_timer_ = loop_.add_timer(kHold, std::chrono::milliseconds{0}, [this] {
+            hold_timer_ = 0;
+            if (held_) {
+                drop_held();
+                redraw_();
+            }
+        });
+    }
     clear_text_focus();
     metadata_.reset();
     scroller_.jump_to(0.0F);  // another entry starts at the top
@@ -490,6 +519,7 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
                 return;
             }
             job_.reset();
+            drop_held();
             summary_ = std::move(summary);
             redraw_();
         });
@@ -498,6 +528,7 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
 void InfoPane::forget_summary() {
     key_.clear();
     summary_.reset();
+    drop_held();
     page_clusters_.clear();
     page_fonts_ = nullptr;
     if (job_) {
@@ -677,7 +708,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 single == nullptr ? std::string{} : std::string{mime.name(typed.mime)}, kind,
                 folder.shared_mime());
     }
-    const preview::Summary* const summary = summary_.get();
+    // While the next summary loads, the one before (kHold at most): drawn only, not selectable.
+    const bool holding = summary_ == nullptr && held_ != nullptr;
+    const preview::Summary* const summary = holding ? held_.get() : summary_.get();
     const preview::Info* const info = summary == nullptr ? nullptr : &summary->info;
     const picture::PhotoInfo* const photo =
         summary == nullptr || !summary->photo ? nullptr : &*summary->photo;
@@ -737,7 +770,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         const float height = view + (2.0F * kPagePadding);
         page_ = {preview_left, out.y(), preview_width, height};
         page_scroller_.set_extent(static_cast<float>(lines.size()) * kLineHeight, view);
-        if (!page_placed_) {
+        if (!page_placed_ && !holding) {
             // A log opens at its newest lines.
             page_scroller_.jump_to(summary->text->tail ? page_scroller_.max_offset() : 0.0F);
             page_placed_ = true;
@@ -829,6 +862,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 inner.x + ((inner.width - thumb) * sideways / page_sideways_.max_offset());
             renderer.draw_box({thumb_x, page_.bottom() - 6.0F, thumb, kScrollbarWidth},
                               {.fill = palette.on_surface_variant.with_alpha(0.45F), .radius = {}});
+        }
+        if (holding) {
+            page_ = {};  // only shown: no page to point at, scroll or select, nor to report
         }
         out.skip(height + 18.0F);
     } else {

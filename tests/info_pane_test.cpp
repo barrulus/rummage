@@ -724,3 +724,35 @@ TEST_CASE("info pane: modifier keys keep text focus and file navigation drops it
     CHECK(offered.front().first == "x-special/gnome-copied-files");
     CHECK(offered.front().second.ends_with("short.txt"));
 }
+
+TEST_CASE("info pane: moving to the next file keeps the summary before until the next is read") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    f.press(XKB_KEY_Down);  // short.txt
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    const float page = f.pane().text_page().height;
+    const float size_row = f.pane().property_bounds("Size.value").y;
+    REQUIRE(page > 0.0F);
+
+    // long.txt: its summary is read on a worker. Until it arrives the page of short.txt stays,
+    // so the rows under it do not jump up (an icon in its place) and back for a frame.
+    f.press(XKB_KEY_Up);
+    f.draw();
+    CHECK(f.pane().summary() == nullptr);
+    CHECK(f.pane().text_page().empty());  // drawn only: nothing to point at or select
+    CHECK(f.pane().property_bounds("Size.value").y == size_row);
+    CHECK(f.pane().selected_text().empty());  // drawn only
+
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    REQUIRE(f.pane().summary()->text);
+    CHECK(f.pane().summary()->text->lines.size() == 200);
+    CHECK(f.pane().text_offset() == 0.0F);
+    CHECK(f.pane().text_page().height > page);  // long.txt's page is taller
+}

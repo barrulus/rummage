@@ -60,6 +60,9 @@ public:
 
     // Resting on a folder starts its count; moving through folders starts nothing.
     static constexpr std::chrono::milliseconds kMeasureDelay{250};
+    // How long the summary before stays drawn while the next one loads: moving through files,
+    // the pane then does not flash an icon (and move what is under it) for a frame or two.
+    static constexpr std::chrono::milliseconds kHold{150};
 
     // thumbnails may be nullptr: icons only.
     InfoPane(core::EventLoop& loop, core::WorkerPool& pool, Thumbnails* thumbnails,
@@ -184,6 +187,7 @@ private:
     // Reads path's summary unless it is the one shown or on its way.
     // No summary (inside an archive: nothing to read from disk).
     void forget_summary();
+    void drop_held();
     void request(const std::filesystem::path& path, std::int64_t modified_ns, std::string mime,
                  preview::Kind kind, std::shared_ptr<const fs::MimeDatabase> types);
 
@@ -205,6 +209,8 @@ private:
     std::string key_;  // what summary_ is (or will be) about
     std::optional<core::CancelToken> job_;
     std::shared_ptr<const preview::Summary> summary_;
+    std::shared_ptr<const preview::Summary> held_;  // the one before, drawn while kHold lasts
+    core::EventLoop::SourceId hold_timer_{0};
     std::string size_key_;  // what size_ is (or will be) about
     core::EventLoop::SourceId size_timer_{0};
     std::optional<core::CancelToken> size_job_;
