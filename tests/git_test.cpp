@@ -1166,11 +1166,16 @@ TEST_CASE("git section: header, message field, commit button and folded file gro
     CHECK(staged_entries[0].badge.text == "A");
     const auto changed_entries = changes->entries();
     REQUIRE(changed_entries.size() == 2);
+    // A click shows its changes; Show in Browser is in its menu.
     staged_entries[0].open();
+    REQUIRE_FALSE(host.shown.empty());
+    CHECK(host.shown.back().title == "src/b.txt  ·  Staged Changes");
+    choose_item(staged_entries[0].menu(), "git_reveal");
     REQUIRE(host.revealed.size() == 1);
     CHECK(host.revealed[0].first == repo);
     CHECK(host.revealed[0].second == repo / "src" / "b.txt");
-    CHECK_FALSE(staged_entries[0].menu().empty());
+    choose_item(staged_entries[0].menu(), "git_open");
+    CHECK(host.opened == std::vector{repo / "src" / "b.txt"});
 
     // Ctrl+Enter in the field: commits what is staged, then the field empties.
     const std::uint64_t revision = section->input->revision;
@@ -1320,4 +1325,79 @@ TEST_CASE("git section: switching the branch from the header") {
     CHECK(host.actions.back() == "Create");
     REQUIRE(shown.wait_for(
         [&] { return !shown.decorator.acting() && shown.text().starts_with("fresh"); }));
+}
+
+TEST_CASE("git: a diff as a text page") {
+    using rummage::text::Style;
+    const auto text = git::diff_text(
+        "diff --git a/a.txt b/a.txt\nindex 1..2 100644\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n"
+        "-old\n+new\tx\n context\n\xff broken\n");
+    REQUIRE(text.lines.size() == 9);
+    CHECK(text.language == "Diff");
+    CHECK(text.lines[6] == "+new    x");  // the tab written out
+    CHECK(text.lines[8] == "\xEF\xBF\xBD broken");
+    const auto style = [&](std::size_t line) {
+        return text.spans[line].empty() ? std::optional<Style>{} : text.spans[line].front().style;
+    };
+    CHECK(style(0) == Style::comment);
+    CHECK(style(3) == Style::comment);  // +++ is a header, not an added line
+    CHECK(style(4) == Style::function);
+    CHECK(style(5) == Style::removed);
+    CHECK(style(6) == Style::added);
+    CHECK_FALSE(style(7).has_value());
+    CHECK(text.spans[6].front().length == text.lines[6].size());
+
+    const auto binary = git::diff_text("Binary files a/x.png and b/x.png differ\n");
+    CHECK(binary.spans.front().front().style == Style::comment);
+    std::string many;
+    for (int i = 0; i < 30; ++i) {
+        many += "+line\n";
+    }
+    const auto cut = git::diff_text(many, 10);
+    CHECK(cut.lines.size() == 10);
+    CHECK(cut.truncated);
+    CHECK(git::diff_text("").lines.empty());
+}
+
+TEST_CASE("git section: the changes of a file, and the arrows through the list") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "a.txt", "two\n");
+    write(repo / "new.txt", "brand new\n");
+    Shown shown{repo};
+    TestHost host;
+    shown.decorator.set_host(host.host());
+    REQUIRE(shown.wait_for([&] { return shown.text().find("1 changed") != std::string::npos; }));
+    const auto last_text = [&] {
+        return host.shown.empty() ? std::string{} : [&] {
+            std::string all;
+            for (const auto& line : host.shown.back().text.lines) {
+                all += line + "\n";
+            }
+            return all;
+        }();
+    };
+
+    // From the browser's Git menu.
+    REQUIRE(choose(shown, {"a.txt"}, "git_diff"));
+    CHECK(host.shown.back().text.lines == std::vector<std::string>{"Loading…"});
+    REQUIRE(shown.wait_for([&] { return last_text().find("+two\n") != std::string::npos; }));
+    CHECK(last_text().find("-one\n") != std::string::npos);
+    CHECK(host.shown.back().title == "a.txt  ·  Changes");
+
+    // From the section's list: an untracked file's whole text is added; the arrows step.
+    const auto* changes = group_named(*shown.decorator.details(*shown.folder), "git_changes");
+    REQUIRE(changes != nullptr);
+    const auto entries = changes->entries();
+    REQUIRE(entries.size() == 2);
+    entries[1].open();  // new.txt
+    REQUIRE(shown.wait_for([&] { return last_text().find("+brand new\n") != std::string::npos; }));
+    CHECK(host.shown.back().title == "new.txt  ·  Untracked");
+    host.shown.back().step(-1);
+    REQUIRE(shown.wait_for([&] { return last_text().find("+two\n") != std::string::npos; }));
+    const std::size_t before = host.shown.size();
+    host.shown.back().step(-1);  // nothing before the first
+    run_for(shown.loop, 100ms);
+    CHECK(host.shown.size() == before);
 }

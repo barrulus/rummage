@@ -714,6 +714,13 @@ int main(int argc, char** argv) {
                     run_until(loop, [&] { return !columns->loading(); });
                     frame();
                 }
+                if (!clicks.empty()) {
+                    // What a click started (a git command, Quick Look fading in) settles.
+                    run_until(loop, [] { return false; });
+                    for (int i = 0; i < 200 && columns->animating(); ++i) {
+                        frame();
+                    }
+                }
                 if (band.size() == 4) {
                     using Kind = ui::PointerEvent::Kind;
                     const auto at = [&](Kind kind, float x, float y) {

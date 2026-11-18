@@ -464,11 +464,81 @@ std::vector<views::MenuItem> Decorator::path_items(Repo& repo,
              ask_commit(at, add, paths);
          }),
          true);
+    item("diff", i18n::trc("git", "Show Changes"), changed, with_repo([this, paths](Repo& at) {
+             if (at.status) {
+                 show_diff(at.key, diff_items(*at.status, paths), 0);
+             }
+         }));
     item("discard", i18n::trc("git", "Discard Changes…"), changed,
          with_repo([this, paths](Repo& at) { discard(at, paths); }));
     item("ignore", i18n::trc("git", "Add to .gitignore"), ignorable,
          with_repo([this, paths](Repo& at) { ignore(at, paths); }), true);
     return items;
+}
+
+std::vector<Decorator::DiffItem> Decorator::diff_items(const Status& status,
+                                                       const std::vector<std::string>& paths) {
+    std::vector<DiffItem> items;
+    for (const std::string& path : paths) {
+        for (const FileStatus* file : statuses_at(status, path)) {
+            if (file->kind == FileStatus::Kind::ignored) {
+                continue;
+            }
+            DiffKind kind = DiffKind::changes;
+            if (file->kind == FileStatus::Kind::untracked) {
+                kind = DiffKind::untracked;
+            } else if (file->kind == FileStatus::Kind::tracked && file->unstaged == '.') {
+                kind = DiffKind::staged;
+            }
+            items.push_back({file->path, kind});
+        }
+    }
+    return items;
+}
+
+void Decorator::show_diff(const std::string& key, std::vector<DiffItem> items, std::size_t index) {
+    const auto it = repos_.find(key);
+    if (it == repos_.end() || index >= items.size() || !host_.show_text) {
+        return;
+    }
+    const DiffItem item = items[index];
+    const std::string_view what = item.kind == DiffKind::staged ? i18n::trc("git", "Staged Changes")
+                                  : item.kind == DiffKind::untracked ? i18n::trc("git", "Untracked")
+                                                                     : i18n::trc("git", "Changes");
+    const std::string title = item.path + std::string{kSeparator} + std::string{what};
+    // The arrows: the next or previous file of the same list, none past its ends.
+    auto step = [this, key, items, index](int delta) {
+        const auto next = static_cast<std::ptrdiff_t>(index) + delta;
+        if (next >= 0 && static_cast<std::size_t>(next) < items.size()) {
+            show_diff(key, items, static_cast<std::size_t>(next));
+        }
+    };
+    text::Text loading;
+    loading.lines = {std::string{i18n::trc("git", "Loading…")}};
+    host_.show_text(title, loading, step);
+    const std::uint64_t generation = ++diff_generation_;
+    diff_query_ = std::make_unique<platform::ProgramOutput>(
+        loop_, [this, generation, title, step](const std::string& output, int wait_status) {
+            if (generation != diff_generation_) {
+                return;
+            }
+            // git diff --no-index exits 1 when the files differ: that is its answer, not a failure.
+            const bool answered = WIFEXITED(wait_status) && WEXITSTATUS(wait_status) <= 1;
+            text::Text text = answered ? diff_text(output) : text::Text{};
+            if (!answered) {
+                text.lines = {i18n::trcf("git", "{} failed", i18n::trc("git", "Show Changes"))};
+            } else if (text.lines.empty()) {
+                text.lines = {std::string{i18n::trc("git", "No changes")}};
+            }
+            if (host_.show_text) {
+                host_.show_text(title, std::move(text), step);
+            }
+            diff_query_.reset();  // ends this callback's object: nothing after
+        });
+    if (!diff_query_->start(
+            git_, diff_arguments(it->second->repository.worktree, item.path, item.kind))) {
+        diff_query_.reset();
+    }
 }
 
 std::vector<views::MenuItem> Decorator::branch_items(Repo& repo) {

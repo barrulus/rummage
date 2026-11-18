@@ -3,6 +3,7 @@
 # Without git in the PATH it stays out of sight.
 add_library(rummage_git
     src/actions.cpp
+    src/diff.cpp
     src/decorator.cpp
     src/repository.cpp
     src/status.cpp)

@@ -13,6 +13,7 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
+#include "rummage/git/diff.hpp"
 #include "rummage/git/repository.hpp"
 #include "rummage/git/status.hpp"
 #include "rummage/views/decorations.hpp"
@@ -185,6 +186,18 @@ private:
     enum class CommitMode : std::uint8_t { plain, amend, push, sync };
     void commit_typed(Repo& repo, const std::string& typed, CommitMode mode);
     void sync(Repo& repo);
+
+    // A file's changes in Quick Look; the arrows go through items from index.
+    struct DiffItem {
+        std::string path;
+        DiffKind kind{DiffKind::changes};
+    };
+
+    void show_diff(const std::string& key, std::vector<DiffItem> items, std::size_t index);
+    // which: 0 conflicts, 1 staged, 2 changes (the section's groups).
+    void show_group_diff(Repo& repo, int which, const std::string& path);
+    [[nodiscard]] static std::vector<DiffItem> diff_items(const Status& status,
+                                                          const std::vector<std::string>& paths);
     [[nodiscard]] const views::Badge* badge_at(Place& place, const std::string& name);
     [[nodiscard]] const views::Badge* lookup(const Repo& repo, const Place& place,
                                              const std::string& name) const;
@@ -197,6 +210,8 @@ private:
     std::function<void()> refilter_;
     views::DecorationHost host_;
     std::function<void(std::function<void(std::string)>)> activation_;
+    std::unique_ptr<platform::ProgramOutput> diff_query_;  // the diff being read for Quick Look
+    std::uint64_t diff_generation_{0};
     std::unique_ptr<platform::Launcher> launcher_;  // xdg-open, detached, its output dropped
     Options options_;
     std::chrono::milliseconds time_limit_{kTimeLimit};

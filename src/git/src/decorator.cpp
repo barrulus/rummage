@@ -650,6 +650,32 @@ void Decorator::read_branches(Repo& repo) {
     }
 }
 
+void Decorator::show_group_diff(Repo& repo, int which, const std::string& path) {
+    if (!repo.status) {
+        return;
+    }
+    // The group's files, as its list shows them, each with the changes it lists.
+    std::vector<DiffItem> items;
+    std::size_t index = 0;
+    for (const FileStatus& file : repo.status->files) {
+        const bool conflict = file.kind == FileStatus::Kind::conflict;
+        const bool staged = file.kind == FileStatus::Kind::tracked && file.staged != '.';
+        const bool changed = file.kind == FileStatus::Kind::untracked ||
+                             (file.kind == FileStatus::Kind::tracked && file.unstaged != '.');
+        if ((which == 0 && !conflict) || (which == 1 && !staged) || (which == 2 && !changed)) {
+            continue;
+        }
+        const DiffKind kind = which == 1                                 ? DiffKind::staged
+                              : file.kind == FileStatus::Kind::untracked ? DiffKind::untracked
+                                                                         : DiffKind::changes;
+        if (file.path == path) {
+            index = items.size();
+        }
+        items.push_back({file.path, kind});
+    }
+    show_diff(repo.key, std::move(items), index);
+}
+
 void Decorator::open_link(const std::string& url) {
     // xdg-open detached from rummage, its streams on /dev/null: a browser it starts may write
     // long after, and comes to the front with the window's activation token.
@@ -1064,18 +1090,47 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
                          {.name = path.filename().string(),
                           .detail = path.parent_path().string(),
                           .badge = badge_of(shown).value_or(views::Badge{}),
+                          // A click: its changes, the arrows going through this list.
                           .open =
-                              [this, root = at.repository.worktree, target] {
-                                  if (host_.reveal) {
-                                      host_.reveal(root, target);
+                              [this, key, which, file_path = file.path] {
+                                  if (const auto found = repos_.find(key); found != repos_.end()) {
+                                      show_group_diff(*found->second, which, file_path);
                                   }
                               },
                           .menu =
-                              [this, key, file_path = file.path] {
+                              [this, key, file_path = file.path, root = at.repository.worktree,
+                               target] {
+                                  std::vector<views::MenuItem> items;
                                   const auto found = repos_.find(key);
-                                  return found != repos_.end() && found->second->status
-                                             ? path_items(*found->second, {file_path}, false)
-                                             : std::vector<views::MenuItem>{};
+                                  if (found == repos_.end() || !found->second->status) {
+                                      return items;
+                                  }
+                                  views::MenuItem reveal;
+                                  reveal.id = "git_reveal";
+                                  reveal.label = std::string{i18n::trc("git", "Show in Browser")};
+                                  reveal.action = [this, root, target] {
+                                      if (host_.reveal) {
+                                          host_.reveal(root, target);
+                                      }
+                                  };
+                                  items.push_back(std::move(reveal));
+                                  views::MenuItem open;
+                                  open.id = "git_open";
+                                  open.label = std::string{i18n::trc("git", "Open File")};
+                                  open.enabled = std::filesystem::exists(target);
+                                  open.action = [this, target] {
+                                      if (host_.open_file) {
+                                          host_.open_file(target);
+                                      }
+                                  };
+                                  items.push_back(std::move(open));
+                                  auto git = path_items(*found->second, {file_path}, false);
+                                  if (!git.empty()) {
+                                      git.front().separator = true;
+                                  }
+                                  items.insert(items.end(), std::make_move_iterator(git.begin()),
+                                               std::make_move_iterator(git.end()));
+                                  return items;
                               }});
                  }
                  return entries;
