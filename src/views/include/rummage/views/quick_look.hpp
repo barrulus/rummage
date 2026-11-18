@@ -69,7 +69,18 @@ public:
 
     [[nodiscard]] ui::Rect details_button() const { return details_button_; }
 
-    [[nodiscard]] bool is_open() const noexcept { return folder_ != nullptr; }
+    [[nodiscard]] bool is_open() const noexcept { return folder_ != nullptr || given_.has_value(); }
+
+    // Shows text that is no entry of a folder (a file's changes), titled title, until closed or
+    // replaced; the view underneath stays as it is. step(+1 or -1), when set, runs for Right or
+    // Down and Left or Up: the owner shows the next or previous one.
+    void show_text(std::string title, preview::Text text, std::function<void(int)> step = {});
+
+    // Shows given text (show_text), not a folder's entry.
+    [[nodiscard]] bool shows_given() const noexcept { return given_.has_value(); }
+
+    // Left, Right, Up and Down while given text is shown: true when taken (step).
+    bool given_key(const ui::KeyEvent& event);
 
     // Shows what folder's cursor is on now (it may have moved, or the view may show another
     // folder); closes when it is on nothing.
@@ -188,7 +199,16 @@ private:
     std::shared_ptr<const thumbs::Cache> thumbnails_;
     std::function<void()> redraw_;
 
-    std::shared_ptr<Folder> folder_;  // nullptr: closed
+    std::shared_ptr<Folder> folder_;  // nullptr: closed (unless given_ is shown)
+
+    // Text that is no folder's entry (show_text): its title as an entry's name.
+    struct Given {
+        fs::Entry entry;
+        std::shared_ptr<preview::Content> content;
+        std::function<void(int)> step;
+    };
+
+    std::optional<Given> given_;
     std::string shown_name_;
     std::string shown_key_;
     Clock::time_point opened_;

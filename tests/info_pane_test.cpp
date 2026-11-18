@@ -888,3 +888,36 @@ TEST_CASE("info pane: a decorator's text field, split button and folded group") 
     CHECK(decorations.asked_entries >= 1);
     f.browser.set_decorations(nullptr);
 }
+
+TEST_CASE("quick look: given text stays, its arrows step, and keys do not reach the view") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);  // long.txt under the cursor
+    REQUIRE(f.settle());
+    std::vector<int> steps;
+    rummage::text::Text text;
+    text.lines = {"@@ -1 +1 @@", "-old", "+new"};
+    f.browser.quick_look().show_text("changes.diff", text,
+                                     [&](int delta) { steps.push_back(delta); });
+    f.draw();
+    f.draw();  // drawing follows the view's cursor, which must not replace the given text
+    auto& look = f.browser.quick_look();
+    REQUIRE(look.is_open());
+    CHECK(look.shows_given());
+    CHECK(look.shown() == "changes.diff");
+    CHECK(look.shows_text());
+    f.press(XKB_KEY_Right);
+    f.press(XKB_KEY_Down);
+    f.press(XKB_KEY_Left);
+    CHECK(steps == std::vector<int>{1, 1, -1});
+    f.press(XKB_KEY_Delete);  // the file under the view's cursor stays
+    f.draw();
+    CHECK(fs::exists(f.dir.path / "long.txt"));
+    CHECK(look.shows_given());
+    f.press(XKB_KEY_Escape);
+    CHECK_FALSE(look.is_open());
+}

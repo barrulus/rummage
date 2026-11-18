@@ -225,7 +225,51 @@ void QuickLook::open(std::shared_ptr<Folder> folder, Clock::time_point now) {
     follow(std::move(folder));
 }
 
+void QuickLook::show_text(std::string title, preview::Text text, std::function<void(int)> step) {
+    if (!is_open()) {
+        opened_ = Clock::now();
+    }
+    for (auto& [key, slot] : slots_) {
+        drop(slot);
+    }
+    slots_.clear();
+    folder_.reset();
+    shown_key_.clear();
+    selection_.clear();
+    selecting_ = false;
+    layout_ = {};
+    text_scroller_.jump_to(0.0F);
+    text_sideways_.jump_to(0.0F);
+    fs::Entry entry;
+    entry.name = title;
+    shown_name_ = std::move(title);
+    given_ = Given{.entry = std::move(entry),
+                   .content = std::make_shared<preview::Content>(std::move(text)),
+                   .step = std::move(step)};
+    redraw_();
+}
+
+bool QuickLook::given_key(const ui::KeyEvent& event) {
+    if (!given_ || event.modifiers != ui::Modifiers{}) {
+        return false;
+    }
+    int delta = 0;
+    if (event.keysym == XKB_KEY_Right || event.keysym == XKB_KEY_Down) {
+        delta = 1;
+    } else if (event.keysym == XKB_KEY_Left || event.keysym == XKB_KEY_Up) {
+        delta = -1;
+    } else {
+        return false;
+    }
+    if (given_->step) {
+        const std::function<void(int)> step = given_->step;  // it may show another text
+        step(delta);
+    }
+    return true;
+}
+
 void QuickLook::close() {
+    given_.reset();
     for (auto& [key, slot] : slots_) {
         drop(slot);
     }
@@ -341,6 +385,9 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
 }
 
 void QuickLook::follow(std::shared_ptr<Folder> folder) {
+    if (given_) {
+        return;  // given text stays until closed or replaced
+    }
     if (!folder) {
         close();
         return;
@@ -653,6 +700,9 @@ bool QuickLook::loading() const {
 }
 
 const preview::Content* QuickLook::content() const {
+    if (given_) {
+        return given_->content.get();
+    }
     const auto it = slots_.find(shown_key_);
     return it == slots_.end() ? nullptr : it->second.content.get();
 }
@@ -670,6 +720,19 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
                      ui::IconSet& icons, Clock::time_point now) {
     retired_.clear();
     if (!is_open()) {
+        return;
+    }
+    if (given_) {
+        // Given text: the page alone, no details, no neighbours.
+        const float fade = fade_at(opened_, now);
+        renderer.fill_rect(bounds, palette.scrim.with_alpha(0.78F * fade));
+        details_button_ = markdown_button_ = details_bounds_ = {};
+        ui::Rect area{bounds.x + kMargin, bounds.y + kMargin + 16.0F,
+                      bounds.width - (2.0F * kMargin),
+                      std::max(1.0F, bounds.height - (2.0F * kMargin) - kCaptionHeight - 16.0F)};
+        if (const auto* text = std::get_if<preview::Text>(given_->content.get())) {
+            draw_text(renderer, area, palette, given_->entry, *text, fade, now);
+        }
         return;
     }
     const fs::Entry* const entry = folder_->cursor_entry();
@@ -1107,7 +1170,9 @@ void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,
     } else {
         caption += i18n::trn("{} line", "{} lines", count);
     }
-    caption += "   " + format_size(entry.size);
+    if (!given_) {
+        caption += "   " + format_size(entry.size);
+    }
     draw_caption(renderer, area, palette, caption, fade);
 }
 

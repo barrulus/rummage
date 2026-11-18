@@ -161,6 +161,18 @@ void Browser::set_decorations(Decorations* decorations) {
                  [this](std::vector<std::filesystem::path> paths) {
                      trash_paths(paths, Purpose::user);
                  },
+             .show_text =
+                 [this](std::string title, text::Text text, std::function<void(int)> step) {
+                     quick_look_.show_text(std::move(title), std::move(text), std::move(step));
+                 },
+             .open_file =
+                 [this](const std::filesystem::path& file) {
+                     if (open_) {
+                         fs::Entry entry;
+                         entry.name = file.filename().string();
+                         open_(file.parent_path(), {std::move(entry)});
+                     }
+                 },
              .reveal = [this](const std::filesystem::path& root,
                               const std::filesystem::path& target) { reveal(root, target); }});
     }
@@ -5059,6 +5071,23 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             return true;  // the info pane is under it, and the panes are not shown
         }
         if (quick_look_.text_key(event, now)) {
+            return true;
+        }
+        if (quick_look_.shows_given()) {
+            // Text that is no entry (a diff): arrows go to the next one; nothing reaches the view.
+            if (quick_look_.given_key(event)) {
+                return true;
+            }
+            if (quick_look_.shows_text()) {
+                if ((event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A) &&
+                    event.modifiers == ui::Modifiers{.ctrl = true}) {
+                    quick_look_.select_all_text();
+                } else if (command == Command::copy) {
+                    if (std::string text = quick_look_.selected_text(); !text.empty()) {
+                        copy_text(std::move(text));
+                    }
+                }
+            }
             return true;
         }
         if (quick_look_.shows_text()) {

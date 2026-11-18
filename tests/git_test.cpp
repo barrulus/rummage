@@ -736,6 +736,15 @@ struct TestHost {
     std::vector<std::string> actions;  // the buttons of the text cards asked for
     std::vector<std::pair<std::filesystem::path, std::filesystem::path>> revealed;
 
+    struct Shown {
+        std::string title;
+        rummage::text::Text text;
+        std::function<void(int)> step;
+    };
+
+    std::vector<Shown> shown;  // texts shown in Quick Look
+    std::vector<std::filesystem::path> opened;
+
     rummage::views::DecorationHost host() {
         return {
             .message = [this](std::string text,
@@ -756,6 +765,11 @@ struct TestHost {
                         trashed.push_back(path);
                     }
                 },
+            .show_text =
+                [this](std::string title, rummage::text::Text text, std::function<void(int)> step) {
+                    shown.push_back({std::move(title), std::move(text), std::move(step)});
+                },
+            .open_file = [this](const std::filesystem::path& file) { opened.push_back(file); },
             .reveal =
                 [this](const std::filesystem::path& root, const std::filesystem::path& target) {
                     revealed.emplace_back(root, target);

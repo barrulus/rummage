@@ -10,6 +10,7 @@
 
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/sort.hpp"
+#include "rummage/text/text.hpp"
 #include "rummage/views/context_menu.hpp"
 #include "rummage/views/folder.hpp"
 
@@ -126,6 +127,12 @@ struct DecorationHost {
         confirm;
     // Moves files to the trash, as Delete does (undoable).
     std::function<void(std::vector<std::filesystem::path> paths)> trash;
+    // Shows text in Quick Look (a file's changes), titled title; step(+1/-1) runs for the arrow
+    // keys there, to show the next or previous one.
+    std::function<void(std::string title, text::Text text, std::function<void(int)> step)>
+        show_text;
+    // Opens a file in its default application, as Enter does.
+    std::function<void(const std::filesystem::path& file)> open_file;
     // Shows target in the browser, its folders opened from root and it selected.
     std::function<void(const std::filesystem::path& root, const std::filesystem::path& target)>
         reveal;
