@@ -352,6 +352,27 @@ Manual dispatch deliberately bypasses artifact promotion for a fresh matrix run
 tracked source prevent reuse unless that exact tree has passed. Runs created before
 Nix closure artifacts were introduced need one normal main build.
 
+## Noctalia community template
+
+Noctalia also offers a rummage template in its catalogue,
+[noctalia-dev/community-templates](https://github.com/noctalia-dev/community-templates) (`rummage/`),
+maintained outside this repository. The [template workflow](../.github/workflows/noctalia-template.yml)
+runs `scripts/ci/noctalia-template.py`, which compares that template with the roles of `struct Palette`
+in [palette.hpp](../src/theme/include/rummage/theme/palette.hpp) and the mapping in
+[data/noctalia/rummage](../data/noctalia/rummage): missing, extra or remapped roles, the `mode` line and
+the output path. It runs daily, on demand and on pull requests touching those files. A pull request that
+adds or renames a palette role therefore fails it until the community template is updated as well.
+
+While the scheduled run finds differences, it keeps one issue, "Noctalia community template for
+rummage is out of sync", open and comments when the differences change; it closes the issue once both
+agree again. Before the template is published there, the check passes with a notice. To check a
+template change before it is merged, point the script at its branch or a local checkout:
+
+```sh
+python3 scripts/ci/noctalia-template.py --repo <user>/community-templates --ref <branch>
+python3 scripts/ci/noctalia-template.py --dir ../community-templates
+```
+
 ## GitHub setup and scope
 
 GitHub Actions must be enabled on the fork. Build and preparation jobs use read-only repository
