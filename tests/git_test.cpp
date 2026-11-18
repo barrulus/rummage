@@ -499,8 +499,6 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
         }
         return std::string{};
     };
-    CHECK(value_of("Branch") == "main");
-    CHECK(value_of("Changes") == "1 changed, 2 untracked");
     CHECK(value_of("Last commit").ends_with(" First"));
     CHECK(value_of("Author") == "Ada");
 
@@ -1126,7 +1124,7 @@ TEST_CASE("git section: header, message field, commit button and folded file gro
         std::ranges::any_of(more, [](const auto& item) { return item.id == "git_commit"; }));
 
     REQUIRE(section->input.has_value());
-    CHECK(section->input->placeholder == "Message (Ctrl+Enter to commit on “main”)");
+    CHECK(section->input->placeholder == "Message (Ctrl+Enter to commit)");
     REQUIRE(section->split.has_value());
     CHECK(section->split->label == "✓ Commit");
     const auto ways = section->split->menu("x");

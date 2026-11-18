@@ -916,10 +916,6 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
             rows.push_back({std::string{label}, std::move(value), nullptr});
         }
     };
-    add(i18n::trc("git", "Branch"),
-        branch.name.empty() ? i18n::trcf("git", "Detached at {}",
-                                         repo.commit ? repo.commit->hash : branch.oid.substr(0, 7))
-                            : branch.name);
     if (!branch.upstream.empty()) {
         add(i18n::trc("git", "Upstream"),
             std::format("{}  ↑{} ↓{}", branch.upstream, branch.ahead, branch.behind));
@@ -936,18 +932,6 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
         add(i18n::trc("git", "In progress"), std::string{doing});
     }
     const Status::Counts counts = repo.status->counts();
-    std::string changes;
-    const auto count = [&changes](std::size_t n, const std::string& words) {
-        if (n > 0) {
-            changes.append(changes.empty() ? "" : ", ").append(words);
-        }
-    };
-    count(counts.conflicts, i18n::trnc("git", "{} conflict", "{} conflicts", counts.conflicts));
-    count(counts.staged, i18n::trnc("git", "{} staged", "{} staged", counts.staged));
-    count(counts.changed, i18n::trnc("git", "{} changed", "{} changed", counts.changed));
-    count(counts.untracked, i18n::trnc("git", "{} untracked", "{} untracked", counts.untracked));
-    add(i18n::trc("git", "Changes"),
-        changes.empty() ? std::string{i18n::trc("git", "None")} : changes);
     if (repo.commit) {
         add(i18n::trc("git", "Last commit"), repo.commit->hash + " " + repo.commit->subject);
         add(i18n::trc("git", "Author"), repo.commit->author);
@@ -998,8 +982,7 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
         }};
 
     section_.input = views::DetailSection::Input{
-        .placeholder = i18n::trcf("git", "Message (Ctrl+Enter to commit on “{}”)",
-                                  branch.name.empty() ? std::string{"HEAD"} : branch.name),
+        .placeholder = std::string{i18n::trc("git", "Message (Ctrl+Enter to commit)")},
         .revision = repo.input_revision,
         .text = repo.input_text,
         .submit = {}};

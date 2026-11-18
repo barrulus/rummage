@@ -19,6 +19,7 @@
 // --drag NAME presses on the entry NAME of the folder shown and drags it a little (the drag image
 // drawn under the pointer); --drop-over X,Y then moves that drag (or, alone, another program's
 // drag of files) over the point X,Y, which shows where it would drop.
+// --click X,Y[,X,Y...] clicks there (left button), one after another, each drawn and settled.
 // --band X1,Y1,X2,Y2 presses at X1,Y1 and moves to X2,Y2 with the button down: a rubber band
 // when the press is on empty space.
 // --fake-disks adds two disks to the sidebar as udisks2 would: "kinetic", external and not mounted,
@@ -248,7 +249,8 @@ int main(int argc, char** argv) {
     std::string conflict;
     std::string drag;
     std::optional<std::pair<float, float>> drop_over;
-    std::vector<float> band;  // x1, y1, x2, y2
+    std::vector<float> band;    // x1, y1, x2, y2
+    std::vector<float> clicks;  // --click: x, y of each left click, in order
     std::optional<std::string> csd;
     std::optional<std::string> desktop;
     std::string icon_theme{"builtin"};
@@ -338,6 +340,18 @@ int main(int argc, char** argv) {
             const std::size_t comma = point.find(',');
             drop_over = std::pair{std::stof(std::string{point.substr(0, comma)}),
                                   std::stof(std::string{point.substr(comma + 1)})};
+        } else if (option == "--click") {
+            std::string_view rest{args[2]};
+            while (!rest.empty()) {
+                const std::size_t comma = rest.find(',');
+                clicks.push_back(std::stof(std::string{rest.substr(0, comma)}));
+                rest =
+                    comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+            }
+            if (clicks.empty() || clicks.size() % 2 != 0) {
+                log::error("--click takes X,Y[,X,Y...]");
+                return 2;
+            }
         } else if (option == "--band") {
             std::string_view rest{args[2]};
             while (!rest.empty()) {
@@ -683,6 +697,21 @@ int main(int argc, char** argv) {
                 if (!drag.empty()) {
                     drag_image =
                         drag_entry(*columns, drag, window_bounds.width, window_bounds.height);
+                    frame();
+                }
+                // --click: left clicks in order, each drawn and settled before the next.
+                for (std::size_t i = 0; i + 1 < clicks.size(); i += 2) {
+                    using Kind = ui::PointerEvent::Kind;
+                    for (const Kind kind : {Kind::motion, Kind::press, Kind::release}) {
+                        columns->pointer({.kind = kind,
+                                          .x = clicks[i],
+                                          .y = clicks[i + 1],
+                                          .button = ui::PointerButton::left,
+                                          .click_count = 1},
+                                         std::chrono::steady_clock::now());
+                    }
+                    frame();
+                    run_until(loop, [&] { return !columns->loading(); });
                     frame();
                 }
                 if (band.size() == 4) {
