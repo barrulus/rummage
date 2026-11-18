@@ -1364,6 +1364,23 @@ TEST_CASE("git: a diff as a text page") {
     CHECK(cut.lines.size() == 10);
     CHECK(cut.truncated);
     CHECK(git::diff_text("").lines.empty());
+
+    // A conflict's combined diff: a column per parent, either may mark the line.
+    const auto combined = git::diff_text(
+        "diff --cc a.txt\n@@@ -1,1 -1,1 +1,5 @@@\n++<<<<<<< HEAD\n +ours\n++=======\n"
+        "+ theirs\n++>>>>>>> other\n  same\n- gone\n");
+    REQUIRE(combined.lines.size() == 9);
+    CHECK(combined.spans[1].front().style == Style::function);
+    for (const std::size_t added : {2U, 3U, 4U, 5U, 6U}) {
+        CAPTURE(added);
+        REQUIRE(combined.spans[added].size() == 1);
+        CHECK(combined.spans[added].front().style == Style::added);
+    }
+    CHECK(combined.spans[7].empty());
+    CHECK(combined.spans[8].front().style == Style::removed);
+    // A plain diff after it has one column again.
+    const auto plain = git::diff_text("@@ -1 +1 @@\n +not added\n");
+    CHECK(plain.spans[1].empty());
 }
 
 TEST_CASE("git section: the changes of a file, and the arrows through the list") {
@@ -1432,6 +1449,87 @@ TEST_CASE("git section: the changes of a file, and the arrows through the list")
         return !shown.decorator.acting() &&
                group_named(*shown.decorator.details(*shown.folder), "git_staged") == nullptr;
     }));
+}
+
+TEST_CASE("git section: diffs of staged, deleted and conflicting files") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "b.txt", "bee\n");
+    run_git(repo, {"add", "b.txt"});
+    run_git(repo, {"commit", "-q", "-m", "Bee"});
+    const auto open_in = [](Shown& shown, std::string_view group, std::string_view name) {
+        const auto* found = group_named(*shown.decorator.details(*shown.folder), group);
+        REQUIRE(found != nullptr);
+        for (const auto& entry : found->entries()) {
+            if (entry.name == name) {
+                entry.open();
+                return;
+            }
+        }
+        FAIL("no entry " << name << " in " << group);
+    };
+    const auto last_text = [](const TestHost& host) {
+        std::string all;
+        if (!host.shown.empty()) {
+            for (const auto& line : host.shown.back().text.lines) {
+                all += line + "\n";
+            }
+        }
+        return all;
+    };
+
+    SUBCASE("staged and deleted") {
+        write(repo / "a.txt", "staged\n");
+        run_git(repo, {"add", "a.txt"});
+        std::filesystem::remove(repo / "b.txt");
+        Shown shown{repo};
+        TestHost host;
+        shown.decorator.set_host(host.host());
+        REQUIRE(shown.wait_for([&] {
+            const auto* section = shown.decorator.details(*shown.folder);
+            return section && group_named(*section, "git_staged") &&
+                   group_named(*section, "git_changes");
+        }));
+        open_in(shown, "git_staged", "a.txt");
+        REQUIRE(
+            shown.wait_for([&] { return last_text(host).find("+staged\n") != std::string::npos; }));
+        CHECK(last_text(host).find("-one\n") != std::string::npos);
+        CHECK(host.shown.back().title == "a.txt  ·  Staged Changes");
+        open_in(shown, "git_changes", "b.txt");
+        REQUIRE(
+            shown.wait_for([&] { return last_text(host).find("-bee\n") != std::string::npos; }));
+        CHECK(host.shown.back().title == "b.txt  ·  Changes");
+    }
+
+    SUBCASE("conflict") {
+        run_git(repo, {"switch", "-q", "-c", "other"});
+        write(repo / "a.txt", "theirs\n");
+        run_git(repo, {"commit", "-q", "-am", "Theirs"});
+        run_git(repo, {"switch", "-q", "main"});
+        write(repo / "a.txt", "ours\n");
+        run_git(repo, {"commit", "-q", "-am", "Ours"});
+        run_git(repo, {"merge", "-q", "other"}, true);
+        Shown shown{repo};
+        TestHost host;
+        shown.decorator.set_host(host.host());
+        REQUIRE(shown.wait_for([&] {
+            const auto* section = shown.decorator.details(*shown.folder);
+            return section && group_named(*section, "git_conflicts");
+        }));
+        open_in(shown, "git_conflicts", "a.txt");
+        REQUIRE(
+            shown.wait_for([&] { return last_text(host).find("+ours\n") != std::string::npos; }));
+        CHECK(last_text(host).find("+ theirs\n") != std::string::npos);
+        CHECK(last_text(host).find("<<<<<<<") != std::string::npos);
+        const auto& shown_text = host.shown.back().text;
+        const auto ours = std::ranges::find(shown_text.lines, " +ours");
+        REQUIRE(ours != shown_text.lines.end());
+        const auto& spans =
+            shown_text.spans.at(static_cast<std::size_t>(ours - shown_text.lines.begin()));
+        REQUIRE(spans.size() == 1);
+        CHECK(spans.front().style == rummage::text::Style::added);  // ours, though it starts blank
+    }
 }
 
 TEST_CASE("git: colours as editors use them, or as git does") {

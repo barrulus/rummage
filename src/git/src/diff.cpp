@@ -111,6 +111,7 @@ std::vector<std::string> diff_arguments(const std::filesystem::path& worktree,
 text::Text diff_text(std::string_view output, std::size_t max_lines) {
     text::Text text;
     text.language = "Diff";
+    std::size_t columns = 1;  // of + and - before a line: one, or a combined diff's parents
     std::size_t start = 0;
     while (start < output.size()) {
         if (text.lines.size() == max_lines) {
@@ -131,13 +132,18 @@ text::Text diff_text(std::string_view output, std::size_t max_lines) {
                                  .style = style});
             }
         };
+        // A file in conflict comes as a combined diff: "@@@" hunks, and one column per parent
+        // before each line (" +ours", "+ theirs"), any of them marking it.
+        const std::string_view marks = std::string_view{line}.substr(0, columns);
         if (is_header(line)) {
             whole(text::Style::comment);
         } else if (line.starts_with("@@")) {
+            const std::size_t ats = line.find_first_not_of('@');
+            columns = ats == std::string::npos || ats < 3 ? 1 : ats - 1;
             whole(text::Style::function);
-        } else if (line.starts_with('+')) {
+        } else if (marks.find('+') != std::string_view::npos) {
             whole(text::Style::added);
-        } else if (line.starts_with('-')) {
+        } else if (marks.find('-') != std::string_view::npos) {
             whole(text::Style::removed);
         }
         text.lines.push_back(std::move(line));
