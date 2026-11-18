@@ -3494,7 +3494,11 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (status_bar_.claims(x, y)) {
         return hand(status_bar_.clickable_at(x, y));
     }
-    return info_pane_.text_at(x, y) ? Shape::text : hand(info_pane_.clickable_at(x, y));
+    // A link drawn as text is a link first.
+    if (info_pane_.clickable_at(x, y)) {
+        return Shape::pointer;
+    }
+    return info_pane_.text_at(x, y) ? Shape::text : Shape::standard;
 }
 
 void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now) {

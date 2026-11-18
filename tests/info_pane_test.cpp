@@ -24,6 +24,7 @@
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/decorations.hpp"
 #include "temp_dir.hpp"
 
 using rummage::core::EventLoop;
@@ -715,4 +716,80 @@ TEST_CASE("info pane: modifier keys keep text focus and file navigation drops it
     REQUIRE_FALSE(offered.empty());
     CHECK(offered.front().first == "x-special/gnome-copied-files");
     CHECK(offered.front().second.ends_with("short.txt"));
+}
+
+namespace {
+
+// A decorator with one section: a link row and nothing else.
+struct LinkDecorations final : rummage::views::Decorations {
+    int opened{0};
+    rummage::views::DetailSection section{
+        .title = "EXTRA",
+        .rows = {{.label = "Link", .value = "example.org/a/long/enough/path", .action = {}}},
+        .buttons = {}};
+
+    LinkDecorations() {
+        section.rows.front().action = [this] { ++opened; };
+    }
+
+    const rummage::views::Badge* badge(const rummage::views::Folder& /*folder*/,
+                                       const rummage::fs::Entry& /*entry*/) override {
+        return nullptr;
+    }
+
+    const rummage::views::StatusPart* status(const rummage::views::Folder& /*folder*/) override {
+        return nullptr;
+    }
+
+    const rummage::views::DetailSection* details(
+        const rummage::views::Folder& /*folder*/) override {
+        return &section;
+    }
+};
+
+}  // namespace
+
+TEST_CASE("info pane: a decorator's link is clicked, not selected as text") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    LinkDecorations decorations;
+    f.browser.set_decorations(&decorations);
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    f.press(XKB_KEY_Down);  // short.txt: its short page leaves room for the section after it
+    REQUIRE(f.settle());
+    // The section's heading is clickable across the pane; under it, the link only at the right.
+    float heading_left = 0.0F;
+    float heading_right = 0.0F;
+    float heading_y = -1.0F;
+    for (float y = 0.0F; y < static_cast<float>(kHeight) && heading_y < 0.0F; y += 2.0F) {
+        for (float x = 0.0F; x < static_cast<float>(kWidth); x += 2.0F) {
+            if (f.pane().clickable_at(x, y)) {
+                if (heading_y < 0.0F) {
+                    heading_y = y;
+                    heading_left = x;
+                }
+                heading_right = x;
+            }
+        }
+        if (heading_right - heading_left < 200.0F) {
+            heading_y = -1.0F;  // "More details", narrow: not the heading
+        }
+    }
+    REQUIRE(heading_y >= 0.0F);
+    const float left = heading_left + 10.0F;
+    const float right = heading_right - 10.0F;
+    std::optional<float> link_y;
+    for (float y = heading_y + 30.0F; y < static_cast<float>(kHeight) && !link_y; y += 2.0F) {
+        if (f.pane().clickable_at(right, y) && !f.pane().clickable_at(left, y)) {
+            link_y = y;
+        }
+    }
+    REQUIRE(link_y.has_value());
+    f.click(right, *link_y + 2.0F);
+    CHECK(decorations.opened == 1);
+    f.browser.set_decorations(nullptr);
 }

@@ -302,6 +302,15 @@ bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
             clear_text_focus();
             return false;
         }
+        // A decorator's heading, buttons and links before the text under them is selected.
+        if (extra_toggle_.contains(event.x, event.y) ||
+            std::ranges::any_of(extra_buttons_, [&](const auto& button) {
+                return button.first.contains(event.x, event.y);
+            })) {
+            clear_text_focus();
+            static_cast<void>(click(event.x, event.y));
+            return true;
+        }
         if (const preview::Text* const text = shown_text();
             text != nullptr && page_.contains(event.x, event.y)) {
             metadata_.clear_focus();
