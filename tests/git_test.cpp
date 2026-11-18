@@ -884,11 +884,18 @@ TEST_CASE("git actions: fetch, pull and push with a local remote") {
 
     // The first push sets the upstream.
     REQUIRE(choose(shown, {}, "git_push"));
-    REQUIRE(idle_and([&] {
-        return shown.decorator.details(*shown.folder) != nullptr &&
-               !shown.decorator.details(*shown.folder)->rows.empty() &&
-               shown.decorator.details(*shown.folder)->rows[1].value == "origin/main  ↑0 ↓0";
-    }));
+    const auto upstream = [&] {
+        const auto* section = shown.decorator.details(*shown.folder);
+        if (section != nullptr) {
+            for (const auto& row : section->rows) {
+                if (row.label == "Upstream") {
+                    return row.value;
+                }
+            }
+        }
+        return std::string{};
+    };
+    REQUIRE(idle_and([&] { return upstream() == "origin/main  ↑0 ↓0"; }));
     CHECK(host.messages.back() == std::pair<std::string, bool>{"Pushed", false});
 
     // Someone else pushes; fetch shows it behind, pull brings it.
