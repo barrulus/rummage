@@ -723,13 +723,13 @@ namespace {
 // A decorator with one section: a link row and nothing else.
 struct LinkDecorations final : rummage::views::Decorations {
     int opened{0};
-    rummage::views::DetailSection section{
-        .title = "EXTRA",
-        .rows = {{.label = "Link", .value = "example.org/a/long/enough/path", .action = {}}},
-        .buttons = {}};
+    rummage::views::DetailSection section;
 
     LinkDecorations() {
-        section.rows.front().action = [this] { ++opened; };
+        section.title = "EXTRA";
+        section.rows.push_back({.label = "Link",
+                                .value = "example.org/a/long/enough/path",
+                                .action = [this] { ++opened; }});
     }
 
     const rummage::views::Badge* badge(const rummage::views::Folder& /*folder*/,

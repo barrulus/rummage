@@ -383,11 +383,28 @@ std::optional<views::MenuItem> Decorator::menu(const views::Folder& folder,
         return std::nullopt;
     }
     Repo& repo = *place->repo;
-    const bool idle = !repo.action && repo.action_name.empty();
     views::MenuItem git;
     git.id = "git";
     git.label = "Git";
     git.submenu = true;
+    if (names.empty()) {
+        git.children = repo_items(repo, true);
+        return git;
+    }
+
+    std::vector<std::string> paths;
+    for (const std::string& name : names) {
+        paths.push_back(place->prefix + name);
+    }
+    git.children = path_items(repo, paths, place->ignored);
+    return git;
+}
+
+std::vector<views::MenuItem> Decorator::path_items(Repo& repo,
+                                                   const std::vector<std::string>& paths,
+                                                   bool inside_ignored) {
+    std::vector<views::MenuItem> items;
+    const bool idle = !repo.action && repo.action_name.empty();
     const auto item = [&](std::string id, std::string_view label, bool enabled,
                           std::function<void()> action, bool separator = false) {
         views::MenuItem each;
@@ -396,7 +413,7 @@ std::optional<views::MenuItem> Decorator::menu(const views::Folder& folder,
         each.enabled = enabled && idle;
         each.separator = separator;
         each.action = std::move(action);
-        git.children.push_back(std::move(each));
+        items.push_back(std::move(each));
     };
     const std::string key = repo.key;
     const auto with_repo = [this, key](auto then) {
@@ -406,22 +423,12 @@ std::optional<views::MenuItem> Decorator::menu(const views::Folder& folder,
             }
         };
     };
-    if (names.empty()) {
-        for (views::DetailSection::Button& button : buttons(repo)) {
-            item(button.id, button.label, button.enabled, std::move(button.action),
-                 button.id == "fetch");
-        }
-        return git;
-    }
-
-    std::vector<std::string> paths;
     bool stageable = false;
     bool staged = false;
     bool changed = false;
     bool ignorable = false;
-    for (const std::string& name : names) {
-        std::string path = place->prefix + name;
-        bool ignored_here = place->ignored;
+    for (const std::string& path : paths) {
+        bool ignored_here = inside_ignored;
         for (const FileStatus* file : statuses_at(*repo.status, path)) {
             if (file->kind == FileStatus::Kind::ignored) {
                 ignored_here = ignored_here || file->path == path || file->path == path + "/";
@@ -432,8 +439,8 @@ std::optional<views::MenuItem> Decorator::menu(const views::Folder& folder,
                 stageable || file->kind != FileStatus::Kind::tracked || file->unstaged != '.';
             staged = staged || (file->kind == FileStatus::Kind::tracked && file->staged != '.');
         }
+        const std::string name = std::filesystem::path{path}.filename().string();
         ignorable = ignorable || (!ignored_here && name != ".gitignore");
-        paths.push_back(std::move(path));
     }
     const bool has_head = !repo.status->branch.oid.empty();
     const auto with_paths = [&](std::vector<std::string> arguments) {
@@ -460,7 +467,100 @@ std::optional<views::MenuItem> Decorator::menu(const views::Folder& folder,
          with_repo([this, paths](Repo& at) { discard(at, paths); }));
     item("ignore", i18n::trc("git", "Add to .gitignore"), ignorable,
          with_repo([this, paths](Repo& at) { ignore(at, paths); }), true);
-    return git;
+    return items;
+}
+
+std::vector<std::string> Decorator::push_arguments(const Repo& repo) {
+    const bool upstream = repo.status && !repo.status->branch.upstream.empty();
+    return upstream ? std::vector<std::string>{"push", "--quiet"}
+                    : std::vector<std::string>{"push", "--quiet", "-u", "origin", "HEAD"};
+}
+
+void Decorator::sync(Repo& repo) {
+    act(repo, std::string{i18n::trc("git", "Sync")},
+        {{"pull", "--no-edit", "--quiet"}, push_arguments(repo)},
+        std::string{i18n::trc("git", "Synced")});
+}
+
+void Decorator::commit_typed(Repo& repo, const std::string& typed, CommitMode mode) {
+    if (!repo.status) {
+        return;
+    }
+    const std::string message = trimmed(typed);
+    if (message.empty() && mode != CommitMode::amend) {
+        if (host_.message) {
+            host_.message(std::string{i18n::trc("git", "Enter a commit message")}, true);
+        }
+        return;
+    }
+    const Status::Counts counts = repo.status->counts();
+    const bool nothing_staged = counts.staged == 0;
+    const bool any = counts.changed + counts.untracked + counts.conflicts > 0;
+    const auto run = [this, key = repo.key, message, mode](bool add_all) {
+        const auto it = repos_.find(key);
+        if (it == repos_.end()) {
+            return;
+        }
+        Repo& at = *it->second;
+        Steps steps;
+        if (add_all) {
+            steps.push_back({"add", "-A"});
+        }
+        std::vector<std::string> commit{"commit", "--quiet"};
+        if (mode == CommitMode::amend) {
+            commit.emplace_back("--amend");
+        }
+        if (message.empty()) {
+            commit.emplace_back("--no-edit");
+        } else {
+            commit.emplace_back("-m");
+            commit.push_back(message);
+        }
+        steps.push_back(std::move(commit));
+        if (mode == CommitMode::sync) {
+            steps.push_back({"pull", "--no-edit", "--quiet"});
+        }
+        if (mode == CommitMode::push || mode == CommitMode::sync) {
+            steps.push_back(push_arguments(at));
+        }
+        act(at, std::string{i18n::trc("git", "Commit")}, std::move(steps),
+            std::string{i18n::trc("git", "Committed")}, [this, key] {
+                if (const auto found = repos_.find(key); found != repos_.end()) {
+                    ++found->second->input_revision;  // the message field empties
+                    found->second->input_text.clear();
+                }
+            });
+    };
+    // Nothing staged: everything, after asking (an amend may change the message alone).
+    if (nothing_staged && any && mode != CommitMode::amend && host_.confirm) {
+        host_.confirm(std::string{i18n::trc("git", "Commit all changes?")},
+                      std::string{i18n::trc("git", "Nothing is staged; new files are staged too.")},
+                      std::string{i18n::trc("git", "Commit all")}, std::string{},
+                      [run](bool confirmed) {
+                          if (confirmed) {
+                              run(true);
+                          }
+                      });
+        return;
+    }
+    run(false);
+}
+
+std::vector<views::MenuItem> Decorator::repo_items(Repo& repo, bool with_commit) {
+    std::vector<views::MenuItem> items;
+    for (views::DetailSection::Button& button : buttons(repo)) {
+        if (!with_commit && button.id == "commit") {
+            continue;
+        }
+        views::MenuItem each;
+        each.id = "git_" + button.id;
+        each.label = button.label;
+        each.enabled = button.enabled;
+        each.separator = button.id == "fetch";
+        each.action = std::move(button.action);
+        items.push_back(std::move(each));
+    }
+    return items;
 }
 
 std::vector<views::DetailSection::Button> Decorator::buttons(Repo& repo) {
@@ -483,28 +583,43 @@ std::vector<views::DetailSection::Button> Decorator::buttons(Repo& repo) {
                        done = std::string{done}](Repo& at) { act(at, name, {arguments}, done); });
     };
     std::vector<views::DetailSection::Button> result;
-    result.push_back({"commit", std::string{i18n::trc("git", "Commit…")}, idle && any,
-                      run_on([this](Repo& at) { commit_all(at); })});
-    result.push_back({"stage_all", std::string{i18n::trc("git", "Stage All")}, idle && any,
-                      simple(i18n::trc("git", "Stage All"), {"add", "-A"}, {})});
+    result.push_back({"commit",
+                      std::string{i18n::trc("git", "Commit…")},
+                      idle && any,
+                      run_on([this](Repo& at) { commit_all(at); }),
+                      {}});
+    result.push_back({"stage_all",
+                      std::string{i18n::trc("git", "Stage All")},
+                      idle && any,
+                      simple(i18n::trc("git", "Stage All"), {"add", "-A"}, {}),
+                      {}});
     result.push_back(
-        {"unstage_all", std::string{i18n::trc("git", "Unstage All")}, idle && counts.staged > 0,
+        {"unstage_all",
+         std::string{i18n::trc("git", "Unstage All")},
+         idle && counts.staged > 0,
          simple(i18n::trc("git", "Unstage All"),
                 has_head ? std::vector<std::string>{"restore", "--staged", ":/"}
                          : std::vector<std::string>{"rm", "--cached", "-r", "-q", ":/"},
-                {})});
+                {}),
+         {}});
     result.push_back(
-        {"fetch", std::string{i18n::trc("git", "Fetch")}, idle,
-         simple(i18n::trc("git", "Fetch"), {"fetch", "--quiet"}, i18n::trc("git", "Fetched"))});
-    result.push_back({"pull", std::string{i18n::trc("git", "Pull")}, idle && upstream,
+        {"fetch",
+         std::string{i18n::trc("git", "Fetch")},
+         idle,
+         simple(i18n::trc("git", "Fetch"), {"fetch", "--quiet"}, i18n::trc("git", "Fetched")),
+         {}});
+    result.push_back({"pull",
+                      std::string{i18n::trc("git", "Pull")},
+                      idle && upstream,
                       simple(i18n::trc("git", "Pull"), {"pull", "--no-edit", "--quiet"},
-                             i18n::trc("git", "Pulled"))});
+                             i18n::trc("git", "Pulled")),
+                      {}});
     result.push_back(
-        {"push", std::string{i18n::trc("git", "Push")}, idle && has_head,
-         simple(i18n::trc("git", "Push"),
-                upstream ? std::vector<std::string>{"push", "--quiet"}
-                         : std::vector<std::string>{"push", "--quiet", "-u", "origin", "HEAD"},
-                i18n::trc("git", "Pushed"))});
+        {"push",
+         std::string{i18n::trc("git", "Push")},
+         idle && has_head,
+         simple(i18n::trc("git", "Push"), push_arguments(repo), i18n::trc("git", "Pushed")),
+         {}});
     return result;
 }
 

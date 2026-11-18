@@ -294,6 +294,31 @@ bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
         metadata_.pointer(event);
         return false;
     }
+    // The decorator's text field: a press in it takes the keyboard there, and a held press
+    // selects in it.
+    if (input_focused_ && event.kind != Kind::press && input_.pointer(event)) {
+        redraw_();
+        return true;
+    }
+    if (event.kind == Kind::press && input_.bounds().contains(event.x, event.y) &&
+        !input_.bounds().empty() && event.button == ui::PointerButton::left) {
+        clear_text_focus();
+        input_focused_ = true;
+        input_.pointer(event);
+        redraw_();
+        return true;
+    }
+    if (event.kind == Kind::press && input_focused_) {
+        blur_input();
+    }
+    if (event.kind == Kind::press && event.button == ui::PointerButton::right) {
+        for (const EntryTarget& entry : extra_entries_) {
+            if (entry.bounds.contains(event.x, event.y) && entry.menu && open_menu_) {
+                open_menu_(event.x, event.y, entry.menu());
+                return true;
+            }
+        }
+    }
     if (event.kind == Kind::press) {
         if (event.button != ui::PointerButton::left) {
             return false;
@@ -304,8 +329,11 @@ bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
         }
         // A decorator's heading, buttons and links before the text under them is selected.
         if (extra_toggle_.contains(event.x, event.y) ||
-            std::ranges::any_of(extra_buttons_, [&](const auto& button) {
-                return button.first.contains(event.x, event.y);
+            std::ranges::any_of(
+                extra_buttons_,
+                [&](const auto& button) { return button.first.contains(event.x, event.y); }) ||
+            std::ranges::any_of(extra_entries_, [&](const auto& entry) {
+                return entry.bounds.contains(event.x, event.y);
             })) {
             clear_text_focus();
             static_cast<void>(click(event.x, event.y));
@@ -463,10 +491,45 @@ bool InfoPane::scroll_text(TextScroll how, Clock::time_point now) {
     return true;
 }
 
+bool InfoPane::input_key(const ui::KeyEvent& event) {
+    if (!input_focused_) {
+        return false;
+    }
+    const bool enter = event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter;
+    if (enter && event.modifiers.ctrl) {
+        if (input_submit_) {
+            const std::function<void(const std::string&)> submit = input_submit_;
+            submit(input_.text());
+        }
+    } else if (event.keysym == XKB_KEY_Escape || event.keysym == XKB_KEY_Tab) {
+        blur_input();
+    } else {
+        input_.key(event);
+    }
+    redraw_();
+    return true;  // every key is the field's meanwhile
+}
+
+void InfoPane::paste_input(std::string_view text) {
+    if (input_focused_) {
+        input_.insert(text.substr(0, text.find_first_of("\r\n")));
+        redraw_();
+    }
+}
+
+void InfoPane::blur_input() {
+    if (input_focused_) {
+        input_focused_ = false;
+        redraw_();
+    }
+}
+
 bool InfoPane::clickable_at(float x, float y) const {
     return toggle_.contains(x, y) || extra_toggle_.contains(x, y) ||
            std::ranges::any_of(extra_buttons_,
-                               [&](const auto& button) { return button.first.contains(x, y); });
+                               [&](const auto& button) { return button.first.contains(x, y); }) ||
+           std::ranges::any_of(extra_entries_,
+                               [&](const auto& entry) { return entry.bounds.contains(x, y); });
 }
 
 bool InfoPane::click(float x, float y) {
@@ -474,6 +537,16 @@ bool InfoPane::click(float x, float y) {
         extra_open_ = !extra_open_;
         redraw_();
         return true;
+    }
+    for (const EntryTarget& entry : extra_entries_) {
+        if (entry.bounds.contains(x, y)) {
+            if (entry.open) {
+                const std::function<void()> run = entry.open;
+                run();
+            }
+            redraw_();
+            return true;
+        }
     }
     for (const auto& [bounds, action] : extra_buttons_) {
         if (bounds.contains(x, y)) {
@@ -622,12 +695,19 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     Writer out{
         renderer, {bounds.x, bounds.y - offset, bounds.width, bounds.height}, palette, metadata_};
     // A decorator's section, folded under its heading, then its buttons in lines.
+    // A decorator's section, folded under its heading: a header line, rows, a text field, a split
+    // button, buttons, then groups of entries (built only when a group is open).
     const auto extra = [&] {
         extra_toggle_ = {};
         extra_buttons_.clear();
+        extra_entries_.clear();
         const DetailSection* const section =
             decorations_ != nullptr ? decorations_->details(folder) : nullptr;
         if (section == nullptr) {
+            input_submit_ = {};
+            if (input_focused_) {
+                blur_input();
+            }
             return;
         }
         out.skip(10.0F);
@@ -644,12 +724,98 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         if (!extra_open_) {
             return;
         }
+        // A small button: its label in a box, its action (or menu, opened under it) on a click.
+        const auto small_button = [&](const DetailSection::Button& button, float right, float y) {
+            const float width = text_width(renderer, button.label, kTextSize) + 14.0F;
+            const ui::Rect area{right - width, y, width, 22.0F};
+            renderer.draw_box(area, {.fill = palette.surface_container_high, .radius = {}});
+            renderer.draw_text(button.label, area.x + 7.0F, area.y + 3.0F, kTextSize,
+                               button.enabled ? palette.on_surface : palette.outline);
+            if (button.enabled) {
+                if (button.menu) {
+                    extra_buttons_.emplace_back(area, [this, area, menu = button.menu] {
+                        if (open_menu_) {
+                            open_menu_(area.x, area.bottom(), menu());
+                        }
+                    });
+                } else {
+                    extra_buttons_.emplace_back(area, button.action);
+                }
+            }
+            return area.x - 4.0F;
+        };
+        if (section->header) {
+            const DetailSection::Header& header = *section->header;
+            float right = out.left() + out.width();
+            for (auto it = header.buttons.rbegin(); it != header.buttons.rend(); ++it) {
+                right = small_button(*it, right, out.y());
+            }
+            const float room = std::max(1.0F, right - out.left() - 6.0F);
+            const float title = std::min(text_width(renderer, header.title, kTextSize), room);
+            renderer.draw_text(header.title, out.left(), out.y() + 3.0F, kTextSize,
+                               palette.on_surface, room);
+            if (room - title > 20.0F) {
+                renderer.draw_text(header.subtitle, out.left() + title + 8.0F, out.y() + 3.0F,
+                                   kTextSize, palette.primary, room - title - 8.0F);
+            }
+            out.skip(30.0F);
+        }
         for (const DetailSection::Row& row : section->rows) {
             const ui::Rect value =
                 out.row(row.label, row.value, ui::Typeface::proportional, row.action != nullptr);
             if (row.action && !value.empty()) {
                 extra_buttons_.emplace_back(value, row.action);
             }
+        }
+        if (section->input) {
+            const DetailSection::Input& input = *section->input;
+            if (input.revision != input_revision_) {
+                input_revision_ = input.revision;
+                input_.set_text(input.text);
+            }
+            input_submit_ = input.submit;
+            out.skip(6.0F);
+            const ui::Rect field{out.left(), out.y(), out.width(), 30.0F};
+            input_.draw(
+                renderer, field, kTextSize,
+                {.background = palette.surface,
+                 .border = input_focused_ ? palette.primary : palette.outline_variant,
+                 .text = palette.on_surface,
+                 .selection = palette.primary_container,
+                 .caret = input_focused_ ? palette.primary : palette.primary.with_alpha(0)});
+            if (input_.text().empty() && !input_focused_) {
+                renderer.draw_text(input.placeholder, field.x + 8.0F, field.y + 7.0F, kTextSize,
+                                   palette.on_surface_variant, field.width - 16.0F);
+            }
+            out.skip(36.0F);
+        } else {
+            input_submit_ = {};
+        }
+        if (section->split) {
+            const DetailSection::Split& split = *section->split;
+            constexpr float kArrow = 30.0F;
+            const ui::Rect main{out.left(), out.y(), out.width() - kArrow - 2.0F, 30.0F};
+            const ui::Rect arrow{main.right() + 2.0F, out.y(), kArrow, 30.0F};
+            draw_dialog_button(renderer, main, palette, split.label, false, DialogButton::primary);
+            draw_dialog_button(renderer, arrow, palette, "", false, DialogButton::primary);
+            icons.draw(renderer, "chevron-down", arrow.x + (kArrow - 12.0F) / 2.0F, arrow.y + 9.0F,
+                       12.0F, palette.on_primary);
+            if (split.enabled) {
+                extra_buttons_.emplace_back(main, [this, action = split.action] {
+                    if (action) {
+                        action(input_.text());
+                    }
+                });
+                extra_buttons_.emplace_back(arrow, [this, arrow, menu = split.menu] {
+                    if (open_menu_ && menu) {
+                        open_menu_(arrow.x, arrow.bottom(), menu(input_.text()));
+                    }
+                });
+            } else {
+                renderer.fill_rect(main, palette.surface.with_alpha(0.6F));
+                renderer.fill_rect(arrow, palette.surface.with_alpha(0.6F));
+            }
+            out.skip(38.0F);
         }
         constexpr float kButtonHeight = 28.0F;
         constexpr float kGap = 6.0F;
@@ -673,6 +839,52 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
         if (!section->buttons.empty()) {
             out.skip(y + kButtonHeight + 4.0F - out.y());
+        }
+        // The groups: a heading line each (open or folded, with its count), then its entries.
+        constexpr float kEntryHeight = 24.0F;
+        for (const DetailSection::Group& group : section->groups) {
+            const bool open = open_groups_.contains(group.id);
+            const ui::Rect heading{out.left(), out.y(), out.width(), kEntryHeight};
+            icons.draw(renderer, open ? "chevron-down" : "chevron-right", heading.x,
+                       heading.y + 6.0F, 12.0F, palette.on_surface_variant);
+            const std::string count = std::to_string(group.count);
+            const float count_width = text_width(renderer, count, kTextSize) + 12.0F;
+            renderer.draw_text(group.title, heading.x + 18.0F, heading.y + 4.0F, kTextSize,
+                               palette.on_surface,
+                               std::max(1.0F, heading.width - 26.0F - count_width));
+            const ui::Rect bubble{heading.right() - count_width, heading.y + 3.0F, count_width,
+                                  18.0F};
+            renderer.draw_box(
+                bubble, {.fill = palette.secondary_container, .radius = {9.0F, 9.0F, 9.0F, 9.0F}});
+            renderer.draw_text(count, bubble.x + 6.0F, bubble.y + 1.0F, kTextSize,
+                               palette.on_secondary_container);
+            extra_buttons_.emplace_back(heading, [this, id = group.id] {
+                if (!open_groups_.erase(id)) {
+                    open_groups_.insert(id);
+                }
+            });
+            out.skip(kEntryHeight);
+            if (!open || !group.entries) {
+                continue;
+            }
+            for (const DetailSection::Entry& entry : group.entries()) {
+                const ui::Rect line{out.left() + 18.0F, out.y(), out.width() - 18.0F, kEntryHeight};
+                const float letter = 18.0F;
+                const float room = std::max(1.0F, line.width - letter - 6.0F);
+                const std::optional<ui::Color> tint = tint_of(palette, &entry.badge);
+                const float name = renderer.draw_text(entry.name, line.x, line.y + 4.0F, kTextSize,
+                                                      tint.value_or(palette.on_surface), room,
+                                                      ui::Ellipsis::middle);
+                if (!entry.detail.empty() && room - name > 24.0F) {
+                    renderer.draw_text(entry.detail, line.x + name + 6.0F, line.y + 4.0F,
+                                       kSmallSize, palette.on_surface_variant, room - name - 6.0F,
+                                       ui::Ellipsis::middle);
+                }
+                draw_badge(renderer, palette, entry.badge, line.right(), line.y + 4.0F, kTextSize,
+                           std::nullopt);
+                extra_entries_.push_back({line, entry.open, entry.menu});
+                out.skip(kEntryHeight);
+            }
         }
     };
     const auto finish = [&] {

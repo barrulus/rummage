@@ -878,7 +878,131 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
     }
     section_.title = std::string{i18n::trc("git", "GIT")};
     section_.rows = std::move(rows);
-    section_.buttons = buttons(*place->repo);
+    section_.buttons.clear();
+    const std::string key = repo.key;
+    const auto on = [this, key](auto then) {
+        return [this, key, then](auto&&... arguments) {
+            if (const auto it = repos_.find(key); it != repos_.end()) {
+                then(*it->second, arguments...);
+            }
+        };
+    };
+    const bool idle = !repo.action && repo.action_name.empty();
+    const bool dirty = counts.staged + counts.changed + counts.untracked + counts.conflicts > 0;
+    std::string subtitle = branch.name.empty() ? branch.oid.substr(0, 7) : branch.name;
+    subtitle += dirty ? "*" : "";
+    if (!branch.upstream.empty() && (branch.ahead > 0 || branch.behind > 0)) {
+        subtitle += std::format(" ↑{} ↓{}", branch.ahead, branch.behind);
+    }
+    section_.header = views::DetailSection::Header{
+        .title = repo.repository.worktree.filename().string(),
+        .subtitle = std::move(subtitle),
+        .buttons = {{.id = "sync",
+                     .label = "⟳",
+                     .enabled = idle && !branch.upstream.empty(),
+                     .action = on([this](Repo& at) { sync(at); }),
+                     .menu = {}},
+                    {.id = "more", .label = "…", .enabled = true, .action = {}, .menu = {}}}};
+    // on() returns nothing for a menu when the repository is gone: give it a type.
+    section_.header->buttons[1].menu = [this, key] {
+        const auto it = repos_.find(key);
+        return it != repos_.end() ? repo_items(*it->second, false) : std::vector<views::MenuItem>{};
+    };
+    section_.input = views::DetailSection::Input{
+        .placeholder = i18n::trcf("git", "Message (Ctrl+Enter to commit on “{}”)",
+                                  branch.name.empty() ? std::string{"HEAD"} : branch.name),
+        .revision = repo.input_revision,
+        .text = repo.input_text,
+        .submit = on([this](Repo& at, const std::string& typed) {
+            commit_typed(at, typed, CommitMode::plain);
+        })};
+    section_.split = views::DetailSection::Split{
+        .label = "✓ " + std::string{i18n::trc("git", "Commit")},
+        .enabled = idle,
+        .action = on([this](Repo& at, const std::string& typed) {
+            commit_typed(at, typed, CommitMode::plain);
+        }),
+        .menu = [this, key](const std::string& typed) {
+            std::vector<views::MenuItem> items;
+            const auto add_mode = [&](std::string id, std::string_view label, CommitMode mode) {
+                views::MenuItem item;
+                item.id = "git_" + id;
+                item.label = std::string{label};
+                item.action = [this, key, typed, mode] {
+                    if (const auto it = repos_.find(key); it != repos_.end()) {
+                        commit_typed(*it->second, typed, mode);
+                    }
+                };
+                items.push_back(std::move(item));
+            };
+            add_mode("commit", i18n::trc("git", "Commit"), CommitMode::plain);
+            add_mode("amend", i18n::trc("git", "Commit (Amend)"), CommitMode::amend);
+            add_mode("commit_push", i18n::trc("git", "Commit & Push"), CommitMode::push);
+            add_mode("commit_sync", i18n::trc("git", "Commit & Sync"), CommitMode::sync);
+            items[2].separator = true;
+            return items;
+        }};
+    // The changed files, in groups; their entries are made only when a group is open.
+    section_.groups.clear();
+    const auto group = [&](std::string id, std::string_view title, std::size_t count_of,
+                           int which) {
+        if (count_of == 0) {
+            return;
+        }
+        section_.groups.push_back(
+            {.id = "git_" + id,
+             .title = std::string{title},
+             .count = count_of,
+             .entries = [this, key, which] {
+                 std::vector<views::DetailSection::Entry> entries;
+                 const auto it = repos_.find(key);
+                 if (it == repos_.end() || !it->second->status) {
+                     return entries;
+                 }
+                 Repo& at = *it->second;
+                 for (const FileStatus& file : at.status->files) {
+                     const bool conflict = file.kind == FileStatus::Kind::conflict;
+                     const bool staged =
+                         file.kind == FileStatus::Kind::tracked && file.staged != '.';
+                     const bool changed =
+                         file.kind == FileStatus::Kind::untracked ||
+                         (file.kind == FileStatus::Kind::tracked && file.unstaged != '.');
+                     if ((which == 0 && !conflict) || (which == 1 && !staged) ||
+                         (which == 2 && !changed)) {
+                         continue;
+                     }
+                     FileStatus shown = file;
+                     if (which == 1) {
+                         shown.unstaged = '.';  // the staged change's letter
+                     } else if (which == 2 && file.kind == FileStatus::Kind::tracked) {
+                         shown.staged = '.';
+                     }
+                     const std::filesystem::path path{file.path};
+                     const std::filesystem::path target = at.repository.worktree / path;
+                     entries.push_back(
+                         {.name = path.filename().string(),
+                          .detail = path.parent_path().string(),
+                          .badge = badge_of(shown).value_or(views::Badge{}),
+                          .open =
+                              [this, root = at.repository.worktree, target] {
+                                  if (host_.reveal) {
+                                      host_.reveal(root, target);
+                                  }
+                              },
+                          .menu =
+                              [this, key, file_path = file.path] {
+                                  const auto found = repos_.find(key);
+                                  return found != repos_.end() && found->second->status
+                                             ? path_items(*found->second, {file_path}, false)
+                                             : std::vector<views::MenuItem>{};
+                              }});
+                 }
+                 return entries;
+             }});
+    };
+    group("conflicts", i18n::trc("git", "Merge Changes"), counts.conflicts, 0);
+    group("staged", i18n::trc("git", "Staged Changes"), counts.staged, 1);
+    group("changes", i18n::trc("git", "Changes"), counts.changed + counts.untracked, 2);
     return &section_;
 }
 

@@ -39,8 +39,9 @@ struct StatusPart {
     bool operator==(const StatusPart&) const = default;
 };
 
-// A section a decorator adds at the end of the information pane: a heading that folds it, rows of
-// label and value, and buttons. Texts are shown as given (translated by the decorator).
+// A section a decorator adds at the end of the information pane: a heading that folds it, then
+// optionally a header line, rows of label and value, a text field, a split button, buttons and
+// foldable groups of entries. Texts are shown as given (translated by the decorator).
 struct DetailSection {
     struct Row {
         std::string label;
@@ -53,11 +54,58 @@ struct DetailSection {
         std::string label;
         bool enabled{true};
         std::function<void()> action;  // runs on a click, the section may change after
+        // Set: a click opens these as a menu under the button instead.
+        std::function<std::vector<MenuItem>()> menu;
+    };
+
+    // A line under the heading: a name, a quieter subtitle, small buttons at its right.
+    struct Header {
+        std::string title;
+        std::string subtitle;
+        std::vector<Button> buttons;
+    };
+
+    // One line of text to send (Ctrl+Enter). The pane keeps what is typed; it takes text instead
+    // whenever revision changes (cleared after a commit, say).
+    struct Input {
+        std::string placeholder;
+        std::uint64_t revision{0};
+        std::string text;
+        std::function<void(const std::string& typed)> submit;
+    };
+
+    // A wide button and, at its right, an arrow with more ways to do it; both get what the input
+    // holds.
+    struct Split {
+        std::string label;
+        bool enabled{true};
+        std::function<void(const std::string& typed)> action;
+        std::function<std::vector<MenuItem>(const std::string& typed)> menu;
+    };
+
+    struct Entry {
+        std::string name;
+        std::string detail;  // quieter, after the name (where it is)
+        Badge badge;
+        std::function<void()> open;                   // a click
+        std::function<std::vector<MenuItem>()> menu;  // a right click
+    };
+
+    // Folded until opened; entries is asked only then, so a long list costs nothing folded.
+    struct Group {
+        std::string id;  // stable: the pane remembers which are open by it
+        std::string title;
+        std::size_t count{0};
+        std::function<std::vector<Entry>()> entries;
     };
 
     std::string title;
+    std::optional<Header> header;
     std::vector<Row> rows;
+    std::optional<Input> input;
+    std::optional<Split> split;
     std::vector<Button> buttons;
+    std::vector<Group> groups;
 };
 
 // What a decorator may ask of the window it decorates. Set by the browser that uses it.
@@ -76,6 +124,9 @@ struct DecorationHost {
         confirm;
     // Moves files to the trash, as Delete does (undoable).
     std::function<void(std::vector<std::filesystem::path> paths)> trash;
+    // Shows target in the browser, its folders opened from root and it selected.
+    std::function<void(const std::filesystem::path& root, const std::filesystem::path& target)>
+        reveal;
 };
 
 // What an optional part of rummage adds to the views (the git integration): marks beside

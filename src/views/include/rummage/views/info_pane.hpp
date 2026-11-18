@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -23,6 +24,7 @@
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/ui/text_field.hpp"
 #include "rummage/views/decorations.hpp"
 #include "rummage/views/folder.hpp"
 #include "rummage/views/selectable_text.hpp"
@@ -99,6 +101,21 @@ public:
         decorations_ = decorations;
         redraw_();
     }
+
+    // Where a decorator's buttons open their menus (the browser's context menu).
+    void set_menu_handler(std::function<void(float x, float y, std::vector<MenuItem> items)> open) {
+        open_menu_ = std::move(open);
+    }
+
+    // A decorator's text field has the keyboard: every key goes to input_key() meanwhile.
+    [[nodiscard]] bool input_focused() const noexcept { return input_focused_; }
+
+    // A key for the decorator's text field: Ctrl+Enter sends it, Escape leaves it, the rest edits.
+    bool input_key(const ui::KeyEvent& event);
+
+    void paste_input(std::string_view text);
+
+    void blur_input();
 
     // A click at (x, y): true when the pane took it ("More details", a decorator's heading or
     // button).
@@ -226,6 +243,21 @@ private:
     bool extra_open_{true};    // the decorator's section is unfolded
     ui::Rect extra_toggle_{};  // its heading, as last drawn
     std::vector<std::pair<ui::Rect, std::function<void()>>> extra_buttons_;  // as last drawn
+
+    // Entries of the decorator's open groups, as last drawn: where, a click, a right click.
+    struct EntryTarget {
+        ui::Rect bounds;
+        std::function<void()> open;
+        std::function<std::vector<MenuItem>()> menu;
+    };
+
+    std::vector<EntryTarget> extra_entries_;
+    std::unordered_set<std::string> open_groups_;  // by DetailSection::Group::id
+    ui::TextField input_;
+    bool input_focused_{false};
+    std::uint64_t input_revision_{~std::uint64_t{0}};       // the section's, as last taken
+    std::function<void(const std::string&)> input_submit_;  // as last drawn
+    std::function<void(float, float, std::vector<MenuItem>)> open_menu_;
     ui::Rect page_{};  // a text file's page, as last drawn; empty when not shown
     SelectableText metadata_;
     TextSelection selection_;

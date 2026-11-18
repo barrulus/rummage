@@ -153,6 +153,14 @@ private:
     void discard(Repo& repo, const std::vector<std::string>& paths);
     void ignore(Repo& repo, std::vector<std::string> paths);
     [[nodiscard]] std::vector<views::DetailSection::Button> buttons(Repo& repo);
+    [[nodiscard]] std::vector<views::MenuItem> repo_items(Repo& repo, bool with_commit);
+    [[nodiscard]] std::vector<views::MenuItem> path_items(Repo& repo,
+                                                          const std::vector<std::string>& paths,
+                                                          bool inside_ignored);
+    [[nodiscard]] static std::vector<std::string> push_arguments(const Repo& repo);
+    enum class CommitMode : std::uint8_t { plain, amend, push, sync };
+    void commit_typed(Repo& repo, const std::string& typed, CommitMode mode);
+    void sync(Repo& repo);
     [[nodiscard]] const views::Badge* badge_at(Place& place, const std::string& name);
     [[nodiscard]] const views::Badge* lookup(const Repo& repo, const Place& place,
                                              const std::string& name) const;

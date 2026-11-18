@@ -96,6 +96,11 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
                      transfer_done(request, result);
                  }} {
     info_pane_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
+    info_pane_.set_menu_handler([this](float x, float y, std::vector<MenuItem> items) {
+        if (!items.empty()) {
+            menu_.open(x, y, std::move(items), false);
+        }
+    });
     properties_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
     areas_[0] = std::make_unique<BrowsingArea>(*this);
     add_pane(0);
@@ -155,7 +160,9 @@ void Browser::set_decorations(Decorations* decorations) {
              .trash =
                  [this](std::vector<std::filesystem::path> paths) {
                      trash_paths(paths, Purpose::user);
-                 }});
+                 },
+             .reveal = [this](const std::filesystem::path& root,
+                              const std::filesystem::path& target) { reveal(root, target); }});
     }
     for (const auto& owner : areas_) {
         if (!owner) {
@@ -737,6 +744,8 @@ void Browser::paste_text() {
                     palette_.paste(*text);
                 } else if (sidebar_.renaming()) {
                     sidebar_.paste(*text);
+                } else if (info_pane_.input_focused()) {
+                    info_pane_.paste_input(*text);
                 } else if (filter_focused_) {
                     pane().filter_field.insert(
                         std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
@@ -4960,6 +4969,15 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             return true;
         }
         return sidebar_.rename_key(event);  // every key is the bookmark's label meanwhile
+    }
+    // The information pane's text field (a commit message): every key is its own meanwhile.
+    if (info_pane_.input_focused() && !shortcuts_.is_open() && !quick_look_.is_open()) {
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
+            paste_text();
+            return true;
+        }
+        return info_pane_.input_key(event);
     }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
         if (command_for(event) == Command::new_folder) {
