@@ -159,3 +159,16 @@ and empty-string disabling apply.
 | Alt+Up / Alt+Down with Places focused | Move the selected local bookmark |
 | I in Quick Look | Show or hide Details |
 | Ctrl+A / Ctrl+C on a selected Details value | Select all / copy that value |
+
+### Editing shortcuts in Settings
+
+Settings → Keyboard shortcuts has a searchable command list, including custom actions and
+configured folder shortcuts. Select a command and choose **Record shortcut**, then press the
+combination. Modifier-only keys are ignored; Escape cancels recording. Conflicts are shown
+immediately and rejected combinations are not saved. **Reset shortcut to default** removes the
+configuration override; **Disable shortcut** writes an explicit empty binding. These are distinct
+operations: resetting can restore a built-in shortcut.
+
+Folder shortcuts accept an absolute path or `~/` path before recording. Custom actions can also
+receive shortcuts directly from their editing form under Settings → Actions. No action or folder
+shortcut executes while it is being edited.

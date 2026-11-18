@@ -253,3 +253,22 @@ Preset overrides retain omitted preset fields. Copy Name and Copy Location canno
 See the [annotated reference](config.example.toml) for all default context layouts
 and menu IDs. See [troubleshooting](troubleshooting.md#actions-or-menus-are-missing)
 when an action does not appear.
+
+### Editing actions in Settings
+
+Settings → Actions lists custom actions separately from their editing form. Choose an action or
+**Add action**, then enter a stable ID, a menu label and a program. Each argument has its own text
+field and remove button. Values are literal: spaces, quotes and shell-looking text are passed to
+the program unchanged. Editing never runs the program.
+
+Use an entire argument for `{file}`, `{files}`, `{directory}` or `{destination}`. The form explains
+these placeholders and lets you cycle selection requirements and the destination picker. A
+`{destination}` argument requires a file or folder picker; `{file}` requires one selected item and
+`{files}` requires one or more selected items. Invalid combinations remain visible with their
+validation message and are not saved.
+
+Valid edits save when leaving a field or pressing Enter. A new action remains a draft until its
+required fields and rules are valid. Existing IDs stay fixed so menu references and shortcuts
+remain intact. Settings preserves advanced action properties and unrelated configuration keys.
+Use **Record shortcut** in the action form to assign a shortcut directly. Read-only configurations
+allow inspecting and copying values; change their declared configuration to edit them.
