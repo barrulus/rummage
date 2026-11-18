@@ -12,7 +12,8 @@
 // optional Ctrl+, Shift+, Alt+ prefixes, e.g. "Down,Shift+Down,Ctrl+Down" (a single letter also
 // types itself: "F2,L,a,k,e" renames to "Lake"); "Ctrl+2" switches to
 // the grid (then --bench scrolls the grid), "Ctrl+3" the details (--bench scrolls them; --sort
-// clicks column titles after the keys: "size", "modified,modified" for newest first); with "space"
+// clicks column titles after the keys, by column id: "size", "owner", "modified,modified" for
+// newest first; an unknown id is reported and skipped); with "space"
 // last, Quick Look opens (and --bench scrolls its text page, when it shows one). --thumbnails gives
 // the grid a thumbnail cache directory (none by default: icons only, nothing written to ~/.cache).
 // The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6" focuses it.
@@ -86,6 +87,7 @@
 #include "rummage/ui/seat.hpp"
 #include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/details_columns.hpp"
 #include "rummage/views/file_picker.hpp"
 #include "rummage/views/title_bar.hpp"
 #include "test_scene.hpp"
@@ -616,15 +618,14 @@ int main(int argc, char** argv) {
                     const std::size_t comma = std::min(fields.find(','), fields.size());
                     const std::string_view field = fields.substr(0, comma);
                     fields.remove_prefix(std::min(comma + 1, fields.size()));
-                    using Field = views::DetailsView::Field;
-                    Field chosen = Field::name;
-                    if (field == "size") {
-                        chosen = Field::size;
-                    } else if (field == "modified") {
-                        chosen = Field::modified;
-                    } else if (field == "type") {
-                        chosen = Field::type;
+                    // Any details column, by its id ("owner", "link_target").
+                    const auto column =
+                        std::ranges::find(views::kDetailsColumns, field, &views::DetailsColumn::id);
+                    if (column == views::kDetailsColumns.end()) {
+                        log::warn("--sort: no column {}; ignored", field);
+                        continue;
                     }
+                    const views::DetailsView::Field chosen = column->field;
                     const auto start = std::chrono::steady_clock::now();
                     columns->details().sort_by(chosen);
                     log::info("sorted by {} in {:.2f} ms", field,
