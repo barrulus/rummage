@@ -175,9 +175,13 @@ void InfoPane::drop_held() {
     }
     if (held_) {
         held_.reset();
-        // Its lines may have been measured; the next text is measured afresh.
+        // Its lines may have been measured; the next text is measured afresh. Where it was
+        // scrolled to was kept for it: the next entry starts at the top.
         page_clusters_.clear();
         page_fonts_ = nullptr;
+        scroller_.jump_to(0.0F);
+        page_scroller_.jump_to(0.0F);
+        page_sideways_.jump_to(0.0F);
     }
 }
 
@@ -202,7 +206,8 @@ const preview::Text* InfoPane::shown_text() const {
 
 bool InfoPane::text_at(float x, float y) const {
     return bounds_.contains(x, y) &&
-           (page_.contains(x, y) || metadata_.cursor_at(x, y) == ui::CursorShape::text);
+           (page_.contains(x, y) ||
+            (!holding() && metadata_.cursor_at(x, y) == ui::CursorShape::text));
 }
 
 bool InfoPane::text_focused() const noexcept {
@@ -329,6 +334,9 @@ bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
         page_focused_ = false;
         selecting_ = false;
         selection_.clear();
+        if (holding()) {
+            return false;  // the rows are the entry before's: nothing to select there
+        }
         const bool handled = metadata_.pointer(event);
         redraw_();
         return handled;
@@ -347,7 +355,7 @@ bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
         redraw_();
         return true;
     }
-    if (metadata_.pointer(event)) {
+    if (!holding() && metadata_.pointer(event)) {
         redraw_();
         return true;
     }
@@ -498,9 +506,12 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
     }
     clear_text_focus();
     metadata_.reset();
-    scroller_.jump_to(0.0F);  // another entry starts at the top
-    page_scroller_.jump_to(0.0F);
-    page_sideways_.jump_to(0.0F);
+    if (!held_) {
+        // Another entry starts at the top; a held summary keeps its place until it is replaced.
+        scroller_.jump_to(0.0F);
+        page_scroller_.jump_to(0.0F);
+        page_sideways_.jump_to(0.0F);
+    }
     page_placed_ = false;
     page_clusters_.clear();
     page_fonts_ = nullptr;
@@ -709,8 +720,8 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 folder.shared_mime());
     }
     // While the next summary loads, the one before (kHold at most): drawn only, not selectable.
-    const bool holding = summary_ == nullptr && held_ != nullptr;
-    const preview::Summary* const summary = holding ? held_.get() : summary_.get();
+    const bool from_before = holding();
+    const preview::Summary* const summary = from_before ? held_.get() : summary_.get();
     const preview::Info* const info = summary == nullptr ? nullptr : &summary->info;
     const picture::PhotoInfo* const photo =
         summary == nullptr || !summary->photo ? nullptr : &*summary->photo;
@@ -770,7 +781,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         const float height = view + (2.0F * kPagePadding);
         page_ = {preview_left, out.y(), preview_width, height};
         page_scroller_.set_extent(static_cast<float>(lines.size()) * kLineHeight, view);
-        if (!page_placed_ && !holding) {
+        if (!page_placed_ && !from_before) {
             // A log opens at its newest lines.
             page_scroller_.jump_to(summary->text->tail ? page_scroller_.max_offset() : 0.0F);
             page_placed_ = true;
@@ -863,7 +874,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             renderer.draw_box({thumb_x, page_.bottom() - 6.0F, thumb, kScrollbarWidth},
                               {.fill = palette.on_surface_variant.with_alpha(0.45F), .radius = {}});
         }
-        if (holding) {
+        if (from_before) {
             page_ = {};  // only shown: no page to point at, scroll or select, nor to report
         }
         out.skip(height + 18.0F);

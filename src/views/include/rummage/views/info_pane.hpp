@@ -188,6 +188,10 @@ private:
     // No summary (inside an archive: nothing to read from disk).
     void forget_summary();
     void drop_held();
+
+    // The summary before is drawn while the next one loads: shown only, not to select or copy.
+    [[nodiscard]] bool holding() const noexcept { return summary_ == nullptr && held_ != nullptr; }
+
     void request(const std::filesystem::path& path, std::int64_t modified_ns, std::string mime,
                  preview::Kind kind, std::shared_ptr<const fs::MimeDatabase> types);
 
