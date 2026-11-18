@@ -755,8 +755,21 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             renderer.draw_text(header.title, out.left(), out.y() + 3.0F, kTextSize,
                                palette.on_surface, room);
             if (room - title > 20.0F) {
-                renderer.draw_text(header.subtitle, out.left() + title + 8.0F, out.y() + 3.0F,
-                                   kTextSize, palette.primary, room - title - 8.0F);
+                const float x = out.left() + title + 8.0F;
+                const float arrow = header.subtitle_menu ? 16.0F : 0.0F;
+                const float shown = renderer.draw_text(header.subtitle, x, out.y() + 3.0F,
+                                                       kTextSize, palette.primary,
+                                                       std::max(1.0F, room - title - 8.0F - arrow));
+                if (header.subtitle_menu) {
+                    icons.draw(renderer, "chevron-down", x + shown + 3.0F, out.y() + 5.0F, 12.0F,
+                               palette.primary);
+                    const ui::Rect area{x - 4.0F, out.y(), shown + arrow + 8.0F, 22.0F};
+                    extra_buttons_.emplace_back(area, [this, area, menu = header.subtitle_menu] {
+                        if (open_menu_) {
+                            open_menu_(area.x, area.bottom(), menu());
+                        }
+                    });
+                }
             }
             out.skip(30.0F);
         }

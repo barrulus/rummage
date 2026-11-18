@@ -414,6 +414,7 @@ Decorator::Repo& Decorator::follow(const Repository& repository) {
                                         [](const auto& event) { return event.name == "config"; })) {
                     added.remote_stale = true;
                 }
+                added.refs_stale = true;  // these folders hold HEAD and the refs
                 if (relevant) {
                     schedule(added);
                 }
@@ -557,6 +558,7 @@ void Decorator::finished(Repo& repo, const std::string& output, int wait_status,
     rebuild(repo);
     read_commit(repo);
     read_remote(repo);
+    read_branches(repo);
     if (repo.again) {
         schedule(repo);
     }
@@ -603,6 +605,48 @@ void Decorator::read_remote(Repo& repo) {
                    "--get-regexp",
                    "^(remote\\." + regex_escaped(name) + "\\.url|pull\\.(rebase|ff))$"})) {
         repo.remote_query.reset();
+    }
+}
+
+Branches parse_branches(std::string_view output) {
+    Branches branches;
+    std::size_t start = 0;
+    while (start < output.size()) {
+        std::size_t end = output.find('\n', start);
+        if (end == std::string_view::npos) {
+            end = output.size();
+        }
+        const std::string_view ref = output.substr(start, end - start);
+        start = end + 1;
+        if (ref.starts_with("refs/heads/")) {
+            branches.local.emplace_back(ref.substr(11));
+        } else if (ref.starts_with("refs/remotes/") && !ref.ends_with("/HEAD")) {
+            branches.remote.emplace_back(ref.substr(13));
+        }
+    }
+    std::ranges::sort(branches.local);
+    std::ranges::sort(branches.remote);
+    return branches;
+}
+
+void Decorator::read_branches(Repo& repo) {
+    if (!repo.refs_stale || repo.branches_query) {
+        return;
+    }
+    repo.refs_stale = false;
+    repo.branches_query = std::make_unique<platform::ProgramOutput>(
+        loop_, [this, &repo](const std::string& output, int wait_status) {
+            if (WIFEXITED(wait_status) && WEXITSTATUS(wait_status) == 0) {
+                Branches branches = parse_branches(output);
+                repo.local_branches = std::move(branches.local);
+                repo.remote_branches = std::move(branches.remote);
+            }
+            repo.branches_query.reset();  // ends this callback's object: nothing after
+        });
+    if (!repo.branches_query->start(
+            git_, {"--no-optional-locks", "-C", repo.repository.worktree.string(), "for-each-ref",
+                   "--format=%(refname)", "refs/heads", "refs/remotes"})) {
+        repo.branches_query.reset();
     }
 }
 
@@ -933,17 +977,25 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
     section_.header = views::DetailSection::Header{
         .title = repo.repository.worktree.filename().string(),
         .subtitle = std::move(subtitle),
-        .buttons = {
-            {.id = "sync",
-             .label = "⟳",
-             .enabled = idle && !branch.upstream.empty(),
-             .action = on([this](Repo& at) { sync(at); }),
-             .menu = {}},
-            {.id = "more", .label = "…", .enabled = true, .action = {}, .menu = [this, key] {
-                 const auto it = repos_.find(key);
-                 return it != repos_.end() ? repo_items(*it->second, false)
-                                           : std::vector<views::MenuItem>{};
-             }}}};
+        .buttons = {{.id = "sync",
+                     .label = "⟳",
+                     .enabled = idle && !branch.upstream.empty(),
+                     .action = on([this](Repo& at) { sync(at); }),
+                     .menu = {}},
+                    {.id = "more",
+                     .label = "…",
+                     .enabled = true,
+                     .action = {},
+                     .menu =
+                         [this, key] {
+                             const auto it = repos_.find(key);
+                             return it != repos_.end() ? repo_items(*it->second, false)
+                                                       : std::vector<views::MenuItem>{};
+                         }}},
+        .subtitle_menu = [this, key] {
+            const auto it = repos_.find(key);
+            return it != repos_.end() ? branch_items(*it->second) : std::vector<views::MenuItem>{};
+        }};
 
     section_.input = views::DetailSection::Input{
         .placeholder = i18n::trcf("git", "Message (Ctrl+Enter to commit on “{}”)",

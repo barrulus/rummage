@@ -1240,3 +1240,65 @@ TEST_CASE("git section: commit & push, commit & sync and sync with a local remot
     REQUIRE(idle_and([&] { return std::filesystem::exists(repo / "three.txt"); }));
     CHECK(host.messages.back() == std::pair<std::string, bool>{"Synced", false});
 }
+
+TEST_CASE("git: the branches for-each-ref lists") {
+    const git::Branches branches = git::parse_branches(
+        "refs/heads/main\nrefs/heads/feature/x\nrefs/remotes/origin/HEAD\nrefs/remotes/origin/"
+        "main\n"
+        "refs/remotes/origin/topic\nrefs/tags/v1\n");
+    CHECK(branches.local == std::vector<std::string>{"feature/x", "main"});
+    CHECK(branches.remote == std::vector<std::string>{"origin/main", "origin/topic"});
+    CHECK(git::parse_branches("") == git::Branches{});
+}
+
+TEST_CASE("git section: switching the branch from the header") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path origin = make_repository(dir, "origin");
+    run_git(origin, {"branch", "topic"});
+    run_git(dir.path, {"clone", "-q", origin.string(), "clone"});
+    const std::filesystem::path repo = dir.path / "clone";
+    run_git(repo, {"branch", "local-only"});
+    Shown shown{repo};
+    TestHost host;
+    shown.decorator.set_host(host.host());
+    const auto branch_menu = [&] {
+        return shown.decorator.details(*shown.folder)->header->subtitle_menu();
+    };
+    const auto has = [&](std::string_view id) {
+        const auto items = branch_menu();
+        return std::ranges::any_of(items, [&](const auto& item) { return item.id == id; });
+    };
+    REQUIRE(shown.wait_for([&] {
+        const auto* section = shown.decorator.details(*shown.folder);
+        return section != nullptr && section->header && has("git_branch:local-only");
+    }));
+    const auto items = branch_menu();
+    const auto main =
+        std::ranges::find(items, std::string{"git_branch:main"}, &rummage::views::MenuItem::id);
+    REQUIRE(main != items.end());
+    CHECK(main->checked);
+    CHECK_FALSE(main->enabled);                  // already there
+    CHECK(has("git_branch:origin/topic"));       // remote, no local copy
+    CHECK_FALSE(has("git_branch:origin/main"));  // main exists locally
+
+    choose_item(branch_menu(), "git_branch:local-only");
+    REQUIRE(shown.wait_for(
+        [&] { return !shown.decorator.acting() && shown.text().starts_with("local-only"); }));
+    CHECK(host.messages.back() == std::pair<std::string, bool>{"Switched to local-only", false});
+
+    choose_item(branch_menu(), "git_branch:origin/topic");
+    REQUIRE(shown.wait_for(
+        [&] { return !shown.decorator.acting() && shown.text().starts_with("topic"); }));
+    CHECK(run_git(repo, {"rev-parse", "--abbrev-ref", "topic@{upstream}"}) == "origin/topic\n");
+
+    host.message_to_type = "bad name";
+    choose_item(branch_menu(), "git_new_branch");
+    CHECK(host.refused == "Not a valid branch name");
+    host.message_to_type = "fresh";
+    choose_item(branch_menu(), "git_new_branch");
+    CHECK(host.refused.empty());
+    CHECK(host.actions.back() == "Create");
+    REQUIRE(shown.wait_for(
+        [&] { return !shown.decorator.acting() && shown.text().starts_with("fresh"); }));
+}

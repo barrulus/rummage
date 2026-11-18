@@ -68,6 +68,17 @@ struct RemoteView {
 
 [[nodiscard]] RemoteView view_of_remote(std::string_view remote);
 
+// The branches of `git for-each-ref --format=%(refname) refs/heads refs/remotes`: local names,
+// and remote ones ("origin/x", without the remotes' HEAD), each sorted.
+struct Branches {
+    std::vector<std::string> local;
+    std::vector<std::string> remote;
+
+    bool operator==(const Branches&) const = default;
+};
+
+[[nodiscard]] Branches parse_branches(std::string_view output);
+
 // What git said went wrong, for a message: its first line that is not a hint, without git's
 // prefix ("fatal: ", "error: ", or theirs in git's language: "Schwerwiegend: ").
 [[nodiscard]] std::string message_of(const std::string& output);
@@ -151,6 +162,8 @@ private:
     void finished(Repo& repo, const std::string& output, int wait_status, Operation operation);
     void read_commit(Repo& repo);
     void read_remote(Repo& repo);
+    void read_branches(Repo& repo);
+    [[nodiscard]] std::vector<views::MenuItem> branch_items(Repo& repo);
     void open_link(const std::string& url);
     void rebuild(Repo& repo);
     using Steps = std::vector<std::vector<std::string>>;

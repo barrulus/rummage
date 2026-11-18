@@ -63,6 +63,8 @@ struct DetailSection {
         std::string title;
         std::string subtitle;
         std::vector<Button> buttons;
+        // Set: the subtitle opens these as a menu (a branch to switch to, say).
+        std::function<std::vector<MenuItem>()> subtitle_menu;
     };
 
     // One line of text to send (Ctrl+Enter). The pane keeps what is typed; it takes text instead

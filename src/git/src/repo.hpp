@@ -82,7 +82,13 @@ struct Decorator::Repo {
     std::string remote_name;  // what remote_url is about; empty: not read yet
     bool remote_stale{true};  // .git/config changed
     std::optional<RemoteView> remote;
-    bool pull_configured{false};  // pull.rebase or pull.ff set: pull as configured, else merge
+    bool pull_configured{false};
+    // Branches to switch to: local ones, and remote ones ("origin/x"); read when refs change.
+    std::unique_ptr<platform::ProgramOutput> branches_query;
+    bool refs_stale{true};
+    std::vector<std::string> local_branches;
+    std::vector<std::string>
+        remote_branches;  // pull.rebase or pull.ff set: pull as configured, else merge
     // The information pane's message field: emptied (revision moves on) after a commit.
     std::uint64_t input_revision{0};
     std::string input_text;

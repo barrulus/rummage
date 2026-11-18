@@ -471,6 +471,76 @@ std::vector<views::MenuItem> Decorator::path_items(Repo& repo,
     return items;
 }
 
+std::vector<views::MenuItem> Decorator::branch_items(Repo& repo) {
+    std::vector<views::MenuItem> items;
+    const bool idle = !repo.action && repo.action_name.empty();
+    const std::string current = repo.status ? repo.status->branch.name : std::string{};
+    const std::string key = repo.key;
+    const auto switch_to = [this, key](std::string name, std::vector<std::string> arguments) {
+        return [this, key, name = std::move(name), arguments = std::move(arguments)] {
+            if (const auto it = repos_.find(key); it != repos_.end()) {
+                act(*it->second, std::string{i18n::trc("git", "Switch Branch")}, {arguments},
+                    i18n::trcf("git", "Switched to {}", name));
+            }
+        };
+    };
+    for (const std::string& name : repo.local_branches) {
+        views::MenuItem item;
+        item.id = "git_branch:" + name;
+        item.label = name;
+        item.radio = true;
+        item.checked = name == current;
+        item.enabled = idle && name != current;
+        item.action = switch_to(name, {"switch", "--quiet", name});
+        items.push_back(std::move(item));
+    }
+    // Remote branches without a local one: a local branch that tracks it.
+    bool first_remote = true;
+    for (const std::string& remote : repo.remote_branches) {
+        const std::string name = remote.substr(remote.find('/') + 1);
+        if (std::ranges::find(repo.local_branches, name) != repo.local_branches.end()) {
+            continue;
+        }
+        views::MenuItem item;
+        item.id = "git_branch:" + remote;
+        item.label = remote;
+        item.enabled = idle;
+        item.separator = first_remote && !items.empty();
+        item.action = switch_to(name, {"switch", "--quiet", "-c", name, "--track", remote});
+        items.push_back(std::move(item));
+        first_remote = false;
+    }
+    views::MenuItem create;
+    create.id = "git_new_branch";
+    create.label = std::string{i18n::trc("git", "New Branch…")};
+    create.separator = !items.empty();
+    create.enabled = idle;
+    create.action = [this, key] {
+        if (!host_.ask_text) {
+            return;
+        }
+        host_.ask_text(std::string{i18n::trc("git", "New Branch")},
+                       std::string{i18n::trc("git", "Branch name")}, std::string{},
+                       std::string{i18n::trc("git", "Create")},
+                       [this, key](const std::string& typed) -> std::string {
+                           const std::string name = trimmed(typed);
+                           if (name.empty() ||
+                               name.find_first_of(" \t~^:?*[\\") != std::string::npos ||
+                               name.starts_with('-')) {
+                               return std::string{i18n::trc("git", "Not a valid branch name")};
+                           }
+                           if (const auto it = repos_.find(key); it != repos_.end()) {
+                               act(*it->second, std::string{i18n::trc("git", "New Branch")},
+                                   {{"switch", "--quiet", "-c", name}},
+                                   i18n::trcf("git", "Switched to {}", name));
+                           }
+                           return {};
+                       });
+    };
+    items.push_back(std::move(create));
+    return items;
+}
+
 std::vector<std::string> Decorator::pull_arguments(const Repo& repo) {
     // Without pull.rebase or pull.ff, git refuses diverged branches: merge, as editors do.
     return repo.pull_configured
