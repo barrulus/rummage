@@ -167,7 +167,9 @@ Window::~Window() {
 
 void Window::set_draw_handler(DrawHandler handler) {
     draw_handler_ = std::move(handler);
-    request_redraw();
+    if (draw_handler_) {
+        request_redraw();
+    }
 }
 
 void Window::request_redraw() {
