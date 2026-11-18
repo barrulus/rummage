@@ -611,7 +611,15 @@ TEST_CASE("info pane: large previews retain selection at the end of the document
                                    [](const auto& entry) { return entry.name == "large.c"; });
     }));
     folder.select_name("large.c");
-    REQUIRE(f.settle());
+    // Source files can need asynchronous MIME detection before drawing requests their text.
+    // Browser::loading() does not include that sniff, so settle() can stop at the metadata
+    // preview or return just as its final draw starts loading text. Keep drawing and wait for
+    // the text result itself; the watchdog still fails if no text preview is produced.
+    REQUIRE(run_until(f.loop, [&] {
+        f.draw();
+        const auto* summary = f.pane().summary();
+        return !f.browser.loading() && summary && summary->text;
+    }));
     REQUIRE(f.pane().summary());
     REQUIRE(f.pane().summary()->text);
     REQUIRE(f.pane().summary()->text->lines.size() == 5001);
