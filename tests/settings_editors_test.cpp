@@ -1,10 +1,12 @@
 #include "rummage/views/settings_editors.hpp"
 
+#include <array>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <doctest/doctest.h>
 
 #include "rummage/core/config_edit.hpp"
+#include "rummage/theme/desktop.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/shortcuts.hpp"
 
@@ -249,4 +251,53 @@ TEST_CASE("settings editor saves a new action only after its required fields are
     CHECK(parsed.config.actions.front().label == "New action");
     CHECK(parsed.config.actions.front().argv == std::vector<std::string>{"literal-program"});
     CHECK_FALSE(fixture.editor.has_drafts());
+}
+
+TEST_CASE("settings editor back navigation cancels recording before command search") {
+    ui::Offscreen surface{400, 500};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    EditorFixture fixture;
+    fixture.editor.focus_shortcut("copy");
+    fixture.editor.record_shortcut("copy");
+    renderer.begin_frame(400, 500, 1, {});
+    fixture.editor.draw(renderer, {0, 0, 400, 500}, {});
+    renderer.end_frame();
+    // Prompt + target + current shortcut, then Record / Reset / Disable / Back.
+    fixture.editor.pointer({.kind = ui::PointerEvent::Kind::press,
+                            .x = 30,
+                            .y = 205,
+                            .button = ui::PointerButton::left});
+    CHECK_FALSE(fixture.editor.recording());
+    CHECK(fixture.writes == 0);
+    renderer.begin_frame(400, 500, 1, {});
+    fixture.editor.draw(renderer, {0, 0, 400, 500}, {});
+    renderer.end_frame();
+    fixture.editor.enter_focus();
+    fixture.editor.key({.keysym = XKB_KEY_a, .text = "a"});
+    CHECK(fixture.writes == 0);
+}
+
+TEST_CASE("settings editor selected text retains contrast with explicit light accent roles") {
+    ui::Offscreen surface{400, 500};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    EditorFixture fixture;
+    theme::Palette palette;
+    palette.on_surface = palette.primary = palette.secondary_container = ui::Color::rgb(0xffffff);
+    const auto draw = [&] {
+        renderer.begin_frame(400, 500, 1, {});
+        fixture.editor.draw(renderer, {0, 0, 400, 500}, palette);
+        renderer.end_frame();
+    };
+    draw();
+    fixture.editor.enter_focus();
+    fixture.editor.paste("       ");  // No glyphs cover the selected background sample.
+    fixture.editor.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    draw();
+    std::array<unsigned char, 4> pixel{};
+    glReadPixels(14, 459, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+    const ui::Color selected{static_cast<float>(pixel[0]) / 255, static_cast<float>(pixel[1]) / 255,
+                             static_cast<float>(pixel[2]) / 255, 1};
+    CHECK(theme::contrast(selected, palette.on_surface) >= 4.45F);  // 8-bit rounding tolerance.
 }

@@ -7,6 +7,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 
 namespace rummage::views {
 namespace {
@@ -135,15 +136,11 @@ void ConflictDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (!is_open()) {
         return;
     }
-    renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
     const float width = std::min(kCardWidth, bounds.width - (2.0F * kMargin));
     const float height = kPadding + 24.0F + 26.0F + 36.0F + kButtonHeight + kPadding;
     const ui::Rect card{bounds.x + ((bounds.width - width) / 2.0F),
                         bounds.y + ((bounds.height - height) / 2.0F), width, height};
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = {},
-                             .border_width = 1.0F,
-                             .border = palette.outline_variant});
+    draw_dialog_surface(renderer, bounds, card, palette);
     renderer.push_clip(card);
     const float left = card.x + kPadding;
     const float room = width - (2.0F * kPadding);
@@ -176,7 +173,8 @@ void ConflictDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float label =
         renderer.draw_text(i18n::tr("Do the same for the rest"), left + kBox + 10.0F, y, kTextSize,
                            palette.on_surface, room - kBox - 10.0F);
-    renderer.draw_text("A", left + kBox + 10.0F + label + 10.0F, y, kTextSize, palette.primary);
+    renderer.draw_text("A", left + kBox + 10.0F + label + 10.0F, y, kTextSize,
+                       theme::readable_foreground(palette.primary, palette.surface_container_high));
     checkbox_.width = kBox + 10.0F + label;  // the label is clickable too
     const std::string_view stop = i18n::tr("Escape stops");
     const float stop_width =
@@ -201,19 +199,12 @@ void ConflictDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const ui::Rect& button = buttons_.at(i);
         const bool main = i == kKeepBoth;
         const bool usable = i != kReplace || can_replace();
-        ui::Color fill = main ? palette.primary : palette.surface_container_highest;
-        if (hovered_ == i && usable) {
-            fill = main ? palette.primary_container : palette.surface_bright;
-        }
-        renderer.draw_box(button, {.fill = fill, .radius = {}});
-        ui::Color text = main ? palette.on_primary : palette.on_surface;
-        if (!usable) {
-            text = palette.outline;
-        }
         const bool merges = i == kReplace && conflict_.directory && can_replace();
-        renderer.draw_text(i18n::tr(merges ? "Merge   R" : kLabels.at(i)), button.x + 14.0F,
-                           button.y + ((kButtonHeight - kTextSize) / 2.0F) - 2.0F, kTextSize, text,
-                           button.width - 20.0F);
+        draw_dialog_button(renderer, button, palette,
+                           i18n::tr(merges ? "Merge   R" : kLabels.at(i)), hovered_ == i && usable,
+                           main ? DialogButton::primary : DialogButton::normal);
+        if (!usable)
+            renderer.fill_rect(button, palette.surface_container_high.with_alpha(0.55F));
     }
     renderer.pop_clip();
 }

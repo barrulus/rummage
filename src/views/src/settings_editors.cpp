@@ -389,6 +389,7 @@ void SettingsEditors::activate(Control control) {
             break;
         case Operation::back:
             if (commit()) {
+                recording_.clear();
                 action_.reset();
                 target_.clear();
                 scroll_.jump_to(0);
@@ -658,7 +659,9 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
         const bool focused = focus_ == static_cast<int>(controls_.size());
         input.draw(renderer, rect, 13,
                    {palette.surface_container_low, focused ? palette.on_surface : palette.outline,
-                    palette.on_surface, palette.primary, palette.on_surface});
+                    palette.on_surface,
+                    theme::readable_foreground(palette.secondary_container, palette.on_surface),
+                    focused ? palette.on_surface : palette.on_surface.with_alpha(0)});
         if (mutates && !editable_)
             renderer.fill_rect(rect, palette.surface.with_alpha(0.45F));
         controls_.push_back({rect, Operation::field, &input, {}, 0, mutates});

@@ -853,3 +853,56 @@ TEST_CASE("settings: embedded editors return keyboard focus to host and dismiss 
     f.dialog.close();
     CHECK_FALSE(f.dialog.is_open());
 }
+
+TEST_CASE("settings: custom action recording receives host shortcuts and Escape cancels") {
+    Fixture f;
+    REQUIRE_FALSE(core::write_file_atomically(
+        f.path, "[[actions]]\nid='greeting'\nlabel='Say hello'\nargv=['echo','hello']\n"));
+    f.open();
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{800, 700};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 700, 1, {});
+        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    f.dialog.search("Say hello");
+    const auto matches = f.dialog.search_results();
+    REQUIRE_FALSE(matches.empty());
+    f.dialog.jump_to_result(matches.back().field);
+    draw();  // First component control: Back to actions.
+    for (int i = 0; i < 9; ++i) {
+        f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
+        draw();
+    }
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});  // Record shortcut.
+    draw();
+    f.dialog.key({.keysym = XKB_KEY_Escape, .text = {}});  // Cancel, don't close Settings.
+    CHECK(f.dialog.is_open());
+    CHECK(f.applied == 0);
+    draw();
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_s, .text = {}, .modifiers = {.ctrl = true}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    const auto config = core::load_config(f.path);
+    REQUIRE(config.config.keybindings.contains("action:greeting"));
+    CHECK(config.config.keybindings.at("action:greeting") == "Ctrl+s");
+    draw();
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_f, .text = {}, .modifiers = {.ctrl = true}});
+    CHECK_FALSE(f.dialog.error().empty());  // Conflict is reported, not global search.
+    CHECK(core::load_config(f.path).config.keybindings.at("action:greeting") == "Ctrl+s");
+}
+
+TEST_CASE("settings: action search only offers forms that can be opened") {
+    Fixture f;
+    f.open();
+    for (const auto* query : {"copy_location", "copy_name", "extract_here", "extract_to"}) {
+        f.dialog.search(query);
+        for (const auto& match : f.dialog.search_results())
+            CHECK(match.section != 3);
+    }
+}

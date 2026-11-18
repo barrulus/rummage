@@ -117,6 +117,21 @@ content behind it.
 
 ## Arrange and nest menus
 
+Open **Settings → Menus** to edit the common layout or the Files and folders,
+Folder background, Trash and Sidebar overrides. **Add command**, **Separator** and
+**Remaining commands** append entries. Select an entry to move it up/down, wrap it in
+**Group**, or change its label. **Nest** moves it into the preceding custom group;
+**Unnest** moves it out one level. On the selected tree row, Alt+Up/Down reorders,
+Alt+Right/Left nests/unnests, and Delete removes it. All controls scroll into view in
+small windows.
+
+Valid changes save automatically. Duplicate commands or a second Remaining commands
+entry are rejected. **Reset layout** removes only the current context override; it
+restores the common layout, or the built-in layout when there is no common override.
+Removing every entry creates an explicitly hidden menu. **Preview** shows a representative
+structure; the running menu filters commands by selection and fills dynamic application
+and template submenus at use time. Menu edits never execute a command.
+
 Actions default to the **Actions** submenu. `placement = "menu"` puts an action directly
 above that submenu. A `[context_menu]` layout can instead arrange built-in commands and
 custom actions into nested groups, in the order you choose. For the three actions above:

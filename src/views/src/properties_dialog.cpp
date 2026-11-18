@@ -11,6 +11,7 @@
 #include "rummage/fs/directory.hpp"
 #include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 #include "rummage/views/format.hpp"
 #include "rummage/views/thumbnails.hpp"
 
@@ -457,7 +458,6 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (!open_)
         return;
     controls_.clear();
-    renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
     const bool preview =
         !loading_ && thumbnails && !data_.entry.is_directory() &&
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
@@ -547,10 +547,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const ui::Rect card{bounds.x + (bounds.width - width) / 2,
                         bounds.y + (bounds.height - height) / 2, width, height};
     card_ = card;
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = {},
-                             .border_width = 1,
-                             .border = palette.outline_variant});
+    draw_dialog_surface(renderer, bounds, card, palette);
     content_ = {card.x, card.y, card.width, card.height - 70};
     max_scroll_ = std::max(0.0F, natural_height - height);
     scroll_ = std::clamp(scroll_, 0.0F, max_scroll_);
@@ -565,15 +562,10 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     };
     const auto button = [&](std::string id, std::string label, ui::Rect rect, bool enabled = true,
                             bool primary = false) {
-        const auto fill = primary && enabled ? palette.primary : palette.surface_container_highest;
-        renderer.draw_box(rect, {.fill = fill,
-                                 .radius = {},
-                                 .border_width = focus_ == id ? 2.0F : 0.0F,
-                                 .border = palette.primary});
-        renderer.draw_text(i18n::tr(label), rect.x + 12, rect.y + 7, 13,
-                           (primary && enabled ? palette.on_primary : palette.on_surface)
-                               .with_alpha(enabled ? 1.0F : 0.4F),
-                           rect.width - 20);
+        draw_dialog_button(renderer, rect, palette, i18n::tr(label), focus_ == id,
+                           primary && enabled ? DialogButton::primary : DialogButton::normal);
+        if (!enabled)
+            renderer.fill_rect(rect, palette.surface_container_high.with_alpha(0.55F));
         controls_.push_back({std::move(id), rect, enabled});
     };
     const float bottom = top + natural_height - 56;
@@ -660,7 +652,9 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             icons.draw_file(
                 renderer, mime_->name(data_.entry.mime), fs::icon_name(*mime_, data_.entry),
                 preview_box.x + (preview_box.width - 56) / 2,
-                preview_box.y + (preview_box.height - 56) / 2, 56, palette.primary, preferred);
+                preview_box.y + (preview_box.height - 56) / 2, 56,
+                theme::readable_foreground(palette.primary, palette.surface_container_high),
+                preferred);
         }
         const float name_left = left + preview_width + 20;
         const float name_top = top + 60 + (header_height - name_height - 5 - type_height) / 2;

@@ -26,6 +26,7 @@ add_library(rummage_views
     src/conflict_dialog.cpp
     src/context_menu.cpp
     src/menu_layout.cpp
+    src/menu_editor.cpp
     src/details_view.cpp
     src/file_clipboard.cpp
     src/draw_helpers.cpp
@@ -44,6 +45,7 @@ add_library(rummage_views
     src/password_dialog.cpp
     src/properties_dialog.cpp
     src/settings_dialog.cpp
+    src/settings_editors.cpp
     src/shortcuts.cpp
     src/shortcuts_overlay.cpp
     src/sidebar.cpp

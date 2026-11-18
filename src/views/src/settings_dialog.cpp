@@ -378,7 +378,7 @@ std::vector<SettingsDialog::SearchResult> SettingsDialog::search_results() const
                 .find(query) != std::string::npos)
             results.push_back({fields_.size() + i, 4, kMenuContexts[i], description});
     }
-    const auto actions = core::action_registry(accepted_config_.config.actions);
+    const auto& actions = accepted_config_.config.actions;
     for (std::size_t i = 0; i < actions.size(); ++i) {
         const auto& action = actions[i];
         const std::string description = "Edit action availability, selection and arguments";
@@ -401,7 +401,7 @@ void SettingsDialog::jump_to_result(std::size_t field) {
             set_focus("editor");
         } else {
             const auto index = field - fields_.size() - kMenuContexts.size();
-            const auto actions = core::action_registry(accepted_config_.config.actions);
+            const auto& actions = accepted_config_.config.actions;
             if (index < actions.size()) {
                 const auto id = actions[index].id;
                 search_.set_text("");
@@ -1031,7 +1031,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         update_error();
         return true;
     }
-    if (section_ == 2 && editors_.recording()) {
+    if ((section_ == 2 || section_ == 3) && editors_.recording()) {
         editors_.key(event);
         update_error();
         return true;
@@ -1172,7 +1172,8 @@ std::string SettingsDialog::copy_selection(bool cut) {
     if (!valid_ || !open_ || choices_.is_open())
         return {};
     if (focus_ == "editor")
-        return section_ == 4 ? menus_.copy_selection(cut && editable()) : editors_.copy_selection();
+        return section_ == 4 ? menus_.copy_selection(cut && editable())
+                             : editors_.copy_selection(cut && editable());
     if (focus_ == "search") {
         const auto [first, last] = search_.selection();
         const auto text = search_.text().substr(first, last - first);
@@ -1401,7 +1402,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         {.background = palette.surface_container_highest,
          .border = focus_ == "search" ? palette.primary : palette.outline_variant,
          .text = palette.on_surface,
-         .selection = palette.secondary_container,
+         .selection = theme::readable_foreground(palette.secondary_container, palette.on_surface),
          .caret = focus_ == "search" ? palette.on_surface : palette.on_surface.with_alpha(0)});
     if (search_.text().empty() && focus_ != "search")
         renderer.draw_text(i18n::tr("Search settings… (Ctrl+F)"), search_bounds_.x + 6,
@@ -1528,7 +1529,8 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                         : focused            ? palette.primary
                                                              : palette.outline_variant,
                               .text = palette.on_surface,
-                              .selection = palette.secondary_container,
+                              .selection = theme::readable_foreground(palette.secondary_container,
+                                                                      palette.on_surface),
                               .caret = focused && editable() ? palette.on_surface
                                                              : palette.on_surface.with_alpha(0)});
         }

@@ -30,8 +30,10 @@ add_executable(rummage-tests
     config_test.cpp
     content_map_test.cpp
     settings_test.cpp
+    settings_editors_test.cpp
     desktop_palette_test.cpp
     context_menu_test.cpp
+    menu_editor_test.cpp
     details_view_test.cpp
     devices_test.cpp
     engines_test.cpp

@@ -21,18 +21,23 @@ DialogFrame DialogFrame::fit(const ui::Rect& window, float width, float height,
 
 void DialogFrame::draw(ui::Renderer& renderer, const ui::Rect& window,
                        const theme::Palette& palette, std::string_view title) const {
-    renderer.fill_rect(window, palette.scrim.with_alpha(0.55F));
-    renderer.draw_shadow(card, ui::Corners::all(8), 16, palette.shadow.with_alpha(0.5F));
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = ui::Corners::all(8),
-                             .border_width = 1,
-                             .border = palette.outline_variant});
+    draw_dialog_surface(renderer, window, card, palette);
     renderer.draw_text(title, header.x + 20, header.y + 18, 18, palette.on_surface,
                        std::max(1.0F, header.width - 40));
     renderer.fill_rect({card.x + 1, header.bottom(), std::max(0.0F, card.width - 2), 1},
                        palette.outline_variant);
     renderer.fill_rect({card.x + 1, footer.y, std::max(0.0F, card.width - 2), 1},
                        palette.outline_variant);
+}
+
+void draw_dialog_surface(ui::Renderer& renderer, const ui::Rect& window, const ui::Rect& card,
+                         const theme::Palette& palette) {
+    renderer.fill_rect(window, palette.scrim.with_alpha(0.55F));
+    renderer.draw_shadow(card, ui::Corners::all(8), 16, palette.shadow.with_alpha(0.5F));
+    renderer.draw_box(card, {.fill = palette.surface_container_high,
+                             .radius = ui::Corners::all(8),
+                             .border_width = 1,
+                             .border = palette.outline_variant});
 }
 
 void draw_dialog_button(ui::Renderer& renderer, const ui::Rect& bounds,
