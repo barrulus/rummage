@@ -19,6 +19,10 @@ void log_problems(const PaletteResult& result) {
 Theme::Theme(std::filesystem::path path) : path_{std::move(path)} {
     const PaletteResult result = load_palette(path_);
     log_problems(result);
+    file_problems_ = result.problems;
+    file_state_ = result.from_file          ? FileState::valid
+                  : result.problems.empty() ? FileState::missing
+                                            : FileState::invalid;
     if (result.from_file)
         file_palette_ = result.palette;
     changed();
@@ -96,17 +100,25 @@ void Theme::watch(core::EventLoop& loop) {
 void Theme::reload() {
     const PaletteResult result = load_palette(path_);
     log_problems(result);
+    file_problems_ = result.problems;
+    file_state_ = result.from_file          ? FileState::valid
+                  : result.problems.empty() ? FileState::missing
+                                            : FileState::invalid;
     if (result.from_file) {
         log::info("theme: reloaded {}", path_.string());
     } else if (result.problems.empty()) {
         log::info("theme: {} removed; palette file unavailable", path_.string());
     } else {
         log::warn("theme: keeping the current palette");
+        if (change_handler_)
+            change_handler_();
         return;
     }
     file_palette_ = result.from_file ? std::optional{result.palette} : std::nullopt;
     if (source_ == Source::automatic || source_ == Source::file)
         changed();
+    else if (change_handler_)
+        change_handler_();
 }
 
 }  // namespace rummage::theme

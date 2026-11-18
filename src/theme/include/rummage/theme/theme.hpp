@@ -19,10 +19,15 @@ public:
     using ChangeHandler = std::function<void()>;
     enum class Source { automatic, desktop, file, builtin };
 
+    enum class FileState { missing, valid, invalid };
+
     struct Status {
         Source requested;
         Source active;  // never automatic; the source before any light/dark override
         std::optional<bool> dark_override;
+        FileState file_state{FileState::missing};
+        std::vector<std::string> file_problems{};
+        bool retaining_last_valid_file{false};
     };
 
     explicit Theme(std::filesystem::path path);
@@ -37,12 +42,16 @@ public:
     void set_source(Source source);
     [[nodiscard]] Source active_source() const;
 
-    [[nodiscard]] Status status() const { return {source_, active_source(), dark_override_}; }
+    [[nodiscard]] Status status() const {
+        return {source_,        active_source(),
+                dark_override_, file_state_,
+                file_problems_, file_state_ == FileState::invalid && file_palette_.has_value()};
+    }
 
     // A Settings preference. nullopt restores the selected source's exact palette.
     void set_dark_override(std::optional<bool> dark);
 
-    // Called after the palette changed through a reload or the desktop.
+    // Called after the palette or source diagnostics change.
     void set_change_handler(ChangeHandler handler) { change_handler_ = std::move(handler); }
 
     [[nodiscard]] const Palette& palette() const noexcept {
@@ -60,6 +69,8 @@ private:
 
     std::filesystem::path path_;
     Source source_{Source::automatic};
+    FileState file_state_{FileState::missing};
+    std::vector<std::string> file_problems_;
     std::optional<Palette> file_palette_;
     std::optional<Desktop> desktop_;
     Palette palette_;

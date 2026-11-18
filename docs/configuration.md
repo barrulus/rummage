@@ -7,11 +7,18 @@ command palette. Categories appear in a sidebar, or a category selector in narro
 
 - **General:** startup/session behavior, executable opening, double-click timing and terminal.
 - **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement and motion.
-- **Keyboard shortcuts:** replace a default with a chord (for example `Ctrl+J`), type
-  `Default` to reset it, or clear a field to disable it. **New shortcut** adds a binding
-  for an action (`action:ID`) or folder (`go:/path` or `go:~/path`).
-- **Actions:** add commands and edit their labels, argument arrays and enabled state.
-  Advanced options remain available through **Open config**.
+- **Keyboard shortcuts:** search commands, record a chord, reset a binding to its default,
+  or disable it. Conflicting chords are rejected before saving. Folder shortcuts accept
+  a directory path; custom actions appear after their valid definition is saved.
+- **Actions:** search or add commands, then edit the program and individual arguments,
+  selection rules, destination prompt and enabled state. Placeholder help is shown in the form.
+- **Menus:** choose the common layout or a context override, arrange commands, separators
+  and groups, and preview the structure. Reset removes that override and restores inheritance.
+
+Search above the categories matches setting names and descriptions, commands, actions and
+menu contexts. Selecting a result opens its control. Individual reset buttons and **Reset
+category** remove recognized overrides and restore the built-in defaults; they retain
+unrelated settings and custom action definitions.
 
 Copy Name defaults to **Ctrl+Alt+C** and can be changed with `copy_name`; it copies
 selected filenames, including extensions, with newlines between multiple names.
@@ -31,7 +38,7 @@ commands in Actions before assigning their shortcuts.
 saved, Settings stays open: correct them, use **Retry** for a write failure, or explicitly
 choose **Discard unsaved**. Discarding does not undo changes already saved.
 
-Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4 to switch categories, and
+Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4/5 to switch categories, and
 Ctrl+S to commit pending fields or retry a save. Scroll within a category with the wheel
 or scrollbar. Choice fields open with Enter/Space; arrow keys move through options,
 Enter/Space selects, Escape dismisses, and Tab dismisses and moves focus.
@@ -41,6 +48,13 @@ successive changes are retained. If another editor changes the file while Settin
 saving stops without overwriting that edit. Keep a copy of any unsaved values, discard those
 edits and reopen Settings to load the external version. Invalid files and write failures
 have readable error details. Settings uses the active `--config` file when specified.
+
+When the resolved configuration destination cannot be replaced, Settings shows a **read-only**
+state and disables editing and resets. For declarative configurations such as Nix-store files,
+change the configuration declaration and rebuild it. **Open config** and copying values remain
+available. A symlink to a writable destination still works: saves replace its target atomically
+and preserve the symlink. Changes are applied only after a successful save; there is no separate
+session-only settings mode.
 
 rummage stores settings in TOML. Every configuration key is optional. The first
 normal launch creates the complete reference when no config exists. First-run setup

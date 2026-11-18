@@ -4,8 +4,8 @@
 #include <cmath>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-#include "rummage/views/fuzzy.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/views/fuzzy.hpp"
 
 namespace rummage::views {
 namespace {
@@ -447,7 +447,9 @@ void CommandPalette::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         }
         const ui::Color text = lit ? palette.on_hover : palette.on_surface;
         const ui::Color dim = lit ? palette.on_hover : palette.on_surface_variant;
-        const ui::Color matched = lit ? palette.on_hover : palette.primary;
+        const ui::Color matched =
+            lit ? palette.on_hover
+                : theme::readable_foreground(palette.primary, palette.surface_container_high);
         const float text_y = rect.y + ((kRowHeight - kTextSize) / 2.0F) - 2.0F;
         float right = rect.right() - kTextInset;
         if (!item.keys.empty()) {

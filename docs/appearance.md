@@ -87,20 +87,28 @@ primary = "#6750a4"
 The `[colors]` section is required but may be empty. Missing roles use a complete
 baseline generated from that mode and the supplied `primary` accent (or the
 built-in blue accent `#3584e4`). Supplied roles then override the baseline exactly.
+When a supplied background omits its paired `on_*` foreground, that foreground
+is adjusted for readability against the final background. Omitted `hover` follows
+`primary`, and omitted `on_hover` is derived against the final `hover`.
 The file's baseline does not depend on desktop preferences. A complete Noctalia
 palette therefore retains all its colours, while a partial light file gets light
 surfaces and dark text rather than missing roles from the built-in dark palette.
 
 Every supported colour is a quoted `"#RRGGBB"` or `"#RRGGBBAA"` hexadecimal value;
 letter case is immaterial and omitted alpha means opaque. Prefer opaque palettes
-and use `appearance.background_opacity` for window transparency. Supplied colours
-are not adjusted for contrast: when overriding backgrounds, provide readable
-foregrounds too, especially `primary`/`on_primary` and `hover`/`on_hover`.
+and use `appearance.background_opacity` for window transparency. Explicitly supplied roles
+are never adjusted for contrast; provide readable pairs when supplying both roles.
+Accent text and icons use a readable variant of `primary` on their actual surface,
+while selection and button fills retain the exact supplied colour. Surface ladder
+roles remain independent: overriding `surface` does not regenerate the other
+surfaces. Since several surfaces share `on_surface`, keep those backgrounds
+compatible with the same foreground when providing a custom ladder. Contrast
+derivation assumes opaque colours; translucent roles depend on the backdrop.
 
 | Roles | Purpose |
 | --- | --- |
-| `primary`, `on_primary` | Accent controls and their foreground |
-| `primary_container`, `on_primary_container` | Selections and their foreground |
+| `primary`, `on_primary` | Focused selections, accent controls and their foreground |
+| `primary_container`, `on_primary_container` | Drop targets and their foreground |
 | `secondary`, `on_secondary`, `secondary_container`, `on_secondary_container` | Secondary semantic accents and foregrounds |
 | `tertiary`, `on_tertiary`, `tertiary_container`, `on_tertiary_container` | Additional semantic accents and foregrounds |
 | `error`, `on_error`, `error_container`, `on_error_container` | Errors and destructive actions |
@@ -118,6 +126,8 @@ are valid and do not produce warnings. Invalid TOML, invalid `mode`, a missing o
 non-table `[colors]`, or an invalid value for any supported role rejects the whole
 file and logs its location. At startup this falls back to the desktop or built-in
 palette; during reload it preserves the last usable palette, including its accent.
+Settings retains the file diagnostics, distinguishing a missing file from an invalid
+one and explaining when the last valid palette is still active.
 
 ### Live updates
 

@@ -583,7 +583,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                         typed.folder_icon);
         if (owner->runs_as_program(entry)) {
             draw_run_mark(renderer, name_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon,
-                          style.fill ? style.icon : palette.primary,
+                          style.fill ? style.icon
+                                     : theme::readable_foreground(palette.primary, palette.surface),
                           style.fill.value_or(palette.surface));
         }
         const float name_x = name_left + size_.icon + kIconGap;

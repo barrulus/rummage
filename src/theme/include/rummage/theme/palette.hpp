@@ -15,7 +15,8 @@
 //   primary = "#fff59b"
 //   ...
 //
-// Complete palettes are used as supplied; partial palettes overlay a mode/accent baseline.
+// Complete palettes are used as supplied; partial palettes overlay a mode/accent baseline
+// and derive omitted paired foregrounds from the final backgrounds.
 // Extra colour roles are ignored for compatibility with generators such as Noctalia.
 namespace rummage::theme {
 
@@ -63,6 +64,11 @@ struct Palette {
     Color hover{Color::rgb(0x9BFECE)};
     Color on_hover{Color::rgb(0x0E0E43)};
 };
+
+// An opaque foreground with at least 4.5:1 contrast on an opaque background.
+// Keeps readable input unchanged; otherwise adjusts lightness while preserving hue.
+// For translucent surfaces, pass the composited background. Explicit palette roles stay intact.
+[[nodiscard]] Color readable_foreground(Color foreground, Color background);
 
 struct PaletteResult {
     Palette palette;

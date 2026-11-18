@@ -158,6 +158,7 @@ follow_accent = true
 # show_shortcuts = "F1"         # Also ? by default (Shift is ignored)
 # context_menu = "Menu"         # Also F10/Shift+F10 by default (Shift is ignored)
 # properties = "Alt+Return"     # File/folder properties and folder icon selection
+# copy_path = "Ctrl+Shift+c"   # Copy the folder's path
 # open_terminal = "F4"          # Open in a terminal
 
 # Folder history

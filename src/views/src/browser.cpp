@@ -58,7 +58,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       pool_{pool},
       redraw_{redraw},
       set_cursor_{std::move(set_cursor)},
-      thumbnails_{thumbnails ? std::make_unique<Thumbnails>(loop, pool, thumbnails, redraw) : nullptr},
+      thumbnails_{thumbnails ? std::make_unique<Thumbnails>(loop, pool, thumbnails, redraw)
+                             : nullptr},
       info_pane_{loop, pool, thumbnails_.get(), redraw},
       watcher_{watcher},
       mime_{mime},
@@ -3233,10 +3234,13 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
             renderer.fill_background({view.x, view.y, 3, height}, palette.primary);
         const char* position = stacked_ ? (context_area_ == 0 ? "Top" : "Bottom")
                                         : (context_area_ == 0 ? "Left" : "Right");
-        renderer.draw_text(std::format("{}{}", i18n::tr(position),
-                                       active ? i18n::tr(" · Active") : std::string_view{}),
-                           view.x + 8, view.y + 6, 12,
-                           active ? palette.primary : palette.on_surface_variant, view.width - 16);
+        renderer.draw_text(
+            std::format("{}{}", i18n::tr(position),
+                        active ? i18n::tr(" · Active") : std::string_view{}),
+            view.x + 8, view.y + 6, 12,
+            active ? theme::readable_foreground(palette.primary, palette.surface_container)
+                   : palette.on_surface_variant,
+            view.width - 16);
         view.y += height;
         view.height -= height;
     }
@@ -4039,7 +4043,8 @@ void Browser::draw_drag_icon(ui::Renderer& renderer, const ui::Rect& bounds,
     constexpr float text_size = 13.0F;
     const float left = bounds.x + 10.0F;
     icons.draw(renderer, drag_->icon, left, bounds.y + ((bounds.height - icon_size) / 2.0F),
-               icon_size, palette.primary);
+               icon_size,
+               theme::readable_foreground(palette.primary, palette.surface_container_high));
     const std::string label = drag_->names.size() == 1
                                   ? drag_->names.front()
                                   : i18n::trn("{} item", "{} items", drag_->names.size());

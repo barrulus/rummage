@@ -16,6 +16,10 @@ struct DialogFrame {
               std::string_view title) const;
 };
 
+// Shared surface for dialogs with specialized body geometry.
+void draw_dialog_surface(ui::Renderer& renderer, const ui::Rect& window, const ui::Rect& card,
+                         const theme::Palette& palette);
+
 enum class DialogButton { normal, primary, destructive };
 void draw_dialog_button(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, std::string_view label, bool focused,

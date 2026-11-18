@@ -117,6 +117,21 @@ content behind it.
 
 ## Arrange and nest menus
 
+Open **Settings → Menus** to edit the common layout or the Files and folders,
+Folder background, Trash and Sidebar overrides. **Add command**, **Separator** and
+**Remaining commands** append entries. Select an entry to move it up/down, wrap it in
+**Group**, or change its label. **Nest** moves it into the preceding custom group;
+**Unnest** moves it out one level. On the selected tree row, Alt+Up/Down reorders,
+Alt+Right/Left nests/unnests, and Delete removes it. All controls scroll into view in
+small windows.
+
+Valid changes save automatically. Duplicate commands or a second Remaining commands
+entry are rejected. **Reset layout** removes only the current context override; it
+restores the common layout, or the built-in layout when there is no common override.
+Removing every entry creates an explicitly hidden menu. **Preview** shows a representative
+structure; the running menu filters commands by selection and fills dynamic application
+and template submenus at use time. Menu edits never execute a command.
+
 Actions default to the **Actions** submenu. `placement = "menu"` puts an action directly
 above that submenu. A `[context_menu]` layout can instead arrange built-in commands and
 custom actions into nested groups, in the order you choose. For the three actions above:
@@ -253,3 +268,22 @@ Preset overrides retain omitted preset fields. Copy Name and Copy Location canno
 See the [annotated reference](config.example.toml) for all default context layouts
 and menu IDs. See [troubleshooting](troubleshooting.md#actions-or-menus-are-missing)
 when an action does not appear.
+
+### Editing actions in Settings
+
+Settings → Actions lists custom actions separately from their editing form. Choose an action or
+**Add action**, then enter a stable ID, a menu label and a program. Each argument has its own text
+field and remove button. Values are literal: spaces, quotes and shell-looking text are passed to
+the program unchanged. Editing never runs the program.
+
+Use an entire argument for `{file}`, `{files}`, `{directory}` or `{destination}`. The form explains
+these placeholders and lets you cycle selection requirements and the destination picker. A
+`{destination}` argument requires a file or folder picker; `{file}` requires one selected item and
+`{files}` requires one or more selected items. Invalid combinations remain visible with their
+validation message and are not saved.
+
+Valid edits save when leaving a field or pressing Enter. A new action remains a draft until its
+required fields and rules are valid. Existing IDs stay fixed so menu references and shortcuts
+remain intact. Settings preserves advanced action properties and unrelated configuration keys.
+Use **Record shortcut** in the action form to assign a shortcut directly. Read-only configurations
+allow inspecting and copying values; change their declared configuration to edit them.

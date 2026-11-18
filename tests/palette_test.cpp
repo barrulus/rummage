@@ -1,7 +1,9 @@
 #include "rummage/theme/palette.hpp"
 
+#include <array>
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <string>
 #include <string_view>
 
@@ -9,6 +11,7 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/file.hpp"
+#include "rummage/theme/syntax.hpp"
 #include "rummage/theme/theme.hpp"
 #include "temp_dir.hpp"
 
@@ -180,12 +183,12 @@ TEST_CASE("Theme::reload: new colors, broken file keeps them, removed file resto
 
     dir.write("colors.toml", "[colors\n");  // half written or broken: keep what we have
     theme.reload();
-    CHECK(changes == 1);
+    CHECK(changes == 2);  // Diagnostics changed; the palette did not.
     CHECK(same(theme.palette().primary, Color::rgb(0x112233)));
 
     std::filesystem::remove(file);
     theme.reload();
-    CHECK(changes == 2);
+    CHECK(changes == 3);
     CHECK(same(theme.palette().primary, Palette{}.primary));
 }
 
@@ -230,8 +233,9 @@ TEST_CASE("invalid palette updates never replace the last usable palette") {
         CHECK_FALSE(result.from_file);
         CHECK_FALSE(result.problems.empty());
         dir.write("colors.toml", text);
+        const int before = changes;
         theme.reload();
-        CHECK(changes == 0);
+        CHECK(changes == before + 1);
         CHECK(same(theme.palette().primary, Color::rgb(0x88C0D0)));
         CHECK(same(theme.palette().surface, Color::rgb(0x2E3440)));
     }
@@ -292,13 +296,13 @@ TEST_CASE("Theme watches palette writes, replacements, invalid updates and remov
 
     dir.write("colors.toml", "[colors]\nprimary = \"invalid\"\n");
     settle();
-    CHECK(changes == 2);
+    CHECK(changes == 3);
     CHECK_FALSE(theme.palette().dark);
     CHECK(same(theme.palette().primary, Color::rgb(0x65558F)));
 
     std::filesystem::remove(file);
     settle();
-    CHECK(changes == 3);
+    CHECK(changes == 4);
     CHECK(same(theme.palette().surface, fallback.surface));
     CHECK(same(theme.palette().primary, fallback.primary));
 
@@ -307,7 +311,7 @@ TEST_CASE("Theme watches palette writes, replacements, invalid updates and remov
     REQUIRE(dark.exists);
     dir.write("colors.toml", dark.text);
     settle();
-    CHECK(changes == 4);
+    CHECK(changes == 5);
     CHECK(same(theme.palette().primary, Color::rgb(0xCFBDFE)));
     CHECK(theme.palette().dark);
 }
@@ -366,27 +370,27 @@ TEST_CASE("palette sources: inactive sources stay current without changing the a
     theme.set_change_handler([&] { ++changes; });
     dir.write("colors.toml", "mode = 'light'\n[colors]\nprimary = '#6750a4'\n");
     theme.reload();
-    CHECK(changes == 0);
+    CHECK(changes == 1);
     CHECK(theme.palette().primary == original.primary);
     CHECK(theme.accent() == desktop.accent);
     dir.write("colors.toml", "[colors]\nprimary = 'invalid'\n");
     theme.reload();
-    CHECK(changes == 0);
+    CHECK(changes == 2);
     theme.set_source(Source::file);
-    CHECK(changes == 1);
+    CHECK(changes == 3);
     CHECK_FALSE(theme.palette().dark);
     CHECK(theme.palette().primary == Color::rgb(0x6750A4));
     CHECK(theme.accent() == Color::rgb(0x6750A4));
 
     const rummage::theme::Desktop newer{.dark = true, .accent = Color::rgb(0xED5B00)};
     theme.set_desktop(newer);
-    CHECK(changes == 1);
+    CHECK(changes == 3);
     theme.set_source(Source::builtin);
     CHECK_FALSE(theme.accent());
     CHECK(theme.palette().surface == Palette{}.surface);
     std::filesystem::remove(file);
     theme.reload();
-    CHECK(changes == 2);
+    CHECK(changes == 5);
     theme.set_source(Source::file);
     CHECK(theme.active_source() == Source::builtin);
     CHECK(theme.status().requested == Source::file);
@@ -428,4 +432,130 @@ TEST_CASE("palette sources: light and dark overrides use the selected source's a
     CHECK_FALSE(theme.status().dark_override);
     CHECK(theme.palette().primary == Color::rgb(0x88C0D0));
     CHECK(theme.palette().surface == Color::rgb(0x2E3440));
+}
+
+TEST_CASE("partial accent palettes derive selection and hover from the exact final primary") {
+    constexpr std::array accents{0xF5C211U, 0x1A3B8FU, 0xFF2A22U, 0x6750A4U};
+    for (const bool dark : {false, true}) {
+        for (const auto accent : accents) {
+            CAPTURE(dark);
+            CAPTURE(accent);
+            const auto result = parse(std::format("mode = '{}'\n[colors]\nprimary = '#{:06x}'\n",
+                                                  dark ? "dark" : "light", accent));
+            REQUIRE(result.from_file);
+            const auto& p = result.palette;
+            CHECK(p.primary == Color::rgb(accent));
+            CHECK(rummage::theme::contrast(p.primary, p.on_primary) >= 4.5F);
+            CHECK(p.hover == p.primary);
+            CHECK(rummage::theme::contrast(p.hover, p.on_hover) >= 4.5F);
+            for (const auto background : {p.surface, p.surface_container_low, p.surface_container,
+                                          p.surface_container_high, p.surface_container_highest}) {
+                const auto foreground = rummage::theme::readable_foreground(p.primary, background);
+                CHECK(rummage::theme::contrast(foreground, background) >= 4.5F);
+                if (rummage::theme::contrast(p.primary, background) >= 4.5F)
+                    CHECK(foreground == p.primary);
+            }
+            for (const auto syntax : rummage::theme::syntax_colors(p))
+                CHECK(rummage::theme::contrast(syntax, p.surface_container) >= 4.5F);
+        }
+    }
+}
+
+TEST_CASE("each supplied semantic background derives only its omitted paired foreground") {
+    struct Pair {
+        std::string_view background, foreground;
+        Color Palette::* bg;
+        Color Palette::* fg;
+    };
+
+    constexpr std::array pairs{
+        Pair{"primary", "on_primary", &Palette::primary, &Palette::on_primary},
+        Pair{"primary_container", "on_primary_container", &Palette::primary_container,
+             &Palette::on_primary_container},
+        Pair{"secondary", "on_secondary", &Palette::secondary, &Palette::on_secondary},
+        Pair{"secondary_container", "on_secondary_container", &Palette::secondary_container,
+             &Palette::on_secondary_container},
+        Pair{"tertiary", "on_tertiary", &Palette::tertiary, &Palette::on_tertiary},
+        Pair{"tertiary_container", "on_tertiary_container", &Palette::tertiary_container,
+             &Palette::on_tertiary_container},
+        Pair{"error", "on_error", &Palette::error, &Palette::on_error},
+        Pair{"error_container", "on_error_container", &Palette::error_container,
+             &Palette::on_error_container},
+        Pair{"surface", "on_surface", &Palette::surface, &Palette::on_surface},
+        Pair{"surface_variant", "on_surface_variant", &Palette::surface_variant,
+             &Palette::on_surface_variant},
+        Pair{"hover", "on_hover", &Palette::hover, &Palette::on_hover},
+    };
+    for (const bool dark : {false, true}) {
+        for (const auto& pair : pairs) {
+            for (const auto value : {0x000000U, 0x777777U, 0xFFFFFFU}) {
+                CAPTURE(dark);
+                CAPTURE(pair.background);
+                CAPTURE(value);
+                const auto text = std::format("mode = '{}'\n[colors]\n{} = '#{:06x}'\n",
+                                              dark ? "dark" : "light", pair.background, value);
+                const auto result = parse(text);
+                REQUIRE(result.from_file);
+                CHECK(result.palette.*pair.bg == Color::rgb(value));
+                CHECK(rummage::theme::contrast(result.palette.*pair.bg, result.palette.*pair.fg) >=
+                      4.5F);
+                const auto explicit_pair =
+                    parse(text + std::format("{} = '#12345678'\n", pair.foreground));
+                REQUIRE(explicit_pair.from_file);
+                CHECK(explicit_pair.palette.*pair.bg == Color::rgb(value));
+                CHECK(explicit_pair.palette.*pair.fg == Color::rgba(0x12345678));
+            }
+        }
+    }
+    const auto overrides = parse("[colors]\nprimary = '#f5c21180'\nhover = '#1a3b8f60'\n");
+    CHECK(overrides.palette.primary == Color::rgba(0xF5C21180));
+    CHECK(overrides.palette.hover == Color::rgba(0x1A3B8F60));
+}
+
+TEST_CASE("readable foreground follows the actual surface rather than the declared mode") {
+    for (const auto background : {0x000000U, 0x555555U, 0x777777U, 0x999999U, 0xFFFFFFU}) {
+        for (const auto foreground : {0x000000U, 0x777777U, 0xFFFFFFU, 0xF5C211U, 0x1A3B8FU}) {
+            const auto shown =
+                rummage::theme::readable_foreground(Color::rgb(foreground), Color::rgb(background));
+            CHECK(rummage::theme::contrast(shown, Color::rgb(background)) >= 4.5F);
+        }
+    }
+}
+
+TEST_CASE("theme diagnostics distinguish missing, invalid, retained and repaired palette files") {
+    const TempDir dir;
+    const auto file = dir.path / "colors.toml";
+    Theme theme{file};
+    CHECK(theme.status().file_state == Theme::FileState::missing);
+    CHECK(theme.status().file_problems.empty());
+    CHECK_FALSE(theme.status().retaining_last_valid_file);
+    dir.write("colors.toml", "[colors]\nprimary = '#fff'\n");
+    Theme invalid_startup{file};
+    CHECK(invalid_startup.status().file_state == Theme::FileState::invalid);
+    CHECK_FALSE(invalid_startup.status().retaining_last_valid_file);
+    REQUIRE(invalid_startup.status().file_problems.size() == 1);
+    CHECK(contains(invalid_startup.status().file_problems.front(), "colors.toml:2:11:"));
+    CHECK(invalid_startup.active_source() == Theme::Source::builtin);
+    dir.write("colors.toml", "[colors]\nprimary = '#f5c211'\n");
+    theme.reload();
+    CHECK(theme.status().file_state == Theme::FileState::valid);
+    CHECK(theme.status().file_problems.empty());
+    dir.write("colors.toml", "[colors]\nprimary = '#fff'\n");
+    theme.reload();
+    CHECK(theme.status().file_state == Theme::FileState::invalid);
+    CHECK(theme.status().retaining_last_valid_file);
+    CHECK_FALSE(theme.status().file_problems.empty());
+    CHECK(theme.active_source() == Theme::Source::file);
+    CHECK(theme.palette().primary == Color::rgb(0xF5C211));
+    dir.write("colors.toml", "[colors]\nprimary = '#1a3b8f'\n");
+    theme.reload();
+    CHECK(theme.status().file_state == Theme::FileState::valid);
+    CHECK(theme.status().file_problems.empty());
+    CHECK_FALSE(theme.status().retaining_last_valid_file);
+    CHECK(theme.palette().primary == Color::rgb(0x1A3B8F));
+    std::filesystem::remove(file);
+    theme.reload();
+    CHECK(theme.status().file_state == Theme::FileState::missing);
+    CHECK(theme.status().file_problems.empty());
+    CHECK_FALSE(theme.status().retaining_last_valid_file);
 }
