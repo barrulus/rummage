@@ -29,6 +29,11 @@ void draw_centered(ui::Renderer& renderer, std::string_view text, const ui::Rect
 void draw_right_aligned(ui::Renderer& renderer, std::string_view text, float right_x, float top_y,
                         float font_size, ui::Color color);
 
+// Center a button label with 10 px side margins. Existing translated labels may separate
+// a trailing shortcut with three spaces; keep that hint at the right and avoid overlap.
+void draw_button_text(ui::Renderer& renderer, std::string_view text, const ui::Rect& bounds,
+                      ui::Color color);
+
 // The mark of a file that may run as a program (issue #17): a dot at the bottom right of its
 // icon (the square at x, y, size wide), in dot, ringed in behind (the colour under it) so it
 // stands apart from the icon on any theme. Its size follows the icon's, 6 to 12 px.

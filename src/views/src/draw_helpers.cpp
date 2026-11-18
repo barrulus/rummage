@@ -23,6 +23,40 @@ void draw_right_aligned(ui::Renderer& renderer, std::string_view text, float rig
                        color);
 }
 
+void draw_button_text(ui::Renderer& renderer, std::string_view text, const ui::Rect& bounds,
+                      ui::Color color) {
+    const ui::Rect content{bounds.x + 10, bounds.y, bounds.width - 20, bounds.height};
+    if (content.empty())
+        return;
+    const float scale = renderer.scale();
+    float label_right = content.right();
+    renderer.push_clip(content);
+    const auto separator = text.rfind("   ");
+    if (separator != std::string_view::npos) {
+        const auto& hint =
+            renderer.fonts().layout(text.substr(separator + 3), 13, scale, content.width);
+        const float x = content.right() - hint.width / scale;
+        renderer.draw_layout(
+            hint, x, content.y + (content.height - (hint.ascent + hint.descent) / scale) / 2,
+            color);
+        label_right = x - 8;
+        text = text.substr(0, separator);
+    }
+    const float available = label_right - content.x;
+    if (available > 0) {
+        const auto& label = renderer.fonts().layout(text, 13, scale, available);
+        const float width = label.width / scale;
+        // Keep short labels centered on the button; move longer ones just enough to
+        // leave a gap before the shortcut. Ellipsize before measuring the final position.
+        const float x = std::max(
+            content.x, std::min(bounds.x + (bounds.width - width) / 2, label_right - width));
+        renderer.draw_layout(
+            label, x, content.y + (content.height - (label.ascent + label.descent) / scale) / 2,
+            color);
+    }
+    renderer.pop_clip();
+}
+
 std::vector<ui::ColorRun> colour_runs(std::span<const text::Span> spans,
                                       const theme::SyntaxColors& colours, float alpha) {
     std::vector<ui::ColorRun> runs;

@@ -1,9 +1,11 @@
-#include "rummage/core/i18n.hpp"
 #include "rummage/views/location_dialog.hpp"
 
 #include <algorithm>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
+
+#include "draw_helpers.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -225,9 +227,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             text = go ? palette.on_primary_container : palette.on_surface;
         }
         renderer.draw_box(button, {.fill = fill, .radius = ui::Corners::all(8.0F)});
-        renderer.draw_text(go ? i18n::tr("Go   ↵") : i18n::tr("Cancel   Esc"), button.x + 14.0F,
-                           button.y + ((kButtonHeight - kTextSize) / 2.0F) - 2.0F, kTextSize, text,
-                           button.width - 20.0F);
+        draw_button_text(renderer, go ? i18n::tr("Go   ↵") : i18n::tr("Cancel   Esc"), button,
+                         text);
     }
     renderer.pop_clip();
 }

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "draw_helpers.hpp"
+
 namespace rummage::views {
 
 DialogFrame DialogFrame::fit(const ui::Rect& window, float width, float height,
@@ -53,8 +55,7 @@ void draw_dialog_button(ui::Renderer& renderer, const ui::Rect& bounds,
                                .radius = ui::Corners::all(4),
                                .border_width = focused ? 2.0F : 0.0F,
                                .border = palette.on_surface});
-    renderer.draw_text(label, bounds.x + 10, bounds.y + (bounds.height - 13) / 2 - 2, 13, ink,
-                       std::max(1.0F, bounds.width - 20));
+    draw_button_text(renderer, label, bounds, ink);
 }
 
 ui::Rect draw_setting_row(ui::Renderer& renderer, const ui::Rect& row,

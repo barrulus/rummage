@@ -6,6 +6,7 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
@@ -363,10 +364,8 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                      .border_width = 1.0F,
                      .border = focus_ == (apply ? kApply : kCancel) ? palette.primary
                                                                     : palette.outline_variant});
-        renderer.draw_text(i18n::tr(apply ? "Rename" : "Cancel"), button.x + 20.0F, button.y + 7.0F,
-                           13.0F,
-                           apply && enabled ? palette.on_primary : palette.on_surface_variant,
-                           button.width - 24.0F);
+        draw_button_text(renderer, i18n::tr(apply ? "Rename" : "Cancel"), button,
+                         apply && enabled ? palette.on_primary : palette.on_surface_variant);
     }
     renderer.pop_clip();
 }
