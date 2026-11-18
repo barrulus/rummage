@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -38,7 +39,7 @@ std::array<std::uint8_t, 4> pixel(const picture::Image& value, std::uint32_t x, 
 TEST_CASE("SVG previews: content detection, aspect ratio and straight alpha") {
     const TempDir dir;
     // A declaration and a long comment must not hide the root from a short magic probe.
-    const auto path = dir.write("drawing.bin", "\xef\xbb\xbf \n<?xml version='1.0'?>\n<!--" +
+    const auto path = dir.write("drawing.bin", "\xef\xbb\xbf<?xml version='1.0'?>\n<!--" +
                                                    std::string(70000, 'x') + "-->" + kDrawing);
     const auto reads = image::embedded_preview_reads();
     const auto loaded = image::load(request(path));
@@ -78,12 +79,18 @@ TEST_CASE("SVG previews: output ceilings and unspecified bounds") {
 
 TEST_CASE("SVG previews: malformed documents and bounded input") {
     const TempDir dir;
-    for (const auto* content : {"<svg", "<html><svg width='8' height='8'/></html>",
-                                "<svg width='8' height='8'><use href='#loop' id='loop'/></svg>"}) {
+    for (const auto* content : {"<svg", "<html><svg width='8' height='8'/></html>"}) {
         const auto loaded = image::load(request(dir.write("broken.svg", content)));
         CHECK(loaded.failure == picture::Failure::damaged);
         CHECK(loaded.image.empty());
     }
+    // librsvg ignores a recursive use; a harmless cycle need not reject the document.
+    const auto cycle = image::load(
+        request(dir.write("cycle.svg",
+                          "<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'>"
+                          "<use href='#loop' id='loop'/></svg>")));
+    REQUIRE(cycle.failure == picture::Failure::none);
+    CHECK(std::ranges::all_of(cycle.image.rgba, [](auto v) { return v == 0; }));
     const auto large = dir.write("large.svg", kDrawing);
     std::filesystem::resize_file(large, 8U * 1024U * 1024U + 1U);
     CHECK(image::load(request(large)).failure == picture::Failure::too_large);
@@ -97,7 +104,7 @@ TEST_CASE("SVG previews: actual sandbox renders fixtures and survives rejected i
     rummage::isolate::Helpers helpers{options};
     for (const auto* name : {"solid.svg", "paths.svg", "strokes.svg", "linear-gradient.svg",
                              "group-opacity.svg", "adwaita-mask.svg", "blur.svg", "pattern.svg"}) {
-        CAPTURE(name);
+        CAPTURE(std::string{name});
         const auto ask = request(std::filesystem::path{RUMMAGE_TEST_DATA} / "svg" / name);
         const auto there = helpers.load(ask);
         const auto here = image::load(ask);
@@ -144,4 +151,75 @@ TEST_CASE("SVG previews: picture provider and reusable thumbnails") {
     const auto cached = cache.get(path, rummage::thumbs::Size::normal);
     CHECK(cached.source == rummage::thumbs::Source::cache);
     CHECK(cached.image.rgba == made.image.rgba);
+}
+
+TEST_CASE("SVG previews: CSS selectors and filter primitives") {
+    const TempDir dir;
+    const auto path = dir.write("features.svg",
+                                "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'>"
+                                "<style>g[data-kind='roof'] rect:not(.hidden) {fill:red}</style>"
+                                "<defs><filter id='f' x='0' y='0' width='1' height='1' "
+                                "color-interpolation-filters='sRGB'><feFlood flood-color='blue'/>"
+                                "<feComposite in2='SourceGraphic' operator='in'/></filter></defs>"
+                                "<g data-kind='roof'><rect width='16' height='32'/></g>"
+                                "<rect x='16' width='16' height='32' filter='url(#f)'/></svg>");
+    rummage::isolate::Helpers helpers{
+        {.program = RUMMAGE_PREVIEW_HELPER, .args = {}, .max_helpers = 1}};
+    const auto loaded = helpers.load(request(path, 32, 32));
+    REQUIRE_MESSAGE(loaded.failure == picture::Failure::none, loaded.detail);
+    CHECK(pixel(loaded.image, 8, 16) == std::array<std::uint8_t, 4>{255, 0, 0, 255});
+    CHECK(pixel(loaded.image, 24, 16) == std::array<std::uint8_t, 4>{0, 0, 255, 255});
+}
+
+TEST_CASE("SVG previews: text remains available across sizes and helper requests") {
+    const TempDir dir;
+    rummage::isolate::Helpers helpers{
+        {.program = RUMMAGE_PREVIEW_HELPER, .args = {}, .max_helpers = 1}};
+    for (const char* family : {"sans-serif", "serif", "monospace", "missing-font-family"}) {
+        for (const char* style : {"normal", "italic"}) {
+            for (const int weight : {400, 700}) {
+                const auto path = dir.write(
+                    "text.svg",
+                    "<svg xmlns='http://www.w3.org/2000/svg' width='256' height='64'>"
+                    "<text x='4' y='40' font-size='31' font-family='" +
+                        std::string{family} + "' font-style='" + style + "' font-weight='" +
+                        std::to_string(weight) + "'>Abc Ω Д مرحبا</text></svg>");
+                for (const auto size : {128U, 256U, 513U}) {
+                    CAPTURE(family);
+                    CAPTURE(style);
+                    CAPTURE(weight);
+                    CAPTURE(size);
+                    const auto ask = request(path, size, size);
+                    const auto here = image::load(ask);
+                    const auto there = helpers.load(ask);
+                    REQUIRE_MESSAGE(there.failure == picture::Failure::none, there.detail);
+                    CHECK(there.image.rgba == here.image.rgba);
+                    CHECK(std::ranges::count_if(there.image.rgba, [](auto v) { return v != 0; }) >
+                          50);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("SVG previews: embedded images work and external resources have no base URI") {
+    const TempDir dir;
+    const auto png = (std::filesystem::path{RUMMAGE_TEST_DATA} / "image" / "blocks.png").string();
+    const auto source =
+        "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='16'>"
+        "<image x='16' width='16' height='16' href='file://" +
+        png +
+        "'/>"
+        "<image x='16' width='16' height='16' href='https://example.invalid/image.png'/>"
+        "<image width='16' height='16' href='data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGP4z8DQAMIMMAYAOOgF/"
+        "REzMMkAAAAASUVORK5CYII='/></svg>";
+    const auto ask = request(dir.write("images.svg", source), 32, 16);
+    rummage::isolate::Helpers helpers{
+        {.program = RUMMAGE_PREVIEW_HELPER, .args = {}, .max_helpers = 1}};
+    for (const auto& loaded : {image::load(ask), helpers.load(ask)}) {
+        REQUIRE_MESSAGE(loaded.failure == picture::Failure::none, loaded.detail);
+        CHECK(pixel(loaded.image, 8, 8) == std::array<std::uint8_t, 4>{255, 0, 0, 128});
+        CHECK(pixel(loaded.image, 24, 8)[3] == 0);
+    }
 }

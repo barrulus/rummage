@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <malloc.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -5,6 +6,7 @@
 #include "backend.hpp"
 #include "rummage/formats/archive/archive.hpp"
 #include "rummage/formats/formats.hpp"
+#include "rummage/formats/image/svg.hpp"
 #include "rummage/formats/text/read.hpp"
 #include "rummage/formats/text/syntax.hpp"
 #include "warm_up.hpp"
@@ -25,6 +27,11 @@ int memfd_of(const isolate::WarmUpPicture& file) {
 // Each kind of picture once, from a memfd, before the cage closes: whatever the libraries load
 // on first use (libjxl's tables...) is loaded now. And one photo's information.
 void warm_up() {
+    // librsvg filters use Rayon's process-wide pool. Initialize a single worker
+    // before the cage closes; the application already schedules helpers in parallel.
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): before codec/font worker startup
+    ::setenv("RAYON_NUM_THREADS", "1", 1);
+    formats::image::prepare_svg_fonts();
     const isolate::WarmUpPicture* photo = nullptr;
     for (std::size_t i = 0; i < isolate::kWarmUpCount; ++i) {
         const isolate::WarmUpPicture& file = isolate::kWarmUp[i];  // NOLINT: generated array

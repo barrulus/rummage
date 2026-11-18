@@ -18,7 +18,7 @@
 #include "jpeg_segments.hpp"
 #include "rummage/formats/image/preview.hpp"
 #include "rummage/picture/scale.hpp"
-#include "rummage/svg/svg.hpp"
+#include "svg_decoder.hpp"
 #include "tiff/decode.hpp"
 
 namespace rummage::formats::image {
@@ -145,7 +145,7 @@ Loaded failed(Failure failure, std::string detail) {
 }
 
 Loaded load_svg(const detail::FdFile& file, std::uint32_t max_width, std::uint32_t max_height) {
-    // Match the renderer's input and output ceilings before reading or narrowing dimensions.
+    // Bound file input and output before reading or passing dimensions to librsvg.
     constexpr std::size_t kMaxSvgBytes = 8U * 1024U * 1024U;
     constexpr std::uint32_t kMaxSvgSide = 1024;
     if (file.size() > kMaxSvgBytes) {
@@ -159,12 +159,7 @@ Loaded load_svg(const detail::FdFile& file, std::uint32_t max_width, std::uint32
     // larger requests still get a useful bounded preview instead of failing outright.
     const auto width = max_width == 0 ? kMaxSvgSide : std::min(max_width, kMaxSvgSide);
     const auto height = max_height == 0 ? kMaxSvgSide : std::min(max_height, kMaxSvgSide);
-    const auto rendered = svg::render(bytes, static_cast<int>(std::max(width, height)));
-    if (rendered.empty()) {
-        return failed(Failure::damaged, "invalid SVG or SVG rendering limit exceeded");
-    }
-    Loaded result;
-    result.image = scale_to_fit(rendered, width, height);
+    Loaded result = detail::decode_svg(bytes, width, height);
     // Do not report this rasterization's dimensions as the document's intrinsic dimensions.
     return result;
 }

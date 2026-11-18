@@ -28,7 +28,7 @@ aliases follow the `rummage::` namespace.
 | `src/thumbs` | Shared thumbnail cache |
 | `src/media` | Optional isolated FFmpeg video engine |
 | `src/pdf` | Optional isolated PDFium PDF engine |
-| `src/svg` | FreeType-based SVG rendering, shared by theme icons and sandboxed file previews |
+| `src/svg` | FreeType-based SVG rendering for theme icons; file previews use librsvg in `src/formats/image` |
 | `src/tools` | Developer renderers, inspectors and benchmarks |
 | `tests` | Doctest suite, standalone integrations, fixtures and fuzz targets |
 | `data`, `nix`, `packaging` | Desktop/portal/theme assets and packaging |

@@ -30,11 +30,14 @@ The filter has architecture definitions for x86-64 and AArch64. Crashes, timeout
 and malformed replies are treated as preview failures. The browser does not fall
 back to decoding the same unsupported input in-process.
 
-SVG file previews also run in the base helper, using the existing SVG renderer
-with its input, geometry and work limits. The file adapter reads at most 8 MiB and
+SVG file previews run in the base helper using librsvg's default parsing limits,
+the helper's process memory ceiling and request deadline. The adapter reads at most 8 MiB and
 caps the rendered side at 1024 pixels. It reads only the supplied descriptor;
 external SVG resources are never fetched. Theme icons use the separate in-process
-path described below.
+path described below. SVG text uses a private font map prepared before sandboxing:
+at most 12 generic font files, 64 faces and 64 MiB of FreeType font data (plus
+HarfBuzz's font mappings). Seccomp is synchronized across existing helper threads,
+including Pango's font matcher; it cannot open paths or create network sockets.
 
 Markdown parsing runs in the text helper. The browser validates a bounded presentation
 document before laying it out; HTML is not executed, and links and images do not trigger

@@ -39,6 +39,9 @@ BuildRequires:  pkgconfig(libwebpdemux)
 BuildRequires:  pkgconfig(libjxl)
 BuildRequires:  pkgconfig(libheif) >= 1.23
 BuildRequires:  pkgconfig(lcms2)
+BuildRequires:  pkgconfig(librsvg-2.0) >= 2.52
+BuildRequires:  pkgconfig(pangocairo)
+BuildRequires:  pkgconfig(pangoft2)
 BuildRequires:  pkgconfig(libavformat) >= 60.16.100
 BuildRequires:  pkgconfig(libavcodec) >= 60.31.102
 BuildRequires:  pkgconfig(libavutil) >= 58.29.100

@@ -21,6 +21,8 @@
   libheif,
   libde265,
   lcms2,
+  librsvg,
+  pango,
   zlib,
   sdbus-cpp_2,
   shared-mime-info,
@@ -94,6 +96,8 @@ stdenv.mkDerivation {
     libheif
     libde265
     lcms2
+    librsvg
+    pango
     zlib
     sdbus-cpp_2
   ]
