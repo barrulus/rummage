@@ -1041,7 +1041,20 @@ TEST_CASE("git decorator: the repository link in the information pane") {
     };
     CHECK(value_of() == "github.com/someone/project");
     const rummage::views::DetailSection::Row* const row = link();
-    CHECK((row != nullptr && row->action != nullptr));
+    REQUIRE((row != nullptr && row->action != nullptr));
+    // A click runs xdg-open with the page (here a stand-in that writes down what it got).
+    const std::filesystem::path bin = dir.path / "bin";
+    std::filesystem::create_directories(bin);
+    const std::filesystem::path got = dir.path / "opened.txt";
+    write(bin / "xdg-open", "#!/bin/sh\necho \"$1\" > '" + got.string() + "'\n");
+    std::filesystem::permissions(bin / "xdg-open", std::filesystem::perms::owner_all);
+    const std::string old_path = path_variable();
+    setenv("PATH", (bin.string() + ":" + old_path).c_str(), 1);
+    row->action();
+    const bool opened =
+        shown.wait_for([&] { return read_file(got) == "https://github.com/someone/project\n"; });
+    setenv("PATH", old_path.c_str(), 1);
+    CHECK(opened);
     // A changed remote is read again through .git/config.
     run_git(repo, {"remote", "set-url", "origin", "https://codeberg.org/other/thing.git"});
     REQUIRE(shown.wait_for([&] { return value_of() == "codeberg.org/other/thing"; }));

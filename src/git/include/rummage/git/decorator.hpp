@@ -18,8 +18,9 @@
 #include "rummage/views/decorations.hpp"
 
 namespace rummage::platform {
+class Launcher;
 class ProgramOutput;
-}
+}  // namespace rummage::platform
 
 // The git integration as the views see it: which repository a folder on screen is in, its branch
 // and changes in the status bar, a badge on each changed entry. Read-only: rummage never runs a
@@ -94,6 +95,12 @@ public:
     void set_options(const Options& options);
 
     [[nodiscard]] const Options& options() const noexcept { return options_; }
+
+    // Asks the desktop for an activation token before a link opens, so the browser comes to the
+    // front (the window's; done("") without one).
+    void set_activation(std::function<void(std::function<void(std::string)> done)> request) {
+        activation_ = std::move(request);
+    }
 
     // Runs when what hides() answers changes: the listings must be filtered again.
     void set_refilter_handler(std::function<void()> refilter) { refilter_ = std::move(refilter); }
@@ -176,7 +183,8 @@ private:
     std::function<void()> redraw_;
     std::function<void()> refilter_;
     views::DecorationHost host_;
-    std::vector<std::unique_ptr<platform::ProgramOutput>> openers_;  // xdg-open, until they end
+    std::function<void(std::function<void(std::string)>)> activation_;
+    std::unique_ptr<platform::Launcher> launcher_;  // xdg-open, detached, its output dropped
     Options options_;
     std::chrono::milliseconds time_limit_{kTimeLimit};
     std::unordered_map<std::string, std::unique_ptr<Repo>> repos_;    // by working tree

@@ -11,6 +11,7 @@
 #include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/platform/desktop_entry.hpp"
+#include "rummage/platform/launcher.hpp"
 #include "rummage/platform/program_output.hpp"
 
 namespace rummage::git {
@@ -606,24 +607,30 @@ void Decorator::read_remote(Repo& repo) {
 }
 
 void Decorator::open_link(const std::string& url) {
-    const char* const path = std::getenv("PATH");
-    const auto opener =
-        platform::find_program("xdg-open", path != nullptr ? path : "/usr/bin:/bin");
-    if (!opener) {
-        if (host_.message) {
+    // xdg-open detached from rummage, its streams on /dev/null: a browser it starts may write
+    // long after, and comes to the front with the window's activation token.
+    const auto launch = [this, alive = alive_, url](const std::string& token) {
+        if (!*alive) {
+            return;
+        }
+        if (!launcher_) {
+            launcher_ = std::make_unique<platform::Launcher>(loop_);
+        }
+        std::vector<std::string> env;
+        if (!token.empty()) {
+            env.push_back("XDG_ACTIVATION_TOKEN=" + token);
+            env.push_back("DESKTOP_STARTUP_ID=" + token);
+        }
+        const std::error_code error =
+            launcher_->spawn({"xdg-open", url}, {}, env, [](const platform::Launcher::Exit&) {});
+        if (error && host_.message) {
             host_.message(i18n::trcf("git", "Cannot open {}: xdg-open is missing", url), true);
         }
-        return;
-    }
-    // Kept until it ends; it then removes itself (done may end its object).
-    auto self = std::make_shared<platform::ProgramOutput*>(nullptr);
-    auto program = std::make_unique<platform::ProgramOutput>(
-        loop_, [this, self](const std::string& /*output*/, int /*status*/) {
-            std::erase_if(openers_, [&self](const auto& each) { return each.get() == *self; });
-        });
-    *self = program.get();
-    if (program->start(*opener, {url})) {
-        openers_.push_back(std::move(program));
+    };
+    if (activation_) {
+        activation_(launch);
+    } else {
+        launch({});
     }
 }
 

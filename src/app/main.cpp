@@ -813,6 +813,10 @@ int main(int argc, char** argv) {
             git_status = std::make_unique<rummage::git::Decorator>(
                 loop, pool, watcher, std::move(*program), [&] { window.request_redraw(); },
                 options);
+            git_status->set_activation([&](std::function<void(std::string)> done) {
+                activation.request(display.seat(), seat.input_serial(), window.surface(),
+                                   std::move(done));
+            });
             git_status->set_refilter_handler([&] { columns->set_decorations(git_status.get()); });
             columns->set_decorations(git_status.get());
         };
