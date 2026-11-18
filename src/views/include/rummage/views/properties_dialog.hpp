@@ -75,6 +75,7 @@ private:
     struct Data {
         fs::Entry entry;
         preview::Info info;
+        preview::Summary summary;
         std::string icon;
         std::string icon_error;
         std::string default_icon;

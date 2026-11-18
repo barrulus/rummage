@@ -13,6 +13,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "archive_text.hpp"
+#include "content_details.hpp"
 #include "draw_helpers.hpp"
 #include "rummage/archive/archive.hpp"
 #include "rummage/core/i18n.hpp"
@@ -788,6 +789,8 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
             for (const auto& [label, text] : media_details(photo))
                 row(label, text);
         }
+        for (const auto& [label, text] : content_details(*value))
+            row(label, text);
         if (value->info.created_ns)
             row("Created", format_time(*value->info.created_ns));
         row("Permissions", value->info.permissions);

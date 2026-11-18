@@ -12,6 +12,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <format>
+#include <fpdf_doc.h>
+#include <fpdf_edit.h>
 #include <fpdf_formfill.h>
 #include <fpdf_progressive.h>
 #include <fpdf_sysfontinfo.h>
@@ -330,7 +333,80 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
     return draw(source, st.st_size, width, height);
 }
 
-picture::PhotoInfo photo_info(int) { return {}; }
+picture::PhotoInfo photo_info(int fd) {
+    picture::PhotoInfo info;
+    struct stat st{};
+    if (!started || ::fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0 ||
+        static_cast<std::uint64_t>(st.st_size) > std::numeric_limits<unsigned long>::max())
+        return info;
+    Source source;
+    source.fd = fd;
+    FPDF_FILEACCESS access{};
+    access.m_FileLen = static_cast<unsigned long>(st.st_size);
+    access.m_GetBlock = get_block;
+    access.m_Param = &source;
+    const Document document{FPDF_LoadCustomDocument(&access, nullptr)};
+    if (!document.handle || source.exhausted)
+        return info;
+    int version = 0;
+    if (FPDF_GetFileVersion(document.handle, &version))
+        info.add_detail("Format", std::format("PDF {}.{}", version / 10, version % 10));
+    info.add_detail("Pages", std::to_string(FPDF_GetPageCount(document.handle)));
+    for (const auto* tag : {"Title", "Author", "Subject", "Keywords", "Creator", "Producer",
+                            "CreationDate", "ModDate"}) {
+        const auto size = FPDF_GetMetaText(document.handle, tag, nullptr, 0);
+        if (size <= 2)
+            continue;
+        if (size > picture::PhotoInfo::max_detail_bytes) {
+            info.add_detail(std::string{"PDF · "} + tag,
+                            std::format("{} bytes (data omitted)", size));
+            info.details_truncated = true;
+            continue;
+        }
+        std::vector<unsigned char> bytes(size);
+        if (FPDF_GetMetaText(document.handle, tag, bytes.data(), size) != size)
+            continue;
+        std::string value;
+        for (std::size_t at = 0; at + 1 < bytes.size(); at += 2) {
+            std::uint32_t c = bytes[at] | (std::uint32_t{bytes[at + 1]} << 8);
+            if (c == 0)
+                break;
+            if (c >= 0xD800 && c <= 0xDBFF && at + 3 < bytes.size()) {
+                const std::uint32_t next = bytes[at + 2] | (std::uint32_t{bytes[at + 3]} << 8);
+                if (next >= 0xDC00 && next <= 0xDFFF) {
+                    c = 0x10000 + ((c - 0xD800) << 10) + next - 0xDC00;
+                    at += 2;
+                }
+            }
+            if (c >= 0xD800 && c <= 0xDFFF)
+                c = 0xFFFD;
+            if (c >= 0x10000) {
+                value += static_cast<char>(0xF0 | (c >> 18));
+                value += static_cast<char>(0x80 | ((c >> 12) & 63));
+                value += static_cast<char>(0x80 | ((c >> 6) & 63));
+                value += static_cast<char>(0x80 | (c & 63));
+            } else if (c >= 0x800) {
+                value += static_cast<char>(0xE0 | (c >> 12));
+                value += static_cast<char>(0x80 | ((c >> 6) & 63));
+                value += static_cast<char>(0x80 | (c & 63));
+            } else if (c >= 0x80) {
+                value += static_cast<char>(0xC0 | (c >> 6));
+                value += static_cast<char>(0x80 | (c & 63));
+            } else
+                value += static_cast<char>(c);
+        }
+        info.add_detail(std::string{"PDF · "} + tag, value);
+    }
+    const Page page{FPDF_LoadPage(document.handle, 0)};
+    if (page.handle) {
+        info.add_detail("First page size",
+                        std::format("{:.2f} × {:.2f} pt", FPDF_GetPageWidthF(page.handle),
+                                    FPDF_GetPageHeightF(page.handle)));
+        info.add_detail("Page rotation",
+                        std::format("{}°", FPDFPage_GetRotation(page.handle) * 90));
+    }
+    return source.exhausted ? picture::PhotoInfo{} : info;
+}
 
 text::Loaded read_text(int, const text::Limits&) {
     text::Loaded value;

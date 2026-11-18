@@ -25,6 +25,7 @@
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/picture/png.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
@@ -1833,4 +1834,43 @@ TEST_CASE("context menu: scrolling a parent closes its child and restores keyboa
     menu.key(key(XKB_KEY_Right));
     draw();
     CHECK(menu.submenu_open());
+}
+
+TEST_CASE("properties: embedded image metadata wraps, scrolls and copies in a narrow dialog") {
+    rummage::ui::Offscreen gl{800, 640};
+    Fixture f;
+    const std::string value = "Author-supplied metadata " + std::string(350, 'x');
+    const auto png = rummage::picture::encode_png(
+        {.width = 1, .height = 1, .rgba = {10, 20, 30, 255}}, {{"Last custom tag", value}});
+    const auto file =
+        f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    auto& properties = f.browser.properties_dialog();
+    properties.open(file, [] {});
+    REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 640, 1, rummage::ui::Color::rgb(0));
+        properties.draw(renderer, {0, 0, 360, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    draw();
+    properties.pointer(
+        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 10000});
+    draw();
+    const auto rect = properties.text_bounds("PNG · Last custom tag");
+    REQUIRE_FALSE(rect.empty());
+    CHECK(rect.height > 26);
+    CHECK(rect.x >= properties.card_bounds().x);
+    CHECK(rect.right() <= properties.card_bounds().right());
+    std::string copied;
+    properties.set_copy_handler([&](std::string text) { copied = std::move(text); });
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = rect.x + 2,
+                        .y = std::max(rect.y + 2, 100.0F),
+                        .button = rummage::ui::PointerButton::left});
+    properties.key(key(XKB_KEY_a, {.ctrl = true}));
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == value);
 }

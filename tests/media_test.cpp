@@ -1,4 +1,5 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -175,6 +176,12 @@ TEST_CASE("media: sandboxed metadata includes video dimensions, duration, codec 
     CHECK(tagged.sample_rate == "48000 Hz");
     CHECK(tagged.media_title == "Metadata sample");
     CHECK(tagged.artist == "Rummage tests");
+    CHECK(std::ranges::any_of(tagged.details, [](const auto& row) {
+        return row.first == "Container · title" && row.second == "Metadata sample";
+    }));
+    CHECK(std::ranges::any_of(tagged.details, [](const auto& row) {
+        return row.first == "Stream 2 · Codec" && row.second == "aac";
+    }));
     const auto rotated = helpers.photo_info(fixtures / "rotated.mp4");
     CHECK(rotated.width == 48);
     CHECK(rotated.height == 96);

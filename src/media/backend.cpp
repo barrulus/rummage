@@ -423,6 +423,78 @@ picture::PhotoInfo photo_info(int fd) {
         if (audio->codecpar->sample_rate > 0)
             info.sample_rate = std::format("{} Hz", audio->codecpar->sample_rate);
     }
+    const auto tags = [&](const std::string& prefix, AVDictionary* dictionary) {
+        const AVDictionaryEntry* item = nullptr;
+        while ((item = av_dict_get(dictionary, "", item, AV_DICT_IGNORE_SUFFIX))) {
+            if (info.details.size() >= picture::PhotoInfo::max_details) {
+                info.details_truncated = true;
+                break;
+            }
+            info.add_detail(prefix + item->key, item->value);
+        }
+    };
+    tags("Container · ", input.format->metadata);
+    info.add_detail("Streams", std::to_string(input.format->nb_streams));
+    info.add_detail("Chapters", std::to_string(input.format->nb_chapters));
+    for (unsigned i = 0; i < input.format->nb_streams; ++i) {
+        if (info.details.size() >= picture::PhotoInfo::max_details) {
+            info.details_truncated = true;
+            break;
+        }
+        auto* stream = input.format->streams[i];
+        const auto* codec = stream->codecpar;
+        const auto prefix = std::format("Stream {} · ", i + 1);
+        const auto add = [&](const char* name, const char* value) {
+            if (value)
+                info.add_detail(prefix + name, value);
+        };
+        add("Type", av_get_media_type_string(codec->codec_type));
+        add("Codec", avcodec_get_name(codec->codec_id));
+        add("Profile", avcodec_profile_name(codec->codec_id, codec->profile));
+        if (codec->bit_rate > 0)
+            info.add_detail(prefix + "Bitrate", std::format("{} bit/s", codec->bit_rate));
+        if (codec->bits_per_raw_sample > 0)
+            info.add_detail(prefix + "Bit depth",
+                            std::format("{} bits", codec->bits_per_raw_sample));
+        if (stream->duration != AV_NOPTS_VALUE)
+            info.add_detail(prefix + "Duration",
+                            std::format("{:.6f} s", static_cast<double>(stream->duration) *
+                                                        av_q2d(stream->time_base)));
+        if (stream->nb_frames > 0)
+            info.add_detail(prefix + "Frames", std::to_string(stream->nb_frames));
+        if (codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+            info.add_detail(prefix + "Coded dimensions",
+                            std::format("{} × {}", codec->width, codec->height));
+            const auto sar = av_guess_sample_aspect_ratio(input.format, stream, nullptr);
+            if (sar.num > 0 && sar.den > 0)
+                info.add_detail(prefix + "Pixel aspect ratio",
+                                std::format("{}:{}", sar.num, sar.den));
+            add("Color range", av_color_range_name(codec->color_range));
+            add("Color primaries", av_color_primaries_name(codec->color_primaries));
+            add("Transfer characteristics", av_color_transfer_name(codec->color_trc));
+            add("Color space", av_color_space_name(codec->color_space));
+            add("Chroma location", av_chroma_location_name(codec->chroma_location));
+        }
+        if (codec->codec_type == AVMEDIA_TYPE_AUDIO) {
+            info.add_detail(prefix + "Sample rate", std::format("{} Hz", codec->sample_rate));
+            std::array<char, 256> layout{};
+            if (av_channel_layout_describe(&codec->ch_layout, layout.data(), layout.size()) >= 0)
+                add("Channel layout", layout.data());
+        }
+        tags(prefix, stream->metadata);
+    }
+    for (unsigned i = 0;
+         i < input.format->nb_chapters && info.details.size() < picture::PhotoInfo::max_details;
+         ++i) {
+        const auto* chapter = input.format->chapters[i];
+        const auto prefix = std::format("Chapter {} · ", i + 1);
+        info.add_detail(
+            prefix + "Time",
+            std::format("{:.3f}–{:.3f} s",
+                        static_cast<double>(chapter->start) * av_q2d(chapter->time_base),
+                        static_cast<double>(chapter->end) * av_q2d(chapter->time_base)));
+        tags(prefix, chapter->metadata);
+    }
     info.media_title = tag("title");
     info.artist = tag("artist");
     info.taken = tag("creation_time");

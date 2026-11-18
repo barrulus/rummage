@@ -3,10 +3,11 @@
 [engine]
 name = "pdf"
 program = "rummage-pdf"
-protocol = 6
+protocol = 7
 
 [[family]]
 name = "document"
 shows = "picture"
+info = true
 thumbnails = true
 mime = ["application/pdf"]

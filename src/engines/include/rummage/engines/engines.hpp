@@ -25,7 +25,7 @@
 //   [engine]
 //   name = "base"
 //   program = "rummage-preview"    # a file name, in libexec/rummage
-//   protocol = 6
+//   protocol = 7
 //
 //   [[family]]
 //   name = "image"
@@ -38,7 +38,7 @@ namespace rummage::engines {
 
 // The protocol rummage speaks with its engines (isolate/src/protocol.hpp): an engine whose
 // manifest names another is skipped. Raised with every change to the messages.
-inline constexpr std::int64_t kProtocol = 6;
+inline constexpr std::int64_t kProtocol = 7;
 
 // What a family gives back for rummage to draw.
 enum class Shows : std::uint8_t {

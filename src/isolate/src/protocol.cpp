@@ -119,6 +119,8 @@ struct InfoHeader {
     std::uint32_t height{0};
     std::int8_t rating{0};
     std::uint8_t has_rating{0};
+    std::uint16_t detail_count{0};
+    std::uint8_t details_truncated{0};
     std::array<std::uint8_t, kFields.size()> lengths{};
 };
 
@@ -138,6 +140,28 @@ std::vector<std::byte> encode_info(const picture::PhotoInfo& info) {
         const auto* bytes = reinterpret_cast<const std::byte*>(text.data());  // NOLINT: bytes
         out.insert(out.end(), bytes, bytes + length);
     }
+    header.details_truncated = info.details_truncated ? 1 : 0;
+    for (const auto& [label, value] : info.details) {
+        const auto label_size = std::min(label.size(), picture::PhotoInfo::max_detail_bytes);
+        const auto value_size = std::min(value.size(), picture::PhotoInfo::max_detail_bytes);
+        if (header.detail_count >= picture::PhotoInfo::max_details ||
+            out.size() + 4 + label_size + value_size > kMaxPacket) {
+            header.details_truncated = 1;
+            break;
+        }
+        if (label_size != label.size() || value_size != value.size())
+            header.details_truncated = 1;
+        for (const auto size : {label_size, value_size}) {
+            out.push_back(static_cast<std::byte>(size & 255));
+            out.push_back(static_cast<std::byte>(size >> 8));
+        }
+        for (const auto text : {std::string_view{label}.substr(0, label_size),
+                                std::string_view{value}.substr(0, value_size)}) {
+            const auto* data = reinterpret_cast<const std::byte*>(text.data());
+            out.insert(out.end(), data, data + text.size());
+        }
+        ++header.detail_count;
+    }
     std::memcpy(out.data(), &header, sizeof(header));
     return out;
 }
@@ -148,7 +172,8 @@ std::optional<picture::PhotoInfo> decode_info(std::span<const std::byte> bytes) 
         return std::nullopt;
     }
     std::memcpy(&header, bytes.data(), sizeof(header));
-    if (header.magic != kInfoMagic || header.has_rating > 1) {
+    if (header.magic != kInfoMagic || header.has_rating > 1 || header.details_truncated > 1 ||
+        header.detail_count > picture::PhotoInfo::max_details || bytes.size() > kMaxPacket) {
         return std::nullopt;
     }
     std::size_t at = sizeof(header);
@@ -166,6 +191,24 @@ std::optional<picture::PhotoInfo> decode_info(std::span<const std::byte> bytes) 
         (info.*kFields.at(i))
             .assign(reinterpret_cast<const char*>(bytes.data() + at), length);  // NOLINT: bytes
         at += length;
+    }
+    info.details_truncated = header.details_truncated != 0;
+    for (std::size_t i = 0; i < header.detail_count; ++i) {
+        if (bytes.size() - at < 4)
+            return std::nullopt;
+        const auto length = [&](std::size_t offset) {
+            return std::to_integer<std::size_t>(bytes[at + offset]) |
+                   (std::to_integer<std::size_t>(bytes[at + offset + 1]) << 8);
+        };
+        const auto label_size = length(0), value_size = length(2);
+        at += 4;
+        if (label_size > picture::PhotoInfo::max_detail_bytes ||
+            value_size > picture::PhotoInfo::max_detail_bytes ||
+            label_size + value_size > bytes.size() - at)
+            return std::nullopt;
+        const auto* data = reinterpret_cast<const char*>(bytes.data() + at);
+        info.add_detail(std::string{data, label_size}, std::string{data + label_size, value_size});
+        at += label_size + value_size;
     }
     if (at != bytes.size()) {
         return std::nullopt;

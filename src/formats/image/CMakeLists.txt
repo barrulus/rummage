@@ -16,6 +16,7 @@ add_library(rummage_formats_image
     src/jpeg_segments.cpp
     src/jxl_decoder.cpp
     src/load.cpp
+    src/metadata.cpp
     src/photo.cpp
     src/pnm.cpp
     src/preview.cpp

@@ -6,6 +6,7 @@
 
 #include "camera/info.hpp"
 #include "fd_file.hpp"
+#include "metadata.hpp"
 
 namespace rummage::formats::image {
 
@@ -23,7 +24,9 @@ PhotoInfo read_photo_info(int fd) {
     // No rating: rummage's own comes with ROADMAP 5; editors' sidecars are a plugin's (decided
     // with the author, 2026-11-08).
     if (const std::optional<detail::FdFile> file = detail::FdFile::of(fd)) {
-        return camera::read_info(*file);
+        auto info = camera::read_info(*file);
+        detail::read_metadata(*file, info);
+        return info;
     }
     return {};
 }

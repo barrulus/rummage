@@ -7,12 +7,14 @@
 #include <sys/stat.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "content_details.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/directory.hpp"
 #include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/dialog_chrome.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/views/media_details.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -67,7 +69,10 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
                 result.entry = *entries[0];
             if (result.entry.kind == fs::EntryKind::file && result.entry.mime == fs::kUnknownMime)
                 result.entry.mime = mime->detect(parent, result.entry);
-            result.info = preview::read_info(path, token);
+            result.summary = preview::summarize(
+                path, mime->name(result.entry.mime),
+                preview::provider_for(*mime, result.entry.mime).kind(), token, mime);
+            result.info = result.summary.info;
             if (result.entry.is_directory()) {
                 const auto setting = fs::read_folder_icon_setting(path);
                 result.icon = setting.icon;
@@ -484,6 +489,15 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         {"Group", data_.info.group},
         {"Permissions", data_.info.permissions},
     };
+    if (data_.summary.photo) {
+        if (data_.summary.photo->width && data_.summary.photo->height)
+            rows.emplace_back("Dimensions", std::format("{} × {}", data_.summary.photo->width,
+                                                        data_.summary.photo->height));
+        const auto details = media_details(*data_.summary.photo);
+        rows.insert(rows.end(), details.begin(), details.end());
+    }
+    const auto content = content_details(data_.summary);
+    rows.insert(rows.end(), content.begin(), content.end());
     if (!data_.info.link_target.empty())
         rows.emplace_back("Link target", data_.info.link_target);
     const auto measure = [&](std::string_view value, float size) {
@@ -495,6 +509,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         label_width = std::max(label_width, measure(i18n::tr(label), 12));
         value_width = std::max(value_width, measure(value, 12));
     }
+    label_width =
+        std::min(label_width, std::max(60.0F, std::min(160.0F, (bounds.width - 88) * 0.35F)));
     const float value_offset = label_width + 16;
     float natural_width = 48 + std::max(value_offset + value_width,
                                         (preview ? 144.0F : 56.0F) + 20 +
@@ -527,9 +543,12 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const auto value_height = [&](std::string_view value) {
         return SelectableText::height(renderer, value, std::max(1.0F, room - value_offset), 12);
     };
+    const auto label_height = [&](std::string_view label) {
+        return SelectableText::height(renderer, i18n::tr(label), label_width, 12);
+    };
     float rows_height = 0;
     for (const auto& [label, value] : rows)
-        rows_height += std::max(row_height, value_height(value) + 8);
+        rows_height += std::max({row_height, value_height(value) + 8, label_height(label) + 8});
     const std::string icon_label =
         draft_.empty() ? std::string{i18n::tr("Default folder icon")} : draft_;
     const float icon_height = SelectableText::height(renderer, icon_label, room, 12);
@@ -672,7 +691,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                        true);
             selectable(std::string{label}, value, left + value_offset, y, 12,
                        std::max(1.0F, room - value_offset));
-            y += std::max(row_height, value_height(value) + 8);
+            y += std::max({row_height, value_height(value) + 8, label_height(label) + 8});
         };
         for (const auto& [label, value] : rows)
             row(label, value);
