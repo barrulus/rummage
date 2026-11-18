@@ -36,5 +36,22 @@ dbus-run-session -- timeout 5s env WAYLAND_DEBUG=1 \
     "$prefix/bin/rummage" --test-scene > "$work/rummage.log" 2>&1 || exit_code=$?
 [[ $exit_code == 124 ]]
 grep -E 'wl_surface[^ ]*\.attach\(' "$work/rummage.log"
+
+# Close an idle picker, when no frame is in flight. Destroying the
+# picker clears its browser filter and requests a synchronous redraw: this must not call
+# handlers whose captured state has already been destroyed.
+mkdir "$work/folder"
+printf 'picker shutdown fixture\n' > "$work/folder/file.txt"
+for mode in --pick --pick-directory --save-file; do
+    exit_code=0
+    dbus-run-session -- timeout --preserve-status --kill-after=5s 5s env RUMMAGE_STARTUP_NS=1 \
+        "$prefix/bin/rummage" "$mode" "$work/folder" > "$work/rummage.log" 2>&1 || exit_code=$?
+    [[ $exit_code == 1 ]] # No selection: a clean cancellation, not a signal or timeout.
+    grep -q 'startup: folder-shown ' "$work/rummage.log"
+    if grep -Eq 'AddressSanitizer|runtime error:' "$work/rummage.log"; then
+        exit 1
+    fi
+    test -s "$XDG_STATE_HOME/rummage/picker.toml"
+done
 status=0
-printf 'Installed rummage rendered a window under headless Weston.\n'
+printf 'Installed rummage rendered a window and shut down its pickers under headless Weston.\n'

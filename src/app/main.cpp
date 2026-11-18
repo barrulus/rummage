@@ -1240,6 +1240,19 @@ int main(int argc, char** argv) {
         bool first_shown = false;
         bool ready_drawn = false;
         bool ready_shown = false;
+
+        // A view's destructor can request a synchronous redraw (the picker clears its
+        // browser filter). Disconnect before anything captured by these handlers dies,
+        // including on exception paths.
+        struct FrameHandlers {
+            ui::Window& window;
+
+            ~FrameHandlers() {
+                window.set_frame_shown_handler({});
+                window.set_draw_handler({});
+            }
+        } frame_handlers{window};
+
         if (startup.active()) {
             window.set_frame_shown_handler([&] {
                 if (first_drawn && !first_shown) {
