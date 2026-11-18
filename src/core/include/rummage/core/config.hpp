@@ -74,7 +74,7 @@ struct Config {
         bool folder_status{true};    // folders mark the changes inside them
         std::string language;        // git's texts: a language code ("en"), empty: the interface's
         std::string commit_action{"commit"};  // the commit button: commit, commit_push, commit_sync
-        std::string colors{"editor"};  // file states coloured as editors do, or as git does ("git")
+        std::string colors{"palette"};        // file states: from the palette, "editor" or "git"
     };
 
     std::map<std::string, std::string> keybindings;

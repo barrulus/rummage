@@ -73,10 +73,11 @@ enabled = true
 ignored = "dim"
 # Folders mark the changes inside them.
 folder_status = true
-# File states coloured as editors do (editor: modified amber, new green, deleted red, renamed
-# blue-green, conflicts magenta) or as git does (git: staged green, everything else red).
+# How changed files are coloured: palette (the palette's own colours: modified primary, new
+# tertiary, deleted error, renamed secondary), editor (as VS Code: modified amber, new green,
+# deleted red, renamed blue-green, conflicts magenta) or git (staged green, everything else red).
 # colors.toml may set the colours themselves: git_added, git_modified, git_deleted, ...
-colors = "editor"
+colors = "palette"
 # What the commit button and Ctrl+Enter in the information pane do: commit, commit_push or
 # commit_sync (pull, then push). Its menu offers every way either way.
 commit_action = "commit"

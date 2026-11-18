@@ -1,7 +1,10 @@
 #include "rummage/theme/syntax.hpp"
 
+#include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <numbers>
+#include <vector>
 
 #include "oklch.hpp"
 #include "rummage/theme/desktop.hpp"
@@ -15,6 +18,17 @@ constexpr float kReadable = 4.5F;
 // A green for added lines, about 143 degrees in OKLCH, as diff viewers use.
 constexpr double kGreenHue = 2.5;
 constexpr double kGreenChroma = 0.14;
+
+// A role has a hue of its own from this chroma on (OKLCH); colours closer than kApart (in OKLab)
+// look alike next to each other.
+constexpr double kHued = 0.04;
+constexpr double kApart = 0.08;
+
+double distance(Lch a, Lch b) {
+    const double da = (a.c * std::cos(a.h)) - (b.c * std::cos(b.h));
+    const double db = (a.c * std::sin(a.h)) - (b.c * std::sin(b.h));
+    return std::sqrt(((a.l - b.l) * (a.l - b.l)) + (da * da) + (db * db));
+}
 
 // Halfway between two colours in OKLCH: lightness and chroma averaged, the hue along the shorter
 // arc.
@@ -60,7 +74,17 @@ SyntaxColors syntax_colors(const Palette& palette) {
     };
 }
 
-StatusColors status_colors(const Palette& palette) {
+namespace {
+std::atomic<StatusScheme> current_scheme{StatusScheme::palette};
+}  // namespace
+
+void set_status_scheme(StatusScheme scheme) noexcept {
+    current_scheme.store(scheme, std::memory_order_relaxed);
+}
+
+StatusScheme status_scheme() noexcept { return current_scheme.load(std::memory_order_relaxed); }
+
+StatusColors status_colors(const Palette& palette, StatusScheme scheme) {
     const Color page = palette.surface.with_alpha(1.0F);
     // A fixed, middle lightness as editors' colours have (not the accent's, which may be nearly
     // white or black), lighter on a dark page; hues in OKLCH radians: amber, blue-green, magenta.
@@ -71,16 +95,32 @@ StatusColors status_colors(const Palette& palette) {
     const auto hue = [&](double h, double c) {
         return readable({.l = lightness, .c = c, .h = h}, page);
     };
+    const auto role = [&](Color colour) { return readable(to_lch(colour), page); };
+    // In StatusRole's order: added, modified, deleted, renamed, untracked, conflict, ignored
+    // (drawn faded anyway).
     const Color green = hue(kGreenHue, 0.17);
-    StatusColors colors{
-        green,                                  // added
-        hue(kAmberHue, 0.13),                   // modified
-        readable(to_lch(palette.error), page),  // deleted
-        hue(kTealHue, 0.10),                    // renamed
-        green,                                  // untracked
-        hue(kMagentaHue, 0.15),                 // conflict
-        palette.outline,                        // ignored (drawn faded anyway)
-    };
+    StatusColors colors{green, hue(kAmberHue, 0.13),   role(palette.error), hue(kTealHue, 0.10),
+                        green, hue(kMagentaHue, 0.15), palette.outline};
+    if (scheme == StatusScheme::palette) {
+        // The palette's roles where they have a hue of their own and differ from the ones taken
+        // before; otherwise (a grey accent, roles alike) the editor colour keeps states apart.
+        std::vector<Color> taken{colors.at(static_cast<std::size_t>(StatusRole::deleted))};
+        const auto take = [&](StatusRole role_of, Lch lch) {
+            const bool apart = std::ranges::none_of(
+                taken, [&](Color other) { return distance(lch, to_lch(other)) < kApart; });
+            if (lch.c >= kHued && apart) {
+                colors.at(static_cast<std::size_t>(role_of)) = readable(lch, page);
+            }
+            taken.push_back(colors.at(static_cast<std::size_t>(role_of)));
+        };
+        take(StatusRole::added, to_lch(palette.tertiary));
+        take(StatusRole::modified, to_lch(palette.primary));
+        take(StatusRole::renamed, to_lch(palette.secondary));
+        // No role is for conflicts: halfway from the error colour to secondary, a red-violet.
+        take(StatusRole::conflict, between(to_lch(palette.error), to_lch(palette.secondary)));
+        colors.at(static_cast<std::size_t>(StatusRole::untracked)) =
+            colors.at(static_cast<std::size_t>(StatusRole::added));
+    }
     const std::array overrides{palette.git_added,   palette.git_modified,  palette.git_deleted,
                                palette.git_renamed, palette.git_untracked, palette.git_conflict,
                                palette.git_ignored};

@@ -522,10 +522,11 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                  {"colors",
                   [&](const toml::node& value, const std::string& path) {
                       const auto colors = value.value<std::string>();
-                      if (colors && (*colors == "editor" || *colors == "git"))
+                      if (colors &&
+                          (*colors == "palette" || *colors == "editor" || *colors == "git"))
                           config.git.colors = *colors;
                       else
-                          reader.report(value.source(), path + " must be editor or git");
+                          reader.report(value.source(), path + " must be palette, editor, or git");
                   }},
                  {"commit_action",
                   [&](const toml::node& value, const std::string& path) {

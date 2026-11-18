@@ -106,7 +106,7 @@ rename = "Ctrl+r"
 | `git.enabled` | `true` | [Git status](git.md) in builds with git support; live |
 | `git.ignored` | `"dim"` | Ignored files: `"show"`, `"dim"`, or `"hide"`; live |
 | `git.folder_status` | `true` | Folders mark the changes inside them; live |
-| `git.colors` | `"editor"` | File states by kind of change, or `"git"`: staged green, the rest red; live |
+| `git.colors` | `"palette"` | File states in the palette's colours, `"editor"` as VS Code, or `"git"`: staged green, the rest red; live |
 | `git.commit_action` | `"commit"` | The commit button: `"commit"`, `"commit_push"`, `"commit_sync"`; live |
 | `git.language` | `""` | Language of git's texts and git's output (`"en"`, `"de"`, …); empty follows the interface; live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |

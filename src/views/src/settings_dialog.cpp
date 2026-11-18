@@ -159,8 +159,8 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         config.git.ignored, false, {"show", "dim", "hide"});
     add(0, "Git", "git", "folder_status", "Folder status", "Folders mark the changes inside them",
         config.git.folder_status ? "true" : "false", true, {"true", "false"});
-    add(0, "Git", "git", "colors", "Colours", "By kind of change, or as git colours them",
-        config.git.colors, false, {"editor", "git"});
+    add(0, "Git", "git", "colors", "Colours", "How changed files are coloured", config.git.colors,
+        false, {"palette", "editor", "git"});
     add(0, "Git", "git", "commit_action", "Commit button", "What the button and Ctrl+Enter do",
         config.git.commit_action, false, {"commit", "commit_push", "commit_sync"});
     std::vector<std::string> git_languages{""};
@@ -559,7 +559,11 @@ std::string SettingsDialog::choice_label(const Field& field, std::string_view va
         return std::string{i18n::tr("Built-in")};
     }
     if (field.table == "git" && field.key == "colors") {
-        return std::string{i18n::tr(value == "git" ? "As git" : "As editors")};
+        if (value == "git")
+            return std::string{i18n::tr("As git")};
+        if (value == "editor")
+            return std::string{i18n::tr("As VS Code")};
+        return std::string{i18n::tr("Default (palette)")};
     }
     if (field.table == "git" && field.key == "commit_action") {
         if (value == "commit_push")

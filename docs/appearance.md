@@ -111,7 +111,7 @@ foregrounds too, especially `primary`/`on_primary` and `hover`/`on_hover`.
 | `outline`, `outline_variant` | Borders, separators and subdued details |
 | `shadow`, `scrim` | Shadows and overlay dimming |
 | `hover`, `on_hover` | Highlighted menu rows and their foreground; rummage-specific roles |
-| `git_added`, `git_modified`, `git_deleted`, `git_renamed`, `git_untracked`, `git_conflict`, `git_ignored` | Optional: file states of the [git integration](git.md). Unset, they are made from the palette: fixed hues as editors use them (green, amber, the error colour, blue-green, magenta), moved in lightness until they read on `surface`. The Matugen and Noctalia templates list them commented out |
+| `git_added`, `git_modified`, `git_deleted`, `git_renamed`, `git_untracked`, `git_conflict`, `git_ignored` | Optional: file states of the [git integration](git.md). Unset, they come from the palette as [`git.colors`](git.md#colours) says: its own roles by default, or editors' hues; moved in lightness until they read on `surface`. The Matugen and Noctalia templates list them commented out |
 
 Additional keys within `[colors]` are ignored so producers can share a larger
 palette. Unknown top-level keys produce a warning and are ignored. Missing roles

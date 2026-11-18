@@ -54,6 +54,7 @@
 #include "rummage/platform/terminal_navigation.hpp"
 #include "rummage/platform/udisks.hpp"
 #include "rummage/theme/app_icon.hpp"
+#include "rummage/theme/syntax.hpp"
 #include "rummage/theme/theme.hpp"
 #include "rummage/thumbs/cache.hpp"
 #include "rummage/ui/activation.hpp"
@@ -800,8 +801,12 @@ int main(int argc, char** argv) {
                                  : settings.commit_action == "commit_sync"
                                      ? rummage::git::Options::CommitAction::commit_sync
                                      : rummage::git::Options::CommitAction::commit,
-                .colors = settings.colors == "git" ? rummage::git::Options::Colors::git
-                                                   : rummage::git::Options::Colors::editor};
+                .colors = settings.colors == "git"      ? rummage::git::Options::Colors::git
+                          : settings.colors == "editor" ? rummage::git::Options::Colors::editor
+                                                        : rummage::git::Options::Colors::palette};
+            theme::set_status_scheme(options.colors == rummage::git::Options::Colors::editor
+                                         ? theme::StatusScheme::editor
+                                         : theme::StatusScheme::palette);
             if (git_status) {
                 git_status->set_options(options);
                 return;

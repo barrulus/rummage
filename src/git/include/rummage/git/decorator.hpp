@@ -41,13 +41,14 @@ struct Options {
     CommitAction commit_action{CommitAction::commit};
     // How states are coloured: as editors do (by kind of change), or as git does (staged green,
     // the rest red).
-    enum class Colors : std::uint8_t { editor, git };
-    Colors colors{Colors::editor};
+    enum class Colors : std::uint8_t { palette, editor, git };
+    Colors colors{Colors::palette};
 
     bool operator==(const Options&) const = default;
 };
 
-// badge in a colour scheme: as is for Options::Colors::editor; git's for Options::Colors::git.
+// badge in a colour scheme: as is for Options::Colors::palette and editor (the views colour
+// those through theme::status_scheme); git's for Options::Colors::git.
 [[nodiscard]] views::Badge in_scheme(views::Badge badge, const FileStatus& file,
                                      Options::Colors colors);
 

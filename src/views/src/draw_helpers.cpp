@@ -17,10 +17,13 @@ ui::Color tone_color(const theme::Palette& palette, Badge::Tone tone) {
     }
     // Made once per palette: the hues are moved in lightness until they read.
     thread_local std::optional<theme::Palette> made_for;
+    thread_local theme::StatusScheme made_in{};
     thread_local theme::StatusColors colors{};
-    if (made_for != palette) {
-        colors = theme::status_colors(palette);
+    const theme::StatusScheme scheme = theme::status_scheme();
+    if (made_for != palette || made_in != scheme) {
+        colors = theme::status_colors(palette, scheme);
         made_for = palette;
+        made_in = scheme;
     }
     using Role = theme::StatusRole;
     Role role = Role::modified;

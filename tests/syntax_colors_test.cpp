@@ -98,29 +98,56 @@ TEST_CASE("syntax colours: a palette whose colours do not read on its page is me
 TEST_CASE("status colours: readable on every desktop palette, apart from each other") {
     using rummage::theme::status_colors;
     using rummage::theme::StatusRole;
+    using rummage::theme::StatusScheme;
     for (const bool dark : {true, false}) {
         for (const std::uint32_t accent : kAccents) {
             CAPTURE(std::format("#{:06x} {}", accent, dark ? "dark" : "light"));
             const Palette palette = desktop_palette({.dark = dark, .accent = Color::rgb(accent)});
-            const auto colours = status_colors(palette);
-            for (std::size_t i = 0; i < colours.size(); ++i) {
-                if (i == static_cast<std::size_t>(StatusRole::ignored)) {
-                    continue;  // drawn faded on purpose
+            for (const StatusScheme scheme : {StatusScheme::palette, StatusScheme::editor}) {
+                CAPTURE(static_cast<int>(scheme));
+                const auto colours = status_colors(palette, scheme);
+                for (std::size_t i = 0; i < colours.size(); ++i) {
+                    if (i == static_cast<std::size_t>(StatusRole::ignored)) {
+                        continue;  // drawn faded on purpose
+                    }
+                    CAPTURE(i);
+                    CHECK(contrast(colours.at(i), palette.surface) >= 4.5F);
                 }
-                CAPTURE(i);
-                CHECK(contrast(colours.at(i), palette.surface) >= 4.5F);
+                const auto at = [&](StatusRole role) {
+                    return colours.at(static_cast<std::size_t>(role));
+                };
+                // Modified, added, deleted, renamed and conflicts tell apart.
+                CHECK_FALSE(same(at(StatusRole::modified), at(StatusRole::added)));
+                CHECK_FALSE(same(at(StatusRole::added), at(StatusRole::deleted)));
+                CHECK_FALSE(same(at(StatusRole::renamed), at(StatusRole::added)));
+                CHECK_FALSE(same(at(StatusRole::conflict), at(StatusRole::deleted)));
+                CHECK(same(at(StatusRole::untracked), at(StatusRole::added)));  // as editors do
             }
-            const auto at = [&](StatusRole role) {
-                return colours.at(static_cast<std::size_t>(role));
-            };
-            // Modified, added, deleted, renamed and conflicts tell apart.
-            CHECK_FALSE(same(at(StatusRole::modified), at(StatusRole::added)));
-            CHECK_FALSE(same(at(StatusRole::added), at(StatusRole::deleted)));
-            CHECK_FALSE(same(at(StatusRole::renamed), at(StatusRole::added)));
-            CHECK_FALSE(same(at(StatusRole::conflict), at(StatusRole::deleted)));
-            CHECK(same(at(StatusRole::untracked), at(StatusRole::added)));  // as editors do
         }
     }
+}
+
+TEST_CASE("status colours: the palette scheme takes the palette's roles, the editor one its own") {
+    using rummage::theme::status_colors;
+    using rummage::theme::StatusRole;
+    using rummage::theme::StatusScheme;
+    const Palette palette;  // Noctalia's: every role reads on its surface as it is
+    const auto at = [](const auto& colours, StatusRole role) {
+        return colours.at(static_cast<std::size_t>(role));
+    };
+    const auto own = status_colors(palette, StatusScheme::palette);
+    CHECK(same(at(own, StatusRole::modified), palette.primary));
+    CHECK(same(at(own, StatusRole::added), palette.tertiary));
+    CHECK(same(at(own, StatusRole::deleted), palette.error));
+    CHECK(same(at(own, StatusRole::renamed), palette.secondary));
+    CHECK_FALSE(same(at(own, StatusRole::conflict), at(own, StatusRole::deleted)));
+    CHECK_FALSE(same(at(own, StatusRole::conflict),
+                     at(status_colors(palette, StatusScheme::editor), StatusRole::conflict)));
+    const auto editor = status_colors(palette, StatusScheme::editor);
+    CHECK_FALSE(same(at(editor, StatusRole::modified), palette.primary));
+    CHECK_FALSE(same(at(editor, StatusRole::added), palette.tertiary));
+    CHECK(same(at(editor, StatusRole::deleted), palette.error));
+    CHECK(status_colors(palette) == own);  // the default
 }
 
 TEST_CASE("status colours: a palette's own git colours are used as given") {

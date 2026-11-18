@@ -423,7 +423,9 @@ TEST_CASE("config: git status settings") {
     CHECK(wrong.config.git.ignored == "dim");
     CHECK(wrong.config.git.enabled);
     CHECK(parse("[git]\nlanguage = 'en'\n").config.git.language == "en");
+    CHECK(parse("").config.git.colors == "palette");
     CHECK(parse("[git]\ncolors = 'git'\n").config.git.colors == "git");
+    CHECK(parse("[git]\ncolors = 'editor'\n").config.git.colors == "editor");
     CHECK(parse("[git]\ncolors = 'rainbow'\n").problems.size() == 1);
     CHECK(parse("[git]\nlanguage = ''\n").problems.empty());
     CHECK(parse("[git]\nlanguage = 'xx'\n").problems.size() == 1);
