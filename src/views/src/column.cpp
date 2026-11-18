@@ -6,10 +6,10 @@
 
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -122,7 +122,9 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
                         typed.folder_icon);
         if (folder_->runs_as_program(entry)) {
             draw_run_mark(renderer, bounds.x + kIconX, y + ((size_.row - size_.icon) / 2.0F),
-                          size_.icon, style.fill ? style.icon : palette.primary,
+                          size_.icon,
+                          style.fill ? style.icon
+                                     : theme::readable_foreground(palette.primary, palette.surface),
                           style.fill.value_or(palette.surface));
         }
         float name_right = bounds.right() - kRightPadding;

@@ -1151,10 +1151,12 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
     renderer.draw_box(card,
                       {.fill = palette.surface_container_high.with_alpha(fade), .radius = {}});
     float y = card.y + 32.0F;
-    icons.draw(
-        renderer, fs::icon_name(*mime_, typed), card.x + ((kCardWidth - kCardIcon) / 2.0F), y,
-        kCardIcon,
-        (entry.is_directory() ? palette.primary : palette.on_surface_variant).with_alpha(fade));
+    icons.draw(renderer, fs::icon_name(*mime_, typed), card.x + ((kCardWidth - kCardIcon) / 2.0F),
+               y, kCardIcon,
+               (entry.is_directory()
+                    ? theme::readable_foreground(palette.primary, palette.surface_container_high)
+                    : palette.on_surface_variant)
+                   .with_alpha(fade));
     y += kCardIcon + 20.0F;
     draw_centered(renderer, entry.name, card, y, 15.0F, palette.on_surface.with_alpha(fade));
     y += 24.0F;
@@ -1240,10 +1242,12 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
     const float name_left = card.x + 20.0F + kEntryIcon + 10.0F;
     for (std::size_t i = 0; i < shown; ++i) {
         const fs::Entry& item = archive.top[i];
-        icons.draw(
-            renderer, fs::icon_name(*mime_, item), card.x + 20.0F,
-            y + ((kEntryHeight - kEntryIcon) / 2.0F) - 3.0F, kEntryIcon,
-            (item.is_directory() ? palette.primary : palette.on_surface_variant).with_alpha(fade));
+        icons.draw(renderer, fs::icon_name(*mime_, item), card.x + 20.0F,
+                   y + ((kEntryHeight - kEntryIcon) / 2.0F) - 3.0F, kEntryIcon,
+                   (item.is_directory() ? theme::readable_foreground(palette.primary,
+                                                                     palette.surface_container_high)
+                                        : palette.on_surface_variant)
+                       .with_alpha(fade));
         float name_room = card.right() - 20.0F - name_left;
         if (!item.is_directory() && !item.is_link) {
             const std::string size = format_size(item.size);

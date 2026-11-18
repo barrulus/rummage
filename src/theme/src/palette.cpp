@@ -133,7 +133,33 @@ bool read_colors(const toml::node& node, Problems& problems, Palette& palette) {
         }
         palette.*role.member = *color;
     }
-    // Producers may include extra roles. Missing roles deliberately keep the generated baseline.
+    // Preserve every explicit role, including intentionally low-contrast foregrounds.
+    // A background override invalidates its generated foreground, not the surface ladder.
+    constexpr std::array pairs{
+        std::pair{&Palette::primary, &Palette::on_primary},
+        std::pair{&Palette::primary_container, &Palette::on_primary_container},
+        std::pair{&Palette::secondary, &Palette::on_secondary},
+        std::pair{&Palette::secondary_container, &Palette::on_secondary_container},
+        std::pair{&Palette::tertiary, &Palette::on_tertiary},
+        std::pair{&Palette::tertiary_container, &Palette::on_tertiary_container},
+        std::pair{&Palette::error, &Palette::on_error},
+        std::pair{&Palette::error_container, &Palette::on_error_container},
+        std::pair{&Palette::surface, &Palette::on_surface},
+        std::pair{&Palette::surface_variant, &Palette::on_surface_variant},
+    };
+    const auto supplied = [&](Color Palette::* member) {
+        return std::ranges::any_of(kRoles, [&](const Role& role) {
+            return role.member == member && table->contains(role.name);
+        });
+    };
+    for (const auto& [background, foreground] : pairs) {
+        if (supplied(background) && !supplied(foreground))
+            palette.*foreground = readable_foreground(palette.*foreground, palette.*background);
+    }
+    if (!supplied(&Palette::hover))
+        palette.hover = palette.primary;
+    if (!supplied(&Palette::on_hover))
+        palette.on_hover = readable_foreground(palette.on_primary, palette.hover);
     return valid;
 }
 

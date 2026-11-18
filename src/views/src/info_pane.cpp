@@ -689,7 +689,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     const float preview_width = bounds.width - (2.0F * kPadding);
     const float preview_left = bounds.x + kPadding;
     if (single == nullptr) {
-        icon("folder", palette.primary);
+        icon("folder", theme::readable_foreground(palette.primary, palette.surface_container));
     } else if (kind == preview::Kind::image) {
         // A square as wide as the pane (at most half its height), always reserved: nothing
         // moves when the thumbnail arrives.
@@ -834,7 +834,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     } else {
         icons.draw_file(renderer, mime.name(typed.mime), fs::icon_name(mime, typed),
                         out.left() + ((out.width() - kIconSize) / 2.0F), out.y(), kIconSize,
-                        single->is_directory() ? palette.primary : palette.on_surface_variant,
+                        single->is_directory()
+                            ? theme::readable_foreground(palette.primary, palette.surface_container)
+                            : palette.on_surface_variant,
                         typed.folder_icon);
         out.skip(kIconSize + 18.0F);
     }
@@ -930,9 +932,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         const float label_width = text_width(renderer, label, kTextSize);
         const float total = label_width + 6.0F + 12.0F;
         const float x = out.left() + ((out.width() - total) / 2.0F);
-        renderer.draw_text(label, x, out.y(), kTextSize, palette.primary);
+        renderer.draw_text(label, x, out.y(), kTextSize,
+                           theme::readable_foreground(palette.primary, palette.surface_container));
         icons.draw(renderer, expanded_ ? "chevron-up" : "chevron-down", x + label_width + 6.0F,
-                   out.y() + 2.0F, 12.0F, palette.primary);
+                   out.y() + 2.0F, 12.0F,
+                   theme::readable_foreground(palette.primary, palette.surface_container));
         toggle_ = {x - 8.0F, out.y() - 4.0F, total + 16.0F, kRowHeight};
         out.skip(kRowHeight);
         if (expanded_) {

@@ -166,7 +166,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         }
         ui::Color color = hovered_ == i ? palette.on_surface : palette.on_surface_variant;
         if (active) {
-            color = palette.primary;
+            color = theme::readable_foreground(palette.primary, palette.surface_container_highest);
         }
         icons.draw(renderer, kIcons.at(i), button.x + ((kButtonWidth - kIconSize) / 2.0F),
                    button.y + ((kButtonHeight - kIconSize) / 2.0F), kIconSize, color);

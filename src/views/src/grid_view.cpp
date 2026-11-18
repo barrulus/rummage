@@ -10,11 +10,11 @@
 
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/engines/engines.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -395,9 +395,11 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                                 x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, style.icon,
                                 typed.folder_icon);
                 if (folder_->runs_as_program(entry)) {
-                    draw_run_mark(renderer, x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
-                                  style.fill ? style.icon : palette.primary,
-                                  style.fill.value_or(palette.surface));
+                    draw_run_mark(
+                        renderer, x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
+                        style.fill ? style.icon
+                                   : theme::readable_foreground(palette.primary, palette.surface),
+                        style.fill.value_or(palette.surface));
                 }
                 draw_failure_badge(renderer, icons, palette, failure,
                                    x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,

@@ -4,8 +4,8 @@
 #include <utility>
 
 #include "draw_helpers.hpp"
-#include "rummage/fs/trash.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/trash.hpp"
 
 namespace rummage::views {
 namespace {
@@ -132,7 +132,10 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
         }
         if (crumb.label.empty()) {
             icons.draw(renderer, crumb.icon, x + kInset, top + ((kBoxHeight - kIconSize) / 2.0F),
-                       kIconSize, last ? palette.primary : color);
+                       kIconSize,
+                       last && !drop
+                           ? theme::readable_foreground(palette.primary, palette.surface_container)
+                           : color);
         } else {
             renderer.draw_text(crumb.label, x + kInset, bounds.y + 12.0F, kTextSize, color,
                                width - (2.0F * kInset), ui::Ellipsis::middle);

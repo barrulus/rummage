@@ -127,6 +127,28 @@ float contrast(Color a, Color b) {
     return static_cast<float>((std::max(la, lb) + flare) / (std::min(la, lb) + flare));
 }
 
+Color readable_foreground(Color foreground, Color background) {
+    foreground = foreground.with_alpha(1.0F);
+    background = background.with_alpha(1.0F);
+    if (static_cast<double>(contrast(foreground, background)) >= kReadable)
+        return foreground;
+    const Lch original = to_lch(foreground);
+    // Search both directions: the declared mode is not the actual background, and
+    // on mid-tone backgrounds the nearer endpoint may not provide enough contrast.
+    for (int i = 1; i <= 100; ++i) {
+        for (const double direction : {-1.0, 1.0}) {
+            Lch candidate = original;
+            candidate.l = std::clamp(original.l + direction * i / 100.0, 0.0, 1.0);
+            const Color color = from_lch(candidate);
+            if (static_cast<double>(contrast(color, background)) >= kReadable)
+                return color;
+        }
+    }
+    const Color black = Color::rgb(0x000000);
+    const Color white = Color::rgb(0xFFFFFF);
+    return contrast(black, background) >= contrast(white, background) ? black : white;
+}
+
 Palette desktop_palette(const Desktop& desktop) {
     const Tones& t = desktop.dark ? kDark : kLight;
     const Lch accent = to_lch(desktop.accent.value_or(kDefaultAccent));

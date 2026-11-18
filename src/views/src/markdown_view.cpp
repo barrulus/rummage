@@ -227,7 +227,9 @@ void MarkdownView::draw(ui::Renderer& renderer, ui::Rect viewport, float offset,
                         {rect.x + glyph.left, rect.y, glyph.right - glyph.left, rect.height},
                         palette.secondary_container.with_alpha(fade));
         }
-        auto color = (piece.style & text::md_link) != 0 ? palette.primary : palette.on_surface;
+        auto color = (piece.style & text::md_link) != 0
+                         ? theme::readable_foreground(palette.primary, palette.surface_container)
+                         : palette.on_surface;
         const unsigned syntax = piece.style >> 8U;
         if (syntax > 0 && syntax <= theme::kSyntaxColors)
             color = colours.at(syntax - 1);

@@ -223,6 +223,9 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         } else if (hovered_ == i) {
             fill = palette.surface_container_high;
         }
+        if (place.disk.mounted && !is_cursor && drop_target_ != place.path)
+            icon = theme::readable_foreground(palette.primary,
+                                              fill.value_or(palette.surface_container_low));
         if (fill) {
             const bool drop = drop_target_ == place.path;
             renderer.draw_box({bounds.x + kInset, y + 1.0F, bounds.width - (2.0F * kInset),
