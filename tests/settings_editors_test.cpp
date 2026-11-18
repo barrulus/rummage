@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include "rummage/core/config_edit.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/views/shortcuts.hpp"
 
 using namespace rummage;
@@ -145,4 +146,107 @@ TEST_CASE("settings editor disables mutation when configuration becomes read onl
         {.id = "safe", .label = "Safe", .argv = {"tool"}, .mime = {}}));
     CHECK(fixture.writes == 0);
     CHECK_FALSE(fixture.editor.commands("copy").empty());
+}
+
+TEST_CASE(
+    "settings editor retains drafts across redraw and makes narrow forms keyboard accessible") {
+    ui::Offscreen surface{320, 260};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    EditorFixture fixture{R"([[actions]]
+id = "inspect"
+label = "Inspect"
+argv = ["tool", "{file}"]
+)"};
+    fixture.editor.set_page(views::SettingsEditors::Page::actions);
+    REQUIRE(fixture.editor.select_action("inspect"));
+    const auto draw = [&] {
+        renderer.begin_frame(320, 260, 1, {});
+        fixture.editor.draw(renderer, {0, 0, 320, 260}, {});
+        renderer.end_frame();
+    };
+    const auto tab = [&](bool reverse = false) {
+        const bool handled = fixture.editor.key(
+            {.keysym = XKB_KEY_Tab, .text = {}, .modifiers = {.shift = reverse}});
+        draw();
+        return handled;
+    };
+    const auto all = [&] {
+        fixture.editor.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    };
+    draw();
+    fixture.editor.enter_focus();
+    REQUIRE(tab());  // label
+    all();
+    CHECK(fixture.editor.copy_selection(true) == "Inspect");
+    draw();
+    CHECK(fixture.editor.has_drafts());
+    REQUIRE(tab());  // program, even though a new diagnostic/discard row appeared
+    all();
+    CHECK(fixture.editor.copy_selection() == "tool");
+    CHECK(fixture.writes == 0);
+    REQUIRE(tab(true));  // label
+    all();
+    fixture.editor.paste("New label");
+    draw();
+    REQUIRE(tab());  // commit complete edit; retain focus when draft row disappears
+    all();
+    CHECK(fixture.editor.copy_selection() == "tool");
+    CHECK(fixture.writes == 1);
+    CHECK_FALSE(fixture.editor.has_drafts());
+    CHECK(core::parse_config(fixture.text, "test").config.actions.front().label == "New label");
+    bool left = false;
+    for (int i = 0; i < 30 && !left; ++i)
+        left = !tab();
+    CHECK(left);
+    fixture.editor.sync(core::parse_config(fixture.text, "test").config, false);
+    draw();
+    fixture.editor.enter_focus();
+    REQUIRE(tab());  // readonly label still selectable
+    all();
+    CHECK(fixture.editor.copy_selection(true) == "New label");
+    fixture.editor.paste("No change");
+    CHECK(fixture.editor.copy_selection() == "New label");
+    CHECK_FALSE(fixture.editor.has_drafts());
+    CHECK(fixture.writes == 1);
+}
+
+TEST_CASE("settings editor saves a new action only after its required fields are complete") {
+    ui::Offscreen surface{320, 260};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    EditorFixture fixture;
+    fixture.editor.set_page(views::SettingsEditors::Page::actions);
+    fixture.editor.new_action();
+    const auto draw = [&] {
+        renderer.begin_frame(320, 260, 1, {});
+        fixture.editor.draw(renderer, {0, 0, 320, 260}, {});
+        renderer.end_frame();
+    };
+    const auto tab = [&] {
+        REQUIRE(fixture.editor.key({.keysym = XKB_KEY_Tab, .text = {}}));
+        draw();
+    };
+    draw();
+    fixture.editor.enter_focus();  // discard
+    tab();                         // back
+    tab();                         // ID
+    fixture.editor.paste("new_action");
+    draw();
+    tab();  // label
+    CHECK(fixture.writes == 0);
+    fixture.editor.paste("New action");
+    draw();
+    tab();  // program
+    CHECK(fixture.writes == 0);
+    fixture.editor.paste("literal-program");
+    draw();
+    tab();  // the completed action is now accepted by the host
+    REQUIRE(fixture.writes == 1);
+    const auto parsed = core::parse_config(fixture.text, "test");
+    REQUIRE(parsed.config.actions.size() == 1);
+    CHECK(parsed.config.actions.front().id == "new_action");
+    CHECK(parsed.config.actions.front().label == "New action");
+    CHECK(parsed.config.actions.front().argv == std::vector<std::string>{"literal-program"});
+    CHECK_FALSE(fixture.editor.has_drafts());
 }

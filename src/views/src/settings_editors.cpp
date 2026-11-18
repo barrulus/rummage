@@ -624,9 +624,23 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
     const float width = std::max(1.0F, body.width - 30);
     float y = body.y + 8 - scroll_.offset();
     const auto text = [&](std::string_view value, bool dim = false) {
-        renderer.draw_text(value, x, y, 12, dim ? palette.on_surface_variant : palette.on_surface,
-                           width);
-        y += 23;
+        while (!value.empty()) {
+            std::size_t length = value.size();
+            while (renderer.fonts().layout(value.substr(0, length), 12, renderer.scale()).width /
+                       renderer.scale() >
+                   width) {
+                const auto space = value.rfind(' ', length - 1);
+                if (space == std::string_view::npos || space == 0)
+                    break;
+                length = space;
+            }
+            renderer.draw_text(value.substr(0, length), x, y, 12,
+                               dim ? palette.on_surface_variant : palette.on_surface, width);
+            y += 23;
+            value.remove_prefix(length);
+            while (value.starts_with(' '))
+                value.remove_prefix(1);
+        }
     };
     const auto button = [&](std::string_view label, Operation operation, std::string value = "",
                             bool mutates = true, std::size_t index = 0) {
@@ -666,23 +680,8 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
     } else if (!pending_chord_.empty()) {
         text(i18n::trf("Not saved: {}", i18n::keys(pending_chord_)));
     }
-    if (!error_.empty()) {
-        // Split long diagnostics into rows; never hide the reason behind horizontal clipping.
-        std::string remaining = error_;
-        const std::size_t limit = static_cast<std::size_t>(std::max(12.0F, width / 7));
-        while (!remaining.empty()) {
-            auto length = std::min(limit, remaining.size());
-            if (length < remaining.size()) {
-                const auto space = remaining.rfind(' ', length);
-                if (space != std::string::npos && space > 0)
-                    length = space;
-            }
-            text(remaining.substr(0, length));
-            remaining.erase(0, length);
-            if (remaining.starts_with(' '))
-                remaining.erase(0, 1);
-        }
-    }
+    if (!error_.empty())
+        text(error_);
     if (has_drafts())
         button(i18n::tr("Discard unfinished edit"), Operation::discard, {}, false);
     if (page_ == Page::shortcuts) {
