@@ -76,6 +76,11 @@ TEST_CASE("sandbox: no network, no programs, no new processes") {
     }
 }
 
+TEST_CASE("sandbox: existing worker threads cannot open files or connect") {
+    CHECK(probe("thread-open").out == "EACCES\n");
+    CHECK(killed_by_seccomp(probe("thread-socket")));
+}
+
 TEST_CASE("sandbox: at most 4 GiB of memory" * doctest::skip(kSanitized)) {
     CHECK(probe("memory").out == "refused\n");
 }

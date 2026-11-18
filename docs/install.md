@@ -341,9 +341,14 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Text | `harfbuzz`, `freetype2`, `fontconfig` |
 | Configuration | `tomlplusplus` |
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
+| SVG file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |
 | Optional media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; enable `RUMMAGE_MEDIA` |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
+
+librsvg is implemented partly in Rust, but rummage links its packaged C API;
+building rummage against installed libraries requires no Rust compiler or Cargo.
+Building librsvg itself from source does require its own Rust toolchain.
 
 HEIC decoding requires libheif's **libde265** decoder at runtime (built in or
 installed as a codec plugin) and Little CMS 2. The Nix development shell/package

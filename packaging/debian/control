@@ -8,6 +8,7 @@ Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, pyt
  libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev,
  libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
  libwebp-dev, libjxl-dev, libheif-dev (>= 1.23), liblcms2-dev,
+ librsvg2-dev (>= 2.52), libpango1.0-dev,
  zlib1g-dev, libsdbus-c++-dev (>= 2)
 Standards-Version: 4.7.2
 Rules-Requires-Root: no

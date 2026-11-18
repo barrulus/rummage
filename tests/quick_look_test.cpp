@@ -557,7 +557,10 @@ TEST_CASE("quick look: upright thumbnail and reduced sharp frame keep size and o
             }
             return last - first + 1;
         };
-        REQUIRE(run_until(loop, [&] { return span(draw(now)) > 0; }));
+        // The loading icon also intersects the scan line (80/160 px). Wait for
+        // the white image at its centre before measuring the thumbnail's span.
+        const auto center = (450U * 800U + 400U) * 4U;
+        REQUIRE(run_until(loop, [&] { return draw(now)[center] > 100; }));
         const auto thumbnail = draw(now);
         CHECK(span(thumbnail) == 320);
         REQUIRE(look.content() == nullptr);
@@ -566,7 +569,6 @@ TEST_CASE("quick look: upright thumbnail and reduced sharp frame keep size and o
         for (const auto offset : {0ms, 25ms, 100ms}) {
             const auto sharp = draw(now + offset);
             CHECK(span(sharp) == 320);
-            const auto center = (450U * 800U + 400U) * 4U;
             CHECK(sharp[center] == thumbnail[center]);
         }
     }

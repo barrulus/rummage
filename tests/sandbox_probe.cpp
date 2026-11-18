@@ -2,6 +2,7 @@
 // tests/sandbox_test.cpp. Its argument says what: allowed (what a picture needs), open, stat,
 // socket, exec, fork, memory (5 GiB), or landlock (landlock alone: a file and a TCP connection).
 #include <arpa/inet.h>
+#include <atomic>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -14,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <system_error>
+#include <thread>
 #include <unistd.h>
 
 #include "sandbox.hpp"
@@ -49,6 +51,28 @@ int main(int argc, char** argv) {
     }
     const std::string_view what{
         argv[1]};  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (what == "thread-open" || what == "thread-socket") {
+        std::atomic<bool> ready{false};
+        std::atomic<bool> started{false};
+        std::thread worker([&] {
+            started.store(true);
+            started.notify_one();
+            ready.wait(false);
+            say_errno(what == "thread-open" ? ::open("/proc/self/exe", O_RDONLY | O_CLOEXEC)
+                                            : ::socket(AF_INET, SOCK_STREAM, 0));
+            std::_Exit(0);
+        });
+        worker.detach();
+        started.wait(false);  // finish the C runtime's thread setup before restricting syscalls
+        if (!isolate::enter_sandbox(isolate::Unexpected::kill).seccomp) {
+            std::_Exit(1);
+        }
+        ready.store(true);
+        ready.notify_one();
+        // The worker exits the process, avoiding thread teardown syscalls here.
+        ready.wait(true);
+        std::_Exit(2);
+    }
     if (what == "landlock") {
         // A file sure to exist on any system (no /etc/hostname in Nix's build sandbox): the
         // probe itself, so landlock refuses it rather than the lookup failing first.

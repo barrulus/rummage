@@ -33,6 +33,13 @@ add_executable(rummage-fuzz-svg fuzz_svg.cpp)
 target_link_libraries(rummage-fuzz-svg PRIVATE rummage::svg rummage::warnings)
 target_link_options(rummage-fuzz-svg PRIVATE -fsanitize=fuzzer)
 
+# File previews use librsvg; the theme-icon target above exercises our in-process renderer.
+add_executable(rummage-fuzz-svg-preview fuzz_svg_preview.cpp)
+target_include_directories(rummage-fuzz-svg-preview
+    PRIVATE ${PROJECT_SOURCE_DIR}/src/formats/image/src)
+target_link_libraries(rummage-fuzz-svg-preview PRIVATE rummage::formats::image rummage::warnings)
+target_link_options(rummage-fuzz-svg-preview PRIVATE -fsanitize=fuzzer)
+
 add_executable(rummage-fuzz-archive fuzz_archive.cpp)
 target_link_libraries(rummage-fuzz-archive PRIVATE rummage::formats::archive rummage::warnings)
 target_link_options(rummage-fuzz-archive PRIVATE -fsanitize=fuzzer)

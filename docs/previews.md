@@ -34,7 +34,7 @@ windows, its contents scroll while the action buttons remain visible.
 | Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
 | Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
 | PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
-| SVG files | rummage's SVG renderer in the preview helper | Static previews and thumbnails; supported subset described below |
+| SVG files | librsvg in the preview helper | Static previews and thumbnails; limits described below |
 | ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
 | Other formats | File information and external application opening | No built-in audio player or font preview |
 
@@ -49,20 +49,27 @@ For archive browsing, copying members out and creating archives, see
 ### SVG
 
 SVG files show as pictures in Quick Look, the information pane and thumbnails,
-using the same renderer as theme icons. File previews run inside `rummage-preview`'s
-sandbox; theme icons continue to render in-process.
+using librsvg through its C API inside `rummage-preview`'s sandbox. Theme icons
+continue to use rummage's separate in-process renderer.
 
-The renderer supports paths and shapes, strokes, gradients, basic CSS, groups,
-clipping, masks, colour matrices, Gaussian blur, patterns and embedded PNG/JPEG.
+The renderer supports paths and shapes, strokes, gradients, CSS selectors, groups,
+clipping, masks, SVG filters, patterns, embedded images and text.
 It preserves transparency and aspect ratio. Input is capped at 8 MiB and the
 rendered preview at 1024 pixels per side; larger display requests use that bounded
 preview. The preview's pixel dimensions are not reported as intrinsic document
 dimensions.
 
-This is a static SVG subset: text, animation, scripts, external images/styles and
-other external resources are not rendered or fetched. Unsupported filter
-primitives leave the element unfiltered. Compressed SVG (`.svgz`) is not supported.
-Malformed documents and exhausted rendering limits produce a preview error.
+Before sandboxing, the helper prepares the system's generic sans-serif, serif and
+monospace faces in regular/bold and upright/italic styles. Text uses that bounded
+set; other families fall back, and scripts absent from those fonts may have missing
+glyphs. Font data stays in memory, with no font-file access during rendering.
+
+Animation and scripts are not executed. External images, stylesheets and other
+resources are not fetched: documents have no base URI. Data URIs and internal
+references remain available. Compressed SVG (`.svgz`) is not supported. Compatibility
+depends on the installed librsvg version; full CSS custom-property resolution is
+not guaranteed. Malformed documents and exhausted helper limits produce a preview
+error. Complex SVGs can exceed the base helper's three-second request deadline.
 See the [security model](security.md) for preview isolation and its boundaries.
 
 ### TIFF
