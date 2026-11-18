@@ -3047,8 +3047,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     }
     const auto button = [&](const ui::Rect& rect, const char* label) {
         renderer.draw_box(rect, {.fill = palette.surface_container_highest, .radius = {}});
-        text_in(i18n::tr(label), {rect.x + 10, rect.y, rect.width - 20, rect.height},
-                palette.on_surface);
+        draw_button_text(renderer, i18n::tr(label), rect, palette.on_surface);
     };
     if (!area().view_menu_bounds.empty()) {
         button(area().view_menu_bounds, "View");

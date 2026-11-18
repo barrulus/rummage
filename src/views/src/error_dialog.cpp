@@ -6,6 +6,7 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
@@ -183,9 +184,8 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_box(
             button,
             {.fill = copy ? palette.surface_container_highest : palette.primary, .radius = {}});
-        renderer.draw_text(i18n::tr(copy ? "Copy Details" : "Close   ↵"), button.x + 12,
-                           button.y + 6, 13, copy ? palette.on_surface : palette.on_primary,
-                           button.width - 24);
+        draw_button_text(renderer, i18n::tr(copy ? "Copy Details" : "Close   ↵"), button,
+                         copy ? palette.on_surface : palette.on_primary);
     }
 }
 
