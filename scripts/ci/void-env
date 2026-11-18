@@ -1,4 +1,5 @@
 # Pinned build infrastructure; Void's binary package repository remains rolling.
 VOID_IMAGE=ghcr.io/void-linux/void-glibc-full@sha256:e98f8cdde9e6ca85f8542fad5cdd06032a05dca3bf2b81757949bb24d67afa37
-VOID_PACKAGES_REV=d5e32c3519f4f3503ff53d2130e6efe2af29869a
+# Includes Void's fix for Perl's config.h race during parallel dependency builds.
+VOID_PACKAGES_REV=82cb57a0bb132593fa59dadd11158e57b6189c54
 VOID_BUILD_IMAGE=ghcr.io/void-linux/void-buildroot-glibc@sha256:1a8aa251cf1b8fae466698576c2d15eb383e71df7554b94bc6cdf920f7665c73
