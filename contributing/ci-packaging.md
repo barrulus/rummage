@@ -55,6 +55,12 @@ updating `VOID_PACKAGES_REV`, use a reviewed revision and run the complete Void
 build and fresh-install check. The pinned container image does not freeze the
 dependency repository.
 
+Tumbleweed's build and fresh-install containers use `https://downloadcontent.opensuse.org`
+for the standard openSUSE repositories. This bypasses geographic mirror redirects,
+which can serve repository metadata before the referenced files reach the selected
+mirror. Signature verification remains enabled. The repositories still roll forward;
+this is not a snapshot pin, and origin outages can still fail the job.
+
 ## Nix
 
 The `Nix build, tests and installed package` job runs:

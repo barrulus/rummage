@@ -17,6 +17,8 @@ case "$format" in
         license=/usr/share/licenses/rummage/LICENSE
         ;;
     tumbleweed)
+        # The fresh install container needs the same consistent origin as the build.
+        sed -i -E 's@https?://download\.opensuse\.org/@https://downloadcontent.opensuse.org/@g' /etc/zypp/repos.d/*.repo
         zypper --non-interactive refresh
         zypper --non-interactive dup --no-recommends
         zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-[0-9]*.x86_64.rpm

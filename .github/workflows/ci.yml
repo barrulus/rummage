@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      tumbleweed_only:
+        description: Test only Tumbleweed (no development downloads)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,6 +40,7 @@ jobs:
   nix:
     name: Nix build, tests and installed package
     needs: reuse
+    if: inputs.tumbleweed_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -101,7 +107,7 @@ jobs:
   void:
     name: Void glibc package and clean install
     needs: reuse
-    if: needs.reuse.outputs.run_id == ''
+    if: needs.reuse.outputs.run_id == '' && inputs.tumbleweed_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -138,15 +144,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - format: deb
-            distro: Debian 13
-          - format: rpm
-            distro: Fedora 44
-          - format: arch
-            distro: Arch Linux
-          - format: tumbleweed
-            distro: openSUSE Tumbleweed
+        include: ${{ fromJSON(inputs.tumbleweed_only == true && '[{"format":"tumbleweed","distro":"openSUSE Tumbleweed"}]' || '[{"format":"deb","distro":"Debian 13"},{"format":"rpm","distro":"Fedora 44"},{"format":"arch","distro":"Arch Linux"},{"format":"tumbleweed","distro":"openSUSE Tumbleweed"}]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -179,7 +177,7 @@ jobs:
     name: Prepare development downloads
     needs: [reuse, nix, void, native]
     if: >-
-      !cancelled() && needs.nix.result == 'success' &&
+      !cancelled() && inputs.tumbleweed_only != true && needs.nix.result == 'success' &&
       ((needs.reuse.outputs.run_id != '' && needs.void.result == 'skipped' && needs.native.result == 'skipped') ||
        (needs.reuse.outputs.run_id == '' && needs.void.result == 'success' && needs.native.result == 'success'))
     runs-on: ubuntu-24.04

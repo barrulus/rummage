@@ -10,6 +10,9 @@ case "$format" in
         ;;
     rpm) dnf install -y rpm-build rpmdevtools python3 tar gzip ;;
     tumbleweed)
+        # Fetch metadata and packages from the origin: redirected mirrors can lag
+        # repomd.xml and return 404 for the checksum-named metadata it references.
+        sed -i -E 's@https?://download\.opensuse\.org/@https://downloadcontent.opensuse.org/@g' /etc/zypp/repos.d/*.repo
         zypper --non-interactive refresh
         zypper --non-interactive dup --no-recommends
         zypper --non-interactive install --no-recommends rpm-build python3 tar gzip shadow
