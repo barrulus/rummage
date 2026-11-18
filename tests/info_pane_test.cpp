@@ -793,3 +793,94 @@ TEST_CASE("info pane: a decorator's link is clicked, not selected as text") {
     CHECK(decorations.opened == 1);
     f.browser.set_decorations(nullptr);
 }
+
+namespace {
+
+// A decorator with a text field, a split button and a folded group, counting what happens.
+struct FormDecorations final : rummage::views::Decorations {
+    std::vector<std::string> submitted;
+    std::vector<std::string> pressed;
+    int asked_entries{0};
+    rummage::views::DetailSection section;
+
+    FormDecorations() {
+        section.title = "FORM";
+        section.input = rummage::views::DetailSection::Input{
+            .placeholder = "Message",
+            .revision = 1,
+            .text = {},
+            .submit = [this](const std::string& typed) { submitted.push_back(typed); }};
+        section.split = rummage::views::DetailSection::Split{
+            .label = "Go",
+            .enabled = true,
+            .action = [this](const std::string& typed) { pressed.push_back(typed); },
+            .menu = {}};
+        section.groups.push_back(
+            {.id = "files", .title = "Files", .count = 1, .entries = [this] {
+                 ++asked_entries;
+                 return std::vector<rummage::views::DetailSection::Entry>{
+                     {.name = "a.txt", .detail = "src", .badge = {}, .open = {}, .menu = {}}};
+             }});
+    }
+
+    const rummage::views::Badge* badge(const rummage::views::Folder& /*folder*/,
+                                       const rummage::fs::Entry& /*entry*/) override {
+        return nullptr;
+    }
+
+    const rummage::views::StatusPart* status(const rummage::views::Folder& /*folder*/) override {
+        return nullptr;
+    }
+
+    const rummage::views::DetailSection* details(
+        const rummage::views::Folder& /*folder*/) override {
+        return &section;
+    }
+};
+
+}  // namespace
+
+TEST_CASE("info pane: a decorator's text field, split button and folded group") {
+    const auto gl = offscreen();
+    if (!gl) {
+        return;
+    }
+    Fixture f;
+    FormDecorations decorations;
+    f.browser.set_decorations(&decorations);
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
+    f.press(XKB_KEY_Down);  // short.txt: room under its page
+    REQUIRE(f.settle());
+    CHECK(decorations.asked_entries == 0);  // folded: never made
+
+    const rummage::ui::Rect field = f.pane().input_bounds();
+    REQUIRE_FALSE(field.empty());
+    f.click(field.x + 20.0F, field.y + (field.height / 2.0F));
+    CHECK(f.pane().input_focused());
+    for (const char c : std::string{"Fix it"}) {
+        rummage::ui::KeyEvent key;
+        key.keysym = static_cast<xkb_keysym_t>(c);
+        key.text = std::string(1, c);
+        f.browser.key(key, f.now);
+    }
+    f.press(XKB_KEY_Return, {.ctrl = true});
+    REQUIRE(decorations.submitted.size() == 1);
+    CHECK(decorations.submitted.front() == "Fix it");
+    CHECK(f.pane().input_focused());
+    f.press(XKB_KEY_Escape);
+    CHECK_FALSE(f.pane().input_focused());
+    f.draw();
+
+    // The split button, under the field, gets what the field holds.
+    f.click(field.x + 20.0F, field.bottom() + 20.0F);
+    REQUIRE(decorations.pressed.size() == 1);
+    CHECK(decorations.pressed.front() == "Fix it");
+
+    // The group's heading, under the button, opens it: only then are its entries made.
+    f.draw();
+    f.click(field.x + 40.0F, field.bottom() + 54.0F);
+    f.draw();
+    CHECK(decorations.asked_entries >= 1);
+    f.browser.set_decorations(nullptr);
+}

@@ -794,7 +794,12 @@ int main(int argc, char** argv) {
                            : settings.ignored == "hide" ? rummage::git::Options::Ignored::hide
                                                         : rummage::git::Options::Ignored::dim,
                 .folder_status = settings.folder_status,
-                .language = settings.language};
+                .language = settings.language,
+                .commit_action = settings.commit_action == "commit_push"
+                                     ? rummage::git::Options::CommitAction::commit_push
+                                 : settings.commit_action == "commit_sync"
+                                     ? rummage::git::Options::CommitAction::commit_sync
+                                     : rummage::git::Options::CommitAction::commit};
             if (git_status) {
                 git_status->set_options(options);
                 return;

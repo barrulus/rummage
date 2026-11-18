@@ -65,7 +65,8 @@ std::string message_of(const std::string& output) {
             colon != std::string::npos && colon > 0 && colon <= 16 && line.find(' ') > colon;
         const std::string_view prefix =
             prefixed ? std::string_view{line}.substr(0, colon) : std::string_view{};
-        if (line.empty() || prefix == "hint" || prefix == "Hinweis") {
+        if (line.empty() || prefix == "hint" || prefix == "Hinweis" || line == "hint:" ||
+            line == "Hinweis:") {
             continue;
         }
         return prefixed ? line.substr(colon + 2) : line;
@@ -470,6 +471,13 @@ std::vector<views::MenuItem> Decorator::path_items(Repo& repo,
     return items;
 }
 
+std::vector<std::string> Decorator::pull_arguments(const Repo& repo) {
+    // Without pull.rebase or pull.ff, git refuses diverged branches: merge, as editors do.
+    return repo.pull_configured
+               ? std::vector<std::string>{"pull", "--no-edit", "--quiet"}
+               : std::vector<std::string>{"pull", "--no-rebase", "--no-edit", "--quiet"};
+}
+
 std::vector<std::string> Decorator::push_arguments(const Repo& repo) {
     const bool upstream = repo.status && !repo.status->branch.upstream.empty();
     return upstream ? std::vector<std::string>{"push", "--quiet"}
@@ -477,8 +485,7 @@ std::vector<std::string> Decorator::push_arguments(const Repo& repo) {
 }
 
 void Decorator::sync(Repo& repo) {
-    act(repo, std::string{i18n::trc("git", "Sync")},
-        {{"pull", "--no-edit", "--quiet"}, push_arguments(repo)},
+    act(repo, std::string{i18n::trc("git", "Sync")}, {pull_arguments(repo), push_arguments(repo)},
         std::string{i18n::trc("git", "Synced")});
 }
 
@@ -518,7 +525,7 @@ void Decorator::commit_typed(Repo& repo, const std::string& typed, CommitMode mo
         }
         steps.push_back(std::move(commit));
         if (mode == CommitMode::sync) {
-            steps.push_back({"pull", "--no-edit", "--quiet"});
+            steps.push_back(pull_arguments(at));
         }
         if (mode == CommitMode::push || mode == CommitMode::sync) {
             steps.push_back(push_arguments(at));
@@ -608,12 +615,12 @@ std::vector<views::DetailSection::Button> Decorator::buttons(Repo& repo) {
          idle,
          simple(i18n::trc("git", "Fetch"), {"fetch", "--quiet"}, i18n::trc("git", "Fetched")),
          {}});
-    result.push_back({"pull",
-                      std::string{i18n::trc("git", "Pull")},
-                      idle && upstream,
-                      simple(i18n::trc("git", "Pull"), {"pull", "--no-edit", "--quiet"},
-                             i18n::trc("git", "Pulled")),
-                      {}});
+    result.push_back(
+        {"pull",
+         std::string{i18n::trc("git", "Pull")},
+         idle && upstream,
+         simple(i18n::trc("git", "Pull"), pull_arguments(repo), i18n::trc("git", "Pulled")),
+         {}});
     result.push_back(
         {"push",
          std::string{i18n::trc("git", "Push")},

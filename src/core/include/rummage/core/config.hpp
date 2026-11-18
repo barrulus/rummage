@@ -73,6 +73,7 @@ struct Config {
         std::string ignored{"dim"};  // ignored files: show, dim or hide
         bool folder_status{true};    // folders mark the changes inside them
         std::string language;        // git's texts: a language code ("en"), empty: the interface's
+        std::string commit_action{"commit"};  // the commit button: commit, commit_push, commit_sync
     };
 
     std::map<std::string, std::string> keybindings;

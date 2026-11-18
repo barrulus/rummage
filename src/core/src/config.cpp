@@ -519,6 +519,16 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                   [&](const toml::node& value, const std::string& path) {
                       reader.read_bool(value, path, config.git.folder_status);
                   }},
+                 {"commit_action",
+                  [&](const toml::node& value, const std::string& path) {
+                      const auto action = value.value<std::string>();
+                      if (action && (*action == "commit" || *action == "commit_push" ||
+                                     *action == "commit_sync"))
+                          config.git.commit_action = *action;
+                      else
+                          reader.report(value.source(),
+                                        path + " must be commit, commit_push, or commit_sync");
+                  }},
                  {"language", [&](const toml::node& value, const std::string& path) {
                       const auto language = value.value<std::string>();
                       const auto known = i18n::languages();

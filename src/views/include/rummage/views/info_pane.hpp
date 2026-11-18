@@ -107,6 +107,9 @@ public:
         open_menu_ = std::move(open);
     }
 
+    // The decorator's text field, as last drawn; empty when there is none.
+    [[nodiscard]] const ui::Rect& input_bounds() const noexcept { return input_.bounds(); }
+
     // A decorator's text field has the keyboard: every key goes to input_key() meanwhile.
     [[nodiscard]] bool input_focused() const noexcept { return input_focused_; }
 

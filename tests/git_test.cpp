@@ -563,13 +563,17 @@ TEST_CASE("git decorator: the status bar part and the badges of a working tree")
         CHECK(shown.badge("a.txt") == nullptr);
     }
     SUBCASE("options: ignored shown plainly or hidden, folders without a summary") {
-        shown.decorator.set_options(
-            {.ignored = git::Options::Ignored::hide, .folder_status = false, .language = {}});
+        shown.decorator.set_options({.ignored = git::Options::Ignored::hide,
+                                     .folder_status = false,
+                                     .language = {},
+                                     .commit_action = git::Options::CommitAction::commit});
         CHECK(shown.hides("debug.log"));
         CHECK_FALSE(shown.hides("a.txt"));
         CHECK(shown.badge("sub") == nullptr);
-        shown.decorator.set_options(
-            {.ignored = git::Options::Ignored::show, .folder_status = true, .language = {}});
+        shown.decorator.set_options({.ignored = git::Options::Ignored::show,
+                                     .folder_status = true,
+                                     .language = {},
+                                     .commit_action = git::Options::CommitAction::commit});
         REQUIRE(shown.wait_for([&] { return shown.badge("sub") != nullptr; }));
         CHECK(shown.badge("debug.log") == nullptr);
         CHECK_FALSE(shown.hides("debug.log"));
@@ -583,7 +587,10 @@ TEST_CASE("git decorator: hidden ignored entries leave the listing, and come bac
     write(repo / "debug.log", "l");
     Shown shown{repo,
                 git_program(),
-                {.ignored = git::Options::Ignored::hide, .folder_status = true, .language = {}}};
+                {.ignored = git::Options::Ignored::hide,
+                 .folder_status = true,
+                 .language = {},
+                 .commit_action = git::Options::CommitAction::commit}};
     const auto listed = [&](std::string_view name) {
         return std::ranges::any_of(shown.folder->entries(),
                                    [&](const auto& entry) { return entry.name == name; });
@@ -597,8 +604,10 @@ TEST_CASE("git decorator: hidden ignored entries leave the listing, and come bac
     REQUIRE(shown.wait_for([&] { return !listed("debug.log"); }));
     CHECK(listed("a.txt"));
 
-    shown.decorator.set_options(
-        {.ignored = git::Options::Ignored::dim, .folder_status = true, .language = {}});
+    shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
+                                 .folder_status = true,
+                                 .language = {},
+                                 .commit_action = git::Options::CommitAction::commit});
     REQUIRE(shown.wait_for([&] { return listed("debug.log"); }));
     CHECK(shown.badge("debug.log")->faded);
 }
@@ -971,15 +980,19 @@ TEST_CASE("git language: git's texts apart from the interface's") {
           "Zum Commit vormerken");
 
     rummage::i18n::set_context_language("git", "en");
-    shown.decorator.set_options(
-        {.ignored = git::Options::Ignored::dim, .folder_status = true, .language = "en"});
+    shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
+                                 .folder_status = true,
+                                 .language = "en",
+                                 .commit_action = git::Options::CommitAction::commit});
     CHECK(shown.text() == "main  ·  1 changed");
     CHECK(shown.decorator.menu(*shown.folder, {"a.txt"})->children.front().label == "Stage");
     CHECK(rummage::i18n::tr("Delete") != "Delete");  // the interface stays German
 
     rummage::i18n::set_context_language("git", "");
-    shown.decorator.set_options(
-        {.ignored = git::Options::Ignored::dim, .folder_status = true, .language = {}});
+    shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
+                                 .folder_status = true,
+                                 .language = {},
+                                 .commit_action = git::Options::CommitAction::commit});
     CHECK(shown.text() == "main  ·  1 geändert");
     rummage::i18n::set_language("en");
 }
@@ -1043,5 +1056,174 @@ TEST_CASE("git: the message of what went wrong, in any language git speaks") {
     CHECK(git::message_of("hint: Updates were rejected\nerror: failed to push some refs\n") ==
           "failed to push some refs");
     CHECK(git::message_of("Everything up-to-date\n") == "Everything up-to-date");
+    CHECK(git::message_of("hint: You have divergent branches\nhint:\nfatal: Need to specify how "
+                          "to reconcile divergent branches.\n") ==
+          "Need to specify how to reconcile divergent branches.");
     CHECK(git::message_of("\n\n").empty());
+}
+
+namespace {
+
+const rummage::views::DetailSection::Group* group_named(
+    const rummage::views::DetailSection& section, std::string_view id) {
+    for (const auto& group : section.groups) {
+        if (group.id == id) {
+            return &group;
+        }
+    }
+    return nullptr;
+}
+
+void choose_item(const std::vector<rummage::views::MenuItem>& items, std::string_view id) {
+    for (const auto& item : items) {
+        if (item.id == id) {
+            REQUIRE(item.enabled);
+            item.action();
+            return;
+        }
+    }
+    FAIL("no menu item " << id);
+}
+
+}  // namespace
+
+TEST_CASE("git section: header, message field, commit button and folded file groups") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path repo = make_repository(dir);
+    write(repo / "a.txt", "two\n");
+    write(repo / "src" / "b.txt", "b\n");
+    run_git(repo, {"add", "src/b.txt"});
+    write(repo / "new.txt", "n\n");
+    Shown shown{repo};
+    TestHost host;
+    shown.decorator.set_host(host.host());
+    REQUIRE(shown.wait_for([&] { return shown.text().starts_with("main"); }));
+    const rummage::views::DetailSection* section = shown.decorator.details(*shown.folder);
+    REQUIRE(section != nullptr);
+
+    REQUIRE(section->header.has_value());
+    CHECK(section->header->title == "repo");
+    CHECK(section->header->subtitle == "main*");
+    REQUIRE(section->header->buttons.size() == 2);
+    CHECK_FALSE(section->header->buttons[0].enabled);  // Sync: no upstream
+    const auto more = section->header->buttons[1].menu();
+    CHECK(std::ranges::any_of(more, [](const auto& item) { return item.id == "git_pull"; }));
+    CHECK_FALSE(
+        std::ranges::any_of(more, [](const auto& item) { return item.id == "git_commit"; }));
+
+    REQUIRE(section->input.has_value());
+    CHECK(section->input->placeholder == "Message (Ctrl+Enter to commit on “main”)");
+    REQUIRE(section->split.has_value());
+    CHECK(section->split->label == "✓ Commit");
+    const auto ways = section->split->menu("x");
+    CHECK(ways.size() == 4);
+
+    // The groups and their counts; entries made on asking, with the staged or unstaged letter.
+    const auto* staged = group_named(*section, "git_staged");
+    const auto* changes = group_named(*section, "git_changes");
+    REQUIRE(staged != nullptr);
+    REQUIRE(changes != nullptr);
+    CHECK(staged->count == 1);
+    CHECK(changes->count == 2);
+    CHECK(group_named(*section, "git_conflicts") == nullptr);
+    const auto staged_entries = staged->entries();
+    REQUIRE(staged_entries.size() == 1);
+    CHECK(staged_entries[0].name == "b.txt");
+    CHECK(staged_entries[0].detail == "src");
+    CHECK(staged_entries[0].badge.text == "A");
+    const auto changed_entries = changes->entries();
+    REQUIRE(changed_entries.size() == 2);
+    staged_entries[0].open();
+    REQUIRE(host.revealed.size() == 1);
+    CHECK(host.revealed[0].first == repo);
+    CHECK(host.revealed[0].second == repo / "src" / "b.txt");
+    CHECK_FALSE(staged_entries[0].menu().empty());
+
+    // Ctrl+Enter in the field: commits what is staged, then the field empties.
+    const std::uint64_t revision = section->input->revision;
+    section->input->submit("Add b");
+    REQUIRE(shown.wait_for([&] {
+        const auto* now = shown.decorator.details(*shown.folder);
+        return !shown.decorator.acting() && now != nullptr && now->input &&
+               now->input->revision != revision;
+    }));
+    CHECK(run_git(repo, {"log", "-1", "--format=%s"}) == "Add b\n");
+    section = shown.decorator.details(*shown.folder);
+    CHECK(section->input->text.empty());
+
+    // Amend: with no text, the message stays; with text, it changes.
+    run_git(repo, {"add", "a.txt"});
+    REQUIRE(shown.wait_for([&] { return shown.text().find("1 staged") != std::string::npos; }));
+    choose_item(shown.decorator.details(*shown.folder)->split->menu(""), "git_amend");
+    REQUIRE(shown.wait_for([&] {
+        return !shown.decorator.acting() && shown.text().find("staged") == std::string::npos;
+    }));
+    CHECK(run_git(repo, {"log", "-1", "--format=%s"}) == "Add b\n");
+    CHECK(run_git(repo, {"show", "--stat", "--format=", "HEAD"}).find("a.txt") !=
+          std::string::npos);
+    choose_item(shown.decorator.details(*shown.folder)->split->menu("Add b and a"), "git_amend");
+    REQUIRE(shown.wait_for([&] {
+        return !shown.decorator.acting() &&
+               run_git(repo, {"log", "-1", "--format=%s"}) == "Add b and a\n";
+    }));
+
+    // The setting changes what the button says (and does).
+    shown.decorator.set_options({.ignored = git::Options::Ignored::dim,
+                                 .folder_status = true,
+                                 .language = {},
+                                 .commit_action = git::Options::CommitAction::commit_push});
+    CHECK(shown.decorator.details(*shown.folder)->split->label == "✓ Commit & Push");
+}
+
+TEST_CASE("git section: commit & push, commit & sync and sync with a local remote") {
+    const GitIdentity identity;
+    const TempDir dir;
+    const std::filesystem::path remote = dir.path / "remote.git";
+    std::filesystem::create_directories(remote);
+    run_git(remote, {"init", "-q", "--bare"});
+    const std::filesystem::path repo = make_repository(dir);
+    run_git(repo, {"remote", "add", "origin", remote.string()});
+    Shown shown{repo};
+    TestHost host;
+    shown.decorator.set_host(host.host());
+    REQUIRE(shown.wait_for([&] { return shown.text().starts_with("main"); }));
+    const auto section = [&] { return shown.decorator.details(*shown.folder); };
+    const auto idle_and = [&](const std::function<bool()>& done) {
+        return shown.wait_for([&] { return !shown.decorator.acting() && done(); });
+    };
+
+    // Commit & Push publishes the branch (no upstream yet).
+    write(repo / "one.txt", "1\n");
+    run_git(repo, {"add", "one.txt"});
+    REQUIRE(shown.wait_for([&] { return shown.text().find("1 staged") != std::string::npos; }));
+    choose_item(section()->split->menu("One"), "git_commit_push");
+    REQUIRE(
+        idle_and([&] { return run_git(remote, {"log", "-1", "--format=%s", "main"}) == "One\n"; }));
+
+    // Someone else pushes; Commit & Sync pulls it, then pushes ours.
+    run_git(dir.path, {"clone", "-q", remote.string(), "other"});
+    write(dir.path / "other" / "theirs.txt", "t\n");
+    run_git(dir.path / "other", {"add", "theirs.txt"});
+    run_git(dir.path / "other", {"commit", "-q", "-m", "Theirs"});
+    run_git(dir.path / "other", {"push", "-q"});
+    write(repo / "two.txt", "2\n");
+    run_git(repo, {"add", "two.txt"});
+    REQUIRE(shown.wait_for([&] { return shown.text().find("1 staged") != std::string::npos; }));
+    choose_item(section()->split->menu("Two"), "git_commit_sync");
+    REQUIRE(idle_and([&] {
+        return std::filesystem::exists(repo / "theirs.txt") &&
+               run_git(remote, {"log", "--format=%s", "main"}).find("Two\n") != std::string::npos;
+    }));
+
+    // Sync alone: pull, then push.
+    run_git(dir.path / "other", {"pull", "-q", "--no-rebase"});
+    write(dir.path / "other" / "three.txt", "3\n");
+    run_git(dir.path / "other", {"add", "three.txt"});
+    run_git(dir.path / "other", {"commit", "-q", "-m", "Three"});
+    run_git(dir.path / "other", {"push", "-q"});
+    REQUIRE(shown.wait_for([&] { return section()->header->buttons[0].enabled; }));
+    section()->header->buttons[0].action();
+    REQUIRE(idle_and([&] { return std::filesystem::exists(repo / "three.txt"); }));
+    CHECK(host.messages.back() == std::pair<std::string, bool>{"Synced", false});
 }

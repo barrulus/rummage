@@ -34,6 +34,9 @@ struct Options {
     // What git's texts and git's own messages are in: a language code ("en"), or empty for the
     // interface's. Its texts follow i18n's "git" context, which the owner sets alike.
     std::string language;
+    // What the commit button and Ctrl+Enter in the message field do; the button's menu has all.
+    enum class CommitAction : std::uint8_t { commit, commit_push, commit_sync };
+    CommitAction commit_action{CommitAction::commit};
 
     bool operator==(const Options&) const = default;
 };
@@ -158,6 +161,7 @@ private:
                                                           const std::vector<std::string>& paths,
                                                           bool inside_ignored);
     [[nodiscard]] static std::vector<std::string> push_arguments(const Repo& repo);
+    [[nodiscard]] static std::vector<std::string> pull_arguments(const Repo& repo);
     enum class CommitMode : std::uint8_t { plain, amend, push, sync };
     void commit_typed(Repo& repo, const std::string& typed, CommitMode mode);
     void sync(Repo& repo);

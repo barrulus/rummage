@@ -73,6 +73,9 @@ enabled = true
 ignored = "dim"
 # Folders mark the changes inside them.
 folder_status = true
+# What the commit button and Ctrl+Enter in the information pane do: commit, commit_push or
+# commit_sync (pull, then push). Its menu offers every way either way.
+commit_action = "commit"
 # Git's menus, messages and git's own output in another language than the interface ("en"),
 # or empty for the interface's.
 language = ""

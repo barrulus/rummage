@@ -159,6 +159,8 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         config.git.ignored, false, {"show", "dim", "hide"});
     add(0, "Git", "git", "folder_status", "Folder status", "Folders mark the changes inside them",
         config.git.folder_status ? "true" : "false", true, {"true", "false"});
+    add(0, "Git", "git", "commit_action", "Commit button", "What the button and Ctrl+Enter do",
+        config.git.commit_action, false, {"commit", "commit_push", "commit_sync"});
     std::vector<std::string> git_languages{""};
     for (const std::string_view code : i18n::languages()) {
         git_languages.emplace_back(code);
@@ -553,6 +555,13 @@ std::string SettingsDialog::choice_label(const Field& field, std::string_view va
         if (value == "file")
             return std::string{i18n::tr("Palette file")};
         return std::string{i18n::tr("Built-in")};
+    }
+    if (field.table == "git" && field.key == "commit_action") {
+        if (value == "commit_push")
+            return std::string{i18n::tr("Commit & Push")};
+        if (value == "commit_sync")
+            return std::string{i18n::tr("Commit & Sync")};
+        return std::string{i18n::tr("Commit")};
     }
     if (field.table == "git" && field.key == "language") {
         if (value.empty())

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <sstream>
 #include <sys/wait.h>
 #include <utility>
 
@@ -177,6 +178,22 @@ std::string time_ago(std::int64_t then, std::int64_t now) {
     }
     return i18n::trnc("git", "{} year ago", "{} years ago", count(seconds / (365 * kDay)));
 }
+
+namespace {
+
+// name with what a POSIX extended regular expression would read as special escaped.
+std::string regex_escaped(std::string_view name) {
+    std::string escaped;
+    for (const char c : name) {
+        if (std::string_view{".[]{}()\\*+?^$|"}.find(c) != std::string_view::npos) {
+            escaped += '\\';
+        }
+        escaped += c;
+    }
+    return escaped;
+}
+
+}  // namespace
 
 RemoteView view_of_remote(std::string_view remote) {
     // The hosts whose web pages sit where their ssh addresses point.
@@ -558,20 +575,32 @@ void Decorator::read_remote(Repo& repo) {
     repo.remote_stale = false;
     repo.remote_query = std::make_unique<platform::ProgramOutput>(
         loop_, [this, &repo](const std::string& output, int wait_status) {
-            std::string url = output;
-            while (!url.empty() && (url.back() == '\n' || url.back() == '\r')) {
-                url.pop_back();
+            // "key value" lines: the remote's URL, and whether pull's way is configured.
+            std::string url;
+            bool pull_configured = false;
+            if (WIFEXITED(wait_status) && WEXITSTATUS(wait_status) == 0) {
+                std::istringstream lines{output};
+                for (std::string line; std::getline(lines, line);) {
+                    const std::size_t space = line.find(' ');
+                    const std::string key_name = line.substr(0, space);
+                    if (key_name.starts_with("pull.")) {
+                        pull_configured = true;
+                    } else if (space != std::string::npos) {
+                        url = line.substr(space + 1);
+                    }
+                }
             }
-            repo.remote = WIFEXITED(wait_status) && WEXITSTATUS(wait_status) == 0 && !url.empty()
-                              ? std::optional<RemoteView>{view_of_remote(url)}
-                              : std::nullopt;
+            repo.pull_configured = pull_configured;
+            repo.remote =
+                url.empty() ? std::nullopt : std::optional<RemoteView>{view_of_remote(url)};
             ++repo.generation;
             redraw_();
             repo.remote_query.reset();  // ends this callback's object: nothing after
         });
     if (!repo.remote_query->start(
             git_, {"--no-optional-locks", "-C", repo.repository.worktree.string(), "config",
-                   "--get", "remote." + name + ".url"})) {
+                   "--get-regexp",
+                   "^(remote\\." + regex_escaped(name) + "\\.url|pull\\.(rebase|ff))$"})) {
         repo.remote_query.reset();
     }
 }
@@ -914,14 +943,21 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
                                   branch.name.empty() ? std::string{"HEAD"} : branch.name),
         .revision = repo.input_revision,
         .text = repo.input_text,
-        .submit = on([this](Repo& at, const std::string& typed) {
-            commit_typed(at, typed, CommitMode::plain);
-        })};
+        .submit = {}};
+    // The button does what the settings choose; its menu has every way.
+    const CommitMode chosen =
+        options_.commit_action == Options::CommitAction::commit_push   ? CommitMode::push
+        : options_.commit_action == Options::CommitAction::commit_sync ? CommitMode::sync
+                                                                       : CommitMode::plain;
+    const std::string_view chosen_label =
+        chosen == CommitMode::push   ? i18n::trc("git", "Commit & Push")
+        : chosen == CommitMode::sync ? i18n::trc("git", "Commit & Sync")
+                                     : i18n::trc("git", "Commit");
     section_.split = views::DetailSection::Split{
-        .label = "✓ " + std::string{i18n::trc("git", "Commit")},
+        .label = "✓ " + std::string{chosen_label},
         .enabled = idle,
-        .action = on([this](Repo& at, const std::string& typed) {
-            commit_typed(at, typed, CommitMode::plain);
+        .action = on([this, chosen](Repo& at, const std::string& typed) {
+            commit_typed(at, typed, chosen);
         }),
         .menu = [this, key](const std::string& typed) {
             std::vector<views::MenuItem> items;
@@ -943,6 +979,8 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
             items[2].separator = true;
             return items;
         }};
+    section_.input->submit =
+        on([this, chosen](Repo& at, const std::string& typed) { commit_typed(at, typed, chosen); });
     // The changed files, in groups; their entries are made only when a group is open.
     section_.groups.clear();
     const auto group = [&](std::string id, std::string_view title, std::size_t count_of,
