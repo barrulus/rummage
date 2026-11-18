@@ -104,6 +104,8 @@ TEST_CASE("helpers: a photo's information from the helper") {
         CHECK(there.taken == here.taken);
         CHECK(there.software == here.software);
         CHECK(there.rating == here.rating);
+        CHECK(there.details == here.details);
+        CHECK(there.details_truncated == here.details_truncated);
     }
     const picture::PhotoInfo shot = helpers.photo_info(kData / "shot.jpg");
     CHECK(shot.camera == "OM-1");
@@ -624,4 +626,25 @@ TEST_CASE("helpers: rendered Markdown crosses the sandbox boundary with its sour
     CHECK(there.text.lines == here.text.lines);
     CHECK(there.text.spans == here.text.spans);
     CHECK(helpers.running() == 1);
+}
+
+TEST_CASE("helpers: extended metadata is bounded, round trips, and rejects truncated packets") {
+    picture::PhotoInfo info;
+    info.add_detail("Custom", std::string(3000, 'x'));
+    info.add_detail("Custom", "second value");
+    const auto bytes = isolate::protocol::encode_info(info);
+    const auto back = isolate::protocol::decode_info(bytes);
+    REQUIRE(back);
+    CHECK(back->details == info.details);
+    CHECK_FALSE(back->details_truncated);
+    for (std::size_t size = 0; size < bytes.size(); ++size)
+        CHECK_FALSE(isolate::protocol::decode_info(std::span{bytes}.first(size)));
+    for (unsigned i = 0; i < 300; ++i)
+        info.add_detail("Field " + std::to_string(i), std::string(4096, 'v'));
+    const auto large = isolate::protocol::encode_info(info);
+    CHECK(large.size() <= isolate::protocol::kMaxPacket);
+    const auto bounded = isolate::protocol::decode_info(large);
+    REQUIRE(bounded);
+    CHECK(bounded->details_truncated);
+    CHECK_FALSE(bounded->details.empty());
 }

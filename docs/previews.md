@@ -13,10 +13,11 @@ frames and embedded raw previews can fill more of the window, up to the original
 Older cached thumbnails without dimensions still fill the preview area until the sharp
 image arrives.
 
-**Alt+Enter** opens Properties with a compact metadata card and an image or video
+**Alt+Enter** opens Properties with a scrollable metadata card and an image or video
 thumbnail beside the filename when available. Unsupported files use their file-type
 icon. Its width follows the filename and metadata instead of reserving an empty
-right-hand column; long values are ellipsized within the window. The dialog grows
+right-hand column; long labels and values wrap within the window and can be selected
+and copied. The dialog grows
 for folder-icon controls, link targets and errors; in short
 windows, its contents scroll while the action buttons remain visible.
 
@@ -260,3 +261,31 @@ upright resolution, video codec, frame rate, bitrate, pixel format, rotation, au
 channel count, sample rate and embedded title/artist/recording-time/encoder tags. These values
 also appear in the information pane. Missing fields are omitted; missing media support leaves
 basic file information available. Video parsing stays inside the sandboxed helper.
+
+
+### Extended file metadata
+
+Properties, the information pane and Quick Look Details expose the same available media
+fields. Image details include aspect ratio and source format information such as bit depth,
+color model, compression and interlacing when the reader can determine them. These describe
+the source, rather than the preview's converted RGBA pixels.
+
+PNG text fields (including compressed and international text), color/profile information,
+pixel density, timestamps and animation headers are included. JPEG comments and XMP, and
+TIFF/EXIF directories including GPS and otherwise unrecognized tags, are also exposed.
+Unknown TIFF tags retain their numeric identifiers; binary blocks and oversized arrays show
+summaries rather than decoded contents. WebP, GIF, JPEG XL and HEIF expose technical header
+information; HEIF also exposes its embedded metadata blocks. Availability varies by format:
+this is not a complete interpretation of proprietary maker notes, IPTC, ICC profiles or XMP.
+
+Video details include container tags, each stream's tags and codec information, color fields,
+audio channel layouts and chapter metadata. With the PDF helper installed, document details
+include version, page count, standard document information and the first page's size in points.
+Text details include language, encoding, line endings and loaded line count; archive details
+include contents, unpacked size and reading/encryption limitations. Missing values are omitted.
+
+Metadata reads remain bounded inside the preview helpers. Extended details are limited to
+256 fields, 4096 bytes per label/value, and a 64 KiB helper response; format readers also limit
+bytes and directory/chunk traversal. Truncated metadata is identified, and binary summaries
+explicitly mark omitted data. Text preview line counts are labeled as preview counts when the
+file was not read in full. No sidecar files are read for these details.

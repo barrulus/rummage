@@ -10,6 +10,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "archive_text.hpp"
+#include "content_details.hpp"
 #include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
@@ -45,31 +46,6 @@ std::string count_of(std::size_t count, std::string_view noun) {
         return i18n::trn("{} file", "{} files", count);
     }
     return i18n::trn("{} item", "{} items", count);
-}
-
-// "1/2000 s · F5.6 · ISO 200", leaving out what is missing.
-std::string exposure_of(const picture::PhotoInfo& photo) {
-    std::string out;
-    const auto add = [&](const std::string& part) {
-        if (!part.empty()) {
-            out += (out.empty() ? "" : " · ") + part;
-        }
-    };
-    add(photo.exposure_time);
-    add(photo.aperture);
-    add(photo.iso.empty() ? photo.iso : "ISO " + photo.iso);
-    return out;
-}
-
-std::string rating_of(int rating) {
-    if (rating < 0) {
-        return std::string{i18n::tr("Rejected")};
-    }
-    std::string stars;
-    for (int i = 0; i < 5; ++i) {
-        stars += i < rating ? "★" : "☆";
-    }
-    return stars;
 }
 
 // Lays the pane out top to bottom: one column of centered content.
@@ -908,20 +884,15 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     }
 
-    // The shot.
-    const std::string exposure = photo == nullptr ? std::string{} : exposure_of(*photo);
-    if (photo != nullptr && !photo->video_codec.empty()) {
-        out.section("VIDEO");
+    if (photo != nullptr && !media_details(*photo).empty()) {
+        out.section(photo->video_codec.empty() ? "MEDIA" : "VIDEO");
         for (const auto& [label, value] : media_details(*photo))
             out.row(label, value);
-    } else if (photo != nullptr && (!media_details(*photo).empty() || photo->rating)) {
-        out.section("PHOTO");
-        out.row("Camera", photo->camera);
-        out.row("Lens", photo->lens);
-        out.row("Exposure", exposure);
-        out.row("Focal length", photo->focal_length);
-        out.row("Taken", photo->taken);
-        out.row("Rating", photo->rating ? rating_of(*photo->rating) : std::string{});
+    }
+
+    if (summary && summary->text) {
+        for (const auto& [label, value] : content_details(*summary))
+            out.row(label, value);
     }
 
     // The rest, on request.
@@ -947,14 +918,6 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             }
             out.row("Location", path.parent_path().string());
             out.row("Link to", info->link_target);
-            if (photo != nullptr && photo->video_codec.empty()) {
-                out.row("Program", photo->program);
-                out.row("Compensation", photo->exposure_bias);
-                out.row("Metering", photo->metering);
-                out.row("White balance", photo->white_balance);
-                out.row("Flash", photo->flash);
-                out.row("Software", photo->software);
-            }
         }
         if (!info->error.empty()) {
             out.skip(6.0F);

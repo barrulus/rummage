@@ -2,6 +2,8 @@
 
 #include <doctest/doctest.h>
 
+#include "rummage/views/media_details.hpp"
+
 using rummage::views::format_size;
 using rummage::views::visible_rows;
 
@@ -29,4 +31,19 @@ TEST_CASE("visible_rows: only what intersects the viewport") {
     CHECK(end.last == 100);
     const auto beyond = visible_rows(5, 28.0F, 0.0F, 1000.0F);  // short folder
     CHECK(beyond.last == 5);
+}
+
+TEST_CASE("media details: reduced aspect ratio, arbitrary tags and truncation are visible") {
+    rummage::picture::PhotoInfo info;
+    info.width = 2560;
+    info.height = 1440;
+    info.add_detail("Source tag", "the full value");
+    info.details_truncated = true;
+    const auto rows = rummage::views::media_details(info);
+    REQUIRE(rows.size() == 3);
+    CHECK(rows[0].first == "Aspect ratio");
+    CHECK(rows[0].second == "16:9");
+    CHECK(rows[1].first == "Source tag");
+    CHECK(rows[1].second == "the full value");
+    CHECK(rows[2].first == "Metadata");
 }
