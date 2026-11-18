@@ -650,6 +650,57 @@ void Decorator::read_branches(Repo& repo) {
     }
 }
 
+std::vector<views::DetailSection::Button> Decorator::entry_actions(
+    Repo& repo, int which, const std::string& path, const std::filesystem::path& target) {
+    const std::string key = repo.key;
+    const bool idle = !repo.action && repo.action_name.empty();
+    const auto on = [this, key](auto then) {
+        return [this, key, then] {
+            if (const auto it = repos_.find(key); it != repos_.end() && it->second->status) {
+                then(*it->second);
+            }
+        };
+    };
+    // Glyphs as in editors: + stage, − unstage, ↶ discard, ⇄ changes, ↗ open.
+    std::vector<views::DetailSection::Button> actions;
+    const auto add = [&](std::string id, std::string glyph, std::string_view hint, bool enabled,
+                         std::function<void()> action) {
+        actions.push_back({.id = "git_" + id,
+                           .label = std::move(glyph),
+                           .enabled = enabled,
+                           .action = std::move(action),
+                           .hint = std::string{hint},
+                           .menu = {}});
+    };
+    const bool has_head = repo.status && !repo.status->branch.oid.empty();
+    if (which == 1) {
+        add("unstage", "−", i18n::trc("git", "Unstage"), idle, on([this, path, has_head](Repo& at) {
+                act(at, std::string{i18n::trc("git", "Unstage")},
+                    {has_head ? std::vector<std::string>{"--literal-pathspecs", "restore",
+                                                         "--staged", "--", path}
+                              : std::vector<std::string>{"--literal-pathspecs", "rm", "--cached",
+                                                         "-q", "--", path}},
+                    {});
+            }));
+    } else {
+        add("stage", "+", i18n::trc("git", "Stage"), idle, on([this, path](Repo& at) {
+                act(at, std::string{i18n::trc("git", "Stage")},
+                    {{"--literal-pathspecs", "add", "-A", "--", path}}, {});
+            }));
+    }
+    add("discard", "↶", i18n::trc("git", "Discard Changes…"), idle,
+        on([this, path](Repo& at) { discard(at, {path}); }));
+    add("diff", "⇄", i18n::trc("git", "Show Changes"), true,
+        on([this, which, path](Repo& at) { show_group_diff(at, which, path); }));
+    add("open", "↗", i18n::trc("git", "Open File"), std::filesystem::exists(target),
+        [this, target] {
+            if (host_.open_file) {
+                host_.open_file(target);
+            }
+        });
+    return actions;
+}
+
 void Decorator::show_group_diff(Repo& repo, int which, const std::string& path) {
     if (!repo.status) {
         return;
@@ -991,11 +1042,13 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
                      .label = "⟳",
                      .enabled = idle && !branch.upstream.empty(),
                      .action = on([this](Repo& at) { sync(at); }),
+                     .hint = std::string{i18n::trc("git", "Sync")},
                      .menu = {}},
                     {.id = "more",
                      .label = "…",
                      .enabled = true,
                      .action = {},
+                     .hint = std::string{i18n::trc("git", "More Actions")},
                      .menu =
                          [this, key] {
                              const auto it = repos_.find(key);
@@ -1131,7 +1184,8 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
                                   items.insert(items.end(), std::make_move_iterator(git.begin()),
                                                std::make_move_iterator(git.end()));
                                   return items;
-                              }});
+                              },
+                          .actions = entry_actions(at, which, file.path, target)});
                  }
                  return entries;
              }});

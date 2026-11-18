@@ -805,6 +805,8 @@ struct FormDecorations final : rummage::views::Decorations {
     std::vector<std::string> submitted;
     std::vector<std::string> pressed;
     int asked_entries{0};
+    int opened_entries{0};
+    int staged{0};
     rummage::views::DetailSection section;
 
     FormDecorations() {
@@ -819,12 +821,21 @@ struct FormDecorations final : rummage::views::Decorations {
             .enabled = true,
             .action = [this](const std::string& typed) { pressed.push_back(typed); },
             .menu = {}};
-        section.groups.push_back(
-            {.id = "files", .title = "Files", .count = 1, .entries = [this] {
-                 ++asked_entries;
-                 return std::vector<rummage::views::DetailSection::Entry>{
-                     {.name = "a.txt", .detail = "src", .badge = {}, .open = {}, .menu = {}}};
-             }});
+        section.groups.push_back({.id = "files", .title = "Files", .count = 1, .entries = [this] {
+                                      ++asked_entries;
+                                      return std::vector<rummage::views::DetailSection::Entry>{
+                                          {.name = "a.txt",
+                                           .detail = "src",
+                                           .badge = {},
+                                           .open = [this] { ++opened_entries; },
+                                           .menu = {},
+                                           .actions = {{.id = "stage",
+                                                        .label = "+",
+                                                        .enabled = true,
+                                                        .action = [this] { ++staged; },
+                                                        .hint = "Stage it",
+                                                        .menu = {}}}}};
+                                  }});
     }
 
     const rummage::views::Badge* badge(const rummage::views::Folder& /*folder*/,
@@ -886,6 +897,21 @@ TEST_CASE("info pane: a decorator's text field, split button and folded group") 
     f.click(field.x + 40.0F, field.bottom() + 54.0F);
     f.draw();
     CHECK(decorations.asked_entries >= 1);
+
+    // The entry's line, under the group's heading: a click opens it; with the pointer on it,
+    // its button shows at the right (before the badge) and takes the click there instead.
+    const float line_y = field.bottom() + 54.0F + 24.0F;
+    const float button_x = field.right() - 30.0F;
+    f.click(button_x, line_y);
+    CHECK(decorations.staged == 0);  // not shown before the pointer was on the line
+    CHECK(decorations.opened_entries == 1);
+    f.pointer(rummage::ui::PointerEvent::Kind::motion, button_x, line_y);
+    f.draw();
+    f.pointer(rummage::ui::PointerEvent::Kind::motion, button_x, line_y);  // over the button
+    CHECK(f.browser.status_bar().message() == "Stage it");
+    f.click(button_x, line_y);
+    CHECK(decorations.staged == 1);
+    CHECK(decorations.opened_entries == 1);
     f.browser.set_decorations(nullptr);
 }
 

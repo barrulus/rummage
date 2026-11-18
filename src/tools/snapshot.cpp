@@ -19,6 +19,7 @@
 // --drag NAME presses on the entry NAME of the folder shown and drags it a little (the drag image
 // drawn under the pointer); --drop-over X,Y then moves that drag (or, alone, another program's
 // drag of files) over the point X,Y, which shows where it would drop.
+// --hover X,Y leaves the pointer resting there (after any clicks): what shows on hover.
 // --click X,Y[,X,Y...] clicks there (left button), one after another, each drawn and settled.
 // --band X1,Y1,X2,Y2 presses at X1,Y1 and moves to X2,Y2 with the button down: a rubber band
 // when the press is on empty space.
@@ -249,8 +250,9 @@ int main(int argc, char** argv) {
     std::string conflict;
     std::string drag;
     std::optional<std::pair<float, float>> drop_over;
-    std::vector<float> band;    // x1, y1, x2, y2
-    std::vector<float> clicks;  // --click: x, y of each left click, in order
+    std::vector<float> band;                       // x1, y1, x2, y2
+    std::vector<float> clicks;                     // --click: x, y of each left click, in order
+    std::optional<std::pair<float, float>> hover;  // --hover: where the pointer rests at the end
     std::optional<std::string> csd;
     std::optional<std::string> desktop;
     std::string icon_theme{"builtin"};
@@ -352,6 +354,15 @@ int main(int argc, char** argv) {
                 log::error("--click takes X,Y[,X,Y...]");
                 return 2;
             }
+        } else if (option == "--hover") {
+            const std::string_view point{args[2]};
+            const std::size_t comma = point.find(',');
+            if (comma == std::string_view::npos) {
+                log::error("--hover takes X,Y");
+                return 2;
+            }
+            hover = std::pair{std::stof(std::string{point.substr(0, comma)}),
+                              std::stof(std::string{point.substr(comma + 1)})};
         } else if (option == "--band") {
             std::string_view rest{args[2]};
             while (!rest.empty()) {
@@ -713,6 +724,15 @@ int main(int argc, char** argv) {
                     frame();
                     run_until(loop, [&] { return !columns->loading(); });
                     frame();
+                }
+                if (hover) {
+                    for (int i = 0; i < 2; ++i) {  // drawn, then on what was drawn
+                        columns->pointer({.kind = ui::PointerEvent::Kind::motion,
+                                          .x = hover->first,
+                                          .y = hover->second},
+                                         std::chrono::steady_clock::now());
+                        frame();
+                    }
                 }
                 if (!clicks.empty()) {
                     // What a click started (a git command, Quick Look fading in) settles.

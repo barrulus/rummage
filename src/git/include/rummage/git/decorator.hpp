@@ -196,6 +196,8 @@ private:
     void show_diff(const std::string& key, std::vector<DiffItem> items, std::size_t index);
     // which: 0 conflicts, 1 staged, 2 changes (the section's groups).
     void show_group_diff(Repo& repo, int which, const std::string& path);
+    [[nodiscard]] std::vector<views::DetailSection::Button> entry_actions(
+        Repo& repo, int which, const std::string& path, const std::filesystem::path& target);
     [[nodiscard]] static std::vector<DiffItem> diff_items(const Status& status,
                                                           const std::vector<std::string>& paths);
     [[nodiscard]] const views::Badge* badge_at(Place& place, const std::string& name);

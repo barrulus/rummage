@@ -1400,4 +1400,29 @@ TEST_CASE("git section: the changes of a file, and the arrows through the list")
     host.shown.back().step(-1);  // nothing before the first
     run_for(shown.loop, 100ms);
     CHECK(host.shown.size() == before);
+
+    // The buttons on a file's line: + in Changes stages it, − in Staged Changes unstages it.
+    const auto ids = [](const rummage::views::DetailSection::Entry& entry) {
+        std::vector<std::string> found;
+        for (const auto& action : entry.actions) {
+            found.push_back(action.id);
+        }
+        return found;
+    };
+    CHECK(ids(entries[0]) ==
+          std::vector<std::string>{"git_stage", "git_discard", "git_diff", "git_open"});
+    entries[0].actions.front().action();  // + on a.txt
+    REQUIRE(shown.wait_for([&] {
+        const auto* staged = group_named(*shown.decorator.details(*shown.folder), "git_staged");
+        return !shown.decorator.acting() && staged != nullptr && staged->count == 1;
+    }));
+    const auto staged_entries =
+        group_named(*shown.decorator.details(*shown.folder), "git_staged")->entries();
+    REQUIRE(staged_entries.size() == 1);
+    CHECK(ids(staged_entries[0]).front() == "git_unstage");
+    staged_entries[0].actions.front().action();
+    REQUIRE(shown.wait_for([&] {
+        return !shown.decorator.acting() &&
+               group_named(*shown.decorator.details(*shown.folder), "git_staged") == nullptr;
+    }));
 }

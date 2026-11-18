@@ -96,6 +96,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
                      transfer_done(request, result);
                  }} {
     info_pane_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
+    info_pane_.set_hint_handler(
+        [this](std::string hint) { status_bar_.show_message(std::move(hint), false); });
     info_pane_.set_menu_handler([this](float x, float y, std::vector<MenuItem> items) {
         if (!items.empty()) {
             menu_.open(x, y, std::move(items), false);

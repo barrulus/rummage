@@ -734,11 +734,13 @@ std::vector<views::DetailSection::Button> Decorator::buttons(Repo& repo) {
                       std::string{i18n::trc("git", "Commit…")},
                       idle && any,
                       run_on([this](Repo& at) { commit_all(at); }),
+                      {},
                       {}});
     result.push_back({"stage_all",
                       std::string{i18n::trc("git", "Stage All")},
                       idle && any,
                       simple(i18n::trc("git", "Stage All"), {"add", "-A"}, {}),
+                      {},
                       {}});
     result.push_back(
         {"unstage_all",
@@ -748,24 +750,28 @@ std::vector<views::DetailSection::Button> Decorator::buttons(Repo& repo) {
                 has_head ? std::vector<std::string>{"restore", "--staged", ":/"}
                          : std::vector<std::string>{"rm", "--cached", "-r", "-q", ":/"},
                 {}),
+         {},
          {}});
     result.push_back(
         {"fetch",
          std::string{i18n::trc("git", "Fetch")},
          idle,
          simple(i18n::trc("git", "Fetch"), {"fetch", "--quiet"}, i18n::trc("git", "Fetched")),
+         {},
          {}});
     result.push_back(
         {"pull",
          std::string{i18n::trc("git", "Pull")},
          idle && upstream,
          simple(i18n::trc("git", "Pull"), pull_arguments(repo), i18n::trc("git", "Pulled")),
+         {},
          {}});
     result.push_back(
         {"push",
          std::string{i18n::trc("git", "Push")},
          idle && has_head,
          simple(i18n::trc("git", "Push"), push_arguments(repo), i18n::trc("git", "Pushed")),
+         {},
          {}});
     return result;
 }

@@ -102,6 +102,9 @@ public:
         redraw_();
     }
 
+    // Shows a hint while the pointer is on a decorator's button that has one (the status bar).
+    void set_hint_handler(std::function<void(std::string hint)> hint) { hint_ = std::move(hint); }
+
     // Where a decorator's buttons open their menus (the browser's context menu).
     void set_menu_handler(std::function<void(float x, float y, std::vector<MenuItem> items)> open) {
         open_menu_ = std::move(open);
@@ -255,6 +258,11 @@ private:
     };
 
     std::vector<EntryTarget> extra_entries_;
+    // The entry line the pointer is on (its index among those drawn), and its buttons' hints.
+    std::optional<std::size_t> hovered_entry_;
+    std::vector<std::pair<ui::Rect, std::string>> extra_hints_;  // as last drawn
+    std::string shown_hint_;
+    std::function<void(std::string)> hint_;
     std::unordered_set<std::string> open_groups_;  // by DetailSection::Group::id
     ui::TextField input_;
     bool input_focused_{false};

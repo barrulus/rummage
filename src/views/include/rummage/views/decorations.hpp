@@ -55,6 +55,7 @@ struct DetailSection {
         std::string label;
         bool enabled{true};
         std::function<void()> action;  // runs on a click, the section may change after
+        std::string hint;              // what it does, shown while the pointer is on it
         // Set: a click opens these as a menu under the button instead.
         std::function<std::vector<MenuItem>()> menu;
     };
@@ -92,6 +93,7 @@ struct DetailSection {
         Badge badge;
         std::function<void()> open;                   // a click
         std::function<std::vector<MenuItem>()> menu;  // a right click
+        std::vector<Button> actions;  // small buttons shown while the pointer is on the line
     };
 
     // Folded until opened; entries is asked only then, so a long list costs nothing folded.

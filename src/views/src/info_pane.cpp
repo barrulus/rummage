@@ -289,6 +289,33 @@ bool InfoPane::autoscrolling() const noexcept {
 
 bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point now) {
     using Kind = ui::PointerEvent::Kind;
+    // Which entry line the pointer is on (its buttons show), and a button's hint.
+    if (event.kind == Kind::motion || event.kind == Kind::leave) {
+        std::optional<std::size_t> over;
+        std::string hint;
+        if (event.kind == Kind::motion) {
+            for (std::size_t i = 0; i < extra_entries_.size(); ++i) {
+                if (extra_entries_[i].bounds.contains(event.x, event.y)) {
+                    over = i;
+                }
+            }
+            for (const auto& [bounds, text] : extra_hints_) {
+                if (bounds.contains(event.x, event.y)) {
+                    hint = text;
+                }
+            }
+        }
+        if (over != hovered_entry_) {
+            hovered_entry_ = over;
+            redraw_();
+        }
+        if (hint != shown_hint_) {
+            shown_hint_ = hint;
+            if (hint_ && !hint.empty()) {
+                hint_(hint);
+            }
+        }
+    }
     if (event.kind == Kind::leave) {
         selecting_ = false;
         metadata_.pointer(event);
@@ -538,20 +565,21 @@ bool InfoPane::click(float x, float y) {
         redraw_();
         return true;
     }
-    for (const EntryTarget& entry : extra_entries_) {
-        if (entry.bounds.contains(x, y)) {
-            if (entry.open) {
-                const std::function<void()> run = entry.open;
+    // Buttons first: an entry's own buttons lie on its line.
+    for (const auto& [bounds, action] : extra_buttons_) {
+        if (bounds.contains(x, y)) {
+            if (action) {
+                const std::function<void()> run = action;  // the section may be rebuilt
                 run();
             }
             redraw_();
             return true;
         }
     }
-    for (const auto& [bounds, action] : extra_buttons_) {
-        if (bounds.contains(x, y)) {
-            if (action) {
-                const std::function<void()> run = action;  // the section may be rebuilt
+    for (const EntryTarget& entry : extra_entries_) {
+        if (entry.bounds.contains(x, y)) {
+            if (entry.open) {
+                const std::function<void()> run = entry.open;
                 run();
             }
             redraw_();
@@ -701,6 +729,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         extra_toggle_ = {};
         extra_buttons_.clear();
         extra_entries_.clear();
+        extra_hints_.clear();
         const DetailSection* const section =
             decorations_ != nullptr ? decorations_->details(folder) : nullptr;
         if (section == nullptr) {
@@ -882,7 +911,31 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             }
             for (const DetailSection::Entry& entry : group.entries()) {
                 const ui::Rect line{out.left() + 18.0F, out.y(), out.width() - 18.0F, kEntryHeight};
-                const float letter = 18.0F;
+                const bool hovered = hovered_entry_ == extra_entries_.size();
+                if (hovered) {
+                    renderer.draw_box(line, {.fill = palette.surface_container_high, .radius = {}});
+                }
+                // The line's buttons, while the pointer is on it: right, before the badge.
+                float buttons_left = line.right() - 18.0F;
+                if (hovered) {
+                    for (auto it = entry.actions.rbegin(); it != entry.actions.rend(); ++it) {
+                        const float width = text_width(renderer, it->label, kTextSize) + 10.0F;
+                        const ui::Rect area{buttons_left - width, line.y + 2.0F, width,
+                                            kEntryHeight - 4.0F};
+                        renderer.draw_box(
+                            area, {.fill = palette.surface_container_highest, .radius = {}});
+                        renderer.draw_text(it->label, area.x + 5.0F, area.y + 2.0F, kTextSize,
+                                           it->enabled ? palette.on_surface : palette.outline);
+                        if (it->enabled) {
+                            extra_buttons_.emplace_back(area, it->action);
+                        }
+                        if (!it->hint.empty()) {
+                            extra_hints_.emplace_back(area, it->hint);
+                        }
+                        buttons_left = area.x - 2.0F;
+                    }
+                }
+                const float letter = line.right() - buttons_left;
                 const float room = std::max(1.0F, line.width - letter - 6.0F);
                 const std::optional<ui::Color> tint = tint_of(palette, &entry.badge);
                 const float name = renderer.draw_text(entry.name, line.x, line.y + 4.0F, kTextSize,
