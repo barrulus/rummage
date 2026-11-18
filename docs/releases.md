@@ -12,8 +12,9 @@ See [installation](install.md#development-downloads) for package/source identity
 Builds with the optional git integration show the branch, ahead/behind, an operation in
 progress and the counts of changes in the status bar and the information pane, and badges
 and coloured names on changed, untracked, conflicted and ignored files, as in code editors.
-A Git submenu and buttons stage, commit, discard, ignore, fetch, pull and push; folders can
-be sorted by status. It follows changes live and can dim or hide ignored files. See
+A Git submenu and a source-control section in the information pane stage, commit (with a
+message field, amend, commit & push or sync), discard, ignore, fetch, pull, push and switch
+branches; folders can be sorted by status. It follows changes live and can dim or hide ignored files. See
 [git status](git.md).
 
 File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your

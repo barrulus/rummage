@@ -53,20 +53,31 @@ Git status never shows in the trash, in its folders opened by path (`Trash/files
 
 ## Information pane
 
-At the end of the information pane, a **GIT** section (folded by its heading) shows the
-branch, the remote, the upstream with ahead/behind, an operation in progress, the changes
-and the last commit with its author and age. The remote (the upstream's, else `origin`) is
-shown without any user, password or token; it is a link to its web page when it is an
-`https://` remote or on GitHub, GitLab, Bitbucket, Codeberg or SourceHut, whose ssh
-addresses map to their pages. Other remotes, such as your own server over ssh, are text. Its buttons:
+At the end of the information pane, a **GIT** section (folded by its heading) works like an
+editor's source control view:
 
-| Button | What it does |
-| --- | --- |
-| Commit… | Asks for a message and commits what is staged. With nothing staged, it asks first whether to commit every change, new files included |
-| Stage All / Unstage All | `git add -A` / takes everything out of the index |
-| Fetch, Pull, Push | `git fetch`, `git pull --no-edit`, `git push`; a branch without an upstream is pushed with `-u origin HEAD` |
+- **Header:** the repository's folder and the branch (`*` when something changed, ↑/↓ against
+  the upstream). Click the branch to switch: local branches, remote branches without a local
+  copy (switched to as a new branch that tracks them) and **New Branch…**. **⟳** syncs (pull,
+  then push); **…** offers Pull, Push, Fetch, Stage All and Unstage All.
+- **Repository:** the remote (the upstream's, else `origin`) without any user, password or
+  token. It is a link to its web page for `https://` remotes and on GitHub, GitLab, Bitbucket,
+  Codeberg or SourceHut, whose ssh addresses map to their pages; other remotes, such as your
+  own server over ssh, are text. Links open with `xdg-open`, in front.
+- The operation in progress and the last commit with its author and age.
+- **Message field:** type the commit message; **Ctrl+Enter** commits, **Escape** leaves it.
+  It empties after a commit.
+- **Commit button:** commits what is staged; with nothing staged it asks first whether to
+  commit every change, new files included. Its arrow offers **Commit**, **Commit (Amend)**
+  (an empty message keeps the last one), **Commit & Push** and **Commit & Sync**.
+  `git.commit_action` chooses what the button and Ctrl+Enter do.
+- **Merge Changes**, **Staged Changes** and **Changes** with their counts, folded: their files
+  are listed (and only then looked up) when you open a group. A click shows the file in the
+  browser; a right click opens the Git menu for it.
 
-The same commands are in the context menu's **Git** submenu on a folder's background.
+Pull merges when neither `pull.rebase` nor `pull.ff` is configured, as editors do; otherwise
+your configuration applies. The same commands are in the context menu's **Git** submenu on a
+folder's background.
 
 ## Context menu
 
@@ -116,6 +127,7 @@ read (for example one owned by another user, see `safe.directory`) shows nothing
 | `git.enabled` | `true` | Show the git status; live |
 | `git.ignored` | `"dim"` | Ignored files: `"show"` (plainly), `"dim"`, or `"hide"`; live |
 | `git.folder_status` | `true` | Folders mark the changes inside them; live |
+| `git.commit_action` | `"commit"` | What the commit button and Ctrl+Enter do: `"commit"`, `"commit_push"` or `"commit_sync"`; live |
 | `git.language` | `""` | Language of git's menus, messages and git's own output, e.g. `"en"` with a German interface; empty follows the interface; live |
 
 The same settings are in **Settings** (**Ctrl+,**). With `enabled = false` the menu, the
