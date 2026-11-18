@@ -897,17 +897,18 @@ const views::DetailSection* Decorator::details(const views::Folder& folder) {
     section_.header = views::DetailSection::Header{
         .title = repo.repository.worktree.filename().string(),
         .subtitle = std::move(subtitle),
-        .buttons = {{.id = "sync",
-                     .label = "⟳",
-                     .enabled = idle && !branch.upstream.empty(),
-                     .action = on([this](Repo& at) { sync(at); }),
-                     .menu = {}},
-                    {.id = "more", .label = "…", .enabled = true, .action = {}, .menu = {}}}};
-    // on() returns nothing for a menu when the repository is gone: give it a type.
-    section_.header->buttons[1].menu = [this, key] {
-        const auto it = repos_.find(key);
-        return it != repos_.end() ? repo_items(*it->second, false) : std::vector<views::MenuItem>{};
-    };
+        .buttons = {
+            {.id = "sync",
+             .label = "⟳",
+             .enabled = idle && !branch.upstream.empty(),
+             .action = on([this](Repo& at) { sync(at); }),
+             .menu = {}},
+            {.id = "more", .label = "…", .enabled = true, .action = {}, .menu = [this, key] {
+                 const auto it = repos_.find(key);
+                 return it != repos_.end() ? repo_items(*it->second, false)
+                                           : std::vector<views::MenuItem>{};
+             }}}};
+
     section_.input = views::DetailSection::Input{
         .placeholder = i18n::trcf("git", "Message (Ctrl+Enter to commit on “{}”)",
                                   branch.name.empty() ? std::string{"HEAD"} : branch.name),

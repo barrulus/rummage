@@ -727,6 +727,7 @@ struct TestHost {
     bool confirm_answer = true;
     std::vector<std::filesystem::path> trashed;
     std::vector<std::string> actions;  // the buttons of the text cards asked for
+    std::vector<std::pair<std::filesystem::path, std::filesystem::path>> revealed;
 
     rummage::views::DecorationHost host() {
         return {
@@ -747,6 +748,10 @@ struct TestHost {
                         std::filesystem::remove_all(path);
                         trashed.push_back(path);
                     }
+                },
+            .reveal =
+                [this](const std::filesystem::path& root, const std::filesystem::path& target) {
+                    revealed.emplace_back(root, target);
                 }};
     }
 };
