@@ -14,6 +14,7 @@
 background_opacity = 1.0
 # "auto" prefers colors.toml, then desktop preferences, then the built-in palette.
 # "desktop" ignores colors.toml; "file" uses it; "builtin" ignores both sources.
+# "kde" imports the active colours from $XDG_CONFIG_HOME/kdeglobals (normally ~/.config/kdeglobals).
 # An unavailable explicit source falls back to built-in without changing this setting.
 palette_source = "auto"
 # "system" follows the selected source's mode.

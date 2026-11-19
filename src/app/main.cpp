@@ -652,6 +652,7 @@ int main(int argc, char** argv) {
             using Source = theme::Theme::Source;
             theme.set_source(appearance.palette_source == "desktop"   ? Source::desktop
                              : appearance.palette_source == "file"    ? Source::file
+                             : appearance.palette_source == "kde"     ? Source::kde
                              : appearance.palette_source == "builtin" ? Source::builtin
                                                                       : Source::automatic);
             theme.set_dark_override(appearance.color_scheme == "system"

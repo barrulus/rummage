@@ -184,8 +184,8 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         true);
 
     add(1, "Theme", "appearance", "palette_source", "Palette source",
-        "Automatic, Desktop, Palette file or Built-in", config.appearance.palette_source, false,
-        {"auto", "desktop", "file", "builtin"});
+        "Automatic, Desktop, Palette file, Built-in or KDE", config.appearance.palette_source,
+        false, {"auto", "desktop", "file", "builtin", "kde"});
     add(1, "Theme", "appearance", "color_scheme", "Colour mode",
         "Follow the selected source or choose light or dark", config.appearance.color_scheme, false,
         {"system", "light", "dark"});
@@ -781,6 +781,8 @@ std::string SettingsDialog::choice_label(const Field& field, std::string_view va
             return std::string{i18n::tr("Automatic")};
         if (value == "desktop")
             return std::string{i18n::tr("Desktop")};
+        if (value == "kde")
+            return std::string{i18n::tr("KDE")};
         if (value == "file")
             return std::string{i18n::tr("Palette file")};
         return std::string{i18n::tr("Built-in")};
@@ -847,6 +849,9 @@ std::string SettingsDialog::palette_status() const {
     using Source = theme::Theme::Source;
     std::string source;
     switch (status.active) {
+        case Source::kde:
+            source = i18n::tr("KDE");
+            break;
         case Source::file:
             source = i18n::tr("Palette file");
             break;
@@ -857,11 +862,17 @@ std::string SettingsDialog::palette_status() const {
         case Source::builtin:
             source =
                 status.requested == Source::desktop ? i18n::tr("Built-in (desktop unavailable)")
+                : status.requested == Source::kde   ? i18n::tr("Built-in (KDE palette unavailable)")
                 : status.requested == Source::file ? i18n::tr("Built-in (palette file unavailable)")
                                                    : i18n::tr("Built-in");
             break;
     }
-    if (status.file_state == theme::Theme::FileState::invalid) {
+    if (status.requested == Source::kde && status.kde_state == theme::Theme::FileState::invalid) {
+        source += status.retaining_last_valid_kde
+                      ? std::string{i18n::tr(" (reload failed; last valid palette)")}
+                      : std::string{i18n::tr(" (palette file rejected)")};
+    } else if (status.requested != Source::kde &&
+               status.file_state == theme::Theme::FileState::invalid) {
         source += status.retaining_last_valid_file && status.active == Source::file
                       ? std::string{i18n::tr(" (reload failed; last valid palette)")}
                       : std::string{i18n::tr(" (palette file rejected)")};
@@ -875,7 +886,8 @@ std::string SettingsDialog::palette_status() const {
 void SettingsDialog::activate(std::string_view id, bool keyboard) {
     if (id == "palette_details" && theme_status_) {
         auto text = palette_status();
-        for (const auto& problem : theme_status_().file_problems)
+        const auto status = theme_status_();
+        for (const auto& problem : status.problems())
             text += "\n" + problem;
         details_.push(std::move(text));
         return;
@@ -1109,7 +1121,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         if (editable() && section_ <= 2 && search_.text().empty() && last_card_.width >= 640)
             order.push_back("reset_category");
 
-        if (section_ == 1 && theme_status_ && !theme_status_().file_problems.empty())
+        if (section_ == 1 && theme_status_ && !theme_status_().problems().empty())
             order.push_back("palette_details");
         if (!error_.empty())
             order.push_back("details");
@@ -1424,7 +1436,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     }
     if (section_ == 1 && theme_status_ && search_.text().empty()) {
         const auto palette_state = theme_status_();
-        const bool diagnostics = !palette_state.file_problems.empty();
+        const bool diagnostics = !palette_state.problems().empty();
         renderer.draw_text(palette_status(), content.x + 16, content.y + 8, 12,
                            palette.on_surface_variant,
                            std::max(1.0F, content.width - (diagnostics ? 116 : 32)));

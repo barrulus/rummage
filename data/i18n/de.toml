@@ -899,7 +899,7 @@ moves = "Bewegung"
 "Active palette: {} · dark override" = "Aktive Palette: {} · Dunkelmodus erzwungen"
 "Active palette: {} · light override" = "Aktive Palette: {} · Hellmodus erzwungen"
 "Desktop" = "Desktop"
-"Automatic, Desktop, Palette file or Built-in" = "Automatisch, Desktop, Palettendatei oder integriert"
+"Automatic, Desktop, Palette file, Built-in or KDE" = "Automatisch, Desktop, Palettendatei, integriert oder KDE"
 "Follow the selected source or choose light or dark" = "Der gewählten Quelle folgen oder Hell/Dunkel wählen"
 "Use the palette accent for Rummage’s app icon" = "Palettenakzent für das Anwendungssymbol nutzen"
 
@@ -988,6 +988,9 @@ moves = "Bewegung"
 "Available commands depend on the selection." = "Verfügbare Befehle hängen von der Auswahl ab."
 "Unavailable command" = "Nicht verfügbarer Befehl"
 "Accessed" = "Zugegriffen"
+
+"KDE" = "KDE"
+"Built-in (KDE palette unavailable)" = "Integriert (KDE-Palette nicht verfügbar)"
 
 [contexts.file-action]
 "Open" = "Öffnen"

@@ -5,7 +5,7 @@
 ## Quick settings
 
 Open the toolbar cog or press **Ctrl+,** for **Settings → Appearance**. Choose
-a palette source (Automatic, Desktop, Palette file or Built-in) and a separate
+a palette source (Automatic, Desktop, Palette file, Built-in or KDE) and a separate
 colour mode (Follow source, light or dark); an icon theme; opacity; fonts; and
 preview placement. The active-palette line reports the applied source, including
 fallback and any light/dark override. Changes save automatically when valid; the
@@ -43,7 +43,8 @@ not the palette path.
 | Automatic | `"auto"` | File, then desktop, then built-in; preserves existing precedence |
 | Desktop | `"desktop"` | Desktop light/dark/accent preferences; ignores the palette file |
 | Palette file | `"file"` | `colors.toml`; ignores desktop colours |
-| Built-in | `"builtin"` | Built-in dark palette; ignores both external colour sources |
+| Built-in | `"builtin"` | Built-in dark palette; ignores external colour sources |
+| KDE | `"kde"` | Imports the active colours from `$XDG_CONFIG_HOME/kdeglobals` |
 
 An unavailable explicit source falls back to Built-in, and Appearance explains
 which source is unavailable. The saved preference stays selected, so a palette
@@ -69,7 +70,7 @@ selection continue independently.
 Choosing light or dark in Settings generates a palette from the active source's
 accent (or the default blue when it supplies none). It does not select a
 corresponding variant of an imported palette. Select Follow source
-(`color_scheme = "system"`) to use the chosen source's exact colours and mode.
+(`color_scheme = "system"`) to use the chosen source's colours and mode (with the KDE readability adaptation below).
 Source selection and colour mode are independent and both reload live.
 
 ### Higher contrast
@@ -87,12 +88,60 @@ disabled controls and compositor effects can reduce the displayed contrast.
 | Desktop, or Automatic using the desktop | Generates a higher-contrast palette from the desktop mode and accent |
 | Any source with an explicit Light or Dark colour mode | Generates a higher-contrast palette from the selected source's accent |
 | Palette file, or Automatic using a file, with Follow source | Keeps the file's colours exactly, including partial palettes and Matugen/Noctalia output; use a higher-contrast palette from its producer or choose Light/Dark |
+| KDE with Follow source | Keeps the adapted KDE palette; choose a higher-contrast KDE scheme or Light/Dark |
 | Built-in, including an unavailable source's fallback, with Follow source | Keeps the built-in palette; choose Desktop or Light/Dark to use generated higher contrast |
 
 Missing, malformed or unknown contrast values mean normal contrast, as does a
 portal backend that does not expose this setting. Returning to normal contrast
 restores the normal generated palette. Contrast does not change source precedence,
 the selected colour mode, or the palette file on disk.
+
+### KDE colours
+
+Choose **Settings → Appearance → Palette source → KDE** and **Follow source**, or set:
+
+```toml
+[appearance]
+palette_source = "kde"
+color_scheme = "system"
+```
+
+Apply a colour scheme in KDE's System Settings first. Rummage reads its active
+colours from `$XDG_CONFIG_HOME/kdeglobals` (normally `~/.config/kdeglobals`),
+including accent changes already written there by KDE. It does not need Qt or a
+running KDE session. Automatic keeps its existing precedence; KDE is opt-in.
+`--config` does not change this path. Neither KDE's file nor `colors.toml` is modified.
+
+The adapter uses these active groups:
+
+| KDE role | Rummage use |
+| --- | --- |
+| View background and alternate background | File content and alternate surfaces |
+| Window background | Panes, popups and dialogs |
+| Button background | Raised controls |
+| View foreground, inactive, link and negative text | Normal, subdued, secondary and error text |
+| Selection background and foreground | Selection, accent controls, drop targets and highlighted menu rows |
+
+View, Window, Button and Selection must each contain `BackgroundNormal` and
+`ForegroundNormal`. Optional roles fall back to readable derived colours. Values
+must be opaque `R,G,B` or `R,G,B,255` with channels from 0 to 255. Rummage preserves
+these backgrounds and the selection colour, but adapts foregrounds to target at
+least 4.5:1 on opaque backgrounds. Window and button text share Rummage's normal
+text role: View text is preferred, adjusted if needed. Schemes whose backgrounds
+cannot use a common readable text colour are rejected. This is a palette adapter,
+not a reproduction of Qt widget styling. Other semantic roles are generated from
+the inferred light/dark mode and selection accent.
+
+Only the materialized active groups are imported. Scheme-name lookup, KConfig
+inheritance, colour effects and inactive-window groups are not applied. Immutable
+`[$i]` markers are accepted; expansion/deletion modifiers on imported values are
+rejected. Malformed, duplicate, incomplete, translucent or oversized (over 1 MiB)
+input is rejected, with diagnostics in Appearance → Details.
+
+Writes and atomic replacements reload live. An invalid update retains the last
+valid KDE palette; a missing file falls back to Built-in. Creating it again resumes
+KDE colours. Keep the containing configuration directory in place; when using a
+symlink, replace the link or restart after changing its target elsewhere.
 
 ### Palette file interface
 

@@ -65,6 +65,7 @@ add_executable(rummage-tests
     mime_test.cpp
     navigation_test.cpp
     palette_test.cpp
+    kde_palette_test.cpp
     paste_test.cpp
     places_test.cpp
     remote_test.cpp
