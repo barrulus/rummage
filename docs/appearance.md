@@ -72,6 +72,28 @@ corresponding variant of an imported palette. Select Follow source
 (`color_scheme = "system"`) to use the chosen source's exact colours and mode.
 Source selection and colour mode are independent and both reload live.
 
+### Higher contrast
+
+Rummage follows the Settings portal's
+[`org.freedesktop.appearance/contrast`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)
+preference at startup and while running. Higher contrast strengthens generated
+text, accent colours and borders in both light and dark modes. Generated text
+pairs target at least 7:1 contrast, and borders target 3:1 against the generated
+surfaces. These ratios describe opaque palette colours; window transparency,
+disabled controls and compositor effects can reduce the displayed contrast.
+
+| Palette choice | Effect of higher contrast |
+| --- | --- |
+| Desktop, or Automatic using the desktop | Generates a higher-contrast palette from the desktop mode and accent |
+| Any source with an explicit Light or Dark colour mode | Generates a higher-contrast palette from the selected source's accent |
+| Palette file, or Automatic using a file, with Follow source | Keeps the file's colours exactly, including partial palettes and Matugen/Noctalia output; use a higher-contrast palette from its producer or choose Light/Dark |
+| Built-in, including an unavailable source's fallback, with Follow source | Keeps the built-in palette; choose Desktop or Light/Dark to use generated higher contrast |
+
+Missing, malformed or unknown contrast values mean normal contrast, as does a
+portal backend that does not expose this setting. Returning to normal contrast
+restores the normal generated palette. Contrast does not change source precedence,
+the selected colour mode, or the palette file on disk.
+
 ### Palette file interface
 
 A minimal light palette is:

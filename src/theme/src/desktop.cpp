@@ -84,7 +84,8 @@ constexpr double kErrorHue = 25.0 * std::numbers::pi / 180.0;
 
 class Builder {
 public:
-    Builder(Lch accent, bool dark) : accent_{accent}, dark_{dark} {}
+    Builder(Lch accent, bool dark, bool high_contrast)
+        : accent_{accent}, dark_{dark}, high_contrast_{high_contrast} {}
 
     [[nodiscard]] Color tone(double lightness, double max_chroma) const {
         return from_lch({lightness, std::min(accent_.c, max_chroma), accent_.h});
@@ -94,18 +95,18 @@ public:
 
     // Light or dark text for a background, whichever reads better.
     [[nodiscard]] Color on(Color background) const {
-        const Color light = neutral(0.990);
-        const Color dark = neutral(0.200);
+        const Color light = neutral(high_contrast_ ? 1.0 : 0.990);
+        const Color dark = neutral(high_contrast_ ? 0.0 : 0.200);
         return contrast(background, light) >= contrast(background, dark) ? light : dark;
     }
 
     // Moves the lightness away from the background until the colour reads on it.
-    [[nodiscard]] Color readable(Lch lch, Color background) const {
+    [[nodiscard]] Color readable(Lch lch, Color background, double minimum = kReadable) const {
         constexpr double step = 0.01;
         Color color = from_lch(lch);
-        while (static_cast<double>(contrast(color, background)) < kReadable && lch.l > 0.0 &&
+        while (static_cast<double>(contrast(color, background)) < minimum && lch.l > 0.0 &&
                lch.l < 1.0) {
-            lch.l += dark_ ? step : -step;
+            lch.l = std::clamp(lch.l + (dark_ ? step : -step), 0.0, 1.0);
             color = from_lch(lch);
         }
         return color;
@@ -116,6 +117,7 @@ public:
 private:
     Lch accent_;
     bool dark_;
+    bool high_contrast_;
 };
 
 }  // namespace
@@ -152,7 +154,7 @@ Color readable_foreground(Color foreground, Color background) {
 Palette desktop_palette(const Desktop& desktop) {
     const Tones& t = desktop.dark ? kDark : kLight;
     const Lch accent = to_lch(desktop.accent.value_or(kDefaultAccent));
-    const Builder b{accent, desktop.dark};
+    const Builder b{accent, desktop.dark, desktop.high_contrast};
 
     Palette p;
     p.dark = desktop.dark;
@@ -173,9 +175,21 @@ Palette desktop_palette(const Desktop& desktop) {
     p.shadow = Color::rgb(0x000000);
     p.scrim = Color::rgb(0x000000);
 
+    // In higher contrast mode cover even the brightest dark / dimmest light surface.
+    const Color background = desktop.high_contrast
+                                 ? (desktop.dark ? p.surface_bright : p.surface_dim)
+                                 : p.surface_container_high;
+    const double minimum = desktop.high_contrast ? 7.0 : kReadable;
+    if (desktop.high_contrast) {
+        p.on_surface = b.readable(to_lch(p.on_surface), background, minimum);
+        p.on_surface_variant = b.readable(to_lch(p.on_surface_variant), background, minimum);
+        p.outline = b.readable(to_lch(p.outline), background, 3.0);
+        p.outline_variant = b.readable(to_lch(p.outline_variant), background, 3.0);
+    }
+
     // The accent, as close to the desktop's as reads on the busiest surface it sits on.
     const Lch primary{std::clamp(accent.l, t.primary_min, t.primary_max), accent.c, accent.h};
-    p.primary = b.readable(primary, p.surface_container_high);
+    p.primary = b.readable(primary, background, minimum);
     p.on_primary = b.on(p.primary);
     p.primary_container = b.tone(t.container_tone, 0.10);
     p.on_primary_container = b.on(p.primary_container);
@@ -184,17 +198,17 @@ Palette desktop_palette(const Desktop& desktop) {
     const double turn = std::numbers::pi / 6.0;
     const Lch secondary{primary.l, std::min(accent.c, 0.10), accent.h - turn};
     const Lch tertiary{primary.l, std::min(accent.c, 0.10), accent.h + (2.0 * turn)};
-    p.secondary = b.readable(secondary, p.surface_container_high);
+    p.secondary = b.readable(secondary, background, minimum);
     p.on_secondary = b.on(p.secondary);
     p.secondary_container = b.tone(t.secondary_container_tone, 0.08);
     p.on_secondary_container = b.on(p.secondary_container);
-    p.tertiary = b.readable(tertiary, p.surface_container_high);
+    p.tertiary = b.readable(tertiary, background, minimum);
     p.on_tertiary = b.on(p.tertiary);
     p.tertiary_container =
         from_lch({t.container_tone, std::min(accent.c, 0.10), accent.h + (2.0 * turn)});
     p.on_tertiary_container = b.on(p.tertiary_container);
 
-    p.error = b.readable({t.error, 0.17, kErrorHue}, p.surface_container_high);
+    p.error = b.readable({t.error, 0.17, kErrorHue}, background, minimum);
     p.on_error = b.on(p.error);
     p.error_container = from_lch({t.error_container, 0.10, kErrorHue});
     p.on_error_container = b.on(p.error_container);
