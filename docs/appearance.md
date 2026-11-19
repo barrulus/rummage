@@ -263,11 +263,21 @@ theme = "candy-icons"
 follow_accent = true
 ```
 
-`theme = "system"` discovers the desktop theme from GTK/KDE/qt6ct settings at
-startup. An installed name selects it explicitly; `"builtin"` uses the bundled
+`theme = "system"` follows the desktop theme from GTK/KDE/qt6ct settings at
+startup and while running. An installed name selects it explicitly; `"builtin"` uses the bundled
 Tabler icons. Theme icons may be SVG or PNG. Inherited themes and built-in icons
-provide fallbacks. Editing this setting reloads live; desktop theme changes require
-a restart for discovery.
+provide fallbacks. Editing this setting reloads live.
+
+System discovery reads `gtk-3.0/settings.ini`, `gtk-4.0/settings.ini`, `kdeglobals`
+and `qt6ct/qt6ct.conf` under `$XDG_CONFIG_HOME` (normally `~/.config`). On KDE,
+`kdeglobals` takes precedence; elsewhere GTK 3, GTK 4, KDE and qt6ct are tried in
+that order. Missing or invalid theme names fall through to the next source, then
+`hicolor` and the bundled icons. Rummage follows writes, atomic file replacements
+and configuration directories created after launch without creating those
+directories itself. Only changes to the resolved theme refresh the window;
+explicitly named and built-in themes ignore desktop changes. Returning to System
+uses the latest desktop choice. Changes to icon assets within an unchanged theme
+still require a restart.
 
 SVG theme icons use librsvg through the same adapter as file previews, running
 in-process. Input and output sizes are bounded; the preview helper's process

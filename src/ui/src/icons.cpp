@@ -101,13 +101,35 @@ IconSet::Glyph IconSet::glyph(std::string_view name) {
 bool IconSet::has(std::string_view name) { return glyph(name).index != 0; }
 
 void IconSet::set_theme(std::string theme) {
-    if (theme == "system") {
-        theme = desktop_icon_theme();
+    system_theme_ = theme == "system";
+    if (system_theme_) {
+        if (theme_loop_ && !theme_watcher_) {
+            theme_watcher_ = std::make_unique<DesktopIconThemeWatcher>(
+                *theme_loop_, [this](const std::string& fresh) {
+                    if (fresh != selected_theme_) {
+                        selected_theme_ = fresh;
+                        pending_theme_ = fresh;
+                        if (theme_redraw_)
+                            theme_redraw_();
+                    }
+                });
+        }
+        theme = theme_watcher_ ? theme_watcher_->theme() : desktop_icon_theme();
+    } else {
+        theme_watcher_.reset();
     }
     if (theme != selected_theme_) {
         selected_theme_ = theme;
         pending_theme_ = std::move(theme);
     }
+}
+
+void IconSet::watch_system_theme(core::EventLoop& loop, std::function<void()> redraw) {
+    theme_watcher_.reset();
+    theme_loop_ = &loop;
+    theme_redraw_ = std::move(redraw);
+    if (system_theme_)
+        set_theme("system");
 }
 
 void IconSet::set_place_icons(std::map<std::string, std::string> icons) {

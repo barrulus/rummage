@@ -1,6 +1,7 @@
 #include "rummage/fs/icon.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -13,6 +14,7 @@
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/text.hpp"
+#include "scoped_env.hpp"
 #include "temp_dir.hpp"
 
 using rummage::fs::Entry;
@@ -49,6 +51,109 @@ TEST_CASE("icons: every name exists in the icon font") {
     CHECK_FALSE(icons.has("no-such-icon"));
     CHECK_FALSE(icons.has("folder-filled"));  // only the filled icons listed are kept
     CHECK_FALSE(icons.has("-filled"));
+}
+
+TEST_CASE("icons: live system themes replace cached icons and respect explicit choices") {
+    namespace ui = rummage::ui;
+    namespace fs = std::filesystem;
+    using namespace std::chrono_literals;
+    const rummage::test::TempDir dir;
+    const auto config = dir.path / "config";
+    const auto data = dir.path / "data";
+    const rummage::test::ScopedEnv config_env{"XDG_CONFIG_HOME", config.string()};
+    const rummage::test::ScopedEnv data_env{"XDG_DATA_HOME", data.string()};
+    const rummage::test::ScopedEnv dirs_env{"XDG_DATA_DIRS", data.string()};
+    const rummage::test::ScopedEnv home_env{"HOME", dir.path.string()};
+    const rummage::test::ScopedEnv desktop_env{"XDG_CURRENT_DESKTOP", "GNOME"};
+    const auto write = [](const fs::path& file, std::string_view text) {
+        fs::create_directories(file.parent_path());
+        std::ofstream{file} << text;
+    };
+    const auto svg = [](std::string_view color) {
+        return "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'>"
+               "<rect width='32' height='32' fill='" +
+               std::string{color} + "'/></svg>";
+    };
+    for (const auto name : {"red", "green"}) {
+        const auto theme = data / "icons" / name;
+        write(theme / "index.theme", "[Icon Theme]\nDirectories=32\n[32]\nSize=32\n");
+        write(theme / "32/folder.svg", svg(name));
+    }
+    write(data / "icons/green/32/application-x-live.svg", svg("blue"));
+    const auto select = [&](std::string_view name) {
+        write(config / "gtk-3.0/settings.ini",
+              "[Settings]\ngtk-icon-theme-name=" + std::string{name} + '\n');
+    };
+    select("red");
+    rummage::core::EventLoop loop;
+    ui::Offscreen gl{32, 32};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    int redraws = 0;
+    icons.set_theme("system");
+    icons.watch_system_theme(loop, [&] { ++redraws; });
+    const auto settle = [&] {
+        loop.add_timer(150ms, 0ms, [&] { loop.quit(); });
+        loop.run();
+    };
+    const auto render = [&](bool file = false) {
+        renderer.begin_frame(32, 32, 1.0F, ui::Color::rgb(0));
+        if (file)
+            icons.draw_file(renderer, "application/x-live", "folder", 0, 0, 32,
+                            ui::Color::rgb(0xFFFFFF));
+        else
+            icons.draw(renderer, "folder", 0, 0, 32, ui::Color::rgb(0xFFFFFF));
+        renderer.end_frame();
+        std::array<std::uint8_t, 32 * 32 * 4> pixels{};
+        glReadPixels(0, 0, 32, 32, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        return pixels;
+    };
+    REQUIRE(icons.selected_theme() == "red");
+    const auto red = render();
+    CHECK(red[0] == 255);
+    CHECK(render(true) == red);  // Cache a missing MIME icon as well as the folder texture.
+    const auto display = eglGetCurrentDisplay();
+    const auto context = eglGetCurrentContext();
+    const auto draw = eglGetCurrentSurface(EGL_DRAW);
+    const auto read = eglGetCurrentSurface(EGL_READ);
+    REQUIRE(eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) == EGL_TRUE);
+    select("green");
+    settle();
+    CHECK(eglGetCurrentContext() == EGL_NO_CONTEXT);
+    REQUIRE(eglMakeCurrent(display, draw, read, context) == EGL_TRUE);
+    CHECK(icons.selected_theme() == "green");
+    CHECK(redraws == 1);
+    const auto green = render();
+    CHECK(green[0] == 0);
+    CHECK(green[1] == 128);
+    CHECK(render(true)[2] == 255);  // Negative cache from the old theme was discarded too.
+    icons.set_theme("green");       // Same resolved name, but now an explicit choice.
+    select("red");
+    settle();
+    CHECK(icons.selected_theme() == "green");
+    CHECK(redraws == 1);
+    CHECK(render() == green);
+    icons.set_theme("system");
+    CHECK(icons.selected_theme() == "red");
+    CHECK(render() == red);
+    // Disabling system mode also cancels an update already waiting for its settle timer.
+    select("green");
+    loop.add_timer(10ms, 0ms, [&] { loop.quit(); });
+    loop.run();
+    icons.set_theme("builtin");
+    settle();
+    CHECK(icons.selected_theme() == "builtin");
+    CHECK(redraws == 1);
+    const auto builtin = render();
+    CHECK(builtin != red);
+    icons.set_theme("system");
+    CHECK(icons.selected_theme() == "green");
+    CHECK(render() == green);
+    select("missing-theme");
+    settle();
+    CHECK(render() == builtin);  // An unavailable theme still reaches the bundled fallback.
+    CHECK(glGetError() == GL_NO_ERROR);
 }
 
 TEST_CASE("place icons: custom images, builtin overrides, fallback and live replacement") {

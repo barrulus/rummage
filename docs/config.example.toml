@@ -97,7 +97,7 @@ double_click_ms = 400
 double_click_distance = 4
 
 [icon]
-# "system" follows the desktop icon theme at startup (GTK/KDE/qt6ct settings).
+# "system" follows the desktop icon theme live (GTK/KDE/qt6ct settings).
 # An installed theme name, e.g. "candy-icons", selects it explicitly; "builtin" uses Tabler.
 # SVG and PNG icons are supported, with inherited themes and built-in fallbacks.
 theme = "system"

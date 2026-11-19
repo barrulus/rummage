@@ -670,8 +670,8 @@ int main(int argc, char** argv) {
             if (motion_preference)
                 motion_preference(appearance.reduced_motion);
             theme::Desktop desktop{.dark = appearance.dark,
-                                    .accent = std::nullopt,
-                                    .high_contrast = appearance.high_contrast};
+                                   .accent = std::nullopt,
+                                   .high_contrast = appearance.high_contrast};
             if (appearance.accent) {
                 const auto [r, g, b] = *appearance.accent;
                 desktop.accent = ui::Color{static_cast<float>(r), static_cast<float>(g),
@@ -748,6 +748,7 @@ int main(int argc, char** argv) {
         ui::IconSet icons{fonts};
         icons.set_theme(config.icon.theme);
         icons.set_place_icons(config.icon.places);
+        icons.watch_system_theme(loop, [&] { window.request_redraw(); });
         startup.mark("icons");
         ui::Activation activation{display, loop};
         ui::Clipboard clipboard{display, loop};  // before the browser that uses it
