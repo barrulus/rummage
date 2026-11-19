@@ -1,8 +1,12 @@
 #include "rummage/ui/icon_theme.hpp"
 
+#include <algorithm>
+
 #include <doctest/doctest.h>
 
+#include "rummage/formats/image/load.hpp"
 #include "rummage/picture/png.hpp"
+#include "rummage/svg/svg.hpp"
 #include "temp_dir.hpp"
 
 using rummage::test::TempDir;
@@ -139,18 +143,75 @@ TEST_CASE("icon theme: folder catalogue deduplicates sizes and excludes broken i
           std::vector<std::string>{"folder-music", "folder-red", "user-home"});
 }
 
-TEST_CASE("icon theme: unsupported SVG filters report fallback without losing the image") {
-    TempDir dir;
+TEST_CASE("icon theme: CSS and filters share the file preview renderer") {
+    const TempDir dir;
     const auto file =
-        dir.write("unsupported.svg",
-                  "<svg width='8' height='8'><defs><filter id='f'><feOffset/></filter></defs><rect "
-                  "width='8' height='8' fill='red' filter='url(#f)'/></svg>");
-    bool unsupported = false;
-    const auto image = IconTheme::render(file, 8, &unsupported);
+        dir.write("filtered.svg",
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='16'>"
+                  "<style>g > rect.paint { fill: #00ff00; }</style>"
+                  "<defs><filter id='offset' x='0' y='0' width='200%' height='100%'>"
+                  "<feOffset dx='8'/></filter></defs>"
+                  "<g><rect class='paint' width='8' height='16' filter='url(#offset)'/></g></svg>");
+    for (const int size : {16, 48, 128}) {
+        const auto icon = IconTheme::render(file, size);
+        const auto preview =
+            rummage::formats::image::load({.path = file,
+                                           .max_width = static_cast<std::uint32_t>(size),
+                                           .max_height = static_cast<std::uint32_t>(size)});
+        REQUIRE_FALSE(icon.empty());
+        REQUIRE(preview.failure == rummage::picture::Failure::none);
+        CHECK(icon.width == preview.image.width);
+        CHECK(icon.height == preview.image.height);
+        CHECK(static_cast<bool>(icon.rgba == preview.image.rgba));
+        // feOffset used to be dropped entirely by the theme renderer.
+        CHECK(icon.rgba[3] == 0);
+        const auto at = static_cast<std::size_t>(size / 3) * 4;
+        CHECK(icon.rgba[at] == 0);
+        CHECK(icon.rgba[at + 1] == 255);
+        CHECK(icon.rgba[at + 3] == 255);
+    }
+}
+
+TEST_CASE("icon theme: external images are ignored and input is bounded") {
+    const TempDir dir;
+    const auto external = dir.path / "external.png";
+    const auto png =
+        rummage::picture::encode_png({.width = 1, .height = 1, .rgba = {255, 0, 0, 255}});
+    {
+        std::ofstream output{external, std::ios::binary};
+        output.write(reinterpret_cast<const char*>(png.data()),
+                     static_cast<std::streamsize>(png.size()));
+    }
+    const auto file =
+        dir.write("external.svg",
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='16'>"
+                  "<image width='16' height='16' href='file://" +
+                      external.string() +
+                      "'/>"
+                      "<image x='16' width='16' height='16' href='external.png'/></svg>");
+    const auto image = IconTheme::render(file, 32);
     REQUIRE_FALSE(image.empty());
-    CHECK(unsupported);
-    CHECK(image.rgba[0] == 255);
-    CHECK(image.rgba[3] == 255);
-    CHECK_FALSE(IconTheme::render(dir.write("supported.svg", kSvg), 8, &unsupported).empty());
-    CHECK_FALSE(unsupported);
+    CHECK(std::ranges::all_of(image.rgba, [](auto v) { return v == 0; }));
+    std::filesystem::resize_file(file, rummage::svg::kMaxInputBytes + 1);
+    CHECK(IconTheme::render(file, 32).empty());
+}
+
+TEST_CASE("icon theme: SVG text renders without preview font preparation") {
+    const TempDir dir;
+    const auto file = dir.write("text.svg",
+                                "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='32'>"
+                                "<text x='2' y='24' font-size='20' fill='red'>SVG</text></svg>");
+    const auto image = IconTheme::render(file, 64);
+    REQUIRE(image.width == 64);
+    REQUIRE(image.height == 32);
+    unsigned painted = 0;
+    for (std::size_t i = 0; i < image.rgba.size(); i += 4) {
+        if (image.rgba[i + 3] != 0) {
+            CHECK(image.rgba[i] == 255);
+            CHECK(image.rgba[i + 1] == 0);
+            CHECK(image.rgba[i + 2] == 0);
+            ++painted;
+        }
+    }
+    CHECK(painted > 20);
 }

@@ -33,8 +33,9 @@ back to decoding the same unsupported input in-process.
 SVG file previews run in the base helper using librsvg's default parsing limits,
 the helper's process memory ceiling and request deadline. The adapter reads at most 8 MiB and
 caps the rendered side at 1024 pixels. It reads only the supplied descriptor;
-external SVG resources are never fetched. Theme icons use the separate in-process
-path described below. SVG text uses a private font map prepared before sandboxing:
+external SVG resources are never fetched. Theme icons use the same adapter in-process,
+without the helper's memory ceiling or request deadline. Preview SVG text uses a
+private font map prepared before sandboxing:
 at most 12 generic font files, 64 faces and 64 MiB of FreeType font data (plus
 HarfBuzz's font mappings). Seccomp is synchronized across existing helper threads,
 including Pango's font matcher; it cannot open paths or create network sockets.
@@ -51,7 +52,7 @@ counts are bounded before the browser constructs its tree. Archive contents are 
 
 | Component | Boundary |
 | --- | --- |
-| Theme SVG/PNG icons | Loaded/rendered in-process; SVG parsing/rendering has explicit work and size limits |
+| Theme SVG/PNG icons | Loaded/rendered in-process; SVG uses librsvg defaults with 8 MiB input and 1024-pixel output-side caps, without a process memory ceiling or deadline |
 | Thumbnail cache | Shared desktop files read by the application; not a trusted private store |
 | Optional video previews | `rummage-media` links FFmpeg libraries inside the same descriptor-based sandbox, with separate decode/time limits |
 | Optional PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline |

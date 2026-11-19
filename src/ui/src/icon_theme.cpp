@@ -252,14 +252,11 @@ std::filesystem::path IconTheme::find(std::string_view icon, int pixels) const {
     return {};
 }
 
-picture::Image IconTheme::render(const std::filesystem::path& file, int pixels,
-                                 bool* unsupported_svg_filter) {
-    if (unsupported_svg_filter)
-        *unsupported_svg_filter = false;
-    pixels = std::clamp(pixels, 1, 1024);
+picture::Image IconTheme::render(const std::filesystem::path& file, int pixels) {
+    pixels = std::clamp(pixels, 1, static_cast<int>(svg::kMaxSide));
     std::error_code error;
     const auto bytes = std::filesystem::file_size(file, error);
-    if (error || bytes > 8U * 1024U * 1024U) {
+    if (error || bytes > svg::kMaxInputBytes) {
         return {};
     }
     std::ifstream input{file, std::ios::binary};
@@ -275,12 +272,7 @@ picture::Image IconTheme::render(const std::filesystem::path& file, int pixels,
         return picture::scale_to_fit(decoded.image, static_cast<std::uint32_t>(pixels),
                                      static_cast<std::uint32_t>(pixels));
     }
-    return svg::render(data, pixels,
-                       {[](void* context, std::string_view) {
-                            if (context)
-                                *static_cast<bool*>(context) = true;
-                        },
-                        unsupported_svg_filter});
+    return svg::render(data, pixels);
 }
 
 std::vector<std::string> IconTheme::folder_icons() const {

@@ -17,8 +17,9 @@
 #include "fd_file.hpp"
 #include "jpeg_segments.hpp"
 #include "rummage/formats/image/preview.hpp"
+#include "rummage/formats/image/svg.hpp"
 #include "rummage/picture/scale.hpp"
-#include "svg_decoder.hpp"
+#include "rummage/svg/svg.hpp"
 #include "tiff/decode.hpp"
 
 namespace rummage::formats::image {
@@ -145,23 +146,17 @@ Loaded failed(Failure failure, std::string detail) {
 }
 
 Loaded load_svg(const detail::FdFile& file, std::uint32_t max_width, std::uint32_t max_height) {
-    // Bound file input and output before reading or passing dimensions to librsvg.
-    constexpr std::size_t kMaxSvgBytes = 8U * 1024U * 1024U;
-    constexpr std::uint32_t kMaxSvgSide = 1024;
-    if (file.size() > kMaxSvgBytes) {
+    // Reject before allocating/reading; the shared adapter also checks in-memory input.
+    if (file.size() > svg::kMaxInputBytes) {
         return failed(Failure::too_large, "SVG input exceeds 8 MiB");
     }
     const auto bytes = file.read_exactly(0, static_cast<std::size_t>(file.size()));
     if (bytes.empty()) {
         return failed(Failure::unreadable, "cannot read the SVG file");
     }
-    // A vector has no native raster size. An unspecified bound uses the renderer's ceiling;
-    // larger requests still get a useful bounded preview instead of failing outright.
-    const auto width = max_width == 0 ? kMaxSvgSide : std::min(max_width, kMaxSvgSide);
-    const auto height = max_height == 0 ? kMaxSvgSide : std::min(max_height, kMaxSvgSide);
-    Loaded result = detail::decode_svg(bytes, width, height);
-    // Do not report this rasterization's dimensions as the document's intrinsic dimensions.
-    return result;
+    // Use the same bounded font map for direct decoder calls and sandbox requests.
+    prepare_svg_fonts();
+    return svg::render(bytes, max_width, max_height);
 }
 
 }  // namespace

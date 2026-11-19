@@ -22,9 +22,7 @@ public:
     [[nodiscard]] std::filesystem::path find(std::string_view icon, int pixels) const;
     // Names of available folder icons, deduplicated across sizes, roots and inheritance.
     [[nodiscard]] std::vector<std::string> folder_icons() const;
-    // Optional diagnostic for callers that deduplicate SVG filter warnings by filename.
-    [[nodiscard]] static picture::Image render(const std::filesystem::path& file, int pixels,
-                                               bool* unsupported_svg_filter = nullptr);
+    [[nodiscard]] static picture::Image render(const std::filesystem::path& file, int pixels);
 
 private:
     struct Directory {

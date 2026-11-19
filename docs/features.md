@@ -48,7 +48,7 @@ Archive contents are read-only; extract files before changing them.
 
 - Isolated image and text decoding through `rummage-preview`.
 - PNG, JPEG, GIF, WebP, JPEG XL, HEIC/HEIF (HEVC), TIFF/BigTIFF and binary PGM/PPM previews.
-- Static SVG previews and thumbnails using the built-in renderer in the helper.
+- Static SVG previews and thumbnails using librsvg in the helper.
 - Camera raw embedded previews and development of supported DNG data when needed.
 - Photo metadata, orientation/crop handling and shared freedesktop thumbnail caching.
 - Quick Look for pictures and text, with file-to-file navigation.

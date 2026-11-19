@@ -7,7 +7,6 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 
 #include "rummage/ui/color.hpp"
 #include "rummage/ui/icon_theme.hpp"
@@ -75,7 +74,6 @@ private:
     std::unique_ptr<IconTheme> theme_;
     std::unordered_map<std::string, std::unique_ptr<Texture>> themed_;
     std::size_t theme_bytes_{0};
-    std::unordered_set<std::string> svg_warnings_;
 };
 
 }  // namespace rummage::ui

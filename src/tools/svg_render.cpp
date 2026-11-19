@@ -16,7 +16,7 @@
 namespace {
 std::vector<std::uint8_t> read(const std::filesystem::path& path) {
     const auto size = std::filesystem::file_size(path);
-    if (size > 8U * 1024U * 1024U) {
+    if (size > rummage::svg::kMaxInputBytes) {
         throw std::runtime_error("input too large");
     }
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
@@ -42,15 +42,9 @@ int main(int argc, char** argv) {
         }
         const auto data = read(argv[1]);
         const auto start = std::chrono::steady_clock::now();
-        bool unsupported_filter = false;
-        const auto image = rummage::svg::render(
-            data, pixels,
-            {[](void* context, std::string_view) { *static_cast<bool*>(context) = true; },
-             &unsupported_filter});
+        const auto image = rummage::svg::render(data, pixels);
         const double seconds =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-        if (unsupported_filter)
-            std::cerr << "unsupported filter primitive: rendered unfiltered\n";
         if (image.empty())
             std::cerr << "SVG parse or render limit failure\n";
         rummage::test::SvgDifference difference;

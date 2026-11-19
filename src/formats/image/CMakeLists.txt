@@ -20,7 +20,6 @@ add_library(rummage_formats_image
     src/photo.cpp
     src/pnm.cpp
     src/preview.cpp
-    src/svg_decoder.cpp
     src/svg_fonts.cpp
     src/tiff/codecs.cpp
     src/tiff/container.cpp
@@ -34,5 +33,5 @@ target_include_directories(rummage_formats_image PUBLIC include)
 target_link_libraries(rummage_formats_image
     PUBLIC rummage::picture
     PRIVATE PkgConfig::WEBP PkgConfig::JXL PkgConfig::HEIF PkgConfig::LCMS2
-            PkgConfig::ZLIB PkgConfig::RSVG PkgConfig::PANGOCAIRO
+            PkgConfig::ZLIB rummage::svg PkgConfig::PANGOCAIRO
             PkgConfig::FREETYPE PkgConfig::FONTCONFIG rummage::warnings)

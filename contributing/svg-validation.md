@@ -6,8 +6,8 @@ Validate renderer changes with semantic and geometric tests, native-size visual
 review, performance checks and sanitizer fuzzing. Keep captured references and
 the numeric comparator unchanged: corpus percentages are diagnostic measurements,
 not release gates. Record results with the relevant change rather than in this
-guide. Improving a percentage alone does not justify more custom stroke or raster
-approximation code.
+guide. Icons and previews share the librsvg adapter in `src/svg`; do not add
+custom stroke or raster approximation code to chase reference pixels.
 
 ## Required checks
 
@@ -35,7 +35,7 @@ outside the fixed selection; this set is not permission to ignore known defects.
 
 Differences in antialiasing, subpixel edge placement and fine stroke weight can be
 accepted after inspection when identity, content and usability are retained.
-Known unsupported text remains out of scope. Public aspect-ratio sizing continues
+Text support follows librsvg and the available fonts. Public aspect-ratio sizing continues
 to round; the old CLI's ceiling-sized reference does not override that contract.
 Enlargements help explain a difference but do not substitute for native-size review.
 
@@ -62,61 +62,39 @@ under ignored build directories; only selection identifiers are committed.
 
 ## Hardening checks
 
-Hardening applies to every renderer change. Theme icons render in-process on the
-UI thread; SVG file previews use librsvg in the isolated helper. The table below
-describes the theme renderer only; file-preview bounds are documented in
-[preview security](../docs/security.md). These are deterministic
-resource ceilings, not a wall-clock deadline or a whole-process memory limit.
+Theme icons render in-process on the UI thread; SVG file previews use the same
+librsvg adapter in the isolated helper. Shared adapter checks apply in both paths:
 
 | Resource | Enforced limit |
 | --- | --- |
-| Input and XML | 8 MiB, 100,000 elements, depth 256 |
-| Parsed geometry | 1,000,000 segments across the document |
-| References | Cycle detection, chain depth 256, 10,000 expanded `use` nodes |
-| Stylesheets | 10,000 rules, 100,000 expanded declarations, 10 million style work units |
-| Resource parsing | 64 MiB of cumulative paint, inherited resource-attribute and embedded-image text |
-| Raster geometry | 32,767 outline points, 262,144 coverage edges |
-| Dash expansion | 1 million work units, including zero-entry scans and curve subdivision |
-| Raster and compositing work | 64 × 1024² units, accumulated through layers |
-| Offscreen storage | 16 live layers, 64 MiB combined layer/texture accounting |
-| Dimensions | Output side 1024, padded layer side 2048, pattern tile side 1024 |
-| Embedded images | PNG/JPEG base64 only, at most 1024² decoded pixels |
-| Blur | Device-space sigma clamped to 32, total padding at most 384 |
+| Input | 8 MiB, checked before file reads and again at the shared byte-span entry point |
+| Output | At most 1024 pixels per side; aspect ratio retained, rounded dimensions |
+| External resources | No base URI; only internal references and data URIs |
+| Parsing and rendering | librsvg's default limits; unlimited parsing is never enabled |
 
-Style work includes attribute/declaration bytes and selector comparisons, including
-class-list scans. Dash work also contributes to canvas work, including all-zero
-arrays that fall back to solid strokes and the bytes scanned in inherited arrays.
-Resource parsing charges inherited values again when they are consumed; charging
-only their original XML attribute would allow small shapes to repeat large parses.
-Resource inheritance copies attributes and child indices, not unused element text.
-Texture accounting is conservative: bytes
-remain charged after temporary textures are released. The output canvas, parsed
-document, path storage and decoder/raster scratch allocations are outside the
-offscreen-storage total and have their own bounds.
+Cairo's premultiplied native-endian ARGB is converted once in the shared adapter
+to straight-alpha RGBA. CSS physical units use 96 DPI. Allocation exceptions
+return an empty image and a failure; the square icon/tool convenience entry point
+also rejects sizes outside 1..1024.
 
-Numeric input must be finite. Generated path coordinates are bounded to 10¹²;
-FreeType input coordinates must fit the renderer's ±32,767 coordinate limit
-before fixed-point conversion. Arc angles are checked after radius/centre
-calculations, and repeated texture coordinates are reduced to the tile range
-before integer conversion. Finite inputs alone do not guarantee finite
-intermediate arithmetic.
+The removed custom renderer's geometry, CSS-work, raster-work, layer-storage,
+embedded-image and blur budgets no longer apply. In-process icons have no
+whole-process memory ceiling or rendering deadline. Preview helpers retain their
+process limits, deadline and preloaded generic-font map; see
+[preview security](../docs/security.md). Normal icon rendering uses the calling
+thread's Pango font map, without preloading the helper's restricted font set.
 
-The public `render` entry point catches exceptions, including allocation failures
-and exceptions from warning callbacks, and returns an empty image. FreeType
-decomposition callbacks catch failures before returning to C. External references
-are ignored; the renderer has no file or network fetching path, and Wuffs receives
-only decoded data-URI bytes. DTD declarations never expand custom entities.
-
-Keep the adversarial cases in `tests/svg*_test.cpp` alongside the semantic tests:
-input/depth/node/segment limits, reference cycles and expansion, CSS work, dash
-work, raster expansion, layer count and aggregate padded-layer memory, oversized
-embedded images, blur clamping, numeric extremes and callback exceptions. Both
-accepted small inputs and rejected oversized expansions matter. Preserve the
-original regression seeds under `tests/fuzz/svg/`.
+Keep tests for the adapter's input/output bounds, aspect ratios, alpha conversion,
+error recovery and resource isolation. Verify CSS/filter output through both
+`IconTheme::render` and the file-preview loader. Keep the committed fixture
+captures and comparator unchanged; document named librsvg compatibility differences
+rather than emulating the deleted engine. Preserve the original regression seeds
+under `tests/fuzz/svg/` and exercise them with the shared `rummage-fuzz-svg` target.
 
 For numeric hardening, also enable `-fsanitize=float-cast-overflow` in the fuzz
 build and set `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`. A zero process
 exit alone is insufficient when UBSan recovery is enabled: inspect diagnostics.
 The final-source fuzz requirement remains at least 1800 seconds with no finding,
 timeout or OOM. Keep its binary immutable, record source/binary hashes, and verify
-the process has exited before measuring final corpus performance.
+the process has exited before measuring final corpus performance. System librsvg
+and its dependencies are not sanitizer-instrumented by the C++ adapter build.
