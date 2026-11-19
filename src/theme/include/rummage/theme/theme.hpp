@@ -8,6 +8,7 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/file_watcher.hpp"
 #include "rummage/theme/desktop.hpp"
+#include "rummage/theme/kde.hpp"
 #include "rummage/theme/palette.hpp"
 
 namespace rummage::theme {
@@ -17,7 +18,7 @@ namespace rummage::theme {
 class Theme {
 public:
     using ChangeHandler = std::function<void()>;
-    enum class Source { automatic, desktop, file, builtin };
+    enum class Source { automatic, desktop, file, builtin, kde };
 
     enum class FileState { missing, valid, invalid };
 
@@ -28,9 +29,17 @@ public:
         FileState file_state{FileState::missing};
         std::vector<std::string> file_problems{};
         bool retaining_last_valid_file{false};
+        FileState kde_state{FileState::missing};
+        std::vector<std::string> kde_problems{};
+        bool retaining_last_valid_kde{false};
+
+        [[nodiscard]] const std::vector<std::string>& problems() const {
+            return requested == Source::kde ? kde_problems : file_problems;
+        }
     };
 
-    explicit Theme(std::filesystem::path path);
+    explicit Theme(std::filesystem::path path,
+                   std::filesystem::path kde_path = default_kde_colors_path());
 
     // Starts following the file. The theme must not outlive the loop.
     void watch(core::EventLoop& loop);
@@ -43,9 +52,15 @@ public:
     [[nodiscard]] Source active_source() const;
 
     [[nodiscard]] Status status() const {
-        return {source_,        active_source(),
-                dark_override_, file_state_,
-                file_problems_, file_state_ == FileState::invalid && file_palette_.has_value()};
+        return {source_,
+                active_source(),
+                dark_override_,
+                file_state_,
+                file_problems_,
+                file_state_ == FileState::invalid && file_palette_.has_value(),
+                kde_state_,
+                kde_problems_,
+                kde_state_ == FileState::invalid && kde_palette_.has_value()};
     }
 
     // A Settings preference. nullopt restores the selected source's exact palette.
@@ -58,16 +73,21 @@ public:
         return dark_override_ ? override_palette_ : palette_;
     }
 
-    // The active source's accent: file primary, desktop accent, or nullopt for built-in.
+    // The active source's accent: imported primary, desktop accent, or nullopt for built-in.
     [[nodiscard]] std::optional<Color> accent() const;
 
     // Reads the file again; public so the reload rules can be tested without inotify.
     void reload();
+    void reload_kde();
 
 private:
     void changed();
 
     std::filesystem::path path_;
+    std::filesystem::path kde_path_;
+    FileState kde_state_{FileState::missing};
+    std::vector<std::string> kde_problems_;
+    std::optional<Palette> kde_palette_;
     Source source_{Source::automatic};
     FileState file_state_{FileState::missing};
     std::vector<std::string> file_problems_;
@@ -78,6 +98,7 @@ private:
     std::optional<bool> dark_override_;
     ChangeHandler change_handler_;
     std::unique_ptr<core::FileWatcher> watcher_;
+    std::unique_ptr<core::FileWatcher> kde_watcher_;
 };
 
 }  // namespace rummage::theme

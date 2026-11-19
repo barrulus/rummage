@@ -652,6 +652,7 @@ int main(int argc, char** argv) {
             using Source = theme::Theme::Source;
             theme.set_source(appearance.palette_source == "desktop"   ? Source::desktop
                              : appearance.palette_source == "file"    ? Source::file
+                             : appearance.palette_source == "kde"     ? Source::kde
                              : appearance.palette_source == "builtin" ? Source::builtin
                                                                       : Source::automatic);
             theme.set_dark_override(appearance.color_scheme == "system"
@@ -670,8 +671,8 @@ int main(int argc, char** argv) {
             if (motion_preference)
                 motion_preference(appearance.reduced_motion);
             theme::Desktop desktop{.dark = appearance.dark,
-                                    .accent = std::nullopt,
-                                    .high_contrast = appearance.high_contrast};
+                                   .accent = std::nullopt,
+                                   .high_contrast = appearance.high_contrast};
             if (appearance.accent) {
                 const auto [r, g, b] = *appearance.accent;
                 desktop.accent = ui::Color{static_cast<float>(r), static_cast<float>(g),

@@ -455,12 +455,13 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                  {"palette_source",
                   [&](const toml::node& value, const std::string& path) {
                       const auto selection = value.value<std::string>();
-                      if (selection && (*selection == "auto" || *selection == "desktop" ||
-                                        *selection == "file" || *selection == "builtin"))
+                      if (selection &&
+                          (*selection == "auto" || *selection == "desktop" ||
+                           *selection == "file" || *selection == "builtin" || *selection == "kde"))
                           config.appearance.palette_source = *selection;
                       else
                           reader.report(value.source(),
-                                        path + " must be auto, desktop, file, or builtin");
+                                        path + " must be auto, desktop, file, builtin, or kde");
                   }},
                  {"color_scheme",
                   [&](const toml::node& value, const std::string& path) {

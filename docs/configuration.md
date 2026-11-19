@@ -106,7 +106,7 @@ rename = "Ctrl+r"
 | --- | --- | --- |
 | `startup.mode` | `"session"` | `"home"`, `"folder"`, `"last"`, or `"session"`; next launch |
 | `startup.folder` | `"~"` | Absolute path or `~/` path, used with mode `"folder"` |
-| `appearance.palette_source` | `"auto"` | `"auto"` (file → desktop → built-in), `"desktop"`, `"file"`, or `"builtin"`; unavailable explicit sources fall back to built-in; live |
+| `appearance.palette_source` | `"auto"` | `"auto"` (file → desktop → built-in), `"desktop"`, `"file"`, `"builtin"`, or `"kde"` (active kdeglobals colours); unavailable explicit sources fall back to built-in; live |
 | `appearance.color_scheme` | `"system"` | `"system"` (follow selected source), `"light"`, or `"dark"`; independent of source; live |
 | `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |
 | `appearance.background_opacity` | `1.0` | Number from 0 to 1; background only |

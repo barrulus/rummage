@@ -7,6 +7,7 @@ configure_file(app_icon_template.hpp.in generated/app_icon_template.hpp @ONLY)
 add_library(rummage_theme
     src/app_icon.cpp
     src/desktop.cpp
+    src/kde.cpp
     src/oklch.cpp
     src/palette.cpp
     src/syntax.cpp

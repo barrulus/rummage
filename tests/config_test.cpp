@@ -529,7 +529,7 @@ TEST_CASE("open: programs may be turned off; anything but a boolean is reported"
 
 TEST_CASE("palette source: defaults preserve automatic precedence and values are validated") {
     CHECK(parse_config("", "test").config.appearance.palette_source == "auto");
-    for (const auto value : {"auto", "desktop", "file", "builtin"}) {
+    for (const auto value : {"auto", "desktop", "file", "builtin", "kde"}) {
         const auto result = parse_config(
             std::string{"[appearance]\npalette_source = '"} + value + "'\ncolor_scheme = 'light'\n",
             "test");

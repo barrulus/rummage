@@ -668,6 +668,12 @@ TEST_CASE("settings: active palette reports applied state, live updates and sour
     theme.set_dark_override(std::nullopt);
     theme.set_source(Source::automatic);
     CHECK(f.dialog.palette_status() == "Active palette: Palette file");
+    theme.set_source(Source::kde);
+    CHECK(f.dialog.palette_status() == "Active palette: Built-in (KDE palette unavailable)");
+    REQUIRE(f.dialog.edit("appearance", "palette_source", "kde"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.appearance.palette_source == "kde");
 }
 
 TEST_CASE("settings: atomic replacement checks resolved directory rather than file mode") {
@@ -905,4 +911,24 @@ TEST_CASE("settings: action search only offers forms that can be opened") {
         for (const auto& match : f.dialog.search_results())
             CHECK(match.section != 3);
     }
+}
+
+TEST_CASE("settings: KDE diagnostics describe the selected source") {
+    Fixture f;
+    using Theme = rummage::theme::Theme;
+    Theme::Status status{Theme::Source::kde, Theme::Source::builtin, std::nullopt};
+    status.file_state = Theme::FileState::invalid;
+    status.file_problems = {"unrelated colors.toml problem"};
+    f.dialog.set_theme_status_handler([&] { return status; });
+    f.open();
+    CHECK(f.dialog.palette_status() == "Active palette: Built-in (KDE palette unavailable)");
+    status.kde_state = Theme::FileState::invalid;
+    status.kde_problems = {"kdeglobals: incomplete colour groups"};
+    CHECK(f.dialog.palette_status().find("palette file rejected") != std::string::npos);
+    CHECK(status.problems() == status.kde_problems);
+    status.active = Theme::Source::kde;
+    status.retaining_last_valid_kde = true;
+    CHECK(f.dialog.palette_status() == "Active palette: KDE (reload failed; last valid palette)");
+    status.dark_override = false;
+    CHECK(f.dialog.palette_status().ends_with("light override"));
 }
