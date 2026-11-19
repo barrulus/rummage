@@ -5,6 +5,7 @@
 #include <format>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include <doctest/doctest.h>
 
@@ -115,6 +116,105 @@ TEST_CASE("portal values: scheme and accent, checked") {
     CHECK_FALSE(appearance_from(1U, std::array{-1.0, -1.0, -1.0}).accent);
     CHECK_FALSE(appearance_from(1U, std::array{0.5, 1.5, 0.5}).accent);
     CHECK(appearance_from(1U, blue) == Appearance{.dark = true, .accent = blue});
+}
+
+TEST_CASE("portal values: only an explicit higher contrast preference enables it") {
+    CHECK(appearance_from(1U, std::nullopt, std::nullopt, 1U).high_contrast);
+    for (const auto value : {std::optional<std::uint32_t>{}, std::optional{0U}, std::optional{2U},
+                             std::optional{UINT32_MAX}}) {
+        CHECK_FALSE(appearance_from(1U, std::nullopt, 1U, value).high_contrast);
+        CHECK(appearance_from(1U, std::nullopt, 1U, value).reduced_motion);
+        CHECK(appearance_from(1U, std::nullopt, 1U, value).dark);
+    }
+}
+
+TEST_CASE("desktop palette: higher contrast covers text, accents, fills and borders") {
+    for (const bool dark : {true, false}) {
+        for (const std::uint32_t accent : kAccents) {
+            CAPTURE(name(accent, dark));
+            const Palette p = desktop_palette(
+                {.dark = dark, .accent = Color::rgb(accent), .high_contrast = true});
+            CHECK(p.dark == dark);
+            for (const Color surface :
+                 {p.surface, p.surface_variant, p.surface_dim, p.surface_bright,
+                  p.surface_container_lowest, p.surface_container_low, p.surface_container,
+                  p.surface_container_high, p.surface_container_highest}) {
+                for (const Color text : {p.on_surface, p.on_surface_variant, p.primary, p.secondary,
+                                         p.tertiary, p.error}) {
+                    CHECK(contrast(text, surface) >= 7.0F);
+                }
+                CHECK(contrast(p.outline, surface) >= 3.0F);
+                CHECK(contrast(p.outline_variant, surface) >= 3.0F);
+            }
+            for (const auto [foreground, background] :
+                 {std::pair{p.on_primary, p.primary},
+                  std::pair{p.on_primary_container, p.primary_container},
+                  std::pair{p.on_secondary, p.secondary},
+                  std::pair{p.on_secondary_container, p.secondary_container},
+                  std::pair{p.on_tertiary, p.tertiary},
+                  std::pair{p.on_tertiary_container, p.tertiary_container},
+                  std::pair{p.on_error, p.error},
+                  std::pair{p.on_error_container, p.error_container},
+                  std::pair{p.on_hover, p.hover}}) {
+                CHECK(contrast(foreground, background) >= 7.0F);
+            }
+        }
+    }
+}
+
+TEST_CASE("Theme: contrast changes affect generated palettes and preserve imported colours") {
+    using Source = Theme::Source;
+    const TempDir dir;
+    const auto path = dir.write("colors.toml", "mode = 'light'\n[colors]\nprimary = '#6750a4'\n");
+    for (const auto source : {Source::automatic, Source::desktop, Source::file, Source::builtin}) {
+        Theme theme{path};
+        Desktop desktop{.dark = true, .accent = Color::rgb(0x3584E4)};
+        theme.set_desktop(desktop);
+        theme.set_source(source);
+        const Palette normal = theme.palette();
+        const auto active = theme.active_source();
+        int changes = 0;
+        theme.set_change_handler([&] { ++changes; });
+        desktop.high_contrast = true;
+        theme.set_desktop(desktop);
+        CHECK(theme.active_source() == active);
+        CHECK(theme.palette().dark == normal.dark);
+        CHECK(changes == (source == Source::desktop ? 1 : 0));
+        if (source == Source::desktop) {
+            CHECK(contrast(theme.palette().on_surface_variant,
+                           theme.palette().surface_container_highest) >= 7.0F);
+        } else {
+            CHECK(theme.palette().primary == normal.primary);
+            CHECK(theme.palette().on_surface_variant == normal.on_surface_variant);
+        }
+        // Explicit light/dark modes generate a palette from any selected source's accent.
+        for (const bool dark : {false, true}) {
+            theme.set_dark_override(dark);
+            CHECK(theme.palette().dark == dark);
+            CHECK(contrast(theme.palette().on_surface_variant,
+                           theme.palette().surface_container_highest) >= 7.0F);
+            const int before = changes;
+            theme.set_desktop(desktop);
+            CHECK(changes == before);
+            desktop.high_contrast = false;
+            theme.set_desktop(desktop);
+            CHECK(changes == before + 1);
+            CHECK(theme.palette().on_surface_variant ==
+                  desktop_palette({.dark = dark, .accent = theme.accent()}).on_surface_variant);
+            desktop.high_contrast = true;
+            theme.set_desktop(desktop);
+            CHECK(changes == before + 2);
+        }
+        // Losing the portal restores normal generated contrast, even for file/built-in sources.
+        theme.set_desktop(std::nullopt);
+        CHECK(theme.palette().on_surface_variant ==
+              desktop_palette({.dark = true, .accent = theme.accent()}).on_surface_variant);
+        theme.set_dark_override(std::nullopt);
+        if (source != Source::desktop) {
+            CHECK(theme.palette().primary == normal.primary);
+            CHECK(theme.palette().on_surface_variant == normal.on_surface_variant);
+        }
+    }
 }
 
 TEST_CASE("Theme: the desktop's look without colors.toml, the file's colours with it") {

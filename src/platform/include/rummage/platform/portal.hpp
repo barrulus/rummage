@@ -19,15 +19,18 @@ struct Appearance {
     // accent-color, sRGB components 0 to 1; none when the desktop has no accent.
     std::optional<std::array<double, 3>> accent;
     bool reduced_motion{false};
+    // contrast: 1 higher contrast; missing, 0 and unknown values mean normal contrast.
+    bool high_contrast{false};
 
     bool operator==(const Appearance&) const = default;
 };
 
 // The portal's values, checked: an unknown scheme is no preference, an accent outside 0..1 (the
 // portal's way of saying "unset") is none.
-[[nodiscard]] Appearance appearance_from(
-    std::optional<std::uint32_t> color_scheme, std::optional<std::array<double, 3>> accent,
-    std::optional<std::uint32_t> reduced_motion = std::nullopt);
+[[nodiscard]] Appearance appearance_from(std::optional<std::uint32_t> color_scheme,
+                                         std::optional<std::array<double, 3>> accent,
+                                         std::optional<std::uint32_t> reduced_motion = std::nullopt,
+                                         std::optional<std::uint32_t> contrast = std::nullopt);
 
 // Reads the appearance at start (waiting a moment for the portal, so the first frame has the
 // right colours) and follows its changes. Without a session bus or a portal, available() is

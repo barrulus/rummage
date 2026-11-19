@@ -33,12 +33,15 @@ void Theme::set_desktop(std::optional<Desktop> desktop) {
     if (desktop == desktop_) {
         return;
     }
+    const bool contrast_changed =
+        (desktop_ && desktop_->high_contrast) != (desktop && desktop->high_contrast);
     desktop_ = desktop;
     if (desktop_) {
         log::info("theme: desktop is {}{}", desktop_->dark ? "dark" : "light",
                   desktop_->accent ? ", with an accent colour" : "");
     }
-    if (source_ == Source::desktop || (source_ == Source::automatic && !file_palette_))
+    if (source_ == Source::desktop || (source_ == Source::automatic && !file_palette_) ||
+        (dark_override_ && contrast_changed))
         changed();
 }
 
@@ -84,7 +87,9 @@ void Theme::changed() {
             break;
     }
     if (dark_override_)
-        override_palette_ = desktop_palette({.dark = *dark_override_, .accent = accent()});
+        override_palette_ = desktop_palette({.dark = *dark_override_,
+                                             .accent = accent(),
+                                             .high_contrast = desktop_ && desktop_->high_contrast});
     if (change_handler_) {
         change_handler_();
     }

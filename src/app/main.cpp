@@ -669,7 +669,9 @@ int main(int argc, char** argv) {
             const platform::Appearance& appearance = portal->appearance();
             if (motion_preference)
                 motion_preference(appearance.reduced_motion);
-            theme::Desktop desktop{.dark = appearance.dark, .accent = std::nullopt};
+            theme::Desktop desktop{.dark = appearance.dark,
+                                    .accent = std::nullopt,
+                                    .high_contrast = appearance.high_contrast};
             if (appearance.accent) {
                 const auto [r, g, b] = *appearance.accent;
                 desktop.accent = ui::Color{static_cast<float>(r), static_cast<float>(g),
