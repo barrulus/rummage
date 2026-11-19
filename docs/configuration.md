@@ -155,7 +155,7 @@ uses defaults, so verify the printed path if a check unexpectedly succeeds.
 | Startup folder/mode | Next application start |
 | Interface and monospace font | Next application start |
 | `colors.toml` palette | Live |
-| Desktop icon-theme discovery | At startup; explicit `icon.theme` edits reload live |
+| Desktop icon-theme discovery | Live while `icon.theme = "system"`; named/built-in themes ignore desktop changes |
 
 At startup, invalid scalar values use defaults and unknown keys are reported.
 A TOML syntax error discards the file. Invalid bindings fall back to the default

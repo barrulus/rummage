@@ -1,13 +1,22 @@
 #include "rummage/ui/icon_theme.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cerrno>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <map>
+#include <poll.h>
+#include <sys/inotify.h>
+#include <unistd.h>
+#include <utility>
 
+#include "rummage/core/log.hpp"
 #include "rummage/picture/scale.hpp"
 #include "rummage/picture/wuffs.hpp"
 #include "rummage/svg/svg.hpp"
@@ -93,13 +102,18 @@ bool safe_directory(const std::filesystem::path& path) {
            std::ranges::none_of(path, [](const auto& part) { return part == ".."; });
 }
 
-}  // namespace
-
-std::string desktop_icon_theme() {
+std::filesystem::path icon_settings_directory() {
     std::filesystem::path config = env("XDG_CONFIG_HOME");
     if (!config.is_absolute()) {
         config = std::filesystem::path{env("HOME")} / ".config";
     }
+    return config;
+}
+
+constexpr std::array<std::string_view, 4> kSettingsFiles{
+    "gtk-3.0/settings.ini", "gtk-4.0/settings.ini", "kdeglobals", "qt6ct/qt6ct.conf"};
+
+std::string read_desktop_icon_theme(const std::filesystem::path& config, bool kde_desktop) {
     const auto gtk3 = read_ini(config / "gtk-3.0/settings.ini");
     const auto gtk4 = read_ini(config / "gtk-4.0/settings.ini");
     const auto kde = read_ini(config / "kdeglobals");
@@ -113,7 +127,7 @@ std::string desktop_icon_theme() {
         return value == group->second.end() ? std::string{} : value->second;
     };
     std::vector<std::string> choices;
-    if (env("XDG_CURRENT_DESKTOP").find("KDE") != std::string::npos) {
+    if (kde_desktop) {
         choices.push_back(setting(kde, "Icons", "Theme"));
     }
     choices.push_back(setting(gtk3, "Settings", "gtk-icon-theme-name"));
@@ -127,6 +141,138 @@ std::string desktop_icon_theme() {
     }
     return "hicolor";
 }
+
+}  // namespace
+
+std::string desktop_icon_theme() {
+    return read_desktop_icon_theme(icon_settings_directory(),
+                                   env("XDG_CURRENT_DESKTOP").find("KDE") != std::string::npos);
+}
+
+struct DesktopIconThemeWatcher::Impl {
+    core::EventLoop& loop;
+    std::function<void(const std::string&)> changed;
+    const std::filesystem::path config{std::filesystem::absolute(icon_settings_directory())};
+    const bool kde_desktop{env("XDG_CURRENT_DESKTOP").find("KDE") != std::string::npos};
+    std::string selected;
+    int fd{-1};
+    core::EventLoop::SourceId source{0};
+    core::EventLoop::SourceId timer{0};
+    // Empty names watch a file itself (including the target of a symlink); other names
+    // filter directory events to the next component of a settings file's path.
+    std::map<int, std::vector<std::string>> watched;
+
+    Impl(core::EventLoop& event_loop, std::function<void(const std::string&)> handler)
+        : loop{event_loop}, changed{std::move(handler)} {
+        arm();
+        selected = read_desktop_icon_theme(config, kde_desktop);
+    }
+
+    ~Impl() {
+        loop.remove(timer);
+        disarm();
+    }
+
+    void disarm() {
+        loop.remove(source);
+        source = 0;
+        if (fd >= 0)
+            close(fd);
+        fd = -1;
+        watched.clear();
+    }
+
+    void arm() {
+        disarm();
+        fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+        if (fd < 0) {
+            log::warn("icons: cannot follow desktop settings: {}", std::strerror(errno));
+            return;
+        }
+        constexpr std::uint32_t events = IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM | IN_DELETE |
+                                         IN_CREATE | IN_ATTRIB | IN_DELETE_SELF | IN_MOVE_SELF;
+        std::vector<std::filesystem::path> paths;
+        for (const auto relative : kSettingsFiles)
+            paths.push_back(config / relative);
+        // Resolve links explicitly too: an absent symlink target needs its own parent watch
+        // to notice later creation. Bound expansion so cyclic links cannot loop forever.
+        for (std::size_t i = 0; i < paths.size() && i < 32; ++i) {
+            const auto file = paths[i];
+            const int file_watch = inotify_add_watch(fd, file.c_str(), events);
+            if (file_watch >= 0)
+                watched[file_watch].emplace_back();
+            // Watching ancestors also catches directories created later or replaced as a
+            // whole. Never create another desktop's configuration directories just to watch.
+            for (auto child = file; !child.empty() && child != child.parent_path();
+                 child = child.parent_path()) {
+                const auto parent = child.parent_path();
+                const int watch = inotify_add_watch(fd, parent.c_str(), events | IN_ONLYDIR);
+                if (watch >= 0)
+                    watched[watch].push_back(child.filename().string());
+                std::error_code error;
+                auto target = std::filesystem::read_symlink(child, error);
+                if (!error) {
+                    if (target.is_relative())
+                        target = parent / target;
+                    if (child != file)
+                        target /= file.lexically_relative(child);
+                    target = target.lexically_normal();
+                    if (std::ranges::find(paths, target) == paths.end())
+                        paths.push_back(std::move(target));
+                }
+            }
+        }
+        source = loop.add_fd(fd, POLLIN, [this](short) { readable(); });
+    }
+
+    void readable() {
+        alignas(inotify_event) std::array<char, 4096> buffer{};
+        bool relevant = false;
+        for (;;) {
+            const auto length = read(fd, buffer.data(), buffer.size());
+            if (length < 0 && errno == EINTR)
+                continue;
+            if (length <= 0)
+                break;
+            for (std::size_t offset = 0; std::cmp_less(offset, length);) {
+                inotify_event event{};
+                std::memcpy(&event, buffer.data() + offset, sizeof event);
+                const auto found = watched.find(event.wd);
+                if ((event.mask & IN_Q_OVERFLOW) != 0U) {
+                    relevant = true;
+                } else if (found != watched.end()) {
+                    const std::string_view name =
+                        event.len ? buffer.data() + offset + sizeof event : "";
+                    relevant = relevant ||
+                               (event.mask & (IN_IGNORED | IN_DELETE_SELF | IN_MOVE_SELF)) != 0U ||
+                               std::ranges::find(found->second, name) != found->second.end();
+                }
+                offset += sizeof event + event.len;
+            }
+        }
+        if (!relevant)
+            return;
+        loop.remove(timer);
+        timer = loop.add_timer(std::chrono::milliseconds{50}, std::chrono::milliseconds{0}, [this] {
+            timer = 0;
+            arm();
+            auto fresh = read_desktop_icon_theme(config, kde_desktop);
+            if (fresh != selected) {
+                selected = std::move(fresh);
+                if (changed)
+                    changed(selected);
+            }
+        });
+    }
+};
+
+DesktopIconThemeWatcher::DesktopIconThemeWatcher(core::EventLoop& loop,
+                                                 std::function<void(const std::string&)> changed)
+    : impl_{std::make_unique<Impl>(loop, std::move(changed))} {}
+
+DesktopIconThemeWatcher::~DesktopIconThemeWatcher() = default;
+
+const std::string& DesktopIconThemeWatcher::theme() const { return impl_->selected; }
 
 std::vector<std::filesystem::path> icon_theme_roots() {
     std::vector<std::filesystem::path> roots;
