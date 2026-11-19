@@ -269,9 +269,9 @@ Tabler icons. Theme icons may be SVG or PNG. Inherited themes and built-in icons
 provide fallbacks. Editing this setting reloads live; desktop theme changes require
 a restart for discovery.
 
-SVG theme icons use rummage's in-process FreeType-based SVG renderer. This is a
-supported subset, not full SVG document/browser support; see
-[SVG support and limits](previews.md#svg).
+SVG theme icons use librsvg through the same adapter as file previews, running
+in-process. Input and output sizes are bounded; the preview helper's process
+limits do not apply to icons. See [SVG support and limits](previews.md#svg).
 
 ### Places icons
 

@@ -51,7 +51,7 @@ For archive browsing, copying members out and creating archives, see
 
 SVG files show as pictures in Quick Look, the information pane and thumbnails,
 using librsvg through its C API inside `rummage-preview`'s sandbox. Theme icons
-continue to use rummage's separate in-process renderer.
+use the same rendering adapter in the application process.
 
 The renderer supports paths and shapes, strokes, gradients, CSS selectors, groups,
 clipping, masks, SVG filters, patterns, embedded images and text.

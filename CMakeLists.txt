@@ -132,7 +132,7 @@ add_subdirectory(src/fs)        # directory loading and sorting
 add_subdirectory(src/engines)   # engines' manifests: who shows which type (3a)
 add_subdirectory(src/text)      # text files: the Text type, the loader (3b)
 add_subdirectory(src/picture)   # pictures: Image, turning, scaling, the cache's PNG, the loader
-add_subdirectory(src/svg)       # icon-theme SVG rendering on FreeType
+add_subdirectory(src/svg)       # shared librsvg rendering for icons and previews
 add_subdirectory(src/formats)   # the families of files read in the helper (image today)
 add_subdirectory(src/thumbs)    # freedesktop thumbnail cache
 add_subdirectory(src/preview)   # Quick Look providers: images, text, information

@@ -143,13 +143,7 @@ bool IconSet::draw_themed(Renderer& renderer, std::string_view name, float x, fl
         const auto file = custom_file ? std::filesystem::path{name} : theme_->find(name, pixels);
         picture::Image image;
         if (!file.empty()) {
-            bool unsupported_filter = false;
-            image = IconTheme::render(file, pixels, &unsupported_filter);
-            // Theme lookups are bounded above; retain warning names across size/theme changes.
-            if (unsupported_filter && svg_warnings_.size() < 4096 &&
-                svg_warnings_.insert(file.string()).second)
-                log::warn("icon {}: unsupported SVG filter primitive; rendering unfiltered",
-                          file.string());
+            image = IconTheme::render(file, pixels);
         }
         std::unique_ptr<Texture> texture;
         if (!image.empty()) {

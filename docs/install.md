@@ -341,7 +341,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Text | `harfbuzz`, `freetype2`, `fontconfig` |
 | Configuration | `tomlplusplus` |
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
-| SVG file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
+| SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |
 | Optional media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; enable `RUMMAGE_MEDIA` |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
