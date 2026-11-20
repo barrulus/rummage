@@ -12,6 +12,7 @@ on:
       - src/theme/include/rummage/theme/palette.hpp
       - data/noctalia/**
       - scripts/ci/noctalia-template.py
+      - scripts/ci/tests/test_noctalia_template.py
       - .github/workflows/noctalia-template.yml
 
 permissions:
@@ -60,9 +61,9 @@ jobs:
               fi
               gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$body"
             fi
-          elif [ -n "$number" ]; then
+          elif [ "$STATUS" = 0 ] && [ -n "$number" ]; then
             gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "In sync again: $RUN_URL"
           fi
-      - name: Fail on drift
-        if: steps.compare.outputs.status != '0'
+      - name: Fail on drift or fetch error
+        if: steps.compare.outputs.status != '0' && steps.compare.outputs.status != '3'
         run: exit 1
