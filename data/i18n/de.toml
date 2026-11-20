@@ -991,6 +991,15 @@ moves = "Bewegung"
 
 "KDE" = "KDE"
 "Built-in (KDE palette unavailable)" = "Integriert (KDE-Palette nicht verfügbar)"
+"File extensions" = "Dateiendungen"
+
+"Thumbnails" = "Vorschaubilder"
+"Show" = "Anzeigen"
+
+"Show Thumbnails" = "Vorschaubilder anzeigen"
+"Hide Thumbnails" = "Vorschaubilder ausblenden"
+"Show File Extensions" = "Dateiendungen anzeigen"
+"Hide File Extensions" = "Dateiendungen ausblenden"
 
 [contexts.file-action]
 "Open" = "Öffnen"

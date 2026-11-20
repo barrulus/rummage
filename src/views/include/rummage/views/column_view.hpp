@@ -56,6 +56,10 @@ namespace rummage::views {
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class ColumnView {
 public:
+    void set_show_extensions(bool show) { show_extensions_ = show; }
+
+    void set_show_thumbnails(bool show) { show_thumbnails_ = show; }
+
     using Clock = ui::Scroller::Clock;
 
     static constexpr float kDefaultColumnWidth = 260.0F;
@@ -65,7 +69,8 @@ public:
 
     ColumnView(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
-               std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane = nullptr);
+               std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane = nullptr,
+               Thumbnails* thumbnails = nullptr);
 
     ~ColumnView();
 
@@ -175,6 +180,8 @@ public:
     [[nodiscard]] float scroll_offset() const noexcept { return scroller_.offset(); }
 
 private:
+    bool show_extensions_{true};
+    bool show_thumbnails_{true};
     void zoom(std::size_t index);
     void right_click(float x, float y);
 
@@ -214,6 +221,7 @@ private:
     const DropMark* drop_{nullptr};
     std::function<void(ui::CursorShape)> set_cursor_;
     InfoPane* info_pane_;
+    Thumbnails* thumbnails_;
     bool info_visible_{true};
     ui::Rect info_area_{};  // where the info pane was last drawn; empty when not shown
 

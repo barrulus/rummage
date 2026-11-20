@@ -347,9 +347,10 @@ TEST_CASE("details: header chooser and sorting use the visible column layout") {
     click(1140, rummage::ui::PointerButton::left);
     CHECK(f.details.order().descending);
     CHECK(f.details.folder()->selected_names() == selection);
-    draw(240);  // Optional columns temporarily do not fit; click sorts by Name.
+    draw(240);  // Optional columns remain reachable in the horizontally scrolling table.
     click(210, rummage::ui::PointerButton::left);
-    CHECK(f.details.order().key == SortKey::name);
+    CHECK(f.details.order().key == SortKey::permissions);
+    CHECK(f.details.horizontal_scroller().max_offset() > 0);
     CHECK(f.details.column_visible(Field::owner));
     draw(1200);
     click(1140, rummage::ui::PointerButton::left);
@@ -475,4 +476,124 @@ TEST_CASE("info pane: hiding a pane cancels its delayed folder count") {
     f.loop.remove(timer);
     CHECK_FALSE(pane.folder_size());
     CHECK_FALSE(pane.loading());
+}
+
+TEST_CASE("details: widening Name pushes later columns and scrolls beneath a fixed preview") {
+    rummage::ui::Offscreen gl{1000, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_3, {.ctrl = true});
+    f.press(XKB_KEY_End);
+    f.details.set_info_visible(true);
+    const auto selected = f.details.folder()->selected_names();
+    const auto draw = [&] {
+        renderer.begin_frame(1000, 600, 1, {});
+        f.details.draw(renderer, {0, 0, 1000, 600}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now() + 1s);
+        renderer.end_frame();
+    };
+    using Event = rummage::ui::PointerEvent;
+    const auto pointer = [&](Event::Kind kind, float x, float y) {
+        f.details.pointer(
+            {.kind = kind, .x = x, .y = y, .button = rummage::ui::PointerButton::left},
+            Browser::Clock::now());
+    };
+    draw();
+    CHECK(f.details.horizontal_scrollbar_thumb().empty());
+    const float name_before = f.details.width(Field::name);
+    const float size_before = f.details.width(Field::size);
+    const float modified_before = f.details.width(Field::modified);
+    const float divider = f.details.column_left(Field::size);
+    pointer(Event::Kind::press, divider, 15);
+    pointer(Event::Kind::motion, divider + 600, 15);  // crosses into the preview
+    pointer(Event::Kind::release, divider + 600, 15);
+    draw();
+    CHECK(f.details.width(Field::name) == doctest::Approx(name_before + 600));
+    CHECK(f.details.width(Field::size) == size_before);
+    CHECK(f.details.width(Field::modified) == modified_before);
+    CHECK(f.details.column_left(Field::size) == doctest::Approx(divider + 600));
+    CHECK(f.details.horizontal_scroller().max_offset() == doctest::Approx(600));
+    const auto thumb = f.details.horizontal_scrollbar_thumb();
+    REQUIRE_FALSE(thumb.empty());
+    CHECK(thumb.bottom() < 600);
+    CHECK(thumb.right() < 1000 - f.browser.info_pane().width_in(1000));
+    CHECK_FALSE(f.details.hit(thumb.x + 2, thumb.y + 2));
+    pointer(Event::Kind::press, thumb.x + 2, thumb.y + 2);
+    pointer(Event::Kind::motion, 1000, thumb.y + 2);
+    pointer(Event::Kind::release, 1000, thumb.y + 2);
+    draw();
+    CHECK(f.details.horizontal_scroller().offset() == f.details.horizontal_scroller().max_offset());
+    CHECK(f.details.folder()->selected_names() == selected);
+    const float type_title = f.details.column_left(Field::type) + 20;
+    pointer(Event::Kind::press, type_title, 15);
+    pointer(Event::Kind::release, type_title, 15);
+    CHECK(f.details.order().key == SortKey::type);
+    // Preview header clicks must not sort a column hidden beneath the preview.
+    pointer(Event::Kind::press, 950, 15);
+    pointer(Event::Kind::release, 950, 15);
+    CHECK(f.details.order().key == SortKey::type);
+    // Name's explicit width is saved and restored with the folder, including after a restart.
+    const auto saved = f.browser.state();
+    const auto parsed = rummage::views::parse_state(rummage::views::format_state(saved), "test");
+    REQUIRE(parsed.problems.empty());
+    CHECK(parsed.state.details_widths.back() == doctest::Approx(name_before + 600));
+    f.browser.open(f.root / "alpha");
+    REQUIRE(f.settle());
+    f.details.set_widths(rummage::views::kDetailsWidths);
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    draw();
+    CHECK(f.details.width(Field::name) == doctest::Approx(name_before + 600));
+}
+
+TEST_CASE("details: any header resizes its left column and horizontal wheel preserves selection") {
+    rummage::ui::Offscreen gl{1000, 500};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_3, {.ctrl = true});
+    f.press(XKB_KEY_End);
+    f.details.set_info_visible(false);
+    const auto draw = [&] {
+        renderer.begin_frame(1000, 500, 1, {});
+        f.details.draw(renderer, {0, 0, 1000, 500}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now() + 1s);
+        renderer.end_frame();
+    };
+    draw();
+    const float name_before = f.details.width(Field::name);
+    const float size_before = f.details.width(Field::size);
+    const float modified_before = f.details.width(Field::modified);
+    const auto selection = f.details.folder()->selected_names();
+    const float divider = f.details.column_left(Field::modified);
+    using Event = rummage::ui::PointerEvent;
+    for (const auto kind : {Event::Kind::press, Event::Kind::motion, Event::Kind::release})
+        f.details.pointer({.kind = kind,
+                           .x = divider + (kind == Event::Kind::press ? 0 : 300),
+                           .y = 15,
+                           .button = rummage::ui::PointerButton::left},
+                          Browser::Clock::now());
+    draw();
+    CHECK(f.details.width(Field::size) == doctest::Approx(size_before + 300));
+    CHECK(f.details.width(Field::modified) == modified_before);
+    CHECK(f.details.width(Field::name) == name_before);
+    f.details.pointer({.kind = Event::Kind::scroll,
+                       .x = 400,
+                       .y = 200,
+                       .wheel_y = 2,
+                       .modifiers = {.shift = true}},
+                      Browser::Clock::now());
+    draw();
+    CHECK(f.details.horizontal_scroller().offset() > 0);
+    CHECK(f.details.scroller().offset() == 0);
+    CHECK(f.details.folder()->selected_names() == selection);
+    f.details.set_columns({Field::name});
+    draw();
+    CHECK(f.details.horizontal_scroller().offset() == 0);
+    CHECK(f.details.horizontal_scrollbar_thumb().empty());
 }

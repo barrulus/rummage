@@ -27,6 +27,8 @@ struct State {
 
     Mode mode{Mode::columns};
     bool show_hidden{false};
+    bool show_extensions{true};
+    bool show_thumbnails{true};
     bool sidebar_visible{true};
     float sidebar_width{200.0F};
     std::size_t sidebar_size{1};  // independent sidebar zoom, usual by default

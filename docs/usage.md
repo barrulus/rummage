@@ -48,15 +48,17 @@ Switching views keeps the current location and selection. Columns can be resized
 by dragging their edges; double-click an edge to reset its width. In details,
 drag header dividers to resize columns and click a header to sort by it; click
 again to reverse. Right-click a header or use **View → Show columns** to toggle
-columns, including Type. Name always stays visible. The header menu also moves
+columns, including Type. Name always stays first. The header menu also moves
 an optional column left or right and resets the columns and widths.
 
 Available columns are Name, Size, Modified, Type (MIME), Created, Accessed, Owner,
 Group, Permissions, Location and Link target. Creation time shows a dash when
 unavailable; permissions use `ls -l` notation. Links show their target's metadata,
 or their own when dangling. Location is the row's parent folder, useful in an
-expanded tree; sorting it orders siblings by name. The rightmost enabled columns
-are temporarily left out when the pane is too narrow and return when widened.
+expanded tree; sorting it orders siblings by name. Drag a header’s right edge to
+resize that column; the columns to its right move with it. Wider tables scroll
+horizontally beneath the fixed preview pane. Use the scrollbar at the bottom of
+the file list, Shift+wheel, or a horizontal touchpad gesture to reach offscreen columns.
 Column choices, order and widths are remembered per folder and tab. The command
 palette also offers **Show/Hide … column** commands in Details view.
 
@@ -65,10 +67,25 @@ selection. Each column, grid and details pane has its own vertical scrollbar;
 columns also have a horizontal scrollbar when they extend beyond the pane. Click
 the scrollbar track to jump to that position, then keep dragging to adjust.
 
-In every view, right-click and use **Sort By** for any of these properties and
-ascending/descending order. Sort order belongs to the current tab and is saved. Folders
+In every view, use the toolbar’s **Sort By** button for any of these properties and
+ascending/descending order. It is also available in **View → Sort By** and the
+right-click menu. Sort order belongs to the current tab and is saved. Folders
 are kept together; size sorting keeps folder names ordered, and unknown types
 sort after known types in ascending type order.
+
+**View → Show → Thumbnails** replaces file-type icons with thumbnails where supported in
+Grid, Details and Columns. Turn it off for icons only. The choice applies to every
+pane and tab and is remembered between sessions.
+
+**View → Show → Hidden files** shows or hides dotfiles using the same setting as **Ctrl+H**.
+
+**View → Show → File extensions** shows or hides the final extension of file labels in
+all panes and tabs; the choice is remembered between sessions. Folder names and
+leading-dot names such as `.profile` stay intact. Files on disk keep their names.
+Long labels end in an ellipsis. Selecting a single file shows its complete name,
+including its extension, by expanding and wrapping its label at the file itself.
+The preview and Quick Look also show the complete name. Rename always edits the
+real filename, with only its base name initially selected.
 
 Use **Ctrl+plus**, **Ctrl+minus**, or **Ctrl+wheel** to zoom, and **Ctrl+0** to reset.
 Grid sizes range from 48 to 512 px, constrained by available width. Columns and

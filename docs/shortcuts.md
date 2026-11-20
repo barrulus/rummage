@@ -18,6 +18,8 @@ a shortcut's meaning follows the focused control.
 | Ctrl+B | Toggle sidebar | `toggle_sidebar` |
 | F6 | Focus sidebar / return to view | `focus_sidebar` |
 | Ctrl+H | Show/hide hidden files | `toggle_hidden` |
+| No default | Toggle thumbnails / file-type icons | `toggle_thumbnails` |
+| No default | Show/hide file extensions | `toggle_extensions` |
 | Ctrl+D | Bookmark current folder | `add_bookmark` |
 | Ctrl+K | Command palette | `command_palette` |
 | Ctrl+L | Go to a folder or server | `go_to` |
@@ -108,7 +110,8 @@ Copy Name copies plain text, with multiple names separated by newlines. Its
 
 ## Override bindings
 
-Add to one `[keybindings]` table in `config.toml`:
+Use **Settings → Keyboard shortcuts** to edit the **Thumbnails** and **File extensions**
+commands (both unbound by default), or add to one `[keybindings]` table in `config.toml`:
 
 ```toml
 [keybindings]
@@ -117,6 +120,8 @@ select_all = "Ctrl+g"
 toggle_selection = "Ctrl+j"
 erase = ""
 copy_location = "Ctrl+Shift+c"
+toggle_thumbnails = "Ctrl+Alt+t"
+toggle_extensions = "Ctrl+Alt+e"
 ```
 
 Each entry replaces all default chords for that action. An empty string disables

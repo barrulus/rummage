@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,12 +26,18 @@ struct FileOperation {
         erase,         // cannot be undone
     };
 
+    struct CreatedFile {
+        std::uintmax_t size;
+        std::filesystem::file_time_type modified;
+    };
+
     Kind kind{Kind::copy};
     std::vector<fs::PlacedItem> items;    // sidecars left out: they follow their photo
     std::vector<fs::ModeChange> modes{};  // permissions only
     // Groups that cannot be safely undone (replacements or preexisting sidecars).
     std::size_t undo_excluded{0};
-    std::vector<fs::RenameChange> renames{};  // batch rename identities and exact sidecar set
+    std::optional<CreatedFile> created_file{};  // clipboard content, checked before undo
+    std::vector<fs::RenameChange> renames{};    // batch rename identities and exact sidecar set
 };
 
 // What the operation did, for "Undone: ..." and "Redone: ...": "“P1.ORF” is “Lake.ORF” again",

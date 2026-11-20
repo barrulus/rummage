@@ -7,7 +7,6 @@
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
 #include "rummage/core/i18n.hpp"
-#include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
 
@@ -75,8 +74,12 @@ void Column::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 
 void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                   ui::IconSet& icons, bool focused, Clock::time_point now, EditSlot* edit,
-                  const CutMarks* cut, const DropMark* drop) {
+                  const CutMarks* cut, const DropMark* drop, bool show_extensions,
+                  Thumbnails* thumbnails) {
     motion_bounds_ = {};
+    expanded_name_ = {};
+    ui::Rect name_anchor{};
+    ui::Color name_text{}, name_background{};
     const std::vector<fs::Entry>& entries = folder_->entries();
     rows_area_ = bounds;
     const float content = static_cast<float>(entries.size()) * size_.row;
@@ -114,19 +117,10 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
                                .border_width = style.ring ? 1.5F : 0.0F,
                                .border = style.ring.value_or(kTransparent)});
         }
-        fs::Entry typed = entry;
-        typed.mime = folder_->mime_of(entry);
-        icons.draw_file(renderer, (folder_->mime()).name(typed.mime),
-                        fs::icon_name(folder_->mime(), typed), bounds.x + kIconX,
-                        y + ((size_.row - size_.icon) / 2.0F), size_.icon, style.icon,
-                        typed.folder_icon);
-        if (folder_->runs_as_program(entry)) {
-            draw_run_mark(renderer, bounds.x + kIconX, y + ((size_.row - size_.icon) / 2.0F),
-                          size_.icon,
-                          style.fill ? style.icon
-                                     : theme::readable_foreground(palette.primary, palette.surface),
-                          style.fill.value_or(palette.surface));
-        }
+        draw_entry_icon(
+            renderer, icons, palette, *folder_, entry, style, thumbnails,
+            {bounds.x + kIconX, y + ((size_.row - size_.icon) / 2.0F), size_.icon, size_.icon},
+            cut != nullptr && cut->holds(path(), entry));
         float name_right = bounds.right() - kRightPadding;
         if (entry.is_directory()) {
             name_right -= kChevronSize + 6.0F;
@@ -141,12 +135,25 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
             item_right_.push_back(name_right);
             continue;
         }
-        const float drawn = renderer.draw_text(
-            entry.name, name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
-            style.text, std::max(1.0F, name_right - name_x), ui::Ellipsis::middle);
+        if (&entry == folder_->single_selection()) {
+            name_anchor = {name_x - 4, y + ((size_.row - size_.text) / 2) - 6,
+                           std::max(1.0F, name_right - name_x) + 8, 0};
+            name_text = style.text;
+            name_background = style.fill.value_or(palette.surface);
+            item_right_.push_back(name_right + kItemSlack);
+            continue;
+        }
+        const float drawn =
+            renderer.draw_text(display_name(entry.name, entry.is_directory(), show_extensions),
+                               name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
+                               style.text, std::max(1.0F, name_right - name_x), ui::Ellipsis::end);
         item_right_.push_back(name_x + drawn + kItemSlack);
     }
 
+    if (name_anchor.width > 0)
+        expanded_name_ =
+            draw_selected_name(renderer, folder_->single_selection()->name, name_anchor, bounds,
+                               size_.text, name_text, name_background);
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
         draw_centered(renderer, model.problem(), bounds, bounds.y + 24.0F, size_.text,
@@ -179,6 +186,8 @@ std::optional<std::size_t> Column::row_at(float x, float y) const {
         y >= rows_area_.bottom()) {
         return std::nullopt;
     }
+    if (folder_->single_selection() && expanded_name_.contains(x, y))
+        return folder_->cursor();
     const float content_y = y - rows_area_.y + scroller_.offset();
     const auto row = static_cast<std::size_t>(content_y / size_.row);
     if (row >= folder_->entries().size()) {

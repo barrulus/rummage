@@ -14,6 +14,7 @@
 #include <doctest/doctest.h>
 
 #include "rummage/core/event_loop.hpp"
+#include "rummage/core/file.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
@@ -153,6 +154,7 @@ struct Fixture {
              {"photos/P1.ORF", "photos/P1.ORF.xmp", "photos/P2.ORF", "other/note.txt"}) {
             std::ofstream{root / name} << name;
         }
+        browser.set_home_trash(dir.path / "Trash");
         browser.set_system_clipboard(clipboard.port());
     }
 
@@ -243,8 +245,9 @@ TEST_CASE("clipboard: Ctrl+C and Ctrl+X offer the files to other programs") {
     f.show(f.root / "album", "");
     CHECK(f.press(key(XKB_KEY_v, {.ctrl = true})));
     REQUIRE(f.settle());
-    CHECK(f.browser.status_bar().message() == "The clipboard holds no files");
-    CHECK(listing(f.root / "album") == Names{"P1.ORF", "P1.ORF.xmp"});
+    CHECK(f.browser.name_editor().active());
+    CHECK(listing(f.root / "album") == Names{"P1.ORF", "P1.ORF.xmp", "Pasted.txt"});
+    CHECK(rummage::core::read_text_file(f.root / "album/Pasted.txt").text == "hello");
 }
 
 TEST_CASE("clipboard: Ctrl+Shift+C copies the shown folder's path as text, whatever is selected") {
@@ -353,4 +356,107 @@ TEST_CASE("clipboard: Ctrl+V in a name's field pastes the text's first line") {
     CHECK(f.press(key(XKB_KEY_z, {.ctrl = true})));
     CHECK(f.browser.name_editor().field().text() == "P2.ORF");
     CHECK(f.press(key(XKB_KEY_Escape)));
+}
+
+TEST_CASE("clipboard: text paste creates a unique file and selects its stem for rename and undo") {
+    Fixture f;
+    f.show(f.root / "album", "");
+    f.browser.set_name_filter("does-not-match");
+    const std::string text = "Hello, café!\nSecond line\n";
+    f.clipboard.copy_from_elsewhere(
+        {{"text/plain;charset=utf-8", text}, {"text/html", "<b>Hello</b>"}});
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(f.browser.name_filter().empty());
+    CHECK(rummage::core::read_text_file(f.root / "album/Pasted.txt").text == text);
+    REQUIRE(f.browser.name_editor().active());
+    f.browser.name_editor().paste("Notes");
+    CHECK(f.browser.name_editor().field().text() == "Notes.txt");
+    REQUIRE(f.press(key(XKB_KEY_Return)));
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(f.root / "album/Notes.txt").text == text);
+    REQUIRE(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.root / "album/Pasted.txt"));
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(f.root / "album/Pasted 2.txt").text == text);
+    f.browser.name_editor().cancel();
+    REQUIRE(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK_FALSE(fs::exists(f.root / "album/Pasted 2.txt"));
+    CHECK(fs::exists(f.root / "album/Pasted.txt"));
+    REQUIRE(f.press(key(XKB_KEY_z, {.ctrl = true, .shift = true})));
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(f.root / "album/Pasted 2.txt").text == text);
+}
+
+TEST_CASE("clipboard: images preserve exact binary bytes and take precedence over text") {
+    for (const auto& [mime, extension] :
+         {std::pair{"image/png", ".png"}, {"image/jpeg", ".jpg"}, {"image/webp", ".webp"}}) {
+        CAPTURE(mime);
+        Fixture f;
+        f.show(f.root / "album", "");
+        // Clipboard bytes are opaque; decoding remains the isolated previewer's job.
+        const std::string bytes{"image\0payload\xff", 14};
+        f.clipboard.copy_from_elsewhere({{"text/plain", "image caption"}, {mime, bytes}});
+        REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+        REQUIRE(f.settle());
+        CHECK(listing(f.root / "album") == Names{std::string{"Pasted"} + extension});
+        CHECK(rummage::core::read_text_file(f.root / "album" / (std::string{"Pasted"} + extension))
+                  .text == bytes);
+        REQUIRE(f.browser.name_editor().active());
+        f.browser.name_editor().paste("Screenshot");
+        CHECK(f.browser.name_editor().field().text() == std::string{"Screenshot"} + extension);
+    }
+}
+
+TEST_CASE("clipboard: changing folders during a read does not steal focus for rename") {
+    Fixture f;
+    f.show(f.root / "album", "");
+    f.clipboard.copy_from_elsewhere({{"text/plain", "saved in album"}});
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    f.browser.open(f.root / "other");
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(f.root / "album/Pasted.txt").text == "saved in album");
+    CHECK_FALSE(f.browser.name_editor().active());
+    CHECK_FALSE(fs::exists(f.root / "other/Pasted.txt"));
+}
+
+TEST_CASE("clipboard: unreadable and unsupported offers do not create files") {
+    Fixture f;
+    f.show(f.root / "album", "");
+    auto port = f.clipboard.port();
+    port.read = [&](std::string, SystemClipboard::Done done) {
+        f.loop.post([done] { done(std::nullopt); });
+    };
+    f.browser.set_system_clipboard(std::move(port));
+    f.clipboard.copy_from_elsewhere({{"image/png", "unavailable"}});
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(f.browser.status_bar().message() == "The clipboard could not be read");
+    CHECK(listing(f.root / "album").empty());
+    CHECK_FALSE(f.browser.name_editor().active());
+    f.clipboard.copy_from_elsewhere({{"application/octet-stream", "binary"}});
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(listing(f.root / "album").empty());
+}
+
+TEST_CASE("clipboard: undo preserves a pasted file edited after creation") {
+    Fixture f;
+    f.show(f.root / "album", "");
+    f.clipboard.copy_from_elsewhere({{"text/plain", "original"}});
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(f.settle());
+    f.browser.name_editor().cancel();
+    const auto file = f.root / "album/Pasted.txt";
+    const auto modified = fs::last_write_time(file);
+    std::ofstream{file} << "modified";  // same byte count
+    fs::last_write_time(file, modified + 2s);
+    REQUIRE(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(file).text == "modified");
+    CHECK(f.browser.status_bar().message().find("has changed since it was made") !=
+          std::string::npos);
 }

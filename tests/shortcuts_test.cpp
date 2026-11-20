@@ -713,3 +713,48 @@ TEST_CASE("copy path: default chord yields to existing custom bindings") {
     REQUIRE(configure_shortcuts({}).empty());
     CHECK(rummage::views::command_for(chord_copy) == Command::copy_path);
 }
+
+TEST_CASE("shortcuts: thumbnail and extension bindings toggle every view and update Show hints") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    REQUIRE(configure_shortcuts({}).empty());
+    CHECK(rummage::views::keys_for(Command::toggle_thumbnails).empty());
+    CHECK(rummage::views::keys_for(Command::toggle_extensions).empty());
+    const auto settings = rummage::views::binding_settings();
+    for (const auto* id : {"toggle_thumbnails", "toggle_extensions"})
+        CHECK(std::ranges::any_of(settings, [id](const auto& item) { return item.first == id; }));
+    REQUIRE(configure_shortcuts(
+                {{"toggle_thumbnails", "Ctrl+Alt+t"}, {"toggle_extensions", "Ctrl+Alt+e"}})
+                .empty());
+    Fixture f;
+    for (const auto mode : kModes) {
+        f.reset(mode);
+        f.browser.set_show_thumbnails(true);
+        f.browser.set_show_extensions(true);
+        for (int repeat = 0; repeat < 2; ++repeat) {
+            CHECK(f.browser.key(chord(XKB_KEY_t, {.ctrl = true, .alt = true}),
+                                Browser::Clock::now()));
+            CHECK(f.browser.shows_thumbnails() == (repeat == 1));
+            CHECK(f.browser.key(chord(XKB_KEY_e, {.ctrl = true, .alt = true}),
+                                Browser::Clock::now()));
+            CHECK(f.browser.shows_extensions() == (repeat == 1));
+        }
+        f.browser.open_view_menu(0, 0);
+        const auto& items = f.browser.context_menu().items();
+        const auto show = std::ranges::find(items, "show", &rummage::views::MenuItem::id);
+        REQUIRE(show != items.end());
+        for (const auto& [id, keys] : {std::pair{"show_thumbnails", "Ctrl+Alt+t"},
+                                       std::pair{"show_extensions", "Ctrl+Alt+e"}}) {
+            const auto item = std::ranges::find(show->children, id, &rummage::views::MenuItem::id);
+            REQUIRE(item != show->children.end());
+            CHECK(item->checked);
+            CHECK(item->keys == keys);
+        }
+        f.browser.context_menu().close();
+    }
+    REQUIRE(configure_shortcuts({{"toggle_thumbnails", ""}, {"toggle_extensions", ""}}).empty());
+    CHECK(rummage::views::command_for(chord(XKB_KEY_t, {.ctrl = true, .alt = true})) ==
+          Command::none);
+    CHECK(rummage::views::command_for(chord(XKB_KEY_e, {.ctrl = true, .alt = true})) ==
+          Command::none);
+}

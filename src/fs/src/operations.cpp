@@ -1,5 +1,4 @@
 #include "rummage/fs/operations.hpp"
-#include "rummage/core/i18n.hpp"
 
 #include <algorithm>
 #include <array>
@@ -10,6 +9,8 @@
 #include <format>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::fs {
 namespace {
@@ -83,7 +84,7 @@ MadeFolder make_folder(const std::filesystem::path& directory, std::string_view 
 }
 
 MadeFile make_file(const std::filesystem::path& directory, std::string_view name,
-                   const std::filesystem::path& from) {
+                   const std::filesystem::path& from, std::string_view contents) {
     int source = -1;
     mode_t mode = 0666;  // less the umask, as any new file
     if (!from.empty()) {
@@ -134,6 +135,17 @@ MadeFile make_file(const std::filesystem::path& directory, std::string_view name
                 } else if (wrote > 0) {
                     done += wrote;
                 }
+            }
+        }
+        if (source < 0) {
+            while (!contents.empty() && !error) {
+                const ssize_t wrote = write(fd, contents.data(), contents.size());
+                if (wrote < 0 && errno != EINTR)
+                    error = last_error();
+                else if (wrote == 0)
+                    error = std::make_error_code(std::errc::io_error);
+                else if (wrote > 0)
+                    contents.remove_prefix(static_cast<std::size_t>(wrote));
             }
         }
         if (close(fd) != 0 && !error) {

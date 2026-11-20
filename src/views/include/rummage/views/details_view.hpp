@@ -37,9 +37,9 @@ namespace rummage::views {
 
 // A folder tree as a table: expandable rows with configurable property columns.
 // Only the rows inside the viewport are drawn. A click on a column's title sorts by it, a second
-// click reverses the order; dragging the line on a column's left edge makes it wider or narrower
-// (the name takes what is left). The order is the view's: every folder it shows is sorted that
-// way, and keeps it in the other views.
+// click reverses the order; dragging a column's right edge resizes it and pushes later columns.
+// A horizontal scrollbar exposes columns beyond the viewport, leaving the preview fixed. The order
+// is the view's: every folder it shows is sorted that way, and keeps it in the other views.
 //
 // Keys: Up/Down move the cursor, Page Up/Down by a screenful, Home/End to the ends; Shift, Ctrl,
 // Ctrl+Space, Ctrl+A and Escape select within the active parent folder. Right expands a folder
@@ -49,6 +49,12 @@ namespace rummage::views {
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class DetailsView {
 public:
+    [[nodiscard]] ui::Rect expanded_name_bounds() const { return expanded_name_; }
+
+    void set_show_extensions(bool show) { show_extensions_ = show; }
+
+    void set_show_thumbnails(bool show) { show_thumbnails_ = show; }
+
     using Clock = ui::Scroller::Clock;
 
     using Field = fs::SortKey;
@@ -58,7 +64,8 @@ public:
 
     DetailsView(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                 std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
-                std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane = nullptr);
+                std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane = nullptr,
+                Thumbnails* thumbnails = nullptr);
 
     // Shows folder as it is (cursor and selection), sorted as this view sorts, the cursor in
     // sight.
@@ -112,7 +119,7 @@ public:
     // Ctrl+plus/minus/0 and Ctrl+wheel changed the size: the window makes it every list's.
     void set_zoom_handler(std::function<void(std::size_t)> zoomed) { zoomed_ = std::move(zoomed); }
 
-    // Name stays visible at the left; the remaining columns can be toggled and reordered.
+    // Name stays first at the left; the remaining columns can be toggled and reordered.
     [[nodiscard]] const std::vector<Field>& columns() const { return columns_; }
 
     void set_columns(std::vector<Field> columns);
@@ -127,6 +134,7 @@ public:
     [[nodiscard]] DetailsWidths widths() const noexcept {
         DetailsWidths result{};
         std::copy(widths_.begin() + 1, widths_.end(), result.begin());
+        result.back() = widths_[0];
         return result;
     }
 
@@ -137,7 +145,9 @@ public:
               ui::IconSet& icons, Clock::time_point now);
 
     // A scroll animation is running: the window should keep drawing frames.
-    [[nodiscard]] bool animating() const noexcept { return scroller_.animating(); }
+    [[nodiscard]] bool animating() const noexcept {
+        return scroller_.animating() || sideways_.animating();
+    }
 
     void pointer(const ui::PointerEvent& event, Clock::time_point now);
     // false when event is not one of its keys.
@@ -166,6 +176,23 @@ public:
 
     [[nodiscard]] ui::Scroller& scroller() noexcept { return scroller_; }
 
+    [[nodiscard]] ui::Scroller& horizontal_scroller() noexcept { return sideways_; }
+
+    [[nodiscard]] ui::Rect horizontal_scrollbar_thumb() const {
+        return horizontal_bar_.thumb(sideways_);
+    }
+
+    [[nodiscard]] ui::Rect horizontal_scrollbar_bounds() const {
+        return sideways_.max_offset() > 0
+                   ? ui::Rect{table_bounds_.x, rows_.bottom(), table_bounds_.width,
+                              table_bounds_.bottom() - rows_.bottom()}
+                   : ui::Rect{};
+    }
+
+    [[nodiscard]] float column_left(Field field) const {
+        return layout_.left.at(static_cast<std::size_t>(field));
+    }
+
     // A column's width in logical pixels (the name's as last laid out).
     [[nodiscard]] float width(Field field) const;
 
@@ -175,6 +202,9 @@ public:
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
 private:
+    ui::Rect expanded_name_{};
+    bool show_extensions_{true};
+    bool show_thumbnails_{true};
     ItemBounds motion_bounds_{};
     void zoom(std::size_t index);
     // The fixed columns grow with the text: widths_ are at the usual size, shown times this.
@@ -182,8 +212,7 @@ private:
     [[nodiscard]] float shown_width(std::size_t column) const;
     void right_click(float x, float y);
 
-    // Where each column starts, from the last layout; a narrow table leaves out rightmost
-    // enabled columns so that the name keeps its minimum width.
+    // Window coordinates after horizontal scrolling; enabled columns stay in the layout.
     struct Layout {
         std::array<float, kDetailsColumnCount> left{};
         std::array<float, kDetailsColumnCount> width{};
@@ -213,7 +242,7 @@ private:
     void lay_out();
     void reveal_cursor(Folder::Reveal reveal, Clock::time_point now);
     [[nodiscard]] std::optional<std::size_t> row_at(float x, float y) const;
-    // The column whose left edge is under x in the header (not the name: it has none).
+    // The column whose right edge is under x in the visible header.
     [[nodiscard]] std::optional<Field> divider_at(float x, float y) const;
     [[nodiscard]] std::optional<Field> title_at(float x, float y) const;
     void update_hover();
@@ -231,6 +260,7 @@ private:
     std::function<void(ui::CursorShape)> set_cursor_;
     bool info_visible_{true};
     InfoPane* info_pane_;
+    Thumbnails* thumbnails_;
 
     // Dragging the info pane's edge: where the pointer and the width started.
     struct PaneDrag {
@@ -253,7 +283,10 @@ private:
     ListSize size_{kListSizes[kUsualListSize]};
     ui::Scroller scroller_;
     ui::Scrollbar scrollbar_;
-    // Widths indexed by field; the name takes the rest.
+    ui::Scroller sideways_;
+    ui::Scrollbar horizontal_bar_{ui::Scrollbar::Axis::horizontal};
+    ui::Rect table_bounds_{};
+    // Widths indexed by field; Name = 0 automatically fills spare space until resized.
     std::array<float, kDetailsColumnCount> widths_{};
     std::vector<Field> columns_{kDefaultDetailsColumns};
     std::function<void(float, float, std::optional<Field>)> header_menu_;

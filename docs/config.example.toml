@@ -7,6 +7,9 @@
 # rummage reads the file again when it changes: appearance, status bar, pointer, icons and
 # keybindings, terminal and font size at once; font families at the next start.
 
+# View → Show thumbnail and file-extension visibility are saved in state.toml,
+# as view.show_thumbnails and view.show_extensions (both default to true).
+
 [appearance]
 # Background only (0-1); text, icons and thumbnails retain their original opacity.
 # Transparency is disabled by default (1.0). Keep compositor window opacity at 1.0.
@@ -148,6 +151,8 @@ follow_accent = true
 # toggle_sidebar = "Ctrl+b"     # Show/hide the sidebar
 # focus_sidebar = "F6"          # Move focus into/out of the sidebar
 # toggle_hidden = "Ctrl+h"      # Show/hide hidden files
+# toggle_thumbnails = ""        # Thumbnails/icons; unbound by default, e.g. Ctrl+Alt+t
+# toggle_extensions = ""        # File extensions; unbound by default, e.g. Ctrl+Alt+e
 # add_bookmark = "Ctrl+d"       # Add the folder to the sidebar
 # go_to = "Ctrl+l"              # Go to a folder or a server (smb://, sftp://)
 

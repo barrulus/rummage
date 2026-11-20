@@ -361,6 +361,8 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::back, "back"},
         {Command::forward, "forward"},
         {Command::toggle_hidden, "toggle_hidden"},
+        {Command::toggle_thumbnails, "toggle_thumbnails"},
+        {Command::toggle_extensions, "toggle_extensions"},
         {Command::add_bookmark, "add_bookmark"},
         {Command::new_tab, "new_tab"},
         {Command::close_tab, "close_tab"},

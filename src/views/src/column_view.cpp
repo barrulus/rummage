@@ -23,14 +23,16 @@ constexpr float kDividerGrab = 4.0F;  // either side of a column edge
 
 ColumnView::ColumnView(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                        std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
-                       std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane)
+                       std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane,
+                       Thumbnails* thumbnails)
     : loop_{loop},
       pool_{pool},
       watcher_{watcher},
       mime_{std::move(mime)},
       redraw_{std::move(redraw)},
       set_cursor_{std::move(set_cursor)},
-      info_pane_{info_pane} {
+      info_pane_{info_pane},
+      thumbnails_{thumbnails} {
     order_.mime = mime_.get();
 }
 
@@ -487,7 +489,8 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
             continue;
         }
         slot.column->draw(renderer, {left, area_.y, slot.width, area_.height}, palette, icons,
-                          i == focus_, now, edit_, cut_, drop_);
+                          i == focus_, now, edit_, cut_, drop_, show_extensions_,
+                          show_thumbnails_ ? thumbnails_ : nullptr);
         const bool grabbed =
             resizing_ == i || (over_divider_ && divider_at(pointer_x_, pointer_y_) == i);
         const float line = grabbed ? 2.0F : 1.0F / renderer.scale();

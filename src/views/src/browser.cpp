@@ -449,7 +449,7 @@ void Browser::take_selection(bool cut) {
 }
 
 void Browser::copy_text(std::string text, std::string message) {
-    // The clipboard holds text now, not files: Ctrl+V has nothing to paste here.
+    // Text replaces the file clipboard; a later paste can create a text file.
     clipboard_ = {};
     cut_marks_ = {};
     if (message.empty()) {
@@ -477,10 +477,15 @@ void Browser::copy_path() {
 
 void Browser::paste() {
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || folder->is_archive()) {
+    if (!folder || folder->is_archive() || folder->is_trash()) {
         return;
     }
-    if (system_.owned && system_.types && system_.read && !system_.owned()) {
+    if (batch_rename_preparing_ || batch_rename_running_) {
+        show_message("Wait for Batch Rename to finish", false);
+        return;
+    }
+    if (system_.types && system_.read &&
+        (!system_.owned || !system_.owned() || clipboard_.names.empty())) {
         // Another program's: the files it offers, if any.
         const std::vector<std::string> types = system_.types();
         const auto has = [&types](std::string_view type) {
@@ -529,6 +534,25 @@ void Browser::paste() {
             }
             return;
         }
+        // Prefer image bytes over a textual fallback, but keep file transfer semantics above.
+        for (const auto& [type, extension] : {std::pair{"image/png", ".png"},
+                                              {"image/jpeg", ".jpg"},
+                                              {"image/webp", ".webp"},
+                                              {"image/gif", ".gif"},
+                                              {"image/tiff", ".tiff"},
+                                              {"image/bmp", ".bmp"},
+                                              {"image/svg+xml", ".svg"}}) {
+            if (has(type)) {
+                paste_contents(folder, type, extension);
+                return;
+            }
+        }
+        for (const auto type : kTextTypes) {
+            if (has(type)) {
+                paste_contents(folder, std::string{type}, ".txt");
+                return;
+            }
+        }
         if (!types.empty()) {
             show_message(std::string{i18n::tr("The clipboard holds no files")}, false);
             return;
@@ -559,6 +583,62 @@ void Browser::paste() {
                            .fraction = -1.0F});
     }
     redraw_();
+}
+
+void Browser::paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
+                             std::string extension) {
+    ++operations_;
+    system_.read(std::move(type), [this, alive = alive_, folder, extension = std::move(extension)](
+                                      std::optional<std::string> data) {
+        if (!*alive)
+            return;
+        if (!data) {
+            --operations_;
+            show_message(std::string{i18n::tr("The clipboard could not be read")}, true);
+            return;
+        }
+        pool_.submit(
+            core::Priority::visible,
+            [directory = folder->path(), extension,
+             bytes = std::move(*data)](const core::CancelToken& /*token*/) {
+                auto made = fs::make_file(directory, "Pasted" + extension, {}, bytes);
+                std::optional<FileOperation::CreatedFile> created;
+                if (!made.error) {
+                    std::error_code error;
+                    const auto modified =
+                        std::filesystem::last_write_time(directory / made.name, error);
+                    if (!error)
+                        created = FileOperation::CreatedFile{bytes.size(), modified};
+                }
+                return std::pair{std::move(made), created};
+            },
+            [this, alive, folder](const auto& result) {
+                const auto& [made, created] = result;
+                if (!*alive)
+                    return;
+                --operations_;
+                if (made.error) {
+                    show_message(
+                        i18n::trf("Cannot make a file in {}: {}",
+                                  folder->path().filename().string(), made.error.message()),
+                        true);
+                    return;
+                }
+                record({.kind = FileOperation::Kind::create,
+                        .items = {{.from = {}, .to = folder->path() / made.name}},
+                        .modes = {},
+                        .created_file = created},
+                       Purpose::user, false);
+                if (current_folder() == folder) {
+                    filter_focused_ = false;
+                    set_name_filter({});
+                    folder->expect_name(made.name);
+                    if (!editor_.active())
+                        editor_.start(folder, made.name, false);
+                }
+                redraw_();
+            });
+    });
 }
 
 std::uint64_t Browser::open_batch(Purpose purpose, FileOperation::Kind kind) {
@@ -1446,7 +1526,8 @@ namespace {
 
 // A new folder or file as it was made: an empty folder, or a file as long as its template (or
 // empty). Only then does Ctrl+Z take it away.
-bool unchanged_since_made(const fs::PlacedItem& item) {
+bool unchanged_since_made(const fs::PlacedItem& item,
+                          const std::optional<FileOperation::CreatedFile>& created) {
     std::error_code error;
     const std::filesystem::file_status status = std::filesystem::symlink_status(item.to, error);
     if (error) {
@@ -1461,6 +1542,10 @@ bool unchanged_since_made(const fs::PlacedItem& item) {
     const std::uintmax_t size = std::filesystem::file_size(item.to, error);
     if (error) {
         return false;
+    }
+    if (created) {
+        const auto modified = std::filesystem::last_write_time(item.to, error);
+        return !error && size == created->size && modified == created->modified;
     }
     if (item.from.empty()) {
         return size == 0;
@@ -1735,7 +1820,9 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
             ++operations_;
             pool_.submit(
                 core::Priority::visible,
-                [item](const core::CancelToken& /*token*/) { return unchanged_since_made(item); },
+                [item, created = operation.created_file](const core::CancelToken& /*token*/) {
+                    return unchanged_since_made(item, created);
+                },
                 [this, alive = alive_, item, purpose](bool unchanged) {
                     if (!*alive) {
                         return;
@@ -2050,7 +2137,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     add("cut", "Cut", keys_for(Command::cut), [this] { take_selection(true); });
     add(
         "paste", "Paste", keys_for(Command::paste), [this] { paste(); }, false,
-        !clipboard_.names.empty());
+        !clipboard_.names.empty() || (system_.types && !system_.types().empty()));
     add(
         "rename", count > 1 ? "Batch Rename…" : "Rename…", keys_for(Command::rename),
         [this] { start_rename(); }, true, count == 1 || (!picker_mode_ && count > 1));
@@ -2127,7 +2214,7 @@ std::vector<MenuItem> Browser::folder_menu() {
     paste_here.label = i18n::tr("Paste");
     paste_here.keys = keys_for(Command::paste);
     paste_here.separator = true;
-    paste_here.enabled = !clipboard_.names.empty();
+    paste_here.enabled = !clipboard_.names.empty() || (system_.types && !system_.types().empty());
     paste_here.action = [this] { paste(); };
     items.push_back(std::move(paste_here));
 
@@ -2504,6 +2591,9 @@ void Browser::show_items(const std::vector<std::filesystem::path>& items, bool d
             open(folder);
         else
             open_tab(folder, true);
+        set_name_filter({});
+        filter_focused_ = false;
+        sidebar_.set_focused(false);
         // Reveal all requested hidden items, not just the first name's filter exception.
         if (std::ranges::any_of(names, [](const auto& name) { return name.starts_with('.'); })) {
             set_show_hidden(true, false);
@@ -2772,6 +2862,8 @@ State Browser::state() {
     state.last_folder = last_folder_;
     state.mode = static_cast<State::Mode>(pane().mode);
     state.show_hidden = pane().show_hidden;
+    state.show_extensions = show_extensions_;
+    state.show_thumbnails = show_thumbnails_;
     state.sidebar_visible = sidebar_visible_;
     state.sidebar_width = sidebar_.width();
     state.sidebar_size = sidebar_.list_size();
@@ -2913,6 +3005,8 @@ void Browser::apply(const State& state) {
         each->retained_folder_mode.reset();
         each->restore_mode_on_arrival = false;
     }
+    show_extensions_ = state.show_extensions;
+    show_thumbnails_ = state.show_thumbnails;
     pane().show_hidden = state.show_hidden;
     palette_recent_ = state.palette_recent;
     for (const std::unique_ptr<Pane>& each : area().tabs) {
@@ -2984,7 +3078,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            const theme::Palette& palette, ui::IconSet& icons) {
     area().toolbar_bounds = bounds;
     area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
-    area().view_menu_bounds = area().settings_bounds = {};
+    area().view_menu_bounds = area().settings_bounds = area().sort_bounds = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -3008,6 +3102,11 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         area().view_menu_bounds = {area().settings_bounds.x - view_width - 6, bounds.y + 6,
                                    view_width, 32};
         field_right = area().view_menu_bounds.x - 8;
+    }
+    const float sort_width = std::max(72.0F, width_of(i18n::tr("Sort By")) + 20.0F);
+    if (field_right - field_x >= sort_width + 8 + 48) {
+        area().sort_bounds = {field_right - sort_width, bounds.y + 6, sort_width, 32};
+        field_right = area().sort_bounds.x - 8;
     }
     // Keep the filter usable in a narrow pane; Ctrl+Shift+N still creates a folder.
     if (field_right - field_x >= button_width + 8 + 48) {
@@ -3056,6 +3155,8 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         icons.draw(renderer, "settings", box.x + (box.width - 18.0F) / 2.0F,
                    box.y + (box.height - 18.0F) / 2.0F, 18.0F, palette.on_surface);
     }
+    if (!area().sort_bounds.empty())
+        button(area().sort_bounds, "Sort By");
     if (!area().clear_filter_bounds.empty()) {
         button(area().clear_filter_bounds, "Clear");
     }
@@ -3076,6 +3177,9 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     }
     if (area().view_menu_bounds.contains(event.x, event.y)) {
         open_view_menu(area().view_menu_bounds.x, area().view_menu_bounds.bottom());
+    } else if (area().sort_bounds.contains(event.x, event.y)) {
+        filter_focused_ = false;
+        menu_.open(area().sort_bounds.x, area().sort_bounds.bottom(), sort_menu().children, false);
     } else if (area().settings_bounds.contains(event.x, event.y)) {
         open_settings();
     } else if (area().filter_bounds.contains(event.x, event.y)) {
@@ -3286,6 +3390,12 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
 
 void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, ui::IconSet& icons, Clock::time_point now) {
+    pane().columns.set_show_thumbnails(show_thumbnails_);
+    pane().grid.set_show_thumbnails(show_thumbnails_);
+    pane().details.set_show_thumbnails(show_thumbnails_);
+    pane().columns.set_show_extensions(show_extensions_);
+    pane().grid.set_show_extensions(show_extensions_);
+    pane().details.set_show_extensions(show_extensions_);
     switch (pane().mode) {
         case Mode::columns:
             pane().columns.draw(renderer, bounds, palette, icons, now);
@@ -3426,7 +3536,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         if (owner.filter_bounds.contains(x, y))
             return Shape::text;
         if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
-            owner.view_menu_bounds.contains(x, y) || owner.settings_bounds.contains(x, y))
+            owner.view_menu_bounds.contains(x, y) || owner.sort_bounds.contains(x, y) ||
+            owner.settings_bounds.contains(x, y))
             return Shape::pointer;
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
@@ -4071,6 +4182,15 @@ std::optional<Browser::DropTarget> Browser::drop_target_at(float x, float y) con
     for (std::size_t i = 0; i < areas_.size(); ++i) {
         if (!areas_[i] || (!split_visible_ && i != active_area_))
             continue;
+        const auto& tab = *areas_[i]->tabs[areas_[i]->active];
+        if (tab.mode == Mode::details && tab.details.horizontal_scrollbar_bounds().contains(x, y)) {
+            const auto folder = tab.details.root_folder();
+            if (folder && !folder->is_trash() && !folder->is_archive())
+                return DropTarget{.folder = folder->path(),
+                                  .mark = {.directory = folder->path(), .name = {}},
+                                  .place = {},
+                                  .crumb = {}};
+        }
         if (const auto crumb = areas_[i]->breadcrumb.path_at(x, y)) {
             const auto& shown_pane = *areas_[i]->tabs[areas_[i]->active];
             const auto shown_folder =
@@ -5225,6 +5345,12 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::forward:
             forward();
+            break;
+        case Command::toggle_thumbnails:
+            set_show_thumbnails(!shows_thumbnails());
+            break;
+        case Command::toggle_extensions:
+            set_show_extensions(!shows_extensions());
             break;
         case Command::toggle_hidden:
             set_show_hidden(!pane().show_hidden);

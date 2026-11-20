@@ -29,7 +29,9 @@ inline constexpr std::array kDetailsColumns{
     DetailsColumn{fs::SortKey::location, "location", "Location", 220.0F, 100.0F},
     DetailsColumn{fs::SortKey::link_target, "link_target", "Link target", 220.0F, 100.0F}};
 inline constexpr std::size_t kDetailsColumnCount = kDetailsColumns.size();
-using DetailsWidths = std::array<float, kDetailsColumnCount - 1>;
+// Existing property widths keep their indices; the last slot is Name (0 = automatic).
+using DetailsWidths = std::array<float, kDetailsColumnCount>;
+inline constexpr float kMaxDetailsWidth = 4096.0F;
 inline constexpr DetailsWidths kDetailsWidths = [] {
     DetailsWidths widths{};
     for (std::size_t i = 1; i < kDetailsColumns.size(); ++i)

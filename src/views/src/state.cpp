@@ -42,7 +42,7 @@ constexpr float kSidebarMax = 400.0F;
 constexpr float kInfoMin = 240.0F;
 constexpr float kInfoMax = 720.0F;
 constexpr float kColumnMin = 48.0F;
-constexpr float kColumnMax = 800.0F;
+constexpr float kColumnMax = kMaxDetailsWidth;
 constexpr std::int64_t kWindowMin = 320;
 constexpr std::int64_t kWindowMax = 16384;
 
@@ -118,6 +118,7 @@ public:
             number(std::string{prefix} + std::string{kDetailsColumns[i].id} + "_width", kColumnMin,
                    kColumnMax, widths[i - 1]);
         }
+        number(std::string{prefix} + "name_width", 0.0F, kColumnMax, widths.back());
         const auto key = std::string{prefix} + "columns";
         const auto* node = find(key);
         if (!node)
@@ -237,6 +238,7 @@ std::string format_columns(const DetailsWidths& widths, const std::vector<fs::So
     for (std::size_t i = 1; i < kDetailsColumns.size(); ++i) {
         out += std::format("{}_width = {}\n", kDetailsColumns[i].id, widths[i - 1]);
     }
+    out += std::format("name_width = {}\n", widths.back());
     out += "columns = [";
     bool first = true;
     for (const auto field : columns) {
@@ -318,6 +320,8 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     Reader read{root, source};
     read.word("view.mode", kModes, s.mode);
     read.flag("view.show_hidden", s.show_hidden);
+    read.flag("view.show_extensions", s.show_extensions);
+    read.flag("view.show_thumbnails", s.show_thumbnails);
     read.word("view.list_size", kListSizeWords, s.list_size);
     read.flag("sidebar.visible", s.sidebar_visible);
     read.word("sidebar.list_size", kListSizeWords, s.sidebar_size);
@@ -621,6 +625,8 @@ std::string format_state(const State& s) {
                "[view]\n"
                "mode = \"{}\"\n"
                "show_hidden = {}\n"
+               "show_extensions = {}\n"
+               "show_thumbnails = {}\n"
                "list_size = \"{}\"\n"
                "grid_icon = {}\n"
                "\n"
@@ -647,10 +653,11 @@ std::string format_state(const State& s) {
                "\n"
                "[palette]\n"
                "recent = [{}]\n",
-               word_of(kModes, s.mode), flag(s.show_hidden), word_of(kListSizeWords, s.list_size),
-               s.grid_icon, word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible),
-               s.sidebar_width, flag(s.info_visible), s.info_width, flag(s.info_expanded),
-               s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
+               word_of(kModes, s.mode), flag(s.show_hidden), flag(s.show_extensions),
+               flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
+               word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
+               flag(s.info_visible), s.info_width, flag(s.info_expanded), s.sidebar_preview_ratio,
+               word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
                format_columns(s.details_widths, s.details_columns), s.window_width, s.window_height,
                flag(s.maximized), recent) +
            std::format(

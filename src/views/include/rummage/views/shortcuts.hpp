@@ -61,6 +61,8 @@ enum class Command : std::uint8_t {
     back,
     forward,
     toggle_hidden,
+    toggle_thumbnails,
+    toggle_extensions,
     add_bookmark,
     open_terminal,
     new_tab,
