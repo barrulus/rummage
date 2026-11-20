@@ -366,12 +366,15 @@ maintained outside this repository. The [template workflow](../.github/workflows
 runs `scripts/ci/noctalia-template.py`, which compares that template with the roles of `struct Palette`
 in [palette.hpp](../src/theme/include/rummage/theme/palette.hpp) and the mapping in
 [data/noctalia/rummage](../data/noctalia/rummage): missing, extra or remapped roles, the `mode` line and
-the output path. It runs daily, on demand and on pull requests touching those files. A pull request that
+the output path. It also validates the explicit community colour file as TOML, rejecting malformed
+tables and duplicate keys. It runs daily, on demand and on pull requests touching those files. A pull request that
 adds or renames a palette role therefore fails it until the community template is updated as well.
 
 While the scheduled run finds differences, it keeps one issue, "Noctalia community template for
 rummage is out of sync", open and comments when the differences change; it closes the issue once both
-agree again. Before the template is published there, the check passes with a notice. To check a
+agree again. If both upstream files are absent, the workflow passes with a notice and leaves any
+existing drift issue open: no comparison was possible. The script returns 0 for a successful match,
+1 for drift, 2 for a fetch error, and 3 for an absent template (comparison skipped). To check a
 template change before it is merged, point the script at its branch or a local checkout:
 
 ```sh

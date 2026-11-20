@@ -4,8 +4,8 @@
 The community template (noctalia-dev/community-templates, directory rummage/) is maintained
 outside this repository. It drifts when rummage gains or renames a palette role, or when the
 template changes upstream. This check reads the roles from the Palette struct, the mapping from
-rummage's own Noctalia template, and reports every difference. Exit status: 0 in sync or not
-published yet, 1 drift, 2 the template could not be fetched.
+rummage's own Noctalia template, and reports every difference. Exit status: 0 in sync,
+1 drift, 2 the template could not be fetched, 3 not published (comparison skipped).
 """
 import argparse
 from pathlib import Path
@@ -73,6 +73,21 @@ def expected_mapping(roles, own):
     if own['all']:
         return {role: role for role in roles}
     return dict(own['colors'])
+
+
+def validate_colors(text):
+    """The explicit community template must be TOML before placeholder expansion.
+
+    Keep this separate from parse_template: our own template uses Noctalia loop
+    directives, which are not TOML until rendered.
+    """
+    try:
+        document = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
+        return [f'colors.toml: not valid TOML: {error}']
+    if not isinstance(document.get('colors'), dict):
+        return ['colors.toml: expected a `[colors]` table.']
+    return []
 
 
 def compare(roles, own, community, catalog):
@@ -153,18 +168,17 @@ def main(argv=None):
             return 2
     if texts[0] is None and texts[1] is None:
         print(f'::notice::{source} has no {TEMPLATE_DIR}/ template yet; nothing to compare.')
-        return 0
+        return 3
 
     roles = palette_roles(PALETTE_HEADER.read_text())
     own = parse_template(OWN_TEMPLATE.read_text())
     community = parse_template(texts[0] or '')
+    problems = validate_colors(texts[0]) if texts[0] is not None else []
     try:
         catalog = tomllib.loads(texts[1] or '')
     except tomllib.TOMLDecodeError as error:
         catalog = {}
-        problems = [f'template.toml: not valid TOML: {error}']
-    else:
-        problems = []
+        problems.append(f'template.toml: not valid TOML: {error}')
     if texts[0] is None:
         problems.append('colors.toml is missing.')
     problems += compare(roles, own, community, catalog) if texts[0] is not None else []
