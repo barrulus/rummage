@@ -111,7 +111,7 @@ std::vector<std::pair<std::string, std::string>> SettingsEditors::commands(
     }
     for (const auto& [name, chord] : config_.keybindings) {
         if (name.starts_with("go:"))
-            result.emplace_back(name, name.substr(3));
+            result.emplace_back(name, i18n::trf("Go to {}", name.substr(3)));
     }
     const auto needle = lower(query);
     std::erase_if(result, [&](const auto& command) {

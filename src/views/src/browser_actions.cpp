@@ -122,7 +122,9 @@ void Browser::invoke_action(const core::Action& action, const core::ActionContex
 
 void Browser::run_action(std::string_view id) {
     if (const auto folder = current_folder(); folder && folder->is_archive()) {
-        show_message(std::string{kArchiveReadOnly} + "; extract the archive first", false);
+        show_message(
+            std::string{i18n::tr("Archive contents are read-only; extract the archive first")},
+            false);
         return;
     }
     const auto found = std::ranges::find(actions_, id, &core::Action::id);

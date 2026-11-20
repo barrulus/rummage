@@ -852,7 +852,6 @@ private:
     // Opens the selected files when the cursor is on a file (only the cursor's when it is not
     // selected); false when the cursor is on a folder or nowhere.
     [[nodiscard]] bool opens_as_folder(const fs::Entry& file) const;
-    static constexpr std::string_view kArchiveReadOnly = "Archive contents are read-only";
     void open_archive_members(const std::filesystem::path& source, std::vector<fs::Entry> files);
     void compress(bool tar_gz);
     void compress_done(const fs::TransferRequest& request, const fs::TransferResult& result);

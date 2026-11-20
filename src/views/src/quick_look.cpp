@@ -60,9 +60,9 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
         }
         info.permissions = preview::permissions_text(mode);
         if (source.entry && source.entry->unreadable == archive::Unreadable::encrypted) {
-            info.error = "it is encrypted";
+            info.error = std::string{i18n::tr("it is encrypted")};
         } else if (source.entry && source.entry->unreadable == archive::Unreadable::method) {
-            info.error = "its compression is not read yet";
+            info.error = std::string{i18n::tr("its compression is not read yet")};
         }
         return info;
     }
@@ -75,7 +75,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
                              .items = std::nullopt,
                              .hidden_items = 0,
                              .created_ns = std::nullopt,
-                             .error = "out of memory"};
+                             .error = std::string{i18n::tr("out of memory")}};
     }
     const int input = ::open(source.archive.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
     const std::filesystem::path pinned = "/proc/self/fd/" + std::to_string(input);
@@ -84,7 +84,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
             ::close(input);
         ::close(fd);
         preview::Info info;
-        info.error = "Archive changed; reopen it to preview";
+        info.error = std::string{i18n::tr("Archive changed; reopen it to preview")};
         return info;
     }
     auto sequence = archive::open_entry_sequence(pinned, source.format,
@@ -92,7 +92,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
     archive::Read read = sequence->read(*source.entry, fd, kMaxArchiveEntryBytes);
     if (!source.tree->unchanged(pinned)) {
         read.failure = archive::Failure::unreadable;
-        read.detail = "Archive changed while reading";
+        read.detail = std::string{i18n::tr("Archive changed while reading")};
     }
     sequence.reset();
     ::close(input);
@@ -100,7 +100,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
         ::close(fd);
         preview::Info info;
         info.error = read.failure == archive::Failure::too_large
-                         ? "too large to show from inside the archive"
+                         ? std::string{i18n::tr("too large to show from inside the archive")}
                          : read.detail;
         return info;
     }
@@ -949,11 +949,12 @@ void QuickLook::draw_markdown(ui::Renderer& renderer, const ui::Rect& area,
         renderer.fill_rect({page.right() - 8, y, 4, thumb},
                            palette.on_surface_variant.with_alpha(0.45F * fade));
     }
-    draw_caption(
-        renderer, area, palette,
-        entry.name + "   Markdown" +
-            (text.markdown.truncated || markdown_.truncated() ? "   Preview truncated" : ""),
-        fade);
+    draw_caption(renderer, area, palette,
+                 entry.name + "   Markdown" +
+                     (text.markdown.truncated || markdown_.truncated()
+                          ? "   " + std::string{i18n::tr("Preview truncated")}
+                          : ""),
+                 fade);
 }
 
 void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,

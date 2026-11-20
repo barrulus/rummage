@@ -180,3 +180,10 @@ the context variants when meanings differ. After adding interface text, run
 `scripts/i18n-check.py --unwrapped`: it also lists string literals in interface code
 that look visible but are not translated. It is a heuristic and lists identifiers,
 D-Bus names and log text too, so read the list before acting on it.
+
+For English labels stored in `constexpr` tables (such as shortcut descriptions and
+Details columns), use `i18n::mark("Label")`. It leaves the string unchanged until
+`tr()` translates it for display, and makes it a required message in the strict
+catalog check. Do not mark filenames, configured paths, custom action names or
+keybinding identifiers. The `--unwrapped` audit scans interface headers as well as
+implementation files.

@@ -376,7 +376,7 @@ void Browser::open_finder() {
         return;
     }
     if (folder->is_archive()) {
-        show_message("Files are not looked for inside an archive", false);
+        show_message(std::string{i18n::tr("Files are not looked for inside an archive")}, false);
         return;
     }
     menu_.close();

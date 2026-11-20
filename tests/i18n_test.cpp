@@ -9,7 +9,11 @@
 
 #include <doctest/doctest.h>
 
+#include "../src/views/src/content_details.hpp"
+#include "rummage/views/details_columns.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/views/media_details.hpp"
+#include "rummage/views/shortcuts.hpp"
 
 namespace i18n = rummage::i18n;
 
@@ -190,4 +194,107 @@ TEST_CASE("i18n: shipped catalogs use their own integer plural rules") {
     CHECK(i18n::trf("{} of {} selected", 2, 5) == "5 項目中 2 項目を選択");
     CHECK(i18n::trn("Opening {} file with {}…", "Opening {} files with {}…", 2, "Editor") ==
           "Editor で 2 ファイルを開いています…");
+}
+
+TEST_CASE("i18n: media properties translate without changing embedded metadata") {
+    rummage::picture::PhotoInfo info;
+    info.width = info.height = 1254;
+    info.camera = "None";
+    info.media_title = "Lossless";
+    info.add_detail("Format", "PNG");
+    info.add_detail("Color model", "RGBA");
+    info.add_detail("Bit depth", "8 bits");
+    info.add_detail("Compression", "Deflate");
+    info.add_detail("Compression mode", "Lossless");
+    info.add_detail("Interlacing", "None");
+    info.add_detail("Filter method", "0");
+    info.add_detail("PNG · Title", "None");
+    info.add_detail("ICC profile", "Lossless");
+    info.add_detail("Future field", "Unknown");
+    info.details_truncated = true;
+    info.rating = -1;
+    const auto row = [](const auto& rows, std::string_view label) -> std::string {
+        const auto found =
+            std::ranges::find_if(rows, [&](const auto& item) { return item.first == label; });
+        REQUIRE(found != rows.end());
+        return found->second;
+    };
+    {
+        const Speaking russian{"ru"};
+        const auto rows = rummage::views::media_details(info);
+        CHECK(i18n::tr("MEDIA") == "МЕДИА");
+        CHECK(row(rows, "Соотношение сторон") == "1:1");
+        CHECK(row(rows, "Формат") == "PNG");
+        CHECK(row(rows, "Цветовая модель") == "RGBA");
+        CHECK(row(rows, "Глубина цвета") == "8 бит");
+        CHECK(row(rows, "Сжатие") == "Deflate");
+        CHECK(row(rows, "Режим сжатия") == "Без потерь");
+        CHECK(row(rows, "Чересстрочность") == "Нет");
+        CHECK(row(rows, "Метод фильтрации") == "0");
+        CHECK(row(rows, "Камера") == "None");
+        CHECK(row(rows, "Название") == "Lossless");
+        CHECK(row(rows, "PNG · Title") == "None");
+        CHECK(row(rows, "Профиль ICC") == "Lossless");
+        CHECK(row(rows, "Future field") == "Unknown");
+        CHECK(row(rows, "Оценка") == "Отклонён");
+        CHECK(row(rows, "Метаданные") ==
+              "Часть метаданных усечена из-за ограничений предпросмотра");
+    }
+    for (const auto code : {"de", "es", "fr", "ja", "pt_BR", "ru", "zh_CN"}) {
+        const Speaking translated{code};
+        const auto rows = rummage::views::media_details(info);
+        CHECK(i18n::tr("Aspect ratio") != "Aspect ratio");
+        CHECK(i18n::tr("Compression mode") != "Compression mode");
+        CHECK(row(rows, i18n::tr("Compression mode")) != "Lossless");
+        CHECK(row(rows, i18n::tr("Title")) == "Lossless");
+    }
+    const Speaking english{"en"};
+    const auto rows = rummage::views::media_details(info);
+    CHECK(row(rows, "Aspect ratio") == "1:1");
+    CHECK(row(rows, "Bit depth") == "8 bits");
+    CHECK(row(rows, "Compression mode") == "Lossless");
+    CHECK(row(rows, "Interlacing") == "None");
+    CHECK(info.details[2].second == "8 bits");
+}
+
+TEST_CASE("i18n: shipped catalogs cover every built-in shortcut and Details column") {
+    REQUIRE(rummage::views::configure_shortcuts({}).empty());
+    for (const auto code : i18n::languages()) {
+        if (code == i18n::kEnglish)
+            continue;
+        CAPTURE(code);
+        std::set<std::string_view> texts;
+        for (const auto& entry : i18n::entries(code))
+            if (entry.context.empty())
+                texts.insert(entry.english);
+        for (const auto& shortcut : rummage::views::shortcuts()) {
+            CHECK_MESSAGE(texts.contains(shortcut.group), shortcut.group);
+            CHECK_MESSAGE(texts.contains(shortcut.action), shortcut.action);
+        }
+        for (const auto& column : rummage::views::kDetailsColumns)
+            CHECK_MESSAGE(texts.contains(column.title), column.title);
+    }
+}
+
+TEST_CASE("i18n: text preview properties translate while preserving the source language") {
+    const Speaking russian{"ru"};
+    rummage::preview::Summary summary;
+    summary.text.emplace();
+    summary.text->language = "C++";
+    summary.text->crlf = true;
+    summary.text->truncated = true;
+    const auto row = [&](std::string_view label) {
+        const auto rows = rummage::views::content_details(summary);
+        const auto found =
+            std::ranges::find_if(rows, [&](const auto& item) { return item.first == label; });
+        REQUIRE(found != rows.end());
+        return found->second;
+    };
+    CHECK(row("Язык") == "C++");
+    CHECK(row("Окончания строк") == "Есть CRLF");
+    CHECK(row("Предпросмотр текста") == "Усечён (начало файла)");
+    summary.text->crlf = false;
+    summary.text->tail = true;
+    CHECK(row("Окончания строк") == "LF / нет окончаний строк");
+    CHECK(row("Предпросмотр текста") == "Усечён (конец файла)");
 }

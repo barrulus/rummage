@@ -11,23 +11,25 @@ inline std::vector<std::pair<std::string, std::string>> content_details(
     if (summary.text) {
         const auto& text = *summary.text;
         if (!text.language.empty())
-            rows.emplace_back("Language", text.language);
-        rows.emplace_back("Encoding", text::encoding_name(text.encoding));
-        rows.emplace_back("Line endings", text.crlf ? "CRLF present" : "LF / no line endings");
-        rows.emplace_back(text.truncated ? "Preview lines" : "Lines",
+            rows.emplace_back(i18n::tr("Language"), text.language);
+        rows.emplace_back(i18n::tr("Encoding"), text::encoding_name(text.encoding));
+        rows.emplace_back(i18n::tr("Line endings"),
+                          text.crlf ? i18n::tr("CRLF present") : i18n::tr("LF / no line endings"));
+        rows.emplace_back(text.truncated ? i18n::tr("Preview lines") : i18n::tr("Lines"),
                           std::to_string(text.lines.size()));
         if (text.truncated)
-            rows.emplace_back("Text preview",
-                              text.tail ? "Truncated (end of file)" : "Truncated (start of file)");
+            rows.emplace_back(i18n::tr("Text preview"),
+                              text.tail ? i18n::tr("Truncated (end of file)")
+                                        : i18n::tr("Truncated (start of file)"));
     }
     if (summary.archive) {
         const auto& archive = *summary.archive;
         const auto details = archive_rows(archive);
-        rows.emplace_back("Contains", details.contains);
-        rows.emplace_back("Unpacked", details.unpacked);
-        rows.emplace_back("Encrypted", details.encrypted);
-        rows.emplace_back("Not readable yet", details.unsupported);
-        rows.emplace_back("Archive information", archive_problem(archive));
+        rows.emplace_back(i18n::tr("Contains"), details.contains);
+        rows.emplace_back(i18n::tr("Unpacked"), details.unpacked);
+        rows.emplace_back(i18n::tr("Encrypted"), details.encrypted);
+        rows.emplace_back(i18n::tr("Not readable yet"), details.unsupported);
+        rows.emplace_back(i18n::tr("Archive information"), archive_problem(archive));
     }
     std::erase_if(rows, [](const auto& row) { return row.second.empty(); });
     return rows;
