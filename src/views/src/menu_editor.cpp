@@ -590,7 +590,7 @@ ui::Rect MenuEditor::anchor(std::string_view id) const {
     return button->bounds.intersect(bounds_);
 }
 
-void MenuEditor::layout_controls() {
+void MenuEditor::layout_controls(ui::Renderer& renderer) {
     buttons_.clear();
     const float width = std::max(1.0F, bounds_.width - 32), x = bounds_.x + 12;
     float y = bounds_.y + 4 - scroll_.offset();
@@ -609,17 +609,29 @@ void MenuEditor::layout_controls() {
     note_y_ = y;
     y += 60;
     const auto grid = [&](const auto& ids, const auto& labels, std::size_t columns, bool enabled) {
+        // Translated labels can need more room than the English column breakpoints allow.
+        float minimum = 0;
+        for (const auto label : labels)
+            minimum = std::max(
+                minimum, renderer.fonts().layout(i18n::tr(label), 13, renderer.scale()).width /
+                                 renderer.scale() +
+                             20);
+        while (columns > 1 &&
+               (width - static_cast<float>(columns - 1) * 6) / static_cast<float>(columns) <
+                   minimum)
+            --columns;
         const float cell =
             (width - static_cast<float>(columns - 1) * 6) / static_cast<float>(columns);
         for (std::size_t i = 0; i < ids.size(); ++i)
-            add(ids[i], labels[i],
+            add(ids[i], std::string{labels[i]},
                 {x + static_cast<float>(i % columns) * (cell + 6),
                  y + static_cast<float>(i / columns) * 36, cell, 30},
                 enabled);
         y += static_cast<float>((ids.size() + columns - 1) / columns) * 36;
     };
     grid(std::array{"add", "separator", "remaining"},
-         std::array{"Add command", "Separator", "Remaining commands"},
+         std::array{i18n::mark("Add command"), i18n::mark("Separator"),
+                    i18n::mark("Remaining commands")},
          width >= 540   ? 3U
          : width >= 280 ? 2U
                         : 1U,
@@ -630,13 +642,15 @@ void MenuEditor::layout_controls() {
         rows_[i].bounds = {x, y + static_cast<float>(i) * 34, width, 32};
     y = list_.bottom() + 10;
     grid(std::array{"up", "down", "in", "out", "group"},
-         std::array{"Move up", "Move down", "Nest", "Unnest", "Group"},
+         std::array{i18n::mark("Move up"), i18n::mark("Move down"), i18n::mark("Nest"),
+                    i18n::mark("Unnest"), i18n::mark("Group")},
          width >= 560   ? 5U
          : width >= 280 ? 2U
                         : 1U,
          editable_ && selected());
-    grid(std::array{"remove", "reset"}, std::array{"Remove", "Reset layout"},
-         width >= 280 ? 2U : 1U, editable_);
+    grid(std::array{"remove", "reset"},
+         std::array{i18n::mark("Remove"), i18n::mark("Reset layout")}, width >= 280 ? 2U : 1U,
+         editable_);
     if (!selected())
         for (auto& button : buttons_)
             if (button.id == "remove")
@@ -805,10 +819,10 @@ void MenuEditor::draw(ui::Renderer& r, const ui::Rect& bounds, const theme::Pale
         reveal_pending_ = true;
     }
     bounds_ = bounds;
-    layout_controls();
+    layout_controls(r);
     if (reveal_pending_) {
         reveal_focus();
-        layout_controls();
+        layout_controls(r);
         reveal_pending_ = false;
     }
     r.push_clip(bounds);

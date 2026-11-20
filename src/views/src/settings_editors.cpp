@@ -107,7 +107,9 @@ std::vector<std::pair<std::string, std::string>> SettingsEditors::commands(
     auto result = binding_settings();
     for (const auto& action : core::action_registry(config_.actions)) {
         if (action.id != "copy_name")
-            result.emplace_back("action:" + action.id, action.label);
+            result.emplace_back("action:" + action.id, action.translate_label
+                                                           ? std::string{i18n::tr(action.label)}
+                                                           : action.label);
     }
     for (const auto& [name, chord] : config_.keybindings) {
         if (name.starts_with("go:"))

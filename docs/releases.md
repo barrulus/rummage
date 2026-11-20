@@ -12,6 +12,10 @@ See [installation](install.md#development-downloads) for package/source identity
 Fedora RPM builds and clean-install checks now target Fedora 45. Development
 RPM download names and installation instructions use Fedora 45 consistently.
 
+Settings translate the built-in action shortcuts and the menu editor's Remove button
+in all bundled languages. Menu editor button rows use fewer columns when translated
+labels need more room, including the Japanese Unnest button.
+
 ## 0.6.0
 
 File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your

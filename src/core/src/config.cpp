@@ -248,6 +248,7 @@ bool read_actions(const toml::node& node, Reader& reader, std::vector<Action>& a
                     action.id = *text;
                 } else if (name == "label") {
                     action.label = *text;
+                    action.translate_label = false;
                 } else if (name == "destination_name") {
                     action.destination_name = *text;
                 } else if (name == "destination") {

@@ -68,7 +68,7 @@ private:
     const core::MenuNode* selected() const;
     bool renameable() const;
     void select_node(const core::MenuNode& node);
-    void layout_controls();
+    void layout_controls(ui::Renderer& renderer);
     void reveal_focus();
     std::vector<std::string> focus_order() const;
     ui::Rect anchor(std::string_view id) const;

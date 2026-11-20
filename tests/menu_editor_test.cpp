@@ -293,3 +293,55 @@ TEST_CASE("menu editor: translated catalog preserves literal action and layout l
     CHECK(preview.front().id == "copy");
     CHECK(preview.front().label == "Copy");
 }
+
+TEST_CASE("menu editor: Japanese controls stay usable after wrapping and scrolling") {
+    struct RestoreLanguage {
+        std::string previous{i18n::language()};
+
+        ~RestoreLanguage() { i18n::set_language(previous); }
+    } restore;
+
+    i18n::set_language("ja");
+    CHECK(i18n::tr("Remove") == "削除");
+    for (const int width : {700, 400}) {
+        CAPTURE(width);
+        Editor e;
+        e.text = "[context_menu]\nitems=[{label='Tools',items=[{id='open'},{id='copy'}]}]\n";
+        e.editor.sync(core::parse_config(e.text, "test.toml").config, true);
+        e.editor.select(1);
+        const int height = width == 700 ? 500 : 220;
+        ui::Offscreen gl{width, height};
+        ui::FontSystem fonts;
+        ui::Renderer renderer{fonts};
+        const auto draw = [&] {
+            renderer.begin_frame(width, height, 1, {});
+            e.editor.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                          theme::Palette{});
+            renderer.end_frame();
+        };
+        e.editor.enter_focus();
+        draw();
+        // Navigate to Unnest, including the list and the preceding edit buttons.
+        for (int i = 0; i < 9; ++i) {
+            REQUIRE(e.editor.key({.keysym = XKB_KEY_Tab, .text = {}}));
+            draw();
+        }
+        if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
+            std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            std::ofstream file{
+                std::filesystem::path{output} / ("japanese-menu-" + std::to_string(width) + ".ppm"),
+                std::ios::binary};
+            file << "P6\n" << width << ' ' << height << "\n255\n";
+            for (int y = height - 1; y >= 0; --y)
+                for (int x = 0; x < width; ++x)
+                    file.write(reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4),
+                               3);
+        }
+        REQUIRE(e.editor.key({.keysym = XKB_KEY_Return, .text = {}}));
+        REQUIRE(e.editor.nodes().size() == 2);
+        REQUIRE(e.editor.nodes()[0].items.size() == 1);
+        CHECK(e.editor.nodes()[0].items[0].id == "copy");
+        CHECK(e.editor.nodes()[1].id == "open");
+    }
+}
