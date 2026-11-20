@@ -72,7 +72,7 @@ class DownloadsTest(unittest.TestCase):
         self.prepare()
         self.assertEqual(len(list(self.output.iterdir())), 22)
         self.assertEqual((self.output / 'rummage-debian13-amd64.deb').read_bytes(), b'rummage_0.5.0_amd64.deb')
-        self.assertEqual((self.output / 'rummage-fedora44-x86_64.rpm').read_bytes(), b'rummage-0.5.0.x86_64.rpm')
+        self.assertEqual((self.output / 'rummage-fedora45-x86_64.rpm').read_bytes(), b'rummage-0.5.0.x86_64.rpm')
         self.assertEqual((self.output / 'rummage-arch-x86_64.pkg.tar.zst').read_bytes(), b'rummage-0.5.0-1-x86_64.pkg.tar.zst')
         self.assertEqual((self.output / 'rummage-tumbleweed-x86_64.rpm').read_bytes(), b'rummage-0.5.0-1.1.x86_64.rpm')
         with tarfile.open(self.output / 'rummage-void-glibc-x86_64.tar.gz') as archive:

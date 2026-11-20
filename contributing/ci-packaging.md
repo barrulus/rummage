@@ -5,7 +5,7 @@
 The fork's [workflow](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`,
 and manual dispatch. It currently validates **x86_64 Linux with glibc**. The flake still
 exposes aarch64 packages, but this workflow does not claim to build or run them. Debian 13,
-Fedora 44, Arch Linux and openSUSE Tumbleweed are also built as native packages. Void musl, older Debian/Ubuntu
+Fedora 45, Arch Linux and openSUSE Tumbleweed are also built as native packages. Void musl, older Debian/Ubuntu
 releases, other RPM distributions and signed/stable releases are outside the validated scope.
 
 ## Local preflight
@@ -197,9 +197,9 @@ the disposable containers.
 
 ## Debian and Fedora
 
-The `Debian 13 package and clean install` and `Fedora 44 package and clean install` jobs
+The `Debian 13 package and clean install` and `Fedora 45 package and clean install` jobs
 build native **amd64 DEB** and **x86_64 RPM** snapshots. These target Debian 13 (trixie) and
-Fedora 44 specifically; the file extension alone does not imply compatibility with Ubuntu,
+Fedora 45 specifically; the file extension alone does not imply compatibility with Ubuntu,
 older Debian, RHEL or other RPM systems. rummage requires sdbus-c++ 2 or newer.
 
 From a clean committed checkout, with the same host tools as the Void builder:
@@ -230,7 +230,7 @@ Download and unpack the matching artifact from the workflow run, then enter its
 ```sh
 # Debian 13: choose the main package, not the optional debug-symbol package.
 sudo apt install ./packages/rummage_*.deb
-# Fedora 44: choose the main binary RPM, not the source/debug RPMs.
+# Fedora 45: choose the main binary RPM, not the source/debug RPMs.
 sudo dnf install ./packages/rummage-[0-9]*.x86_64.rpm
 ```
 
@@ -398,7 +398,7 @@ After a successful run, configure a branch ruleset for `main` requiring these ch
 - `Nix build, tests and installed package`
 - `Void glibc package and clean install`
 - `Debian 13 package and clean install`
-- `Fedora 44 package and clean install`
+- `Fedora 45 package and clean install`
 - `Arch Linux package and clean install`
 - `openSUSE Tumbleweed package and clean install`
 

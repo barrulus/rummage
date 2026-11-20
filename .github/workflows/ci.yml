@@ -144,7 +144,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.tumbleweed_only == true && '[{"format":"tumbleweed","distro":"openSUSE Tumbleweed"}]' || '[{"format":"deb","distro":"Debian 13"},{"format":"rpm","distro":"Fedora 44"},{"format":"arch","distro":"Arch Linux"},{"format":"tumbleweed","distro":"openSUSE Tumbleweed"}]') }}
+        include: ${{ fromJSON(inputs.tumbleweed_only == true && '[{"format":"tumbleweed","distro":"openSUSE Tumbleweed"}]' || '[{"format":"deb","distro":"Debian 13"},{"format":"rpm","distro":"Fedora 45"},{"format":"arch","distro":"Arch Linux"},{"format":"tumbleweed","distro":"openSUSE Tumbleweed"}]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

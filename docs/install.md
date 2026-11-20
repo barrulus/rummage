@@ -53,7 +53,7 @@ validated for Leap or RHEL**, and the DEB is not validated for Ubuntu or older D
 | System | Download | Install after downloading |
 |---|---|---|
 | Debian 13 (trixie), amd64 | [DEB](https://github.com/barrulus/rummage/releases/download/development/rummage-debian13-amd64.deb) | `sudo apt install ./rummage-debian13-amd64.deb` |
-| Fedora 44, x86_64 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora44-x86_64.rpm) | `sudo dnf install ./rummage-fedora44-x86_64.rpm` |
+| Fedora 45, x86_64 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora45-x86_64.rpm) | `sudo dnf install ./rummage-fedora45-x86_64.rpm` |
 | Arch Linux, x86_64 | [Arch package](https://github.com/barrulus/rummage/releases/download/development/rummage-arch-x86_64.pkg.tar.zst) | `sudo pacman -Syu`, then `sudo pacman -U ./rummage-arch-x86_64.pkg.tar.zst` |
 | openSUSE Tumbleweed, x86_64 | [Tumbleweed RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-tumbleweed-x86_64.rpm) | `sudo zypper dup`, then `sudo zypper install --allow-unsigned-rpm ./rummage-tumbleweed-x86_64.rpm` |
 | Void glibc, x86_64 | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) | See the two commands below. |

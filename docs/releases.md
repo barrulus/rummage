@@ -2,12 +2,17 @@
 
 [Documentation](README.md) · [Current features](features.md) · [Installation](install.md)
 
-rummage is a fork of Nordend. The current source version is 0.6.0; the source
+rummage is a fork of Nordend. The current source version is 0.6.1; the source
 commit identifies development builds more precisely than that number.
 The development download tag is a moving snapshot, not a new upstream release.
 See [installation](install.md#development-downloads) for package/source identity.
 
-## 0.6.0 — in development
+## 0.6.1 — in development
+
+Fedora RPM builds and clean-install checks now target Fedora 45. Development
+RPM download names and installation instructions use Fedora 45 consistently.
+
+## 0.6.0
 
 File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your
 configured terminal, then exit the shell to return its folder to the picker.

@@ -89,7 +89,7 @@ def prepare(artifacts, output, commit, repository, run_id, readme):
     only(roots['void'] / 'packages', 'rummage-media-*.x86_64.xbps')
     media_assets = {
         'rummage-media-debian13-amd64.deb': only(roots['deb'] / 'packages', 'rummage-media_*_amd64.deb'),
-        'rummage-media-fedora44-x86_64.rpm': only(roots['rpm'] / 'packages', 'rummage-media-[0-9]*.x86_64.rpm'),
+        'rummage-media-fedora45-x86_64.rpm': only(roots['rpm'] / 'packages', 'rummage-media-[0-9]*.x86_64.rpm'),
         'rummage-media-arch-x86_64.pkg.tar.zst': only(roots['arch'] / 'packages', 'rummage-media-[0-9]*-x86_64.pkg.tar.zst'),
         'rummage-media-tumbleweed-x86_64.rpm': only(roots['tumbleweed'] / 'packages', 'rummage-media-[0-9]*.x86_64.rpm'),
     }
@@ -97,7 +97,7 @@ def prepare(artifacts, output, commit, repository, run_id, readme):
         only(roots['void'] / 'packages', f'rummage-{feature}-*.x86_64.xbps')
         for kind, suffix, pattern in (
             ('deb', 'debian13-amd64.deb', '_*_amd64.deb'),
-            ('rpm', 'fedora44-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
+            ('rpm', 'fedora45-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
             ('arch', 'arch-x86_64.pkg.tar.zst', '-[0-9]*-x86_64.pkg.tar.zst'),
             ('tumbleweed', 'tumbleweed-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
         ):
@@ -112,7 +112,7 @@ def prepare(artifacts, output, commit, repository, run_id, readme):
     for name, source in media_assets.items():
         shutil.copyfile(source, output / name)
     shutil.copyfile(deb, output / 'rummage-debian13-amd64.deb')
-    shutil.copyfile(rpm, output / 'rummage-fedora44-x86_64.rpm')
+    shutil.copyfile(rpm, output / 'rummage-fedora45-x86_64.rpm')
     shutil.copyfile(arch, output / 'rummage-arch-x86_64.pkg.tar.zst')
     shutil.copyfile(tumbleweed, output / 'rummage-tumbleweed-x86_64.rpm')
     with tarfile.open(output / 'rummage-void-glibc-x86_64.tar.gz', 'w:gz') as archive:
