@@ -6,6 +6,7 @@
 #include <doctest/doctest.h>
 
 #include "rummage/core/config_edit.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/theme/desktop.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/shortcuts.hpp"
@@ -77,6 +78,57 @@ TEST_CASE("settings editor searches commands and validates shortcut conflicts im
     CHECK(core::parse_config(fixture.text, "test").config.keybindings.at("copy").empty());
     CHECK(fixture.editor.assign_shortcut("copy", std::nullopt));
     CHECK_FALSE(core::parse_config(fixture.text, "test").config.keybindings.contains("copy"));
+}
+
+TEST_CASE("settings editor translates built-in action shortcuts and searches Japanese labels") {
+    struct RestoreLanguage {
+        std::string previous{i18n::language()};
+
+        ~RestoreLanguage() { i18n::set_language(previous); }
+    } restore;
+
+    i18n::set_language("ja");
+    EditorFixture fixture;
+    for (const auto& [id, label] : std::array{std::pair{"action:copy_location", "場所をコピー"},
+                                              std::pair{"action:extract_here", "ここに展開"},
+                                              std::pair{"action:extract_to", "展開先を選択…"}}) {
+        const auto by_id = fixture.editor.commands(id);
+        REQUIRE(by_id.size() == 1);
+        CHECK(by_id.front().second == label);
+        const auto by_label = fixture.editor.commands(label);
+        REQUIRE(by_label.size() == 1);
+        CHECK(by_label.front().first == id);
+    }
+
+    // A user's label stays literal even when it matches a bundled English message.
+    EditorFixture custom{
+        "[[actions]]\nid='extract_here'\nlabel='Extract Here'\nargv=['tool']\n"
+        "[[actions]]\nid='extract_to'\nenabled=false\n"
+        "[[actions]]\nid='custom'\nlabel='Copy Location'\nargv=['tool']\n"};
+    const auto replaced = custom.editor.commands("action:extract_here");
+    REQUIRE(replaced.size() == 1);
+    CHECK(replaced.front().second == "Extract Here");
+    const auto added = custom.editor.commands("action:custom");
+    REQUIRE(added.size() == 1);
+    CHECK(added.front().second == "Copy Location");
+    const auto inherited = custom.editor.commands("action:extract_to");
+    REQUIRE(inherited.size() == 1);
+    CHECK(inherited.front().second == "展開先を選択…");
+
+    for (const auto locale : {"de", "es", "fr", "ja", "pt_BR", "ru", "zh_CN"}) {
+        CAPTURE(locale);
+        i18n::set_language(locale);
+        CHECK(i18n::tr("Remove") != "Remove");
+        for (const auto& [id, english] :
+             std::array{std::pair{"action:copy_location", "Copy Location"},
+                        std::pair{"action:extract_here", "Extract Here"},
+                        std::pair{"action:extract_to", "Extract To…"}}) {
+            const auto commands = fixture.editor.commands(id);
+            REQUIRE(commands.size() == 1);
+            CHECK(commands.front().second != english);
+            CHECK(commands.front().second == i18n::tr(english));
+        }
+    }
 }
 
 TEST_CASE("settings editor preserves action IDs metadata and literal argument values") {
