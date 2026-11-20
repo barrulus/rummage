@@ -6,7 +6,7 @@
 
 namespace rummage::ui {
 
-// Built-ins only. GLES 3, sRGB-encoded premultiplied RGBA. Local UVs run top to bottom;
+// Transition built-ins. GLES 3, sRGB-encoded premultiplied RGBA. Local UVs run top to bottom;
 // framebuffer copies run bottom to top and are flipped only in the sampling helpers.
 inline constexpr const char* kMotionVertexShader = R"glsl(#version 300 es
 layout(location = 0) in vec2 a_corner;
@@ -33,6 +33,8 @@ uniform vec2 capture_extent;
 uniform vec2 origin;
 uniform int effect;
 uniform vec4 accent;
+uniform float hologram_spread;
+uniform float portal_rotation;
 
 vec2 sample_uv(vec2 p) {
     p = clamp(p, 0.5 / resolution, 1.0 - 0.5 / resolution);
@@ -84,7 +86,7 @@ void main() {
         float dust = pow(hash(floor((local + vec2(p * 20.0, p * 12.0)) / 3.0)), 18.0) * pulse;
         fresh = mix(fresh, accent, dust * 0.6);
     } else if (effect == motion_hologram || effect == motion_glitch) {
-        float shift = (effect == motion_hologram ? 2.0 : 3.0) * pulse / resolution.x;
+        float shift = (effect == motion_hologram ? hologram_spread : 3.0) * pulse / resolution.x;
         vec2 q = uv;
         if (effect == motion_glitch) q.x += sin(floor(local.y / 8.0) + time_seconds * 70.0) * shift;
         fresh = target(clamp(q, 0.0, 1.0));
@@ -97,7 +99,7 @@ void main() {
         float phase = abs(p * 2.0 - 1.0);
         float size = max(0.05, phase);
         vec2 q = (uv - 0.5) / size;
-        float angle = (1.0 - phase) * 2.5;
+        float angle = (1.0 - phase) * portal_rotation;
         q = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * q + 0.5;
         fresh = target(clamp(q, 0.0, 1.0));
         mask = step(0.0,q.x) * step(q.x,1.0) * step(0.0,q.y) * step(q.y,1.0) * phase;
@@ -115,6 +117,46 @@ void main() {
         fresh = mix(fresh, accent, exp(-abs(uv.y - p) * resolution.y / 2.0) * 0.3);
     }
     color = mix(old, fresh, clamp(mask, 0.0, 1.0));
+}
+)glsl";
+
+// Persistent shaders share a small, versioned authoring interface. Colours returned by
+// effect() are straight RGBA; this wrapper clamps and premultiplies them for the renderer.
+inline std::string ambient_fragment_shader(std::string_view body) {
+    return std::string{R"glsl(#version 300 es
+precision highp float;
+in vec2 uv;
+out vec4 color;
+uniform float time_seconds;
+uniform vec2 resolution;
+uniform vec4 accent;
+uniform float intensity;
+)glsl"} + std::string{body} +
+           R"glsl(
+void main() {
+    vec4 c = clamp(effect(uv), 0.0, 1.0);
+    c.a *= intensity;
+    color = vec4(c.rgb * c.a, c.a);
+}
+)glsl";
+}
+
+inline constexpr std::string_view kAmbientBackground = R"glsl(
+vec4 effect(vec2 p) {
+    float wave = sin(p.x * 6.283185 + sin(p.y * 4.0 + time_seconds * 0.3)
+                     + time_seconds * 0.2);
+    float veil = 0.5 + 0.5 * sin(p.y * 5.0 - time_seconds * 0.25 + wave);
+    return vec4(accent.rgb, (0.25 + 0.75 * veil) * (0.6 + 0.4 * wave));
+}
+)glsl";
+
+inline constexpr std::string_view kAmbientSelection = R"glsl(
+vec4 effect(vec2 p) {
+    vec2 edge = min(p, 1.0 - p) * resolution;
+    float distance = min(edge.x, edge.y);
+    float outline = 1.0 - smoothstep(1.0, 4.0, distance);
+    float breath = 0.65 + 0.35 * sin(time_seconds * 2.0);
+    return vec4(accent.rgb, outline * breath);
 }
 )glsl";
 

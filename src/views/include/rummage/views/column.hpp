@@ -86,7 +86,7 @@ public:
     // The rows a band touches, in content points (BandLane).
     [[nodiscard]] std::vector<std::size_t> rows_in(const ui::Rect& content) const;
 
-    [[nodiscard]] ItemBounds motion_bounds() const noexcept { return motion_bounds_; }
+    [[nodiscard]] const ItemBounds& motion_bounds() const noexcept { return motion_bounds_; }
 
     // Below the cursor's row, near its left: where a menu opened from the keyboard goes; nullopt
     // when the row is not shown.

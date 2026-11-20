@@ -114,6 +114,16 @@ public:
         out = value->get();
     }
 
+    void read_float(const toml::node& node, const std::string& path, double minimum, double maximum,
+                    float& out) {
+        const auto number = node.value<double>();
+        if (number && std::isfinite(*number) && *number >= minimum && *number <= maximum)
+            out = static_cast<float>(*number);
+        else
+            report(node.source(),
+                   std::format("{} must be a finite number from {} to {}", path, minimum, maximum));
+    }
+
     // A list of strings; anything else keeps out.
     void read_strings(const toml::node& node, const std::string& path,
                       std::vector<std::string>& out) {
@@ -376,6 +386,50 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                           motion.quality = MotionConfig::Quality::high;
                       else
                           reader.report(value.source(), path + " must be auto, low or high");
+                  }},
+                 {"hologram_spread",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_float(value, path, 0, 12, motion.hologram_spread);
+                  }},
+                 {"portal_rotation",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_float(value, path, 0, 12, motion.portal_rotation);
+                  }},
+                 {"ambient",
+                  [&](const toml::node& value, const std::string& path) {
+                      auto& ambient = motion.ambient;
+                      reader.read_section(
+                          value, path,
+                          {{"background",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_bool(v, p, ambient.background);
+                            }},
+                           {"selection_glow",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_bool(v, p, ambient.selection_glow);
+                            }},
+                           {"speed",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_float(v, p, 0, 4, ambient.speed);
+                            }},
+                           {"intensity",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_float(v, p, 0, 1, ambient.intensity);
+                            }},
+                           {"fps",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_int(v, p, 1, 60, ambient.fps);
+                            }},
+                           {"shader", [&](const toml::node& v, const std::string& p) {
+                                const auto text = v.value<std::string>();
+                                if (text &&
+                                    (text->empty() || (std::filesystem::path{*text}.is_absolute() &&
+                                                       text->find('\0') == std::string::npos)))
+                                    ambient.shader = *text;
+                                else
+                                    reader.report(v.source(),
+                                                  p + " must be empty or an absolute file path");
+                            }}});
                   }},
                  {"events",
                   [&](const toml::node& value, const std::string& path) {

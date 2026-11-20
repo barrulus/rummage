@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <thread>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -16,11 +17,13 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
+#include "rummage/picture/png.hpp"
 #include "rummage/platform/portal.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/renderer.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/settings_dialog.hpp"
 #include "temp_dir.hpp"
 
 namespace core = rummage::core;
@@ -315,6 +318,31 @@ TEST_CASE("motion: browser navigation settles, reduced mode cancels and idle sta
     settle();
     draw();
     CHECK_FALSE(browser.motion().active());
+    CHECK_FALSE(browser.ambient_interval());
+    core::MotionConfig ambient_config;
+    ambient_config.ambient.background = true;
+    ambient_config.ambient.selection_glow = true;
+    ambient_config.ambient.fps = 24;
+    browser.set_motion_config(ambient_config);
+    draw();
+    REQUIRE(browser.ambient_interval());
+    CHECK(*browser.ambient_interval() == 42ms);
+    CHECK_FALSE(browser.animating());
+    CHECK(renderer.motion_stats().texture_bytes == 0);
+    browser.set_effects_active(false);
+    CHECK_FALSE(browser.ambient_interval());
+    browser.set_effects_active(true);
+    browser.set_reduced_motion(true);
+    draw();
+    CHECK_FALSE(browser.ambient_interval());
+    browser.set_reduced_motion(false);
+    ambient_config.ambient.speed = 0;
+    browser.set_motion_config(ambient_config);
+    draw();
+    CHECK_FALSE(browser.ambient_interval());
+    browser.set_motion_config({});
+    draw();
+    CHECK_FALSE(browser.ambient_interval());
     browser.open(dir.path / "child");
     settle();
     draw();
@@ -420,5 +448,395 @@ TEST_CASE("motion: browser navigation settles, reduced mode cancels and idle sta
         now += 100ms;
         draw();
         save_frame(std::filesystem::path{directory} / "browser.ppm", 900, 600);
+    }
+}
+
+TEST_CASE("motion: ambient settings validate bounds and share accessibility policy") {
+    const auto parsed = core::parse_config(R"toml(
+[animations]
+hologram_spread = 8
+portal_rotation = 6
+[animations.ambient]
+background = true
+selection_glow = true
+speed = 0.5
+intensity = 0.4
+fps = 24
+shader = "/tmp/background.frag"
+)toml",
+                                           "test");
+    REQUIRE(parsed.problems.empty());
+    auto config = parsed.config.animations;
+    ui::Motion motion;
+    motion.configure(config);
+    CHECK(motion.ambient_enabled());
+    REQUIRE(motion.start(Channel::operation, Event::file_copy, {}));
+    CHECK(motion.frame(Channel::operation, {})->hologram_spread == 8);
+    CHECK(motion.frame(Channel::operation, {})->portal_rotation == 6);
+    motion.set_system_reduced(true);
+    CHECK_FALSE(motion.ambient_enabled());
+    CHECK_FALSE(motion.active());
+    config.reduce_motion = core::MotionConfig::Reduce::never;
+    motion.configure(config);
+    CHECK(motion.ambient_enabled());
+    config.ambient.intensity = 0;
+    motion.configure(config);
+    CHECK_FALSE(motion.ambient_enabled());
+    config.ambient.intensity = 1;
+    config.enabled = false;
+    motion.configure(config);
+    CHECK_FALSE(motion.ambient_enabled());
+    for (const auto invalid :
+         {"[animations]\nhologram_spread = nan", "[animations]\nportal_rotation = 13",
+          "[animations.ambient]\nspeed = inf", "[animations.ambient]\nintensity = -1",
+          "[animations.ambient]\nfps = 0", "[animations.ambient]\nfps = 61",
+          "[animations.ambient]\nbackground = 1", "[animations.ambient]\nshader = 'relative.frag'",
+          "[animations.ambient]\nunknown = true"}) {
+        CAPTURE(invalid);
+        CHECK_FALSE(core::parse_config(invalid, "test").problems.empty());
+    }
+}
+
+TEST_CASE("motion: persistent shaders animate without captures and preserve background alpha") {
+    ui::Offscreen gl{320, 240};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    core::MotionConfig::Ambient config;
+    config.intensity = 1;
+    std::array<unsigned char, 4> first{};
+    for (const bool selection : {false, true}) {
+        for (const float seconds : {0.0F, 2.0F}) {
+            renderer.begin_frame(320, 240, 1, ui::Color::rgba(0x20406080));
+            renderer.push_clip({20, 20, 160, 120});
+            REQUIRE(renderer.draw_ambient(
+                selection ? ui::Rect{40, 40, 100, 60} : ui::Rect{10, 10, 200, 180}, config, seconds,
+                ui::Color::rgb(0xFF8000), selection));
+            renderer.pop_clip();
+            renderer.fill_rect({0, 0, 10, 10}, ui::Color::rgb(0x00FF00));
+            renderer.end_frame();
+            CHECK(glGetError() == GL_NO_ERROR);
+            CHECK(pixel(5, 235)[1] == 255);
+            CHECK(pixel(310, 120)[3] == 128);
+            if (!selection) {
+                const auto sample = pixel(70, 170);
+                CHECK(sample[3] == 128);
+                CHECK(sample[0] <= sample[3]);
+                if (seconds == 0)
+                    first = sample;
+                else
+                    CHECK(sample != first);
+            }
+            if (selection) {
+                CHECK(pixel(40, 190)[3] > 128);
+                CHECK(pixel(90, 170)[3] == 128);
+            }
+            CHECK(renderer.motion_stats().texture_bytes == 0);
+            CHECK(renderer.motion_stats().allocations == 0);
+            if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+                save_frame(std::filesystem::path{directory} /
+                               (selection ? "ambient-selection.ppm" : "ambient-background.ppm"),
+                           320, 240);
+        }
+    }
+}
+
+TEST_CASE("motion: custom shader reload keeps last good pixels after errors and recovers") {
+    rummage::test::TempDir dir;
+    const auto path = dir.path / "background.frag";
+    ui::Offscreen gl{80, 60};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    core::MotionConfig::Ambient config;
+    config.shader = path.string();
+    config.intensity = 1;
+    const auto draw = [&] {
+        renderer.begin_frame(80, 60, 1, ui::Color::rgb(0x000000));
+        REQUIRE(renderer.draw_ambient({0, 0, 80, 60}, config, 0, ui::Color::rgb(0xFFFFFF)));
+        renderer.end_frame();
+        CHECK(glGetError() == GL_NO_ERROR);
+        return pixel(30, 30);
+    };
+    std::ofstream{path} << "vec4 effect(vec2 p) { return vec4(1, 0, 0, 1); }";
+    CHECK(draw()[0] == 255);
+    CHECK(renderer.ambient_error().empty());
+    std::ofstream{path} << "invalid GLSL";
+    std::this_thread::sleep_for(510ms);
+    CHECK(draw()[0] == 255);
+    CHECK_FALSE(renderer.ambient_error().empty());
+    std::ofstream{path} << "vec4 effect(vec2 p) { return vec4(0, 1, 0, 1); }";
+    std::this_thread::sleep_for(510ms);
+    CHECK(draw()[1] == 255);
+    CHECK(renderer.ambient_error().empty());
+    config.shader = (dir.path / "missing.frag").string();
+    CHECK(draw()[1] == 255);
+    CHECK_FALSE(renderer.ambient_error().empty());
+    config.shader = dir.path.string();
+    CHECK(draw()[1] == 255);
+    CHECK_FALSE(renderer.ambient_error().empty());
+    const auto huge = dir.path / "huge.frag";
+    std::ofstream{huge} << std::string(65537, 'x');
+    config.shader = huge.string();
+    CHECK(draw()[1] == 255);
+    CHECK_FALSE(renderer.ambient_error().empty());
+    config.shader.clear();
+    draw();
+    CHECK(renderer.ambient_error().empty());
+}
+
+TEST_CASE("motion: effects preview draws at wide and narrow sizes without retaining captures") {
+    rummage::test::TempDir dir;
+    const auto path = dir.path / "config.toml";
+    std::ofstream{path} << "[animations.ambient]\nbackground=true\nselection_glow=true\n";
+    core::EventLoop loop;
+    core::WorkerPool pool{loop, 1};
+    rummage::views::SettingsDialog settings{pool, [] {}};
+    settings.open(path, [] {}, [&](const core::ConfigResult&) {});
+    const auto poll = loop.add_timer(1ms, 1ms, [&] {
+        if (!settings.busy())
+            loop.quit(0);
+    });
+    const auto timeout = loop.add_timer(3s, 0ms, [&] { loop.quit(1); });
+    loop.run();
+    loop.remove(poll);
+    loop.remove(timeout);
+    REQUIRE_FALSE(settings.busy());
+    REQUIRE(settings.error().empty());
+    ui::Offscreen gl{1000, 800};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const auto palette = rummage::theme::Palette{};
+    settings.preview_effect(Event::file_copy);
+    settings.set_system_reduced(true);
+    for (const auto width : {1000, 480}) {
+        renderer.begin_frame(width, 800, 1, palette.surface);
+        settings.draw(renderer, {0, 0, static_cast<float>(width), 800}, palette, icons);
+        renderer.end_frame();
+        CHECK(glGetError() == GL_NO_ERROR);
+        CHECK_FALSE(settings.animating());
+        CHECK(renderer.motion_stats().texture_bytes == 0);
+        if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+            save_frame(std::filesystem::path{directory} /
+                           ("effects-preview-" + std::to_string(width) + ".ppm"),
+                       width, 800);
+    }
+    settings.set_system_reduced(false);
+    renderer.begin_frame(1000, 800, 1, palette.surface);
+    settings.draw(renderer, {0, 0, 1000, 800}, palette, icons);
+    renderer.end_frame();
+    if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+        save_frame(std::filesystem::path{directory} / "effects-preview-enabled.ppm", 1000, 800);
+    CHECK(renderer.motion_stats().texture_bytes == 0);
+    for (std::size_t slot = 0; slot < core::kMotionEvents.size() + 2; ++slot) {
+        settings.select_effect_slot(slot);
+        renderer.begin_frame(1000, 800, 1, palette.surface);
+        settings.draw(renderer, {0, 0, 1000, 800}, palette, icons);
+        renderer.end_frame();
+        CHECK(glGetError() == GL_NO_ERROR);
+        if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+            save_frame(std::filesystem::path{directory} /
+                           ("effects-slot-" + std::to_string(slot) + ".ppm"),
+                       1000, 800);
+    }
+    settings.close();
+    CHECK_FALSE(settings.ambient_interval());
+}
+
+TEST_CASE("motion: object shader parameters change intermediate pixels but preserve endpoints") {
+    ui::Offscreen gl{120, 100};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    const auto draw = [&](Effect effect, float parameter, float progress) {
+        renderer.begin_frame(120, 100, 1, ui::Color::rgb(0x102030));
+        REQUIRE(renderer.begin_motion({10, 10, 100, 80}, core::MotionConfig::Quality::automatic));
+        renderer.fill_rect({30, 30, 30, 25}, ui::Color::rgb(0xFF0000));
+        renderer.fill_rect({60, 30, 20, 25}, ui::Color::rgb(0x0080FF));
+        renderer.end_motion({.effect = effect,
+                             .progress = progress,
+                             .hologram_spread = parameter,
+                             .portal_rotation = parameter},
+                            60, 50, ui::Color::rgb(0xFFFFFF));
+        renderer.end_frame();
+        std::vector<unsigned char> pixels(120 * 100 * 4);
+        glReadPixels(0, 0, 120, 100, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        return pixels;
+    };
+    for (const auto effect : {Effect::hologram, Effect::portal}) {
+        CAPTURE(static_cast<int>(effect));
+        CHECK(draw(effect, 0, 0.3F) != draw(effect, 6, 0.3F));
+        CHECK(draw(effect, 0, 1) == draw(effect, 6, 1));
+    }
+    CHECK(glGetError() == GL_NO_ERROR);
+}
+
+TEST_CASE("motion: shader drafts keep separate programs and diagnostics from the browser") {
+    rummage::test::TempDir dir;
+    const auto live = dir.path / "live.frag";
+    const auto draft = dir.path / "draft.frag";
+    std::ofstream{live} << "vec4 effect(vec2 p) { return vec4(1, 0, 0, 1); }";
+    std::ofstream{draft} << "vec4 effect(vec2 p) { return vec4(0, 1, 0, 1); }";
+    ui::Offscreen gl{120, 60};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    core::MotionConfig::Ambient browser, preview;
+    browser.shader = live.string();
+    preview.shader = draft.string();
+    browser.intensity = preview.intensity = 1;
+    const auto draw = [&] {
+        renderer.begin_frame(120, 60, 1, ui::Color::rgb(0));
+        REQUIRE(renderer.draw_ambient({0, 0, 60, 60}, browser, 0, {}, false, false));
+        REQUIRE(renderer.draw_ambient({60, 0, 60, 60}, preview, 0, {}, false, true));
+        renderer.end_frame();
+        CHECK(pixel(30, 30)[0] == 255);
+        CHECK(pixel(90, 30)[1] == 255);
+    };
+    draw();
+    preview.shader = (dir.path / "missing.frag").string();
+    draw();
+    CHECK(renderer.ambient_error().empty());
+    CHECK_FALSE(renderer.ambient_error(true).empty());
+    renderer.release_ambient(true);
+    CHECK(renderer.ambient_error().empty());
+    CHECK(renderer.ambient_error(true).empty());
+}
+
+TEST_CASE("motion: move and trash retain the painted thumbnail after the source disappears") {
+    using Browser = rummage::views::Browser;
+    for (const auto mode : {Browser::Mode::grid, Browser::Mode::details, Browser::Mode::columns}) {
+        for (const bool move : {false, true}) {
+            CAPTURE(static_cast<int>(mode));
+            CAPTURE(move);
+            rummage::test::TempDir dir;
+            const auto source = dir.path / "source";
+            const auto destination = dir.path / "destination";
+            std::filesystem::create_directory(source);
+            std::filesystem::create_directory(destination);
+            rummage::picture::Image image{
+                .width = 100, .height = 50, .rgba = std::vector<std::uint8_t>(100 * 50 * 4)};
+            for (std::size_t i = 0; i < image.rgba.size(); i += 4) {
+                image.rgba[i] = image.rgba[i + 2] = image.rgba[i + 3] = 255;
+            }
+            const auto png = rummage::picture::encode_png(image);
+            const auto file = source / "photo.png";
+            {
+                std::ofstream out{file, std::ios::binary};
+                out.write(reinterpret_cast<const char*>(png.data()),
+                          static_cast<std::streamsize>(png.size()));
+            }
+            // The GL context outlives the browser and its pinned thumbnail cache.
+            ui::Offscreen gl{1000, 700};
+            ui::FontSystem fonts;
+            ui::Renderer renderer{fonts};
+            ui::IconSet icons{fonts};
+            core::EventLoop loop;
+            core::WorkerPool pool{loop, 2};
+            rummage::fs::DirectoryWatcher watcher{loop};
+            const auto cache = std::make_shared<rummage::thumbs::Cache>(dir.path / "cache", "test");
+            Browser browser{loop,    pool,
+                            watcher, rummage::fs::MimeDatabase::load(),
+                            [] {},   [](ui::CursorShape) {},
+                            cache};
+            browser.set_info_visible(false);
+            browser.set_home_trash(dir.path / "Trash");
+            core::MotionConfig config;
+            config.events.fill(Effect::none);
+            for (const auto event : {Event::file_move, Event::file_trash}) {
+                config.events[static_cast<std::size_t>(event)] = Effect::fade;
+                config.durations_ms[static_cast<std::size_t>(event)] = 1000;
+            }
+            browser.set_motion_config(config);
+            const auto colors = rummage::theme::Palette{};
+            auto now = ui::Motion::Clock::now();
+            const auto draw = [&] {
+                renderer.begin_frame(1000, 700, 1, colors.surface);
+                browser.draw(renderer, {0, 0, 1000, 700}, colors, icons, now);
+                renderer.end_frame();
+            };
+            const auto settle = [&] {
+                bool ready = false;
+                const auto timer = loop.add_timer(1ms, 1ms, [&] {
+                    if (!browser.loading()) {
+                        ready = true;
+                        loop.quit();
+                    }
+                });
+                const auto timeout = loop.add_timer(5s, 0ms, [&] { loop.quit(); });
+                loop.run();
+                loop.remove(timer);
+                loop.remove(timeout);
+                REQUIRE(ready);
+            };
+            browser.open(source);
+            settle();
+            if (move) {
+                browser.toggle_split();
+                browser.open(destination);
+                settle();
+                browser.focus_pane(0);
+            }
+            browser.set_mode(mode);
+            browser.set_grid_size(3);
+            browser.picker_folder()->select_name("photo.png");
+            std::vector<unsigned char> before(1000 * 700 * 4);
+            // MIME sniffing can finish after the first layout. Pump draws until the view has
+            // actually painted the thumbnail, rather than capturing its loading placeholder.
+            bool painted = false;
+            const auto poll = loop.add_timer(1ms, 1ms, [&] {
+                draw();
+                glReadPixels(0, 0, 1000, 700, GL_RGBA, GL_UNSIGNED_BYTE, before.data());
+                for (std::size_t i = 0; i < before.size(); i += 4)
+                    if (before[i] == 255 && before[i + 1] == 0 && before[i + 2] == 255) {
+                        painted = true;
+                        loop.quit();
+                        break;
+                    }
+            });
+            const auto deadline = loop.add_timer(5s, 0ms, [&] { loop.quit(); });
+            loop.run();
+            loop.remove(poll);
+            loop.remove(deadline);
+            REQUIRE(painted);
+            if (move)
+                browser.transfer_to_other_pane(true);
+            else
+                browser.trash();
+            settle();
+            REQUIRE_FALSE(std::filesystem::exists(file));
+            now = ui::Motion::Clock::now() + 500ms;
+            const auto frame = browser.motion().frame(Channel::operation, now);
+            REQUIRE(frame);
+            const auto start = frame->from;
+            const auto original = static_cast<std::size_t>(
+                                      (699 - static_cast<int>(start.y + start.height / 2)) * 1000 +
+                                      static_cast<int>(start.x + start.width / 2)) *
+                                  4;
+            CHECK(before[original] == 255);
+            CHECK(before[original + 1] == 0);
+            CHECK(before[original + 2] == 255);
+            if (mode == Browser::Mode::grid)
+                CHECK(start.width >
+                      32);  // Keep the displayed size instead of a generic small icon.
+            draw();
+            const auto rect = frame->geometry();
+            const auto middle = pixel(static_cast<int>(rect.x + rect.width / 2),
+                                      699 - static_cast<int>(rect.y + rect.height / 2));
+            CHECK(middle[0] > 180);
+            CHECK(middle[1] < 80);
+            CHECK(middle[2] > 180);
+            // The landscape thumbnail remains letterboxed, never stretched into a square.
+            const auto above = pixel(static_cast<int>(rect.x + rect.width / 2),
+                                     699 - static_cast<int>(rect.y + rect.height * 0.1F));
+            CHECK_FALSE((above[0] > 180 && above[1] < 80 && above[2] > 180));
+            CHECK(glGetError() == GL_NO_ERROR);
+            if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+                save_frame(std::filesystem::path{directory} /
+                               ("thumbnail-" + std::to_string(static_cast<int>(mode)) +
+                                (move ? "-move.ppm" : "-trash.ppm")),
+                           1000, 700);
+            now += 3s;
+            draw();
+            CHECK_FALSE(browser.motion().active());
+            CHECK(renderer.motion_stats().texture_bytes == 0);
+        }
     }
 }

@@ -35,6 +35,13 @@ Thumbnails::~Thumbnails() {
 const ui::Texture* Thumbnails::get(const std::filesystem::path& file, std::int64_t modified_ns,
                                    thumbs::Size size, std::string_view mime,
                                    picture::Failure* failure) {
+    return get_shared(file, modified_ns, size, mime, failure).get();
+}
+
+std::shared_ptr<const ui::Texture> Thumbnails::get_shared(const std::filesystem::path& file,
+                                                          std::int64_t modified_ns,
+                                                          thumbs::Size size, std::string_view mime,
+                                                          picture::Failure* failure) {
     std::string key = file.string();
     key += '\n';
     key += thumbs::directory_name(size);
@@ -51,12 +58,12 @@ const ui::Texture* Thumbnails::get(const std::filesystem::path& file, std::int64
         *failure = slot.failed ? slot.failure : picture::Failure::none;
     }
     if (slot.pixels) {
-        slot.texture = std::make_unique<ui::Texture>(slot.pixels->width, slot.pixels->height,
+        slot.texture = std::make_shared<ui::Texture>(slot.pixels->width, slot.pixels->height,
                                                      slot.pixels->rgba);
         bytes_ += slot.texture->bytes();
         slot.pixels.reset();
     }
-    return slot.texture.get();
+    return slot.texture;
 }
 
 void Thumbnails::request(const std::string& key, const std::filesystem::path& file,
@@ -127,11 +134,13 @@ void Thumbnails::end_frame() {
             ++it;
         }
     }
-    // Over budget: drop the textures drawn longest ago (never this frame's).
+    // Over budget: drop the textures drawn longest ago (never this frame's or a pinned visual).
+    // Keep cache ownership of pins so their GL destruction happens here, not in a transfer
+    // completion callback that releases its saved visual outside a draw.
     if (bytes_ > kBudgetBytes) {
         std::vector<std::pair<std::uint64_t, std::string>> by_age;
         for (const auto& [key, slot] : slots_) {
-            if (slot.texture && slot.used != frame_) {
+            if (slot.texture && slot.texture.use_count() == 1 && slot.used != frame_) {
                 by_age.emplace_back(slot.used, key);
             }
         }

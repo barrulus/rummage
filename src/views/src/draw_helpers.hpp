@@ -13,6 +13,7 @@
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/renderer.hpp"
+#include "rummage/views/item_bounds.hpp"
 
 namespace rummage::fs {
 struct Entry;
@@ -28,7 +29,12 @@ struct ItemStyle;
 // unsupported. Passing no cache opts out without requesting work. Shared by all file views.
 void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
                      const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
-                     Thumbnails* thumbnails, ui::Rect bounds, bool cut);
+                     Thumbnails* thumbnails, ui::Rect bounds, bool cut,
+                     ItemVisual* painted = nullptr);
+
+// Repaint the saved visual at a new position/size, without loading the source file again.
+void draw_item_visual(ui::Renderer&, ui::IconSet&, const theme::Palette&, const ItemVisual&,
+                      ui::Rect bounds);
 
 // Height of the bar above the views (the breadcrumb).
 inline constexpr float kTitleHeight = 40.0F;

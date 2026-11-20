@@ -60,6 +60,32 @@ ConfigText edit_config_text(std::string text, const std::vector<ConfigEdit>& edi
             if (value.size() != 1 || !value.contains("value"))
                 throw std::runtime_error("Enter one value for each setting");
             auto* table = doc.at_path(edit.table).as_table();
+            const bool motion_table = edit.table == "animations.events" ||
+                                      edit.table == "animations.durations" ||
+                                      edit.table == "animations.ambient";
+            const auto table_key = motion_table ? quote_config_string("animations") + "." +
+                                                      quote_config_string(edit.table.substr(11))
+                                                : quote_config_string(edit.table);
+            // Inline parents cannot be extended by a later [table] declaration. Reformat
+            // only that parent when adding a missing nested motion setting.
+            if (motion_table && (!table || !table->contains(edit.key))) {
+                auto* parent = doc.get_as<toml::table>("animations");
+                if (parent && parent->is_inline()) {
+                    const auto begin = offset(text, parent->source().begin);
+                    const auto end = offset(text, parent->source().end);
+                    const auto child_key = edit.table.substr(11);
+                    if (!parent->contains(child_key))
+                        parent->insert(child_key, toml::table{});
+                    auto* child = parent->get_as<toml::table>(child_key);
+                    if (!child)
+                        throw std::runtime_error("Motion settings section must be a table");
+                    child->insert(edit.key, *value.get("value"));
+                    std::ostringstream out;
+                    out << toml::toml_formatter{*parent};
+                    text.replace(begin, end - begin, out.str());
+                    continue;
+                }
+            }
             if (table) {
                 if (const auto* node = table->get(edit.key)) {
                     const auto begin = offset(text, node->source().begin);
@@ -75,7 +101,7 @@ ConfigText edit_config_text(std::string text, const std::vector<ConfigEdit>& edi
                 } else {
                     const auto begin = offset(text, table->source().begin);
                     bool explicit_header = begin < text.size() && text[begin] == '[';
-                    if (explicit_header && edit.table.find_first_of(".[]") == std::string::npos) {
+                    if (explicit_header && edit.table.find_first_of("[]") == std::string::npos) {
                         // An implicit parent inherits its child's source position. Inserting
                         // after [animations.events] would put enabled inside events instead.
                         const auto newline = text.find('\n', begin);
@@ -84,11 +110,10 @@ ConfigText edit_config_text(std::string text, const std::vector<ConfigEdit>& edi
                         explicit_header = declared && declared->empty();
                     }
                     if (!explicit_header) {
-                        if (edit.table.find_first_of(".[]") != std::string::npos)
+                        if (!motion_table && edit.table.find_first_of(".[]") != std::string::npos)
                             throw std::runtime_error("Cannot insert into an implicit action table");
-                        text.insert(0, quote_config_string(edit.table) + "." +
-                                           quote_config_string(edit.key) + " = " + edit.value +
-                                           "\n");
+                        text.insert(0, table_key + "." + quote_config_string(edit.key) + " = " +
+                                           edit.value + "\n");
                         continue;
                     }
                     const auto newline = text.find('\n', begin);
@@ -100,12 +125,12 @@ ConfigText edit_config_text(std::string text, const std::vector<ConfigEdit>& edi
                         text.insert(newline + 1, insertion);
                 }
             } else {
-                // Only new top-level sections may be created this way.
-                if (edit.table.find_first_of(".[]") != std::string::npos ||
+                // New top-level sections and the supported nested motion sections.
+                if ((!motion_table && edit.table.find_first_of(".[]") != std::string::npos) ||
                     doc.contains(edit.table))
                     throw std::runtime_error("Cannot create this settings section");
-                text += "\n[" + quote_config_string(edit.table) + "]\n" +
-                        quote_config_string(edit.key) + " = " + edit.value + "\n";
+                text += "\n[" + table_key + "]\n" + quote_config_string(edit.key) + " = " +
+                        edit.value + "\n";
             }
         }
         text += append;

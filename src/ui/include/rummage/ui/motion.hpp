@@ -34,12 +34,15 @@ public:
         float time_seconds{0};
         Rect from{};
         Rect to{};
+        float hologram_spread{2.0F};
+        float portal_rotation{2.5F};
         [[nodiscard]] Rect geometry() const noexcept;
     };
 
     void configure(const core::MotionConfig& config);
     void set_system_reduced(bool reduced);
     [[nodiscard]] bool reduced() const noexcept;
+    [[nodiscard]] bool ambient_enabled() const noexcept;
 
     [[nodiscard]] const core::MotionConfig& config() const noexcept { return config_; }
 

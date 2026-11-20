@@ -1250,12 +1250,15 @@ int main(int argc, char** argv) {
         // including on exception paths.
         struct FrameHandlers {
             ui::Window& window;
+            core::EventLoop& loop;
+            core::EventLoop::SourceId ambient_timer{0};
 
             ~FrameHandlers() {
+                loop.remove(ambient_timer);
                 window.set_frame_shown_handler({});
                 window.set_draw_handler({});
             }
-        } frame_handlers{window};
+        } frame_handlers{window, loop};
 
         if (startup.active()) {
             window.set_frame_shown_handler([&] {
@@ -1273,6 +1276,9 @@ int main(int argc, char** argv) {
             });
         }
         window.set_draw_handler([&](ui::Renderer& renderer, const ui::Rect& bounds) {
+            loop.remove(std::exchange(frame_handlers.ambient_timer, 0));
+            if (columns)
+                columns->set_effects_active(window.state().activated);
             const bool initial_draw = startup.active() && !first_drawn;
             const bool ready = !columns || !columns->loading();
             seat.set_cursor_scale(window.scale());  // the xcursor fallback's images follow it
@@ -1304,6 +1310,12 @@ int main(int argc, char** argv) {
                 renderer_for_stats = &renderer;
                 if (columns->animating()) {
                     window.request_redraw();  // next frame, paced by the compositor
+                } else if (const auto interval = columns->ambient_interval()) {
+                    frame_handlers.ambient_timer =
+                        loop.add_timer(*interval, std::chrono::milliseconds{0}, [&] {
+                            frame_handlers.ambient_timer = 0;
+                            window.request_redraw();
+                        });
                 }
                 note_state();  // every change shows in a frame, so frames are where to look
                 if (initial_draw)

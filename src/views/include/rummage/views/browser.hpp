@@ -439,6 +439,7 @@ public:
 
     void set_reduced_motion(bool reduced) {
         motion_.set_system_reduced(reduced);
+        settings_.set_system_reduced(reduced);
         redraw_();
     }
 
@@ -448,6 +449,14 @@ public:
               ui::IconSet& icons, Clock::time_point now);
 
     [[nodiscard]] bool animating() const;
+    // Persistent effects use a separate, capped timer; transient input motion remains frame paced.
+    [[nodiscard]] std::optional<std::chrono::milliseconds> ambient_interval() const;
+
+    void set_effects_active(bool active) {
+        if (effects_active_ != active)
+            ambient_tick_ = {};
+        effects_active_ = active;
+    }
 
     void pointer(const ui::PointerEvent& event, Clock::time_point now);
     // false when event did nothing: no shortcut (shortcuts()) where the keyboard is.
@@ -954,6 +963,10 @@ private:
     // Rendering and pointer dispatch may address an inactive area without changing focus.
     std::size_t context_area_{0};
     ui::Motion motion_;
+    bool effects_active_{true}, ambient_drawn_{false};
+    Clock::time_point ambient_tick_{};
+    double ambient_seconds_{0};
+
     std::uint64_t motion_epoch_{0};
     ui::Rect motion_bounds_{};
     bool motion_quick_look_{false}, motion_palette_{false};
@@ -975,17 +988,14 @@ private:
     struct OperationMotion {
         std::size_t area{0};
         std::uint64_t epoch{0};
-        ui::Rect from{};
-        std::filesystem::path path;
-        std::string icon, mime;
+        ItemVisual visual;
     };
 
     [[nodiscard]] OperationMotion capture_operation_motion(const fs::TransferRequest&) const;
     void complete_operation_motion(const OperationMotion&, const fs::TransferRequest&,
                                    const fs::TransferResult&);
     void draw_motion_sprite(ui::Renderer&, const theme::Palette&, ui::IconSet&, Clock::time_point);
-    std::string motion_sprite_icon_{"file"};
-    std::string motion_sprite_mime_;
+    ItemVisual motion_sprite_;
 
     BrowsingArea& area() { return *areas_[context_area_]; }
 

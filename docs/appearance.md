@@ -12,7 +12,8 @@ fallback and any light/dark override. Changes save automatically when valid; the
 status reports the applied palette after saving completes. Font family changes
 apply at the next start; text sizes and other appearance changes apply immediately.
 
-The same panel controls motion effects, speed, quality and reduced motion. See
+The separate **Settings → Effects** section contains a slot selector, live preview,
+parameters, quality and reduced-motion controls. See
 [motion effects](motion.md) for per-event mappings, durations and resource limits.
 
 ## Colours

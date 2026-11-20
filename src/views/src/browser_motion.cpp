@@ -1,5 +1,6 @@
 #include <algorithm>
 
+#include "draw_helpers.hpp"
 #include "rummage/fs/trash.hpp"
 #include "rummage/views/browser.hpp"
 
@@ -94,39 +95,29 @@ void Browser::draw_motion_sprite(ui::Renderer& renderer, const theme::Palette& p
     if (rect.empty())
         return;
     renderer.push_clip(motion_bounds_);
+    const auto& source = motion_sprite_.bounds;
+    const auto& clip = motion_sprite_.clip;
+    const float sx = rect.width / source.width, sy = rect.height / source.height;
+    renderer.push_clip({rect.x + (clip.x - source.x) * sx, rect.y + (clip.y - source.y) * sy,
+                        clip.width * sx, clip.height * sy});
     const bool captured = renderer.begin_motion(rect.inset(-6), motion_.config().quality);
-    // A normal icon draw reuses the existing theme/texture cache. Travel and size are CPU
-    // geometry; the shader only embellishes the small sprite's pixels.
-    icons.draw_file(renderer, motion_sprite_mime_, motion_sprite_icon_, rect.x, rect.y, rect.width,
-                    palette.primary.with_alpha(1.0F - frame->progress * 0.4F));
+    draw_item_visual(renderer, icons, palette, motion_sprite_, rect);
     if (captured)
         renderer.end_motion(*frame, rect.x + rect.width / 2, rect.y + rect.height / 2,
                             palette.primary);
+    renderer.pop_clip();
     renderer.pop_clip();
 }
 
 Browser::OperationMotion Browser::capture_operation_motion(
     const fs::TransferRequest& request) const {
-    OperationMotion source{.area = context_area_,
-                           .epoch = motion_epoch_,
-                           .from = {},
-                           .path = {},
-                           .icon = {},
-                           .mime = {}};
+    OperationMotion source{.area = context_area_, .epoch = motion_epoch_, .visual = {}};
     if (const auto folder = current_folder(); folder && folder->path() == request.source) {
         if (const auto* entry = folder->cursor_entry();
             entry && std::ranges::find(request.names, entry->name) != request.names.end()) {
-            source.from = motion_item_bounds().cursor;
-            const auto rect = source.from;
-            if (!rect.empty()) {
-                const float size = std::min(32.0F, rect.height);
-                source.from = {
-                    pane().mode == Mode::grid ? rect.x + (rect.width - size) / 2 : rect.x + 8,
-                    rect.y + (rect.height - size) / 2, size, size};
-            }
-            source.path = request.source / entry->name;
-            source.icon = entry->is_directory() ? "folder" : "file";
-            source.mime = std::string{mime_->name(entry->mime)};
+            const auto painted = motion_item_bounds().visual;
+            if (painted.path == request.source / entry->name && !painted.clip.empty())
+                source.visual = painted;
         }
     }
     return source;
@@ -138,10 +129,11 @@ void Browser::complete_operation_motion(const OperationMotion& source,
     // Effects acknowledge confirmed items only. A skip, partial failure or cancellation
     // never gets a success animation. Ignore stale geometry after navigation/tab changes.
     if (!result.cancelled && result.errors.empty() && result.refused.empty() &&
-        !source.from.empty() && source.area == active_area_ && source.epoch == motion_epoch_ &&
-        current_folder() && current_folder()->path() == request.source &&
+        !source.visual.bounds.empty() && source.area == active_area_ &&
+        source.epoch == motion_epoch_ && current_folder() &&
+        current_folder()->path() == request.source &&
         std::ranges::any_of(result.items,
-                            [&](const auto& item) { return item.from == source.path; })) {
+                            [&](const auto& item) { return item.from == source.visual.path; })) {
         std::optional<core::MotionEvent> event;
         if (request.kind == fs::TransferKind::copy)
             event = core::MotionEvent::file_copy;
@@ -161,9 +153,9 @@ void Browser::complete_operation_motion(const OperationMotion& source,
                 target = {destination.x + destination.width / 2 - 16,
                           destination.y + destination.height / 2 - 16, 32, 32};
             }
-            motion_sprite_icon_ = source.icon;
-            motion_sprite_mime_ = source.mime;
-            motion_.start(ui::MotionChannel::operation, *event, Clock::now(), source.from, target);
+            if (motion_.start(ui::MotionChannel::operation, *event, Clock::now(),
+                              source.visual.bounds, target))
+                motion_sprite_ = source.visual;
             redraw_();
         }
     }
@@ -171,7 +163,20 @@ void Browser::complete_operation_motion(const OperationMotion& source,
 
 void Browser::begin_motion_frame(ui::Renderer& renderer, const ui::Rect& bounds,
                                  Clock::time_point now) {
+    const bool running = effects_active_ && motion_.ambient_enabled();
+    if (ambient_tick_ != Clock::time_point{} && ambient_drawn_ && running)
+        ambient_seconds_ +=
+            std::max(0.0, std::chrono::duration<double>(now - ambient_tick_).count()) *
+            static_cast<double>(motion_.config().ambient.speed);
+    ambient_tick_ = now;
+    ambient_drawn_ = false;
+    if (!motion_.ambient_enabled())
+        renderer.release_ambient();
+    if (!settings_.previewing())
+        renderer.release_ambient(true);
     motion_.advance(now);
+    if (!motion_.frame(ui::MotionChannel::operation, now))
+        motion_sprite_ = {};
     if (motion_bounds_.width != bounds.width || motion_bounds_.height != bounds.height) {
         cancel_layout_motion();
     }
@@ -201,6 +206,12 @@ void Browser::draw_view_with_motion(ui::Renderer& renderer, const theme::Palette
         frame && !native && renderer.begin_motion(area().view_area, motion_.config().quality);
     if (frame && !native && !captured)
         motion_.cancel(ui::pane_motion_channel(context_area_));
+    if (motion_.ambient_enabled() && motion_.config().ambient.background) {
+        ambient_drawn_ =
+            renderer.draw_ambient(area().view_area, motion_.config().ambient,
+                                  static_cast<float>(ambient_seconds_), palette.primary) ||
+            ambient_drawn_;
+    }
     draw_view(renderer, area().view_area, palette, icons, now);
     const auto items = motion_item_bounds();
     if (!frame || native)
@@ -209,6 +220,15 @@ void Browser::draw_view_with_motion(ui::Renderer& renderer, const theme::Palette
         const auto origin = area().motion_origin;
         renderer.end_motion(*frame, origin.x + origin.width / 2, origin.y + origin.height / 2,
                             palette.primary);
+    }
+    if (motion_.ambient_enabled() && motion_.config().ambient.selection_glow &&
+        !items.selection.empty()) {
+        renderer.push_clip(area().view_area);
+        ambient_drawn_ =
+            renderer.draw_ambient(items.selection, motion_.config().ambient,
+                                  static_cast<float>(ambient_seconds_), palette.primary, true) ||
+            ambient_drawn_;
+        renderer.pop_clip();
     }
     if (native) {
         const auto cursor = items.cursor;
@@ -276,7 +296,7 @@ void Browser::end_overlay_motion(ui::Renderer& renderer,
     if (frame)
         renderer.end_motion(*frame, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2,
                             palette.primary);
-    if (!motion_.active())
+    if (!motion_.active() && !settings_.animating())
         renderer.release_motion_textures();
 }
 
@@ -291,11 +311,24 @@ void Browser::leave_motion() {
 void Browser::cancel_operation_motion() {
     ++motion_epoch_;
     motion_.cancel(ui::MotionChannel::operation);
+    motion_sprite_ = {};
 }
 
 void Browser::cancel_layout_motion() {
     ++motion_epoch_;
     motion_.cancel_all();
+    motion_sprite_ = {};
+}
+
+std::optional<std::chrono::milliseconds> Browser::ambient_interval() const {
+    if (!effects_active_)
+        return std::nullopt;
+    if (const auto preview = settings_.ambient_interval())
+        return preview;
+    if (!ambient_drawn_ || !motion_.ambient_enabled() || motion_.config().ambient.speed <= 0)
+        return std::nullopt;
+    return std::chrono::milliseconds{(1000 + motion_.config().ambient.fps - 1) /
+                                     motion_.config().ambient.fps};
 }
 
 }  // namespace rummage::views

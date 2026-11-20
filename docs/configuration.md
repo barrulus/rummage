@@ -6,7 +6,7 @@ Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or th
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
 - **General:** startup/session behavior, executable opening, double-click timing and terminal.
-- **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement and motion.
+- **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement.
 - **Keyboard shortcuts:** search commands, record a chord, reset a binding to its default,
   or disable it. Conflicting chords are rejected before saving. Folder shortcuts accept
   a directory path; custom actions appear after their valid definition is saved.
@@ -14,6 +14,7 @@ command palette. Categories appear in a sidebar, or a category selector in narro
   selection rules, destination prompt and enabled state. Placeholder help is shown in the form.
 - **Menus:** choose the common layout or a context override, arrange commands, separators
   and groups, and preview the structure. Reset removes that override and restores inheritance.
+- **Effects:** select an event or persistent slot, preview it, and adjust its effect and timing live.
 
 Search above the categories matches setting names and descriptions, commands, actions and
 menu contexts. Selecting a result opens its control. Individual reset buttons and **Reset
@@ -38,7 +39,7 @@ commands in Actions before assigning their shortcuts.
 saved, Settings stays open: correct them, use **Retry** for a write failure, or explicitly
 choose **Discard unsaved**. Discarding does not undo changes already saved.
 
-Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4/5 to switch categories, and
+Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4/5/6 to switch categories, and
 Ctrl+S to commit pending fields or retry a save. Scroll within a category with the wheel
 or scrollbar. Choice fields open with Enter/Space; arrow keys move through options,
 Enter/Space selects, Escape dismisses, and Tab dismisses and moves focus.
@@ -110,12 +111,20 @@ rename = "Ctrl+r"
 | `appearance.color_scheme` | `"system"` | `"system"` (follow selected source), `"light"`, or `"dark"`; independent of source; live |
 | `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |
 | `appearance.background_opacity` | `1.0` | Number from 0 to 1; background only |
-| `animations.enabled` | `true` | Enable built-in motion effects; live |
+| `animations.enabled` | `true` | Enable transitions and persistent effects; live |
 | `animations.duration_scale` | `1.0` | Finite number 0–4; 0 is immediate; final duration capped at 2 seconds |
 | `animations.reduce_motion` | `"system"` | `system`, `always`, `never`; follows desktop reduced motion by default |
 | `animations.quality` | `"auto"` | `auto`, `low` (fades), `high`; bounded capture storage |
 | `animations.events.EVENT` | Per event | Built-in effect or `none`; see [motion effects](motion.md) |
 | `animations.durations.EVENT` | Per event | Integer milliseconds 0–2000 before duration scaling |
+| `animations.hologram_spread` | `2.0` | Colour separation in physical pixels, 0–12 |
+| `animations.portal_rotation` | `2.5` | Maximum rotation in radians, 0–12 |
+| `animations.ambient.background` | `false` | Animated accent background behind file views |
+| `animations.ambient.selection_glow` | `false` | Breathing outline around visible selection bounds |
+| `animations.ambient.speed` | `1.0` | Speed multiplier, 0–4; 0 freezes the effect |
+| `animations.ambient.intensity` | `0.15` | Strength, 0–1; 0 disables persistent effects |
+| `animations.ambient.fps` | `30` | Maximum idle animation rate, 1–60; compositor pacing also applies |
+| `animations.ambient.shader` | `""` | Optional absolute path to a background fragment-shader body; empty uses the built-in effect |
 | `status_bar.text_size` | `12.0` | Number from 8 to 32 logical pixels; applies live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |
 | `font.monospace` | `"monospace"` | Fontconfig pattern for text previews |

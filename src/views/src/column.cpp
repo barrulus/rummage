@@ -120,7 +120,10 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         draw_entry_icon(
             renderer, icons, palette, *folder_, entry, style, thumbnails,
             {bounds.x + kIconX, y + ((size_.row - size_.icon) / 2.0F), size_.icon, size_.icon},
-            cut != nullptr && cut->holds(path(), entry));
+            cut != nullptr && cut->holds(path(), entry),
+            cursor == i ? &motion_bounds_.visual : nullptr);
+        if (cursor == i)
+            motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(bounds);
         float name_right = bounds.right() - kRightPadding;
         if (entry.is_directory()) {
             name_right -= kChevronSize + 6.0F;
