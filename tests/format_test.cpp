@@ -47,3 +47,14 @@ TEST_CASE("media details: reduced aspect ratio, arbitrary tags and truncation ar
     CHECK(rows[1].second == "the full value");
     CHECK(rows[2].first == "Metadata");
 }
+
+TEST_CASE("filename display: extension toggle preserves dotfiles and directory names") {
+    using rummage::views::display_name;
+    CHECK(display_name("photo.jpg", false, true) == "photo.jpg");
+    CHECK(display_name("photo.jpg", false, false) == "photo");
+    CHECK(display_name("archive.tar.gz", false, false) == "archive.tar");
+    CHECK(display_name(".profile", false, false) == ".profile");
+    CHECK(display_name(".config.json", false, false) == ".config");
+    CHECK(display_name("folder.d", true, false) == "folder.d");
+    CHECK(display_name("README", false, false) == "README");
+}

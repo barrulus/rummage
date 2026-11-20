@@ -1,4 +1,4 @@
-// rummage-snapshot: renders the test scene (or the column view, or the grid) offscreen and writes
+// rummage-snapshot: renders the test scene or a file view offscreen and writes
 // it as a binary PPM.
 //
 //   rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails CACHE]
@@ -15,7 +15,7 @@
 // clicks column titles after the keys, by column id: "size", "owner", "modified,modified" for
 // newest first; an unknown id is reported and skipped); with "space"
 // last, Quick Look opens (and --bench scrolls its text page, when it shows one). --thumbnails gives
-// the grid a thumbnail cache directory (none by default: icons only, nothing written to ~/.cache).
+// the file views a thumbnail cache directory (none by default: icons only, nothing written to ~/.cache).
 // The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6" focuses it.
 // --drag NAME presses on the entry NAME of the folder shown and drags it a little (the drag image
 // drawn under the pointer); --drop-over X,Y then moves that drag (or, alone, another program's
@@ -634,7 +634,7 @@ int main(int argc, char** argv) {
                                   .count());
                 }
                 run_until(loop, [&] { return !columns->loading(); });
-                // The first frame asks for the visible entries' types and, in the grid, their
+                // The first frame asks for the visible entries' types and their
                 // thumbnails, made on workers; each frame uploads the ones that arrived.
                 const auto start = std::chrono::steady_clock::now();
                 frame();

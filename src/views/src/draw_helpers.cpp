@@ -1,9 +1,96 @@
 #include "draw_helpers.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 
+#include "item_style.hpp"
+#include "rummage/engines/engines.hpp"
+#include "rummage/fs/icon.hpp"
+#include "rummage/views/selectable_text.hpp"
+#include "rummage/views/thumbnails.hpp"
+
 namespace rummage::views {
+
+void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
+                     const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
+                     Thumbnails* thumbnails, ui::Rect bounds, bool cut) {
+    fs::Entry typed = entry;
+    typed.mime = folder.mime_of(entry);
+    const auto& mime = folder.mime();
+    const auto type = mime.name(typed.mime);
+    const bool video = type.starts_with("video/");
+    const float size = bounds.width;
+    const float alpha = cut ? kCutOpacity : 1.0F;
+    const ui::Texture* thumbnail = nullptr;
+    picture::Failure failure = picture::Failure::none;
+    if (thumbnails && !entry.is_directory() && !folder.is_archive()) {
+        const auto registry = engines::installed();
+        const auto* family = registry->find(mime, typed.mime);
+        if (video || (family && family->thumbnails)) {
+            thumbnail = thumbnails->get(
+                folder.path_of(entry), entry.modified_ns,
+                thumbs::size_for(static_cast<std::uint32_t>(std::lround(size * renderer.scale()))),
+                type, &failure);
+        }
+    }
+    if (thumbnail) {
+        // Film rails are UI decoration; the shared cache retains clean pixels.
+        const float rail = video ? std::clamp(size * 0.045F, 3.0F, 12.0F) : 0.0F;
+        const float fit = std::min((size - 2 * rail) / static_cast<float>(thumbnail->width()),
+                                   size / static_cast<float>(thumbnail->height()));
+        const float width = static_cast<float>(thumbnail->width()) * fit;
+        const float height = static_cast<float>(thumbnail->height()) * fit;
+        const ui::Rect frame{bounds.x + (size - width) / 2, bounds.y + (size - height) / 2, width,
+                             height};
+        renderer.draw_image(*thumbnail, frame, {}, alpha);
+        if (video) {
+            for (const float edge : {frame.x - rail, frame.right()}) {
+                renderer.fill_rect({edge, frame.y, rail, frame.height},
+                                   ui::Color::rgb(0x222222).with_alpha(alpha));
+                if (size >= 48) {
+                    const float hole = rail * 0.5F;
+                    for (float top = frame.y + hole; top + hole <= frame.bottom();
+                         top += rail * 1.5F)
+                        renderer.fill_rect({edge + rail * 0.25F, top, hole, hole},
+                                           ui::Color::rgb(0xdddddd).with_alpha(alpha));
+                }
+            }
+        }
+    } else {
+        icons.draw_file(renderer, type, fs::icon_name(mime, typed), bounds.x, bounds.y, size,
+                        style.icon, typed.folder_icon);
+        draw_failure_badge(renderer, icons, palette, failure, bounds.x, bounds.y, size, alpha);
+    }
+    if (folder.runs_as_program(entry))
+        draw_run_mark(
+            renderer, bounds.x, bounds.y, size,
+            style.fill
+                ? style.icon
+                : theme::readable_foreground(palette.primary, palette.surface).with_alpha(alpha),
+            style.fill.value_or(palette.surface));
+}
+
+ui::Rect draw_selected_name(ui::Renderer& renderer, std::string_view name, ui::Rect anchor,
+                            const ui::Rect& viewport, float size, ui::Color text,
+                            ui::Color background, bool centered) {
+    constexpr float pad = 4;
+    const float room = std::max(1.0F, anchor.width - 2 * pad);
+    const float width = std::min(text_width(renderer, name, size), room);
+    const float height = SelectableText::height(renderer, name, room, size);
+    anchor.height = height + 2 * pad;
+    // Keep a bottom-row filename readable without moving the rest of the file list.
+    anchor.y = std::max(viewport.y, std::min(anchor.y, viewport.bottom() - anchor.height));
+    renderer.fill_rect(anchor, background);
+    SelectableText label;
+    label.begin_frame(viewport);
+    label.draw(renderer, "name", name,
+               {anchor.x + (centered ? (anchor.width - width) / 2 : pad), anchor.y + pad,
+                centered ? width : room, 0},
+               size, text, background);
+    label.end_frame();
+    return anchor.intersect(viewport);
+}
 
 float text_width(ui::Renderer& renderer, std::string_view text, float size) {
     return renderer.fonts().layout(text, size, renderer.scale()).width / renderer.scale();

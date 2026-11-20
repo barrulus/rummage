@@ -102,6 +102,20 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_h, XKB_KEY_H},
              .command = Command::toggle_hidden},
     Shortcut{.group = "General",
+             .keys = "",
+             .action = "Thumbnails",
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::toggle_thumbnails},
+    Shortcut{.group = "General",
+             .keys = "",
+             .action = "File extensions",
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::toggle_extensions},
+    Shortcut{.group = "General",
              .keys = "Ctrl+D",
              .action = "Add the folder to the sidebar",
              .scope = scope::kViews | scope::kQuickLook,
@@ -673,6 +687,10 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::back;
     if (name == "forward")
         command = Command::forward;
+    if (name == "toggle_thumbnails")
+        command = Command::toggle_thumbnails;
+    if (name == "toggle_extensions")
+        command = Command::toggle_extensions;
     if (name == "toggle_hidden")
         command = Command::toggle_hidden;
     if (name == "add_bookmark")
@@ -928,6 +946,8 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "back",
                              "forward",
                              "toggle_hidden",
+                             "toggle_thumbnails",
+                             "toggle_extensions",
                              "add_bookmark",
                              "open_terminal",
                              "new_tab",

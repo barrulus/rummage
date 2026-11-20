@@ -34,8 +34,10 @@ struct MadeFile {
 // Makes a file in directory called name, else "name 2" ("Letter 2.odt": the number goes before
 // the extension), "name 3"...: the first free name, taken atomically (O_EXCL). Empty, or with
 // the contents and permissions of from (a template); a copy that fails leaves nothing.
+// With no template, contents supplies the bytes (including embedded NULs) of the new file.
 [[nodiscard]] MadeFile make_file(const std::filesystem::path& directory, std::string_view name,
-                                 const std::filesystem::path& from = {});
+                                 const std::filesystem::path& from = {},
+                                 std::string_view contents = {});
 
 // The templates "New File" offers: the regular files in directory (links to them too), not
 // hidden nor backups ("~"), sorted by name; empty when there is no such folder.

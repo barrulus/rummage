@@ -168,16 +168,30 @@ void draw_row(ui::Renderer& renderer, const ui::Rect& card, float y, std::string
                        palette.on_surface.with_alpha(fade), room, ui::Ellipsis::middle, typeface);
 }
 
+void draw_name(ui::Renderer& renderer, const ui::Rect& card, float y, std::string_view name,
+               ui::Color color) {
+    const float width = std::min(text_width(renderer, name, 15), card.width - 24);
+    SelectableText text;
+    text.begin_frame(card);
+    text.draw(renderer, "name", name, {card.x + (card.width - width) / 2, y, width, 0}, 15, color,
+              color);
+    text.end_frame();
+}
+
 // A caption in a pill under area.
 void draw_caption(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
                   const std::string& caption, float fade) {
     const float text_width_px = std::min(text_width(renderer, caption, 13.0F), area.width - 32.0F);
+    const float height = SelectableText::height(renderer, caption, text_width_px, 13.0F) + 10;
     const ui::Rect pill{area.x + ((area.width - text_width_px) / 2.0F) - 14.0F,
-                        area.bottom() + 12.0F, text_width_px + 28.0F, 26.0F};
+                        area.bottom() + 38.0F - height, text_width_px + 28.0F, height};
     renderer.draw_box(
         pill, {.fill = palette.surface_container_high.with_alpha(0.92F * fade), .radius = {}});
-    renderer.draw_text(caption, pill.x + 14.0F, pill.y + 5.0F, 13.0F,
-                       palette.on_surface.with_alpha(fade), text_width_px, ui::Ellipsis::middle);
+    SelectableText text;
+    text.begin_frame(pill);
+    text.draw(renderer, "caption", caption, {pill.x + 14, pill.y + 5, text_width_px, 0}, 13,
+              palette.on_surface.with_alpha(fade), palette.secondary_container);
+    text.end_frame();
 }
 
 }  // namespace
@@ -1146,7 +1160,9 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
         rows.push_back({.label = "Link to", .value = info->link_target});
     }
     const bool error = info != nullptr && !info->error.empty();
-    const float height = 32.0F + kCardIcon + 20.0F + 24.0F + 20.0F + 4.0F +
+    const float name_height =
+        std::max(24.0F, SelectableText::height(renderer, entry.name, kCardWidth - 24, 15) + 4);
+    const float height = 32.0F + kCardIcon + 20.0F + name_height + 20.0F + 4.0F +
                          (static_cast<float>(rows.size() + (error ? 1 : 0)) * kRowHeight) + 20.0F;
     const ui::Rect card{area.x + ((area.width - kCardWidth) / 2.0F),
                         area.y + ((area.height - height) / 2.0F), kCardWidth, height};
@@ -1161,8 +1177,8 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
                     : palette.on_surface_variant)
                    .with_alpha(fade));
     y += kCardIcon + 20.0F;
-    draw_centered(renderer, entry.name, card, y, 15.0F, palette.on_surface.with_alpha(fade));
-    y += 24.0F;
+    draw_name(renderer, card, y, entry.name, palette.on_surface.with_alpha(fade));
+    y += name_height;
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
     for (const Row& row : rows) {
@@ -1200,7 +1216,9 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
 
     // Its first entries, as many as there is room for, then how many more.
     const float width = std::min(kArchiveCardWidth, area.width);
-    const float head = 28.0F + kArchiveIcon + 16.0F + 24.0F + 20.0F + 4.0F +
+    const float name_height =
+        std::max(24.0F, SelectableText::height(renderer, entry.name, width - 24, 15) + 4);
+    const float head = 28.0F + kArchiveIcon + 16.0F + name_height + 20.0F + 4.0F +
                        (static_cast<float>(rows.size()) * kRowHeight) +
                        (problem.empty() ? 0.0F : kRowHeight) + 20.0F;
     const float list_top = archive.top.empty() ? 0.0F : 4.0F + 1.0F + 12.0F;
@@ -1223,8 +1241,8 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
     icons.draw(renderer, fs::icon_name(*mime_, typed), card.x + ((width - kArchiveIcon) / 2.0F), y,
                kArchiveIcon, palette.on_surface_variant.with_alpha(fade));
     y += kArchiveIcon + 16.0F;
-    draw_centered(renderer, entry.name, card, y, 15.0F, palette.on_surface.with_alpha(fade));
-    y += 24.0F;
+    draw_name(renderer, card, y, entry.name, palette.on_surface.with_alpha(fade));
+    y += name_height;
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
     for (const auto& [label, value] : rows) {

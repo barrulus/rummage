@@ -11,8 +11,6 @@
 #include "draw_helpers.hpp"
 #include "item_style.hpp"
 #include "rummage/core/i18n.hpp"
-#include "rummage/engines/engines.hpp"
-#include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
 
@@ -79,6 +77,9 @@ std::optional<ViewHit> GridView::hit(float x, float y) const {
 }
 
 bool GridView::on_item(std::size_t index, float x, float y) const {
+    if (folder_ && folder_->single_selection() && folder_->cursor() == index &&
+        expanded_name_.contains(x, y))
+        return true;
     if (index < item_first_ || index - item_first_ >= name_width_.size() || columns_ == 0) {
         return false;
     }
@@ -285,6 +286,9 @@ void GridView::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                     ui::IconSet& icons, Clock::time_point now) {
     motion_bounds_ = {};
+    expanded_name_ = {};
+    ui::Rect name_anchor{};
+    ui::Color name_text{}, name_background{};
     if (!folder_) {
         return;
     }
@@ -314,10 +318,6 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     ui::FontSystem& fonts = renderer.fonts();
     item_first_ = range.first * columns_;
     name_width_.clear();
-    // The cache size that covers the icon in physical pixels.
-    const thumbs::Size thumbnail_size =
-        thumbs::size_for(static_cast<std::uint32_t>(std::lround(icon * renderer.scale())));
-    const std::shared_ptr<const engines::Registry> engines = engines::installed();
     for (std::size_t row = range.first; row < range.last; ++row) {
         const float y = area_.y + row_top(row) - offset;
         for (std::size_t column = 0; column < columns_; ++column) {
@@ -349,62 +349,9 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                                    .border_width = style.ring ? 1.5F : 0.0F,
                                    .border = style.ring.value_or(kTransparent)});
             }
-            fs::Entry typed = entry;
-            typed.mime = folder_->mime_of(entry);
-            const ui::Texture* thumbnail = nullptr;
-            picture::Failure failure = picture::Failure::none;
-            const engines::Family* family =
-                entry.is_directory() ? nullptr : engines->find(*mime_, typed.mime);
-            const bool video = mime_->name(typed.mime).starts_with("video/");
-            if (thumbnails_ != nullptr &&
-                (video || (family != nullptr && family->thumbnails && !folder_->is_archive()))) {
-                thumbnail = thumbnails_->get(folder_->path_of(entry), entry.modified_ns,
-                                             thumbnail_size, mime_->name(typed.mime), &failure);
-            }
-            if (thumbnail != nullptr) {
-                // Film rails are UI decoration; the shared cache retains clean pixels.
-                const float rail = video ? std::clamp(icon * 0.045F, 3.0F, 12.0F) : 0.0F;
-                const float fit =
-                    std::min((icon - 2.0F * rail) / static_cast<float>(thumbnail->width()),
-                             icon / static_cast<float>(thumbnail->height()));
-                const float shown_width = static_cast<float>(thumbnail->width()) * fit;
-                const float shown_height = static_cast<float>(thumbnail->height()) * fit;
-                const ui::Rect frame{x + ((cell_width_ - shown_width) / 2.0F),
-                                     y + kIconTop + ((icon - shown_height) / 2.0F), shown_width,
-                                     shown_height};
-                const float alpha = cut ? kCutOpacity : 1.0F;
-                renderer.draw_image(*thumbnail, frame, {}, alpha);
-                if (video) {
-                    for (const float edge : {frame.x - rail, frame.x + frame.width}) {
-                        renderer.draw_box({edge, frame.y, rail, frame.height},
-                                          {.fill = ui::Color::rgb(0x222222).with_alpha(alpha)});
-                        if (icon >= 48.0F) {
-                            const float hole = rail * 0.5F;
-                            for (float top = frame.y + hole; top + hole <= frame.y + frame.height;
-                                 top += rail * 1.5F) {
-                                renderer.draw_box(
-                                    {edge + rail * 0.25F, top, hole, hole},
-                                    {.fill = ui::Color::rgb(0xdddddd).with_alpha(alpha),
-                                     .radius = {}});
-                            }
-                        }
-                    }
-                }
-            } else {
-                icons.draw_file(renderer, (*mime_).name(typed.mime), fs::icon_name(*mime_, typed),
-                                x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, style.icon,
-                                typed.folder_icon);
-                if (folder_->runs_as_program(entry)) {
-                    draw_run_mark(
-                        renderer, x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
-                        style.fill ? style.icon
-                                   : theme::readable_foreground(palette.primary, palette.surface),
-                        style.fill.value_or(palette.surface));
-                }
-                draw_failure_badge(renderer, icons, palette, failure,
-                                   x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon,
-                                   cut ? kCutOpacity : 1.0F);
-            }
+            draw_entry_icon(renderer, icons, palette, *folder_, entry, style,
+                            show_thumbnails_ ? thumbnails_ : nullptr,
+                            {x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, icon}, cut);
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {
                 // One line across the cell, where the name starts.
                 const float pad = ui::TextField::kPadding;
@@ -415,9 +362,18 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 name_width_.push_back(cell_width_ - (2.0F * kNameMargin));
                 continue;
             }
-            const ui::TextLayout& name = fonts.layout(
-                entry.name, kTextSize, renderer.scale(),
-                std::max(1.0F, cell_width_ - (2.0F * kNameMargin)), ui::Ellipsis::middle);
+            if (&entry == folder_->single_selection()) {
+                name_anchor = {x + kNameMargin - 4, y + kIconTop + icon + kNameGap - 4,
+                               std::max(1.0F, cell_width_ - 2 * kNameMargin) + 8, 0};
+                name_text = style.text;
+                name_background = style.fill.value_or(palette.surface);
+                name_width_.push_back(cell_width_ - 2 * kNameMargin);
+                continue;
+            }
+            const ui::TextLayout& name =
+                fonts.layout(display_name(entry.name, entry.is_directory(), show_extensions_),
+                             kTextSize, renderer.scale(),
+                             std::max(1.0F, cell_width_ - (2.0F * kNameMargin)), ui::Ellipsis::end);
             const float name_width = name.width / renderer.scale();
             name_width_.push_back(name_width);
             renderer.draw_layout(name, x + ((cell_width_ - name_width) / 2.0F),
@@ -425,6 +381,11 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     }
 
+    if (name_anchor.width > 0) {
+        expanded_name_ =
+            draw_selected_name(renderer, folder_->single_selection()->name, name_anchor, area_,
+                               kTextSize, name_text, name_background, true);
+    }
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
         draw_centered(renderer, model.problem(), area_, area_.y + 24.0F, 14.0F, palette.error);
@@ -463,6 +424,8 @@ std::optional<std::size_t> GridView::cell_at(float x, float y) const {
     if (!folder_ || x < area_.x || x >= area_.right() || y < area_.y || y >= area_.bottom()) {
         return std::nullopt;
     }
+    if (folder_->single_selection() && expanded_name_.contains(x, y))
+        return folder_->cursor();
     const float content_x = x - area_.x - kPadding;
     const float content_y = y - area_.y + scroller_.offset() - kPadding;
     if (content_x < 0.0F || content_y < 0.0F || cell_width_ <= 0.0F) {

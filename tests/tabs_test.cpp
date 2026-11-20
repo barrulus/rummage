@@ -1,3 +1,4 @@
+#include <GLES3/gl3.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -90,11 +91,18 @@ struct Fixture {
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
     rummage::fs::DirectoryWatcher watcher{loop};
-    Browser browser{loop,    pool,
-                    watcher, rummage::fs::MimeDatabase::load(),
-                    [] {},   [](CursorShape /*shape*/) {}};
+    Browser browser;
 
-    Fixture() {
+    explicit Fixture(bool thumbnails = false)
+        : browser{loop,
+                  pool,
+                  watcher,
+                  rummage::fs::MimeDatabase::load(),
+                  [] {},
+                  [](CursorShape /*shape*/) {},
+                  thumbnails
+                      ? std::make_shared<rummage::thumbs::Cache>(dir.path / "cache", "views-test")
+                      : nullptr} {
         fs::create_directories(a / "sub");
         fs::create_directories(b);
         std::ofstream{a / "one.txt"} << "1";
@@ -102,6 +110,18 @@ struct Fixture {
         browser.set_home_trash(dir.path / "Trash");
         browser.open(a);
         REQUIRE(settle());
+    }
+
+    const std::vector<rummage::views::MenuItem>& visibility_items() {
+        const auto& items = browser.context_menu().items();
+        const auto show = std::ranges::find(items, "show", &rummage::views::MenuItem::id);
+        REQUIRE(show != items.end());
+        CHECK(show->label == "Show");
+        CHECK(show->submenu);
+        CHECK(show->children.size() == 5);
+        for (const auto& item : show->children)
+            CHECK(item.checkable);
+        return show->children;
     }
 
     bool settle() {
@@ -693,4 +713,192 @@ TEST_CASE("Show in Folder: filesystem root and folder opening preserve first foc
     REQUIRE(f.settle());
     CHECK(f.browser.active_tab() == 0);
     CHECK(f.browser.tab_titles() == Names{"a", "b", "sub"});
+}
+
+TEST_CASE("Show in Folder: stale filters are cleared and selection remains visible in every view") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f;
+        f.browser.set_mode(mode);
+        f.browser.set_name_filter("no-match");
+        f.browser.show_items({f.a / "one.txt"}, false);
+        REQUIRE(f.settle());
+        CHECK(f.browser.name_filter().empty());
+        const auto folder = mode == Browser::Mode::columns ? f.browser.columns().focused_folder()
+                            : mode == Browser::Mode::grid  ? f.browser.grid().folder()
+                                                           : f.browser.details().folder();
+        REQUIRE(folder);
+        REQUIRE(folder->single_selection());
+        CHECK(folder->single_selection()->name == "one.txt");
+        CHECK(folder->take_reveal() == rummage::views::Folder::Reveal::jump);
+    }
+}
+
+TEST_CASE("views: sort button and full selected filename remain available with preview hidden") {
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    const std::string name = std::string(170, 'a') + ".txt";
+    std::ofstream{f.a / name} << "text";
+    f.browser.set_info_visible(false);
+    f.browser.set_sidebar_visible(false);
+    f.browser.set_show_extensions(false);
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        f.browser.set_mode(mode);
+        f.browser.show_items({f.a / name}, false);
+        REQUIRE(f.settle());
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, 600, kHeight}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+        const auto label =
+            mode == Browser::Mode::grid ? f.browser.grid().expanded_name_bounds()
+            : mode == Browser::Mode::details
+                ? f.browser.details().expanded_name_bounds()
+                : f.browser.columns().column(f.browser.columns().focus()).expanded_name_bounds();
+        CHECK(label.height > 40);
+        CHECK(label.width < 400);
+        CHECK(label.y < 300);  // at the selected file, not a footer
+        const float x = label.x + label.width / 2;
+        const float y = label.bottom() - 6;
+        if (mode == Browser::Mode::columns) {
+            const auto& column = f.browser.columns().column(f.browser.columns().focus());
+            CHECK(column.row_at(x, y) == column.folder().cursor());
+        } else {
+            const auto hit = mode == Browser::Mode::grid ? f.browser.grid().hit(x, y)
+                                                         : f.browser.details().hit(x, y);
+            REQUIRE(hit);
+            CHECK(hit->entry == hit->folder->cursor());
+            CHECK(hit->on_item);
+        }
+        const auto button = f.browser.sort_bounds();
+        REQUIRE_FALSE(button.empty());
+        PointerEvent event;
+        event.kind = PointerEvent::Kind::press;
+        event.button = PointerButton::left;
+        event.x = button.x + 5;
+        event.y = button.y + 5;
+        f.browser.pointer(event, Browser::Clock::now());
+        REQUIRE(f.browser.context_menu().is_open());
+        const auto& items = f.browser.context_menu().items();
+        const auto descending =
+            std::ranges::find(items, "sort:descending", &rummage::views::MenuItem::id);
+        REQUIRE(descending != items.end());
+        descending->action();
+        CHECK(f.browser.sort_order().descending);
+        f.browser.context_menu().close();
+    }
+    CHECK_FALSE(f.browser.state().show_extensions);
+}
+
+TEST_CASE("views: View menu toggles hidden files and tracks Ctrl+H in every view") {
+    Fixture f;
+    std::ofstream{f.a / ".hidden"} << "hidden";
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        f.browser.set_mode(mode);
+        f.browser.open_view_menu(20, 20);
+        const auto& items = f.visibility_items();
+        auto hidden = std::ranges::find(items, "show_hidden", &rummage::views::MenuItem::id);
+        REQUIRE(hidden != items.end());
+        CHECK(hidden->checkable);
+        CHECK_FALSE(hidden->checked);
+        CHECK_FALSE(hidden->keys.empty());
+        auto toggle = hidden->action;
+        f.browser.context_menu().close();
+        toggle();
+        REQUIRE(f.settle());
+        CHECK(f.browser.shows_hidden());
+        const auto folder = mode == Browser::Mode::columns ? f.browser.columns().focused_folder()
+                            : mode == Browser::Mode::grid  ? f.browser.grid().folder()
+                                                           : f.browser.details().folder();
+        CHECK(std::ranges::find(folder->entries(), ".hidden", &rummage::fs::Entry::name) !=
+              folder->entries().end());
+        f.browser.open_view_menu(20, 20);
+        hidden =
+            std::ranges::find(f.visibility_items(), "show_hidden", &rummage::views::MenuItem::id);
+        REQUIRE(hidden != f.visibility_items().end());
+        CHECK(hidden->checked);
+        f.browser.context_menu().close();
+        REQUIRE(f.press(key(XKB_KEY_h, kCtrl)));
+        CHECK_FALSE(f.browser.shows_hidden());
+        CHECK(std::ranges::find(folder->entries(), ".hidden", &rummage::fs::Entry::name) ==
+              folder->entries().end());
+    }
+}
+
+TEST_CASE("views: preview toggle replaces icons in every view and restores icons immediately") {
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f{true};
+        f.browser.set_motion_config({.enabled = false});
+        fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "image/blocks.jpg", f.a / "photo.jpg");
+        f.browser.set_info_visible(false);
+        f.browser.set_sidebar_visible(false);
+        f.browser.set_mode(mode);
+        f.browser.open(f.a);
+        REQUIRE(f.settle());
+        CHECK(f.browser.shows_thumbnails());
+        const auto toggle = [&] {
+            f.browser.open_view_menu(20, 20);
+            const auto& items = f.visibility_items();
+            const auto item =
+                std::ranges::find(items, "show_thumbnails", &rummage::views::MenuItem::id);
+            REQUIRE(item != items.end());
+            CHECK(item->label == "Thumbnails");
+            CHECK(item->checkable);
+            CHECK(item->checked == f.browser.shows_thumbnails());
+            auto action = item->action;
+            f.browser.context_menu().close();
+            action();
+        };
+        const auto draw = [&] {
+            renderer.begin_frame(kWidth, kHeight, 1, {});
+            f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                           Browser::Clock::now());
+            renderer.end_frame();
+            std::vector<std::uint8_t> pixels(kWidth * kHeight * 4);
+            glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            return pixels;
+        };
+        toggle();
+        CHECK_FALSE(f.browser.shows_thumbnails());
+        draw();
+        REQUIRE(f.settle());  // MIME sniffing is independent of thumbnails.
+        const auto icons_only = draw();
+        toggle();
+        draw();
+        REQUIRE(f.settle());
+        const auto previews = draw();
+        CHECK(previews != icons_only);
+        // Only the thumbnail's icon square changes; names, folders and unsupported files stay put.
+        std::size_t changed = 0;
+        for (std::size_t pixel = 0; pixel < previews.size(); pixel += 4)
+            if (!std::equal(previews.data() + pixel, previews.data() + pixel + 4,
+                            icons_only.data() + pixel))
+                ++changed;
+        const float icon = mode == Browser::Mode::grid
+                               ? f.browser.grid().icon_size()
+                               : rummage::views::kListSizes[rummage::views::kUsualListSize].icon;
+        CHECK(changed <= static_cast<std::size_t>((icon + 2) * (icon + 2)));
+        toggle();
+        CHECK(draw() == icons_only);
+        CHECK_FALSE(f.browser.state().show_thumbnails);
+        const auto saved = rummage::views::parse_state(
+            rummage::views::format_state(f.browser.state()), "state.toml");
+        REQUIRE(saved.problems.empty());
+        CHECK_FALSE(saved.state.show_thumbnails);
+        f.browser.set_show_thumbnails(true);
+        f.browser.apply(saved.state);
+        CHECK_FALSE(f.browser.shows_thumbnails());
+    }
 }

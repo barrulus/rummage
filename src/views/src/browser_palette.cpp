@@ -228,6 +228,10 @@ std::vector<PaletteItem> Browser::palette_items() {
             sidebar_visible_ ? "Hide Sidebar" : "Show Sidebar");
     command(Command::focus_sidebar, "focus_sidebar",
             sidebar_.focused() ? "Back to the View" : "Move to the Sidebar");
+    command(Command::toggle_thumbnails, "toggle_thumbnails",
+            shows_thumbnails() ? "Hide Thumbnails" : "Show Thumbnails");
+    command(Command::toggle_extensions, "toggle_extensions",
+            shows_extensions() ? "Hide File Extensions" : "Show File Extensions");
     command(Command::toggle_hidden, "toggle_hidden",
             pane().show_hidden ? "Hide Hidden Files" : "Show Hidden Files");
     const fs::SortOrder& order = sort_order();

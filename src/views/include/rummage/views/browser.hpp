@@ -155,7 +155,7 @@ public:
 
     using Mode = ViewMode;
 
-    // thumbnails: the cache the grid takes its thumbnails from; nullptr shows icons only.
+    // thumbnails: the cache all file views take their thumbnails from; nullptr shows icons only.
     Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
             std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
             std::function<void(ui::CursorShape)> set_cursor,
@@ -203,6 +203,21 @@ public:
     // they leave the selection, so nothing acts on what is not seen, and the cursor moves off them;
     // the hidden folders on the way to the one shown stay.
     void set_show_hidden(bool show, bool announce = true);
+
+    void set_show_extensions(bool show) {
+        show_extensions_ = show;
+        redraw_();
+    }
+
+    [[nodiscard]] bool shows_extensions() const { return show_extensions_; }
+
+    void set_show_thumbnails(bool show) {
+        show_thumbnails_ = show;
+        redraw_();
+    }
+
+    [[nodiscard]] bool shows_thumbnails() const { return show_thumbnails_; }
+
     void set_entry_filter(fs::Listing::Predicate filter);
     // Live filename substring filter, combined with the picker's type restrictions.
     void set_name_filter(std::string text);
@@ -325,6 +340,8 @@ public:
     [[nodiscard]] ui::Rect sidebar_preview_divider_bounds() const {
         return sidebar_preview_divider_;
     }
+
+    [[nodiscard]] ui::Rect sort_bounds() const { return area().sort_bounds; }
 
     [[nodiscard]] ui::Rect view_menu_bounds() const { return area().view_menu_bounds; }
 
@@ -771,6 +788,8 @@ private:
     void trash_done(const fs::TransferResult& result);
     void restore_done(const fs::TransferResult& result);
     // Pastes files read from the system clipboard (at generation) into destination.
+    void paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
+                        std::string extension);
     void paste_files(const std::filesystem::path& destination, const ClipboardFiles& files,
                      std::uint64_t generation);
     // Why an operation runs: the user's, or an undo or redo of one.
@@ -917,7 +936,7 @@ private:
         TabBar tab_bar;
         ui::Rect bounds{}, header{}, view_area{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
-        ui::Rect view_menu_bounds{}, settings_bounds{};
+        ui::Rect view_menu_bounds{}, settings_bounds{}, sort_bounds{};
         std::filesystem::path motion_folder;
         const Pane* motion_tab{nullptr};
         Mode motion_mode{Mode::columns};
@@ -995,6 +1014,8 @@ private:
     Sidebar sidebar_;
     StatusBar status_bar_;
     ShortcutsOverlay shortcuts_;
+    bool show_extensions_{true};
+    bool show_thumbnails_{true};
     NameEditor editor_;
     ConflictDialog conflict_;
     ConfirmDialog confirm_;

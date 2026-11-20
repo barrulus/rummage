@@ -2,7 +2,14 @@
 
 [Documentation](README.md) · [Security model](security.md) · [Troubleshooting](troubleshooting.md)
 
-The grid and information pane show thumbnails/previews. **Space** opens Quick Look
+Grid, Details and Columns show thumbnails in place of file icons wherever supported.
+**View → Show → Thumbnails** switches all file views between thumbnails (on by default)
+and file-type icons, and remembers the choice between sessions. Previews fit inside
+the existing icon space and grow with the view's zoom. Unsupported files and previews
+still loading keep their normal icons. The information pane and Quick Look remain
+available when file previews are off.
+
+**Space** opens Quick Look
 for the current file; arrows move through the folder, and Space/Escape closes it.
 Unsupported files get an information card or a reason why a preview is unavailable.
 Opening a file with Enter uses its desktop application, independent of preview support.

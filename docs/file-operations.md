@@ -31,6 +31,18 @@ supports compose input, word movement, selection, clipboard paste and local
 undo/redo. Paste uses the first line of clipboard text. While editing a name,
 Ctrl+Z edits that text rather than undoing a file operation.
 
+When the clipboard contains an image or plain text, **Ctrl+V** creates a file in
+the current folder. Images retain their offered format (PNG, JPEG, WebP, GIF,
+TIFF, BMP or SVG); plain text becomes a `.txt` file. Image data takes priority
+over a text alternative. Clipboard file lists still copy or move the original
+files as usual.
+
+The new file starts as `Pasted.png`, `Pasted.txt`, or the matching extension, with
+a number added if the name is taken. Its base name is selected for immediate
+renaming: type a name and press Enter. Escape keeps the generated name. Creation
+participates in file-operation undo. Pasting while a filename or other text field
+is being edited continues to insert text into that field.
+
 ## Batch rename
 
 Select several entries and press **F2**, or choose **Batch Rename…** in the context

@@ -170,12 +170,16 @@ copy are not automatically synchronized by updates.
 ## Saved state
 
 rummage remembers window size/maximization, pane layout and divider, sidebar zoom,
-info-pane settings, the divider below Places and command-palette history. Each pane retains its tabs,
+info-pane settings, file-extension visibility (`view.show_extensions` in saved state),
+file previews (`view.show_thumbnails`, default `true`, toggled by **View → Show → Thumbnails**),
+the divider below Places and command-palette history. Each pane retains its tabs,
 locations, active tab, views, zoom, sorting, hidden visibility and filename filters.
 Back/forward history and details-tree expansion are not saved across restarts.
 
 View mode, sort key/direction, row size, grid icon size and details-column choices, order and widths
-are remembered per folder. Opening a folder restores them. Moving focus between
+are remembered per folder. Name-column width is also saved; a saved
+`name_width = 0` means it automatically fills spare space until resized.
+Opening a folder restores these settings. Moving focus between
 Miller columns keeps column view without replacing the folder’s saved view mode;
 choosing a view mode explicitly updates that preference. A folder without
 saved settings initially inherits the current view. Sorting one tab does not
