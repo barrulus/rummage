@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare the translations in data/i18n/*.toml with the texts the code translates.
 
-For each catalog it lists the texts the code passes to tr()/trf() that the catalog lacks
+For each catalog it lists translated texts and i18n::mark() labels that the catalog lacks
 (they show in English) and the catalog entries no code uses any more. With --unwrapped it
 also lists string literals in interface code that look user-visible but are not passed to
 tr()/trf(): candidates to wrap, judged by a heuristic, so read before acting.
@@ -21,7 +21,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LITERAL = r'"(?:[^"\\\n]|\\.)*"'
 ADJACENT = re.compile(rf"(?:{LITERAL}\s*){{2,}}")
-CALL = re.compile(rf"\b(?:i18n::)?(trnc|trn|trcf|trc|trf|tr)\(\s*({LITERAL})(?:\s*,\s*({LITERAL}))?(?:\s*,\s*({LITERAL}))?")
+# mark() is also used by startup profiling; only the i18n-qualified marker is a message.
+CALL = re.compile(rf"\b(?:i18n::)?(trnc|trn|trcf|trc|trf|tr|(?<=i18n::)mark)\(\s*({LITERAL})(?:\s*,\s*({LITERAL}))?(?:\s*,\s*({LITERAL}))?")
 # Interface code: views, the app, and the platform/fs messages the views show.
 INTERFACE = ["src/views", "src/app", "src/platform/src", "src/fs/src", "src/ui/src"]
 
@@ -59,7 +60,7 @@ def calls(source):
     used = {}
     for name, first, second, third in CALL.findall(join_adjacent(source)):
         args = [unescape(x) for x in (first, second, third) if x]
-        if name in ("tr", "trf"):
+        if name in ("tr", "trf", "mark"):
             used[("", args[0])] = None
         elif name in ("trc", "trcf") and len(args) >= 2:
             used[(args[0], args[1])] = None
@@ -224,7 +225,7 @@ COMMENT = re.compile(r"//[^\n]*")
 def inside_tr(code, start):
     """Whether position start is inside the parentheses of a tr(/trf( call not yet closed."""
     window = code[max(0, start - 400):start]
-    for match in reversed(list(re.finditer(r"\b(?:trnc|trn|trcf|trc|trf|tr)\(", window))):
+    for match in reversed(list(re.finditer(r"\b(?:trnc|trn|trcf|trc|trf|tr|(?<=i18n::)mark)\(", window))):
         between = re.sub(LITERAL, '""', window[match.end():])
         if between.count("(") >= between.count(")"):
             return True
@@ -233,7 +234,9 @@ def inside_tr(code, start):
 
 def unwrapped(entries):
     for folder in INTERFACE:
-        for path in sorted((ROOT / folder).rglob("*.cpp")):
+        for path in sorted((ROOT / folder).rglob("*")):
+            if path.suffix not in (".cpp", ".hpp") or not path.is_file():
+                continue
             # Comments become blanks of the same length, so offsets and lines stay true.
             code = COMMENT.sub(lambda m: " " * len(m[0]), path.read_text(encoding="utf-8"))
             for run in RUN.finditer(code):

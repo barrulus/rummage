@@ -472,19 +472,22 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
     const std::string name = path_.filename().empty() ? path_.string() : path_.filename().string();
-    const std::string type = loading_ ? "Loading…" : std::string{mime_->name(data_.entry.mime)};
+    const std::string type =
+        loading_ ? std::string{i18n::tr("Loading…")} : std::string{mime_->name(data_.entry.mime)};
     std::vector<std::pair<std::string, std::string>> rows{
         {"Location", path_.parent_path().string()},
         {data_.entry.is_directory() ? "Contents" : "Size",
          loading_ ? "…"
          : data_.entry.is_directory()
-             ? (data_.info.items ? std::format("{} {} ({} hidden)", *data_.info.items,
-                                               *data_.info.items == 1 ? "item" : "items",
-                                               data_.info.hidden_items)
-                                 : "Unavailable")
-             : std::format("{} ({} bytes)", format_size(data_.entry.size), data_.entry.size)},
+             ? (data_.info.items ? i18n::trf("{} ({} hidden)",
+                                             i18n::trn("{} item", "{} items", *data_.info.items),
+                                             data_.info.hidden_items)
+                                 : std::string{i18n::tr("Unavailable")})
+             : i18n::trf("{} ({})", format_size(data_.entry.size),
+                         i18n::trn("{} byte", "{} bytes", data_.entry.size))},
         {"Modified", loading_ ? "…" : format_time(data_.entry.modified_ns)},
-        {"Created", data_.info.created_ns ? format_time(*data_.info.created_ns) : "Unavailable"},
+        {"Created", data_.info.created_ns ? format_time(*data_.info.created_ns)
+                                          : std::string{i18n::tr("Unavailable")}},
         {"Owner", data_.info.owner},
         {"Group", data_.info.group},
         {"Permissions", data_.info.permissions},

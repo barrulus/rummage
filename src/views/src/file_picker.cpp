@@ -304,7 +304,7 @@ void FilePicker::accept() {
         return;
     }
     if (folder->is_archive()) {
-        error_ = "Extract archive contents before choosing them";
+        error_ = std::string{i18n::tr("Extract archive contents before choosing them")};
         redraw_();
         return;
     }

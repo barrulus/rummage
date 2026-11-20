@@ -418,8 +418,14 @@ void Browser::take_selection(bool cut) {
     if (folder->is_archive()) {
         // Claim the clipboard without advertising virtual members as on-disk file URIs.
         if (system_.offer)
-            system_.offer({{"text/plain", "Archive selection: paste into Rummage to extract"}});
-        show_message("Ctrl+V extracts the selected archive contents", false);
+            system_.offer(
+                {{"text/plain",
+                  std::string{i18n::tr("Archive selection: paste into Rummage to extract")}}});
+        const auto paste_keys = keys_for(Command::paste);
+        show_message(i18n::trf("{} extracts the selected archive contents",
+                               paste_keys.empty() ? std::string{i18n::tr("Paste")}
+                                                  : i18n::keys(paste_keys)),
+                     false);
         return;
     }
     if (system_.offer) {
@@ -481,7 +487,7 @@ void Browser::paste() {
         return;
     }
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     if (system_.types && system_.read &&
@@ -652,7 +658,7 @@ void Browser::submit(fs::TransferRequest request, std::uint64_t batch,
                      std::optional<std::uint64_t> empty_clipboard) {
     if (batch_rename_preparing_ || batch_rename_running_) {
         batches_.erase(batch);
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     if (const auto it = batches_.find(batch); it != batches_.end()) {
@@ -848,7 +854,7 @@ void Browser::cursor_after(Folder& folder, const std::unordered_set<std::string>
 
 void Browser::trash() {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -930,7 +936,7 @@ std::string erase_detail(const fs::ErasePlan& plan, bool emptying) {
 
 void Browser::erase() {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -1232,11 +1238,12 @@ void Browser::cancel_transfer() {
 void Browser::ask(const fs::Conflict& conflict, std::function<void(fs::Resolution)> answer) {
     if (!conflict.question.empty()) {
         confirm_.open(
-            "Extract this archive?", conflict.question, "Extract",
+            std::string{i18n::tr("Extract this archive?")}, conflict.question,
+            std::string{i18n::tr("Extract")},
             [answer = std::move(answer)](bool yes) {
                 answer(yes ? fs::Resolution::replace : fs::Resolution::cancel);
             },
-            "The contents are much larger than the compressed archive.");
+            std::string{i18n::tr("The contents are much larger than the compressed archive.")});
         return;
     }
     if (for_the_rest_ &&
@@ -1600,7 +1607,7 @@ void Browser::record(FileOperation operation, Purpose purpose, bool failed) {
 
 void Browser::undo() {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     if (undoing_) {
@@ -1620,7 +1627,7 @@ void Browser::undo() {
 
 void Browser::redo() {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     if (undoing_) {
@@ -1662,7 +1669,7 @@ Browser::RunningTargets Browser::running_targets(const Folder& folder) const {
 
 void Browser::set_running(bool allow) {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -1904,7 +1911,7 @@ Browser::~Browser() {
 
 void Browser::start_rename() {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -1927,7 +1934,7 @@ void Browser::start_rename() {
 
 void Browser::new_folder() {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     std::shared_ptr<Folder> folder = current_folder();
@@ -1969,7 +1976,7 @@ void Browser::new_folder() {
 
 void Browser::new_file(const std::string& name, const std::filesystem::path& from) {
     if (batch_rename_preparing_ || batch_rename_running_) {
-        show_message("Wait for Batch Rename to finish", false);
+        show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     std::shared_ptr<Folder> folder = current_folder();
@@ -5200,7 +5207,9 @@ void Browser::run(Command command, Clock::time_point now) {
             case Command::trash:
             case Command::erase:
             case Command::move_other_pane:
-                show_message(std::string{kArchiveReadOnly} + "; extract the archive first", false);
+                show_message(std::string{i18n::tr(
+                                 "Archive contents are read-only; extract the archive first")},
+                             false);
                 return;
             default:
                 break;
@@ -5447,7 +5456,7 @@ void Browser::open_terminal() {
         return;
     }
     if (folder->is_archive()) {
-        show_message("A terminal cannot open inside an archive", false);
+        show_message(std::string{i18n::tr("A terminal cannot open inside an archive")}, false);
         return;
     }
     const fs::Entry* const cursor = folder->cursor_entry();

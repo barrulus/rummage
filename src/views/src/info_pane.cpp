@@ -898,7 +898,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         out.row("Size", format_size(single->size));
         if (const archive::Entry* const packed = folder.model().archive_entry(single->name);
             packed != nullptr && packed->packed != packed->size) {
-            out.row("Compressed", format_size(packed->packed));
+            out.row(i18n::tr("Compressed"), format_size(packed->packed));
         }
         // An archive: what it holds, once listed.
         if (held != nullptr) {
@@ -932,7 +932,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     }
 
     if (photo != nullptr && !media_details(*photo).empty()) {
-        out.section(photo->video_codec.empty() ? "MEDIA" : "VIDEO");
+        out.section(photo->video_codec.empty() ? i18n::tr("MEDIA") : i18n::tr("VIDEO"));
         for (const auto& [label, value] : media_details(*photo))
             out.row(label, value);
     }

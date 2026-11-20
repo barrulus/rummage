@@ -48,8 +48,8 @@ void ConfirmDialog::open_password(std::string name, bool retry,
                                   std::function<void(std::optional<std::string>)> answer) {
     open(
         i18n::trf("Password for “{}”", name),
-        std::string{i18n::tr(retry ? "Password rejected or archive damaged. Try again."
-                                   : "Enter the archive password.")},
+        std::string{retry ? i18n::tr("Password rejected or archive damaged. Try again.")
+                          : i18n::tr("Enter the archive password.")},
         std::string{i18n::tr("Extract")},
         [this, answer = std::move(answer)](bool confirmed) {
             std::optional<std::string> password;
@@ -65,7 +65,7 @@ void ConfirmDialog::open_password(std::string name, bool retry,
 
 void ConfirmDialog::open_name(std::string title, std::string detail, std::string initial,
                               std::function<std::string(const std::string&)> accept) {
-    open(std::move(title), std::move(detail), "Compress", [](bool) {}, "");
+    open(std::move(title), std::move(detail), std::string{i18n::tr("Compress")}, [](bool) {}, "");
     password_mode_ = true;
     focused_ = -1;
     field_masked_ = false;

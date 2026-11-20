@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/renderer.hpp"
@@ -31,7 +32,8 @@ public:
     // title: "Delete “P1.ORF” permanently?"; detail: the line under it ("Adding up the size…",
     // changed later by set_detail); action: the button that does it ("Delete").
     void open(std::string title, std::string detail, std::string action, Answer answer,
-              std::string warning = "Nothing goes to the trash: this cannot be undone.");
+              std::string warning = std::string{
+                  i18n::tr("Nothing goes to the trash: this cannot be undone.")});
 
     // A separate instance can be used for archive passwords without replacing a confirmation.
     void open_password(std::string name, bool retry,

@@ -45,6 +45,10 @@ void set_language(std::string_view code);
 // A language's translated texts (none for English or an unknown code), for tests and tools.
 [[nodiscard]] std::vector<Entry> entries(std::string_view code);
 
+// Mark English stored in static tables for catalog extraction. This is not a lookup:
+// translate with tr() when displaying it, after the session language has been selected.
+[[nodiscard]] constexpr std::string_view mark(std::string_view english) { return english; }
+
 // english in the interface's language.
 [[nodiscard]] std::string_view tr(std::string_view english);
 

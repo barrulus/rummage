@@ -57,3 +57,28 @@ class TranslationChecks(unittest.TestCase):
         self.assertNotEqual(check.fields("{} {}"), check.fields("{}"))
         with self.assertRaises(ValueError):
             check.fields("{} {1}")
+
+    def test_static_translation_markers(self):
+        used = check.calls('''
+          constexpr auto label = i18n::mark("Markdown: rendered " "text or source");
+          DetailsColumn{field, "accessed", i18n::mark("Accessed"), 150, 96};
+          startup.mark("display"); mark("fonts");
+        ''')
+        self.assertEqual(used, {("", "Markdown: rendered text or source"): None,
+                                ("", "Accessed"): None})
+        catalog = {"language": {"name": "Fixture"}, "texts": {}}
+        missing, _, _ = check.validate_catalog(catalog, used, set())
+        self.assertEqual(missing, sorted(used))
+
+    def test_unwrapped_scans_interface_headers(self):
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "views").mkdir()
+            (root / "views" / "labels.hpp").write_text(
+                'auto label = "Preview lines";\n'
+                'auto marked = i18n::mark("Accessed");\n')
+            with patch.object(check, "ROOT", root), patch.object(check, "INTERFACE", ["views"]):
+                self.assertEqual(list(check.unwrapped(set())),
+                                 ["views/labels.hpp:1: Preview lines"])
