@@ -24,7 +24,7 @@ follows desktop colours and icon themes, with a Noctalia palette integration.
 
 rummage is a fork of [Nordend](https://github.com/pankaspe/nordend-fm), created by
 [pankaspe](https://github.com/pankaspe). It retains the upstream MIT license and
-copyright. These docs describe rummage's 0.6.0 development sources; include the
+copyright. These docs describe rummage's 0.6.1 development sources; include the
 source commit when identifying a development build. See [release history](docs/releases.md)
 and [upgrading from Nordend](docs/install.md#upgrading-from-nordend).
 
@@ -80,7 +80,7 @@ unsigned Linux x86_64 snapshots, updated after all checks pass on `main`.
 | Distribution | Download |
 | --- | --- |
 | Debian 13 | [DEB](https://github.com/barrulus/rummage/releases/download/development/rummage-debian13-amd64.deb) |
-| Fedora 44 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora44-x86_64.rpm) |
+| Fedora 45 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora45-x86_64.rpm) |
 | Arch Linux | [Package](https://github.com/barrulus/rummage/releases/download/development/rummage-arch-x86_64.pkg.tar.zst) |
 | openSUSE Tumbleweed | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-tumbleweed-x86_64.rpm) |
 | Void glibc | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) |

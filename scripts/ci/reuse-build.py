@@ -9,7 +9,7 @@ REQUIRED_JOBS = {
     'Nix build, tests and installed package',
     'Void glibc package and clean install',
     'Debian 13 package and clean install',
-    'Fedora 44 package and clean install',
+    'Fedora 45 package and clean install',
     'Arch Linux package and clean install',
     'openSUSE Tumbleweed package and clean install',
     'Prepare development downloads',
