@@ -1,6 +1,7 @@
 #include "rummage/core/i18n.hpp"
 
 #include <algorithm>
+#include <array>
 #include <set>
 #include <string>
 #include <string_view>
@@ -121,4 +122,72 @@ TEST_CASE("i18n: German") {
     CHECK(rummage::views::format_size(1) == "1 Byte");
     CHECK(rummage::views::format_size(999) == "999 Bytes");
     CHECK(rummage::views::format_size(18'100'000) == "18,1 MB");
+}
+
+TEST_CASE("i18n: shipped translations select regional locales and render messages") {
+    struct Sample {
+        std::string_view locale;
+        std::string_view code;
+        std::string_view empty;
+        std::string_view open;
+        std::string_view files;
+        std::string_view decimal;
+    };
+
+    for (const auto& sample :
+         std::array{Sample{"es_MX.UTF-8", "es", "Carpeta vacía", "Abrir", "2 archivos", "1,5"},
+                    Sample{"pt_BR.UTF-8", "pt_BR", "Pasta vazia", "Abrir", "2 arquivos", "1,5"},
+                    Sample{"fr_CA.UTF-8", "fr", "Dossier vide", "Ouvrir", "2 fichiers", "1,5"},
+                    Sample{"zh_CN.UTF-8", "zh_CN", "空文件夹", "打开", "2 个文件", "1.5"},
+                    Sample{"ru_RU.UTF-8", "ru", "Пустая папка", "Открыть", "2 файла", "1,5"},
+                    Sample{"ja_JP.UTF-8", "ja", "空のフォルダー", "開く", "2 ファイル", "1.5"}}) {
+        CAPTURE(sample.locale);
+        const auto code = i18n::language_of(sample.locale);
+        CHECK(code == sample.code);
+        const Speaking speaking{code};
+        CHECK(i18n::language() == sample.code);
+        CHECK(i18n::tr("Empty folder") == sample.empty);
+        CHECK(i18n::trc("file-action", "Open") == sample.open);
+        CHECK(i18n::trn("{} file", "{} files", 2) == sample.files);
+        CHECK(i18n::decimal("1.5") == sample.decimal);
+        CHECK(i18n::tr("not in any table") == "not in any table");
+    }
+    // Region-specific translations must not be silently used for another variant.
+    CHECK(i18n::language_of("pt_PT.UTF-8") == "en");
+    CHECK(i18n::language_of("zh_TW.UTF-8") == "en");
+    CHECK(i18n::language_of("pt") == "en");
+    CHECK(i18n::language_of("zh") == "en");
+    CHECK(i18n::language_of("xx:pt_BR:es") == "pt_BR");
+}
+
+TEST_CASE("i18n: shipped catalogs use their own integer plural rules") {
+    const Speaking restore{"en"};
+    for (const auto* code : {"fr", "pt_BR", "es"}) {
+        CAPTURE(code);
+        i18n::set_language(code);
+        CHECK(i18n::plural_category(0) == (std::string_view{code} == "es" ? "other" : "one"));
+        CHECK(i18n::plural_category(1) == "one");
+        CHECK(i18n::plural_category(2) == "other");
+        CHECK(i18n::plural_category(1'000'000) == "many");
+    }
+    i18n::set_language("ru");
+    CHECK(i18n::trn("{} file", "{} files", 0) == "0 файлов");
+    CHECK(i18n::trn("{} file", "{} files", 1) == "1 файл");
+    CHECK(i18n::trn("{} file", "{} files", 5) == "5 файлов");
+    CHECK(i18n::trn("{} file", "{} files", 11) == "11 файлов");
+    CHECK(i18n::trn("{} file", "{} files", 21) == "21 файл");
+    CHECK(i18n::trn("{} file", "{} files", 22) == "22 файла");
+    CHECK(i18n::trn("{} file", "{} files", 112) == "112 файлов");
+    for (const auto* code : {"zh_CN", "ja"}) {
+        i18n::set_language(code);
+        for (const auto n : {0U, 1U, 2U, 21U, 1'000'000U}) {
+            CAPTURE(code);
+            CAPTURE(n);
+            CHECK(i18n::plural_category(n) == "other");
+        }
+    }
+    i18n::set_language("ja");
+    CHECK(i18n::trf("{} of {} selected", 2, 5) == "5 項目中 2 項目を選択");
+    CHECK(i18n::trn("Opening {} file with {}…", "Opening {} files with {}…", 2, "Editor") ==
+          "Editor で 2 ファイルを開いています…");
 }
