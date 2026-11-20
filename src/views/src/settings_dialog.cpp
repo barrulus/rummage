@@ -18,9 +18,29 @@
 
 namespace rummage::views {
 namespace {
-constexpr std::array kSections{"General", "Appearance", "Keyboard shortcuts", "Actions", "Menus"};
+constexpr std::array kSections{
+    i18n::mark("General"), i18n::mark("Appearance"), i18n::mark("Keyboard shortcuts"),
+    i18n::mark("Actions"), i18n::mark("Menus"),      i18n::mark("Effects")};
 constexpr std::array kMenuContexts{"Common layout", "Files and folders", "Folder background",
                                    "Trash", "Sidebar"};
+constexpr int kEffects = 5, kShortcuts = 2, kActions = 3;
+constexpr std::size_t kBackgroundSlot = core::kMotionEvents.size();
+constexpr std::size_t kSelectionSlot = kBackgroundSlot + 1;
+constexpr std::array kEffectSlots{
+    i18n::mark("Open directory"),   i18n::mark("Go back"),         i18n::mark("Change view"),
+    i18n::mark("Copy files"),       i18n::mark("Move files"),      i18n::mark("Trash files"),
+    i18n::mark("Change selection"), i18n::mark("Change focus"),    i18n::mark("Invalid operation"),
+    i18n::mark("Quick Look"),       i18n::mark("Command palette"), i18n::mark("Search results"),
+    i18n::mark("Background"),       i18n::mark("Selection glow")};
+static_assert(kEffectSlots.size() == core::kMotionEvents.size() + 2);
+constexpr std::array kEffectLabels{
+    i18n::mark("None"),      i18n::mark("Fade"),         i18n::mark("Slide"),
+    i18n::mark("Scale"),     i18n::mark("Iris"),         i18n::mark("Ripple"),
+    i18n::mark("Ink bleed"), i18n::mark("Disintegrate"), i18n::mark("Hologram"),
+    i18n::mark("Portal"),    i18n::mark("Energy trace"), i18n::mark("Focus glow"),
+    i18n::mark("Glitch"),    i18n::mark("Frost"),        i18n::mark("Particles"),
+    i18n::mark("Scan")};
+static_assert(kEffectLabels.size() == core::kMotionEffects.size());
 
 std::string arguments(const std::vector<std::string>& argv) {
     std::string result = "[";
@@ -104,6 +124,8 @@ void SettingsDialog::finish_close() {
     menus_.discard();
     menus_.dismiss();
     open_ = false;
+    preview_drawn_ = false;
+    preview_motion_.cancel_all();
     close_requested_ = discard_prompt_ = false;
     ++generation_;
     redraw_();
@@ -140,21 +162,23 @@ void SettingsDialog::close() {
 void SettingsDialog::populate(const core::ConfigResult& loaded) {
     accepted_config_ = loaded;
     const auto& config = loaded.config;
-    const auto add = [&](int section, std::string group, std::string table, std::string key,
-                         std::string label, std::string description, std::string value,
+    preview_config_ = config.animations;
+    preview_motion_.configure(preview_config_);
+    const auto add = [&](int section, std::string_view group, std::string table, std::string key,
+                         std::string_view label, std::string_view description, std::string value,
                          bool raw = false, std::vector<std::string> choices = {},
                          std::optional<Number> number = std::nullopt) {
         Field field;
         field.section = section;
-        field.group = std::move(group);
+        field.group = group;
         field.table = std::move(table);
         field.key = std::move(key);
-        field.label = std::move(label);
-        field.description = std::move(description);
+        field.label = label;
+        field.description = description;
         field.original = value;
         field.input.set_text(std::move(value));
         field.raw = raw;
-        field.resettable = section < 2 || field.table == "keybindings";
+        field.resettable = section < 2 || section == kEffects || field.table == "keybindings";
         field.choices = std::move(choices);
         field.number = number;
         fields_.push_back(std::move(field));
@@ -207,21 +231,62 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         std::format("{:g}", config.status_bar.text_size), true, {}, Number{8, 32, 0.5F});
     add(1, "Text", "font", "family", "Interface font", "Restart required", config.font.family);
     add(1, "Text", "font", "monospace", "Preview font", "Restart required", config.font.monospace);
-    add(1, "Motion", "animations", "enabled", "Motion effects", "Animate changes in the browser",
-        config.animations.enabled ? "true" : "false", true, {"true", "false"});
-    add(1, "Motion", "animations", "duration_scale", "Motion duration",
-        "Multiplier · 0–4 · 0 is immediate", std::format("{:g}", config.animations.duration_scale),
-        true, {}, Number{0, 4, 0.1F});
+    for (std::size_t index = 0; index < core::kMotionEvents.size(); ++index) {
+        const auto name = std::string{core::kMotionEvents[index]};
+        add(kEffects, i18n::mark("Selected slot"), "animations.events", name, i18n::mark("Effect"),
+            i18n::mark("Choose the animation for this slot"),
+            std::string{
+                core::kMotionEffects[static_cast<std::size_t>(config.animations.events[index])]},
+            false,
+            std::vector<std::string>{core::kMotionEffects.begin(), core::kMotionEffects.end()});
+        add(kEffects, i18n::mark("Selected slot"), "animations.durations", name,
+            i18n::mark("Duration"), i18n::mark("Milliseconds before duration scaling · 0–2000"),
+            std::to_string(config.animations.durations_ms[index]), true, {}, Number{0, 2000, 20});
+    }
+    add(kEffects, i18n::mark("Selected slot"), "animations", "hologram_spread",
+        i18n::mark("Hologram spread"),
+        i18n::mark("Colour separation in pixels · shared by hologram slots"),
+        std::format("{:g}", config.animations.hologram_spread), true, {}, Number{0, 12, 0.5F});
+    add(kEffects, i18n::mark("Selected slot"), "animations", "portal_rotation",
+        i18n::mark("Portal rotation"), i18n::mark("Rotation in radians · shared by portal slots"),
+        std::format("{:g}", config.animations.portal_rotation), true, {}, Number{0, 12, 0.25F});
+    const auto& ambient = config.animations.ambient;
+    add(kEffects, i18n::mark("Selected slot"), "animations.ambient", "background",
+        i18n::mark("Enabled"), i18n::mark("Flowing accent colour behind file content"),
+        ambient.background ? "true" : "false", true, {"true", "false"});
+    add(kEffects, i18n::mark("Selected slot"), "animations.ambient", "shader",
+        i18n::mark("Background shader"),
+        i18n::mark("Absolute .frag path · empty uses the built-in effect"), ambient.shader);
+    add(kEffects, i18n::mark("Selected slot"), "animations.ambient", "selection_glow",
+        i18n::mark("Enabled"), i18n::mark("Breathing outline around the visible selection"),
+        ambient.selection_glow ? "true" : "false", true, {"true", "false"});
+    add(kEffects, i18n::mark("Selected slot"), "animations.ambient", "speed", i18n::mark("Speed"),
+        i18n::mark("Shared by persistent slots · 0 freezes the effect · 0–4"),
+        std::format("{:g}", ambient.speed), true, {}, Number{0, 4, 0.1F});
+    add(kEffects, i18n::mark("Selected slot"), "animations.ambient", "intensity",
+        i18n::mark("Intensity"),
+        i18n::mark("Shared by persistent slots · 0 disables drawing · 0–1"),
+        std::format("{:g}", ambient.intensity), true, {}, Number{0, 1, 0.05F});
+    add(kEffects, i18n::mark("Selected slot"), "animations.ambient", "fps",
+        i18n::mark("Frame rate"),
+        i18n::mark("Shared by persistent slots · maximum idle rate · 1–60"),
+        std::to_string(ambient.fps), true, {}, Number{1, 60, 1});
+    add(kEffects, i18n::mark("All effects"), "animations", "enabled", i18n::mark("Motion effects"),
+        i18n::mark("Animate changes in the browser"), config.animations.enabled ? "true" : "false",
+        true, {"true", "false"});
+    add(kEffects, i18n::mark("All effects"), "animations", "duration_scale",
+        i18n::mark("Motion duration"), i18n::mark("Multiplier · 0–4 · 0 is immediate"),
+        std::format("{:g}", config.animations.duration_scale), true, {}, Number{0, 4, 0.1F});
     const auto reduce = config.animations.reduce_motion;
-    add(1, "Motion", "animations", "reduce_motion", "Reduce motion",
-        "Follow the desktop accessibility preference",
+    add(kEffects, i18n::mark("All effects"), "animations", "reduce_motion",
+        i18n::mark("Reduce motion"), i18n::mark("Follow the desktop accessibility preference"),
         reduce == core::MotionConfig::Reduce::always  ? "always"
         : reduce == core::MotionConfig::Reduce::never ? "never"
                                                       : "system",
         false, {"system", "always", "never"});
     const auto quality = config.animations.quality;
-    add(1, "Motion", "animations", "quality", "Motion quality",
-        "Choose the detail of animation effects",
+    add(kEffects, i18n::mark("All effects"), "animations", "quality", i18n::mark("Motion quality"),
+        i18n::mark("Choose the detail of animation effects"),
         quality == core::MotionConfig::Quality::low    ? "low"
         : quality == core::MotionConfig::Quality::high ? "high"
                                                        : "auto",
@@ -229,7 +294,7 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     auto bindings = config.keybindings;
     for (const auto& [name, label] : binding_settings()) {
         const auto found = bindings.find(name);
-        add(2, "Commands", "keybindings", name, label,
+        add(kShortcuts, "Commands", "keybindings", name, label,
             "Chord, Default to reset, or empty to disable",
             found == bindings.end() ? "Default" : found->second);
         bindings.erase(name);
@@ -241,13 +306,14 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     for (std::size_t i = 0; i < config.actions.size(); ++i) {
         const auto& action = config.actions[i];
         const auto table = std::format("actions[{}]", i);
-        add(3, action.id, table, "label", "Menu label",
+        add(kActions, action.id, table, "label", "Menu label",
             "Name shown in menus and the command palette", action.label);
         if (action.kind == core::Action::Kind::external)
-            add(3, action.id, table, "argv", "Program and arguments",
+            add(kActions, action.id, table, "argv", "Program and arguments",
                 "Literal argument array; no shell expansion", arguments(action.argv), true);
-        add(3, action.id, table, "enabled", "Enabled", "Make this action available when applicable",
-            action.enabled ? "true" : "false", true, {"true", "false"});
+        add(kActions, action.id, table, "enabled", "Enabled",
+            "Make this action available when applicable", action.enabled ? "true" : "false", true,
+            {"true", "false"});
     }
 }
 
@@ -310,6 +376,9 @@ void SettingsDialog::refresh_values(const std::vector<core::ConfigEdit>& reset) 
         if (field.table.starts_with("new:") || field.table.starts_with("binding:"))
             fields_.push_back(std::move(field));
     update_error();
+    refresh_preview();
+    if (section_ == kEffects)
+        restart_preview();
     layout_rows();
 }
 
@@ -330,7 +399,7 @@ bool SettingsDialog::reset_setting(std::string_view table, std::string_view key)
 }
 
 bool SettingsDialog::reset_category(int section) {
-    if (section < 0 || section > 2)
+    if (section < 0 || (section > 2 && section != kEffects))
         return false;
     std::vector<core::ConfigEdit> edits;
     for (const auto& field : fields_)
@@ -363,13 +432,29 @@ std::vector<SettingsDialog::SearchResult> SettingsDialog::search_results() const
         const auto& field = fields_[i];
         if (field.section < 0)
             continue;
+        if ((field.key == "hologram_spread" &&
+             std::ranges::find(preview_config_.events, core::MotionEffect::hologram) ==
+                 preview_config_.events.end()) ||
+            (field.key == "portal_rotation" &&
+             std::ranges::find(preview_config_.events, core::MotionEffect::portal) ==
+                 preview_config_.events.end()))
+            continue;
+        std::string label = field.label;
+        std::string slot;
+        if (field.table == "animations.events" || field.table == "animations.durations") {
+            const auto event = core::motion_name<core::MotionEvent>(field.key, core::kMotionEvents);
+            if (event) {
+                slot = kEffectSlots[static_cast<std::size_t>(*event)];
+                label = std::string{i18n::tr(slot)} + " · " + std::string{i18n::tr(field.label)};
+            }
+        }
         const auto searchable =
             std::string{i18n::tr(field.label)} + " " + std::string{i18n::tr(field.description)} +
             " " + field.label + " " + field.description + " " + field.group + " " + field.table +
-            "." + field.key +
+            "." + field.key + " " + label + " " + slot +
             (field.section == 3 && field.key == "label" ? " " + field.original : "");
         if (folded(searchable).find(query) != std::string::npos)
-            results.push_back({i, field.section, field.label, field.description});
+            results.push_back({i, field.section, label, field.description});
     }
     for (std::size_t i = 0; i < kMenuContexts.size(); ++i) {
         const auto label = std::string{i18n::tr(kMenuContexts[i])};
@@ -419,6 +504,24 @@ void SettingsDialog::jump_to_result(std::size_t field) {
     const auto key = fields_[field].key;
     const auto group = fields_[field].group;
     search_.set_text("");
+    if (section == kEffects) {
+        if (table == "animations.events" || table == "animations.durations") {
+            const auto event = core::motion_name<core::MotionEvent>(key, core::kMotionEvents);
+            if (event)
+                effect_slot_ = static_cast<std::size_t>(*event);
+        } else if (table == "animations.ambient") {
+            effect_slot_ = key == "selection_glow" ? kSelectionSlot : kBackgroundSlot;
+        } else if (key == "hologram_spread" || key == "portal_rotation") {
+            const auto effect = key == "hologram_spread" ? core::MotionEffect::hologram
+                                                         : core::MotionEffect::portal;
+            if (effect_slot_ >= core::kMotionEvents.size() ||
+                preview_config_.events[effect_slot_] != effect) {
+                const auto found = std::ranges::find(preview_config_.events, effect);
+                if (found != preview_config_.events.end())
+                    effect_slot_ = static_cast<std::size_t>(found - preview_config_.events.begin());
+            }
+        }
+    }
     change_section(section);
     if (section == 2) {
         editors_.focus_shortcut(key);
@@ -437,6 +540,7 @@ bool SettingsDialog::edit(std::string_view table, std::string_view key, std::str
     for (auto& field : fields_) {
         if (field.table == table && field.key == key) {
             field.input.set_text(std::move(value));
+            refresh_preview();
             redraw_();
             return true;
         }
@@ -452,12 +556,12 @@ void SettingsDialog::add_action() {
     const auto add = [&](std::string key, std::string label, std::string description,
                          std::string value, bool raw = false) {
         Field field;
-        field.section = 3;
+        field.section = kActions;
         field.table = table;
         field.group = "New action";
         field.key = std::move(key);
-        field.label = std::move(label);
-        field.description = std::move(description);
+        field.label = label;
+        field.description = description;
         field.input.set_text(std::move(value));
         field.raw = raw;
         fields_.push_back(std::move(field));
@@ -467,7 +571,7 @@ void SettingsDialog::add_action() {
     add("label", "Menu label", "Draft: saved when all required fields are valid",
         std::string{i18n::tr("New action")});
     add("argv", "Program and arguments", "Example: [\"xdg-open\", \"{file}\"]", "[]", true);
-    change_section(3);
+    change_section(kActions);
     focus_ = "f" + std::to_string(fields_.size() - 3);
     reveal_focus();
     redraw_();
@@ -482,7 +586,7 @@ void SettingsDialog::add_keybinding() {
          {std::array{"target", "Target", "action:ID or go:/path (also go:~/path)"},
           std::array{"chord", "Shortcut", "Draft: enter a chord, e.g. Ctrl+Alt+J"}}) {
         Field field;
-        field.section = 2;
+        field.section = kShortcuts;
         field.table = table;
         field.group = "New shortcut";
         field.key = key;
@@ -490,7 +594,7 @@ void SettingsDialog::add_keybinding() {
         field.description = description;
         fields_.push_back(std::move(field));
     }
-    change_section(2);
+    change_section(kShortcuts);
     focus_ = "f" + std::to_string(fields_.size() - 2);
     reveal_focus();
     redraw_();
@@ -604,6 +708,7 @@ void SettingsDialog::commit(std::size_t index) {
         }
         if (new_action)
             ++action_count_;
+        refresh_preview();
     }
     update_error();
 }
@@ -663,7 +768,7 @@ void SettingsDialog::save() {
     for (int pass = 0; pass < 2; ++pass)
         for (std::size_t i = 0; i < fields_.size(); ++i) {
             const auto& field = fields_[i];
-            if ((field.section == 3) != (pass == 0) || field.section < 0)
+            if ((field.section == kActions) != (pass == 0) || field.section < 0)
                 continue;
             const bool grouped = field.table.starts_with("new:") ||
                                  field.table.starts_with("binding:") ||
@@ -721,6 +826,10 @@ void SettingsDialog::change_section(int section) {
     if (section == 2 || section == 3)
         editors_.set_page(section == 2 ? SettingsEditors::Page::shortcuts
                                        : SettingsEditors::Page::actions);
+    if (section_ == kEffects)
+        restart_preview();
+    else
+        preview_motion_.cancel_all();
     scroller_.jump_to(0);
     scrollbar_ = ui::Scrollbar{};
     focus_ = "section" + std::to_string(section);
@@ -737,16 +846,17 @@ void SettingsDialog::layout_rows() {
     float top = 0;
     std::string group;
     for (auto& field : fields_) {
-        if (field.section != section_)
+        if (!field_visible(field))
             continue;
         if (group != field.group) {
             top += 36;
             group = field.group;
         }
         field.top = top;
-        field.height = (list_.width - 44 >= 500 ? 64.0F : 94.0F) +
-                       (field.section < 2 && editable() ? 28.0F : 0.0F) +
-                       (field.error.empty() ? 0.0F : 40.0F);
+        field.height =
+            (list_.width - 44 >= 500 ? 64.0F : 94.0F) +
+            ((field.section < 2 || field.section == kEffects) && editable() ? 28.0F : 0.0F) +
+            (field.error.empty() ? 0.0F : 40.0F);
         top += field.height;
     }
     scroller_.set_extent(top + 12, list_.height);
@@ -756,7 +866,7 @@ void SettingsDialog::reveal_focus() {
     layout_rows();
     for (const auto& field : fields_) {
         const auto id = std::to_string(&field - fields_.data());
-        if (field.section != section_ ||
+        if (!field_visible(field) ||
             (focus_ != "f" + id && focus_ != "minus" + id && focus_ != "plus" + id &&
              focus_ != "error" + id && focus_ != "reset" + id))
             continue;
@@ -774,6 +884,11 @@ void SettingsDialog::reveal_focus() {
 }
 
 std::string SettingsDialog::choice_label(const Field& field, std::string_view value) {
+    if (field.table == "animations.events") {
+        const auto effect = core::motion_name<core::MotionEffect>(value, core::kMotionEffects);
+        return effect ? std::string{i18n::tr(kEffectLabels[static_cast<std::size_t>(*effect)])}
+                      : std::string{value};
+    }
     if (field.key == "preview_position")
         return std::string{i18n::tr(value == "right" ? "Right side" : "Below Places")};
     if (field.key == "palette_source") {
@@ -929,6 +1044,32 @@ void SettingsDialog::activate(std::string_view id, bool keyboard) {
     }
     if (!valid_)
         return;
+    if (id == "replay") {
+        refresh_preview();
+        restart_preview();
+        return;
+    }
+    if (id == "effect_slot") {
+        std::vector<MenuItem> items;
+        for (std::size_t i = 0; i < kEffectSlots.size(); ++i) {
+            MenuItem item;
+            item.label = i18n::tr(kEffectSlots[i]);
+            item.radio = true;
+            item.checked = effect_slot_ == i;
+            item.separator = i == kBackgroundSlot;
+            item.action = [this, i] { select_effect_slot(i); };
+            items.push_back(std::move(item));
+        }
+        const auto button = std::ranges::find_if(
+            buttons_, [](const Button& each) { return each.id == "effect_slot"; });
+        if (button != buttons_.end()) {
+            choices_.open(button->bounds.x, button->bounds.bottom(), std::move(items), keyboard);
+            if (keyboard)
+                for (std::size_t i = 0; i < effect_slot_; ++i)
+                    choices_.key({.keysym = XKB_KEY_Down, .text = {}});
+        }
+        return;
+    }
     if (id == "add") {
         add_action();
         return;
@@ -947,7 +1088,7 @@ void SettingsDialog::activate(std::string_view id, bool keyboard) {
             item.action = [this, i] { change_section(static_cast<int>(i)); };
             items.push_back(std::move(item));
         }
-        if (section_ <= 2 && editable()) {
+        if ((section_ <= 2 || section_ == kEffects) && editable()) {
             MenuItem reset;
             reset.label = i18n::tr("Reset category to defaults");
             reset.separator = true;
@@ -1059,7 +1200,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
     }
     if (focus_ == "search" && event.keysym != XKB_KEY_Tab && event.keysym != XKB_KEY_ISO_Left_Tab &&
         event.keysym != XKB_KEY_Escape &&
-        !(event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_5) &&
+        !(event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_6) &&
         !(event.modifiers.ctrl && (event.keysym == XKB_KEY_s || event.keysym == XKB_KEY_S))) {
         if (event.keysym == XKB_KEY_Return) {
             const auto results = search_results();
@@ -1072,7 +1213,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         return true;
     }
     if (focus_ == "editor" && search_.text().empty() &&
-        !(event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_5) &&
+        !(event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_6) &&
         !(event.modifiers.ctrl && (event.keysym == XKB_KEY_s || event.keysym == XKB_KEY_S))) {
         if (section_ == 4 ? menus_.key(event) : editors_.key(event)) {
             update_error();
@@ -1083,7 +1224,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         close();
         return true;
     }
-    if (event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_5) {
+    if (event.modifiers.alt && event.keysym >= XKB_KEY_1 && event.keysym <= XKB_KEY_6) {
         change_section(static_cast<int>(event.keysym - XKB_KEY_1));
         return true;
     }
@@ -1102,14 +1243,18 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
         if (!search_.text().empty())
             for (const auto& result : search_results())
                 order.push_back("result" + std::to_string(result.field));
-        if (section_ >= 2 && search_.text().empty())
+        if ((section_ >= 2 && section_ < kEffects) && search_.text().empty())
             order.push_back("editor");
-        for (std::size_t i = 0; section_ < 2 && i < fields_.size() && search_.text().empty(); ++i) {
+        if (section_ == kEffects && search_.text().empty())
+            order.insert(order.end(), {"effect_slot", "replay"});
+        for (std::size_t i = 0;
+             (section_ < 2 || section_ == kEffects) && i < fields_.size() && search_.text().empty();
+             ++i) {
             const auto& field = fields_[i];
-            if (field.section != section_)
+            if (!field_visible(field))
                 continue;
             order.push_back("f" + std::to_string(i));
-            if (editable() && field.section < 2)
+            if (editable() && (field.section < 2 || field.section == kEffects))
                 order.push_back("reset" + std::to_string(i));
             if (editable() && field.number) {
                 order.push_back("minus" + std::to_string(i));
@@ -1118,7 +1263,8 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
             if (!field.error.empty())
                 order.push_back("error" + std::to_string(i));
         }
-        if (editable() && section_ <= 2 && search_.text().empty() && last_card_.width >= 640)
+        if (editable() && (section_ <= 2 || section_ == kEffects) && search_.text().empty() &&
+            last_card_.width >= 640)
             order.push_back("reset_category");
 
         if (section_ == 1 && theme_status_ && !theme_status_().problems().empty())
@@ -1144,7 +1290,7 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
     }
     if (focus_.starts_with("section") &&
         (event.keysym == XKB_KEY_Up || event.keysym == XKB_KEY_Down)) {
-        change_section((section_ + (event.keysym == XKB_KEY_Down ? 1 : 4)) % 5);
+        change_section((section_ + (event.keysym == XKB_KEY_Down ? 1 : 5)) % 6);
         return true;
     }
     if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter ||
@@ -1171,8 +1317,10 @@ bool SettingsDialog::key(const ui::KeyEvent& event) {
             if (event.keysym == XKB_KEY_space || event.keysym == XKB_KEY_Left ||
                 event.keysym == XKB_KEY_Right)
                 activate(focus_, true);
-        } else if (field.input.key(event))
+        } else if (field.input.key(event)) {
+            refresh_preview();
             redraw_();
+        }
         return true;
     }
     return true;
@@ -1203,6 +1351,7 @@ std::string SettingsDialog::copy_selection(bool cut) {
         const auto text = field.input.text().substr(first, last - first);
         if (cut && refresh_editability() && !text.empty()) {
             field.input.insert("");
+            refresh_preview();
             redraw_();
         }
         return text;
@@ -1232,6 +1381,7 @@ void SettingsDialog::paste(std::string_view text) {
         auto& field = fields_[i];
         if (focus_ == "f" + std::to_string(i) && field.choices.empty()) {
             field.input.insert(text.substr(0, text.find_first_of("\r\n")));
+            refresh_preview();
             redraw_();
         }
     }
@@ -1242,7 +1392,8 @@ ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
         return details_.clickable_at(x, y) ? ui::CursorShape::pointer : ui::CursorShape::standard;
     if (choices_.is_open())
         return ui::CursorShape::pointer;
-    if (section_ >= 2 && editor_bounds_.contains(x, y) && search_.text().empty())
+    if (section_ >= 2 && section_ < kEffects && editor_bounds_.contains(x, y) &&
+        search_.text().empty())
         return section_ == 4 ? ui::CursorShape::standard : editors_.cursor_at(x, y);
     if (search_bounds_.contains(x, y))
         return ui::CursorShape::text;
@@ -1253,7 +1404,7 @@ ui::CursorShape SettingsDialog::cursor_at(float x, float y) const {
             return ui::CursorShape::pointer;
     if (list_.contains(x, y))
         for (const auto& field : fields_)
-            if (field.section == section_ && field.bounds.contains(x, y))
+            if (field_visible(field) && field.bounds.contains(x, y))
                 return field.choices.empty() ? ui::CursorShape::text : ui::CursorShape::pointer;
     return ui::CursorShape::standard;
 }
@@ -1285,7 +1436,8 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
             return;
         }
     }
-    if (section_ >= 2 && search_.text().empty() && editor_bounds_.contains(event.x, event.y)) {
+    if (section_ >= 2 && section_ < kEffects && search_.text().empty() &&
+        editor_bounds_.contains(event.x, event.y)) {
         if (event.kind == ui::PointerEvent::Kind::press) {
             set_focus("editor");
             editor_focus_pending_ = false;
@@ -1299,7 +1451,7 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
     }
     if (event.kind != ui::PointerEvent::Kind::press)
         for (auto& field : fields_)
-            if (field.section == section_ && field.choices.empty() && field.input.pointer(event)) {
+            if (field_visible(field) && field.choices.empty() && field.input.pointer(event)) {
                 redraw_();
                 return;
             }
@@ -1326,7 +1478,7 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
         return;
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
-        if (field.section == section_ && field.bounds.contains(event.x, event.y)) {
+        if (field_visible(field) && field.bounds.contains(event.x, event.y)) {
             set_focus("f" + std::to_string(i));
             if (field.choices.empty())
                 field.input.pointer(event);
@@ -1345,6 +1497,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     refresh_editability();
     editors_.sync(accepted_config_.config, editable());
     menus_.sync(accepted_config_.config, editable());
+    preview_drawn_ = false;
     auto frame = DialogFrame::fit(bounds, 880, 740);
     const bool narrow = frame.card.width < 640;
     const bool compact_retry = narrow && valid_ && !write_error_.empty();
@@ -1360,10 +1513,10 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     frame.draw(renderer, bounds, palette, i18n::tr("Settings"));
     renderer.push_clip(frame.card);
     buttons_.clear();
-    const auto button = [&](std::string id, std::string label, ui::Rect rect,
+    const auto button = [&](std::string id, std::string_view label, ui::Rect rect,
                             DialogButton style = DialogButton::normal, bool in_list = false) {
         const auto hit = in_list ? rect.intersect(list_) : rect.intersect(frame.card);
-        buttons_.push_back({id, label, hit});
+        buttons_.push_back({id, std::string{label}, hit});
         draw_dialog_button(renderer, rect, palette, i18n::tr(label), focus_ == id, style);
     };
     const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
@@ -1429,7 +1582,8 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         content.y += 28;
         content.height = std::max(0.0F, content.height - 28);
     }
-    if (section_ <= 2 && editable() && search_.text().empty() && !narrow) {
+    if ((section_ <= 2 || section_ == kEffects) && editable() && search_.text().empty() &&
+        !narrow) {
         button("reset_category", "Reset category to defaults",
                {content.x + 16, content.bottom() - 42, std::max(1.0F, content.width - 32), 32});
         content.height = std::max(0.0F, content.height - 48);
@@ -1445,9 +1599,36 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         content.y += 28;
         content.height = std::max(0.0F, content.height - 28);
     }
+    if (section_ == kEffects && valid_ && search_.text().empty()) {
+        const float replay_width =
+            std::clamp(renderer.fonts().layout(i18n::tr("Replay"), 13, renderer.scale()).width /
+                               renderer.scale() +
+                           24,
+                       88.0F, std::max(88.0F, content.width * 0.4F));
+        button(
+            "effect_slot",
+            std::string{i18n::tr("Slot")} + ": " +
+                std::string{i18n::tr(kEffectSlots[effect_slot_])} + "  ▾",
+            {content.x + 16, content.y + 4, std::max(1.0F, content.width - replay_width - 40), 32});
+        button("replay", i18n::mark("Replay"),
+               {content.right() - replay_width - 16, content.y + 4, replay_width, 32});
+        content.y += 44;
+        content.height = std::max(0.0F, content.height - 44);
+        const float preview_height = std::clamp(content.height * 0.3F, 64.0F, 136.0F);
+        if (content.height >= 100) {
+            draw_preview(
+                renderer,
+                {content.x + 16, content.y, std::max(1.0F, content.width - 32), preview_height},
+                palette, icons);
+            content.y += preview_height + 8;
+            content.height = std::max(0.0F, content.height - preview_height - 8);
+        } else {
+            preview_motion_.cancel_all();
+        }
+    }
     list_ = content;
     editor_bounds_ = {};
-    const bool embedded = section_ >= 2 && search_.text().empty();
+    const bool embedded = section_ >= 2 && section_ < kEffects && search_.text().empty();
     if (embedded) {
         editor_bounds_ = content;
         if (section_ == 4)
@@ -1490,7 +1671,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     for (std::size_t i = 0; i < fields_.size(); ++i) {
         auto& field = fields_[i];
         field.bounds = {};
-        if (embedded || field.section != section_ || !search_.text().empty())
+        if (embedded || !field_visible(field) || !search_.text().empty())
             continue;
         any = true;
         const float y = list_.y + field.top - scroller_.offset();
@@ -1546,7 +1727,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                               .caret = focused && editable() ? palette.on_surface
                                                              : palette.on_surface.with_alpha(0)});
         }
-        if (field.section < 2 && editable())
+        if ((field.section < 2 || field.section == kEffects) && editable())
             button("reset" + std::to_string(i), "Reset to default",
                    {row.x, y + field.height - (field.error.empty() ? 34.0F : 74.0F),
                     std::min(150.0F, row.width), 24},
@@ -1602,4 +1783,213 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     choices_.draw(renderer, bounds, palette);
     details_.draw(renderer, bounds, palette);
 }
+
+void SettingsDialog::preview_effect(core::MotionEvent event) {
+    select_effect_slot(static_cast<std::size_t>(event));
+}
+
+void SettingsDialog::select_effect_slot(std::size_t slot) {
+    if (!open_ || !valid_ || slot >= kEffectSlots.size())
+        return;
+    commit_focus();
+    search_.set_text("");
+    effect_slot_ = slot;
+    if (section_ != kEffects)
+        change_section(kEffects);
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
+    for (auto& field : fields_)
+        field.bounds = {};
+    focus_ = "effect_slot";
+    refresh_preview();
+    restart_preview();
+}
+
+bool SettingsDialog::field_visible(const Field& field) const {
+    if (field.section != section_)
+        return false;
+    if (section_ != kEffects)
+        return true;
+    const bool event = effect_slot_ < core::kMotionEvents.size();
+    if (field.table == "animations.events" || field.table == "animations.durations")
+        return event && field.key == core::kMotionEvents[effect_slot_];
+    if (field.table == "animations.ambient") {
+        if (field.key == "background" || field.key == "shader")
+            return effect_slot_ == kBackgroundSlot;
+        if (field.key == "selection_glow")
+            return effect_slot_ == kSelectionSlot;
+        return !event;
+    }
+    if (field.key == "hologram_spread")
+        return event && preview_config_.events[effect_slot_] == core::MotionEffect::hologram;
+    if (field.key == "portal_rotation")
+        return event && preview_config_.events[effect_slot_] == core::MotionEffect::portal;
+    return true;
+}
+
+void SettingsDialog::refresh_preview() {
+    if (!valid_)
+        return;
+    std::vector<core::ConfigEdit> edits;
+    for (const auto& field : fields_)
+        if (field.section == kEffects && field.input.text() != field.original)
+            edits.push_back(
+                {field.table, field.key,
+                 field.raw ? field.input.text() : core::quote_config_string(field.input.text())});
+    const auto changed = core::edit_config_text(staged_, edits);
+    preview_invalid_ = !changed.error.empty();
+    if (preview_invalid_)
+        return;
+    const auto parsed = core::parse_config(changed.text, path_.string());
+    preview_invalid_ = !parsed.problems.empty();
+    if (preview_invalid_)
+        return;
+    if (preview_config_ != parsed.config.animations) {
+        preview_config_ = parsed.config.animations;
+        preview_motion_.configure(preview_config_);
+        if (section_ == kEffects)
+            restart_preview();
+    }
+}
+
+void SettingsDialog::restart_preview() {
+    if (!open_ || !valid_)
+        return;
+    preview_drawn_ = true;
+    preview_started_ = ui::Motion::Clock::now();
+    preview_motion_.configure(preview_config_);
+    preview_motion_.cancel_all();
+    if (effect_slot_ < core::kMotionEvents.size())
+        preview_motion_.start(ui::MotionChannel::operation,
+                              static_cast<core::MotionEvent>(effect_slot_), preview_started_);
+    redraw_();
+}
+
+std::optional<std::chrono::milliseconds> SettingsDialog::ambient_interval() const {
+    const auto& ambient = preview_config_.ambient;
+    const bool selected_enabled = effect_slot_ == kBackgroundSlot
+                                      ? ambient.background
+                                      : effect_slot_ == kSelectionSlot && ambient.selection_glow;
+    if (!previewing() || !selected_enabled || !preview_motion_.ambient_enabled() ||
+        ambient.speed <= 0)
+        return std::nullopt;
+    return std::chrono::milliseconds{(1000 + ambient.fps - 1) / ambient.fps};
+}
+
+void SettingsDialog::draw_preview(ui::Renderer& renderer, const ui::Rect& bounds,
+                                  const theme::Palette& palette, ui::IconSet& icons) {
+    preview_drawn_ = true;
+    const auto now = ui::Motion::Clock::now();
+    preview_motion_.advance(now);
+    renderer.push_clip(bounds);
+    renderer.fill_rect(bounds, palette.surface);
+    const ui::Rect scene{bounds.x + 8, bounds.y + 8, bounds.width - 16, bounds.height - 36};
+    const ui::Rect row{scene.x + 4, scene.y + 4, scene.width - 8, std::min(28.0F, scene.height)};
+    const float seconds = std::chrono::duration<float>(now - preview_started_).count() *
+                          preview_config_.ambient.speed;
+    if (effect_slot_ == kBackgroundSlot && preview_motion_.ambient_enabled() &&
+        preview_config_.ambient.background)
+        renderer.draw_ambient(scene, preview_config_.ambient, seconds, palette.primary, false,
+                              true);
+    auto frame = preview_frame();
+    const bool operation = effect_slot_ >= static_cast<std::size_t>(core::MotionEvent::file_copy) &&
+                           effect_slot_ <= static_cast<std::size_t>(core::MotionEvent::file_trash);
+    const bool overlay =
+        effect_slot_ == static_cast<std::size_t>(core::MotionEvent::quick_look) ||
+        effect_slot_ == static_cast<std::size_t>(core::MotionEvent::palette_open) ||
+        effect_slot_ == static_cast<std::size_t>(core::MotionEvent::search_results);
+    const bool native =
+        frame && core::native_motion_feedback(frame->effect) && !operation && !overlay;
+    const ui::Rect panel{scene.x + scene.width * 0.12F, scene.y + 2, scene.width * 0.76F,
+                         std::max(1.0F, scene.height - 4)};
+    const auto draw_rows = [&](const ui::Rect& area) {
+        for (int i = 0; i < 3; ++i) {
+            const float y = area.y + 4 + static_cast<float>(i) * 24;
+            if (y + 18 > area.bottom())
+                break;
+            icons.draw(renderer, i == 0 ? "folder" : "file", area.x + 8, y, 18,
+                       i == 0 ? palette.primary : palette.on_surface_variant);
+            renderer.fill_rect(
+                {area.x + 36, y + 5,
+                 std::max(1.0F, area.width * (0.55F - static_cast<float>(i) * 0.1F)), 5},
+                palette.on_surface_variant.with_alpha(0.35F));
+        }
+    };
+    if (overlay)
+        draw_rows(scene);
+    const auto target = overlay ? panel : scene;
+    const bool captured =
+        frame && !operation && !native && renderer.begin_motion(target, preview_config_.quality);
+    if (operation) {
+        icons.draw(renderer, "folder", scene.right() - 36, scene.y + 8, 28,
+                   palette.on_surface_variant);
+        ui::Rect icon{scene.x + 8, scene.y + 8, 28, 28};
+        if (frame) {
+            frame->from = icon;
+            frame->to = {scene.right() - 36, scene.y + 8, 28, 28};
+            icon = frame->geometry();
+        }
+        const bool sprite = frame && renderer.begin_motion(icon.inset(-6), preview_config_.quality);
+        icons.draw(renderer, "file", icon.x, icon.y, icon.width, palette.primary);
+        if (sprite)
+            renderer.end_motion(*frame, icon.x + 14, icon.y + 14, palette.primary);
+    } else {
+        if (overlay)
+            renderer.draw_box(
+                panel, {.fill = palette.surface_container_highest, .radius = ui::Corners::all(6)});
+        draw_rows(overlay ? panel.inset(8) : scene);
+    }
+    if (captured)
+        renderer.end_motion(*frame, row.x + 16, row.y + 14, palette.primary);
+    if (native) {
+        const float alpha = (1.0F - frame->progress) * 0.45F;
+        if (frame->effect == core::MotionEffect::focus_glow)
+            renderer.draw_shadow(row, ui::Corners::all(8), 8, palette.primary.with_alpha(alpha));
+        else {
+            renderer.draw_box(row, {.fill = palette.primary.with_alpha(0),
+                                    .radius = ui::Corners::all(5),
+                                    .border_width = 2,
+                                    .border = palette.primary.with_alpha(alpha)});
+            const float distance = 2 * (row.width + row.height) * frame->progress;
+            ui::Rect tip{row.x, row.y, 4, 4};
+            if (distance < row.width)
+                tip.x += distance;
+            else if (distance < row.width + row.height) {
+                tip.x = row.right() - 4;
+                tip.y += distance - row.width;
+            } else if (distance < 2 * row.width + row.height) {
+                tip.x = row.right() - (distance - row.width - row.height);
+                tip.y = row.bottom() - 4;
+            } else
+                tip.y = row.bottom() - (distance - 2 * row.width - row.height);
+            renderer.fill_rect(tip, palette.primary.with_alpha(1 - frame->progress));
+        }
+    }
+    if (effect_slot_ == kSelectionSlot && preview_motion_.ambient_enabled() &&
+        preview_config_.ambient.selection_glow)
+        renderer.draw_ambient(row, preview_config_.ambient, seconds, palette.primary, true, true);
+    if (!preview_motion_.active())
+        renderer.release_motion_textures();
+    const auto error =
+        effect_slot_ == kBackgroundSlot ? renderer.ambient_error(true) : std::string_view{};
+    const bool slot_disabled =
+        effect_slot_ < core::kMotionEvents.size()
+            ? preview_config_.events[effect_slot_] == core::MotionEffect::none ||
+                  preview_config_.durations_ms[effect_slot_] == 0
+        : effect_slot_ == kBackgroundSlot ? !preview_config_.ambient.background
+                                          : !preview_config_.ambient.selection_glow;
+    const auto caption =
+        preview_invalid_ ? i18n::tr("Changes need attention")
+        : !error.empty() ? i18n::tr("Shader error — using the last working effect; see log")
+        : preview_motion_.reduced() ? i18n::tr("Reduced motion is active")
+        : !preview_config_.enabled || preview_config_.duration_scale == 0 || slot_disabled
+            ? i18n::tr("Motion effects are disabled")
+            : i18n::tr("Sample only — no files are changed");
+    renderer.draw_text(
+        caption, bounds.x + 8, bounds.bottom() - 24, 11,
+        error.empty() && !preview_invalid_ ? palette.on_surface_variant : palette.error,
+        bounds.width - 16);
+    renderer.pop_clip();
+}
+
 }  // namespace rummage::views

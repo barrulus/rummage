@@ -3,13 +3,17 @@
 #include <GLES3/gl3.h>
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cmath>
 #include <cstddef>
+#include <fcntl.h>
 #include <format>
 #include <iterator>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <unordered_map>
 
 #include "motion_shaders.hpp"
@@ -498,6 +502,93 @@ struct Renderer::MotionGl {
     ~MotionGl() { glDeleteTextures(2, textures.data()); }
 };
 
+struct Renderer::AmbientGl {
+    static constexpr std::array<Attribute, 1> kAttributes{{{1, 4, 0}}};
+    Pipeline background{kMotionVertexShader, ambient_fragment_shader(kAmbientBackground).c_str(),
+                        kAttributes, sizeof(Rect)};
+    Pipeline selection{kMotionVertexShader, ambient_fragment_shader(kAmbientSelection).c_str(),
+                       kAttributes, sizeof(Rect)};
+    std::unique_ptr<Pipeline> custom;
+    std::string path, attempted, error;
+    std::chrono::steady_clock::time_point checked{};
+
+    void reload(const std::string& requested) {
+        if (requested.empty()) {
+            custom.reset();
+            path.clear();
+            attempted.clear();
+            error.clear();
+            return;
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (path == requested && now - checked < std::chrono::milliseconds{500})
+            return;
+        const bool changed_path = path != requested;
+        path = requested;
+        checked = now;
+        const auto report = [&](std::string message) {
+            if (message != error)
+                log::warn("ambient shader: {}", message);
+            error = std::move(message);
+        };
+        // Never open a FIFO/device as shader input. Limit reads even if a regular file grows.
+        const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+        if (fd < 0) {
+            report("Cannot open " + path);
+            return;
+        }
+        struct stat info{};
+        constexpr std::size_t limit = 65536;
+        if (::fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0 ||
+            info.st_size > static_cast<off_t>(limit)) {
+            ::close(fd);
+            report("Shader must be a regular file of at most 64 KiB: " + path);
+            return;
+        }
+        std::string body(limit + 1, '\0');
+        std::size_t size = 0;
+        bool failed = false;
+        while (size < body.size()) {
+            const auto count = ::read(fd, body.data() + size, body.size() - size);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count < 0) {
+                failed = true;
+                break;
+            }
+            if (count == 0)
+                break;
+            size += static_cast<std::size_t>(count);
+        }
+        ::close(fd);
+        body.resize(size);
+        if (failed || size > limit || body.find('\0') != std::string::npos) {
+            report("Cannot read a valid shader body from " + path);
+            return;
+        }
+        if (!changed_path && body == attempted) {
+            // Keep compile diagnostics until the source changes, but clear transient I/O errors
+            // when the working source returns.
+            if (custom && body == working)
+                error.clear();
+            return;
+        }
+        attempted = body;
+        try {
+            auto replacement = std::make_unique<Pipeline>(kMotionVertexShader,
+                                                          ambient_fragment_shader(body).c_str(),
+                                                          kAttributes, sizeof(Rect));
+            custom = std::move(replacement);
+            working = body;
+            error.clear();
+        } catch (const std::runtime_error& failure) {
+            report(failure.what());
+        }
+    }
+
+    std::string working;
+};
+
 Renderer::Renderer(FontSystem& fonts) : gl_{std::make_unique<Gl>()}, fonts_{fonts} {
     boxes_.reserve(kMaxInstancesPerDraw);
     glyphs_.reserve(kMaxInstancesPerDraw);
@@ -651,6 +742,8 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     glUniform1i(glGetUniformLocation(program, "source_texture"), 0);
     glUniform1i(glGetUniformLocation(program, "target_texture"), 1);
     glUniform1i(glGetUniformLocation(program, "effect"), static_cast<int>(frame.effect));
+    glUniform1f(glGetUniformLocation(program, "hologram_spread"), frame.hologram_spread);
+    glUniform1f(glGetUniformLocation(program, "portal_rotation"), frame.portal_rotation);
     glUniform1f(glGetUniformLocation(program, "progress"), frame.progress);
     glUniform1f(glGetUniformLocation(program, "time_seconds"), frame.time_seconds);
     glUniform2f(glGetUniformLocation(program, "resolution"), static_cast<float>(pass.width),
@@ -671,6 +764,53 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     ++motion_stats_.passes;
+}
+
+bool Renderer::draw_ambient(const Rect& bounds, const core::MotionConfig::Ambient& config,
+                            float time_seconds, Color accent, bool selection, bool preview) {
+    if (ambient_failed_ || bounds.empty() || !std::isfinite(bounds.x) || !std::isfinite(bounds.y) ||
+        !std::isfinite(bounds.width) || !std::isfinite(bounds.height) ||
+        !std::isfinite(time_seconds) || !std::isfinite(config.intensity) || config.intensity <= 0)
+        return false;
+    flush();
+    auto& storage = preview ? preview_ambient_gl_ : ambient_gl_;
+    try {
+        if (!storage)
+            storage = std::make_unique<AmbientGl>();
+    } catch (const std::runtime_error& error) {
+        ambient_failed_ = true;
+        log::warn("ambient effects unavailable: {}", error.what());
+        return false;
+    }
+    auto& pass = *storage;
+    if (!selection)
+        pass.reload(config.shader);
+    auto& pipeline = selection ? pass.selection : pass.custom ? *pass.custom : pass.background;
+    const auto program = pipeline.program();
+    glUseProgram(program);
+    glUniform1f(glGetUniformLocation(program, "time_seconds"), time_seconds);
+    glUniform1f(glGetUniformLocation(program, "intensity"),
+                std::clamp(config.intensity, 0.0F, 1.0F));
+    glUniform2f(glGetUniformLocation(program, "resolution"), bounds.width * scale_,
+                bounds.height * scale_);
+    glUniform4f(glGetUniformLocation(program, "accent"), accent.r, accent.g, accent.b, accent.a);
+    const Rect rect{bounds.x * scale_, bounds.y * scale_, bounds.width * scale_,
+                    bounds.height * scale_};
+    // Background decoration changes colour, preserving the window's configured alpha.
+    if (!selection)
+        glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+    pipeline.draw(&rect, 1, sizeof(Rect), buffer_width_, buffer_height_);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    return true;
+}
+
+void Renderer::release_ambient(bool preview) {
+    (preview ? preview_ambient_gl_ : ambient_gl_).reset();
+}
+
+std::string_view Renderer::ambient_error(bool preview) const noexcept {
+    const auto& storage = preview ? preview_ambient_gl_ : ambient_gl_;
+    return storage ? std::string_view{storage->error} : std::string_view{};
 }
 
 void Renderer::release_motion_textures() {

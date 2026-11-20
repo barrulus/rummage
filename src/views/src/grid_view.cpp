@@ -351,7 +351,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             }
             draw_entry_icon(renderer, icons, palette, *folder_, entry, style,
                             show_thumbnails_ ? thumbnails_ : nullptr,
-                            {x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, icon}, cut);
+                            {x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, icon}, cut,
+                            cursor == i ? &motion_bounds_.visual : nullptr);
+            if (cursor == i)
+                motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(area_);
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {
                 // One line across the cell, where the name starts.
                 const float pad = ui::TextField::kPadding;

@@ -174,6 +174,18 @@ provenance and render integration. The normal browser flow calls those helpers
 at navigation, transfer and draw boundaries. Column, grid and details layouts
 share `views::ItemBounds` to clip focused/selected item bounds and accumulate the
 visible selection. The browser reads the same bounds interface for all layouts.
+The focused item's `ItemVisual` records its painted thumbnail or icon and geometry.
+Transfers retain that visual before submission; completion animates it without reading
+the moved/deleted source again. Shared thumbnail pins prevent cache eviction during
+the effect, and the cache keeps final GPU deletion inside its frame cleanup.
+
+Persistent effects use a separate redraw deadline in the application, leaving the
+bounded transition scheduler unchanged. `Renderer::draw_ambient` draws procedural
+quads without capturing content, behind views or around selection bounds. Background
+blending preserves destination alpha. Custom background files implement the same
+`effect(vec2)` interface as the built-in background; reload compiles a replacement
+before swapping the active program. The settings preview uses its own `ui::Motion`
+instance and never dispatches filesystem operations.
 
 ## Change entry points
 

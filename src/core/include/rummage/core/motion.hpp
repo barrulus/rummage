@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace rummage::core {
@@ -116,6 +117,19 @@ struct MotionConfig {
     Reduce reduce_motion{Reduce::system};
     enum class Quality { automatic, low, high };
     Quality quality{Quality::automatic};
+    float hologram_spread{2.0F};  // physical pixels
+    float portal_rotation{2.5F};  // radians at maximum contraction
+
+    struct Ambient {
+        bool background{false};
+        bool selection_glow{false};
+        float speed{1.0F};
+        float intensity{0.15F};
+        int fps{30};
+        std::string shader;  // optional absolute path; empty selects the built-in background
+        bool operator==(const Ambient&) const = default;
+    } ambient{};
+
     std::array<MotionEffect, kMotionEvents.size()> events{
         MotionEffect::iris,         MotionEffect::ripple,     MotionEffect::ink_bleed,
         MotionEffect::hologram,     MotionEffect::portal,     MotionEffect::disintegrate,

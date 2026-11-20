@@ -598,7 +598,11 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 renderer, icons, palette, *owner, entry, style,
                 show_thumbnails_ ? thumbnails_ : nullptr,
                 {name_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon, size_.icon},
-                cut_ != nullptr && cut_->holds(owner->path(), entry));
+                cut_ != nullptr && cut_->holds(owner->path(), entry),
+                cursor == i ? &motion_bounds_.visual : nullptr);
+        if (cursor == i)
+            motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(rows_).intersect(
+                {layout_.left[0], y, layout_.width[0], size_.row});
         const float name_x = name_left + size_.icon + kIconGap;
         const float name_room = layout_.left.at(index(Field::name)) +
                                 layout_.width.at(index(Field::name)) - kCellPadding - name_x;

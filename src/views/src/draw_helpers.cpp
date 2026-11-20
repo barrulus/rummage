@@ -14,41 +14,63 @@ namespace rummage::views {
 
 void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
                      const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
-                     Thumbnails* thumbnails, ui::Rect bounds, bool cut) {
+                     Thumbnails* thumbnails, ui::Rect bounds, bool cut, ItemVisual* painted) {
     fs::Entry typed = entry;
     typed.mime = folder.mime_of(entry);
     const auto& mime = folder.mime();
     const auto type = mime.name(typed.mime);
     const bool video = type.starts_with("video/");
     const float size = bounds.width;
-    const float alpha = cut ? kCutOpacity : 1.0F;
-    const ui::Texture* thumbnail = nullptr;
-    picture::Failure failure = picture::Failure::none;
+    ItemVisual visual;
+    visual.bounds = bounds;
+    visual.mime = type;
+    visual.icon = fs::icon_name(mime, typed);
+    visual.folder_icon = typed.folder_icon;
+    visual.color = style.icon;
+    visual.opacity = cut ? kCutOpacity : 1.0F;
+    visual.rail = video ? std::clamp(size * 0.045F, 3.0F, 12.0F) : 0.0F;
+    visual.executable = folder.runs_as_program(entry);
+    visual.run_color = style.fill ? style.icon
+                                  : theme::readable_foreground(palette.primary, palette.surface)
+                                        .with_alpha(visual.opacity);
+    visual.run_background = style.fill.value_or(palette.surface);
     if (thumbnails && !entry.is_directory() && !folder.is_archive()) {
         const auto registry = engines::installed();
         const auto* family = registry->find(mime, typed.mime);
         if (video || (family && family->thumbnails)) {
-            thumbnail = thumbnails->get(
+            visual.thumbnail = thumbnails->get_shared(
                 folder.path_of(entry), entry.modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(size * renderer.scale()))),
-                type, &failure);
+                type, &visual.failure);
         }
     }
-    if (thumbnail) {
-        // Film rails are UI decoration; the shared cache retains clean pixels.
-        const float rail = video ? std::clamp(size * 0.045F, 3.0F, 12.0F) : 0.0F;
-        const float fit = std::min((size - 2 * rail) / static_cast<float>(thumbnail->width()),
-                                   size / static_cast<float>(thumbnail->height()));
-        const float width = static_cast<float>(thumbnail->width()) * fit;
-        const float height = static_cast<float>(thumbnail->height()) * fit;
-        const ui::Rect frame{bounds.x + (size - width) / 2, bounds.y + (size - height) / 2, width,
-                             height};
-        renderer.draw_image(*thumbnail, frame, {}, alpha);
-        if (video) {
+    draw_item_visual(renderer, icons, palette, visual, bounds);
+    if (painted) {
+        visual.path = folder.path_of(entry);
+        *painted = std::move(visual);
+    }
+}
+
+void draw_item_visual(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
+                      const ItemVisual& visual, ui::Rect bounds) {
+    const float size = bounds.width;
+    const float alpha = visual.opacity;
+    if (visual.thumbnail) {
+        const auto& thumbnail = *visual.thumbnail;
+        // Scale the same film decoration along with the retained pixels.
+        const float rail = visual.rail * size / visual.bounds.width;
+        const float fit = std::min((size - 2 * rail) / static_cast<float>(thumbnail.width()),
+                                   bounds.height / static_cast<float>(thumbnail.height()));
+        const float width = static_cast<float>(thumbnail.width()) * fit;
+        const float height = static_cast<float>(thumbnail.height()) * fit;
+        const ui::Rect frame{bounds.x + (size - width) / 2, bounds.y + (bounds.height - height) / 2,
+                             width, height};
+        renderer.draw_image(thumbnail, frame, {}, alpha);
+        if (rail > 0) {
             for (const float edge : {frame.x - rail, frame.right()}) {
                 renderer.fill_rect({edge, frame.y, rail, frame.height},
                                    ui::Color::rgb(0x222222).with_alpha(alpha));
-                if (size >= 48) {
+                if (visual.bounds.width >= 48) {
                     const float hole = rail * 0.5F;
                     for (float top = frame.y + hole; top + hole <= frame.bottom();
                          top += rail * 1.5F)
@@ -58,17 +80,13 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
             }
         }
     } else {
-        icons.draw_file(renderer, type, fs::icon_name(mime, typed), bounds.x, bounds.y, size,
-                        style.icon, typed.folder_icon);
-        draw_failure_badge(renderer, icons, palette, failure, bounds.x, bounds.y, size, alpha);
+        icons.draw_file(renderer, visual.mime, visual.icon, bounds.x, bounds.y, size, visual.color,
+                        visual.folder_icon);
+        draw_failure_badge(renderer, icons, palette, visual.failure, bounds.x, bounds.y, size,
+                           alpha);
     }
-    if (folder.runs_as_program(entry))
-        draw_run_mark(
-            renderer, bounds.x, bounds.y, size,
-            style.fill
-                ? style.icon
-                : theme::readable_foreground(palette.primary, palette.surface).with_alpha(alpha),
-            style.fill.value_or(palette.surface));
+    if (visual.executable)
+        draw_run_mark(renderer, bounds.x, bounds.y, size, visual.run_color, visual.run_background);
 }
 
 ui::Rect draw_selected_name(ui::Renderer& renderer, std::string_view name, ui::Rect anchor,

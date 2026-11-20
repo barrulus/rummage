@@ -3417,7 +3417,7 @@ void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
 }
 
 bool Browser::animating() const {
-    if (motion_.active())
+    if (motion_.active() || settings_.animating())
         return true;
     for (std::size_t i = 0; i < areas_.size(); ++i) {
         if (!areas_[i] || (!split_visible_ && i != active_area_))

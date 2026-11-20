@@ -28,11 +28,22 @@ color_scheme = "system"
 preview_position = "right"
 
 [animations]
-# Built-in motion effects, applied live. System reduced motion suppresses all new effects.
+# Motion effects, applied live. System reduced motion also suppresses persistent effects.
 enabled = true
 duration_scale = 1.0  # 0-4; 0 is immediate; scaled durations are capped at 2 seconds
 reduce_motion = "system"  # system, always, never
 quality = "auto"          # auto (16 MiB cap), low (fade), high (32 MiB cap)
+hologram_spread = 2.0     # Colour separation in physical pixels, 0-12
+portal_rotation = 2.5     # Maximum rotation in radians, 0-12
+
+[animations.ambient]
+# Persistent effects are opt-in and pause when the window is inactive.
+background = false
+selection_glow = false
+speed = 1.0       # 0-4; 0 freezes the effect
+intensity = 0.15  # 0-1; 0 disables persistent effects
+fps = 30         # 1-60; maximum idle animation rate
+shader = ""      # Empty: built-in background. Otherwise an absolute .frag path; see docs/motion.md.
 
 [animations.events]
 # Every event accepts a built-in effect name or "none". See docs/motion.md.

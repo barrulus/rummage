@@ -51,6 +51,25 @@ public:
     bool edit(std::string_view table, std::string_view key, std::string value);
     void add_action();
     void add_keybinding();
+    void preview_effect(core::MotionEvent event);
+    // Event slots are followed by background and selection glow.
+    void select_effect_slot(std::size_t slot);
+
+    [[nodiscard]] std::size_t effect_slot() const { return effect_slot_; }
+
+    [[nodiscard]] std::optional<ui::Motion::Frame> preview_frame() const {
+        return preview_motion_.frame(ui::MotionChannel::operation, ui::Motion::Clock::now());
+    }
+
+    void set_system_reduced(bool reduced) { preview_motion_.set_system_reduced(reduced); }
+
+    [[nodiscard]] bool previewing() const {
+        return open_ && section_ == 5 && search_.text().empty() && preview_drawn_;
+    }
+
+    [[nodiscard]] bool animating() const { return previewing() && preview_motion_.active(); }
+
+    [[nodiscard]] std::optional<std::chrono::milliseconds> ambient_interval() const;
 
     // Accept a complete logical edit; disk persistence remains serialized by this host.
     std::string apply_edits(const std::vector<core::ConfigEdit>& edits,
@@ -128,6 +147,9 @@ private:
     void maybe_close();
     void reveal_focus();
     void layout_rows();
+    bool field_visible(const Field& field) const;
+    void refresh_preview();
+    void restart_preview();
     void step_number(std::size_t index, int direction);
     core::WorkerPool& pool_;
     std::function<void()> redraw_, open_file_;
@@ -151,6 +173,12 @@ private:
     ui::Scroller scroller_;
     ui::Scrollbar scrollbar_;
     ui::Rect list_{}, last_card_{};
+    bool preview_drawn_{false}, preview_invalid_{false};
+    std::size_t effect_slot_{0};
+    core::MotionConfig preview_config_;
+    ui::Motion preview_motion_;
+    ui::Motion::Clock::time_point preview_started_{};
+    void draw_preview(ui::Renderer&, const ui::Rect&, const theme::Palette&, ui::IconSet&);
     ContextMenu choices_;
     ErrorDialog details_;
     SettingsEditors editors_;

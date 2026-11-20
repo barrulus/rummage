@@ -932,3 +932,222 @@ TEST_CASE("settings: KDE diagnostics describe the selected source") {
     status.dark_override = false;
     CHECK(f.dialog.palette_status().ends_with("light override"));
 }
+
+TEST_CASE("settings: effects preview respects reduced motion and saves shader controls") {
+    Fixture f;
+    f.open();
+    REQUIRE(f.dialog.edit("animations", "hologram_spread", "5"));
+    REQUIRE(f.dialog.edit("animations", "portal_rotation", "4"));
+    REQUIRE(f.dialog.edit("animations.ambient", "background", "true"));
+    REQUIRE(f.dialog.edit("animations.ambient", "selection_glow", "true"));
+    REQUIRE(f.dialog.edit("animations.ambient", "fps", "20"));
+    REQUIRE(f.dialog.edit("animations.ambient", "shader", "/tmp/example.frag"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    const auto config = core::load_config(f.path);
+    REQUIRE(config.problems.empty());
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    CHECK(config.config.animations.hologram_spread == 5);
+    CHECK(config.config.animations.portal_rotation == 4);
+    CHECK(config.config.animations.ambient.selection_glow);
+    CHECK(config.config.animations.ambient.shader == "/tmp/example.frag");
+    f.dialog.preview_effect(core::MotionEvent::file_copy);
+    CHECK(f.dialog.previewing());
+    CHECK(f.dialog.animating());
+    CHECK_FALSE(f.dialog.ambient_interval());
+    f.dialog.select_effect_slot(core::kMotionEvents.size());
+    REQUIRE(f.dialog.ambient_interval());
+    CHECK(*f.dialog.ambient_interval() == 50ms);
+    f.dialog.set_system_reduced(true);
+    CHECK_FALSE(f.dialog.animating());
+    CHECK_FALSE(f.dialog.ambient_interval());
+    f.dialog.preview_effect(core::MotionEvent::file_move);
+    CHECK_FALSE(f.dialog.animating());
+    f.dialog.close();
+    CHECK_FALSE(f.dialog.previewing());
+    CHECK_FALSE(f.dialog.ambient_interval());
+}
+
+TEST_CASE("settings: nested motion edits preserve inline, dotted and explicit tables") {
+    for (const auto original : {"# keep\n[animations]\nenabled = true\n",
+                                "# keep\n[animations.events]\nfile_copy = 'fade'\n",
+                                "# keep\nanimations = { enabled = true }\n",
+                                "# keep\nanimations = { ambient = { background = false } }\n",
+                                "# keep\nanimations.ambient.background = false\n",
+                                "# keep\n[animations.ambient]\nbackground = false\n"}) {
+        CAPTURE(original);
+        const auto edited =
+            core::edit_config_text(original, {{"animations.ambient", "selection_glow", "true"},
+                                              {"animations.ambient", "background", "true"},
+                                              {"animations.events", "file_move", "'fade'"},
+                                              {"animations.durations", "file_move", "800"}});
+        REQUIRE_MESSAGE(edited.error.empty(), edited.error);
+        CHECK(edited.text.find("# keep") != std::string::npos);
+        const auto parsed = core::parse_config(edited.text, "test");
+        REQUIRE(parsed.problems.empty());
+        CHECK(parsed.config.animations.ambient.background);
+        CHECK(parsed.config.animations.ambient.selection_glow);
+        CHECK(parsed.config.animations.events[4] == core::MotionEffect::fade);
+        CHECK(parsed.config.animations.durations_ms[4] == 800);
+    }
+}
+
+TEST_CASE("settings: every effect slot previews live drafts and persists its own mapping") {
+    Fixture f;
+    f.open();
+    for (std::size_t slot = 0; slot < core::kMotionEvents.size(); ++slot) {
+        CAPTURE(slot);
+        const auto name = core::kMotionEvents[slot];
+        f.dialog.select_effect_slot(slot);
+        CHECK(f.dialog.effect_slot() == slot);
+        CHECK(f.dialog.previewing());
+        REQUIRE(f.dialog.edit("animations.events", name, "slide"));
+        REQUIRE(f.dialog.edit("animations.durations", name, "800"));
+        const auto frame = f.dialog.preview_frame();
+        REQUIRE(frame);
+        CHECK(frame->effect == core::MotionEffect::slide);
+        CHECK_FALSE(f.dialog.ambient_interval());
+    }
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.error().empty());
+    const auto parsed = core::load_config(f.path);
+    REQUIRE(parsed.problems.empty());
+    for (std::size_t slot = 0; slot < core::kMotionEvents.size(); ++slot) {
+        CHECK(parsed.config.animations.events[slot] == core::MotionEffect::slide);
+        CHECK(parsed.config.animations.durations_ms[slot] == 800);
+    }
+    f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
+    CHECK_FALSE(f.dialog.previewing());
+    CHECK_FALSE(f.dialog.animating());
+    f.dialog.key({.keysym = XKB_KEY_6, .text = {}, .modifiers = {.alt = true}});
+    CHECK(f.dialog.previewing());
+    CHECK(f.dialog.animating());
+    f.dialog.search("Copy files");
+    const auto results = f.dialog.search_results();
+    REQUIRE(results.size() == 2);
+    CHECK(results[0].label == "Copy files · Effect");
+    CHECK(results[1].label == "Copy files · Duration");
+    f.dialog.jump_to_result(results[0].field);
+    CHECK(f.dialog.effect_slot() == static_cast<std::size_t>(core::MotionEvent::file_copy));
+}
+
+TEST_CASE("settings: effect parameter typing refreshes before commit and ignores invalid drafts") {
+    Fixture f;
+    f.open();
+    f.focus("animations.hologram_spread");
+    CHECK(f.dialog.effect_slot() == static_cast<std::size_t>(core::MotionEvent::file_copy));
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    f.dialog.paste("7");
+    REQUIRE(f.dialog.preview_frame());
+    CHECK(f.dialog.preview_frame()->hologram_spread == 7);
+    CHECK(f.dialog.accepted_config().config.animations.hologram_spread == 2);
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    f.dialog.paste("-");
+    REQUIRE(f.dialog.preview_frame());
+    CHECK(f.dialog.preview_frame()->hologram_spread == 7);
+    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    f.dialog.paste("4");
+    REQUIRE(f.dialog.preview_frame());
+    CHECK(f.dialog.preview_frame()->hologram_spread == 4);
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.animations.hologram_spread == 4);
+    f.focus("animations.events.search_results");
+    CHECK(f.dialog.effect_slot() == static_cast<std::size_t>(core::MotionEvent::search_results));
+    REQUIRE(f.dialog.preview_frame());
+    CHECK(f.dialog.preview_frame()->effect == core::MotionEffect::scan);
+}
+
+TEST_CASE(
+    "settings: slot selector reaches persistent effects and effect dropdown replays immediately") {
+    Fixture f;
+    f.open();
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{900, 750};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(900, 750, 1, {});
+        f.dialog.draw(renderer, {0, 0, 900, 750}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    f.dialog.select_effect_slot(0);
+    draw();
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    CHECK(f.dialog.effect_slot() == core::kMotionEvents.size() + 1);
+    CHECK_FALSE(f.dialog.animating());
+    REQUIRE(f.dialog.edit("animations.ambient", "background", "true"));
+    CHECK_FALSE(f.dialog.ambient_interval());
+    REQUIRE(f.dialog.edit("animations.ambient", "selection_glow", "true"));
+    CHECK(f.dialog.ambient_interval());
+    f.focus("animations.events.directory_open");
+    draw();
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(f.dialog.preview_frame());
+    CHECK(f.dialog.preview_frame()->effect == core::MotionEffect::scan);
+    CHECK_FALSE(f.dialog.ambient_interval());
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+}
+
+TEST_CASE("settings: translated effects stay searchable and save stable effect identifiers") {
+    namespace ui = rummage::ui;
+    namespace i18n = rummage::i18n;
+
+    struct RestoreLanguage {
+        ~RestoreLanguage() { i18n::set_language("en"); }
+    } restore;
+
+    ui::Offscreen surface{1000, 800};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    for (const auto language : {"de", "es", "fr", "ja", "pt_BR", "ru", "zh_CN"}) {
+        CAPTURE(language);
+        i18n::set_language(language);
+        Fixture f;
+        f.open();
+        f.dialog.select_effect_slot(static_cast<std::size_t>(core::MotionEvent::file_copy));
+        f.dialog.set_system_reduced(true);
+        const auto draw = [&](const std::string& name) {
+            renderer.begin_frame(1000, 800, 1, {});
+            f.dialog.draw(renderer, {0, 0, 1000, 800}, rummage::theme::Palette{}, icons);
+            renderer.end_frame();
+            if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
+                std::vector<unsigned char> pixels(1000 * 800 * 4);
+                glReadPixels(0, 0, 1000, 800, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                std::ofstream file{std::filesystem::path{output} / (name + "-" + language + ".ppm"),
+                                   std::ios::binary};
+                file << "P6\n1000 800\n255\n";
+                for (int y = 799; y >= 0; --y)
+                    for (int x = 0; x < 1000; ++x)
+                        file.write(
+                            reinterpret_cast<const char*>(pixels.data() + (y * 1000 + x) * 4), 3);
+            }
+            CHECK(glGetError() == GL_NO_ERROR);
+        };
+        draw("effects");
+        CHECK(i18n::tr("Hologram") != "Hologram");
+        const auto description = i18n::tr("Choose the animation for this slot");
+        CHECK(description != "Choose the animation for this slot");
+        f.dialog.search(std::string{description});
+        const auto results = f.dialog.search_results();
+        REQUIRE(results.size() == core::kMotionEvents.size());
+        CHECK(results.front().label.starts_with(i18n::tr("Open directory")));
+        f.dialog.jump_to_result(
+            results[static_cast<std::size_t>(core::MotionEvent::file_copy)].field);
+        draw("effects-focused");
+        f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+        draw("effects-choices");
+        f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
+        f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+        REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+        CHECK(core::load_config(f.path).config.animations.events[static_cast<std::size_t>(
+                  core::MotionEvent::file_copy)] == core::MotionEffect::scan);
+    }
+}
