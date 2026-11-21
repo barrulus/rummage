@@ -284,6 +284,12 @@ constexpr std::array kShortcuts{
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_a, XKB_KEY_A}},
     Shortcut{.group = i18n::mark("Selecting"),
+             .keys = "Ctrl+Shift+I",
+             .action = i18n::mark("Invert the selection"),
+             .scope = scope::kViews,
+             .modifiers = kCtrlShift,
+             .keysyms = {XKB_KEY_i, XKB_KEY_I}},
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Escape",
              .action = i18n::mark("Back to one entry"),
              .scope = scope::kViews,
@@ -369,6 +375,13 @@ constexpr std::array kShortcuts{
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_w, XKB_KEY_W},
              .command = Command::close_tab},
+    Shortcut{.group = i18n::mark("Tabs"),
+             .keys = "Ctrl+Shift+T",
+             .action = i18n::mark("Reopen the closed tab"),
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = kCtrlShift,
+             .keysyms = {XKB_KEY_t, XKB_KEY_T},
+             .command = Command::reopen_tab},
     Shortcut{.group = i18n::mark("Tabs"),
              .keys = "Ctrl+Tab  Ctrl+Shift+Tab",
              .action = i18n::mark("Next tab, previous"),
@@ -699,6 +712,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::open_terminal;
     if (name == "new_tab")
         command = Command::new_tab;
+    if (name == "reopen_tab")
+        command = Command::reopen_tab;
     if (name == "close_tab")
         command = Command::close_tab;
     if (name == "next_tab")
@@ -719,6 +734,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
             (name == entry.action_id || name == "action:" + std::string{entry.action_id}))
             return i;
         if (command != Command::none && entry.command == command)
+            return i;
+        if (name == "invert_selection" && entry.action == "Invert the selection")
             return i;
         if (name == "select_all" && entry.action == "Select all")
             return i;
@@ -863,8 +880,10 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
     }
     // Preserve explicit user bindings when introducing a new default shortcut.
     // An explicitly configured copy_path still participates in normal conflict checks.
-    if (!bindings.contains("copy_path")) {
-        auto& folder_path = next.entries[*binding_index("copy_path")];
+    for (const auto* introduced : {"copy_path", "invert_selection", "reopen_tab"}) {
+        if (bindings.contains(introduced))
+            continue;
+        auto& folder_path = next.entries[*binding_index(introduced)];
         for (const auto index : changed) {
             const auto& entry = next.entries[index];
             for (const auto symbol : entry.keysyms) {
@@ -952,6 +971,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "open_terminal",
                              "new_tab",
                              "close_tab",
+                             "reopen_tab",
                              "next_tab",
                              "previous_tab",
                              "command_palette",
@@ -959,6 +979,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "find_files",
                              "go_to",
                              "select_all",
+                             "invert_selection",
                              "toggle_selection"}) {
         if (const auto index = binding_index(name)) {
             const auto& entry = kShortcuts[*index];
@@ -993,7 +1014,8 @@ ui::KeyEvent view_key_event(const ui::KeyEvent& event) {
         const auto& entry = active.entries[i];
         if (entry.command == Command::none && (entry.scope & scope::kViews) != 0 &&
             entry.matches(event) &&
-            (entry.action == "Select all" || entry.action == "Select or unselect")) {
+            (entry.action == "Select all" || entry.action == "Select or unselect" ||
+             entry.action == "Invert the selection")) {
             auto translated = event;
             translated.keysym = kShortcuts[i].keysyms[0];
             translated.modifiers = kShortcuts[i].modifiers;
@@ -1004,6 +1026,11 @@ ui::KeyEvent view_key_event(const ui::KeyEvent& event) {
 }
 
 std::span<const Shortcut> shortcuts() { return active.entries; }
+
+std::string keys_for_binding(std::string_view id) {
+    const auto index = binding_index(id);
+    return index ? std::string{active.entries[*index].keys} : std::string{};
+}
 
 std::string keys_for(Command command) {
     const auto it = std::ranges::find(active.entries, command, &Shortcut::command);

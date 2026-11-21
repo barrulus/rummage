@@ -10,10 +10,10 @@
 namespace rummage::views {
 namespace {
 
-// The order of results: score, then the shorter path, then the path.
+// The order of results: the rank (tier, depth, score), then the shorter path, then the path.
 bool better(const FoundFile& a, const FoundFile& b) {
-    if (a.score != b.score) {
-        return a.score > b.score;
+    if (a.rank != b.rank) {
+        return better_rank(a.rank, b.rank);
     }
     if (a.path.size() != b.path.size()) {
         return a.path.size() < b.path.size();
@@ -44,21 +44,21 @@ std::vector<FoundFile> match_paths(const std::vector<std::shared_ptr<const fs::P
         }
         for (std::size_t i = 0; i < batch->size(); ++i) {
             const std::string_view path = batch->path(i);
-            const std::optional<double> score = fuzzy.path_score(path);
-            if (!score) {
+            const std::optional<PathRank> rank = fuzzy.path_rank(path);
+            if (!rank) {
                 continue;
             }
             if (best.size() == limit) {
                 const FoundFile& last = best.front();
-                if (*score < last.score ||
-                    (*score == last.score && path.size() >= last.path.size())) {
+                if (*rank != last.rank ? !better_rank(*rank, last.rank)
+                                       : path.size() >= last.path.size()) {
                     continue;
                 }
                 std::ranges::pop_heap(best, worse);
                 best.pop_back();
             }
             best.push_back(
-                {.path = std::string{path}, .directory = batch->directory(i), .score = *score});
+                {.path = std::string{path}, .directory = batch->directory(i), .rank = *rank});
             std::ranges::push_heap(best, worse);
         }
     }
@@ -184,8 +184,9 @@ void FileFinder::fill_nearest() {
     results_.clear();
     for (const Batch& batch : batches_) {
         for (std::size_t i = 0; i < batch->size() && results_.size() < kMaxResults; ++i) {
-            results_.push_back(
-                {.path = std::string{batch->path(i)}, .directory = batch->directory(i)});
+            results_.push_back({.path = std::string{batch->path(i)},
+                                .directory = batch->directory(i),
+                                .rank = {}});
         }
         if (results_.size() == kMaxResults) {
             break;

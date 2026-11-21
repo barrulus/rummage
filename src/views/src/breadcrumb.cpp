@@ -262,6 +262,18 @@ bool Breadcrumb::key(const ui::KeyEvent& event) {
     return true;
 }
 
+std::string Breadcrumb::copy_selection(bool cut) {
+    if (!editing_)
+        return {};
+    auto& field = field_;
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        error_.clear();
+        redraw_();
+    }
+    return text;
+}
+
 void Breadcrumb::paste(std::string_view text) {
     if (!editing_)
         return;

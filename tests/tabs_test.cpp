@@ -21,6 +21,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/fs/trash.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -360,7 +361,7 @@ TEST_CASE("tabs: the bar with two tabs; a click shows one, its × or a middle cl
     const rummage::ui::Rect first = bar.tab_rects()[0];
     CHECK(f.browser.cursor_at(first.x + 20.0F, first.y + 10.0F) == CursorShape::pointer);
     // The path and the view moved down under the bar.
-    CHECK(f.browser.breadcrumb().claims(first.x + 20.0F, first.bottom() + 5.0F));
+    CHECK(f.browser.breadcrumb().claims(first.x + 80.0F, first.bottom() + 5.0F));
 
     click(first, PointerButton::left);
     CHECK(f.browser.active_tab() == 0);
@@ -901,4 +902,254 @@ TEST_CASE("views: preview toggle replaces icons in every view and restores icons
         f.browser.apply(saved.state);
         CHECK_FALSE(f.browser.shows_thumbnails());
     }
+}
+
+TEST_CASE("tabs: Ctrl+Shift+T brings back the tab closed last, where it was and as it was") {
+    Fixture f;
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.open(f.a / "sub");
+    REQUIRE(f.settle());
+    f.browser.set_grid_size(1);
+    const std::size_t steps = f.browser.history().size();
+    const std::size_t here = f.browser.history_index();
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    CHECK(f.browser.tab_count() == 3);
+    f.browser.close_tab(1);  // the middle one, as its × does
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.closed_tab_count() == 1);
+
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 3);
+    CHECK(f.browser.active_tab() == 1);
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+    CHECK(f.browser.grid().folder()->path() == f.a / "sub");
+    CHECK(f.browser.grid().size_index() == 1);
+    CHECK(f.browser.history().size() == steps);
+    CHECK(f.browser.history_index() == here);
+    CHECK(f.browser.closed_tab_count() == 0);
+    f.browser.back();
+    REQUIRE(f.settle());
+    CHECK(f.browser.grid().folder()->path() == f.b);
+}
+
+TEST_CASE("tabs: closed tabs come back newest first; ten are kept") {
+    Fixture f;
+    for (int i = 0; i < 11; ++i) {
+        fs::create_directories(f.dir.path / std::format("d{}", i));
+        f.browser.open_tab(f.dir.path / std::format("d{}", i), true);
+        REQUIRE(f.settle());
+    }
+    CHECK(f.browser.tab_count() == 12);
+    for (int i = 0; i < 11; ++i) {
+        f.browser.close_tab(1);
+    }
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.closed_tab_count() == Browser::kMaxClosedTabs);
+    std::vector<std::string> back;
+    for (std::size_t i = 0; i < Browser::kMaxClosedTabs; ++i) {
+        CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+        REQUIRE(f.browser.columns().focused_folder() != nullptr);
+        back.push_back(f.browser.columns().focused_folder()->path().filename().string());
+    }
+    CHECK(f.browser.tab_count() == 11);
+    CHECK(back ==
+          std::vector<std::string>{"d10", "d9", "d8", "d7", "d6", "d5", "d4", "d3", "d2", "d1"});
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 11);
+    CHECK(f.browser.status_bar().message() == "No closed tab to reopen");
+}
+
+TEST_CASE("tabs: a closed tab whose folder is gone is dropped, with a message") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    fs::remove_all(f.b);
+    REQUIRE(f.settle());
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.status_bar().message() == "b no longer exists");
+    CHECK(f.browser.closed_tab_count() == 0);
+
+    // Two closed, the newer one gone: the next Ctrl+Shift+T takes the one before it.
+    fs::create_directories(f.b);
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.open_tab(f.a / "sub", true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);  // b
+    f.browser.close_tab(1);  // sub
+    fs::remove_all(f.a / "sub");
+    REQUIRE(f.settle());
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.status_bar().message() == "sub no longer exists");
+    CHECK(f.browser.closed_tab_count() == 1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->path() == f.b);
+}
+
+TEST_CASE("tabs: a tab closed by its × while another is shown keeps its last cursor") {
+    Fixture f;
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_Down)));  // sub
+    CHECK(f.press(key(XKB_KEY_Down)));  // one.txt
+    REQUIRE(f.browser.columns().focused_folder()->cursor_entry() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->cursor_entry()->name == "one.txt");
+    f.browser.select_tab(0);
+    f.browser.close_tab(1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->path() == f.a);
+    REQUIRE(f.browser.columns().focused_folder()->cursor_entry() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->cursor_entry()->name == "one.txt");
+}
+
+TEST_CASE("tabs: Ctrl+Shift+T in a name being edited is the field's") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    CHECK(f.press(key(XKB_KEY_Down)));
+    CHECK(f.press(key(XKB_KEY_F2)));
+    REQUIRE(f.browser.name_editor().active());
+    f.browser.key(key(XKB_KEY_T, kCtrlShift), Browser::Clock::now());
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.name_editor().active());
+}
+
+TEST_CASE("tabs: columns come back unfolded from their first folder") {
+    Fixture f;
+    fs::create_directories(f.a / "sub" / "deep");
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_Down)));   // sub
+    CHECK(f.press(key(XKB_KEY_Right)));  // into sub
+    CHECK(f.press(key(XKB_KEY_Down)));   // deep
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    const fs::path shown = f.browser.columns().focused_folder()->path();
+    CHECK(f.press(key(XKB_KEY_w, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.columns().column(0).folder().path() == f.a);
+    CHECK(f.browser.columns().focused_folder()->path() == shown);
+}
+
+TEST_CASE("tabs: a tab on the trash comes back to the trash") {
+    Fixture f;
+    f.browser.open_tab(rummage::fs::trash_path(), true);
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->is_trash());
+    f.browser.close_tab(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->is_trash());
+    CHECK(f.browser.status_bar().message() != "trash:/// no longer exists");
+    CHECK(f.browser.closed_tab_count() == 0);
+}
+
+TEST_CASE("tabs: a tab closed before its folder loaded comes back") {
+    Fixture f;
+    CHECK(f.browser.key(key(XKB_KEY_t, kCtrl), Browser::Clock::now()));
+    CHECK(f.browser.key(key(XKB_KEY_w, kCtrl), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->path() == f.a);
+}
+
+TEST_CASE("tabs: reopening preserves filters and details settings independently in each pane") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_sort(rummage::fs::SortKey::size, true);
+    f.browser.set_name_filter("*.txt");
+    f.browser.set_show_hidden(true, false);
+    f.browser.set_list_size(2);
+    const auto saved = f.browser.state().tabs[1];
+    f.browser.close_tab(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    f.browser.toggle_split();
+    f.browser.focus_pane(1);
+    CHECK(f.browser.closed_tab_count() == 0);
+    f.browser.reopen_tab();
+    CHECK(f.browser.tab_count() == 1);
+    f.browser.open_tab(f.a / "sub", true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    f.browser.focus_pane(0);
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.state().tabs[1] == saved);
+    f.browser.focus_pane(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+}
+
+TEST_CASE("navigation: path-row buttons use the clicked pane history and cancel outside releases") {
+    Fixture f;
+    f.browser.set_sidebar_visible(false);
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    const auto point = [&](PointerEvent::Kind kind, float x, float y) {
+        f.browser.pointer({.kind = kind, .x = x, .y = y, .button = PointerButton::left},
+                          Browser::Clock::now());
+    };
+    const auto click = [&](float x, float y) {
+        point(PointerEvent::Kind::motion, x, y);
+        point(PointerEvent::Kind::press, x, y);
+        point(PointerEvent::Kind::release, x, y);
+        REQUIRE(f.settle());
+        draw();
+    };
+    draw();
+    CHECK(f.browser.cursor_at(19, 14) == CursorShape::standard);
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    draw();
+    CHECK(f.browser.cursor_at(19, 14) == CursorShape::pointer);
+    point(PointerEvent::Kind::motion, 19, 14);
+    point(PointerEvent::Kind::press, 19, 14);
+    point(PointerEvent::Kind::release, 200, 100);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+    click(19, 14);
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    click(47, 14);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+    f.browser.toggle_split();
+    f.browser.focus_pane(1);
+    f.browser.open(f.a / "sub");
+    REQUIRE(f.settle());
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    f.browser.focus_pane(0);
+    draw();
+    // Split panes add a 26px header and the tab row before the path.
+    const auto right = f.browser.pane_bounds(1);
+    click(right.x + 19, right.y + 26 + rummage::views::TabBar::kHeight + 14);
+    CHECK(f.browser.active_pane() == 1);
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+    f.browser.focus_pane(0);
+    CHECK(f.browser.picker_folder()->path() == f.b);
 }

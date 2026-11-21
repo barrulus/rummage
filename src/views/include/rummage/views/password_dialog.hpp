@@ -69,6 +69,7 @@ public:
 
     // Ctrl+V: text into the field with the keyboard (its first line).
     void paste(std::string_view text);
+    std::string copy_selection(bool cut);
 
     void pointer(const ui::PointerEvent& event);
 

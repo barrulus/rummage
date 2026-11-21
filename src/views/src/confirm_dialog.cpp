@@ -75,6 +75,17 @@ void ConfirmDialog::open_name(std::string title, std::string detail, std::string
     name_accept_ = std::move(accept);
 }
 
+std::string ConfirmDialog::copy_selection(bool cut) {
+    if (!is_open() || !name_accept_)
+        return {};
+    auto& field = password_field_;
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        redraw_();
+    }
+    return text;
+}
+
 void ConfirmDialog::paste(std::string_view text) {
     if (is_open() && password_mode_ &&
         text.find_first_of(std::string_view{"\r\n\0", 3}) == std::string_view::npos) {

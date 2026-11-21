@@ -1,0 +1,32 @@
+#compdef rummage
+local -a options picker_options
+options=(
+  '(-h --help)'{-h,--help}'[Show usage]'
+  '--config[Read configuration from a file]:file:_files'
+  '--check-config[Check configuration and exit]'
+  '--test-scene[Show the renderer test scene]'
+  '--version[Print the version]'
+  '--about[Print diagnostic information]'
+  '--reveal[Select paths in their folders]'
+  '--properties[Show properties of paths]'
+  '--open-folders[Open folders in tabs]'
+  '--portal[Run the file chooser portal backend]'
+  '--file-manager1[Run the Show in Folder service]'
+  '--set-file-manager[Register as the file manager]'
+  '--unset-file-manager[Remove file manager registration]'
+  '--pick[Choose files]'
+  '--pick-directory[Choose a folder]'
+  '--save-file[Choose a file to save]'
+)
+if (( ${words[(I)--(pick|pick-directory|save-file)]} )); then
+  picker_options=(
+    '--multiple[Choose multiple files]'
+    '--name[Proposed filename]:name: '
+    '--title[Window title]:title: '
+  )
+fi
+if (( ${words[(I)--(reveal|properties)]} )); then
+  _arguments -S $options $picker_options '*:path:_files'
+else
+  _arguments -S $options $picker_options '*:folder:_files -/'
+fi

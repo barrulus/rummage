@@ -80,6 +80,7 @@ public:
 
     bool key(const ui::KeyEvent& event);
     void paste(std::string_view text);
+    std::string copy_selection(bool cut);
 
     // The folder of the step at a window point, as last drawn (nullopt: none, or the "…").
     [[nodiscard]] std::optional<std::filesystem::path> path_at(float x, float y) const;

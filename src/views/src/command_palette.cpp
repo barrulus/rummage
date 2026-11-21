@@ -34,7 +34,149 @@ float text_width(ui::Renderer& renderer, std::string_view text, float size) {
 
 bool continuation(char byte) { return (static_cast<unsigned char>(byte) & 0xC0U) == 0x80U; }
 
+constexpr std::string_view kEllipsis = "\u2026";
+
+// A label cut into pieces: byte ranges of the label, an empty range standing for "…".
+struct Piece {
+    std::size_t begin{0};
+    std::size_t end{0};
+};
+
 }  // namespace
+
+std::vector<LabelRun> fit_label(std::string_view label, std::span<const std::size_t> positions,
+                                bool path, float room,
+                                const std::function<float(std::string_view)>& width) {
+    // Lit bytes: a matched byte lights its whole character.
+    std::vector<bool> lit(label.size(), false);
+    for (const std::size_t at : positions) {
+        if (at >= label.size()) {
+            continue;
+        }
+        std::size_t begin = at;
+        while (begin > 0 && continuation(label[begin])) {
+            --begin;
+        }
+        std::size_t end = at + 1;
+        while (end < label.size() && continuation(label[end])) {
+            ++end;
+        }
+        std::fill(lit.begin() + static_cast<std::ptrdiff_t>(begin),
+                  lit.begin() + static_cast<std::ptrdiff_t>(end), true);
+    }
+    const auto text_of = [&label](const std::vector<Piece>& pieces) {
+        std::string text;
+        for (const Piece& piece : pieces) {
+            text += piece.begin == piece.end ? kEllipsis
+                                             : label.substr(piece.begin, piece.end - piece.begin);
+        }
+        return text;
+    };
+    const auto fits = [&](const std::vector<Piece>& pieces) {
+        return width(text_of(pieces)) <= room;
+    };
+    const auto runs_of = [&](const std::vector<Piece>& pieces) {
+        std::vector<LabelRun> runs;
+        const auto add = [&runs](std::string_view text, bool on) {
+            if (!runs.empty() && runs.back().lit == on) {
+                runs.back().text += text;
+            } else {
+                runs.push_back({.text = std::string{text}, .lit = on});
+            }
+        };
+        for (const Piece& piece : pieces) {
+            if (piece.begin == piece.end) {
+                add(kEllipsis, false);
+                continue;
+            }
+            for (std::size_t at = piece.begin; at < piece.end;) {
+                std::size_t end = at;
+                while (end < piece.end && lit[end] == lit[at]) {
+                    ++end;
+                }
+                add(label.substr(at, end - at), lit[at]);
+                at = end;
+            }
+        }
+        return runs;
+    };
+    // Character starts, and the end: where a cut may fall.
+    std::vector<std::size_t> cuts;
+    for (std::size_t at = 0; at <= label.size(); ++at) {
+        if (at == label.size() || !continuation(label[at])) {
+            cuts.push_back(at);
+        }
+    }
+    // The largest i in [low, high] (indexes into cuts) for which make(i) fits; low when none
+    // does (the caller checked low).
+    const auto largest = [&](std::size_t low, std::size_t high, const auto& make) {
+        while (low < high) {
+            const std::size_t middle = low + ((high - low + 1) / 2);
+            if (fits(make(middle))) {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        return low;
+    };
+
+    const std::vector<Piece> whole{{0, label.size()}};
+    if (fits(whole)) {
+        return runs_of(whole);
+    }
+    const std::size_t last = cuts.size() - 1;  // the index of label.size()
+    if (path) {
+        // The name with its slash, after as much of the start as fits.
+        const std::size_t slash = label.rfind('/');
+        if (slash != std::string_view::npos && slash > 0) {
+            const auto with_head = [&](std::size_t i) {
+                std::vector<Piece> pieces;
+                if (cuts[i] > 0) {
+                    pieces.push_back({0, cuts[i]});
+                }
+                pieces.push_back({});
+                pieces.push_back({slash, label.size()});
+                return pieces;
+            };
+            if (fits(with_head(0))) {
+                const auto slash_index =
+                    static_cast<std::size_t>(std::ranges::lower_bound(cuts, slash) - cuts.begin());
+                return runs_of(with_head(largest(0, slash_index, with_head)));
+            }
+        }
+    }
+    // From the first matched character on, as far as fits; then back towards the start.
+    std::size_t first = 0;
+    if (const auto found = std::ranges::find(lit, true); found != lit.end()) {
+        first = static_cast<std::size_t>(
+            std::ranges::lower_bound(cuts, static_cast<std::size_t>(found - lit.begin())) -
+            cuts.begin());
+    }
+    const auto window = [&](std::size_t from, std::size_t to) {
+        std::vector<Piece> pieces;
+        if (from > 0) {
+            pieces.push_back({});
+        }
+        if (to > from) {
+            pieces.push_back({cuts[from], cuts[to]});
+        }
+        if (to < last) {
+            pieces.push_back({});
+        }
+        return pieces;
+    };
+    const std::size_t to = largest(first, last, [&](std::size_t i) { return window(first, i); });
+    if (to == first) {
+        return {{.text = std::string{kEllipsis}, .lit = false}};  // not one character fits
+    }
+    // Room left: the characters before the first match, nearest first.
+    std::size_t from = first;
+    while (from > 0 && fits(window(from - 1, to))) {
+        --from;
+    }
+    return runs_of(window(from, to));
+}
 
 CommandPalette::CommandPalette(std::function<void()> redraw) : redraw_{std::move(redraw)} {}
 
@@ -56,6 +198,7 @@ void CommandPalette::open(std::vector<PaletteItem> items, const std::vector<std:
     query_changed_ = nullptr;
     status_.clear();
     moved_ = false;
+    in_list_ = false;
     open_ = true;
     panel_ = {};
     filter();
@@ -74,6 +217,7 @@ void CommandPalette::open_external(std::string placeholder,
     query_changed_ = std::move(query_changed);
     status_.clear();
     moved_ = false;
+    in_list_ = false;
     open_ = true;
     panel_ = {};
     redraw_();
@@ -145,8 +289,22 @@ void CommandPalette::paste(std::string_view text) {
         }
     }
     field_.insert(line);
+    in_list_ = false;
     filter();
     redraw_();
+}
+
+std::string CommandPalette::cut() {
+    if (!open_) {
+        return {};
+    }
+    std::string text = field_.cut();
+    if (!text.empty()) {
+        in_list_ = false;
+        filter();
+        redraw_();
+    }
+    return text;
 }
 
 void CommandPalette::filter() {
@@ -252,23 +410,27 @@ bool CommandPalette::key(const ui::KeyEvent& event) {
             }
             return true;
         case XKB_KEY_space:
-            if (external() && event.modifiers == ui::Modifiers{}) {
+            if (external() && in_list_ && event.modifiers == ui::Modifiers{}) {
                 if (highlighted_) {
-                    choose(*highlighted_, 1);  // Quick Look; spaces mean nothing to the matching
+                    choose(*highlighted_, 1);  // Quick Look
                 }
                 return true;
             }
-            break;
+            break;  // a space in the query: terms
         case XKB_KEY_Up:
+            in_list_ = true;
             move_highlight(-1);
             return true;
         case XKB_KEY_Down:
+            in_list_ = true;
             move_highlight(1);
             return true;
         case XKB_KEY_Page_Up:
+            in_list_ = true;
             move_highlight(-page);
             return true;
         case XKB_KEY_Page_Down:
+            in_list_ = true;
             move_highlight(page);
             return true;
         case XKB_KEY_Tab:
@@ -278,7 +440,11 @@ bool CommandPalette::key(const ui::KeyEvent& event) {
             break;
     }
     const std::string before = field_.text();
+    const auto caret = field_.selection();
     field_.key(event);  // what the field does not use is swallowed all the same
+    if (field_.text() != before || field_.selection() != caret) {
+        in_list_ = false;  // back to the field (not for Shift or Ctrl alone)
+    }
     if (field_.text() != before) {
         filter();
     }
@@ -299,6 +465,7 @@ bool CommandPalette::pointer(const ui::PointerEvent& event) {
         return false;
     }
     if (field_.pointer(event)) {
+        in_list_ = false;
         redraw_();
         return true;
     }
@@ -345,36 +512,17 @@ void CommandPalette::draw_label(ui::Renderer& renderer, std::string_view label, 
     FuzzyQuery query{field_.text()};
     const std::vector<std::size_t> positions =
         path ? query.path_positions(label) : query.positions(label);
-    if (positions.empty() || text_width(renderer, label, kTextSize) > room) {
-        // Too long: no highlight; a path keeps its start and its name.
+    if (positions.empty()) {
+        // Nothing to light: the renderer's own cut (a path keeps its start and its name).
         renderer.draw_text(label, x, y, kTextSize, text, room,
                            path ? ui::Ellipsis::middle : ui::Ellipsis::end);
         return;
     }
-    // Runs of matched and unmatched characters, each in its colour; a matched byte takes its
-    // whole character.
-    std::vector<bool> lit(label.size(), false);
-    for (const std::size_t at : positions) {
-        std::size_t begin = at;
-        while (begin > 0 && continuation(label[begin])) {
-            --begin;
-        }
-        std::size_t end = at + 1;
-        while (end < label.size() && continuation(label[end])) {
-            ++end;
-        }
-        std::fill(lit.begin() + static_cast<std::ptrdiff_t>(begin),
-                  lit.begin() + static_cast<std::ptrdiff_t>(end), true);
-    }
-    std::size_t start = 0;
-    while (start < label.size()) {
-        std::size_t end = start;
-        while (end < label.size() && lit[end] == lit[start]) {
-            ++end;
-        }
-        const std::string_view run = label.substr(start, end - start);
-        x += renderer.draw_text(run, x, y, kTextSize, lit[start] ? matched : text);
-        start = end;
+    const std::vector<LabelRun> runs = fit_label(
+        label, positions, path, room,
+        [&renderer](std::string_view piece) { return text_width(renderer, piece, kTextSize); });
+    for (const LabelRun& run : runs) {
+        x += renderer.draw_text(run.text, x, y, kTextSize, run.lit ? matched : text);
     }
 }
 
@@ -410,7 +558,7 @@ void CommandPalette::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                  .border = palette.primary,
                  .text = palette.on_surface,
                  .selection = palette.secondary_container,
-                 .caret = palette.on_surface});
+                 .caret = in_list_ ? palette.on_surface.with_alpha(0.3F) : palette.on_surface});
     if (field_.text().empty()) {
         const float text_y = field_rect_.y + ((kFieldHeight - kFieldText) / 2.0F) - 2.0F;
         renderer.draw_text(placeholder_, field_rect_.x + ui::TextField::kPadding + 6.0F, text_y,

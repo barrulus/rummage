@@ -11,6 +11,9 @@ for file in \
     share/rummage/config.example.toml \
     share/rummage/engines/base.toml \
     share/applications/rummage.desktop \
+    share/bash-completion/completions/rummage \
+    share/zsh/site-functions/_rummage \
+    share/fish/vendor_completions.d/rummage.fish \
     share/icons/hicolor/scalable/apps/rummage.svg \
     share/rummage/noctalia/rummage \
     share/rummage/matugen/rummage.toml \

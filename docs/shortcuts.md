@@ -61,9 +61,11 @@ commands below operate in the active pane.
 | --- | --- | --- |
 | Ctrl+T | New tab | `new_tab` |
 | Ctrl+W | Close current tab, except the last | `close_tab` |
+| Ctrl+Shift+T | Reopen the last closed tab in this pane | `reopen_tab` |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab | `next_tab`, `previous_tab` |
 | Alt+1…9 | Select numbered tab | Fixed |
 | Ctrl+A | Select all in the current scope | `select_all` |
+| Ctrl+Shift+I | Invert selection among visible entries | `invert_selection` |
 | Ctrl+Space | Toggle selected item | `toggle_selection` |
 | Shift+movement | Extend selection | Fixed |
 | Ctrl+movement | Move without selecting | Fixed |
@@ -100,8 +102,8 @@ Copy Name copies plain text, with multiple names separated by newlines. Its
 | Text Quick Look | Home/End, Page Up/Down scroll; Ctrl+A selects text; Ctrl+C copies selection; Shift+wheel scrolls horizontally |
 | Markdown Quick Look | M switches between rendered text and source |
 | Palette/search | Arrows/Page Up/Down choose; Enter runs/reveals; Escape closes |
-| File search | Space previews; Shift+Enter opens in application |
-| Rename editor | Enter accepts, Escape cancels, Ctrl+arrows moves words, Ctrl+V pastes, Ctrl+Z / Ctrl+Shift+Z edits undo history |
+| File search | Space types a space while editing; after arrow-key navigation it previews; Shift+Space always types a space; Shift+Enter opens in application |
+| Rename editor | Enter accepts, Escape cancels, Ctrl+arrows moves words, Ctrl+C / Ctrl+X / Ctrl+V copies/cuts/pastes text, Ctrl+Z / Ctrl+Shift+Z edits undo history |
 | Batch Rename | Tab/Shift+Tab moves between fields and controls; Enter applies valid changes; Escape cancels; Page Up/Down scrolls the preview |
 | Conflict dialog | R replaces a file or merges folders, S skips, Enter keeps both, A applies to rest, Escape stops |
 | Permanent-delete dialog | Enter confirms, Escape cancels |

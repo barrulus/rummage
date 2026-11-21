@@ -20,6 +20,11 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Invert the selection" = "選択を反転"
+"No closed tab to reopen" = "開き直せる閉じたタブはありません"
+"Reopen Closed Tab" = "閉じたタブを開き直す"
+"Reopen the closed tab" = "閉じたタブを開き直す"
+"Invert Selection" = "選択を反転"
 "Space to preview" = "スペースキーでプレビュー"
 "Read" = "読み取り"
 "Write" = "書き込み"

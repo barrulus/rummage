@@ -93,6 +93,18 @@ bool LocationDialog::key(const ui::KeyEvent& event) {
     return true;
 }
 
+std::string LocationDialog::copy_selection(bool cut) {
+    if (!is_open() || on_toggle_)
+        return {};
+    auto& field = field_;
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        error_.clear();
+        redraw_();
+    }
+    return text;
+}
+
 void LocationDialog::paste(std::string_view text) {
     if (!is_open() || on_toggle_) {
         return;
@@ -180,7 +192,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float left = card.x + kPadding;
     const float room = width - (2.0F * kPadding);
     float y = card.y + kPadding;
-    renderer.draw_text(i18n::tr("Go to Folder or Server"), left, y, kTitleSize, palette.on_surface, room);
+    renderer.draw_text(i18n::tr("Go to Folder or Server"), left, y, kTitleSize, palette.on_surface,
+                       room);
     y += 30.0F;
 
     const ui::FieldColors colors{
@@ -193,8 +206,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     y += kFieldHeight + 8.0F;
     if (error_.empty()) {
         renderer.draw_text(
-            i18n::tr("/path, ~/path, smb://server/share, sftp://user@host/path, ftp://, davs://"), left, y,
-            kTextSize, palette.on_surface_variant, room);
+            i18n::tr("/path, ~/path, smb://server/share, sftp://user@host/path, ftp://, davs://"),
+            left, y, kTextSize, palette.on_surface_variant, room);
     } else {
         renderer.draw_text(error_, left, y, kTextSize, palette.error, room);
     }

@@ -211,6 +211,17 @@ bool PasswordDialog::key(const ui::KeyEvent& event) {
     return true;
 }
 
+std::string PasswordDialog::copy_selection(bool cut) {
+    if (!is_open() || field(focus_) == nullptr)
+        return {};
+    auto& field = *this->field(focus_);
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        redraw_();
+    }
+    return text;
+}
+
 void PasswordDialog::paste(std::string_view text) {
     if (!is_open()) {
         return;

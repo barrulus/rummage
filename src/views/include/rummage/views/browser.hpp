@@ -476,6 +476,9 @@ public:
     void open_tabs(const std::vector<std::filesystem::path>& folders);
     // Ctrl+W, a tab's ×, a middle click on it: the tab closes; the last one stays.
     void close_tab(std::size_t index);
+    void reopen_tab();
+    static constexpr std::size_t kMaxClosedTabs = 10;
+    [[nodiscard]] std::size_t closed_tab_count() const;
     // A click on a tab, Ctrl+Tab, Ctrl+Shift+Tab, Alt+1…9.
     void select_tab(std::size_t index);
 
@@ -837,7 +840,12 @@ private:
     // A change of permissions done (the user's, an undo or a redo): recorded and said.
     void modes_done(const fs::ModeResult& result, Purpose purpose);
     void report_done(const fs::TransferRequest& request, const fs::TransferResult& result);
-    // Ctrl+V in the name's field: the clipboard's text.
+    // Ctrl+C, Ctrl+X and Ctrl+V for the text field that has the keyboard, found in take_key()'s
+    // order: dialogs, the palette, a filename, a bookmark label or the path field. With
+    // nothing selected Ctrl+C and Ctrl+X do nothing but are still the field's, never the files'.
+    // false for other keys.
+    bool text_field_key(const ui::KeyEvent& event);
+    // Ctrl+V in a text field: the clipboard's text, into the field that has the keyboard.
     void paste_text();
     // "Open With…" in the palette: the palette again, with the applications for the cursor's entry.
     void open_with_palette();
@@ -884,8 +892,18 @@ private:
     void view_pointer(const ui::PointerEvent& event, Clock::time_point now);
 
     // Who gets the pointer: the view, the sidebar or the breadcrumb above the view.
-    enum class Target : std::uint8_t { view, sidebar, breadcrumb, status_bar, tabs, toolbar };
+    enum class Target : std::uint8_t {
+        view,
+        sidebar,
+        breadcrumb,
+        status_bar,
+        tabs,
+        toolbar,
+        navigation
+    };
 
+    void navigation_pointer(const ui::PointerEvent& event);
+    [[nodiscard]] bool can_travel(int direction) const;
     void send_pointer(Target target, const ui::PointerEvent& event, Clock::time_point now);
     void draw_view(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now);
@@ -936,13 +954,26 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
 
     // Here, before the window's parts and the transfers: destroyed after them, as the views were.
+    struct ClosedTab {
+        State::Tab tab;
+        std::vector<HistoryStep> history;
+        std::size_t here{}, index{};
+        bool off_disk{};
+    };
+
+    [[nodiscard]] static State::Tab tab_of(const Pane& pane, std::size_t side);
+    void restore_tab(const State::Tab& tab, std::size_t window_list, std::size_t window_grid);
+
     struct BrowsingArea {
         explicit BrowsingArea(Browser& browser);
         std::vector<std::unique_ptr<Pane>> tabs;
         std::size_t active{0};
+        std::vector<ClosedTab> closed_tabs;
         Breadcrumb breadcrumb;
         TabBar tab_bar;
         ui::Rect bounds{}, header{}, view_area{};
+        ui::Rect back{}, forward{};
+        int navigation_pressed{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
         ui::Rect view_menu_bounds{}, settings_bounds{}, sort_bounds{};
         std::filesystem::path motion_folder;

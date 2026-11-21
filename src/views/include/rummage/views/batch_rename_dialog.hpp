@@ -38,6 +38,7 @@ public:
 
     bool key(const ui::KeyEvent& event);
     void paste(std::string_view text);
+    std::string copy_selection(bool cut);
     void pointer(const ui::PointerEvent& event);
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette);
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;

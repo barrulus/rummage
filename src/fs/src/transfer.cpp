@@ -77,6 +77,16 @@ std::optional<struct stat> status_of(const std::filesystem::path& path) {
 
 bool taken(const std::filesystem::path& path) { return status_of(path).has_value(); }
 
+// The folders a transfer goes from and to are followed, as Extract follows its folder (a
+// ~/Pictures that is a link to another disk). What is copied from them or made in them never is.
+std::optional<struct stat> folder_status_of(const std::filesystem::path& path) {
+    struct stat info{};
+    if (stat(path.c_str(), &info) != 0) {
+        return std::nullopt;
+    }
+    return info;
+}
+
 // The names in directory, unsorted; empty when it cannot be read.
 std::vector<std::string> names_in(const std::filesystem::path& directory) {
     std::vector<std::string> names;
@@ -1042,12 +1052,12 @@ TransferResult Engine::run() {
         return finished();
     }
     moving_ = r.kind == TransferKind::move;
-    const std::optional<struct stat> from = status_of(r.source);
-    std::optional<struct stat> to = status_of(r.destination);
+    const std::optional<struct stat> from = folder_status_of(r.source);
+    std::optional<struct stat> to = folder_status_of(r.destination);
     if (!to && r.make_destination) {
         std::error_code made;
         std::filesystem::create_directories(r.destination, made);
-        to = status_of(r.destination);
+        to = folder_status_of(r.destination);
     }
     if (!to || !S_ISDIR(to->st_mode)) {
         result_.refused = i18n::trf("{} is not a folder", r.destination.string());

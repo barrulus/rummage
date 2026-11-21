@@ -349,13 +349,20 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
         redraw_();
         return true;
     }
-    if (picking_ && event.modifiers.ctrl &&
-        (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C) &&
+    if (picking_ && event.modifiers == ui::Modifiers{.ctrl = true} &&
+        (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C || event.keysym == XKB_KEY_x ||
+         event.keysym == XKB_KEY_X) &&
         (focus_ == "search" || focus_ == "custom")) {
-        const auto& field = focus_ == "search" ? search_ : custom_;
-        const auto [first, last] = field.selection();
-        if (copy_ && first != last)
-            copy_(field.text().substr(first, last - first));
+        auto& field = focus_ == "search" ? search_ : custom_;
+        const bool cut = event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X;
+        const auto text = cut ? field.cut() : field.selected_text();
+        if (copy_ && !text.empty())
+            copy_(text);
+        if (cut && !text.empty()) {
+            if (focus_ == "search")
+                filter();
+            redraw_();
+        }
         return true;
     }
     if (event.keysym == XKB_KEY_Tab || event.keysym == XKB_KEY_ISO_Left_Tab) {

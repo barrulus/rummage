@@ -180,6 +180,13 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (folder) {
         view_command("select_all", "Select All", "Ctrl+A", XKB_KEY_a, {.ctrl = true});
+        add("view:invert_selection", std::string{i18n::mark("Invert Selection")},
+            keys_for_binding("invert_selection"), [this] {
+                if (const auto shown = current_folder()) {
+                    shown->invert_selection();
+                    redraw_();
+                }
+            });
     }
     if (editable) {
         command(Command::add_bookmark, "add_bookmark", "Add to Sidebar");
@@ -264,6 +271,8 @@ std::vector<PaletteItem> Browser::palette_items() {
 
     // Tabs.
     command(Command::new_tab, "new_tab", "New Tab");
+    if (!area().closed_tabs.empty())
+        command(Command::reopen_tab, "reopen_tab", std::string{i18n::mark("Reopen Closed Tab")});
     if (area().tabs.size() > 1) {
         command(Command::close_tab, "close_tab", "Close Tab");
         command(Command::next_tab, "next_tab", "Next Tab");

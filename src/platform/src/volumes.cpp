@@ -103,4 +103,18 @@ std::vector<const Volume*> on_same_drive(const std::vector<Volume>& volumes,
     return found;
 }
 
+std::string power_off_refusal(std::string_view message) {
+    if (const std::size_t colon = message.rfind(": "); colon != std::string_view::npos) {
+        message.remove_prefix(colon + 2);
+    }
+    std::string reason{message};
+    if (reason.empty()) {
+        return "in use";
+    }
+    if (reason.front() >= 'A' && reason.front() <= 'Z') {
+        reason.front() = static_cast<char>(reason.front() - 'A' + 'a');
+    }
+    return reason;
+}
+
 }  // namespace rummage::platform

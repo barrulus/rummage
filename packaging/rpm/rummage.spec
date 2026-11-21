@@ -126,6 +126,10 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_datadir}/xdg-desktop-portal/portals/rummage.portal
 %{_datadir}/dbus-1/services/org.freedesktop.impl.portal.desktop.rummage.service
 
+%{_datadir}/bash-completion/completions/rummage
+%{_datadir}/zsh/site-functions/_rummage
+%{_datadir}/fish/vendor_completions.d/rummage.fish
+
 %files media
 %license LICENSE
 %{_libexecdir}/rummage/rummage-media

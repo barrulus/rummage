@@ -307,3 +307,11 @@ install(CODE "configure_file(\"${PROJECT_SOURCE_DIR}/data/org.freedesktop.impl.p
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.impl.portal.desktop.rummage.service"
         DESTINATION share/dbus-1/services)
 install(FILES data/rummage.portal DESTINATION share/xdg-desktop-portal/portals)
+
+# Shell completions follow the install prefix and DESTDIR, including Nix packages.
+option(RUMMAGE_INSTALL_COMPLETIONS "Install bash, zsh and fish completions" ON)
+if(RUMMAGE_INSTALL_COMPLETIONS)
+    install(FILES data/completions/rummage.bash DESTINATION share/bash-completion/completions RENAME rummage)
+    install(FILES data/completions/_rummage DESTINATION share/zsh/site-functions)
+    install(FILES data/completions/rummage.fish DESTINATION share/fish/vendor_completions.d)
+endif()

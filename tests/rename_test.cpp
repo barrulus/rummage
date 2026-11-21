@@ -320,6 +320,32 @@ TEST_CASE("text field: Ctrl+Z undoes edits, Ctrl+Shift+Z redoes them") {
     CHECK_FALSE(field.undo());
 }
 
+TEST_CASE("text field: the selection copied and cut, one edit to undo") {
+    TextField field{"caffè.jpg"};
+    CHECK(field.selected_text().empty());
+    CHECK(field.cut().empty());  // nothing selected: nothing done, nothing to undo
+    CHECK(field.text() == "caffè.jpg");
+    CHECK_FALSE(field.undo());
+
+    field.select(3, 6);
+    CHECK(field.selected_text() == "fè");
+    CHECK(field.text() == "caffè.jpg");
+    CHECK(field.cut() == "fè");
+    CHECK(field.text() == "caf.jpg");
+    CHECK(field.caret() == 3);
+    CHECK(field.selection() == std::pair<std::size_t, std::size_t>{3, 3});
+    CHECK(field.key(key(XKB_KEY_z, {.ctrl = true})));
+    CHECK(field.text() == "caffè.jpg");
+    CHECK(selected(field) == "fè");  // the selection as it was
+    CHECK(field.redo());
+    CHECK(field.text() == "caf.jpg");
+
+    // Whole characters, never half of one.
+    field.set_text("caffè.jpg");
+    field.select(5, 10);  // inside "è": moved back to its start
+    CHECK(field.selected_text() == "è.jpg");
+}
+
 TEST_CASE("browser: F2 renames in place, the extension left out, sidecars along") {
     for (const Browser::Mode mode :
          {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
@@ -549,4 +575,19 @@ TEST_CASE("text field: pointer selection captures drags and double clicks") {
         REQUIRE(release(x("••")));
         CHECK(selected(field) == "caffè.txt");
     }
+}
+
+TEST_CASE("text field: clipboard helpers never export masked text") {
+    rummage::ui::TextField field;
+    field.set_text("secret");
+    field.select_all();
+    field.set_masked(true);
+    CHECK(field.selected_text().empty());
+    CHECK(field.cut().empty());
+    CHECK(field.text() == "secret");
+    field.set_masked(false);
+    CHECK(field.cut() == "secret");
+    CHECK(field.text().empty());
+    field.key({.keysym = XKB_KEY_z, .text = {}, .modifiers = {.ctrl = true}});
+    CHECK(field.text() == "secret");
 }

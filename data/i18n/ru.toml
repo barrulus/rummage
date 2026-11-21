@@ -23,6 +23,11 @@ Menu = "Меню"
 moves = "перемещение"
 
 [texts]
+"Invert the selection" = "Инвертировать выделение"
+"No closed tab to reopen" = "Нет закрытых вкладок для восстановления"
+"Reopen Closed Tab" = "Восстановить закрытую вкладку"
+"Reopen the closed tab" = "Восстановить закрытую вкладку"
+"Invert Selection" = "Инвертировать выделение"
 "Space to preview" = "Пробел для просмотра"
 "Read" = "Чтение"
 "Write" = "Запись"

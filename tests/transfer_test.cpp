@@ -127,6 +127,23 @@ struct Tree {
     }
 };
 
+// A folder on /dev/shm, removed with everything in it.
+struct Removed {
+    fs::path path;
+
+    explicit Removed(fs::path made) : path{std::move(made)} {}
+
+    Removed(const Removed&) = delete;
+    Removed& operator=(const Removed&) = delete;
+    Removed(Removed&&) = delete;
+    Removed& operator=(Removed&&) = delete;
+
+    ~Removed() {
+        std::error_code ignored;
+        fs::remove_all(path, ignored);
+    }
+};
+
 }  // namespace
 
 TEST_CASE("transfer: a copy keeps contents, dates, permissions, links; sidecars come along") {
@@ -195,22 +212,6 @@ TEST_CASE("transfer: between two file systems the bytes go through read and writ
         MESSAGE("no /dev/shm: skipped");
         return;
     }
-
-    struct Removed {
-        fs::path path;
-
-        explicit Removed(fs::path made) : path{std::move(made)} {}
-
-        Removed(const Removed&) = delete;
-        Removed& operator=(const Removed&) = delete;
-        Removed(Removed&&) = delete;
-        Removed& operator=(Removed&&) = delete;
-
-        ~Removed() {
-            std::error_code ignored;
-            fs::remove_all(path, ignored);
-        }
-    };
 
     const Removed other_disk{fs::path{pattern}};
     Tree t;
@@ -418,6 +419,67 @@ TEST_CASE("transfer: a copy into its own folder keeps both by itself") {
     CHECK(result.placed == Names{"P1 2.ORF", "Trip 2"});
     CHECK(fs::exists(t.from / "P1 2.ORF.xmp"));
     CHECK(fs::exists(t.from / "Trip 2" / "deep" / "b.jpg"));
+}
+
+TEST_CASE(
+    "transfer: a folder reached through a link is followed, the links copied into it are not") {
+    Tree t;
+    const fs::path pictures = t.dir.path / "Pictures";  // a ~/Pictures on another disk
+    fs::create_directory_symlink(t.to, pictures);
+    const auto into = [&t](TransferKind kind, Names names, const fs::path& destination) {
+        return rummage::fs::run_transfer(
+            {.kind = kind, .source = t.from, .names = std::move(names), .destination = destination},
+            {}, {});
+    };
+    TransferResult result = into(TransferKind::copy, {"P1.ORF", "link"}, pictures);
+    CHECK(result.refused.empty());
+    CHECK(result.placed == Names{"P1.ORF", "link"});
+    CHECK(listing(t.to) == Names{"P1.ORF", "P1.ORF.xmp", "P1_01.ORF.xmp", "link"});
+    CHECK(fs::read_symlink(t.to / "link") == "notes.txt");
+    CHECK(fs::is_symlink(pictures));
+
+    result = into(TransferKind::move, {"notes.txt"}, pictures);
+    CHECK(result.refused.empty());
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    CHECK_FALSE(fs::exists(t.from / "notes.txt"));
+
+    // Through a link, a folder inside the one copied is still inside it.
+    fs::create_directory_symlink(t.from / "Trip" / "deep", t.dir.path / "Deep");
+    result = into(TransferKind::copy, {"Trip"}, t.dir.path / "Deep");
+    CHECK(result.refused == "Cannot copy Trip into itself");
+
+    // A link that leads nowhere is not a folder.
+    fs::create_symlink(t.dir.path / "gone", t.dir.path / "Gone");
+    result = into(TransferKind::copy, {"P1.ORF"}, t.dir.path / "Gone");
+    CHECK(result.refused == std::format("{} is not a folder", (t.dir.path / "Gone").string()));
+}
+
+TEST_CASE("transfer: a move out of a folder reached through a link is a rename on its disk") {
+    std::string pattern = "/dev/shm/rummage-test-XXXXXX";
+    if (mkdtemp(pattern.data()) == nullptr) {
+        MESSAGE("no /dev/shm: skipped");
+        return;
+    }
+    const Removed other_disk{fs::path{pattern}};
+    const TempDir here;
+    if (stat_of(other_disk.path).st_dev == stat_of(here.path).st_dev) {
+        MESSAGE("/dev/shm on the same file system as the temporary folder: skipped");
+        return;
+    }
+    fs::create_directories(other_disk.path / "from");
+    fs::create_directories(other_disk.path / "to");
+    std::ofstream{other_disk.path / "from" / "P1.ORF"} << "P1.ORF";
+    const ino_t inode = stat_of(other_disk.path / "from" / "P1.ORF").st_ino;
+    fs::create_directory_symlink(other_disk.path / "from", here.path / "Camera");
+
+    const TransferResult result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                             .source = here.path / "Camera",
+                                                             .names = {"P1.ORF"},
+                                                             .destination = other_disk.path / "to"},
+                                                            {}, {});
+    CHECK(result.refused.empty());
+    CHECK(result.errors.empty());
+    CHECK(stat_of(other_disk.path / "to" / "P1.ORF").st_ino == inode);  // renamed, not copied
 }
 
 TEST_CASE("transfer: refused before anything moves") {

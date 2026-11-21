@@ -1,12 +1,20 @@
 #include "rummage/fs/mime.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
+#include <ctime>
+#include <fcntl.h>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 #include <doctest/doctest.h>
@@ -18,6 +26,7 @@
 #include "temp_dir.hpp"
 
 using rummage::fs::Entry;
+using rummage::fs::EntryKind;
 using rummage::fs::kUnknownMime;
 using rummage::fs::MimeDatabase;
 using rummage::fs::MimeId;
@@ -109,6 +118,30 @@ struct Fixture {
         return db->name(db->detect(name, std::as_bytes(std::span{head}), head.size()));
     }
 };
+
+// path's access time in whole seconds; -1 when it cannot be read.
+std::time_t access_time(const std::filesystem::path& path) {
+    struct stat info{};
+    return ::stat(path.c_str(), &info) == 0 ? info.st_atim.tv_sec : -1;
+}
+
+// Sets path's access time to 1970, before its change time: the next read updates it under
+// relatime and strictatime alike.
+bool make_access_time_old(const std::filesystem::path& path) {
+    const std::array<timespec, 2> times{timespec{.tv_sec = 1, .tv_nsec = 0},
+                                        timespec{.tv_sec = 0, .tv_nsec = UTIME_OMIT}};
+    return ::utimensat(AT_FDCWD, path.c_str(), times.data(), 0) == 0;
+}
+
+// Whether a plain read of path updates its access time here (not on a noatime mount).
+bool reads_update_access_time(const std::filesystem::path& path) {
+    if (!make_access_time_old(path)) {
+        return false;
+    }
+    char byte{};
+    std::ifstream{path, std::ios::binary}.read(&byte, 1);
+    return access_time(path) != 1;
+}
 
 }  // namespace
 
@@ -256,6 +289,36 @@ TEST_CASE("mime: a name with several types sorts by type with its best one, snif
     }
     // Not after the unknown ones: among the text types, by its best guess.
     CHECK(names == std::vector<std::string>{"photo.jpg", "main.c", "script.py", "noext"});
+}
+
+TEST_CASE("mime: finding a file's type leaves its access time as it was") {
+    const Fixture f;
+    const TempDir files;
+    const std::filesystem::path file = files.write("noext", "plain words\n");
+    if (!reads_update_access_time(file)) {
+        MESSAGE("reads leave access times alone here (noatime): skipped");
+        return;
+    }
+    REQUIRE(make_access_time_old(file));
+    const Entry entry{.name = "noext", .kind = EntryKind::file, .size = 12};
+    CHECK(f.db->name(f.db->detect(files.path, entry)) == "text/plain");
+    CHECK(access_time(file) == 1);
+}
+
+TEST_CASE("mime: someone else's file is still read for its type") {
+    // O_NOATIME is refused there (EPERM), unless this process may change any file's times.
+    const std::filesystem::path file{"/etc/passwd"};
+    struct stat info{};
+    if (::geteuid() == 0 || ::stat(file.c_str(), &info) != 0 || info.st_uid == ::geteuid() ||
+        info.st_size == 0 || ::access(file.c_str(), R_OK) != 0) {
+        MESSAGE("no readable file of someone else's here: skipped");
+        return;
+    }
+    const Fixture f;
+    const Entry entry{.name = "passwd",
+                      .kind = EntryKind::file,
+                      .size = static_cast<std::uint64_t>(info.st_size)};
+    CHECK(f.db->name(f.db->detect(file.parent_path(), entry)) == "text/plain");
 }
 
 TEST_CASE("mime: the system database loads") {

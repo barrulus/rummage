@@ -261,6 +261,19 @@ TEST_CASE("column view: Ctrl moves the cursor alone, Ctrl+Space toggles, Ctrl+A 
     CHECK(column.selected_names() == std::vector<std::string>{"readme.md"});
 }
 
+TEST_CASE("column view: Ctrl+Shift+I inverts the selection, which closes the next column") {
+    Fixture f;
+    f.view.open(f.root);
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);  // alpha, its column open
+    REQUIRE(f.view.column_count() == 2);
+    f.press(XKB_KEY_I, {.ctrl = true, .shift = true});
+    Folder& column = f.view.column(0).folder();
+    CHECK(column.selected_names() == std::vector<std::string>{"gamma", "readme.md"});
+    CHECK(cursor_name(column) == "alpha");
+    CHECK(f.view.column_count() == 1);
+}
+
 TEST_CASE("column: toggling and ranges by row, selection follows renames and deletions") {
     Fixture f;
     f.view.open(f.root);
