@@ -469,3 +469,22 @@ TEST_CASE("column view: revealing a filtered leaf keeps its nonmatching ancestor
     CHECK(f.view.column(0).folder().entries().size() == 3);
     CHECK(f.view.column(1).folder().entries().size() == 2);
 }
+
+TEST_CASE("column view: wildcard filters match hidden extensions only in the last column") {
+    Fixture f;
+    write(f.root / "alpha" / "beta" / "icon.svg", "<svg/>");
+    f.view.reveal(f.root, f.root / "alpha" / "beta" / "photo.jpg");
+    REQUIRE(f.settle());
+    f.browser.set_show_extensions(false);
+    f.browser.set_name_filter("*.svg");
+    REQUIRE(f.view.column_count() == 3);
+    CHECK(cursor_name(f.view.column(0)) == "alpha");
+    CHECK(cursor_name(f.view.column(1)) == "beta");
+    const auto& entries = f.view.column(2).folder().entries();
+    REQUIRE(entries.size() == 1);
+    CHECK(entries.front().name == "icon.svg");
+    f.browser.set_name_filter("svg");
+    REQUIRE(f.view.column_count() == 3);
+    REQUIRE(f.view.column(2).folder().entries().size() == 1);
+    CHECK(f.view.column(2).folder().entries().front().name == "icon.svg");
+}

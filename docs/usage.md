@@ -198,7 +198,17 @@ existing layout.
 ## Filter the current view
 
 The toolbar's Filter field matches filename substrings, ignoring ASCII case, in
-columns, grid and details. In Miller columns it filters only the last column;
+columns, grid and details. It always checks the full filename, even when extensions
+are hidden: `svg` finds names containing `svg`, including `.svg` extensions.
+
+Queries containing `*`, `?` or `[` use shell-style wildcard matching against the
+whole filename, ignoring case: `*.svg` matches SVG files, `icon?.svg` matches a
+single character after `icon`, and `icon[0-9].svg` matches a digit. Use `*svg*` to
+match anywhere with wildcards. Backslash escapes wildcard characters, such as
+`*\[draft\]*` for names containing `[draft]`. These are wildcard patterns, not
+regular expressions.
+
+In Miller columns the filter affects only the last column;
 ancestor columns remain visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
 returns focus to files. Escape or Clear removes it. It persists when switching
 views/folders and combines with picker type restrictions. New Folder clears the
