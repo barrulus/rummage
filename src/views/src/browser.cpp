@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <fnmatch.h>
 #include <format>
 #include <initializer_list>
 #include <string>
@@ -2815,13 +2816,18 @@ void Browser::set_name_filter(std::string text) {
 
 void Browser::apply_filters() {
     const auto fold = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
-    pane().entry_filter = [filter = picker_filter_, text = pane().filter_field.text(),
+    const auto& query = pane().filter_field.text();
+    const bool glob = query.find_first_of("*?[") != std::string::npos;
+    pane().entry_filter = [filter = picker_filter_, text = query, glob,
                            fold](const fs::Entry& entry) {
+        // Match the real filename, including extensions hidden by the view's display setting.
         return (!filter || filter(entry)) &&
-               (text.empty() || std::search(entry.name.begin(), entry.name.end(), text.begin(),
-                                            text.end(), [fold](unsigned char a, unsigned char b) {
-                                                return fold(a) == fold(b);
-                                            }) != entry.name.end());
+               (text.empty() ||
+                (glob ? fnmatch(text.c_str(), entry.name.c_str(), FNM_CASEFOLD) == 0
+                      : std::search(entry.name.begin(), entry.name.end(), text.begin(), text.end(),
+                                    [fold](unsigned char a, unsigned char b) {
+                                        return fold(a) == fold(b);
+                                    }) != entry.name.end()));
     };
     pane().columns.set_entry_filter(pane().entry_filter);
     pane().grid.set_entry_filter(pane().entry_filter);
