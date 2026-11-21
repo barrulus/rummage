@@ -58,7 +58,15 @@ public:
 
     [[nodiscard]] bool can_edit_icon() const;
 
-    [[nodiscard]] bool dirty() const { return draft_ != original_; }
+    [[nodiscard]] bool can_edit_permissions() const;
+
+    [[nodiscard]] std::uint16_t permissions() const { return permissions_; }
+
+    void set_permissions(std::uint16_t permissions);
+
+    [[nodiscard]] bool dirty() const {
+        return draft_ != original_ || permissions_ != (data_.mode & 0777);
+    }
 
     // Also used by keyboard interaction/tests; choosing only changes the draft.
     void choose_icon(std::string icon);
@@ -80,6 +88,8 @@ private:
         std::string icon_error;
         std::string default_icon;
         std::uint64_t device{0}, inode{0};
+        std::uint16_t mode{0};
+        bool owned{false};
     };
 
     struct Control {
@@ -103,6 +113,7 @@ private:
     bool icons_loading_{false};
     std::filesystem::path path_;
     Data data_;
+    std::uint16_t permissions_{0};
     std::string original_, draft_, error_, focus_{"close"};
     std::optional<std::string> catalogue_theme_;
     std::string resolved_theme_{"hicolor"};

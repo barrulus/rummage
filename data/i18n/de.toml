@@ -33,6 +33,11 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Space to preview" = "Leertaste für Vorschau"
+"Read" = "Lesen"
+"Write" = "Schreiben"
+"Execute" = "Ausführen"
+"Others" = "Andere"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "Animation für diese Zuordnung auswählen"
@@ -910,10 +915,10 @@ moves = "Bewegung"
 "Info pane" = "Infobereich"
 "Move a bookmark up, down" = "Lesezeichen verschieben (hoch, runter)"
 "Rename a bookmark" = "Lesezeichen umbenennen"
-"Scroll the info pane's text up" = "Infotext hochrollen"
-"Scroll the info pane's text down" = "Infotext runterrollen"
-"Scroll the info pane's text a page up" = "Infotext seitenweise hoch"
-"Scroll the info pane's text a page down" = "Infotext seitenweise runter"
+"Scroll the info pane up" = "Infotext hochrollen"
+"Scroll the info pane down" = "Infotext runterrollen"
+"Scroll the info pane a page up" = "Infotext seitenweise hoch"
+"Scroll the info pane a page down" = "Infotext seitenweise runter"
 
 # Archive advice
 "Check that the source still exists and is readable, then try again." = "Prüfen, ob die Quelle noch existiert und lesbar ist, dann erneut versuchen."

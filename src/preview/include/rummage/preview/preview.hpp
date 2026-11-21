@@ -116,8 +116,10 @@ struct Summary {
 };
 
 // Reads it for an entry of type mime whose provider makes kind. Blocking: call it on a worker.
+// thumbnail bounds text to the first 12 lines / 16 KiB, including logs; Quick Look is independent.
 [[nodiscard]] Summary summarize(const std::filesystem::path& path, std::string_view mime, Kind kind,
                                 const core::CancelToken& cancel,
-                                const std::shared_ptr<const fs::MimeDatabase>& types = {});
+                                const std::shared_ptr<const fs::MimeDatabase>& types = {},
+                                bool thumbnail = false);
 
 }  // namespace rummage::preview

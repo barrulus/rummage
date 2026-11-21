@@ -153,37 +153,35 @@ TEST_CASE("column view: reveal unfolds the columns down to a file") {
     CHECK(f.view.focus() == 2);
 }
 
-TEST_CASE("column view: filtering an ancestor safely closes its descendant columns") {
+TEST_CASE("column view: filtering affects only the last column and preserves ancestors") {
     Fixture f;
     f.view.reveal(f.root, f.root / "alpha" / "beta" / "photo.jpg");
     REQUIRE(f.settle());
     REQUIRE(f.view.column_count() == 3);
-
-    SUBCASE("the first column loses its selected folder") {
-        f.browser.set_name_filter("readme");
-        REQUIRE(f.view.column_count() == 1);
-        CHECK(f.view.focus() == 0);
-        const auto& entries = f.view.column(0).folder().model().listing().entries();
-        REQUIRE(entries.size() == 1);
-        CHECK(entries.front().name == "readme.md");
-    }
-    SUBCASE("a later column loses its selected folder") {
-        f.browser.set_entry_filter([](const rummage::fs::Entry& entry) {
-            return entry.name != "beta";
-        });
-        REQUIRE(f.view.column_count() == 2);
-        CHECK(f.view.focus() == 1);
-        const auto& entries = f.view.column(1).folder().model().listing().entries();
-        REQUIRE(entries.size() == 1);
-        CHECK(entries.front().name == "notes.txt");
-    }
-
+    f.browser.set_name_filter("readme");
+    REQUIRE(f.view.column_count() == 3);
+    CHECK(cursor_name(f.view.column(0)) == "alpha");
+    CHECK(cursor_name(f.view.column(1)) == "beta");
+    CHECK(f.view.column(0).folder().entries().size() == 3);
+    CHECK(f.view.column(1).folder().entries().size() == 2);
+    CHECK(f.view.column(2).folder().entries().empty());
+    f.browser.set_name_filter("photo");
+    REQUIRE(f.view.column(2).folder().entries().size() == 1);
+    CHECK(f.view.column(2).folder().entries().front().name == "photo.jpg");
+    // Close the child column: its parent now receives the filter.
+    f.view.column(1).folder().set_cursor(std::nullopt);
+    REQUIRE(f.view.column_count() == 2);
+    CHECK(f.view.column(1).folder().entries().empty());
+    CHECK(f.view.column(0).folder().entries().size() == 3);
     f.browser.set_name_filter("");
-    f.browser.set_entry_filter({});
-    f.view.reveal(f.root, f.root / "alpha" / "beta" / "photo.jpg");
+    REQUIRE(f.view.column(1).folder().entries().size() == 2);
+    f.view.column(1).folder().select_name("beta");
     REQUIRE(f.settle());
+    REQUIRE(f.view.column_count() == 3);
+    f.browser.set_entry_filter(
+        [](const rummage::fs::Entry& entry) { return entry.name != "beta"; });
     CHECK(f.view.column_count() == 3);
-    CHECK(cursor_name(f.view.column(2)) == "photo.jpg");
+    CHECK(cursor_name(f.view.column(1)) == "beta");
 }
 
 TEST_CASE("column view: a folder deleted or renamed under the cursor updates the columns") {
@@ -457,4 +455,17 @@ TEST_CASE("grid: Ctrl+plus, Ctrl+minus and Ctrl+0 change the cell size within it
     CHECK(f.grid.icon_size() == standard);
     f.press(XKB_KEY_plus);  // without Ctrl: nothing
     CHECK(f.grid.icon_size() == standard);
+}
+
+TEST_CASE("column view: revealing a filtered leaf keeps its nonmatching ancestors available") {
+    Fixture f;
+    f.browser.set_name_filter("photo");
+    f.view.reveal(f.root, f.root / "alpha" / "beta" / "photo.jpg");
+    REQUIRE(f.settle());
+    REQUIRE(f.view.column_count() == 3);
+    CHECK(cursor_name(f.view.column(0)) == "alpha");
+    CHECK(cursor_name(f.view.column(1)) == "beta");
+    CHECK(cursor_name(f.view.column(2)) == "photo.jpg");
+    CHECK(f.view.column(0).folder().entries().size() == 3);
+    CHECK(f.view.column(1).folder().entries().size() == 2);
 }

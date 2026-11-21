@@ -13,6 +13,7 @@
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/ui/text_field.hpp"
 #include "rummage/views/folder.hpp"
 
 namespace rummage::views {
@@ -54,6 +55,32 @@ public:
 
     void pointer(const ui::PointerEvent& event);
 
+    void set_submit_handler(std::function<std::string(std::string)> submit) {
+        submit_ = std::move(submit);
+    }
+
+    void set_copy_handler(std::function<void(std::string)> copy) { copy_ = std::move(copy); }
+
+    [[nodiscard]] bool editing() const { return editing_; }
+
+    [[nodiscard]] const std::string& text() const { return field_.text(); }
+
+    [[nodiscard]] const std::string& error() const { return error_; }
+
+    [[nodiscard]] std::uint64_t edit_generation() const { return edit_generation_; }
+
+    void cancel_edit() {
+        if (!editing_)
+            return;
+        editing_ = false;
+        ++edit_generation_;
+        error_.clear();
+        redraw_();
+    }
+
+    bool key(const ui::KeyEvent& event);
+    void paste(std::string_view text);
+
     // The folder of the step at a window point, as last drawn (nullopt: none, or the "…").
     [[nodiscard]] std::optional<std::filesystem::path> path_at(float x, float y) const;
 
@@ -75,6 +102,13 @@ private:
 
     std::function<void()> redraw_;
     Go go_;
+    std::function<std::string(std::string)> submit_;
+    std::function<void(std::string)> copy_;
+    ui::TextField field_;
+    bool editing_{false};
+    std::uint64_t edit_generation_{0};
+    std::filesystem::path path_;
+    std::string error_;
     std::filesystem::path home_;
     std::vector<Crumb> crumbs_;  // as last drawn
     std::vector<Shown> shown_;

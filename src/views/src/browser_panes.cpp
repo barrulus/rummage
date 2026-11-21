@@ -38,7 +38,16 @@ Browser::BrowsingArea::BrowsingArea(Browser& browser)
       tab_bar{browser.redraw_,
               {.select = [&browser](std::size_t index) { browser.select_tab(index); },
                .close = [&browser](std::size_t index) { browser.close_tab(index); },
-               .add = [&browser] { browser.new_tab(); }}} {}
+               .add = [&browser] { browser.new_tab(); }}} {
+    breadcrumb.set_submit_handler([&browser](std::string text) {
+        auto error = browser.go_to(text, false);
+        if (!error.empty())
+            browser.status_bar_.show_message(error, true);
+        return error;
+    });
+    breadcrumb.set_copy_handler(
+        [&browser](std::string text) { browser.copy_text(std::move(text)); });
+}
 
 void Browser::toggle_split() {
     if (!panes_enabled_)

@@ -30,6 +30,11 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Space to preview" = "Espacio para previsualizar"
+"Read" = "Leer"
+"Write" = "Escribir"
+"Execute" = "Ejecutar"
+"Others" = "Otros"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "Elige la animación de esta asignación"
@@ -903,10 +908,10 @@ moves = "mover"
 "Info pane" = "Panel de información"
 "Move a bookmark up, down" = "Subir o bajar un marcador"
 "Rename a bookmark" = "Renombrar un marcador"
-"Scroll the info pane's text up" = "Desplazar hacia arriba el texto del panel de información"
-"Scroll the info pane's text down" = "Desplazar hacia abajo el texto del panel de información"
-"Scroll the info pane's text a page up" = "Desplazar una página arriba el texto del panel de información"
-"Scroll the info pane's text a page down" = "Desplazar una página abajo el texto del panel de información"
+"Scroll the info pane up" = "Desplazar hacia arriba el texto del panel de información"
+"Scroll the info pane down" = "Desplazar hacia abajo el texto del panel de información"
+"Scroll the info pane a page up" = "Desplazar una página arriba el texto del panel de información"
+"Scroll the info pane a page down" = "Desplazar una página abajo el texto del panel de información"
 
 # Archive recovery advice
 "Check that the source still exists and is readable, then try again." = "Comprueba que el origen siga existiendo y sea legible e inténtalo de nuevo."

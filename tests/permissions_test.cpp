@@ -86,3 +86,50 @@ TEST_CASE("set_running through a link changes its target, as chmod does") {
     CHECK(result.changed.size() == 1);
     CHECK(mode_of(target) == 0744);
 }
+
+TEST_CASE("properties permissions: owned files and directories, including unreadable items") {
+    const TempDir dir;
+    const auto file = dir.write("file", "contents");
+    const auto folder = dir.path / "folder";
+    fs::create_directory(folder);
+    for (const auto& path : {file, folder}) {
+        REQUIRE(::chmod(path.c_str(), 0000) == 0);
+        struct stat info{};
+        REQUIRE(::lstat(path.c_str(), &info) == 0);
+        CHECK(rummage::fs::set_permissions(path, info.st_dev, info.st_ino, 0000, 0750).empty());
+        CHECK(mode_of(path) == 0750);
+    }
+}
+
+TEST_CASE("properties permissions: reject replaced items, links and stale modes") {
+    const TempDir dir;
+    const auto file = dir.write("file", "contents");
+    REQUIRE(::chmod(file.c_str(), 0644) == 0);
+    struct stat info{};
+    REQUIRE(::lstat(file.c_str(), &info) == 0);
+    SUBCASE("mode changed externally") {
+        REQUIRE(::chmod(file.c_str(), 0600) == 0);
+        CHECK_FALSE(
+            rummage::fs::set_permissions(file, info.st_dev, info.st_ino, 0644, 0755).empty());
+        CHECK(mode_of(file) == 0600);
+    }
+    SUBCASE("replacement has a different inode") {
+        fs::rename(file, dir.path / "old");
+        dir.write("file", "replacement");
+        REQUIRE(::chmod(file.c_str(), 0600) == 0);
+        CHECK_FALSE(
+            rummage::fs::set_permissions(file, info.st_dev, info.st_ino, 0644, 0755).empty());
+        CHECK(mode_of(file) == 0600);
+    }
+    SUBCASE("link cannot redirect a permission edit") {
+        fs::create_symlink(file, dir.path / "link");
+        CHECK_FALSE(
+            rummage::fs::set_permissions(dir.path / "link", info.st_dev, info.st_ino, 0644, 0755)
+                .empty());
+        CHECK(mode_of(file) == 0644);
+    }
+    SUBCASE("special bits cannot be added through the editor") {
+        CHECK(rummage::fs::set_permissions(file, info.st_dev, info.st_ino, 0644, 04755).empty());
+        CHECK(mode_of(file) == 0755);
+    }
+}

@@ -21,6 +21,11 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Space to preview" = "Espaço para visualizar"
+"Read" = "Leitura"
+"Write" = "Escrita"
+"Execute" = "Execução"
+"Others" = "Outros"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "Escolha a animação deste alvo"
@@ -894,10 +899,10 @@ moves = "mover"
 "Info pane" = "Painel de informações"
 "Move a bookmark up, down" = "Mover um favorito para cima ou para baixo"
 "Rename a bookmark" = "Renomear um favorito"
-"Scroll the info pane's text up" = "Rolar o texto do painel de informações para cima"
-"Scroll the info pane's text down" = "Rolar o texto do painel de informações para baixo"
-"Scroll the info pane's text a page up" = "Rolar o texto do painel de informações uma página acima"
-"Scroll the info pane's text a page down" = "Rolar o texto do painel de informações uma página abaixo"
+"Scroll the info pane up" = "Rolar o texto do painel de informações para cima"
+"Scroll the info pane down" = "Rolar o texto do painel de informações para baixo"
+"Scroll the info pane a page up" = "Rolar o texto do painel de informações uma página acima"
+"Scroll the info pane a page down" = "Rolar o texto do painel de informações uma página abaixo"
 
 # Archive recovery advice
 "Check that the source still exists and is readable, then try again." = "Verifique se a origem ainda existe e pode ser lida e tente novamente."

@@ -171,9 +171,9 @@ TEST_CASE("pointer shapes: buttons use hands and selectable metadata uses text c
     // The status bar's buttons are hands; its text is not.
     CHECK(f.find(CursorShape::pointer, [&](float x, float y) { return status.claims(x, y); }));
     CHECK(f.find(CursorShape::standard, [&](float x, float y) { return status.claims(x, y); }));
-    // The crumbs that open a folder are hands; the folder shown and the bar around are not.
+    // Ancestors navigate; the current segment and empty space edit the path.
     CHECK(f.find(CursorShape::pointer, [&](float x, float y) { return path.claims(x, y); }));
-    CHECK(f.find(CursorShape::standard, [&](float x, float y) { return path.claims(x, y); }));
+    CHECK_FALSE(f.find(CursorShape::standard, [&](float x, float y) { return path.claims(x, y); }));
     // The disk's eject icon is a hand; the places themselves are arrows.
     CHECK(f.find(CursorShape::pointer, [&](float x, float y) { return sidebar.claims(x, y); }));
     CHECK(f.find(CursorShape::standard, [&](float x, float y) { return sidebar.claims(x, y); }));

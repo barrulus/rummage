@@ -188,6 +188,7 @@ private:
     struct Slot {
         std::unique_ptr<Column> column;
         float width{kDefaultColumnWidth};
+        bool filtered{false};
         float x{0.0F};  // left edge in content coordinates, set by layout()
     };
 
@@ -197,6 +198,9 @@ private:
     std::unique_ptr<Column> make_column(std::shared_ptr<Folder> folder);
     void on_cursor_changed(const Folder* folder);
     void sync_after(std::size_t index);
+    void sync_columns(std::size_t index);
+    void refresh_filters(bool force = false);
+    bool filtering_{false};
     void truncate(std::size_t count);
     void go_left();
     void go_right();

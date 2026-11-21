@@ -2,11 +2,13 @@
 
 #include <cerrno>
 #include <cstdint>
+#include <fcntl.h>
 #include <filesystem>
 #include <format>
 #include <string>
 #include <sys/stat.h>
 #include <system_error>
+#include <unistd.h>
 #include <vector>
 
 namespace rummage::fs {
@@ -20,6 +22,31 @@ std::string error_text(const std::filesystem::path& path, int code) {
 }
 
 }  // namespace
+
+std::string set_permissions(const std::filesystem::path& path, std::uint64_t device,
+                            std::uint64_t inode, std::uint16_t before, std::uint16_t permissions) {
+    // O_PATH also works when the owner has removed all read/write permissions. /proc/self/fd
+    // addresses this pinned inode, so replacing the pathname cannot redirect chmod.
+    const int fd = ::open(path.c_str(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0)
+        return error_text(path, errno);
+    struct stat info{};
+    std::string error;
+    if (::fstat(fd, &info) != 0)
+        error = error_text(path, errno);
+    else if ((!S_ISREG(info.st_mode) && !S_ISDIR(info.st_mode)) || info.st_dev != device ||
+             info.st_ino != inode)
+        error = "The item was removed or replaced. Reopen Properties.";
+    else if (info.st_uid != ::geteuid())
+        error = error_text(path, EPERM);
+    else if ((info.st_mode & 07777) != before)
+        error = "Permissions changed since Properties was opened. Reopen Properties.";
+    else if (::chmod(std::format("/proc/self/fd/{}", fd).c_str(),
+                     (before & 07000) | (permissions & 0777)) != 0)
+        error = error_text(path, errno);
+    ::close(fd);
+    return error;
+}
 
 std::uint16_t running_mode(std::uint16_t mode, bool allow) noexcept {
     return static_cast<std::uint16_t>(allow ? (mode | S_IXUSR) : (mode & ~kAnyExecute));

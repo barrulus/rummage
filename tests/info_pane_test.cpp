@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -147,237 +148,6 @@ std::unique_ptr<rummage::ui::Offscreen> offscreen() {
 
 }  // namespace
 
-TEST_CASE("info pane: a long text file's page scrolls with the wheel over it, not elsewhere") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    InfoPane& pane = f.pane();
-    REQUIRE(pane.text_page().width > 0.0F);
-    CHECK(pane.text_max_offset() > 0.0F);
-    CHECK(pane.text_offset() == 0.0F);
-    const auto page = pane.text_page();
-    const float inside_x = page.x + (page.width / 2.0F);
-    // Beside the page, still on the pane (the name and the rows under it): the pane scrolls.
-    f.wheel(inside_x, page.bottom() + 10.0F, 3.0F);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == 0.0F);
-
-    // Over it: the page. Three notches of 48 logical pixels.
-    f.wheel(inside_x, page.y + (page.height / 2.0F), 3.0F);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(144.0F).epsilon(0.01));
-    CHECK(pane.text_offset() <= pane.text_max_offset());
-}
-
-TEST_CASE("info pane: Alt+J and Alt+K move the page three lines, Alt+PgDn and Alt+PgUp a page") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    InfoPane& pane = f.pane();
-    REQUIRE(pane.text_max_offset() > 0.0F);
-    const rummage::ui::Modifiers alt{.alt = true};
-    const float line = InfoPane::kTextLineHeight;
-
-    f.press(XKB_KEY_j, alt);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(3.0F * line).epsilon(0.01));
-    f.press(XKB_KEY_J, alt);  // Caps Lock
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(6.0F * line).epsilon(0.01));
-    f.press(XKB_KEY_k, alt);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(3.0F * line).epsilon(0.01));
-
-    // A page: what the page shows less a line.
-    const float before = pane.text_offset();
-    f.press(XKB_KEY_Page_Down, alt);
-    f.draw(1000ms);
-    const float page = pane.text_offset() - before;
-    CHECK(page > 10.0F * line);
-    CHECK(page < pane.text_page().height);
-    f.press(XKB_KEY_Page_Up, alt);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(before).epsilon(0.01));
-
-    // Past the top: stays at it.
-    f.press(XKB_KEY_Page_Up, alt);
-    f.press(XKB_KEY_Page_Up, alt);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == 0.0F);
-    // And the end.
-    for (int i = 0; i < 20; ++i) {
-        f.press(XKB_KEY_Page_Down, alt);
-    }
-    f.draw(2000ms);
-    CHECK(pane.text_offset() == pane.text_max_offset());
-}
-
-TEST_CASE(
-    "info pane: the keys work in a file picker, which has no panes, and not under Quick Look") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    f.browser.set_panes_enabled(false);
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    InfoPane& pane = f.pane();
-    const rummage::ui::Modifiers alt{.alt = true};
-    f.press(XKB_KEY_j, alt);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(3.0F * InfoPane::kTextLineHeight).epsilon(0.01));
-
-    // Quick Look covers the pane: the keys are not for it.
-    f.press(XKB_KEY_space);
-    REQUIRE(f.browser.quick_look().is_open());
-    f.press(XKB_KEY_j, alt);
-    f.press(XKB_KEY_Page_Down, alt);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == doctest::Approx(3.0F * InfoPane::kTextLineHeight).epsilon(0.01));
-}
-
-TEST_CASE("info pane: another file starts at the top, and a short one has nothing to scroll") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    InfoPane& pane = f.pane();
-    const rummage::ui::Modifiers alt{.alt = true};
-    f.press(XKB_KEY_j, alt);
-    f.draw(1000ms);
-    REQUIRE(pane.text_offset() > 0.0F);
-
-    f.press(XKB_KEY_Down);  // short.txt: five lines fit the page
-    REQUIRE(f.settle());
-    REQUIRE(pane.text_page().width > 0.0F);
-    CHECK(pane.text_offset() == 0.0F);
-    CHECK(pane.text_max_offset() == 0.0F);
-    f.press(XKB_KEY_j, alt);
-    f.wheel(pane.text_page().x + 10.0F, pane.text_page().y + 10.0F, 3.0F);
-    f.draw(1000ms);
-    CHECK(pane.text_offset() == 0.0F);
-
-    f.press(XKB_KEY_Up);  // back to long.txt: at the top, not where it was left
-    REQUIRE(f.settle());
-    CHECK(pane.text_max_offset() > 0.0F);
-    CHECK(pane.text_offset() == 0.0F);
-}
-
-TEST_CASE("info pane: a log larger than what is read opens at its newest lines") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    {
-        std::ofstream log{f.dir.path / "a.log"};
-        // More than is read (256 KiB): only then is what is shown the log's end.
-        for (int i = 0; i < 12000; ++i) {
-            log << "2026-11-13 12:00:" << i << " something happened\n";
-        }
-    }
-    // The initial scan may have completed before the log was created.
-    REQUIRE(run_until(f.loop, [&] {
-        const auto& entries = f.browser.columns().column(0).folder().entries();
-        return std::ranges::any_of(
-            entries, [](const rummage::fs::Entry& entry) { return entry.name == "a.log"; });
-    }));
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // a.log, before long.txt
-    REQUIRE(f.settle());
-    const auto* selected = f.browser.columns().column(0).folder().cursor_entry();
-    REQUIRE(selected != nullptr);
-    REQUIRE(selected->name == "a.log");
-    InfoPane& pane = f.pane();
-    // The log is read off the main thread; under load it can arrive after the folder settles.
-    REQUIRE(run_until(f.loop, [&] {
-        f.draw();
-        return pane.text_page().width > 0.0F;
-    }));
-    REQUIRE(pane.text_max_offset() > 0.0F);
-    CHECK(pane.text_offset() == pane.text_max_offset());
-}
-
-TEST_CASE("info pane: replacing or hiding a scrolling text page stops redraws") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_j, {.alt = true});
-    f.draw(16ms);
-    REQUIRE(f.pane().animating());
-    SUBCASE("multiple selection") { f.press(XKB_KEY_a, {.ctrl = true}); }
-    SUBCASE("hidden pane") { f.browser.set_info_visible(false); }
-    f.draw(16ms);
-    REQUIRE(f.pane().text_page().width == 0.0F);
-    CHECK_FALSE(f.pane().animating());
-    f.draw(1000ms);
-    CHECK_FALSE(f.browser.animating());
-}
-
-TEST_CASE("info pane: text pages fit short windows and reach their final line") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    SUBCASE("minimum window height") { f.height = 320; }
-    SUBCASE("short window") { f.height = 400; }
-    SUBCASE("default window height") { f.height = 640; }
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    const auto page = f.pane().text_page();
-    REQUIRE(page.width > 0.0F);
-    CHECK(page.y >= 0.0F);
-    CHECK(page.bottom() <= static_cast<float>(f.height));
-
-    f.press(XKB_KEY_Page_Down, {.alt = true});
-    f.draw(1000ms);
-    CHECK(f.pane().text_offset() > 0.0F);
-    CHECK(f.pane().text_offset() < page.height);
-    CHECK(f.pane().text_page().y == page.y);  // the outer pane did not move
-    for (int i = 0; i < 100; ++i) {
-        f.press(XKB_KEY_Page_Down, {.alt = true});
-    }
-    f.draw(2000ms);
-    CHECK(f.pane().text_offset() == f.pane().text_max_offset());
-    REQUIRE(f.pane().summary() != nullptr);
-    REQUIRE(f.pane().summary()->text.has_value());
-    const float content =
-        static_cast<float>(f.pane().summary()->text->lines.size()) * InfoPane::kTextLineHeight;
-    const float viewport = content - f.pane().text_max_offset();
-    CHECK(viewport < page.height);
-    CHECK(viewport >= InfoPane::kTextLineHeight);
-
-    // Resizing to a tall window expands the page and clamps the offset at the new end.
-    const float previous_max = f.pane().text_max_offset();
-    f.height = kHeight;
-    f.draw(1000ms);
-    CHECK(f.pane().text_max_offset() <= previous_max);
-    CHECK(f.pane().text_offset() == f.pane().text_max_offset());
-}
-
 TEST_CASE("info pane: metadata text takes Ctrl+A/C while file selection stays intact") {
     const auto gl = offscreen();
     if (!gl) {
@@ -454,40 +224,6 @@ TEST_CASE("info pane: a full long UTF-8 filename wraps and copies without visual
     CHECK(f.pane().property_bounds("name").height < name.height);
 }
 
-TEST_CASE("info pane: preview text supports words, lines, drag, shift and loaded-text selection") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);
-    REQUIRE(f.settle());
-    const auto page = f.pane().text_page();
-    REQUIRE_FALSE(page.empty());
-    using Kind = rummage::ui::PointerEvent::Kind;
-    const float x = page.x + 10.0F;
-    const float y = page.y + 10.0F;
-    f.click(x, y, 2);
-    CHECK(f.pane().selected_text() == "line");
-    f.click(x, y, 3);
-    CHECK(f.pane().selected_text() == "line 0 of a file that goes on\n");
-    f.pointer(Kind::press, x, y);
-    f.pointer(Kind::motion, x + 30.0F, y);
-    f.pointer(Kind::release, x + 30.0F, y);
-    const auto dragged = f.pane().selected_text();
-    CHECK_FALSE(dragged.empty());
-    f.click(x + 60.0F, y, 1, {.shift = true});
-    CHECK(f.pane().selected_text().size() > dragged.size());
-    f.press(XKB_KEY_a, {.ctrl = true});
-    CHECK(f.pane().selected_text().starts_with("line 0"));
-    CHECK(f.pane().selected_text().ends_with("line 199 of a file that goes on"));
-    f.press(XKB_KEY_End);
-    f.draw(1000ms);
-    CHECK(f.pane().text_offset() == f.pane().text_max_offset());
-    CHECK(f.pane().text_focused());
-}
-
 TEST_CASE("info pane: changing context or hiding it clears text selection and focus") {
     const auto gl = offscreen();
     if (!gl) {
@@ -535,164 +271,6 @@ TEST_CASE("info pane: collapsing more details forgets selection of a hidden prop
     CHECK(f.pane().selected_text().empty());
 }
 
-TEST_CASE(
-    "info pane: shaped Unicode clusters select accurately and long-line tails are reachable") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    const std::string first = "漢字 é 👩🏽‍💻 tail";
-    std::string long_line;
-    for (int i = 0; i < 150; ++i) {
-        long_line += "漢字";
-    }
-    long_line += " END";
-    std::ofstream{f.dir.path / "unicode.txt"} << first << "\n" << long_line << "\n";
-    auto& folder = f.browser.columns().column(0).folder();
-    REQUIRE(run_until(f.loop, [&] {
-        return std::ranges::any_of(folder.entries(),
-                                   [](const auto& entry) { return entry.name == "unicode.txt"; });
-    }));
-    folder.select_name("unicode.txt");
-    REQUIRE(f.settle());
-    const auto page = f.pane().text_page();
-    REQUIRE_FALSE(page.empty());
-    constexpr float size = 11.0F;
-    const auto first_layout = f.fonts.layout(first, size, 1.0F, 0.0F, rummage::ui::Ellipsis::end,
-                                             rummage::ui::Typeface::monospace);
-    const auto combining = std::ranges::find_if(
-        first_layout.glyphs, [&](const auto& glyph) { return glyph.cluster == first.find('e'); });
-    REQUIRE(combining != first_layout.glyphs.end());
-    const float combining_x = page.x + 8.0F + combining->x + combining->advance * 0.4F;
-    f.click(combining_x, page.y + 10.0F, 2);
-    CHECK(f.pane().selected_text() == "é");
-
-    const auto long_layout = f.fonts.layout(long_line, size, 1.0F, 0.0F, rummage::ui::Ellipsis::end,
-                                            rummage::ui::Typeface::monospace);
-    CHECK(f.pane().text_horizontal_max_offset() >= long_layout.width - (page.width - 16.0F));
-    rummage::ui::PointerEvent wheel;
-    wheel.kind = rummage::ui::PointerEvent::Kind::scroll;
-    wheel.x = page.x + page.width / 2.0F;
-    wheel.y = page.y + 10.0F;
-    wheel.wheel_y = 1000.0F;
-    wheel.modifiers.shift = true;
-    f.browser.pointer(wheel, f.now);
-    f.draw(2000ms);
-    CHECK(f.pane().text_horizontal_offset() == f.pane().text_horizontal_max_offset());
-    const auto tail = std::ranges::find_if(long_layout.glyphs, [&](const auto& glyph) {
-        return glyph.cluster == long_line.find("END");
-    });
-    REQUIRE(tail != long_layout.glyphs.end());
-    const float tail_x =
-        page.x + 8.0F + tail->x + tail->advance * 0.4F - f.pane().text_horizontal_offset();
-    REQUIRE(tail_x > page.x);
-    REQUIRE(tail_x < page.right());
-    f.click(tail_x, page.y + 10.0F + InfoPane::kTextLineHeight, 2);
-    CHECK(f.pane().selected_text() == "END");
-}
-
-TEST_CASE("info pane: large previews retain selection at the end of the document") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    {
-        std::ofstream source{f.dir.path / "large.c"};
-        for (int i = 0; i < 5000; ++i) {
-            source << "int variable_" << i << " = " << i << ";\n";
-        }
-        source << "last_line\n";
-    }
-    auto& folder = f.browser.columns().column(0).folder();
-    REQUIRE(run_until(f.loop, [&] {
-        return std::ranges::any_of(folder.entries(),
-                                   [](const auto& entry) { return entry.name == "large.c"; });
-    }));
-    folder.select_name("large.c");
-    // Source files can need asynchronous MIME detection before drawing requests their text.
-    // Browser::loading() does not include that sniff, so settle() can stop at the metadata
-    // preview or return just as its final draw starts loading text. Keep drawing and wait for
-    // the text result itself; the watchdog still fails if no text preview is produced.
-    REQUIRE(run_until(f.loop, [&] {
-        f.draw();
-        const auto* summary = f.pane().summary();
-        return !f.browser.loading() && summary && summary->text;
-    }));
-    REQUIRE(f.pane().summary());
-    REQUIRE(f.pane().summary()->text);
-    REQUIRE(f.pane().summary()->text->lines.size() == 5001);
-    CHECK(f.pane().text_geometry_lines() == 0);
-    const auto page = f.pane().text_page();
-    REQUIRE_FALSE(page.empty());
-    f.click(page.x + 12.0F, page.y + 10.0F);
-    f.press(XKB_KEY_End);
-    f.draw(2000ms);
-    CHECK(f.pane().text_offset() == f.pane().text_max_offset());
-    const float last_y =
-        page.y + 8.0F + 5000.0F * InfoPane::kTextLineHeight - f.pane().text_offset() + 2.0F;
-    REQUIRE(last_y < page.bottom());
-    f.click(page.x + 12.0F, last_y, 2);
-    CHECK(f.pane().selected_text() == "last_line");
-    CHECK(f.pane().text_geometry_lines() <= 64);
-
-    // Selecting and painting many pages must not keep geometry for every visited line.
-    f.press(XKB_KEY_a, {.ctrl = true});
-    for (int i = 0; i < 8; ++i) {
-        f.press(XKB_KEY_Page_Up);
-        f.draw(1000ms);
-        CHECK(f.pane().text_geometry_lines() <= 64);
-    }
-    CHECK(f.pane().selected_text().ends_with("last_line"));
-
-    // Hit testing remains exact even outside the painted page during a drag.
-    f.press(XKB_KEY_Home);
-    f.draw(1000ms);
-    f.pointer(rummage::ui::PointerEvent::Kind::press, page.x + 8.0F, page.y + 10.0F);
-    f.pointer(rummage::ui::PointerEvent::Kind::release, page.right() + 100.0F,
-              page.y + 8.0F + 100.0F * InfoPane::kTextLineHeight + 2.0F);
-    CHECK(f.pane().selected_text().ends_with("int variable_100 = 100;"));
-    CHECK(f.pane().text_geometry_lines() <= 64);
-}
-
-TEST_CASE("info pane: a short wide preview pans sideways but vertical wheel scrolls its metadata") {
-    const auto gl = offscreen();
-    if (!gl) {
-        return;
-    }
-    Fixture f;
-    f.height = 320;
-    std::ofstream{f.dir.path / "wide.txt"} << std::string(600, 'w') << "\n";
-    auto& folder = f.browser.columns().column(0).folder();
-    REQUIRE(run_until(f.loop, [&] {
-        return std::ranges::any_of(folder.entries(),
-                                   [](const auto& entry) { return entry.name == "wide.txt"; });
-    }));
-    folder.select_name("wide.txt");
-    f.pane().set_expanded(true);
-    REQUIRE(f.settle());
-    const auto page = f.pane().text_page();
-    REQUIRE_FALSE(page.empty());
-    REQUIRE(f.pane().text_max_offset() == 0.0F);
-    REQUIRE(f.pane().text_horizontal_max_offset() > 0.0F);
-    const auto name = f.pane().property_bounds("name");
-    rummage::ui::PointerEvent horizontal;
-    horizontal.kind = rummage::ui::PointerEvent::Kind::scroll;
-    horizontal.x = page.x + page.width / 2.0F;
-    horizontal.y = page.y + 10.0F;
-    horizontal.wheel_y = 2.0F;
-    horizontal.modifiers.shift = true;
-    f.browser.pointer(horizontal, f.now);
-    f.draw(1000ms);
-    CHECK(f.pane().text_horizontal_offset() > 0.0F);
-    CHECK(f.pane().property_bounds("name").y == name.y);
-    f.wheel(horizontal.x, horizontal.y, 3.0F);
-    f.draw(1000ms);
-    CHECK(f.pane().text_offset() == 0.0F);
-    CHECK(f.pane().property_bounds("name").y < name.y);
-}
-
 TEST_CASE("info pane: modifier keys keep text focus and file navigation drops it before drawing") {
     const auto gl = offscreen();
     if (!gl) {
@@ -736,16 +314,14 @@ TEST_CASE("info pane: moving to the next file keeps the summary before until the
     f.press(XKB_KEY_Down);  // short.txt
     REQUIRE(f.settle());
     REQUIRE(f.pane().summary());
-    const float page = f.pane().text_page().height;
     const float size_row = f.pane().property_bounds("Size.value").y;
-    REQUIRE(page > 0.0F);
 
     // long.txt: its summary is read on a worker. Until it arrives the page of short.txt stays,
     // so the rows under it do not jump up (an icon in its place) and back for a frame.
     f.press(XKB_KEY_Up);
     f.draw();
     CHECK(f.pane().summary() == nullptr);
-    CHECK(f.pane().text_page().empty());  // drawn only: nothing to point at or select
+    CHECK(f.pane().thumbnail_bounds().empty());  // drawn only: nothing to point at or select
     CHECK(f.pane().property_bounds("Size.value").y == size_row);
     CHECK(f.pane().selected_text().empty());  // drawn only
     // Its rows are short.txt's: they cannot be selected (or copied) under long.txt's name.
@@ -758,34 +334,62 @@ TEST_CASE("info pane: moving to the next file keeps the summary before until the
     REQUIRE(f.settle());
     REQUIRE(f.pane().summary());
     REQUIRE(f.pane().summary()->text);
-    CHECK(f.pane().summary()->text->lines.size() == 200);
-    CHECK(f.pane().text_offset() == 0.0F);
-    CHECK(f.pane().text_page().height > page);  // long.txt's page is taller
+    CHECK(f.pane().summary()->text->lines.size() == 12);
+    CHECK(f.pane().scroll_offset() == 0.0F);
+    CHECK_FALSE(f.pane().thumbnail_bounds().empty());
 }
 
-TEST_CASE("info pane: the summary before keeps where it was scrolled to until it is replaced") {
+TEST_CASE("info pane: text is a bounded thumbnail and Space opens the readable Quick Look") {
     const auto gl = offscreen();
-    if (!gl) {
+    if (!gl)
         return;
-    }
     Fixture f;
     REQUIRE(f.settle());
-    f.press(XKB_KEY_Down);  // long.txt
-    REQUIRE(f.settle());
-    const auto page = f.pane().text_page();
-    REQUIRE(page.height > 0.0F);
-    f.wheel(page.x + (page.width / 2.0F), page.y + (page.height / 2.0F), 3.0F);
-    f.draw(1000ms);
-    const float scrolled = f.pane().text_offset();
-    REQUIRE(scrolled > 0.0F);
-
-    // short.txt: until its summary arrives, long.txt's page stays where it was, not at its top.
     f.press(XKB_KEY_Down);
-    f.draw();
-    REQUIRE(f.pane().summary() == nullptr);
-    CHECK(f.pane().text_offset() == scrolled);
+    REQUIRE(f.settle());
+    const auto* summary = f.pane().summary();
+    REQUIRE(summary);
+    REQUIRE(summary->text);
+    CHECK(summary->text->lines.size() == 12);
+    CHECK(summary->text->lines.front() == "line 0 of a file that goes on");
+    CHECK(summary->text->truncated);
+    const auto box = f.pane().thumbnail_bounds();
+    REQUIRE_FALSE(box.empty());
+    CHECK(box.height <= 12 * InfoPane::kTextLineHeight + 16);
+    f.wheel(box.x + 10, box.y + 10, 3);
+    f.draw(1000ms);
+    CHECK_FALSE(f.pane().text_focused());
+    CHECK(f.pane().selected_text().empty());
+    CHECK_FALSE(f.pane().property_bounds("preview-hint").empty());
+    f.press(XKB_KEY_space);
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.quick_look().is_open());
+    const auto* content = f.browser.quick_look().content();
+    REQUIRE(content);
+    const auto* text = std::get_if<rummage::preview::Text>(content);
+    REQUIRE(text);
+    CHECK(text->lines.size() == 200);
+    CHECK(text->lines.back() == "line 199 of a file that goes on");
+}
 
+TEST_CASE("info pane: applying permissions refreshes cached metadata without changing mtime") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    Fixture f;
+    REQUIRE(::chmod((f.dir.path / "long.txt").c_str(), 0644) == 0);
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Down);
     REQUIRE(f.settle());
     REQUIRE(f.pane().summary());
-    CHECK(f.pane().text_offset() == 0.0F);  // the next one starts at the top
+    CHECK(f.pane().summary()->info.permissions == "-rw-r--r--");
+    f.browser.show_properties();
+    REQUIRE(f.settle());
+    auto& properties = f.browser.properties_dialog();
+    properties.set_permissions(0600);
+    properties.apply();
+    REQUIRE(run_until(f.loop, [&] { return !properties.saving(); }));
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    CHECK(f.pane().summary()->info.permissions == "-rw-------");
 }

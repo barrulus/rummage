@@ -20,6 +20,11 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Space to preview" = "スペースキーでプレビュー"
+"Read" = "読み取り"
+"Write" = "書き込み"
+"Execute" = "実行"
+"Others" = "その他"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "この対象のアニメーションを選択"
@@ -893,10 +898,10 @@ moves = "移動"
 "Info pane" = "情報ペイン"
 "Move a bookmark up, down" = "ブックマークを上、下へ移動"
 "Rename a bookmark" = "ブックマークの名前を変更"
-"Scroll the info pane's text up" = "情報ペインのテキストを上にスクロール"
-"Scroll the info pane's text down" = "情報ペインのテキストを下にスクロール"
-"Scroll the info pane's text a page up" = "情報ペインのテキストを 1 ページ上にスクロール"
-"Scroll the info pane's text a page down" = "情報ペインのテキストを 1 ページ下にスクロール"
+"Scroll the info pane up" = "情報ペインのテキストを上にスクロール"
+"Scroll the info pane down" = "情報ペインのテキストを下にスクロール"
+"Scroll the info pane a page up" = "情報ペインのテキストを 1 ページ上にスクロール"
+"Scroll the info pane a page down" = "情報ペインのテキストを 1 ページ下にスクロール"
 
 # Archive recovery advice
 "Check that the source still exists and is readable, then try again." = "元ファイルが存在し、読み取り可能か確認して再試行してください。"
