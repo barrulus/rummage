@@ -1,10 +1,12 @@
 #include "rummage/views/properties_dialog.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <format>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "content_details.hpp"
@@ -12,6 +14,7 @@
 #include "rummage/fs/directory.hpp"
 #include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
+#include "rummage/fs/permissions.hpp"
 #include "rummage/views/dialog_chrome.hpp"
 #include "rummage/views/format.hpp"
 #include "rummage/views/media_details.hpp"
@@ -53,6 +56,7 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     picking_ = false;
     editable_ = editable;
     data_ = {};
+    permissions_ = 0;
     draft_.clear();
     original_.clear();
     error_.clear();
@@ -83,12 +87,16 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
             if (::stat(path.c_str(), &info) == 0) {
                 result.device = info.st_dev;
                 result.inode = info.st_ino;
+                result.mode = static_cast<std::uint16_t>(info.st_mode & 07777);
+                result.owned = info.st_uid == ::geteuid() && !result.entry.is_link &&
+                               (S_ISREG(info.st_mode) || S_ISDIR(info.st_mode));
             }
             return result;
         },
         [this](Data data) {
             data_ = std::move(data);
             original_ = draft_ = data_.icon;
+            permissions_ = data_.mode & 0777;
             error_ = data_.info.error;
             loading_ = false;
             focus_ = can_edit_icon() ? "change" : "close";
@@ -110,6 +118,18 @@ void PropertiesDialog::close() {
 bool PropertiesDialog::can_edit_icon() const {
     return open_ && !loading_ && !saving_ && editable_ && data_.entry.is_directory() &&
            data_.info.error.empty() && data_.icon_error.empty();
+}
+
+bool PropertiesDialog::can_edit_permissions() const {
+    return open_ && !loading_ && !saving_ && editable_ && data_.owned;
+}
+
+void PropertiesDialog::set_permissions(std::uint16_t permissions) {
+    if (!can_edit_permissions())
+        return;
+    permissions_ = permissions & 0777;
+    error_.clear();
+    redraw_();
 }
 
 void PropertiesDialog::choose_icon(std::string icon) {
@@ -138,45 +158,86 @@ void PropertiesDialog::pick_icon() {
 }
 
 void PropertiesDialog::apply() {
-    if (!can_edit_icon() || !dirty())
+    if ((!can_edit_icon() && !can_edit_permissions()) || !dirty())
         return;
+
+    struct Saved {
+        std::string error;
+        bool mode{false};
+        bool icon{false};
+    };
+
     saving_ = true;
     error_.clear();
     save_job_ = pool_.submit(
         core::Priority::visible,
-        [path = path_, icon = draft_, device = data_.device,
-         inode = data_.inode](const core::CancelToken&) {
-            struct stat info{};
-            if (::stat(path.c_str(), &info) != 0 || info.st_dev != device || info.st_ino != inode)
-                return std::string{"The folder was removed or replaced. Reopen Properties."};
-            if (!icon.empty()) {
-                // Reject unsupported paths without ever writing a setting that cannot be read.
-                if (icon.find('\0') != std::string::npos || icon.size() > 4096)
-                    return std::string{"Invalid icon name or path"};
-                if (icon.find('/') != std::string::npos && !icon.starts_with('/') &&
-                    !icon.starts_with("./"))
-                    return std::string{"Use an absolute image path or a path beginning with ./"};
-                if (icon.find('/') != std::string::npos) {
-                    const auto file =
-                        icon.starts_with("./") ? path / icon : std::filesystem::path{icon};
-                    if ((file.extension() != ".svg" && file.extension() != ".png") ||
-                        ui::IconTheme::render(file, 48).empty())
-                        return std::string{"Choose a readable SVG or PNG image"};
+        [path = path_, icon = draft_, device = data_.device, inode = data_.inode,
+         before = data_.mode, permissions = permissions_,
+         icon_changed = draft_ != original_](const core::CancelToken&) {
+            Saved saved;
+            const auto save = [&]() -> std::string {
+                struct stat info{};
+                if (::stat(path.c_str(), &info) != 0 || info.st_dev != device ||
+                    info.st_ino != inode)
+                    return std::string{"The folder was removed or replaced. Reopen Properties."};
+                if (icon_changed && !icon.empty()) {
+                    // Reject unsupported paths without ever writing a setting that cannot be read.
+                    if (icon.find('\0') != std::string::npos || icon.size() > 4096)
+                        return std::string{"Invalid icon name or path"};
+                    if (icon.find('/') != std::string::npos && !icon.starts_with('/') &&
+                        !icon.starts_with("./"))
+                        return std::string{
+                            "Use an absolute image path or a path beginning with ./"};
+                    if (icon.find('/') != std::string::npos) {
+                        const auto file =
+                            icon.starts_with("./") ? path / icon : std::filesystem::path{icon};
+                        if ((file.extension() != ".svg" && file.extension() != ".png") ||
+                            ui::IconTheme::render(file, 48).empty())
+                            return std::string{"Choose a readable SVG or PNG image"};
+                    }
                 }
-            }
-            return fs::save_folder_icon(path, icon);
+                // Save the icon before a new mode can remove directory write access.
+                if (icon_changed) {
+                    const auto error = fs::save_folder_icon(path, icon);
+                    if (!error.empty())
+                        return error;
+                    saved.icon = true;
+                }
+                if (permissions != (before & 0777)) {
+                    const auto error =
+                        fs::set_permissions(path, device, inode, before, permissions);
+                    if (!error.empty())
+                        return error;
+                    saved.mode = true;
+                }
+                return {};
+            };
+            saved.error = save();
+            return saved;
         },
-        [this](std::string error) {
+        [this](Saved result) {
             saving_ = false;
-            error_ = std::move(error);
+            error_ = std::move(result.error);
+            if (result.icon)
+                original_ = draft_;
+            if (result.mode) {
+                data_.mode = static_cast<std::uint16_t>((data_.mode & 07000) | permissions_);
+                data_.info.permissions = preview::permissions_text(
+                    static_cast<std::uint32_t>(data_.mode) |
+                    static_cast<std::uint32_t>(data_.entry.is_directory() ? S_IFDIR : S_IFREG));
+            }
             if (error_.empty()) {
                 original_ = draft_;
                 auto changed = changed_;
                 close();
                 if (changed)
                     changed();
-            } else
+            } else {
+                // An icon save may have succeeded before a permission change failed.
+                if (changed_)
+                    changed_();
                 redraw_();
+            }
         });
     redraw_();
 }
@@ -222,9 +283,18 @@ void PropertiesDialog::filter() {
 std::vector<std::string> PropertiesDialog::focus_order() const {
     if (picking_)
         return {"search", "grid", "custom", "back", "use"};
-    if (can_edit_icon())
-        return {"change", "default", "close", "apply"};
-    return {"close"};
+    std::vector<std::string> order;
+    if (can_edit_icon()) {
+        order.push_back("change");
+        order.push_back("default");
+    }
+    if (can_edit_permissions())
+        for (int bit = 8; bit >= 0; --bit)
+            order.push_back("permission:" + std::to_string(bit));
+    order.push_back("close");
+    if (can_edit_icon() || can_edit_permissions())
+        order.push_back("apply");
+    return order;
 }
 
 void PropertiesDialog::accept_custom() {
@@ -233,7 +303,9 @@ void PropertiesDialog::accept_custom() {
 }
 
 void PropertiesDialog::activate(std::string_view id) {
-    if (id == "close")
+    if (id.starts_with("permission:") && id.size() == 12 && id.back() >= '0' && id.back() <= '8') {
+        set_permissions(static_cast<std::uint16_t>(permissions_ ^ (1U << (id.back() - '0'))));
+    } else if (id == "close")
         close();
     else if (id == "apply")
         apply();
@@ -309,7 +381,7 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
                 if (control.id == focus_)
                     rect = control.rect;
         if (focus_ == "change" || focus_ == "default" || focus_ == "search" || focus_ == "custom" ||
-            focus_ == "grid") {
+            focus_ == "grid" || focus_.starts_with("permission:")) {
             if (rect.y < content_.y)
                 scroll_ = std::max(0.0F, scroll_ + rect.y - content_.y);
             else if (rect.bottom() > content_.bottom())
@@ -467,6 +539,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         !loading_ && thumbnails && !data_.entry.is_directory() &&
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
     const float row_height = 26.0F;
+    const bool permission_controls = editable_ && data_.owned;
     const bool folder_controls = data_.entry.is_directory() && editable_;
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
@@ -518,6 +591,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     float natural_width = 48 + std::max(value_offset + value_width,
                                         (preview ? 144.0F : 56.0F) + 20 +
                                             std::max(measure(name, 16), measure(type, 12)));
+    if (permission_controls)
+        natural_width = std::max(natural_width, 460.0F);
     if (folder_controls)
         natural_width = std::max(
             natural_width,
@@ -560,11 +635,12 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                             : "Changing this icon affects the linked folder.");
     const float hint_height = SelectableText::height(renderer, hint, room, 12);
     const float message_height = SelectableText::height(renderer, i18n::tr(message), room, 12);
-    const float natural_height = picking_ ? 550.0F
-                                          : rows_top + rows_height +
-                                                (folder_controls ? 40 + icon_height + 8 : 0) +
-                                                (folder_hint ? hint_height + 8 : 0) +
-                                                (message.empty() ? 0 : message_height + 8) + 70;
+    const float natural_height = picking_
+                                     ? 550.0F
+                                     : rows_top + rows_height + (permission_controls ? 132 : 0) +
+                                           (folder_controls ? 40 + icon_height + 8 : 0) +
+                                           (folder_hint ? hint_height + 8 : 0) +
+                                           (message.empty() ? 0 : message_height + 8) + 70;
     const float height = std::min(natural_height, bounds.height - 24.0F);
     const ui::Rect card{bounds.x + (bounds.width - width) / 2,
                         bounds.y + (bounds.height - height) / 2, width, height};
@@ -698,6 +774,28 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         };
         for (const auto& [label, value] : rows)
             row(label, value);
+        if (permission_controls) {
+            const float label_space = std::min(90.0F, room * 0.28F);
+            const float cell = (room - label_space) / 3;
+            const std::array<std::string_view, 3> labels{"Read", "Write", "Execute"};
+            const std::array<std::string_view, 3> owners{"Owner", "Group", "Others"};
+            for (std::size_t col = 0; col < 3; ++col)
+                text(i18n::tr(labels[col]), left + label_space + static_cast<float>(col) * cell, y,
+                     12, cell, true);
+            y += 24;
+            for (std::size_t row_index = 0; row_index < 3; ++row_index) {
+                text(i18n::tr(owners[row_index]), left, y + 6, 12, label_space, true);
+                for (std::size_t col = 0; col < 3; ++col) {
+                    const auto bit = 8 - (row_index * 3 + col);
+                    const bool checked = (permissions_ & (1U << bit)) != 0;
+                    button("permission:" + std::to_string(bit), checked ? "✓" : "−",
+                           {left + label_space + static_cast<float>(col) * cell, y, cell - 6, 28},
+                           can_edit_permissions(), checked);
+                }
+                y += 34;
+            }
+            y += 6;
+        }
         if (folder_controls) {
             button("change", "Change Icon…", {left, y, 144, 32}, can_edit_icon());
             button("default", "Default", {left + 152, y, 92, 32},
@@ -729,13 +827,13 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         button("use", "Use Custom", {card.right() - 144, footer, 120, 34}, !custom_.text().empty(),
                true);
     } else {
-        button(
-            "close", dirty() ? "Cancel" : "Close",
-            {card.right() - (data_.entry.is_directory() && editable_ ? 232 : 124), footer, 100, 34},
-            !saving_);
-        if (data_.entry.is_directory() && editable_)
+        button("close", dirty() ? "Cancel" : "Close",
+               {card.right() - ((folder_controls || permission_controls) ? 232 : 124), footer, 100,
+                34},
+               !saving_);
+        if (folder_controls || permission_controls)
             button("apply", saving_ ? "Saving…" : "Apply", {card.right() - 124, footer, 100, 34},
-                   can_edit_icon() && dirty(), true);
+                   (can_edit_icon() || can_edit_permissions()) && dirty(), true);
     }
 }
 

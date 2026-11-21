@@ -211,6 +211,7 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    area().breadcrumb.cancel_edit();
     info_pane_.clear_text_focus();
     leave_motion();
     remember_folder(pane());
@@ -422,10 +423,10 @@ void Browser::take_selection(bool cut) {
                 {{"text/plain",
                   std::string{i18n::tr("Archive selection: paste into Rummage to extract")}}});
         const auto paste_keys = keys_for(Command::paste);
-        show_message(i18n::trf("{} extracts the selected archive contents",
-                               paste_keys.empty() ? std::string{i18n::tr("Paste")}
-                                                  : i18n::keys(paste_keys)),
-                     false);
+        show_message(
+            i18n::trf("{} extracts the selected archive contents",
+                      paste_keys.empty() ? std::string{i18n::tr("Paste")} : i18n::keys(paste_keys)),
+            false);
         return;
     }
     if (system_.offer) {
@@ -734,65 +735,77 @@ void Browser::paste_text() {
     const auto settings_generation = settings_.generation();
     const bool for_properties = properties_.is_open();
     const auto properties_generation = properties_.generation();
+    const bool for_breadcrumb = area().breadcrumb.editing();
+    const auto breadcrumb_generation = area().breadcrumb.edit_generation();
+    const auto breadcrumb_area = context_area_;
+    const auto* breadcrumb_owner = areas_[breadcrumb_area].get();
     for (const std::string_view type : kTextTypes) {
         if (std::ranges::find(types, type) == types.end()) {
             continue;
         }
         ++operations_;
-        system_.read(
-            std::string{type}, [this, alive = alive_, for_confirm, confirm_generation, for_password,
-                                password_generation, for_properties, properties_generation,
-                                for_settings, settings_generation, for_batch_rename,
-                                batch_rename_generation](const std::optional<std::string>& text) {
-                if (!*alive) {
-                    return;
-                }
-                --operations_;
-                if (!text) {
-                    return;
-                }
-                if (for_batch_rename) {
-                    if (batch_rename_.is_open() &&
-                        batch_rename_.generation() == batch_rename_generation)
-                        batch_rename_.paste(*text);
-                    return;
-                }
-                if (for_confirm) {
-                    if (confirm_.is_open() && confirm_.generation() == confirm_generation)
-                        confirm_.paste(*text);
-                    return;
-                }
-                if (for_password) {
-                    if (password_.is_open() && password_.generation() == password_generation)
-                        password_.paste(*text);
-                    return;
-                }
-                if (for_settings) {
-                    if (settings_.is_open() && settings_.generation() == settings_generation)
-                        settings_.paste(*text);
-                    return;
-                }
-                if (for_properties) {
-                    if (properties_.is_open() && properties_.generation() == properties_generation)
-                        properties_.paste(*text);
-                    return;
-                }
-                if (mount_password_.is_open()) {
-                    mount_password_.paste(*text);
-                } else if (location_.is_open()) {
-                    location_.paste(*text);
-                } else if (palette_.is_open()) {
-                    palette_.paste(*text);
-                } else if (sidebar_.renaming()) {
-                    sidebar_.paste(*text);
-                } else if (filter_focused_) {
-                    pane().filter_field.insert(
-                        std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
-                    apply_filters();
-                } else {
-                    editor_.paste(*text);
-                }
-            });
+        system_.read(std::string{type}, [this, alive = alive_, for_confirm, confirm_generation,
+                                         for_password, password_generation, for_properties,
+                                         properties_generation, for_settings, settings_generation,
+                                         for_batch_rename, batch_rename_generation, for_breadcrumb,
+                                         breadcrumb_generation, breadcrumb_area,
+                                         breadcrumb_owner](const std::optional<std::string>& text) {
+            if (!*alive) {
+                return;
+            }
+            --operations_;
+            if (!text) {
+                return;
+            }
+            if (for_batch_rename) {
+                if (batch_rename_.is_open() &&
+                    batch_rename_.generation() == batch_rename_generation)
+                    batch_rename_.paste(*text);
+                return;
+            }
+            if (for_confirm) {
+                if (confirm_.is_open() && confirm_.generation() == confirm_generation)
+                    confirm_.paste(*text);
+                return;
+            }
+            if (for_password) {
+                if (password_.is_open() && password_.generation() == password_generation)
+                    password_.paste(*text);
+                return;
+            }
+            if (for_settings) {
+                if (settings_.is_open() && settings_.generation() == settings_generation)
+                    settings_.paste(*text);
+                return;
+            }
+            if (for_properties) {
+                if (properties_.is_open() && properties_.generation() == properties_generation)
+                    properties_.paste(*text);
+                return;
+            }
+            if (for_breadcrumb) {
+                auto* owner = areas_[breadcrumb_area].get();
+                if (owner == breadcrumb_owner && owner && owner->breadcrumb.editing() &&
+                    owner->breadcrumb.edit_generation() == breadcrumb_generation)
+                    owner->breadcrumb.paste(*text);
+                return;
+            }
+            if (mount_password_.is_open()) {
+                mount_password_.paste(*text);
+            } else if (location_.is_open()) {
+                location_.paste(*text);
+            } else if (palette_.is_open()) {
+                palette_.paste(*text);
+            } else if (sidebar_.renaming()) {
+                sidebar_.paste(*text);
+            } else if (filter_focused_) {
+                pane().filter_field.insert(
+                    std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
+                apply_filters();
+            } else {
+                editor_.paste(*text);
+            }
+        });
         return;
     }
 }
@@ -2284,6 +2297,7 @@ void Browser::show_properties() {
     properties_.open(
         path,
         [this, folder, path] {
+            info_pane_.refresh();
             set_places(places_);
             const auto refresh = [&path](Folder& owner) {
                 if (owner.path() == path.parent_path())
@@ -3549,7 +3563,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
         if (owner.breadcrumb.claims(x, y))
-            return hand(owner.breadcrumb.clickable_at(x, y));
+            return owner.breadcrumb.editing() ? Shape::text
+                                              : hand(owner.breadcrumb.clickable_at(x, y));
     }
     if (sidebar_drawn_ && sidebar_.claims(x, y)) {
         return hand(sidebar_.clickable_at(x, y));
@@ -3558,7 +3573,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         return hand(area().tab_bar.clickable_at(x, y));
     }
     if (area().breadcrumb.claims(x, y)) {
-        return hand(area().breadcrumb.clickable_at(x, y));
+        return area().breadcrumb.editing() ? Shape::text
+                                           : hand(area().breadcrumb.clickable_at(x, y));
     }
     if (status_bar_.claims(x, y)) {
         return hand(status_bar_.clickable_at(x, y));
@@ -3790,6 +3806,8 @@ void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point 
         }
         return;
     }
+    if (event.kind == Kind::press && !area().breadcrumb.claims(event.x, event.y))
+        area().breadcrumb.cancel_edit();
     dispatch_area_pointer(event, now);
 }
 
@@ -5035,6 +5053,14 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             return true;
         }
         return sidebar_.rename_key(event);  // every key is the bookmark's label meanwhile
+    }
+    if (area().breadcrumb.editing()) {
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V))
+            paste_text();
+        else
+            area().breadcrumb.key(event);
+        return true;
     }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
         if (command_for(event) == Command::new_folder) {

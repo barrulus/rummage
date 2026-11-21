@@ -191,3 +191,13 @@ For programs and scripts, **Allow Running as Program** adds owner execute permis
 A small icon badge and “Runs as program” in the information pane indicate executable types
 with permission. Direct opening runs ELF programs/AppImages, not scripts or documents renamed
 to look like executables; a filesystem mounted `noexec` reports why running is unavailable.
+
+## File permissions
+
+Open **Properties** to change owner, group and others' read, write and execute
+permissions on a file or folder you own. For folders, execute permits traversal.
+Changes are staged until **Apply**; **Cancel** discards them. The operation affects
+only that item, not its children, and uses your current user permissions without
+elevation. Symbolic links and read-only archive items do not offer permission edits.
+Ownership and special permission bits are not editable. Filesystem errors and
+changes made externally while Properties was open leave the dialog open with an error.

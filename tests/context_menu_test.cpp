@@ -1296,10 +1296,10 @@ TEST_CASE("properties: thumbnails replace the icon without moving the compact di
     // Nix nests temporary files under a longer nix-shell directory. Allow that
     // location to widen the card, while short metadata should remain compact.
     if (fonts.layout(f.photos.string(), 12, renderer.scale()).width / renderer.scale() < 250)
-        CHECK(card.width < 440);
+        CHECK(card.width <= 460);
     CHECK(card.width <= 560);
     CHECK(card.width >= 320);
-    CHECK(properties.cursor_at(card.right() - 74, card.bottom() - 39) ==
+    CHECK(properties.cursor_at(card.right() - 182, card.bottom() - 39) ==
           rummage::ui::CursorShape::pointer);
 
     // Short windows retain a visible Close button while the content scrolls above it.
@@ -1309,7 +1309,7 @@ TEST_CASE("properties: thumbnails replace the icon without moving the compact di
     properties.pointer(
         {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 400, .y = 150, .wheel_y = 500});
     properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                        .x = properties.card_bounds().right() - 74,
+                        .x = properties.card_bounds().right() - 182,
                         .y = properties.card_bounds().bottom() - 39,
                         .button = rummage::ui::PointerButton::left});
     CHECK_FALSE(properties.is_open());
@@ -1334,7 +1334,7 @@ TEST_CASE("properties: long filenames are bounded by the dialog and window") {
         CHECK(card.width == std::min(560.0F, width - 24));
         CHECK(card.x >= 12);
         CHECK(card.right() <= width - 12);
-        CHECK(properties.cursor_at(card.right() - 74, card.bottom() - 39) ==
+        CHECK(properties.cursor_at(card.right() - 182, card.bottom() - 39) ==
               rummage::ui::CursorShape::pointer);
     }
 }
@@ -1873,4 +1873,99 @@ TEST_CASE("properties: embedded image metadata wraps, scrolls and copies in a na
     properties.key(key(XKB_KEY_a, {.ctrl = true}));
     properties.key(key(XKB_KEY_c, {.ctrl = true}));
     CHECK(copied == value);
+}
+
+TEST_CASE("properties: permissions are staged, cancellable and applied to files and directories") {
+    Fixture f;
+    for (const auto name : {"a.txt", "sub"}) {
+        const auto path = f.photos / name;
+        REQUIRE(::chmod(path.c_str(), 0755) == 0);
+        f.select({name});
+        f.browser.show_properties();
+        REQUIRE(f.settle());
+        auto& dialog = f.browser.properties_dialog();
+        REQUIRE(dialog.can_edit_permissions());
+        CHECK(dialog.permissions() == 0755);
+        dialog.set_permissions(0700);
+        CHECK(dialog.dirty());
+        struct stat info{};
+        REQUIRE(::stat(path.c_str(), &info) == 0);
+        CHECK((info.st_mode & 0777) == 0755);
+        dialog.close();
+        f.browser.show_properties();
+        REQUIRE(f.settle());
+        CHECK(dialog.permissions() == 0755);
+        CHECK_FALSE(dialog.dirty());
+        dialog.set_permissions(0750);
+        dialog.apply();
+        REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+        CHECK_FALSE(dialog.is_open());
+        REQUIRE(::stat(path.c_str(), &info) == 0);
+        CHECK((info.st_mode & 0777) == 0750);
+    }
+}
+
+TEST_CASE("properties: permission errors stay visible and read-only contexts cannot edit") {
+    Fixture f;
+    const auto path = f.photos / "a.txt";
+    REQUIRE(::chmod(path.c_str(), 0644) == 0);
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(path, [] {});
+    REQUIRE(f.settle());
+    dialog.set_permissions(0755);
+    REQUIRE(::chmod(path.c_str(), 0600) == 0);
+    dialog.apply();
+    REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+    CHECK(dialog.is_open());
+    CHECK_FALSE(dialog.error().empty());
+    dialog.close();
+    dialog.open(path, [] {}, false);
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.can_edit_permissions());
+    dialog.set_permissions(0777);
+    CHECK_FALSE(dialog.dirty());
+    fs::create_symlink(path, f.photos / "link");
+    dialog.open(f.photos / "link", [] {});
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.can_edit_permissions());
+}
+
+TEST_CASE("properties: every rwx permission toggle is keyboard accessible") {
+    Fixture f;
+    const auto path = f.photos / "a.txt";
+    REQUIRE(::chmod(path.c_str(), 0644) == 0);
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(path, [] {});
+    REQUIRE(f.settle());
+    std::uint16_t mode = 0644;
+    // Close initially has focus. Reverse Tab visits Others/execute through Owner/read.
+    for (unsigned bit = 0; bit < 9; ++bit) {
+        dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+        dialog.key(key(XKB_KEY_space));
+        mode = static_cast<std::uint16_t>(mode ^ (1U << bit));
+        CHECK(dialog.permissions() == mode);
+    }
+    dialog.close();
+    struct stat info{};
+    REQUIRE(::stat(path.c_str(), &info) == 0);
+    CHECK((info.st_mode & 0777) == 0644);
+}
+
+TEST_CASE("properties: applying an icon before removing directory write access") {
+    Fixture f;
+    const auto path = f.photos / "sub";
+    REQUIRE(::chmod(path.c_str(), 0755) == 0);
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(path, [] {});
+    REQUIRE(f.settle());
+    dialog.choose_icon("folder-music");
+    dialog.set_permissions(0500);
+    dialog.apply();
+    REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+    CHECK_FALSE(dialog.is_open());
+    struct stat info{};
+    REQUIRE(::stat(path.c_str(), &info) == 0);
+    CHECK((info.st_mode & 0777) == 0500);
+    CHECK(read_file(path / ".directory").find("folder-music") != std::string::npos);
+    REQUIRE(::chmod(path.c_str(), 0755) == 0);  // allow temporary-directory cleanup
 }

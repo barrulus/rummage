@@ -21,6 +21,11 @@ Menu = "菜单"
 moves = "移动"
 
 [texts]
+"Space to preview" = "按空格预览"
+"Read" = "读取"
+"Write" = "写入"
+"Execute" = "执行"
+"Others" = "其他用户"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "选择此应用位置的动画"
@@ -894,10 +899,10 @@ moves = "移动"
 "Info pane" = "信息面板"
 "Move a bookmark up, down" = "上移、下移书签"
 "Rename a bookmark" = "重命名书签"
-"Scroll the info pane's text up" = "向上滚动信息面板文本"
-"Scroll the info pane's text down" = "向下滚动信息面板文本"
-"Scroll the info pane's text a page up" = "将信息面板文本向上滚动一页"
-"Scroll the info pane's text a page down" = "将信息面板文本向下滚动一页"
+"Scroll the info pane up" = "向上滚动信息面板文本"
+"Scroll the info pane down" = "向下滚动信息面板文本"
+"Scroll the info pane a page up" = "将信息面板文本向上滚动一页"
+"Scroll the info pane a page down" = "将信息面板文本向下滚动一页"
 
 # Archive recovery advice
 "Check that the source still exists and is readable, then try again." = "请确认源文件仍存在且可读，然后重试。"

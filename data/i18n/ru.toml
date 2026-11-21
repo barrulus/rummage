@@ -23,6 +23,11 @@ Menu = "Меню"
 moves = "перемещение"
 
 [texts]
+"Space to preview" = "Пробел для просмотра"
+"Read" = "Чтение"
+"Write" = "Запись"
+"Execute" = "Выполнение"
+"Others" = "Остальные"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "Выберите анимацию для этого назначения"
@@ -896,10 +901,10 @@ moves = "перемещение"
 "Info pane" = "Панель информации"
 "Move a bookmark up, down" = "Переместить закладку вверх, вниз"
 "Rename a bookmark" = "Переименовать закладку"
-"Scroll the info pane's text up" = "Прокрутить текст панели информации вверх"
-"Scroll the info pane's text down" = "Прокрутить текст панели информации вниз"
-"Scroll the info pane's text a page up" = "Прокрутить текст панели информации на страницу вверх"
-"Scroll the info pane's text a page down" = "Прокрутить текст панели информации на страницу вниз"
+"Scroll the info pane up" = "Прокрутить текст панели информации вверх"
+"Scroll the info pane down" = "Прокрутить текст панели информации вниз"
+"Scroll the info pane a page up" = "Прокрутить текст панели информации на страницу вверх"
+"Scroll the info pane a page down" = "Прокрутить текст панели информации на страницу вниз"
 
 # Archive recovery advice
 "Check that the source still exists and is readable, then try again." = "Проверьте, что источник существует и доступен для чтения, затем повторите попытку."

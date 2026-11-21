@@ -145,3 +145,22 @@ TEST_CASE("preview: the info pane's summary of a photo, a text file and a folder
         preview::summarize(dir.path, "inode/directory", preview::Kind::info, token);
     CHECK(folder.info.items == std::optional<std::uint64_t>{2});  // a.txt, b.txt
 }
+
+TEST_CASE("preview: text thumbnails read the beginning of logs and cap long lines") {
+    const TempDir dir;
+    std::string contents = "first line\n";
+    for (int i = 0; i < 12000; ++i)
+        contents += std::string(80, 'x') + "\n";
+    const auto path = write(dir.path / "large.log", contents);
+    const auto summary = preview::summarize(path, "text/x-log", preview::Kind::text, {}, {}, true);
+    REQUIRE(summary.text);
+    REQUIRE(summary.text->lines.size() == 12);
+    CHECK(summary.text->lines.front() == "first line");
+    CHECK_FALSE(summary.text->tail);
+    CHECK(summary.text->truncated);
+    write(path, std::string(20000, 'x'));
+    const auto wide = preview::summarize(path, "text/plain", preview::Kind::text, {}, {}, true);
+    REQUIRE(wide.text);
+    REQUIRE_FALSE(wide.text->lines.empty());
+    CHECK(wide.text->lines.front().size() <= 260);  // includes the reader's truncation marker
+}

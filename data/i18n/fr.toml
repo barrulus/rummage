@@ -29,6 +29,11 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Space to preview" = "Espace pour prévisualiser"
+"Read" = "Lecture"
+"Write" = "Écriture"
+"Execute" = "Exécution"
+"Others" = "Autres"
 
 # Effects descriptions and animation names
 "Choose the animation for this slot" = "Choisir l’animation de cet emplacement"
@@ -902,10 +907,10 @@ moves = "déplacement"
 "Info pane" = "Volet d’informations"
 "Move a bookmark up, down" = "Déplacer un signet vers le haut ou le bas"
 "Rename a bookmark" = "Renommer un signet"
-"Scroll the info pane's text up" = "Faire défiler le texte du volet d’informations vers le haut"
-"Scroll the info pane's text down" = "Faire défiler le texte du volet d’informations vers le bas"
-"Scroll the info pane's text a page up" = "Faire défiler le texte du volet d’informations d’une page vers le haut"
-"Scroll the info pane's text a page down" = "Faire défiler le texte du volet d’informations d’une page vers le bas"
+"Scroll the info pane up" = "Faire défiler le texte du volet d’informations vers le haut"
+"Scroll the info pane down" = "Faire défiler le texte du volet d’informations vers le bas"
+"Scroll the info pane a page up" = "Faire défiler le texte du volet d’informations d’une page vers le haut"
+"Scroll the info pane a page down" = "Faire défiler le texte du volet d’informations d’une page vers le bas"
 
 # Archive recovery advice
 "Check that the source still exists and is readable, then try again." = "Vérifiez que la source existe toujours et est lisible, puis réessayez."

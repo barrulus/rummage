@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
@@ -55,6 +56,20 @@ Breadcrumb::Breadcrumb(std::function<void()> redraw, Go go, std::filesystem::pat
 void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                       ui::IconSet& icons, const Folder& folder) {
     bounds_ = bounds;
+    if (path_ != folder.path()) {
+        path_ = folder.path();
+        cancel_edit();
+        error_.clear();
+    }
+    if (editing_) {
+        field_.draw(
+            renderer,
+            {bounds.x + 8, bounds.y + 5, std::max(1.0F, bounds.width - 16), bounds.height - 10},
+            kTextSize,
+            {palette.surface, error_.empty() ? palette.primary : palette.error, palette.on_surface,
+             palette.primary_container, palette.primary});
+        return;
+    }
     std::vector<Crumb> crumbs = crumbs_of(folder.path(), home_);
     if (crumbs != crumbs_) {
         crumbs_ = std::move(crumbs);
@@ -150,6 +165,8 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
 }
 
 std::optional<std::filesystem::path> Breadcrumb::path_at(float x, float y) const {
+    if (editing_)
+        return std::nullopt;
     const std::optional<std::size_t> crumb = crumb_at(x, y);
     return crumb ? std::optional{crumbs_[*crumb].path} : std::nullopt;
 }
@@ -173,7 +190,7 @@ std::optional<std::size_t> Breadcrumb::crumb_at(float x, float y) const {
 
 bool Breadcrumb::clickable_at(float x, float y) const {
     const std::optional<std::size_t> crumb = crumb_at(x, y);
-    return crumb && *crumb + 1 < crumbs_.size();
+    return claims(x, y) && (submit_ || (crumb && *crumb + 1 < crumbs_.size()));
 }
 
 bool Breadcrumb::claims(float x, float y) const {
@@ -183,6 +200,24 @@ bool Breadcrumb::claims(float x, float y) const {
 
 void Breadcrumb::pointer(const ui::PointerEvent& event) {
     using Kind = ui::PointerEvent::Kind;
+    if (editing_) {
+        if (field_.pointer(event))
+            redraw_();
+        return;
+    }
+    if (submit_ && event.kind == Kind::press && event.button == ui::PointerButton::left &&
+        claims(event.x, event.y)) {
+        const auto crumb = crumb_at(event.x, event.y);
+        if (!crumb || *crumb + 1 == crumbs_.size()) {
+            field_.set_text(path_.string());
+            field_.select_all();
+            error_.clear();
+            editing_ = true;
+            ++edit_generation_;
+            redraw_();
+            return;
+        }
+    }
     std::optional<std::size_t> over;
     if (event.kind != Kind::leave) {
         over = crumb_at(event.x, event.y);
@@ -200,6 +235,39 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
     if (go_) {
         go_(path, child);
     }
+}
+
+bool Breadcrumb::key(const ui::KeyEvent& event) {
+    if (!editing_)
+        return false;
+    if (event.keysym == XKB_KEY_Escape) {
+        cancel_edit();
+    } else if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
+        error_ = submit_ ? submit_(field_.text()) : std::string{};
+        if (error_.empty())
+            editing_ = false;
+        redraw_();
+    } else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C ||
+                                        event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X)) {
+        const auto [first, last] = field_.selection();
+        if (copy_ && first != last)
+            copy_(field_.text().substr(first, last - first));
+        if (event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X)
+            field_.insert({});
+        redraw_();
+    } else if (field_.key(event)) {
+        error_.clear();
+        redraw_();
+    }
+    return true;
+}
+
+void Breadcrumb::paste(std::string_view text) {
+    if (!editing_)
+        return;
+    field_.insert(text.substr(0, text.find_first_of("\r\n")));
+    error_.clear();
+    redraw_();
 }
 
 std::vector<std::string> Breadcrumb::shown() const {

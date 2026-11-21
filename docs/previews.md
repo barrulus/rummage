@@ -168,17 +168,13 @@ presentation limits show **Preview truncated**. The information pane keeps highl
 
 ## Text in the information pane
 
-The information pane shows a text file as a page of up to 30 lines, shrinking to fit
-shorter windows. It is coloured as in Quick Look and scrolls through everything
-Quick Look would read (the same bounded read, and a large `.log` opens at its newest
-lines). The wheel or touchpad over the page scrolls the page; anywhere else on the
-pane it scrolls the pane. **Alt+J** and
-**Alt+K** scroll three lines down and up, **Alt+Page Down** and **Alt+Page Up** a page.
-Drag to select text, double-click a word, triple-click a line, or Shift+click to
-extend. Clicking the page gives it text focus: **Ctrl+A** selects the loaded text
-and **Ctrl+C** copies the selection. Home/End and Page Up/Down scroll the focused
-page. Shift+wheel or horizontal touchpad scrolling reveals long lines. Dragging
-beyond the page scrolls the selection.
+The information pane shows a thumbnail of the first 12 lines, shrinking to fit
+shorter windows. It reads at most 16 KiB and clips long lines. Logs also start at
+the beginning here. Press **Space** to open Quick Look for reading, scrolling and
+copying text. The thumbnail itself does not scroll or select text.
+
+The wheel or touchpad scrolls the information pane as a whole. **Alt+J** and
+**Alt+K** scroll down and up; **Alt+Page Down** and **Alt+Page Up** move a page.
 
 The filename and metadata are also selectable, including values under **More
 details**. Long names and values wrap in full; copying keeps the original text

@@ -107,7 +107,10 @@ resets on navigation or switching views and is not saved across restarts.
 
 Enter or a double-click opens a folder, or opens a file in its default application.
 Backspace or Alt+Up goes to the parent. Alt+Left/Right and mouse side buttons go
-back/forward through location history. Clicking the breadcrumb also navigates.
+back/forward through location history. Click an ancestor breadcrumb to navigate. Click the current folder segment or empty
+space in the breadcrumb to edit its path inline. The current path starts selected:
+copy it with Ctrl+C or paste a new path with Ctrl+V. Enter navigates; Escape cancels.
+An invalid path keeps the field open and shows an error in the status bar.
 
 Arrow keys move the cursor; Page Up/Down moves by a screen and Home/End reaches
 the first/last item. Grid Left/Right moves between cells; columns and details use
@@ -195,7 +198,8 @@ existing layout.
 ## Filter the current view
 
 The toolbar's Filter field matches filename substrings, ignoring ASCII case, in
-columns, grid and details. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
+columns, grid and details. In Miller columns it filters only the last column;
+ancestor columns remain visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
 returns focus to files. Escape or Clear removes it. It persists when switching
 views/folders and combines with picker type restrictions. New Folder clears the
 filter before starting a rename. Use Ctrl+F for recursive search instead.

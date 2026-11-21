@@ -9,7 +9,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -25,7 +24,6 @@
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/folder.hpp"
 #include "rummage/views/selectable_text.hpp"
-#include "rummage/views/text_selection.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -88,8 +86,7 @@ public:
     [[nodiscard]] std::string selected_text() const;
 
     void set_copy_handler(std::function<void(std::string)> handler) {
-        copy_ = std::move(handler);
-        metadata_.set_copy_handler(copy_);
+        metadata_.set_copy_handler(std::move(handler));
     }
 
     [[nodiscard]] ui::Rect property_bounds(std::string_view id) const {
@@ -101,22 +98,17 @@ public:
 
     // A wheel or touchpad scroll: true when it was over the pane, which scrolls when its content
     // is taller than it.
-    // Over a text file's page that has more lines than fit, the wheel scrolls the page and not the
-    // pane.
     bool scroll(const ui::PointerEvent& event, Clock::time_point now);
 
-    // How the keyboard moves a text file's page.
+    // Keyboard movement through the information pane.
     enum class TextScroll : std::uint8_t { line_up, line_down, page_up, page_down };
 
-    // Moves the text page by a few lines or by a page: true when there was a page with more lines
-    // than fit, false (the key is not taken) otherwise.
+    // Moves the pane by a few lines or by a page; false when all its content fits.
     bool scroll_text(TextScroll how, Clock::time_point now);
 
     [[nodiscard]] bool animating() const noexcept {
         // A hidden pane cannot advance its scrollers and must not keep requesting frames.
-        return bounds_.width > 0.0F && bounds_.height > 0.0F &&
-               (scroller_.animating() || page_scroller_.animating() || page_sideways_.animating() ||
-                autoscrolling());
+        return bounds_.width > 0.0F && bounds_.height > 0.0F && scroller_.animating();
     }
 
     [[nodiscard]] bool expanded() const noexcept { return expanded_; }
@@ -128,7 +120,7 @@ public:
     void forget_layout() noexcept {
         bounds_ = {};
         toggle_ = {};
-        page_ = {};
+        thumbnail_ = {};
     }
 
     // Stop filesystem work when hidden; end_frame also covers a pane that no longer fits.
@@ -153,27 +145,21 @@ public:
 
     void set_expanded(bool expanded);
 
+    // Properties can change metadata without changing a file's modification time.
+    void refresh() {
+        key_.clear();
+        redraw_();
+    }
+
     // What it shows is still being read (snapshots, tests).
     [[nodiscard]] bool loading() const noexcept {
         return job_.has_value() || size_timer_ != 0 || size_job_.has_value();
     }
 
-    // The text page as last drawn (empty when there is none) and how far it is scrolled, and how
-    // far it can be (tests).
-    [[nodiscard]] const ui::Rect& text_page() const noexcept { return page_; }
+    // Text thumbnail geometry and pane scrolling (tests).
+    [[nodiscard]] const ui::Rect& thumbnail_bounds() const noexcept { return thumbnail_; }
 
-    [[nodiscard]] float text_offset() const noexcept { return page_scroller_.offset(); }
-
-    [[nodiscard]] float text_max_offset() const noexcept { return page_scroller_.max_offset(); }
-
-    [[nodiscard]] float text_horizontal_offset() const noexcept { return page_sideways_.offset(); }
-
-    [[nodiscard]] float text_horizontal_max_offset() const noexcept {
-        return page_sideways_.max_offset();
-    }
-
-    // Selection geometry is bounded independently of the number of preview lines.
-    [[nodiscard]] std::size_t text_geometry_lines() const noexcept { return page_clusters_.size(); }
+    [[nodiscard]] float scroll_offset() const noexcept { return scroller_.offset(); }
 
     // What was read about the entry shown last; nullptr before it arrives (tests).
     [[nodiscard]] const preview::Summary* summary() const noexcept { return summary_.get(); }
@@ -199,12 +185,6 @@ private:
     void measure(std::vector<std::filesystem::path> roots, std::string key);
     [[nodiscard]] std::string size_text() const;
 
-    [[nodiscard]] const preview::Text* shown_text() const;
-    [[nodiscard]] TextPoint point_at(float x, float y);
-    const std::vector<SelectableText::GlyphSpan>& text_clusters(std::size_t line);
-    [[nodiscard]] bool autoscrolling() const noexcept;
-    void measure_text(ui::Renderer& renderer, const preview::Text& text);
-
     core::EventLoop& loop_;
     core::WorkerPool& pool_;
     Thumbnails* thumbnails_;
@@ -224,26 +204,10 @@ private:
     float width_{kWidth};
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
-    ui::Rect page_{};    // a text file's page, as last drawn; empty when not shown
+    ui::Rect thumbnail_{};
     SelectableText metadata_;
-    TextSelection selection_;
-    std::function<void(std::string)> copy_;
-    bool page_focused_{false};
-    bool selecting_{false};
-    float pointer_x_{0.0F};
-    float pointer_y_{0.0F};
-    std::unordered_map<std::size_t, std::vector<SelectableText::GlyphSpan>> page_clusters_;
-    // The window's font system outlives drawing and pointer handling. Bound on draw and
-    // forgotten with the preview; offscreen hit tests can shape one line on demand.
-    ui::FontSystem* page_fonts_{nullptr};
-    float page_text_width_{0.0F};
-    float page_metrics_scale_{0.0F};
-    Clock::time_point autoscrolled_{};
     std::string shown_key_;
     ui::Scroller scroller_;
-    ui::Scroller page_scroller_;  // through the text page's lines
-    ui::Scroller page_sideways_;
-    bool page_placed_{false};     // the page has been put at its start (a log's end) for this entry
     float content_height_{0.0F};  // of the last draw
     // False once destroyed: results still on their way find out here.
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
