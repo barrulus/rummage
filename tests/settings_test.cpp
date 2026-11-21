@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <fstream>
@@ -563,25 +564,29 @@ TEST_CASE("settings: translated compact navigation preserves keyboard editing an
     rummage::i18n::set_language("de");
     Fixture f;
     f.open();
-    ui::Offscreen surface{400, 360};
+    ui::Offscreen surface{960, 700};
     ui::FontSystem fonts;
     ui::Renderer renderer{fonts};
     ui::IconSet icons{fonts};
-    const auto draw = [&](const std::string& name) {
-        renderer.begin_frame(400, 360, 1, {});
-        f.dialog.draw(renderer, {0, 0, 400, 360}, rummage::theme::Palette{}, icons);
+    const auto draw = [&](const std::string& name, int width = 400, int height = 360) {
+        renderer.begin_frame(width, height, 1, {});
+        f.dialog.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                      rummage::theme::Palette{}, icons);
         renderer.end_frame();
         // Optional review artifacts, following the motion tests' offscreen-frame convention.
         if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
-            std::vector<unsigned char> pixels(400 * 360 * 4);
-            glReadPixels(0, 0, 400, 360, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             std::ofstream file{std::filesystem::path{output} / (name + ".ppm"), std::ios::binary};
-            file << "P6\n400 360\n255\n";
-            for (int y = 359; y >= 0; --y)
-                for (int x = 0; x < 400; ++x)
-                    file.write(reinterpret_cast<const char*>(pixels.data() + (y * 400 + x) * 4), 3);
+            file << "P6\n" << width << ' ' << height << "\n255\n";
+            for (int y = height - 1; y >= 0; --y)
+                for (int x = 0; x < width; ++x)
+                    file.write(reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4),
+                               3);
         }
     };
+    draw("wide-general-de", 960, 700);
+    draw("narrow-general-de", 400, 700);
     draw("compact-general-de");
     f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});  // Compact category selector.
     f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
@@ -1150,4 +1155,74 @@ TEST_CASE("settings: translated effects stay searchable and save stable effect i
         CHECK(core::load_config(f.path).config.animations.events[static_cast<std::size_t>(
                   core::MotionEvent::file_copy)] == core::MotionEffect::scan);
     }
+}
+
+TEST_CASE("settings: translated rows grow without overlapping text and controls") {
+    namespace ui = rummage::ui;
+    ui::Offscreen surface{1000, 800};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    const std::string label = "Ausführbare Programme starten";
+    const std::string description = "Anwendungen aus der Dateiansicht öffnen erlauben";
+    const std::string choice = "Tabs und Bereiche wiederherstellen";
+    for (const float scale : {1.0F, 1.5F, 2.0F}) {
+        renderer.begin_frame(1000, 800, scale, {});
+        const float choice_width = fonts.layout(choice, 13, scale).width / scale + 44;
+        for (const float width : {220.0F, 340.0F, 500.0F, 648.0F}) {
+            CAPTURE(scale);
+            CAPTURE(width);
+            const auto row = views::measure_setting_row(renderer, width, label, description,
+                                                        choice_width, choice);
+            CHECK(row.label.bottom() <= row.description.y);
+            CHECK(row.description.bottom() < row.height);
+            CHECK(row.control.bottom() < row.height);
+            CHECK(row.control.right() <= width);
+            CHECK(row.control.intersect(row.label).empty());
+            CHECK(row.control.intersect(row.description).empty());
+            if (width == 220) {
+                CHECK(row.description.height > 16);
+                CHECK(row.control.height > 32);
+                CHECK(row.height > 94);
+            }
+            if (width == 648) {
+                CHECK(row.control.x > row.label.right());
+                CHECK(row.control.width >= choice_width);
+            }
+        }
+        renderer.end_frame();
+    }
+}
+
+TEST_CASE("settings: the full translated reset button is clickable") {
+    namespace ui = rummage::ui;
+
+    struct RestoreLanguage {
+        ~RestoreLanguage() { rummage::i18n::set_language("en"); }
+    } restore;
+
+    SUBCASE("German") { rummage::i18n::set_language("de"); }
+    SUBCASE("French") { rummage::i18n::set_language("fr"); }
+    Fixture f;
+    f.open();
+    REQUIRE(f.dialog.edit("startup", "mode", "home"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(core::load_config(f.path).config.startup.mode == core::Config::Startup::Mode::home);
+
+    ui::Offscreen surface{960, 700};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    renderer.begin_frame(960, 700, 1, {});
+    f.dialog.draw(renderer, {0, 0, 960, 700}, rummage::theme::Palette{}, icons);
+    const float reset_width =
+        std::max(150.0F, fonts.layout(rummage::i18n::tr("Reset to default"), 13, 1).width + 24);
+    renderer.end_frame();
+    // The right edge remains clickable with both short and long translated labels.
+    f.dialog.pointer({.kind = ui::PointerEvent::Kind::press,
+                      .x = 244 + reset_width - 6,
+                      .y = 238,
+                      .button = ui::PointerButton::left});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.startup.mode == core::Config{}.startup.mode);
 }

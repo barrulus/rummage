@@ -15,6 +15,7 @@
 #include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/context_menu.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 #include "rummage/views/error_dialog.hpp"
 #include "rummage/views/menu_editor.hpp"
 #include "rummage/views/settings_editors.hpp"
@@ -120,6 +121,7 @@ private:
         std::string group, description, error;
         std::optional<Number> number;
         float top{0}, height{0};
+        SettingRowLayout layout;
 
         bool toggle() const {
             return choices.size() == 2 && choices[0] == "true" && choices[1] == "false";

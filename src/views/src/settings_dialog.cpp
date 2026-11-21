@@ -9,11 +9,13 @@
 #include <unordered_set>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "draw_helpers.hpp"
 #include "rummage/core/actions.hpp"
 #include "rummage/core/config_edit.hpp"
 #include "rummage/core/file.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/views/dialog_chrome.hpp"
+#include "rummage/views/selectable_text.hpp"
 #include "rummage/views/shortcuts.hpp"
 
 namespace rummage::views {
@@ -854,7 +856,7 @@ void SettingsDialog::layout_rows() {
         }
         field.top = top;
         field.height =
-            (list_.width - 44 >= 500 ? 64.0F : 94.0F) +
+            field.layout.height +
             ((field.section < 2 || field.section == kEffects) && editable() ? 28.0F : 0.0F) +
             (field.error.empty() ? 0.0F : 40.0F);
         top += field.height;
@@ -1503,6 +1505,30 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool compact_retry = narrow && valid_ && !write_error_.empty();
     if (discard_prompt_ || compact_retry)
         frame = DialogFrame::fit(bounds, 880, 740, 104);
+    const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
+                               : !error_.empty()          ? "Changes need attention"
+                               : busy_                    ? (valid_ ? "Saving…" : "Loading…")
+                               : has_drafts()             ? "Editing…"
+                               : saved_                   ? "Saved"
+                                                          : "Changes save automatically";
+    const float title_width = text_width(renderer, i18n::tr("Settings"), 18);
+    const float desired_status_width =
+        text_width(renderer, i18n::tr(status),
+                   error_.empty() && read_only_reason_.empty() ? 12 : 13) +
+        20;
+    const bool stacked_status =
+        narrow || title_width + desired_status_width + 64 > frame.header.width;
+    const float status_width =
+        stacked_status ? std::max(1.0F, frame.header.width - 40) : desired_status_width;
+    const float status_height =
+        SelectableText::height(renderer, i18n::tr(status), status_width, 12, 16);
+    if (stacked_status) {
+        const float extra =
+            std::min(frame.body.height, std::max(0.0F, 44 + status_height - frame.header.height));
+        frame.header.height += extra;
+        frame.body.y += extra;
+        frame.body.height -= extra;
+    }
     if (!last_card_.empty() &&
         (frame.card.width != last_card_.width || frame.card.height != last_card_.height ||
          frame.card.x != last_card_.x || frame.card.y != last_card_.y))
@@ -1519,25 +1545,24 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         buttons_.push_back({id, std::string{label}, hit});
         draw_dialog_button(renderer, rect, palette, i18n::tr(label), focus_ == id, style);
     };
-    const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
-                               : !error_.empty()          ? "Changes need attention"
-                               : busy_                    ? (valid_ ? "Saving…" : "Loading…")
-                               : has_drafts()             ? "Editing…"
-                               : saved_                   ? "Saved"
-                                                          : "Changes save automatically";
-    const float status_width = narrow ? std::max(1.0F, frame.header.width - 40) : 230.0F;
-    const float status_x = narrow ? frame.header.x + 20 : frame.header.right() - status_width - 20;
+    const float status_x =
+        stacked_status ? frame.header.x + 20 : frame.header.right() - status_width - 20;
     if (!read_only_reason_.empty())
         button("readonly", "Read-only configuration",
-               {status_x, frame.header.y + (narrow ? 40.0F : 14.0F), status_width,
-                narrow ? 18.0F : 32.0F});
+               {status_x, frame.header.y + (stacked_status ? 40.0F : 14.0F), status_width,
+                stacked_status ? 18.0F : 32.0F});
     else if (!error_.empty())
         button("details", "Changes need attention",
-               {status_x, frame.header.y + (narrow ? 40.0F : 14.0F), status_width,
-                narrow ? 18.0F : 32.0F});
-    else
-        renderer.draw_text(i18n::tr(status), status_x, frame.header.y + (narrow ? 43.0F : 22.0F),
-                           narrow ? 10.0F : 12.0F, palette.on_surface_variant, status_width);
+               {status_x, frame.header.y + (stacked_status ? 40.0F : 14.0F), status_width,
+                stacked_status ? 18.0F : 32.0F});
+    else {
+        SelectableText text;
+        text.begin_frame(frame.header);
+        text.draw(renderer, "status", i18n::tr(status),
+                  {status_x, frame.header.y + (stacked_status ? 40.0F : 22.0F), status_width,
+                   status_height},
+                  12, palette.on_surface_variant, {}, 16);
+    }
     auto content = frame.body;
     if (narrow) {
         button("category",
@@ -1643,8 +1668,30 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             editor_focus_pending_ = false;
         }
     }
+    // Keep one aligned control column, sized for the longest translated option.
+    float control_width = 200;
+    for (const auto& field : fields_) {
+        if (!field_visible(field))
+            continue;
+        for (const auto& choice : field.choices)
+            control_width =
+                std::max(control_width, text_width(renderer, choice_label(field, choice), 13) + 44);
+    }
+    bool rows_changed = false;
+    for (auto& field : fields_) {
+        if (!field_visible(field))
+            continue;
+        const auto control_label = !field.choices.empty() && !field.toggle()
+                                       ? choice_label(field, field.input.text())
+                                       : std::string{};
+        const auto layout =
+            measure_setting_row(renderer, list_.width - 44, i18n::tr(field.label),
+                                i18n::tr(field.description), control_width, control_label);
+        rows_changed |= layout.height != field.layout.height;
+        field.layout = layout;
+    }
     layout_rows();
-    if (resized)
+    if (resized || rows_changed)
         reveal_focus();
     scrollbar_.layout(list_);
     renderer.push_clip(list_);
@@ -1686,7 +1733,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (y + field.height <= list_.y || y >= list_.bottom())
             continue;
         const auto control = draw_setting_row(renderer, row, palette, i18n::tr(field.label),
-                                              i18n::tr(field.description));
+                                              i18n::tr(field.description), field.layout);
         field.bounds = control;
         const bool focused = focus_ == "f" + std::to_string(i);
         if (field.toggle()) {
@@ -1704,10 +1751,17 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             renderer.draw_text(choice_label(field, field.input.text()), control.x + 54,
                                control.y + 8, 13, palette.on_surface);
         } else if (!field.choices.empty()) {
-            draw_dialog_button(renderer, control, palette, choice_label(field, field.input.text()),
-                               focused);
-            icons.draw(renderer, "chevron-down", control.right() - 24, control.y + 8, 16,
-                       palette.on_surface_variant);
+            draw_dialog_button(renderer, control, palette, "", focused);
+            const auto label = choice_label(field, field.input.text());
+            const float width = std::max(1.0F, control.width - 44);
+            const float height = SelectableText::height(renderer, label, width, 13, 18);
+            SelectableText text;
+            text.begin_frame(control);
+            text.draw(renderer, "choice", label,
+                      {control.x + 10, control.y + (control.height - height) / 2, width, height},
+                      13, palette.on_surface, {}, 18);
+            icons.draw(renderer, "chevron-down", control.right() - 24,
+                       control.y + (control.height - 16) / 2, 16, palette.on_surface_variant);
         } else {
             if (field.number && editable()) {
                 field.bounds.width = std::max(1.0F, control.width - 76);
@@ -1730,7 +1784,10 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if ((field.section < 2 || field.section == kEffects) && editable())
             button("reset" + std::to_string(i), "Reset to default",
                    {row.x, y + field.height - (field.error.empty() ? 34.0F : 74.0F),
-                    std::min(150.0F, row.width), 24},
+                    std::min(std::max(150.0F,
+                                      text_width(renderer, i18n::tr("Reset to default"), 13) + 24),
+                             row.width),
+                    24},
                    DialogButton::normal, true);
         if (!field.error.empty()) {
             const float error_y = y + field.height - 38;
