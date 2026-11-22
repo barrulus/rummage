@@ -9,6 +9,10 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Older unchanged sidebar menu configurations now pick up new Places and bookmark
+actions automatically on load. Customised layouts remain intact, and no config
+file rewrite is required.
+
 Keyboard browsing now includes Alt+D for breadcrumb editing, Shift+F6 to focus
 files, Ctrl+Enter for opening a folder in a new tab, and Ctrl+Alt+Enter for the
 other pane. Places supports keyboard context menus and actions on its focused row.

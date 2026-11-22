@@ -2167,6 +2167,22 @@ TEST_CASE("context menu: mounted drives offer properties even without udisks") {
 
 TEST_CASE("sidebar: places and bookmarks open the clicked folder in a new tab") {
     Fixture f;
+    SUBCASE("built-in layout") {}
+    SUBCASE("legacy saved layout") {
+        const auto config = rummage::core::parse_config(R"(
+[context_menu]
+sidebar = [
+  { id = "mount" },
+  { id = "unmount" },
+  { id = "eject", separator = true },
+  { id = "remove_bookmark" },
+  { id = "empty_trash" },
+]
+)",
+                                                        "legacy.toml");
+        REQUIRE(config.problems.empty());
+        f.browser.set_context_menu(config.config.context_menu);
+    }
     rummage::ui::Offscreen gl{800, 640};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};

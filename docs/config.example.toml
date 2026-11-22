@@ -526,10 +526,12 @@ follow_accent = true
 #   { id = "properties", separator = true },
 # ]
 #
-# Sidebar: devices show Mount/Unmount and, when supported, Eject; bookmarks show editing,
-# reordering and removal commands; Trash shows Empty Trash. Other places have no context menu.
+# Sidebar: places support opening in a tab or pane, a terminal, path copying and Properties.
+# Devices also show Mount/Unmount/Eject; bookmarks show editing, reordering and removal;
+# Trash shows Empty Trash. Keep remaining to include new actions after upgrades.
 # Mount/Unmount are enabled according to the device's mounted state.
 # sidebar = [
+#   { remaining = true },
 #   { id = "rename_bookmark" },
 #   { id = "choose_bookmark_folder" },
 #   { id = "move_bookmark_up", separator = true },

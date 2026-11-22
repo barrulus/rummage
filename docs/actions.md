@@ -178,6 +178,12 @@ as well as the available IDs and additional custom-action examples. Default refe
 and the custom `items` example are alternatives: keep only the overrides you intend to use
 and only one `[context_menu]` table.
 
+For upgrade compatibility, sidebar arrays that exactly match either older shipped
+default are treated as if they start with `{ remaining = true }`. This restores new
+Places and bookmark actions without rewriting the config. Changed ordering,
+labels, separators, groups or item lists remain custom layouts; empty arrays still
+hide the menu. Include `remaining` in your own layout to retain new actions too.
+
 Copy Name, Copy Location, Extract Here, and Extract To are built-in actions.
 Copy Name (**Ctrl+Alt+C**) copies each selected filename, including its extension, as
 plain text; multiple names are separated by newlines. It also works in Trash,

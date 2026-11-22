@@ -637,6 +637,33 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
     }
 }
 
+bool legacy_sidebar_menu(const std::vector<MenuNode>& nodes) {
+    // Only migrate the two layouts shipped in older example configs. Explicitly
+    // customised menus (including empty menus) must keep their filtering behavior.
+    const auto matches = [&](std::initializer_list<std::pair<std::string_view, bool>> expected) {
+        return nodes.size() == expected.size() &&
+               std::equal(nodes.begin(), nodes.end(), expected.begin(),
+                          [](const MenuNode& node, const auto& old) {
+                              return node.id == old.first && node.separator == old.second &&
+                                     node.label.empty() && node.items.empty() && !node.remaining;
+                          });
+    };
+    return matches({{"mount", false},
+                    {"unmount", false},
+                    {"eject", true},
+                    {"remove_bookmark", false},
+                    {"empty_trash", false}}) ||
+           matches({{"rename_bookmark", false},
+                    {"choose_bookmark_folder", false},
+                    {"move_bookmark_up", true},
+                    {"move_bookmark_down", false},
+                    {"mount", false},
+                    {"unmount", false},
+                    {"eject", true},
+                    {"remove_bookmark", true},
+                    {"empty_trash", false}});
+}
+
 bool read_menu_layout(const toml::node& source, Reader& reader, const std::vector<Action>& actions,
                       MenuLayout& layout) {
     bool valid = true;
@@ -790,6 +817,10 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
         };
         output->emplace();
         read(read, value, **output);
+    }
+    if (valid && layout.sidebar && legacy_sidebar_menu(*layout.sidebar)) {
+        // Upgrade on load rather than rewriting personal or declaratively managed files.
+        layout.sidebar->insert(layout.sidebar->begin(), MenuNode{.remaining = true});
     }
     if (!valid)
         layout = {};
