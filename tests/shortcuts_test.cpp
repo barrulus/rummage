@@ -784,3 +784,14 @@ TEST_CASE("shortcuts: reopen and inversion respect custom bindings and existing 
     CHECK(command_for(chord(XKB_KEY_t, {.ctrl = true, .shift = true})) == Command::new_tab);
     CHECK(command_for(chord(XKB_KEY_i, {.ctrl = true, .shift = true})) == Command::toggle_info);
 }
+
+TEST_CASE("shortcuts: pattern selection and folder reset have configurable bindings") {
+    using namespace rummage::views;
+    REQUIRE(
+        configure_shortcuts({{"select_pattern", "Ctrl+Alt+p"}, {"reset_folder_view", "Ctrl+Alt+r"}})
+            .empty());
+    CHECK(command_for(chord(XKB_KEY_p, {.ctrl = true, .alt = true})) == Command::select_pattern);
+    CHECK(command_for(chord(XKB_KEY_r, {.ctrl = true, .alt = true})) == Command::reset_folder_view);
+    CHECK(keys_for(Command::select_pattern) == "Ctrl+Alt+p");
+    REQUIRE(configure_shortcuts({}).empty());
+}

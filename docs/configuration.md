@@ -196,6 +196,12 @@ change other tabs. Existing tabs retain their own view and zoom until navigation
 when the same folder is used in several tabs, the last-used settings are saved
 for future visits.
 
+**Use Default View for This Folder** in Sort By or the command palette restores
+Columns view, name sorting in ascending order, the default row/icon sizes and
+details columns. It saves an explicit default for this folder, so arriving from
+a differently configured folder does not override the reset. `reset_folder_view`
+is available for a custom shortcut and has no default binding.
+
 The folder history is capped at **512 entries**, with the least recently used
 removed first. It stores paths and small settings records, never directory listings
 or thumbnails, and adds no folder files, scanning or watchers. State snapshots

@@ -683,4 +683,24 @@ bool Sidebar::key(const ui::KeyEvent& event) {
     return true;
 }
 
+void Sidebar::draw_drive_tooltip(ui::Renderer& renderer, const theme::Palette& palette,
+                                 const ui::Rect& window, std::string_view text) const {
+    const auto* place = hovered_place();
+    if (!place || text.empty())
+        return;
+    const float width = std::min(380.0F, std::max(1.0F, window.width - 16));
+    const ui::Rect box{
+        std::clamp(bounds_.right() - 12, window.x + 8,
+                   std::max(window.x + 8, window.right() - width - 8)),
+        std::clamp(pointer_y_ + 18, window.y + 8, std::max(window.y + 8, window.bottom() - 64)),
+        width, 56};
+    renderer.draw_box(box, {.fill = palette.surface_container_high,
+                            .radius = {},
+                            .border_width = 1,
+                            .border = palette.outline_variant});
+    renderer.draw_text(place->path.string(), box.x + 8, box.y + 7, 12, palette.on_surface,
+                       width - 16, ui::Ellipsis::middle);
+    renderer.draw_text(text, box.x + 8, box.y + 31, 12, palette.on_surface_variant, width - 16);
+}
+
 }  // namespace rummage::views

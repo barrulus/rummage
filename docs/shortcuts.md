@@ -65,6 +65,7 @@ commands below operate in the active pane.
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab | `next_tab`, `previous_tab` |
 | Alt+1…9 | Select numbered tab | Fixed |
 | Ctrl+A | Select all in the current scope | `select_all` |
+| Ctrl+S | Select by filename fragment or wildcard pattern | `select_pattern` |
 | Ctrl+Shift+I | Invert selection among visible entries | `invert_selection` |
 | Ctrl+Space | Toggle selected item | `toggle_selection` |
 | Shift+movement | Extend selection | Fixed |
@@ -179,3 +180,6 @@ operations: resetting can restore a built-in shortcut.
 Folder shortcuts accept an absolute path or `~/` path before recording. Custom actions can also
 receive shortcuts directly from their editing form under Settings → Actions. No action or folder
 shortcut executes while it is being edited.
+
+`reset_folder_view` restores the active folder’s default view preferences and has
+no default shortcut. It is also available in Sort By and the command palette.

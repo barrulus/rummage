@@ -1153,3 +1153,42 @@ TEST_CASE("navigation: path-row buttons use the clicked pane history and cancel 
     f.browser.focus_pane(0);
     CHECK(f.browser.picker_folder()->path() == f.b);
 }
+
+TEST_CASE("folders: reset restores built-in defaults for future visits and after restart") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_sort(rummage::fs::SortKey::size, true);
+    f.browser.set_list_size(3);
+    f.browser.set_grid_size(4);
+    f.browser.details().set_column_visible(rummage::fs::SortKey::owner, true);
+    REQUIRE(f.browser.has_custom_folder_view());
+    f.browser.reset_folder_view();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.has_custom_folder_view());
+    CHECK(f.browser.mode() == Browser::Mode::columns);
+    CHECK(f.browser.sort_order().key == rummage::fs::SortKey::name);
+    CHECK_FALSE(f.browser.sort_order().descending);
+    const auto reset = f.browser.state();
+    REQUIRE(reset.folders.find(f.a));
+    CHECK(*reset.folders.find(f.a) == rummage::views::State::FolderSettings{});
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.set_grid_size(5);
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.has_custom_folder_view());
+    const auto saved =
+        rummage::views::parse_state(rummage::views::format_state(f.browser.state()), "state.toml");
+    REQUIRE(saved.problems.empty());
+    Browser again{
+        f.loop, f.pool, f.watcher, rummage::fs::MimeDatabase::load(), [] {}, [](CursorShape) {}};
+    again.apply(saved.state);
+    again.open(f.a);
+    REQUIRE(run_until(f.loop, [&] { return !again.loading(); }));
+    CHECK_FALSE(again.has_custom_folder_view());
+    again.open(f.b);
+    REQUIRE(run_until(f.loop, [&] { return !again.loading(); }));
+    CHECK(again.mode() == Browser::Mode::grid);
+    CHECK(again.grid().size_index() == 5);
+}

@@ -8,6 +8,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -152,6 +153,15 @@ public:
     // The entries shown that are not selected become the selection (Ctrl+Shift+I). The cursor
     // stays; with none, or one waiting for its entry, it goes to the first entry selected.
     void invert_selection();
+
+    // The entries shown whose names match a literal substring or wildcard pattern, case aside, as
+    // indices in listing order.
+    [[nodiscard]] std::vector<std::size_t> matching(const std::string& glob) const;
+
+    // The entries at rows (indices in listing order) become the selection, or are added to it
+    // with add. The cursor stays on its entry if that is one of them, else it goes to the first;
+    // a Shift range starts there.
+    void select_rows(std::span<const std::size_t> rows, bool add);
 
     // Lists the hidden entries (dotfiles) or leaves them out; left out, they leave the selection.
     // A cursor on one moves to the nearest entry shown (after it, else before), unless

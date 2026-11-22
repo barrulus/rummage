@@ -73,6 +73,8 @@ enum class Command : std::uint8_t {
     select_tab,  // Alt+1…9: the digit says which
     command_palette,
     find_files,
+    select_pattern,
+    reset_folder_view,
     filter_names,
     show_settings,
     toggle_split,

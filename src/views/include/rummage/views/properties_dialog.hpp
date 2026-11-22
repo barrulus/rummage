@@ -11,6 +11,7 @@
 
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/entry.hpp"
+#include "rummage/fs/filesystem.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
@@ -27,7 +28,15 @@ public:
     PropertiesDialog(core::WorkerPool& pool, std::shared_ptr<const fs::MimeDatabase> mime,
                      std::function<void()> redraw);
     ~PropertiesDialog();
-    void open(std::filesystem::path path, std::function<void()> changed, bool editable = true);
+    void open(std::filesystem::path path, std::function<void()> changed, bool editable = true,
+              bool drive = false, std::string label = {});
+
+    void open_drive(const std::filesystem::path& path, std::string label) {
+        open(path, {}, false, true, std::move(label));
+    }
+
+    [[nodiscard]] const fs::FilesystemFacts& filesystem() const { return data_.filesystem; }
+
     void close();
 
     void set_copy_handler(std::function<void(std::string)> handler) {
@@ -89,6 +98,7 @@ public:
 private:
     struct Data {
         fs::Entry entry;
+        fs::FilesystemFacts filesystem;
         preview::Info info;
         preview::Summary summary;
         std::string icon;
@@ -119,6 +129,8 @@ private:
     core::CancelToken load_job_, save_job_, icons_job_;
     bool open_{false}, loading_{false}, saving_{false}, picking_{false}, editable_{true};
     bool icons_loading_{false};
+    bool drive_{false};
+    std::string drive_label_;
     bool details_expanded_{false}, copy_hovered_{false}, copied_{false};
     std::filesystem::path path_;
     Data data_;

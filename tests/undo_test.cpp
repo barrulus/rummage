@@ -455,3 +455,45 @@ TEST_CASE("undo: a preexisting destination sidecar keeps its photo group out of 
     std::ifstream sidecar{f.album / "P2.ORF.xmp"};
     CHECK(std::string{std::istreambuf_iterator<char>{sidecar}, {}} == "destination's sidecar");
 }
+
+TEST_CASE("undo: new links go to the trash, what they lead to stays; redo brings them back") {
+    Fixture f;
+    std::ofstream{f.album / "kept.txt"} << "kept";
+    const std::shared_ptr<Folder> shown = f.show(f.root, "album");
+    f.browser.create_links();
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.root) == Names{"Link to album", "album", "photos"});
+    CHECK(fs::read_symlink(f.root / "Link to album") == f.album);
+    CHECK(f.message() == "Made 1 link");
+    REQUIRE(run_until(f.loop, [&] { return shown->selected_names() == Names{"Link to album"}; }));
+
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.root) == Names{"album", "photos"});
+    CHECK(listing(f.trash / "files") == Names{"Link to album"});
+    CHECK(fs::is_symlink(f.trash / "files" / "Link to album"));
+    CHECK(listing(f.album) == Names{"kept.txt"});  // what the link led to stays
+    CHECK(f.message() == "Undone: “Link to album” moved to the trash");
+
+    f.run(key(XKB_KEY_Z, kCtrlShift));
+    CHECK(listing(f.root) == Names{"Link to album", "album", "photos"});
+    CHECK(fs::read_symlink(f.root / "Link to album") == f.album);
+    CHECK(f.message() == "Redone: “Link to album” restored");
+
+    // Several at once, one operation.
+    const std::shared_ptr<Folder> photos = f.show(f.photos, "");
+    for (const char* name : {"P1.ORF", "P2.ORF"}) {
+        const auto& entries = photos->entries();
+        const auto it = std::ranges::find(entries, name, &rummage::fs::Entry::name);
+        REQUIRE(it != entries.end());
+        photos->set_cursor(static_cast<std::size_t>(it - entries.begin()),
+                           rummage::views::SelectMode::toggle);
+    }
+    REQUIRE(photos->selected_names() == Names{"P1.ORF", "P2.ORF"});
+    f.browser.create_links();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos) ==
+          Names{"Link to P1.ORF", "Link to P2.ORF", "P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    CHECK(f.message() == "Made 2 links");
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+}

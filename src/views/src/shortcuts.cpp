@@ -290,6 +290,13 @@ constexpr std::array kShortcuts{
              .modifiers = kCtrlShift,
              .keysyms = {XKB_KEY_i, XKB_KEY_I}},
     Shortcut{.group = i18n::mark("Selecting"),
+             .keys = "Ctrl+S",
+             .action = i18n::mark("Select by name (*.ORF)"),
+             .scope = scope::kViews | scope::kQuickLook,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_s, XKB_KEY_S},
+             .command = Command::select_pattern},
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Escape",
              .action = i18n::mark("Back to one entry"),
              .scope = scope::kViews,
@@ -302,6 +309,11 @@ constexpr std::array kShortcuts{
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_comma},
              .command = Command::show_settings},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Use Default View for This Folder"),
+             .scope = scope::kViews,
+             .command = Command::reset_folder_view},
     // Panes
     Shortcut{.group = i18n::mark("Panes"),
              .keys = "F3",
@@ -724,6 +736,10 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::command_palette;
     if (name == "filter_names")
         command = Command::filter_names;
+    if (name == "reset_folder_view")
+        command = Command::reset_folder_view;
+    if (name == "select_pattern")
+        command = Command::select_pattern;
     if (name == "find_files")
         command = Command::find_files;
     if (name == "go_to")
@@ -977,6 +993,8 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "command_palette",
                              "filter_names",
                              "find_files",
+                             "select_pattern",
+                             "reset_folder_view",
                              "go_to",
                              "select_all",
                              "invert_selection",

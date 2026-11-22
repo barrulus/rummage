@@ -108,6 +108,15 @@ public:
 
     [[nodiscard]] bool focused() const noexcept { return focused_; }
 
+    [[nodiscard]] const fs::Place* hovered_place() const {
+        return pointer_inside_ && !bounds_.empty() && hovered_ && *hovered_ < places_.size()
+                   ? &places_[*hovered_]
+                   : nullptr;
+    }
+
+    void draw_drive_tooltip(ui::Renderer& renderer, const theme::Palette& palette,
+                            const ui::Rect& window, std::string_view text) const;
+
     [[nodiscard]] std::optional<std::size_t> cursor() const noexcept { return cursor_; }
 
     [[nodiscard]] bool animating() const noexcept { return scroller_.animating(); }

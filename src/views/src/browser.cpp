@@ -5,7 +5,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
-#include <fnmatch.h>
 #include <format>
 #include <initializer_list>
 #include <string>
@@ -25,6 +24,7 @@
 #include "rummage/fs/erase.hpp"
 #include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/trash.hpp"
@@ -108,6 +108,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
         }
     });
     palette_.set_close_handler([this] {
+        palette_use_ = PaletteUse::commands;
         if (finder_) {
             finder_.reset();  // its paths go, and the memory they took back to the system
             core::give_back_free_memory();
@@ -1168,31 +1169,39 @@ void Browser::submit_erase() {
 }
 
 void Browser::place_menu(const fs::Place& place, float x, float y) {
-    if (place.section == fs::Place::Section::devices && !place.disk.volume.empty() &&
-        devices_.mount) {
+    if (place.section == fs::Place::Section::devices) {
         ++menu_generation_;
         menu_loaders_.clear();
         std::vector<MenuItem> items;
         MenuItem mount;
         mount.id = "mount";
         mount.label = i18n::tr("Mount");
-        mount.enabled = !place.disk.mounted;
+        mount.enabled = !place.disk.mounted && !place.disk.volume.empty() && bool(devices_.mount);
         mount.action = [this, place] { mount_place(place, false); };
         items.push_back(std::move(mount));
         MenuItem unmount;
         unmount.id = "unmount";
         unmount.label = i18n::tr("Unmount");
-        unmount.enabled = place.disk.mounted;
+        unmount.enabled =
+            place.disk.mounted && !place.disk.volume.empty() && bool(devices_.unmount);
         unmount.action = [this, place] { unmount_place(place); };
         items.push_back(std::move(unmount));
         if (place.disk.ejectable) {
             MenuItem eject;
             eject.id = "eject";
             eject.label = i18n::tr("Eject");
+            eject.enabled = !place.disk.volume.empty() && bool(devices_.eject);
             eject.separator = true;
             eject.action = [this, place] { eject_place(place); };
             items.push_back(std::move(eject));
         }
+        MenuItem properties;
+        properties.id = "properties";
+        properties.label = i18n::tr("Properties…");
+        properties.enabled = place.disk.mounted && !place.path.empty();
+        properties.separator = true;
+        properties.action = [this, place] { properties_.open_drive(place.path, place.label); };
+        items.push_back(std::move(properties));
         menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), false);
         return;
     }
@@ -1415,6 +1424,11 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
                                                "Deleting {1} of {0} files and folders",
                                                progress.files_total, progress.files_done);
         }
+    } else if (request.kind == fs::TransferKind::link) {
+        status.fraction = progress.files_total > 0 ? static_cast<float>(progress.files_done) /
+                                                         static_cast<float>(progress.files_total)
+                                                   : -1.0F;
+        status.text = i18n::trf("Making {} of {} links", progress.files_done, progress.files_total);
     } else if (request.kind == fs::TransferKind::compress) {
         status.fraction = progress.bytes_total > 0
                               ? static_cast<float>(static_cast<double>(progress.bytes_done) /
@@ -1521,6 +1535,10 @@ void Browser::report_done(const fs::TransferRequest& request, const fs::Transfer
     }
     if (request.kind == fs::TransferKind::erase || request.kind == fs::TransferKind::empty_trash) {
         erase_done(request, result);
+        return;
+    }
+    if (request.kind == fs::TransferKind::link) {
+        links_done(request, result);
         return;
     }
     if (request.kind == fs::TransferKind::compress) {
@@ -2001,6 +2019,7 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 }
 
 Browser::~Browser() {
+    drive_hover_job_.cancel();
     bookmark_icons_job_.cancel();
     *alive_ = false;
     loop_.remove(auto_scroll_timer_);
@@ -2247,6 +2266,8 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         "rename", count > 1 ? "Batch Rename…" : "Rename…", keys_for(Command::rename),
         [this] { start_rename(); }, true, count == 1 || (!picker_mode_ && count > 1));
     add("trash", "Move to Trash", keys_for(Command::trash), [this] { trash(); });
+    if (!folder->is_archive() && !picker_mode_)
+        add("create_link", std::string{i18n::mark("Create Link")}, "", [this] { create_links(); });
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
@@ -2444,7 +2465,7 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
         extensions();
     } else {
         group({"open", "open_with", "open_tab", "open_terminal"});
-        group({"cut", "copy", "paste", "rename"});
+        group({"cut", "copy", "paste", "rename", "create_link"});
         group({"action:copy_name", "action:copy_location"});
         group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
         group({"add_bookmark", "running"});
@@ -2884,7 +2905,8 @@ MenuItem Browser::sort_menu() {
     const fs::SortOrder& now = sort_order();
     MenuItem sort;
     sort.id = "sort";
-    sort.label = i18n::tr("Sort By");
+    sort.label =
+        i18n::tr(has_custom_folder_view() ? i18n::mark("Sort By · Custom folder view") : "Sort By");
     sort.submenu = true;
     sort.separator = true;
     const auto choice = [](std::string id, std::string label, bool checked,
@@ -2909,6 +2931,16 @@ MenuItem Browser::sort_menu() {
         [this] { set_sort(sort_order().key, false); }, true));
     sort.children.push_back(choice("sort:descending", "Descending", now.descending,
                                    [this] { set_sort(sort_order().key, true); }));
+    if (const auto folder = current_folder(); folder && !folder->is_trash() && !picker_mode_) {
+        MenuItem reset;
+        reset.id = "reset_folder_view";
+        reset.label = i18n::tr("Use Default View for This Folder");
+        reset.keys = keys_for(Command::reset_folder_view);
+        reset.separator = true;
+        reset.enabled = has_custom_folder_view();
+        reset.action = [this] { reset_folder_view(); };
+        sort.children.push_back(std::move(reset));
+    }
     return sort;
 }
 
@@ -2923,19 +2955,9 @@ void Browser::set_name_filter(std::string text) {
 }
 
 void Browser::apply_filters() {
-    const auto fold = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
-    const auto& query = pane().filter_field.text();
-    const bool glob = query.find_first_of("*?[") != std::string::npos;
-    pane().entry_filter = [filter = picker_filter_, text = query, glob,
-                           fold](const fs::Entry& entry) {
-        // Match the real filename, including extensions hidden by the view's display setting.
-        return (!filter || filter(entry)) &&
-               (text.empty() ||
-                (glob ? fnmatch(text.c_str(), entry.name.c_str(), FNM_CASEFOLD) == 0
-                      : std::search(entry.name.begin(), entry.name.end(), text.begin(), text.end(),
-                                    [fold](unsigned char a, unsigned char b) {
-                                        return fold(a) == fold(b);
-                                    }) != entry.name.end()));
+    pane().entry_filter = [filter = picker_filter_,
+                           text = pane().filter_field.text()](const fs::Entry& entry) {
+        return (!filter || filter(entry)) && fs::matches_name(entry.name, text);
     };
     pane().columns.set_entry_filter(pane().entry_filter);
     pane().grid.set_entry_filter(pane().entry_filter);
@@ -3444,6 +3466,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                             shared_info_bounds_.height},
                            palette.outline_variant);
     }
+    draw_drive_tooltip(renderer, palette, bounds);
     draw_band(renderer, palette);
     editor_.draw(renderer, palette);
     if (quick_look_.is_open())
@@ -5165,14 +5188,17 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
     found_after_.reset();  // a key while a file found is on its way: it stays shown, no more
     if (palette_.is_open()) {
         const Command command = command_for(event);
-        if (command == Command::command_palette || command == Command::find_files) {
-            // The same key closes it; the other switches.
-            const bool files = palette_.external();
+        if (command == Command::command_palette || command == Command::find_files ||
+            command == Command::select_pattern) {
+            // The same key closes it; another switches.
+            const PaletteUse was = palette_use_;
             palette_.close();
-            if (command == Command::find_files && !files) {
+            if (command == Command::find_files && was != PaletteUse::files) {
                 open_finder();
-            } else if (command == Command::command_palette && files) {
+            } else if (command == Command::command_palette && was != PaletteUse::commands) {
                 open_palette();
+            } else if (command == Command::select_pattern && was != PaletteUse::pattern) {
+                open_pattern();
             }
         } else if (!text_field_key(event)) {
             palette_.key(event);  // every key is the palette's meanwhile
@@ -5554,6 +5580,12 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::command_palette:
             open_palette();
+            break;
+        case Command::reset_folder_view:
+            reset_folder_view();
+            break;
+        case Command::select_pattern:
+            open_pattern();
             break;
         case Command::find_files:
             open_finder();

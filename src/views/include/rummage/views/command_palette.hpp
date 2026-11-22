@@ -141,7 +141,7 @@ private:
     std::function<void(const std::string&)> query_changed_;
     std::string status_;
     bool moved_{false};    // the highlight was moved by hand
-    bool in_list_{false};  // the keyboard is in the list: Space is Quick Look (finding files)
+    bool in_list_{false};  // the keyboard is in the list: Space is Quick Look (a file found)
     bool open_{false};
     std::vector<PaletteItem> items_;
     std::vector<std::size_t> recent_;  // indexes into items_, most recent first

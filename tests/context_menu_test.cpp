@@ -291,6 +291,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
+                                               "create_link",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -306,7 +307,9 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "|",
                                                "properties"});
     CHECK(f.menu().items()[3].keys == "Ctrl+C");  // from the shortcuts table
-    CHECK(f.menu().items()[10].keys == "Delete");
+    const auto trash = std::ranges::find(f.menu().items(), "trash", &MenuItem::id);
+    REQUIRE(trash != f.menu().items().end());
+    CHECK(trash->keys == "Delete");
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.menu().is_open());
 
@@ -320,6 +323,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
+                                               "create_link",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -346,6 +350,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
+                                               "create_link",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -411,11 +416,11 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
     CHECK(ids(sort.children) == Names{"sort:name", "sort:size", "sort:modified", "sort:type",
                                       "sort:created", "sort:accessed", "sort:owner", "sort:group",
                                       "sort:permissions", "sort:location", "sort:link_target",
-                                      "sort:ascending", "sort:descending"});
+                                      "sort:ascending", "sort:descending", "reset_folder_view"});
     const auto checked = [](const MenuItem& submenu) {
         Names out;
         for (const MenuItem& item : submenu.children) {
-            CHECK(item.radio);
+            CHECK(item.radio == (item.id != "reset_folder_view"));
             if (item.checked) {
                 out.push_back(item.id);
             }
@@ -437,7 +442,9 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
     const auto sorted = std::ranges::find(f.menu().items(), "sort", &MenuItem::id);
     REQUIRE(sorted != f.menu().items().end());
     CHECK(checked(*sorted) == Names{"sort:size", "sort:ascending"});
-    sorted->children.back().action();  // Descending
+    const auto descending = std::ranges::find(sorted->children, "sort:descending", &MenuItem::id);
+    REQUIRE(descending != sorted->children.end());
+    descending->action();
     f.menu().close();
     CHECK(names(*f.browser.grid().folder()) ==
           Names{"sub", "a.txt", "P1.ORF", "P1.ORF.xmp", "b.txt"});
@@ -2054,4 +2061,103 @@ TEST_CASE("properties: media disclosure and top copy include hidden metadata") {
     click("copy");
     CHECK(copied.find("Name: a.txt\n") != std::string::npos);
     CHECK(copied.find("Custom tag") == std::string::npos);
+}
+
+TEST_CASE("context menu: Create Link makes a link next to each item, and selects them") {
+    Fixture f;
+    f.select({"a.txt", "sub"});
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    f.choose("create_link");
+    REQUIRE(f.settle());
+    CHECK(fs::read_symlink(f.photos / "Link to a.txt") == f.photos / "a.txt");
+    CHECK(fs::read_symlink(f.photos / "Link to sub") == f.photos / "sub");
+    REQUIRE(run_until(f.loop, [&] {
+        Names selected = f.folder()->selected_names();
+        std::ranges::sort(selected);
+        return selected == Names{"Link to a.txt", "Link to sub"};
+    }));
+}
+
+TEST_CASE("properties: drive facts load without directory totals and appear in copy-all") {
+    Fixture f;
+    rummage::ui::Offscreen gl{800, 900};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& dialog = f.browser.properties_dialog();
+    std::string copied;
+    dialog.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    dialog.open_drive(f.photos, "Test drive");
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    REQUIRE_FALSE(dialog.filesystem().error);
+    CHECK(dialog.filesystem().capacity > 0);
+    CHECK_FALSE(dialog.can_edit_icon());
+    CHECK_FALSE(dialog.can_edit_permissions());
+    renderer.begin_frame(800, 900, 1, {});
+    dialog.draw(renderer, {0, 0, 800, 900}, {}, icons);
+    renderer.end_frame();
+    CHECK_FALSE(dialog.text_bounds("Capacity").empty());
+    CHECK_FALSE(dialog.text_bounds("Available").empty());
+    CHECK(dialog.text_bounds("Contents").empty());
+    const auto copy = dialog.control_bounds("copy");
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = copy.x + 2,
+                    .y = copy.y + 2,
+                    .button = rummage::ui::PointerButton::left});
+    CHECK(copied.find("Capacity") != std::string::npos);
+    CHECK(copied.find("Mount point") != std::string::npos);
+    dialog.open_drive(f.photos / "missing", "Missing");
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    CHECK_FALSE(dialog.error().empty());
+    dialog.open_drive(f.photos, "Test drive");
+    dialog.close();
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.is_open());
+    dialog.open(f.photos / "a.txt", [] {});
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.can_edit_icon());
+    CHECK(dialog.filesystem().capacity == 0);
+}
+
+TEST_CASE("context menu: mounted drives offer properties even without udisks") {
+    Fixture f;
+    rummage::ui::Offscreen gl{800, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& sidebar = f.browser.sidebar();
+    for (const bool mounted : {true, false}) {
+        sidebar.set_places({{.section = rummage::fs::Place::Section::devices,
+                             .label = "Test drive",
+                             .path = mounted ? f.photos : fs::path{},
+                             .icon = "server",
+                             .disk = {.volume = {}, .mounted = mounted}}});
+        renderer.begin_frame(800, 640, 1, {});
+        sidebar.draw(renderer, {0, 0, 200, 640}, {}, icons, f.photos, Browser::Clock::now());
+        renderer.end_frame();
+        float y = 0;
+        for (; y < 640; y += 2) {
+            sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 30, .y = y},
+                            Browser::Clock::now());
+            if (sidebar.hovered_place())
+                break;
+        }
+        REQUIRE(y < 640);
+        sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                         .x = 30,
+                         .y = y,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+        REQUIRE(f.menu().is_open());
+        const auto properties = std::ranges::find(f.menu().items(), "properties", &MenuItem::id);
+        REQUIRE(properties != f.menu().items().end());
+        CHECK(properties->enabled == mounted);
+        if (mounted) {
+            f.choose("properties");
+            REQUIRE(run_until(f.loop, [&] { return !f.browser.properties_dialog().loading(); }));
+            CHECK(f.browser.properties_dialog().filesystem().capacity > 0);
+            f.browser.properties_dialog().close();
+        } else
+            f.menu().close();
+    }
 }

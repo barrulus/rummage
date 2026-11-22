@@ -22,6 +22,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
@@ -488,6 +489,8 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::next_tab, "next_tab"},
         {Command::previous_tab, "previous_tab"},
         {Command::find_files, "find_files"},
+        {Command::select_pattern, "select_pattern"},
+        {Command::reset_folder_view, "reset_folder_view"},
         {Command::filter_names, "filter_names"},
         {Command::toggle_split, "toggle_split"},
         {Command::switch_pane, "switch_pane"},
@@ -614,4 +617,177 @@ TEST_CASE("state: palette.recent keeps strings only, ten at most") {
         rummage::views::parse_state("[palette]\nrecent = \"id\"\n", "s.toml");
     CHECK(wrong.state.palette_recent.empty());
     CHECK(wrong.problems.size() == 1);
+}
+
+namespace {
+
+struct PatternFixture : Fixture {
+    PatternFixture() {
+        for (const char* name : {"P1.ORF", "P1.JPG", "p2.orf", "IMG 001.jpg", ".hidden.orf"}) {
+            std::ofstream{a / name} << name;
+        }
+        REQUIRE(run_until(loop, [this] { return folder()->entries().size() == 6; }));
+    }
+
+    std::shared_ptr<rummage::views::Folder> folder() { return browser.columns().focused_folder(); }
+
+    void type(std::string_view text) {
+        for (const char c : text) {
+            press(c == ' ' ? key(XKB_KEY_space, {}, " ") : typed(c));
+        }
+    }
+};
+
+}  // namespace
+
+TEST_CASE("select by name: matching ignores case and leaves hidden files out while hidden") {
+    PatternFixture f;
+    auto names = [&f](const std::vector<std::size_t>& rows) {
+        std::set<std::string> out;
+        for (const std::size_t r : rows) {
+            out.insert(f.folder()->entries()[r].name);
+        }
+        return out;
+    };
+    CHECK(names(f.folder()->matching("*.orf")) == std::set<std::string>{"P1.ORF", "p2.orf"});
+    CHECK(f.folder()->matching("").empty());
+    CHECK(f.folder()->matching("*.xyz").empty());
+    f.press(key(XKB_KEY_h, kCtrl));
+    REQUIRE(f.settle());
+    CHECK(names(f.folder()->matching("*.orf")) ==
+          std::set<std::string>{"P1.ORF", "p2.orf", ".hidden.orf"});
+}
+
+TEST_CASE(
+    "select by name: the rows become the selection or join it; the cursor moves only off them") {
+    PatternFixture f;
+    auto folder = f.folder();
+    folder->select_name("one.txt");
+    folder->select_rows(folder->matching("*.orf"), false);
+    CHECK(folder->selected_names().size() == 2);
+    CHECK_FALSE(folder->is_selected("one.txt"));
+    REQUIRE(folder->cursor_entry() != nullptr);
+    CHECK(rummage::fs::matches_name(folder->cursor_entry()->name, "*.orf"));
+    folder->select_name("p2.orf");
+    folder->select_rows(folder->matching("*.orf"), false);
+    CHECK(folder->cursor_entry()->name == "p2.orf");
+    folder->select_name("sub");
+    folder->select_rows(folder->matching("*.orf"), true);
+    CHECK(folder->selected_count() == 3);
+    CHECK(folder->is_selected("sub"));
+    folder->select_rows({}, false);
+    CHECK(folder->selected_count() == 3);
+}
+
+TEST_CASE(
+    "palette in the browser: Ctrl+S selects by name, counts as it is typed, Escape leaves the "
+    "selection") {
+    PatternFixture f;
+    REQUIRE(f.press(key(XKB_KEY_s, kCtrl)));
+    auto& palette = f.browser.command_palette();
+    REQUIRE(palette.is_open());
+    CHECK(palette.external());
+    f.type("*.orf");
+    CHECK(palette.status() == "2 of 6 match");
+    REQUIRE(palette.items().size() == 1);
+    CHECK(palette.items().front().id == "pattern:select");
+    f.press(key(XKB_KEY_Return));
+    CHECK_FALSE(palette.is_open());
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"P1.ORF", "p2.orf"});
+    f.press(key(XKB_KEY_s, kCtrl));
+    f.type("jpg");
+    f.press(key(XKB_KEY_Escape));
+    CHECK_FALSE(palette.is_open());
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"P1.ORF", "p2.orf"});
+    f.press(key(XKB_KEY_s, kCtrl));
+    f.press(key(XKB_KEY_S, kCtrl));
+    CHECK_FALSE(palette.is_open());
+}
+
+TEST_CASE("palette in the browser: Ctrl+K, Ctrl+F and Ctrl+S switch between their cards") {
+    PatternFixture f;
+    auto& palette = f.browser.command_palette();
+    f.press(key(XKB_KEY_s, kCtrl));
+    REQUIRE(palette.external());
+    f.press(key(XKB_KEY_f, kCtrl));
+    CHECK(palette.is_open());
+    CHECK(f.browser.file_finder() != nullptr);
+    f.press(key(XKB_KEY_s, kCtrl));
+    CHECK(palette.is_open());
+    CHECK(f.browser.file_finder() == nullptr);
+    f.press(key(XKB_KEY_k, kCtrl));
+    CHECK(palette.is_open());
+    CHECK_FALSE(palette.external());
+    f.press(key(XKB_KEY_s, kCtrl));
+    CHECK(palette.external());
+    f.press(key(XKB_KEY_k, kCtrl));
+    f.press(key(XKB_KEY_k, kCtrl));
+    CHECK_FALSE(palette.is_open());
+}
+
+TEST_CASE("palette in the browser: a space is typed in a pattern") {
+    PatternFixture f;
+    f.press(key(XKB_KEY_s, kCtrl));
+    f.type("IMG 0*");
+    CHECK(f.browser.command_palette().query() == "IMG 0*");
+    CHECK(f.browser.command_palette().status() == "1 of 6 match");
+    f.type("z");
+    CHECK(f.browser.command_palette().status() == "None of 6 match");
+    CHECK(f.browser.command_palette().items().empty());
+}
+
+TEST_CASE("palette in the browser: a space is typed too with the keyboard on a pattern's row") {
+    PatternFixture f;
+    auto& palette = f.browser.command_palette();
+    f.press(key(XKB_KEY_s, kCtrl));
+    f.type("IMG");
+    f.press(key(XKB_KEY_Down));
+    REQUIRE(palette.in_list());
+    REQUIRE(palette.highlighted().has_value());
+    f.press(key(XKB_KEY_space, {}, " "));
+    CHECK(palette.query() == "IMG ");
+    CHECK_FALSE(palette.in_list());
+    f.type("0*");
+    CHECK(palette.status() == "1 of 6 match");
+}
+
+TEST_CASE("palette in the browser: Add to the Selection only when something else is selected") {
+    PatternFixture f;
+    auto& palette = f.browser.command_palette();
+    f.folder()->select_name("P1.ORF");
+    f.press(key(XKB_KEY_s, kCtrl));
+    f.type("*.orf");
+    CHECK(palette.items().size() == 1);
+    f.press(key(XKB_KEY_Escape));
+    f.folder()->select_name("sub");
+    f.press(key(XKB_KEY_s, kCtrl));
+    f.type("*.orf");
+    REQUIRE(palette.items().size() == 2);
+    f.press(key(XKB_KEY_Down));
+    f.press(key(XKB_KEY_Return));
+    CHECK(f.folder()->selected_count() == 3);
+}
+
+TEST_CASE(
+    "select by name: literal backslashes agree with filtering and active filters bound selection") {
+    CHECK(rummage::fs::matches_name("foo\\bar", "foo\\bar"));
+    CHECK_FALSE(rummage::fs::matches_name("foobar", "foo\\bar"));
+    PatternFixture f;
+    f.browser.set_name_filter("P1");
+    f.browser.open_pattern();
+    f.type("*.orf");
+    CHECK(f.browser.command_palette().status() == "1 of 2 match");
+    f.press(key(XKB_KEY_Return));
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"P1.ORF"});
+    CHECK(f.browser.name_filter() == "P1");
+}
+
+TEST_CASE("select by name: stale matches are checked again before selection") {
+    PatternFixture f;
+    f.browser.open_pattern();
+    f.type("*.orf");
+    fs::remove(f.a / "P1.ORF");
+    REQUIRE(run_until(f.loop, [&] { return f.folder()->entries().size() == 5; }));
+    f.press(key(XKB_KEY_Return));
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"p2.orf"});
 }

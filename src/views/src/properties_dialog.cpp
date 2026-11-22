@@ -41,7 +41,7 @@ PropertiesDialog::~PropertiesDialog() {
 }
 
 void PropertiesDialog::open(std::filesystem::path path, std::function<void()> changed,
-                            bool editable) {
+                            bool editable, bool drive, std::string label) {
     if (saving_)
         return;
     ++generation_;
@@ -55,7 +55,9 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     changed_ = std::move(changed);
     open_ = loading_ = true;
     picking_ = false;
-    editable_ = editable;
+    editable_ = editable && !drive;
+    drive_ = drive;
+    drive_label_ = std::move(label);
     data_ = {};
     permissions_ = 0;
     draft_.clear();
@@ -65,8 +67,15 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     focus_ = "close";
     load_job_ = pool_.submit(
         core::Priority::visible,
-        [path = path_, mime = mime_](const core::CancelToken& token) {
+        [path = path_, mime = mime_, drive](const core::CancelToken& token) {
             Data result;
+            if (drive) {
+                result.entry.kind = fs::EntryKind::directory;
+                result.filesystem = fs::filesystem_facts(path);
+                if (result.filesystem.error)
+                    result.info.error = result.filesystem.error.message();
+                return result;
+            }
             const auto parent = path == path.root_path() ? path : path.parent_path();
             const auto name = path == path.root_path() ? "." : path.filename().string();
             const auto entries = fs::read_entries(parent, {name}, {.mime = mime});
@@ -574,6 +583,35 @@ ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
 }
 
 std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows() const {
+    if (drive_) {
+        const auto& facts = data_.filesystem;
+        const auto value = [this, &facts](std::uint64_t size) {
+            return loading_      ? std::string{"…"}
+                   : facts.error ? std::string{i18n::tr("Unavailable")}
+                                 : format_size(size);
+        };
+        return {{std::string{i18n::mark("Mount point")}, loading_ ? "…"
+                                                         : facts.mount_point.empty()
+                                                             ? path_.string()
+                                                             : facts.mount_point.string()},
+                {std::string{i18n::mark("File system")}, loading_ ? "…"
+                                                         : facts.type.empty()
+                                                             ? std::string{i18n::tr("Unavailable")}
+                                                             : facts.type},
+                {std::string{i18n::mark("Device")}, loading_ ? "…"
+                                                    : facts.device.empty()
+                                                        ? std::string{i18n::tr("Unavailable")}
+                                                        : facts.device},
+                {std::string{i18n::mark("Capacity")}, value(facts.capacity)},
+                {std::string{i18n::mark("Used")}, value(facts.capacity - facts.free)},
+                {std::string{i18n::mark("Available")}, value(facts.available)},
+                {std::string{i18n::mark("Access")},
+                 loading_ ? "…"
+                 : facts.error
+                     ? std::string{i18n::tr("Unavailable")}
+                     : std::string{i18n::tr(facts.read_only ? i18n::mark("Read only")
+                                                            : i18n::mark("Read and write"))}}};
+    }
     std::vector<std::pair<std::string, std::string>> rows{
         {"Location", path_.parent_path().string()},
         {data_.entry.is_directory() ? "Contents" : "Size",
@@ -621,9 +659,12 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
-    const std::string name = path_.filename().empty() ? path_.string() : path_.filename().string();
-    const std::string type =
-        loading_ ? std::string{i18n::tr("Loading…")} : std::string{mime_->name(data_.entry.mime)};
+    const std::string name = drive_ && !drive_label_.empty() ? drive_label_
+                             : path_.filename().empty()      ? path_.string()
+                                                             : path_.filename().string();
+    const std::string type = loading_ ? std::string{i18n::tr("Loading…")}
+                             : drive_ ? std::string{i18n::tr("Drive")}
+                                      : std::string{mime_->name(data_.entry.mime)};
     const auto rows = property_rows();
     const auto details = data_.summary.photo
                              ? media_details(*data_.summary.photo, MediaDetails::additional)
@@ -810,6 +851,10 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                 {preview_box.x + (preview_box.width - w) / 2,
                                  preview_box.y + (preview_box.height - h) / 2, w, h},
                                 {});
+        } else if (drive_) {
+            icons.draw(renderer, "server", preview_box.x + (preview_box.width - 56) / 2,
+                       preview_box.y + (preview_box.height - 56) / 2, 56,
+                       theme::readable_foreground(palette.primary, palette.surface_container_high));
         } else {
             icons.draw_file(
                 renderer, mime_->name(data_.entry.mime), fs::icon_name(*mime_, data_.entry),

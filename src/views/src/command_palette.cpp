@@ -410,10 +410,11 @@ bool CommandPalette::key(const ui::KeyEvent& event) {
             }
             return true;
         case XKB_KEY_space:
-            if (external() && in_list_ && event.modifiers == ui::Modifiers{}) {
-                if (highlighted_) {
-                    choose(*highlighted_, 1);  // Quick Look
-                }
+            // Quick Look for a file found; on a row without one a space is typed (a pattern may
+            // have one).
+            if (external() && in_list_ && event.modifiers == ui::Modifiers{} && highlighted_ &&
+                items_[shown_[*highlighted_]].quick_look) {
+                choose(*highlighted_, 1);
                 return true;
             }
             break;  // a space in the query: terms
@@ -512,7 +513,8 @@ void CommandPalette::draw_label(ui::Renderer& renderer, std::string_view label, 
     FuzzyQuery query{field_.text()};
     const std::vector<std::size_t> positions =
         path ? query.path_positions(label) : query.positions(label);
-    if (positions.empty()) {
+    // A pattern's rows (external, not paths) have nothing of what was typed: no highlight.
+    if (positions.empty() || (external() && !path)) {
         // Nothing to light: the renderer's own cut (a path keeps its start and its name).
         renderer.draw_text(label, x, y, kTextSize, text, room,
                            path ? ui::Ellipsis::middle : ui::Ellipsis::end);

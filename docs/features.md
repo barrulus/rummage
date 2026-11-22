@@ -12,7 +12,7 @@ in the linked guides. The fork develops beyond upstream Nordend 0.5.0; see [rele
 - Two persistent panes with their own tabs, locations, views, sorting, hidden settings and filters.
 - Live filename filtering alongside recursive search; independent sidebar zoom.
 - Sorting by name, size, modified date or type; hidden-file toggle; live directory updates.
-- Keyboard and mouse selection, rubber bands, smooth scrolling and adjustable zoom.
+- Keyboard and mouse selection, filename-pattern selection, rubber bands, smooth scrolling and adjustable zoom.
 - Breadcrumb, history, places, GTK bookmarks and removable-device integration.
 - Network bookmarks (smb, sftp, ftp, WebDAV) mounted through gvfs; Ctrl+L to go to a folder or server.
 - Fuzzy command palette and recursive filename/path search with cancellation.
@@ -26,11 +26,13 @@ case-insensitive, not locale collation.
 ## Files and external applications
 
 - Copy/move with progress, cancellation and conflict choices; rename and create from templates.
+- Create symbolic links beside selected files and folders, with undo/redo.
 - Batch rename with a live preview, literal replacement, templates and numbering in view order;
   darktable sidecars follow, and the batch has one Undo/Redo step.
 - Freedesktop Trash across filesystems, restore, confirmed permanent deletion and undo/redo.
 - Clipboard exchange and drag/drop with desktop applications.
 - Mounting internal partitions and removable disks through udisks2, with authorization when required.
+- Mounted-drive filesystem properties and available-space tooltips.
 - Properties and a folder-icon picker, sharing `.directory` metadata with Dolphin.
 - Default applications and Open With from desktop MIME associations; terminal launching.
 - darktable sidecars follow supported photo operations.
@@ -66,7 +68,7 @@ use the same renderer in-process; SVG file previews use the sandboxed helper.
 ## Desktop integration and customization
 
 - Folder-jump shortcuts, configurable startup locations, and per-folder view/sort/zoom
-  preferences for up to 512 recent folders.
+  preferences for up to 512 recent folders, with a reset to defaults for the active folder.
 
 - Wayland input, clipboard, drag/drop, activation and fractional scaling where protocols exist.
 - Server-side decorations or rummage's title bar; cursor-shape or Xcursor fallback.
