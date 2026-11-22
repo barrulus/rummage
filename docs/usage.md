@@ -133,7 +133,19 @@ cursor track entries through live directory updates.
 **Ctrl+H** toggles hidden files in the current tab. Hidden entries are dimmed when shown;
 when hidden, they are excluded from Select All and operations on that selection.
 
+The back and forward buttons before each pane’s path navigate that pane’s history.
+They remain visible when the compositor provides the title bar.
+
 ## Tabs and persistence
+
+**Ctrl+Shift+T** or **Reopen Closed Tab** in the command palette restores the last
+closed tab in the active pane, at its previous position, with its view, zoom,
+history, filter, hidden-file setting and details columns. Each pane keeps its last
+ten closed tabs until the window closes. A folder that has disappeared is reported
+and skipped; press again to restore the preceding tab.
+
+**Ctrl+Shift+I** inverts selection among visible entries. Hidden files and entries
+excluded by the filename or picker filter stay unselected.
 
 **Ctrl+T** opens a tab, **Ctrl+W** closes the current tab (except the last), and
 **Ctrl+Tab / Ctrl+Shift+Tab** cycles tabs. **Alt+1…9** selects a numbered tab.
@@ -223,9 +235,13 @@ Only applicable commands appear. Use arrows or Page Up/Down, Enter to run, and
 Escape or Ctrl+K to close. Open With opens an application list within the palette.
 
 **Ctrl+F** searches filenames and paths recursively under the current folder.
-This is fuzzy path search, not file-content search. A match in a filename ranks
-above one spanning its parent directories. Enter reveals a result in the browser,
-Space previews it, and Shift+Enter opens it in its default application.
+Names rank by exact match, prefix, substring, then scattered letters, ahead of
+matches requiring parent folders. Within each group, shallower paths come first.
+Spaces separate terms that must all match, in any order, in both file search and
+the command palette. Long result labels keep their highlighted match visible.
+Enter reveals a result; Shift+Enter opens its default application. Space inserts a
+space while typing. After Up/Down or Page Up/Down moves into the results, Space
+opens Quick Look; Shift+Space always inserts a space. This searches paths, not file contents.
 
 Search excludes hidden entries unless shown, does not follow symlink directories
 or cross into other mounted filesystems, and stops at 300,000 entries with a

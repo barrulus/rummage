@@ -434,3 +434,12 @@ the same prefix. For a flake input, update its lock entry in your configuration 
 rebuild. Personal `config.toml` files are never rewritten to add new options; compare
 with the current reference. Record `rummage --about` when diagnosing differences
 between installed and development builds.
+
+## Shell completions
+
+Packages install completions for bash, zsh and fish. Bash uses bash-completion;
+zsh uses `compinit`; fish loads its vendor completions automatically. The options
+follow the selected mode: picker options appear after `--pick`, `--pick-directory`
+or `--save-file`. Folder arguments complete directories; `--reveal` and
+`--properties` also complete files. Source builds can omit these files with
+`-DRUMMAGE_INSTALL_COMPLETIONS=OFF`.

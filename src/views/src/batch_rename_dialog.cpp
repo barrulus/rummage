@@ -169,6 +169,17 @@ bool BatchRenameDialog::key(const ui::KeyEvent& event) {
     return true;
 }
 
+std::string BatchRenameDialog::copy_selection(bool cut) {
+    if (!is_open() || busy_ || focus_ >= fields_.size())
+        return {};
+    auto& field = fields_[focus_];
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        update();
+    }
+    return text;
+}
+
 void BatchRenameDialog::paste(std::string_view text) {
     if (is_open() && !busy_ && focus_ < fields_.size()) {
         fields_[focus_].insert(text.substr(0, text.find_first_of("\r\n")));

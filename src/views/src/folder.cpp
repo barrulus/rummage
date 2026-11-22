@@ -317,6 +317,33 @@ void Folder::select_all() {
     selection_changed();
 }
 
+void Folder::invert_selection() {
+    const std::vector<fs::Entry>& list = entries();
+    if (list.empty()) {
+        return;
+    }
+    // Names selected but not listed yet (pasted, on their way) count as selected, so they drop out.
+    std::unordered_set<std::string> inverted;
+    for (const fs::Entry& entry : list) {
+        if (!selected_.contains(entry.name)) {
+            inverted.insert(entry.name);
+        }
+    }
+    selected_ = std::move(inverted);
+    press_pending_ = false;
+    if (!cursor_index_) {
+        const auto first = std::ranges::find_if(
+            list, [this](const fs::Entry& entry) { return selected_.contains(entry.name); });
+        if (first != list.end()) {
+            cursor_index_ = static_cast<std::size_t>(first - list.begin());
+            cursor_name_ = first->name;
+            cursor_expected_ = false;
+            anchor_ = cursor_name_;
+        }
+    }
+    selection_changed();
+}
+
 void Folder::set_show_hidden(bool show, bool keep_cursor) {
     if (show == shows_hidden()) {
         return;

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -39,11 +40,13 @@ using rummage::test::TempDir;
 using rummage::ui::CursorShape;
 using rummage::ui::KeyEvent;
 using rummage::ui::Modifiers;
+using rummage::views::better_rank;
 using rummage::views::Browser;
 using rummage::views::FileFinder;
 using rummage::views::FoundFile;
 using rummage::views::FuzzyQuery;
 using rummage::views::match_paths;
+using rummage::views::PathRank;
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 
@@ -160,19 +163,72 @@ TEST_CASE("walk: stops at the limits, when cancelled, and on a missing folder") 
 
 TEST_CASE("fuzzy paths: a match in the name ranks above one across folders") {
     FuzzyQuery query{"orf"};
-    const auto score = [&query](std::string_view path) {
-        const std::optional<double> found = query.path_score(path);
+    const auto rank = [&query](std::string_view path) {
+        const std::optional<PathRank> found = query.path_rank(path);
         REQUIRE(found);
-        return found.value_or(0.0);
+        return found.value_or(PathRank{});
     };
-    CHECK(score("photos/shot.orf") > score("orf-notes/list.txt"));
-    CHECK(score("x/y/z/far.orf") > score("orfanage/a.txt"));
-    CHECK_FALSE(query.path_score("photos/a.txt"));
+    CHECK(better_rank(rank("photos/shot.orf"), rank("orf-notes/list.txt")));
+    CHECK(better_rank(rank("x/y/z/far.orf"), rank("orfanage/a.txt")));
+    CHECK(rank("orfanage/a.txt").tier == PathRank::Tier::folders);
+    CHECK_FALSE(query.path_rank("photos/a.txt"));
     // Highlighted in the name when it matches there.
     CHECK(query.path_positions("orf/shot.orf") == std::vector<std::size_t>{9, 10, 11});
     CHECK(query.path_positions("orf/notes.txt") == std::vector<std::size_t>{0, 1, 2});
-    // Spaces mean nothing: "monte rosa" finds "MonteRosa".
+}
+
+TEST_CASE("fuzzy paths: the name as typed, then shallower, then scattered (issue #25)") {
+    const auto tier = [](std::string_view query, std::string_view path) {
+        const std::optional<PathRank> found = FuzzyQuery{query}.path_rank(path);
+        REQUIRE(found);
+        return found.value_or(PathRank{}).tier;
+    };
+    CHECK(tier("swap", "usr/share/doc/SWAP") == PathRank::Tier::equal);  // any case
+    CHECK(tier("swap", "swapfile") == PathRank::Tier::prefix);
+    CHECK(tier("apfil", "swapfile") == PathRank::Tier::contains);
+    CHECK(tier("apfil", "usr/include/app-filter.h") == PathRank::Tier::scattered);
+    CHECK(tier("usr swap", "usr/bin/swapon") ==
+          PathRank::Tier::folders);  // the weakest term decides
+
+    // stradus64's searches from /: /swapfile is the shallowest of the names starting with
+    // "swap", and a contiguous "apfil" beats letters at word starts, however many of those.
+    auto batch = std::make_shared<PathBatch>();
+    for (const char* path : {"usr/include/linux/swap.h", "usr/bin/swapon", "swapfile",
+                             "usr/share/man/man8/swapon.8.gz", "usr/share/doc/SWAP"}) {
+        batch->add(path, false);
+    }
+    for (int i = 0; i < 300; ++i) {
+        batch->add(std::format("usr/x86_64-w64-mingw32/lib/api-ms-win-core-file-l{}-1-0.def", i),
+                   false);
+    }
+    batch->add("usr/include/app-filter.h", false);
+    const std::vector<std::shared_ptr<const PathBatch>> batches{batch};
+    const std::vector<FoundFile> swap = match_paths(batches, "swap", 200, {});
+    REQUIRE(swap.size() >= 4);
+    CHECK(swap[0].path == "usr/share/doc/SWAP");  // the name is the query
+    CHECK(swap[1].path == "swapfile");            // then the shallowest that starts with it
+    CHECK(swap[2].path == "usr/bin/swapon");
+    const std::vector<FoundFile> apfil = match_paths(batches, "apfil", 200, {});
+    REQUIRE_FALSE(apfil.empty());
+    CHECK(apfil[0].path == "swapfile");
+}
+
+TEST_CASE("fuzzy: terms split at spaces, all needed, in any order (issue #25)") {
+    CHECK(FuzzyQuery{"monte rosa"}.score("Monte Rosa"));
     CHECK(FuzzyQuery{"monte rosa"}.score("MonteRosa"));
+    CHECK(FuzzyQuery{"rosa monte"}.score("Monte Rosa"));          // any order
+    CHECK(FuzzyQuery{"  ga   st "}.score("star Games"));          // spaces anywhere, any number
+    CHECK_FALSE(FuzzyQuery{"monte bianco"}.score("Monte Rosa"));  // every term is needed
+    CHECK(FuzzyQuery{"   "}.empty());
+    // The positions: every term's, each once, ascending.
+    CHECK(FuzzyQuery{"ga st"}.positions("star Games") == std::vector<std::size_t>{0, 1, 5, 6});
+    CHECK(FuzzyQuery{"st sta"}.positions("star") == std::vector<std::size_t>{0, 1, 2});
+    // In a path: each term in the name when it can be.
+    CHECK(FuzzyQuery{"ga st"}.path_positions("Games/star.png") ==
+          std::vector<std::size_t>{0, 1, 6, 7});
+    const std::optional<PathRank> games = FuzzyQuery{"ga st"}.path_rank("Games/star.png");
+    REQUIRE(games);
+    CHECK(games.value_or(PathRank{}).tier == PathRank::Tier::folders);  // "ga" needs the folder
 }
 
 TEST_CASE("match_paths: the best few, ordered, the shorter first among equals") {
@@ -293,11 +349,41 @@ TEST_CASE("find files: Ctrl+F lists the folder, Enter shows the file in the view
     CHECK(f.browser.mode() == Browser::Mode::grid);
 }
 
-TEST_CASE("find files: Space shows the file in Quick Look; folders say so") {
+TEST_CASE("find files: Space is a space in the field, Quick Look in the list (issue #25)") {
     Fixture f;
     f.find("shot");
+    const auto& palette = f.browser.command_palette();
+    // Typing: a space in the query.
     f.press(key(XKB_KEY_space, {}, " "));
-    CHECK_FALSE(f.browser.command_palette().is_open());
+    REQUIRE(palette.is_open());
+    CHECK(palette.query() == "shot ");
+    CHECK_FALSE(palette.in_list());
+    // Down moves into the list; Shift or Ctrl alone leave it there.
+    f.press(key(XKB_KEY_Down));
+    CHECK(palette.in_list());
+    f.press(key(XKB_KEY_Shift_L, {.shift = true}));
+    CHECK(palette.in_list());
+    // Shift+Space is always a space, and back to the field.
+    f.press(key(XKB_KEY_space, {.shift = true}, " "));
+    CHECK(palette.query() == "shot  ");
+    CHECK_FALSE(palette.in_list());
+    // So is typing.
+    f.press(key(XKB_KEY_Up));
+    CHECK(palette.in_list());
+    f.press(key(XKB_KEY_BackSpace));
+    CHECK(palette.query() == "shot ");
+    CHECK_FALSE(palette.in_list());
+    // In the list, Space shows the highlighted file in Quick Look (once the query's results are
+    // in).
+    REQUIRE(run_until(f.loop, [&f] {
+        const FileFinder* finder = f.browser.file_finder();
+        return finder != nullptr && !finder->matching() &&
+               !f.browser.command_palette().shown().empty();
+    }));
+    f.press(key(XKB_KEY_Down));
+    f.press(key(XKB_KEY_Up));
+    f.press(key(XKB_KEY_space, {}, " "));
+    CHECK_FALSE(palette.is_open());
     REQUIRE(f.shown("shot.orf"));
     REQUIRE(run_until(f.loop, [&f] {
         f.browser.settle_found(Browser::Clock::now());
@@ -306,7 +392,6 @@ TEST_CASE("find files: Space shows the file in Quick Look; folders say so") {
     f.browser.quick_look().close();
 
     f.find("deep");
-    const auto& palette = f.browser.command_palette();
     REQUIRE_FALSE(palette.shown().empty());
     CHECK(palette.items()[palette.shown().front()].keys == "Folder");
 }

@@ -758,3 +758,29 @@ TEST_CASE("shortcuts: thumbnail and extension bindings toggle every view and upd
     CHECK(rummage::views::command_for(chord(XKB_KEY_e, {.ctrl = true, .alt = true})) ==
           Command::none);
 }
+
+TEST_CASE("shortcuts: reopen and inversion respect custom bindings and existing assignments") {
+    ResetBindings reset;
+    using rummage::views::command_for;
+    using rummage::views::configure_shortcuts;
+    REQUIRE(configure_shortcuts({}).empty());
+    CHECK(command_for(chord(XKB_KEY_t, {.ctrl = true, .shift = true})) == Command::reopen_tab);
+    REQUIRE(configure_shortcuts({{"reopen_tab", "Ctrl+Alt+t"}, {"invert_selection", "Ctrl+Alt+i"}})
+                .empty());
+    CHECK(command_for(chord(XKB_KEY_t, {.ctrl = true, .alt = true})) == Command::reopen_tab);
+    Fixture f;
+    f.reset(Browser::Mode::details);
+    f.browser.set_name_filter("*.txt");
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    f.folder()->select_name("a.txt");
+    f.browser.key(chord(XKB_KEY_i, {.ctrl = true, .alt = true}), Browser::Clock::now());
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"b.txt"});
+    REQUIRE(configure_shortcuts({{"invert_selection", ""}, {"reopen_tab", ""}}).empty());
+    f.browser.key(chord(XKB_KEY_i, {.ctrl = true, .shift = true}), Browser::Clock::now());
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"b.txt"});
+    CHECK(command_for(chord(XKB_KEY_t, {.ctrl = true, .shift = true})) == Command::none);
+    REQUIRE(configure_shortcuts({{"new_tab", "Ctrl+Shift+t"}, {"toggle_info", "Ctrl+Shift+i"}})
+                .empty());
+    CHECK(command_for(chord(XKB_KEY_t, {.ctrl = true, .shift = true})) == Command::new_tab);
+    CHECK(command_for(chord(XKB_KEY_i, {.ctrl = true, .shift = true})) == Command::toggle_info);
+}

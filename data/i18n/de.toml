@@ -33,6 +33,11 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Invert the selection" = "Auswahl umkehren"
+"No closed tab to reopen" = "Kein geschlossener Tab zum Wiederöffnen"
+"Reopen Closed Tab" = "Geschlossenen Tab wieder öffnen"
+"Reopen the closed tab" = "Geschlossenen Tab wieder öffnen"
+"Invert Selection" = "Auswahl umkehren"
 "Space to preview" = "Leertaste für Vorschau"
 "Read" = "Lesen"
 "Write" = "Schreiben"

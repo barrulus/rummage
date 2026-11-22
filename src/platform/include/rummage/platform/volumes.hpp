@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "rummage/fs/places.hpp"
@@ -67,5 +68,9 @@ struct Volume {
 // volume on the same drive (volume itself alone when it has none).
 [[nodiscard]] std::vector<const Volume*> on_same_drive(const std::vector<Volume>& volumes,
                                                        const std::string& volume);
+
+// Why udisks2 would not power a drive off, from its DeviceBusy message: the part after the last
+// ": " ("encrypted device /dev/sdb2 is unlocked"), or "in use" when there is none.
+[[nodiscard]] std::string power_off_refusal(std::string_view message);
 
 }  // namespace rummage::platform

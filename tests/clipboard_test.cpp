@@ -460,3 +460,93 @@ TEST_CASE("clipboard: undo preserves a pasted file edited after creation") {
     CHECK(f.browser.status_bar().message().find("has changed since it was made") !=
           std::string::npos);
 }
+
+TEST_CASE("clipboard: Ctrl+C and Ctrl+X in a name's field copy and cut its selection as text") {
+    Fixture f;
+    f.show(f.root / "photos", "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    REQUIRE_FALSE(f.browser.cut_marks().names.empty());
+    CHECK(f.press(key(XKB_KEY_F2)));
+    const rummage::ui::TextField& field = f.browser.name_editor().field();
+
+    // F2 selects the name without its extension: Ctrl+C offers it as text, not the file.
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    CHECK(f.clipboard.ours);
+    CHECK(f.clipboard.data(views::kText) == "P2");
+    CHECK(f.clipboard.data("UTF8_STRING") == "P2");
+    CHECK(f.clipboard.data("text/plain") == "P2");
+    CHECK(f.clipboard.data(views::kGnomeFiles).empty());
+    CHECK(f.browser.cut_marks().names.empty());
+    CHECK(f.browser.status_bar().message() == "Copied 2 characters");
+    CHECK(field.text() == "P2.ORF");
+
+    // Ctrl+X takes it out; one Ctrl+Z brings it back.
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    CHECK(field.text() == ".ORF");
+    CHECK(f.clipboard.data(views::kText) == "P2");
+    CHECK(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    CHECK(field.text() == "P2.ORF");
+
+    // Nothing selected: the keys are the field's all the same, and nothing changes.
+    CHECK(f.press(key(XKB_KEY_End)));
+    f.clipboard.copy_from_elsewhere({{"text/plain", "kept"}});
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    CHECK_FALSE(f.clipboard.ours);
+    CHECK(f.clipboard.data("text/plain") == "kept");
+    CHECK(field.text() == "P2.ORF");
+
+    // What was cut pastes back.
+    CHECK(f.press(key(XKB_KEY_a, {.ctrl = true})));
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    CHECK(field.text().empty());
+    CHECK(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(f.settle());
+    CHECK(field.text() == "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_Escape)));
+}
+
+TEST_CASE("clipboard: while a rename is on its way Ctrl+X leaves the name, Ctrl+C still copies") {
+    Fixture f;
+    f.show(f.root / "photos", "P2.ORF");
+    CHECK(f.press(key(XKB_KEY_F2)));
+    f.browser.name_editor().paste("P3");
+    const rummage::ui::TextField& field = f.browser.name_editor().field();
+    REQUIRE(field.text() == "P3.ORF");
+    CHECK(f.press(key(XKB_KEY_Home, {.shift = true})));
+    CHECK(f.press(key(XKB_KEY_Return)));
+    REQUIRE(f.browser.name_editor().busy());
+
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    CHECK(field.text() == "P3.ORF");
+    CHECK_FALSE(f.clipboard.ours);
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    CHECK(f.clipboard.data(views::kText) == "P3");
+    REQUIRE(f.settle());
+    CHECK(listing(f.root / "photos") == Names{"P1.ORF", "P1.ORF.xmp", "P3.ORF"});
+}
+
+TEST_CASE("clipboard: location and name dialogs copy and cut text without taking files") {
+    Fixture f;
+    f.show(f.root / "photos", "P2.ORF");
+    f.browser.location_dialog().open("/tmp/example",
+                                     [](const auto&, bool) { return std::string{}; });
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    CHECK(f.clipboard.data(views::kText) == "/tmp/example");
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    CHECK(f.browser.location_dialog().text().empty());
+    CHECK(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    CHECK(f.browser.location_dialog().text() == "/tmp/example");
+    CHECK(f.clipboard.data(views::kGnomeFiles).empty());
+    f.browser.location_dialog().close();
+    f.browser.confirm_dialog().open_name("Name", "", "archive.zip",
+                                         [](const auto&) { return std::string{}; });
+    CHECK(f.press(key(XKB_KEY_a, {.ctrl = true})));
+    CHECK(f.press(key(XKB_KEY_x, {.ctrl = true})));
+    CHECK(f.clipboard.data(views::kText) == "archive.zip");
+    CHECK(f.press(key(XKB_KEY_z, {.ctrl = true})));
+    CHECK(f.press(key(XKB_KEY_a, {.ctrl = true})));
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    CHECK(f.clipboard.data(views::kText) == "archive.zip");
+    CHECK(f.browser.cut_marks().names.empty());
+}

@@ -67,6 +67,7 @@ enum class Command : std::uint8_t {
     open_terminal,
     new_tab,
     close_tab,
+    reopen_tab,
     next_tab,
     previous_tab,
     select_tab,  // Alt+1…9: the digit says which
@@ -117,6 +118,7 @@ struct Shortcut {
 
 // The keys shown for command in the overlay ("Ctrl+C"); empty when it has none.
 [[nodiscard]] std::string keys_for(Command command);
+[[nodiscard]] std::string keys_for_binding(std::string_view id);
 
 // The browser's command for event; Command::none when it has none.
 [[nodiscard]] Command command_for(const ui::KeyEvent& event);

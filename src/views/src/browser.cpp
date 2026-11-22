@@ -300,6 +300,21 @@ void Browser::close_tab(std::size_t index) {
     if (shown) {
         leave_pane();
     }
+    const auto& closing = *area().tabs[index];
+    if (const auto folder = folder_of(closing)) {
+        auto history = closing.history;
+        if (closing.here < history.size() && history[closing.here].folder == folder->path()) {
+            const auto* cursor = folder->cursor_entry();
+            history[closing.here].cursor = cursor ? cursor->name : "";
+        }
+        area().closed_tabs.push_back({.tab = tab_of(closing, context_area_),
+                                      .history = std::move(history),
+                                      .here = closing.here,
+                                      .index = index,
+                                      .off_disk = folder->is_trash() || folder->is_archive()});
+        if (area().closed_tabs.size() > kMaxClosedTabs)
+            area().closed_tabs.erase(area().closed_tabs.begin());
+    }
     area().tabs.erase(area().tabs.begin() + static_cast<std::ptrdiff_t>(index));
     if (area().active > index || area().active >= area().tabs.size()) {
         --area()
@@ -310,6 +325,39 @@ void Browser::close_tab(std::size_t index) {
     } else {
         redraw_();
     }
+}
+
+std::size_t Browser::closed_tab_count() const { return area().closed_tabs.size(); }
+
+void Browser::reopen_tab() {
+    if (area().closed_tabs.empty()) {
+        show_message(std::string{i18n::tr("No closed tab to reopen")}, false);
+        return;
+    }
+    auto closed = std::move(area().closed_tabs.back());
+    area().closed_tabs.pop_back();
+    std::error_code error;
+    if (!closed.off_disk && !std::filesystem::is_directory(closed.tab.folder, error)) {
+        show_message(i18n::trf("{} no longer exists", closed.tab.folder.filename().empty()
+                                                          ? closed.tab.folder.string()
+                                                          : closed.tab.folder.filename().string()),
+                     true);
+        return;
+    }
+    note_location();
+    const auto list = pane().details.list_size();
+    const auto grid = pane().grid.size_index();
+    leave_pane();
+    const auto at = std::min(closed.index, area().tabs.size());
+    add_pane(at);
+    area().active = at;
+    restore_tab(closed.tab, list, grid);
+    if (closed.here < closed.history.size() &&
+        closed.history[closed.here].folder == closed.tab.folder) {
+        pane().history = std::move(closed.history);
+        pane().here = closed.here;
+    }
+    enter_pane();
 }
 
 void Browser::select_tab(std::size_t index) {
@@ -797,6 +845,8 @@ void Browser::paste_text() {
                 location_.paste(*text);
             } else if (palette_.is_open()) {
                 palette_.paste(*text);
+            } else if (editor_.active()) {
+                editor_.paste(*text);
             } else if (sidebar_.renaming()) {
                 sidebar_.paste(*text);
             } else if (filter_focused_) {
@@ -809,6 +859,40 @@ void Browser::paste_text() {
         });
         return;
     }
+}
+
+bool Browser::text_field_key(const ui::KeyEvent& event) {
+    if (event.modifiers != ui::Modifiers{.ctrl = true})
+        return false;
+    if (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V) {
+        paste_text();
+        return true;
+    }
+    const bool cut = event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X;
+    if (!cut && event.keysym != XKB_KEY_c && event.keysym != XKB_KEY_C)
+        return false;
+    std::string text;
+    if (password_.is_open())
+        text = password_.copy_selection(cut);
+    else if (confirm_.is_open())
+        text = confirm_.copy_selection(cut);
+    else if (mount_password_.is_open())
+        text = mount_password_.copy_selection(cut);
+    else if (batch_rename_.is_open())
+        text = batch_rename_.copy_selection(cut);
+    else if (location_.is_open())
+        text = location_.copy_selection(cut);
+    else if (palette_.is_open())
+        text = cut ? palette_.cut() : palette_.field().selected_text();
+    else if (editor_.active())
+        text = cut ? editor_.cut() : editor_.field().selected_text();
+    else if (sidebar_.renaming())
+        text = cut ? sidebar_.cut() : sidebar_.field().selected_text();
+    else if (area().breadcrumb.editing())
+        text = area().breadcrumb.copy_selection(cut);
+    if (!text.empty())
+        copy_text(std::move(text));
+    return true;
 }
 
 void Browser::clipboard_lost() {
@@ -2669,6 +2753,30 @@ void Browser::note_location() {
     pane().here = pane().history.size() - 1;
 }
 
+bool Browser::can_travel(int direction) const {
+    return direction < 0 ? !pane().history.empty() && pane().here > 0
+                         : pane().here + 1 < pane().history.size();
+}
+
+void Browser::navigation_pointer(const ui::PointerEvent& event) {
+    const int direction = area().back.contains(event.x, event.y)      ? -1
+                          : area().forward.contains(event.x, event.y) ? 1
+                                                                      : 0;
+    if (event.kind == ui::PointerEvent::Kind::press && event.button == ui::PointerButton::left) {
+        area().navigation_pressed = direction && can_travel(direction) ? direction : 0;
+        redraw_();
+    } else if (event.kind == ui::PointerEvent::Kind::release &&
+               event.button == ui::PointerButton::left) {
+        const int pressed = std::exchange(area().navigation_pressed, 0);
+        if (pressed && pressed == direction && can_travel(direction))
+            travel(direction);
+        redraw_();
+    } else if (event.kind == ui::PointerEvent::Kind::leave) {
+        area().navigation_pressed = 0;
+        redraw_();
+    }
+}
+
 void Browser::back() { travel(-1); }
 
 void Browser::forward() { travel(1); }
@@ -2923,27 +3031,7 @@ State Browser::state() {
             if (!folder || folder->is_trash()) {
                 continue;
             }
-            State::Tab tab{.folder = folder->path(),
-                           .mode = static_cast<State::Mode>(each.mode),
-                           .root = {},
-                           .cursor = {},
-                           .list_size = {},
-                           .grid_icon = {}};
-            if (each.mode == Mode::columns && each.columns.column_count() > 0) {
-                tab.root = each.columns.column(0).folder().path();
-            }
-            if (const fs::Entry* entry = folder->cursor_entry()) {
-                tab.cursor = entry->name;
-            }
-            tab.list_size = each.details.list_size();
-            tab.grid_icon = static_cast<std::int32_t>(each.grid.icon_size());
-            tab.pane = side;
-            tab.sort_key = each.details.order().key;
-            tab.details_columns = each.details.columns();
-            tab.details_widths = each.details.widths();
-            tab.sort_descending = each.details.order().descending;
-            tab.show_hidden = each.show_hidden;
-            tab.filter = each.filter_field.text();
+            State::Tab tab = tab_of(each, side);
             if (i == owner.active) {
                 auto index = static_cast<std::size_t>(
                     std::ranges::count(state.tabs, side, &State::Tab::pane));
@@ -2956,6 +3044,74 @@ State Browser::state() {
         }
     }
     return state;
+}
+
+State::Tab Browser::tab_of(const Pane& each, std::size_t side) {
+    const auto folder = each.mode == Mode::details ? each.details.root_folder() : folder_of(each);
+    State::Tab tab{.folder = folder->path(),
+                   .mode = static_cast<State::Mode>(each.mode),
+                   .root = {},
+                   .cursor = {},
+                   .list_size = {},
+                   .grid_icon = {}};
+    if (each.mode == Mode::columns && each.columns.column_count() > 0) {
+        tab.root = each.columns.column(0).folder().path();
+    }
+    if (const fs::Entry* entry = folder->cursor_entry()) {
+        tab.cursor = entry->name;
+    }
+    tab.list_size = each.details.list_size();
+    tab.grid_icon = static_cast<std::int32_t>(each.grid.icon_size());
+    tab.pane = side;
+    tab.sort_key = each.details.order().key;
+    tab.details_columns = each.details.columns();
+    tab.details_widths = each.details.widths();
+    tab.sort_descending = each.details.order().descending;
+    tab.show_hidden = each.show_hidden;
+    tab.filter = each.filter_field.text();
+    return tab;
+}
+
+void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::size_t window_grid) {
+    const auto folder_there = [](const std::filesystem::path& path) {
+        std::error_code error;
+        return !path.empty() && std::filesystem::is_directory(path, error);
+    };
+    pane().mode = static_cast<Mode>(tab.mode);
+    set_list_size(tab.list_size.value_or(window_list));
+    set_grid_size(tab.grid_icon ? grid_index(*tab.grid_icon) : window_grid);
+    pane().retained_folder_mode.reset();
+    pane().restore_mode_on_arrival = false;
+    pane().settings_folder = tab.folder.lexically_normal();
+    pane().remembered_settings.reset();
+    if (const auto* settings = folder_settings_.find(pane().settings_folder)) {
+        if (pane().mode == Mode::columns)
+            pane().retained_folder_mode = settings->mode;
+        set_sort(settings->sort_key, settings->sort_descending);
+        pane().details.set_widths(settings->details_widths);
+        pane().details.set_columns(settings->details_columns);
+    }
+    const std::filesystem::path relative = tab.folder.lexically_relative(tab.root);
+    if (pane().mode == Mode::columns && folder_there(tab.root) && !relative.empty() &&
+        *relative.begin() != "..") {
+        // The columns unfold as they were, down to the cursor in the folder shown.
+        pane().columns.reveal(tab.root, tab.cursor.empty() ? tab.folder : tab.folder / tab.cursor);
+    } else {
+        open(tab.folder);
+        if (const std::shared_ptr<Folder> opened = current_folder();
+            opened && !tab.cursor.empty()) {
+            opened->select_name(tab.cursor);
+        }
+    }
+    set_sort(tab.sort_key.value_or(pane().details.order().key),
+             tab.sort_key ? tab.sort_descending : pane().details.order().descending);
+    set_show_hidden(tab.show_hidden.value_or(pane().show_hidden), false);
+    if (tab.details_columns)
+        pane().details.set_columns(*tab.details_columns);
+    if (tab.details_widths)
+        pane().details.set_widths(*tab.details_widths);
+    set_name_filter(tab.filter);
+    note_location();
 }
 
 bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown) {
@@ -2977,42 +3133,7 @@ bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t show
             add_pane(restored);
         }
         area().active = restored;
-        pane().mode = static_cast<Mode>(tab.mode);
-        set_list_size(tab.list_size.value_or(window_list));
-        set_grid_size(tab.grid_icon ? grid_index(*tab.grid_icon) : window_grid);
-        pane().retained_folder_mode.reset();
-        pane().restore_mode_on_arrival = false;
-        pane().settings_folder = tab.folder.lexically_normal();
-        pane().remembered_settings.reset();
-        if (const auto* settings = folder_settings_.find(pane().settings_folder)) {
-            if (pane().mode == Mode::columns)
-                pane().retained_folder_mode = settings->mode;
-            set_sort(settings->sort_key, settings->sort_descending);
-            pane().details.set_widths(settings->details_widths);
-            pane().details.set_columns(settings->details_columns);
-        }
-        const std::filesystem::path relative = tab.folder.lexically_relative(tab.root);
-        if (pane().mode == Mode::columns && folder_there(tab.root) && !relative.empty() &&
-            *relative.begin() != "..") {
-            // The columns unfold as they were, down to the cursor in the folder shown.
-            pane().columns.reveal(tab.root,
-                                  tab.cursor.empty() ? tab.folder : tab.folder / tab.cursor);
-        } else {
-            open(tab.folder);
-            if (const std::shared_ptr<Folder> opened = current_folder();
-                opened && !tab.cursor.empty()) {
-                opened->select_name(tab.cursor);
-            }
-        }
-        set_sort(tab.sort_key.value_or(pane().details.order().key),
-                 tab.sort_key ? tab.sort_descending : pane().details.order().descending);
-        set_show_hidden(tab.show_hidden.value_or(pane().show_hidden), false);
-        if (tab.details_columns)
-            pane().details.set_columns(*tab.details_columns);
-        if (tab.details_widths)
-            pane().details.set_widths(*tab.details_widths);
-        set_name_filter(tab.filter);
-        note_location();
+        restore_tab(tab, window_list, window_grid);
         if (i == shown) {
             to_show = restored;
         }
@@ -3355,6 +3476,7 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
     const auto folder = current_folder();
     renderer.push_clip(bounds);
     area().header = {};
+    area().back = area().forward = {};
     if (split_visible_) {
         const float height = std::min(26.0F, view.height);
         area().header = {view.x, view.y, view.width, height};
@@ -3388,8 +3510,27 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
                                      : 0;
     if (folder) {
         const auto location = pane().mode == Mode::details ? pane().details.root_folder() : folder;
-        area().breadcrumb.draw(renderer, {view.x, view.y, view.width, kTitleHeight}, palette, icons,
-                               *location);
+        float left = view.x;
+        if (view.width >= 140 && view.height >= kTitleHeight) {
+            area().back = {view.x + 6, view.y + (kTitleHeight - 26) / 2, 26, 26};
+            area().forward = {area().back.right() + 2, area().back.y, 26, 26};
+            left = area().forward.right() + 2;
+            for (const int direction : {-1, 1}) {
+                const auto& rect = direction < 0 ? area().back : area().forward;
+                if (area().navigation_pressed == direction && can_travel(direction))
+                    renderer.draw_box(rect, {.fill = palette.surface_container_highest,
+                                             .radius = ui::Corners::all(13)});
+                icons.draw(renderer, direction < 0 ? "chevron-left" : "chevron-right", rect.x + 5,
+                           rect.y + 5, 16,
+                           can_travel(direction) ? palette.on_surface : palette.outline_variant);
+            }
+            const float edge = 1.0F / renderer.scale();
+            renderer.fill_rect({view.x, view.y + kTitleHeight - edge, left - view.x, edge},
+                               palette.outline_variant);
+        }
+        area().breadcrumb.draw(renderer,
+                               {left, view.y, std::max(0.0F, view.right() - left), kTitleHeight},
+                               palette, icons, *location);
         if (split_visible_) {
             const ui::Rect footer{view.x, view.bottom() - bar, view.width, bar};
             renderer.fill_background(footer, palette.surface_container);
@@ -3560,6 +3701,11 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         return Shape::ew_resize;
     if (const auto index = area_at(x, y)) {
         const auto& owner = *areas_[*index];
+        const auto& tab = *owner.tabs[owner.active];
+        if (owner.back.contains(x, y))
+            return hand(!tab.history.empty() && tab.here > 0);
+        if (owner.forward.contains(x, y))
+            return hand(tab.here + 1 < tab.history.size());
         if (owner.filter_bounds.contains(x, y))
             return Shape::text;
         if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
@@ -3834,6 +3980,9 @@ void Browser::dispatch_area_pointer(const ui::PointerEvent& event, Clock::time_p
             target = Target::sidebar;
         } else if (area().tab_bar.claims(event.x, event.y)) {
             target = Target::tabs;
+        } else if (area().back.contains(event.x, event.y) ||
+                   area().forward.contains(event.x, event.y)) {
+            target = Target::navigation;
         } else if (area().breadcrumb.claims(event.x, event.y)) {
             target = Target::breadcrumb;
         } else if (area().toolbar_bounds.contains(event.x, event.y)) {
@@ -4092,6 +4241,9 @@ void Browser::send_pointer(Target target, const ui::PointerEvent& event, Clock::
             break;
         case Target::toolbar:
             toolbar_pointer(event);
+            break;
+        case Target::navigation:
+            navigation_pointer(event);
             break;
     }
 }
@@ -4954,10 +5106,7 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     if (password_.is_open()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V))
-            paste_text();
-        else
+        if (!text_field_key(event))
             password_.key(event);
         return true;
     }
@@ -4967,33 +5116,25 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return conflict_.key(event);  // a copy waits for the answer: every key is the card's
     }
     if (confirm_.is_open()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
+        if (text_field_key(event)) {
             return true;
         }
         return confirm_.key(event);
     }
     if (mount_password_.is_open()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
+        if (text_field_key(event)) {
             return true;
         }
         return mount_password_.key(event);  // every key is the card's meanwhile
     }
     if (batch_rename_.is_open()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
+        if (text_field_key(event)) {
             return true;
         }
         return batch_rename_.key(event);
     }
     if (location_.is_open()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
+        if (text_field_key(event)) {
             return true;
         }
         return location_.key(event);
@@ -5033,10 +5174,7 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             } else if (command == Command::command_palette && files) {
                 open_palette();
             }
-        } else if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-                   (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
-        } else {
+        } else if (!text_field_key(event)) {
             palette_.key(event);  // every key is the palette's meanwhile
         }
         return true;
@@ -5045,26 +5183,19 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return menu_.key(event);  // every key is the menu's meanwhile
     }
     if (editor_.active()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
+        if (text_field_key(event)) {
             return true;
         }
         return editor_.key(event);  // every key is the name's meanwhile
     }
     if (sidebar_.renaming()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V)) {
-            paste_text();
+        if (text_field_key(event)) {
             return true;
         }
         return sidebar_.rename_key(event);  // every key is the bookmark's label meanwhile
     }
     if (area().breadcrumb.editing()) {
-        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
-            (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V))
-            paste_text();
-        else
+        if (!text_field_key(event))
             area().breadcrumb.key(event);
         return true;
     }
@@ -5401,6 +5532,9 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::close_tab:
             close_tab(area().active);
+            break;
+        case Command::reopen_tab:
+            reopen_tab();
             break;
         case Command::next_tab:
             select_tab((area().active + 1) % area().tabs.size());

@@ -553,6 +553,17 @@ void Sidebar::paste(std::string_view text) {
     redraw_();
 }
 
+std::string Sidebar::cut() {
+    if (!renaming_) {
+        return {};
+    }
+    std::string text = field_.cut();
+    if (!text.empty()) {
+        redraw_();
+    }
+    return text;
+}
+
 void Sidebar::confirm_rename() {
     if (!renaming_) {
         return;

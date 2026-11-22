@@ -290,7 +290,16 @@ void Udisks::eject(const std::string& volume, Done done) {
             .onInterface(std::string{kDrive})
             .withArguments(std::map<std::string, sdbus::Variant>{})
             .uponReplyInvoke([done](std::optional<sdbus::Error> error) {
-                done(error ? readable(*error) : std::string{});
+                if (!error) {
+                    done({});
+                } else if (error->getName().ends_with(".DeviceBusy")) {
+                    // PowerOff answers DeviceBusy while anything else on the drive is mounted or
+                    // unlocked (a file system not listed, a LUKS container, a drive of the same
+                    // device). Pass its reason on: "in use" would mean files left open.
+                    done(power_off_refusal(error->getMessage()));
+                } else {
+                    done(readable(*error));
+                }
             });
         impl_->pump();
         *next = nullptr;

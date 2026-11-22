@@ -30,6 +30,11 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Invert the selection" = "Invertir la selección"
+"No closed tab to reopen" = "No hay pestañas cerradas que reabrir"
+"Reopen Closed Tab" = "Reabrir pestaña cerrada"
+"Reopen the closed tab" = "Reabrir la pestaña cerrada"
+"Invert Selection" = "Invertir selección"
 "Space to preview" = "Espacio para previsualizar"
 "Read" = "Leer"
 "Write" = "Escribir"

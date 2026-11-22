@@ -799,6 +799,13 @@ bool ColumnView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
             }
             folder.select_all();
             break;
+        case XKB_KEY_i:
+        case XKB_KEY_I:
+            if (!ctrl || !event.modifiers.shift) {
+                return false;
+            }
+            folder.invert_selection();
+            break;
         case XKB_KEY_Escape:
             folder.collapse_selection();
             break;

@@ -21,6 +21,11 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Invert the selection" = "Inverter a seleção"
+"No closed tab to reopen" = "Não há abas fechadas para reabrir"
+"Reopen Closed Tab" = "Reabrir aba fechada"
+"Reopen the closed tab" = "Reabrir a aba fechada"
+"Invert Selection" = "Inverter seleção"
 "Space to preview" = "Espaço para visualizar"
 "Read" = "Leitura"
 "Write" = "Escrita"

@@ -189,6 +189,17 @@ std::vector<std::filesystem::path> default_mime_dirs() {
     return dirs;
 }
 
+// A file opened to read its head, with O_NOATIME, so that browsing a folder leaves the access
+// time of files typed by their content as it was. The kernel takes O_NOATIME only from the
+// file's owner or with CAP_FOWNER; anyone else's file is opened again without it, as in GLib.
+int open_to_sniff(const std::filesystem::path& path) {
+    const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOATIME);
+    if (fd >= 0 || errno != EPERM) {
+        return fd;
+    }
+    return open(path.c_str(), O_RDONLY | O_CLOEXEC);
+}
+
 }  // namespace
 
 struct MimeDatabase::Impl {
@@ -632,7 +643,7 @@ MimeId MimeDatabase::detect(const std::filesystem::path& directory, const Entry&
     const std::size_t wanted = std::min(std::max(magic_extent_, kTextSniffBytes), kMaxHeadBytes);
     std::vector<std::byte> head(std::min<std::uint64_t>(entry.size, wanted));
     if (!head.empty()) {
-        const int fd = open((directory / entry.name).c_str(), O_RDONLY | O_CLOEXEC);
+        const int fd = open_to_sniff(directory / entry.name);
         if (fd < 0) {
             return by_file_name.mime != kUnknownMime ? by_file_name.mime : kOctetStream;
         }

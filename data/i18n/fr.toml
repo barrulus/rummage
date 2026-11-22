@@ -29,6 +29,11 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Invert the selection" = "Inverser la sélection"
+"No closed tab to reopen" = "Aucun onglet fermé à rouvrir"
+"Reopen Closed Tab" = "Rouvrir l’onglet fermé"
+"Reopen the closed tab" = "Rouvrir l’onglet fermé"
+"Invert Selection" = "Inverser la sélection"
 "Space to preview" = "Espace pour prévisualiser"
 "Read" = "Lecture"
 "Write" = "Écriture"

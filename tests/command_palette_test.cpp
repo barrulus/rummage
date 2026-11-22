@@ -25,6 +25,7 @@
 #include "rummage/fs/places.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/file_clipboard.hpp"
 #include "rummage/views/fuzzy.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "rummage/views/state.hpp"
@@ -38,10 +39,14 @@ using rummage::ui::Modifiers;
 using rummage::views::Browser;
 using rummage::views::Command;
 using rummage::views::CommandPalette;
+using rummage::views::fit_label;
 using rummage::views::fuzzy_positions;
 using rummage::views::fuzzy_score;
+using rummage::views::FuzzyQuery;
+using rummage::views::LabelRun;
 using rummage::views::PaletteItem;
 using rummage::views::State;
+using rummage::views::SystemClipboard;
 using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 
@@ -159,6 +164,76 @@ TEST_CASE("palette: filters as it is typed, the best first, recent first when em
     CHECK(palette.shown().size() == 6);
 }
 
+TEST_CASE("palette: a label too long keeps its match in sight, lit (issue #25)") {
+    // One unit a character ("…" too), whatever its bytes.
+    const auto width = [](std::string_view text) {
+        return static_cast<float>(std::ranges::count_if(
+            text, [](char c) { return (static_cast<unsigned char>(c) & 0xC0U) != 0x80U; }));
+    };
+    const auto text_of = [](const std::vector<LabelRun>& runs) {
+        std::string text;
+        for (const LabelRun& run : runs) {
+            text += run.text;
+        }
+        return text;
+    };
+    const auto lit_of = [](const std::vector<LabelRun>& runs) {
+        std::vector<std::string> lit;
+        for (const LabelRun& run : runs) {
+            if (run.lit) {
+                lit.push_back(run.text);
+            }
+        }
+        return lit;
+    };
+
+    // It fits: the whole label, its matches lit.
+    const std::vector<std::size_t> nt{0, 4};
+    CHECK(fit_label("New Tab", nt, false, 100.0F, width) ==
+          std::vector<LabelRun>{{"N", true}, {"ew ", false}, {"T", true}, {"ab", false}});
+
+    // A path: its name whole, as much of its start as fits.
+    const std::string path = "Documents/Projects/2026/report.pdf";
+    const std::vector<std::size_t> rep = FuzzyQuery{"rep"}.path_positions(path);
+    const std::vector<LabelRun> cut = fit_label(path, rep, true, 20.0F, width);
+    CHECK(text_of(cut) == "Document…/report.pdf");
+    CHECK(lit_of(cut) == std::vector<std::string>{"rep"});
+
+    // A name alone too long (stradus64's): from its match on, the match lit.
+    const std::string name =
+        "2026-11-16 @absolute_bajoding human slop existed long  before LLMs [UOqxEJwvhpY].webm";
+    const std::vector<std::size_t> slo = FuzzyQuery{"slo"}.path_positions(name);
+    REQUIRE_FALSE(slo.empty());
+    const std::vector<LabelRun> shown = fit_label(name, slo, true, 30.0F, width);
+    CHECK(width(text_of(shown)) <= 30.0F);
+    CHECK(text_of(shown).starts_with("…"));
+    CHECK(lit_of(shown) == std::vector<std::string>{"slo"});
+
+    // Cuts fall between characters, never inside one.
+    const std::vector<std::size_t> fifth{8};  // the fifth "à"
+    const std::vector<LabelRun> accents = fit_label("àààààààààà", fifth, false, 5.0F, width);
+    CHECK(text_of(accents) == "…ààà…");
+    CHECK(lit_of(accents) == std::vector<std::string>{"à"});
+    // Not one character fits: only "…".
+    CHECK(text_of(fit_label("New Tab", nt, false, 1.5F, width)) == "…");
+}
+
+TEST_CASE("palette: commands take terms in any order; Space is always a space there") {
+    CommandPalette palette{[] {}};
+    palette.open(plain_items({"Open in Terminal", "Copy Path", "Paste", "New Tab"}), {},
+                 "Type a command");
+    for (const char c : std::string_view{"pa co"}) {
+        palette.key(typed(c));
+    }
+    CHECK(palette.query() == "pa co");
+    CHECK(labels(palette) == std::vector<std::string>{"Copy Path"});
+    // No Quick Look among commands: from the list too, Space types.
+    palette.key(key(XKB_KEY_Down));
+    palette.key(typed(' '));
+    CHECK(palette.is_open());
+    CHECK(palette.query() == "pa co ");
+}
+
 TEST_CASE("palette: arrows move within the list, Enter runs and closes, Escape closes") {
     CommandPalette palette{[] {}};
     std::vector<std::string> ran;
@@ -203,6 +278,20 @@ TEST_CASE("palette: arrows move within the list, Enter runs and closes, Escape c
     palette.paste("Th\tree\nsecond line");
     CHECK(palette.query() == "Three");
     CHECK(labels(palette).front() == "Three");
+}
+
+TEST_CASE("palette: the selection cut out of the query, the list filters again") {
+    CommandPalette palette{[] {}};
+    palette.open(plain_items({"One", "Two", "Three", "Four", "Five", "Six"}), {}, "");
+    palette.set_query("zzz");
+    CHECK(palette.shown().empty());
+    CHECK(palette.cut().empty());  // nothing selected
+    CHECK(palette.query() == "zzz");
+    palette.key(key(XKB_KEY_a, kCtrl));
+    CHECK(palette.field().selected_text() == "zzz");
+    CHECK(palette.cut() == "zzz");
+    CHECK(palette.query().empty());
+    CHECK(palette.shown().size() == 6);
 }
 
 TEST_CASE("palette: filtering 500 items takes well under a millisecond a key") {
@@ -299,6 +388,31 @@ TEST_CASE("palette in the browser: Ctrl+K opens and closes it, and it takes ever
     CHECK(f.browser.command_palette().is_open());
 }
 
+TEST_CASE("palette in the browser: Ctrl+C and Ctrl+X take the query's selection as text") {
+    Fixture f;
+    std::vector<SystemClipboard::Format> offered;
+    SystemClipboard clipboard;
+    clipboard.offer = [&](std::vector<SystemClipboard::Format> formats) {
+        offered = std::move(formats);
+    };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    CHECK(f.press(key(XKB_KEY_k, kCtrl)));
+    for (const char c : std::string_view{"grid"}) {
+        CHECK(f.press(typed(c)));
+    }
+    CHECK(f.press(key(XKB_KEY_a, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front() == SystemClipboard::Format{"text/plain;charset=utf-8", "grid"});
+    CHECK(f.browser.command_palette().query() == "grid");
+    offered.clear();
+    CHECK(f.press(key(XKB_KEY_x, kCtrl)));
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().second == "grid");
+    CHECK(f.browser.command_palette().query().empty());
+    CHECK(f.browser.command_palette().is_open());
+}
+
 TEST_CASE("palette in the browser: every command is offered where it can be used") {
     Fixture f;
     std::set<std::string> seen = f.ids();
@@ -310,7 +424,8 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
     f.browser.set_mode(Browser::Mode::grid);
     f.browser.open(f.b);
     REQUIRE(f.settle());
-    seen.merge(f.ids());  // back
+    CHECK_FALSE(f.ids().contains("command:reopen_tab"));  // nothing closed yet
+    seen.merge(f.ids());                                  // back
     f.browser.back();
     REQUIRE(f.settle());
     seen.merge(f.ids());
@@ -319,6 +434,9 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
     REQUIRE(f.settle());
     f.press(key(XKB_KEY_Down));
     f.press(key(XKB_KEY_c, kCtrl));
+    seen.merge(f.ids());
+
+    f.browser.close_tab(0);
     seen.merge(f.ids());
 
     // Pane commands require two different folders and a source selection.
@@ -366,6 +484,7 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::add_bookmark, "add_bookmark"},
         {Command::new_tab, "new_tab"},
         {Command::close_tab, "close_tab"},
+        {Command::reopen_tab, "reopen_tab"},
         {Command::next_tab, "next_tab"},
         {Command::previous_tab, "previous_tab"},
         {Command::find_files, "find_files"},
@@ -395,9 +514,9 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         CAPTURE(id);
         CHECK(seen.contains(id));
     }
-    for (const char* id :
-         {"sort:size", "sort:descending", "view:zoom_in", "view:select_all", "view:parent",
-          "go:", "command:empty_trash", "command:new_file", "command:open"}) {
+    for (const char* id : {"sort:size", "sort:descending", "view:zoom_in", "view:select_all",
+                           "view:invert_selection", "view:parent", "go:", "command:empty_trash",
+                           "command:new_file", "command:open"}) {
         if (std::string_view{id} == "go:") {
             CHECK(seen.contains("go:" + f.b.string()));
         } else {
@@ -436,6 +555,18 @@ TEST_CASE("palette in the browser: an item does what its key does") {
     f.run("show details");
     g.press(key(XKB_KEY_3, kCtrl));
     CHECK(f.browser.mode() == g.browser.mode());
+}
+
+TEST_CASE("palette in the browser: Invert Selection does what Ctrl+Shift+I does") {
+    Fixture f;
+    Fixture g;
+    f.run("invert");
+    REQUIRE(g.press(key(XKB_KEY_I, {.ctrl = true, .shift = true})));
+    const std::vector<std::string> inverted =
+        f.browser.columns().focused_folder()->selected_names();
+    CHECK_FALSE(inverted.empty());
+    CHECK(inverted == g.browser.columns().focused_folder()->selected_names());
+    CHECK(f.browser.state().palette_recent.front() == "view:invert_selection");
 }
 
 TEST_CASE("palette in the browser: the recently used come back first, and in state.toml") {

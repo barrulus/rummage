@@ -54,6 +54,10 @@ public:
     // Text pasted into the field (its first line, control characters left out).
     void paste(std::string_view text);
 
+    // The selected text, taken out of the field; empty, and nothing done, while a rename is on its
+    // way. Copying reads field().selected_text(), which changes nothing and so works then too.
+    std::string cut();
+
     void confirm();
     void cancel();
 

@@ -184,6 +184,7 @@ follow_accent = true
 
 # Selection
 # select_all = "Ctrl+a"         # Select all files
+# invert_selection = "Ctrl+Shift+i"
 # toggle_selection = "Ctrl+space" # Select/unselect the focused entry
 
 # Panes (Tab switches only while browsing; dialogs and text fields keep Tab)
@@ -199,6 +200,7 @@ follow_accent = true
 
 # Tabs (within the active pane)
 # new_tab = "Ctrl+t"
+# reopen_tab = "Ctrl+Shift+t"
 # close_tab = "Ctrl+w"
 # next_tab = "Ctrl+Tab"
 # previous_tab = "Ctrl+Shift+Tab"

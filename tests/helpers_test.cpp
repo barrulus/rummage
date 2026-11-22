@@ -1,7 +1,6 @@
 #include "rummage/isolate/helpers.hpp"
 
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -13,6 +12,7 @@
 #include <ios>
 #include <memory>
 #include <optional>
+#include <poll.h>
 #include <span>
 #include <string>
 #include <string_view>
@@ -540,24 +540,24 @@ TEST_CASE("helpers: a sequence's read is stopped mid-entry, the helper with it")
     const rummage::archive::Listing listing = helpers->list_archive(dir.path / "zeros.gz", {});
     REQUIRE(listing.format == rummage::archive::Format::gzip);
     REQUIRE(listing.entries.size() == 1);
-    std::atomic<bool> stop{false};
+    // Into a pipe nobody reads: the helper fills it and waits, so the entry cannot end before
+    // the stop, however fast zlib is. Stopped once the first bytes are there.
+    std::array<int, 2> ends{};
+    REQUIRE(::pipe2(ends.data(), O_CLOEXEC) == 0);
     const std::unique_ptr<rummage::archive::EntrySequence> sequence =
-        isolate::Helpers::open_sequence(helpers, dir.path / "zeros.gz", listing.format,
-                                        [&stop] { return stop.load(); });
-    const int sink = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
-    REQUIRE(sink >= 0);
-    std::thread stopper{[&stop] {
-        std::this_thread::sleep_for(std::chrono::milliseconds{200});
-        stop = true;
-    }};
+        isolate::Helpers::open_sequence(helpers, dir.path / "zeros.gz", listing.format, [&ends] {
+            pollfd written{.fd = ends[0], .events = POLLIN, .revents = 0};
+            return ::poll(&written, 1, 0) == 1;
+        });
     const auto started = std::chrono::steady_clock::now();
-    const rummage::archive::Read read = sequence->read(listing.entries.front(), sink, UINT64_MAX);
+    const rummage::archive::Read read =
+        sequence->read(listing.entries.front(), ends[1], UINT64_MAX);
     const auto took = std::chrono::steady_clock::now() - started;
-    stopper.join();
-    ::close(sink);
+    ::close(ends[0]);
+    ::close(ends[1]);
     CHECK(read.failure == rummage::archive::Failure::unreadable);
     CHECK(read.detail == "preview cancelled");
-    CHECK(took < std::chrono::seconds{2});  // inflating it all takes far longer
+    CHECK(took < std::chrono::seconds{2});  // seen at the next look at stopped
     CHECK(helpers->running() == 0);         // stopped: let go of, not given back
 }
 

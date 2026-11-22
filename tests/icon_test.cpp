@@ -42,10 +42,10 @@ TEST_CASE("icons: every name exists in the icon font") {
     }
     // The views' own: sidebar, breadcrumb, status bar, info pane, details header, title bar.
     for (const std::string_view name :
-         {"player-eject",   "chevron-right", "chevron-up",   "chevron-down", "x",
-          "layout-columns", "layout-grid",   "list-details", "help",         "files",
-          "home",           "server",        "trash",        "trash-filled", "usb",
-          "database-off",   "minus",         "square",       "squares",      "settings"}) {
+         {"chevron-left",   "player-eject", "chevron-right", "chevron-up", "chevron-down", "x",
+          "layout-columns", "layout-grid",  "list-details",  "help",       "files",        "home",
+          "server",         "trash",        "trash-filled",  "usb",        "database-off", "minus",
+          "square",         "squares",      "settings"}) {
         CHECK_MESSAGE(icons.has(name), name);
     }
     CHECK_FALSE(icons.has("no-such-icon"));

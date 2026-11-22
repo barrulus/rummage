@@ -149,6 +149,10 @@ public:
 
     void select_all();
 
+    // The entries shown that are not selected become the selection (Ctrl+Shift+I). The cursor
+    // stays; with none, or one waiting for its entry, it goes to the first entry selected.
+    void invert_selection();
+
     // Lists the hidden entries (dotfiles) or leaves them out; left out, they leave the selection.
     // A cursor on one moves to the nearest entry shown (after it, else before), unless
     // keep_cursor: then that entry stays (the way to a folder opened further on). An entry the

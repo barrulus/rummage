@@ -41,6 +41,7 @@ public:
     void open_name(std::string title, std::string detail, std::string initial,
                    std::function<std::string(const std::string&)> accept);
     void paste(std::string_view text);
+    std::string copy_selection(bool cut);
 
     [[nodiscard]] std::size_t generation() const { return generation_; }
 

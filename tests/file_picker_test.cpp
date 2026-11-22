@@ -756,3 +756,20 @@ TEST_CASE("browser: wildcard filters compose with picker types and watch new fil
     picker->set_filter(0);
     CHECK(folder->entries().empty());
 }
+
+TEST_CASE("picker: a browser dialog owns clipboard keys while the save name has focus") {
+    Fixture f;
+    core::PickerRequest request;
+    request.mode = Mode::save;
+    request.name = "saved.txt";
+    auto picker = f.picker(request);
+    REQUIRE(f.settle());
+    REQUIRE(picker->editing_name());
+    f.browser.location_dialog().open("/tmp", [](const auto&, bool) { return std::string{}; });
+    CHECK_FALSE(picker->editing_name());
+    picker->key({.keysym = XKB_KEY_x, .text = {}, .modifiers = {.ctrl = true}});
+    CHECK(f.browser.location_dialog().text().empty());
+    CHECK(picker->copy_name(false) == "saved");
+    f.browser.location_dialog().close();
+    CHECK(picker->editing_name());
+}
