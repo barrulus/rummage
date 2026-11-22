@@ -139,19 +139,43 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
         item.label = i18n::tr(label);
         item.action = std::move(action);
         item.enabled = enabled;
+        if (item.id == "open")
+            item.keys = keys_for(Command::open_selected);
+        else if (item.id == "open_tab")
+            item.keys = keys_for(Command::open_selected_tab);
+        else if (item.id == "open_other_pane")
+            item.keys = keys_for(Command::open_other_pane);
+        else if (item.id == "open_terminal")
+            item.keys = keys_for(Command::open_terminal);
+        else if (item.id == "properties")
+            item.keys = keys_for(Command::properties);
+        else if (item.id == "copy_path")
+            item.keys = keys_for(Command::copy_path);
         items.push_back(std::move(item));
     };
     add(
-        "open", i18n::mark("Open"), [this, place] { open_place(place); },
+        "open", i18n::mark("Open"),
+        [this, place] {
+            sidebar_.set_focused(false);
+            open_place(place);
+        },
         mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
     if (panes_enabled_ && !picker_mode_) {
         add(
             "open_tab", i18n::mark("Open in New Tab"),
-            [this, path = place.path] { open_tab(path, true); }, mounted);
+            [this, path = place.path] {
+                sidebar_.set_focused(false);
+                open_tab(path, true);
+            },
+            mounted);
         if (!trash)
             add(
                 "open_other_pane", i18n::mark("Open in Other Pane"),
-                [this, path = place.path] { open_in_other_pane(path); }, mounted);
+                [this, path = place.path] {
+                    sidebar_.set_focused(false);
+                    open_in_other_pane(path);
+                },
+                mounted);
     }
     if (!trash) {
         if (terminal_)

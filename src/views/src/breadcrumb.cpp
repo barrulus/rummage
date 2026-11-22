@@ -213,12 +213,7 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
         claims(event.x, event.y)) {
         const auto crumb = crumb_at(event.x, event.y);
         if (!crumb || *crumb + 1 == crumbs_.size()) {
-            field_.set_text(path_.string());
-            field_.select_all();
-            error_.clear();
-            editing_ = true;
-            ++edit_generation_;
-            redraw_();
+            edit(path_);
             return;
         }
     }
@@ -239,6 +234,18 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
     if (go_) {
         go_(path, child);
     }
+}
+
+void Breadcrumb::edit(const std::filesystem::path& path) {
+    if (!submit_)
+        return;
+    invalidate_completion();
+    path_ = path;
+    field_.set_text(path.string());
+    field_.select_all();
+    error_.clear();
+    editing_ = true;
+    redraw_();
 }
 
 bool Breadcrumb::key(const ui::KeyEvent& event) {

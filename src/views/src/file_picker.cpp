@@ -483,7 +483,14 @@ bool FilePicker::key(const ui::KeyEvent& event) {
     const auto command = command_for(event);
     if (!browser_.has_overlay() &&
         (command == Command::filter_names || command == Command::new_folder ||
-         command == Command::select_pattern)) {
+         command == Command::select_pattern || command == Command::edit_path ||
+         command == Command::focus_files || command == Command::focus_places ||
+         command == Command::focus_sidebar)) {
+        focus_ = 0;
+        return browser_.key(event, Browser::Clock::now());
+    }
+    // Inline path editing owns completion, Escape and Enter; none may accept the picker.
+    if (browser_.breadcrumb().editing()) {
         focus_ = 0;
         return browser_.key(event, Browser::Clock::now());
     }
@@ -577,6 +584,7 @@ void FilePicker::pointer(const ui::PointerEvent& event) {
             browser_pressed_ = true;
         } else {
             browser_.blur_filter();
+            browser_.breadcrumb().cancel_edit();
             browser_.pointer({.kind = Kind::leave}, Browser::Clock::now());
             for (std::size_t i = 1; i < controls_.size(); ++i) {
                 if (!controls_[i].contains(event.x, event.y) ||

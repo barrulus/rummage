@@ -1169,7 +1169,7 @@ void Browser::submit_erase() {
     redraw_();
 }
 
-void Browser::place_menu(const fs::Place& place, float x, float y) {
+void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard) {
     if (place.section == fs::Place::Section::devices) {
         ++menu_generation_;
         menu_loaders_.clear();
@@ -1204,7 +1204,7 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
         properties.separator = true;
         properties.action = [this, place] { properties_.open_drive(place.path, place.label); };
         items.push_back(std::move(properties));
-        menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), false);
+        menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), keyboard);
         return;
     }
     if (place.section == fs::Place::Section::bookmarks) {
@@ -1284,14 +1284,14 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
             remove.action = [this, path = place.path] { remove_from_sidebar(path); };
         }
         items.push_back(std::move(remove));
-        menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), false);
+        menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), keyboard);
         return;
     }
     if (!fs::is_trash(place.path)) {
         ++menu_generation_;
         menu_loaders_.clear();
         menu_.open(x, y, configured_menu(place_navigation_items(place), menu_layout_.sidebar),
-                   false);
+                   keyboard);
         return;
     }
     ++menu_generation_;
@@ -1303,7 +1303,7 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
     empty.action = [this] { empty_trash(); };
     std::vector<MenuItem> items = place_navigation_items(place);
     items.push_back(std::move(empty));
-    menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), false);
+    menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), keyboard);
 }
 
 void Browser::set_places(std::vector<fs::Place> places) {
@@ -2587,6 +2587,13 @@ void Browser::open_menu(float x, float y, bool keyboard) {
 }
 
 void Browser::open_menu_from_keyboard() {
+    if (sidebar_.focused()) {
+        if (const auto* place = sidebar_.cursor_place()) {
+            const auto [x, y] = sidebar_.cursor_anchor();
+            place_menu(*place, x, y, true);
+        }
+        return;
+    }
     std::optional<std::pair<float, float>> anchor;
     switch (pane().mode) {
         case Mode::columns:
@@ -3615,6 +3622,20 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
         (!split_visible_ && info_visible_ && !preview_below_places_))
         pane().details.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
     draw_view_with_motion(renderer, palette, icons, now);
+    if (keyboard_focus_visible_ && context_area_ == active_area_ && !sidebar_.focused() &&
+        !filter_focused_ && !area().breadcrumb.editing() && !sidebar_.renaming() &&
+        !has_overlay() && !settings_.is_open() && !batch_rename_.is_open()) {
+        const ui::Rect focus_bounds = area().view_area;
+        const float edge = std::min({2.0F, focus_bounds.width, focus_bounds.height});
+        renderer.fill_rect({focus_bounds.x, focus_bounds.y, focus_bounds.width, edge},
+                           palette.primary);
+        renderer.fill_rect({focus_bounds.x, focus_bounds.bottom() - edge, focus_bounds.width, edge},
+                           palette.primary);
+        renderer.fill_rect({focus_bounds.x, focus_bounds.y, edge, focus_bounds.height},
+                           palette.primary);
+        renderer.fill_rect({focus_bounds.right() - edge, focus_bounds.y, edge, focus_bounds.height},
+                           palette.primary);
+    }
     renderer.pop_clip();
 }
 
@@ -3675,6 +3696,8 @@ bool Browser::loading() const {
 }
 
 void Browser::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (event.kind == ui::PointerEvent::Kind::press)
+        keyboard_focus_visible_ = false;
     if (event.kind == ui::PointerEvent::Kind::scroll) {
         cancel_operation_motion();
     }
@@ -5164,6 +5187,8 @@ void Browser::view_pointer(const ui::PointerEvent& event, Clock::time_point now)
 std::shared_ptr<Folder> Browser::current_folder() const { return folder_of(pane()); }
 
 bool Browser::key(const ui::KeyEvent& event, Clock::time_point now) {
+    keyboard_focus_visible_ = true;
+    redraw_();
     if (batch_rename_preparing_ && event.keysym == XKB_KEY_Escape) {
         ++batch_rename_generation_;
         batch_rename_preparing_ = false;
@@ -5276,6 +5301,16 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             return true;
         }
         return sidebar_.rename_key(event);  // every key is the bookmark's label meanwhile
+    }
+    const auto focus_command = command_for(event);
+    if (focus_command == Command::focus_files || focus_command == Command::focus_places ||
+        focus_command == Command::focus_first_pane || focus_command == Command::focus_second_pane) {
+        run(focus_command, now);
+        return true;
+    }
+    if (command_for(event) == Command::edit_path) {
+        edit_path();
+        return true;
     }
     if (area().breadcrumb.editing()) {
         if (!text_field_key(event))
@@ -5408,7 +5443,7 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
     }
     if (sidebar_.focused()) {
         // The view does not see keys meanwhile.
-        return listed(event, scope::kSidebar) && sidebar_.key(event);
+        return listed(event, scope::kSidebar) && sidebar_.key(view_key_event(event));
     }
     const auto before = current_folder();
     const auto revision = before ? before->selection_revision() : 0;
@@ -5426,6 +5461,48 @@ void Browser::run(Command command, Clock::time_point now) {
         info_pane_.clear_text_focus();
     if (!panes_enabled_ && command >= Command::toggle_split)
         return;
+    if (sidebar_.focused()) {
+        std::string_view id;
+        switch (command) {
+            case Command::open_selected:
+                id = "open";
+                break;
+            case Command::open_selected_tab:
+                if (!panes_enabled_ || picker_mode_)
+                    return;
+                id = "open_tab";
+                break;
+            case Command::open_other_pane:
+                id = "open_other_pane";
+                break;
+            case Command::open_terminal:
+                id = "open_terminal";
+                break;
+            case Command::copy_path:
+                id = "copy_path";
+                break;
+            case Command::properties:
+                id = "properties";
+                break;
+            default:
+                break;
+        }
+        if (!id.empty()) {
+            if (const auto* place = sidebar_.cursor_place()) {
+                if (command == Command::properties &&
+                    place->section == fs::Place::Section::devices) {
+                    if (place->disk.mounted && !place->path.empty())
+                        properties_.open_drive(place->path, place->label);
+                } else {
+                    const auto items = place_navigation_items(*place);
+                    const auto item = std::ranges::find(items, id, &MenuItem::id);
+                    if (item != items.end() && item->enabled && item->action)
+                        item->action();
+                }
+            }
+            return;
+        }
+    }
     if (const std::shared_ptr<Folder> shown = current_folder(); shown && shown->is_trash()) {
         switch (command) {
             case Command::rename:
@@ -5462,6 +5539,48 @@ void Browser::run(Command command, Clock::time_point now) {
         }
     }
     switch (command) {
+        case Command::edit_path:
+            edit_path();
+            break;
+        case Command::focus_files:
+            focus_files();
+            break;
+        case Command::focus_places:
+            focus_files();
+            set_sidebar_visible(true);
+            sidebar_.set_focused(true);
+            break;
+        case Command::focus_first_pane:
+            focus_files();
+            focus_pane(0);
+            break;
+        case Command::focus_second_pane:
+            focus_files();
+            focus_pane(1);
+            break;
+        case Command::open_selected:
+            browse_key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {}}, now);
+            break;
+        case Command::open_selected_tab:
+            open_selected_tab();
+            break;
+        case Command::parent_folder:
+            browse_key({.keysym = XKB_KEY_Up, .text = {}, .modifiers = {.alt = true}}, now);
+            break;
+        case Command::expand_folder:
+            browse_key({.keysym = static_cast<xkb_keysym_t>(
+                            pane().mode == Mode::grid ? XKB_KEY_Return : XKB_KEY_Right),
+                        .text = {},
+                        .modifiers = {}},
+                       now);
+            break;
+        case Command::collapse_folder:
+            browse_key({.keysym = static_cast<xkb_keysym_t>(
+                            pane().mode == Mode::grid ? XKB_KEY_BackSpace : XKB_KEY_Left),
+                        .text = {},
+                        .modifiers = {}},
+                       now);
+            break;
         case Command::show_settings:
             open_settings();
             break;
@@ -5720,6 +5839,13 @@ void Browser::open_terminal() {
 }
 
 bool Browser::view_key(const ui::KeyEvent& event, Clock::time_point now) {
+    const auto scope = pane().mode == Mode::columns ? scope::kColumns
+                       : pane().mode == Mode::grid  ? scope::kGrid
+                                                    : scope::kDetails;
+    return listed(event, scope) && browse_key(view_key_event(event), now);
+}
+
+bool Browser::browse_key(const ui::KeyEvent& event, Clock::time_point now) {
     if ((event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) &&
         event.modifiers == ui::Modifiers{} && open_selection()) {
         return true;  // a file: its application; a folder goes on to the view
@@ -5727,11 +5853,11 @@ bool Browser::view_key(const ui::KeyEvent& event, Clock::time_point now) {
     // Only what the shortcuts list reaches the view.
     switch (pane().mode) {
         case Mode::columns:
-            return listed(event, scope::kColumns) && pane().columns.key(view_key_event(event), now);
+            return pane().columns.key(event, now);
         case Mode::grid:
-            return listed(event, scope::kGrid) && pane().grid.key(view_key_event(event), now);
+            return pane().grid.key(event, now);
         case Mode::details:
-            return listed(event, scope::kDetails) && pane().details.key(view_key_event(event), now);
+            return pane().details.key(event, now);
     }
     return false;
 }

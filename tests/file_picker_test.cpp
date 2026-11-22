@@ -813,3 +813,37 @@ TEST_CASE("picker: pattern selection works for Open and is unavailable for both 
         CHECK_FALSE(f.result);
     }
 }
+
+TEST_CASE("picker: keyboard path completion and cancellation do not accept or close the picker") {
+    for (const auto mode : {Mode::open, Mode::save}) {
+        Fixture f;
+        f.browser.set_picker_mode(true);
+        f.browser.set_panes_enabled(false);
+        core::PickerRequest request;
+        request.mode = mode;
+        request.directory = mode == Mode::open;
+        request.name = "saved.txt";
+        auto picker = f.picker(request);
+        REQUIRE(f.settle());
+        CHECK(picker->key({.keysym = XKB_KEY_d, .text = {}, .modifiers = {.alt = true}}));
+        REQUIRE(f.browser.breadcrumb().editing());
+        CHECK_FALSE(picker->editing_name());
+        f.browser.breadcrumb().paste((f.temp.path / "fold").string());
+        CHECK(picker->key({.keysym = XKB_KEY_Tab, .text = {}}));
+        REQUIRE(f.settle([&] { return !f.browser.breadcrumb().completing(); }));
+        CHECK(f.browser.breadcrumb().text() == (f.temp.path / "folder").string() + "/");
+        CHECK(picker->key({.keysym = XKB_KEY_Escape, .text = {}}));
+        CHECK_FALSE(f.result);
+        CHECK_FALSE(f.browser.breadcrumb().editing());
+        CHECK(picker->key({.keysym = XKB_KEY_d, .text = {}, .modifiers = {.alt = true}}));
+        f.browser.breadcrumb().paste((f.temp.path / "folder").string());
+        CHECK(picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}}));
+        REQUIRE(f.settle());
+        CHECK_FALSE(f.result);
+        CHECK(f.browser.picker_folder()->path() == f.temp.path / "folder");
+        CHECK(picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}}));
+        REQUIRE(f.result);
+        CHECK(f.result->response == 0);
+        CHECK(f.browser.tab_count() == 1);
+    }
+}

@@ -9,6 +9,13 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Keyboard browsing now includes Alt+D for breadcrumb editing, Shift+F6 to focus
+files, Ctrl+Enter for opening a folder in a new tab, and Ctrl+Alt+Enter for the
+other pane. Places supports keyboard context menus and actions on its focused row.
+Movement, hierarchy and explicit focus commands can be remapped; Shift/Ctrl
+selection gestures follow movement bindings. A visible outline marks file-view
+keyboard focus, and the new commands appear in Settings and the command palette.
+
 The breadcrumb path editor completes local and archive paths with Tab/Shift+Tab;
 Enter also reveals typed files. **Move into New Folder…** groups a selection with
 Undo/Redo. Alt-drop offers destination actions and extraction of an archive into

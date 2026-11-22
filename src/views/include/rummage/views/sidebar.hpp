@@ -119,6 +119,12 @@ public:
 
     [[nodiscard]] std::optional<std::size_t> cursor() const noexcept { return cursor_; }
 
+    [[nodiscard]] const fs::Place* cursor_place() const {
+        return cursor_ && *cursor_ < places_.size() ? &places_[*cursor_] : nullptr;
+    }
+
+    [[nodiscard]] std::pair<float, float> cursor_anchor() const;
+
     [[nodiscard]] bool animating() const noexcept { return scroller_.animating(); }
 
     // The place at a window point, as last drawn.

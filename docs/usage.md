@@ -20,6 +20,13 @@ a terminal is configured. Bookmark rename, reorder and removal commands remain i
 the same menu. Unmounted devices offer mounting first; path actions become available
 after mounting.
 
+Keyboard browsing highlights the focused Places row or outlines the active file
+area. **Shift+F6** returns to the file list. In Places, **Menu / Shift+F10** opens
+the focused row’s menu, **Ctrl+Enter** opens it in a new tab, and **Ctrl+Alt+Enter**
+opens it in the other pane. **Alt+D** edits the breadcrumb path directly.
+See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard) for remapping
+movement, focus, opening and hierarchy commands.
+
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
 **Ctrl+I** toggles the information pane. Drag its edge to

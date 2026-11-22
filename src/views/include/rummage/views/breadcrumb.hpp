@@ -99,6 +99,7 @@ public:
         redraw_();
     }
 
+    void edit(const std::filesystem::path& path);
     bool key(const ui::KeyEvent& event);
     void paste(std::string_view text);
     std::string copy_selection(bool cut);

@@ -20,6 +20,11 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/theme/palette.hpp"
+#include "rummage/ui/icons.hpp"
+#include "rummage/ui/offscreen.hpp"
+#include "rummage/ui/renderer.hpp"
+#include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/shortcuts_overlay.hpp"
 #include "rummage/views/status_bar.hpp"
@@ -126,6 +131,7 @@ struct Fixture {
             }
             return !browser.loading();
         }));
+        browser.breadcrumb().cancel_edit();
         browser.blur_filter();
         browser.set_name_filter({});
         browser.name_editor().cancel();
@@ -177,6 +183,43 @@ std::vector<KeyEvent> chords_of(const Shortcut& shortcut) {
 
 }  // namespace
 
+TEST_CASE("keyboard focus leaves file contents visible in every view") {
+    constexpr int width = 1000;
+    constexpr int height = 700;
+    rummage::ui::Offscreen gl{width, height};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    for (const auto mode : kModes) {
+        Fixture f;
+        f.reset(mode);
+        f.browser.set_reduced_motion(true);
+        const auto now = Browser::Clock::now() + 1s;
+        const auto draw = [&] {
+            renderer.begin_frame(width, height, 1, {});
+            f.browser.draw(renderer, {0, 0, width, height}, rummage::theme::Palette{}, icons, now);
+            renderer.end_frame();
+            std::vector<std::uint8_t> pixels(width * height * 4);
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            return pixels;
+        };
+        draw();  // Settle layout before comparing frames.
+        const auto before = draw();
+        REQUIRE(f.browser.key(chord(XKB_KEY_F6, {.shift = true}), now));
+        const auto focused = draw();
+        CHECK(before != focused);  // The focus indication is visible.
+        bool contents_unchanged = true;
+        for (int y = 150; y < 550; ++y) {
+            for (int x = 300; x < 700; ++x) {
+                const auto at = static_cast<std::size_t>((y * width + x) * 4);
+                contents_unchanged &=
+                    std::equal(before.data() + at, before.data() + at + 4, focused.data() + at);
+            }
+        }
+        CHECK(contents_unchanged);
+    }
+}
+
 TEST_CASE("shortcuts: the groups are the overlay's") {
     const std::vector<std::string_view> groups = rummage::views::overlay_groups();
     const std::set<std::string_view> expected{groups.begin(), groups.end()};
@@ -184,7 +227,8 @@ TEST_CASE("shortcuts: the groups are the overlay's") {
         CHECK_MESSAGE(expected.contains(shortcut.group), shortcut.group);
         CHECK(shortcut.scope != 0);
         // Commands may intentionally have no default binding; they remain bindable.
-        if (chords_of(shortcut).empty()) {
+        if (chords_of(shortcut).empty() && shortcut.action != "Select a range" &&
+            shortcut.action != "Move without selecting") {
             CHECK(shortcut.keys.empty());
             CHECK(shortcut.command != Command::none);
         }
@@ -794,4 +838,268 @@ TEST_CASE("shortcuts: pattern selection and folder reset have configurable bindi
     CHECK(command_for(chord(XKB_KEY_r, {.ctrl = true, .alt = true})) == Command::reset_folder_view);
     CHECK(keys_for(Command::select_pattern) == "Ctrl+Alt+p");
     REQUIRE(configure_shortcuts({}).empty());
+}
+
+TEST_CASE("keyboard browsing: edit path without drawing, cancel and return to the files") {
+    ResetBindings reset;
+    Fixture f;
+    f.reset(Browser::Mode::details, "a.txt");
+    const auto press = [&](xkb_keysym_t symbol, Modifiers mods = {}) {
+        CHECK(f.browser.key(chord(symbol, mods), Browser::Clock::now()));
+    };
+    press(XKB_KEY_F6);
+    REQUIRE(f.browser.sidebar().focused());
+    press(XKB_KEY_d, {.alt = true});
+    REQUIRE(f.browser.breadcrumb().editing());
+    CHECK_FALSE(f.browser.sidebar().focused());
+    CHECK(f.browser.breadcrumb().text() == f.root.string());
+    f.browser.breadcrumb().paste((f.root / "sub").string());
+    press(XKB_KEY_Return);
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK_FALSE(f.browser.breadcrumb().editing());
+    CHECK(f.folder()->path() == f.root / "sub");
+    press(XKB_KEY_d, {.alt = true});
+    f.browser.breadcrumb().paste((f.root / "missing").string());
+    press(XKB_KEY_Return);
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.browser.breadcrumb().editing());
+    CHECK_FALSE(f.browser.breadcrumb().error().empty());
+    press(XKB_KEY_F6, {.shift = true});
+    CHECK_FALSE(f.browser.breadcrumb().editing());
+    CHECK(f.folder()->path() == f.root / "sub");
+    press(XKB_KEY_Home);
+    CHECK(cursor_name_is(*f.folder(), "inner.txt"));
+    press(XKB_KEY_f, {.ctrl = true, .shift = true});
+    REQUIRE(f.browser.filtering());
+    press(XKB_KEY_F6, {.shift = true});
+    CHECK_FALSE(f.browser.filtering());
+}
+
+TEST_CASE("keyboard browsing: Places actions and context menu target the focused place") {
+    Fixture f;
+    f.reset(Browser::Mode::details, "a.txt");
+    const auto press = [&](xkb_keysym_t symbol, Modifiers mods = {}) {
+        CHECK(f.browser.key(chord(symbol, mods), Browser::Clock::now()));
+    };
+    press(XKB_KEY_F6);
+    press(XKB_KEY_End);
+    REQUIRE(f.browser.sidebar().cursor_place());
+    CHECK(f.browser.sidebar().cursor_place()->path == f.root / "sub");
+    const auto selection = f.folder()->selected_names();
+    press(XKB_KEY_F10, {.shift = true});
+    REQUIRE(f.browser.context_menu().is_open());
+    const auto& items = f.browser.context_menu().items();
+    CHECK(std::ranges::find(items, "open_tab", &rummage::views::MenuItem::id) != items.end());
+    press(XKB_KEY_Escape);
+    CHECK(f.browser.sidebar().focused());
+    CHECK(f.folder()->selected_names() == selection);
+    fs::path terminal;
+    f.browser.set_terminal_handler([&](const auto& path) { terminal = path; });
+    press(XKB_KEY_F4);
+    CHECK(terminal == f.root / "sub");
+    // Reopening a keyboard menu starts on its first enabled item (Open), not a mouse hover.
+    press(XKB_KEY_Menu);
+    press(XKB_KEY_Down);
+    press(XKB_KEY_Return);
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.browser.state().tabs.size() == 2);
+    CHECK(f.folder()->path() == f.root / "sub");
+    CHECK_FALSE(f.browser.sidebar().focused());
+    f.reset(Browser::Mode::details, "a.txt");
+    press(XKB_KEY_F6);
+    press(XKB_KEY_End);
+    press(XKB_KEY_Return, {.ctrl = true, .alt = true});
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.browser.split_visible());
+    CHECK(f.folder()->path() == f.root / "sub");
+    CHECK_FALSE(f.browser.sidebar().focused());
+}
+
+TEST_CASE("keyboard browsing: remapped movement preserves selection and editing contexts") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    REQUIRE(configure_shortcuts(
+                {{"move_down", "j"}, {"move_up", "k"}, {"command_palette", "Ctrl+Shift+p"}})
+                .empty());
+    Fixture f;
+    for (const auto mode : kModes) {
+        f.reset(mode, "a.txt");
+        CHECK(f.browser.key(chord(XKB_KEY_J, {.shift = true}), Browser::Clock::now()));
+        CHECK(cursor_name_is(*f.folder(), "b.txt"));
+        CHECK(f.folder()->selected_names() == std::vector<std::string>{"a.txt", "b.txt"});
+        CHECK(f.browser.key(chord(XKB_KEY_k, {.ctrl = true}), Browser::Clock::now()));
+        CHECK(cursor_name_is(*f.folder(), "a.txt"));
+        CHECK(f.folder()->selected_names() == std::vector<std::string>{"a.txt", "b.txt"});
+        CHECK_FALSE(f.browser.key(chord(XKB_KEY_Down, {}), Browser::Clock::now()));
+        CHECK(cursor_name_is(*f.folder(), "a.txt"));
+        CHECK(f.browser.key(chord(XKB_KEY_F6, {}), Browser::Clock::now()));
+        CHECK(f.browser.key(chord(XKB_KEY_j, {}), Browser::Clock::now()));
+        REQUIRE(f.browser.sidebar().cursor_place());
+        CHECK(f.browser.sidebar().cursor_place()->path == f.root / "sub");
+        CHECK(f.browser.key(chord(XKB_KEY_F6, {.shift = true}), Browser::Clock::now()));
+        CHECK(f.browser.key(chord(XKB_KEY_d, {.alt = true}), Browser::Clock::now()));
+        KeyEvent typed = chord(XKB_KEY_j, {});
+        typed.text = "j";
+        CHECK(f.browser.key(typed, Browser::Clock::now()));
+        CHECK(f.browser.breadcrumb().text() == "j");
+        CHECK(f.browser.key(chord(XKB_KEY_Escape, {}), Browser::Clock::now()));
+        CHECK(cursor_name_is(*f.folder(), "a.txt"));
+    }
+}
+
+TEST_CASE("keyboard browsing: movement conflicts include selection variants and remain atomic") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    CHECK_FALSE(configure_shortcuts({{"move_up", "k"}}).empty());  // Ctrl+K is the palette.
+    CHECK(rummage::views::view_key_event(chord(XKB_KEY_k, {})).keysym == XKB_KEY_k);
+    REQUIRE(configure_shortcuts({{"move_up", "k"}, {"command_palette", ""}}).empty());
+    CHECK(rummage::views::view_key_event(chord(XKB_KEY_K, {.shift = true})).keysym == XKB_KEY_Up);
+    CHECK_FALSE(configure_shortcuts({{"move_up", "Ctrl+k"}}).empty());
+    CHECK_FALSE(configure_shortcuts({{"move_down", "j"}, {"new_tab", "Ctrl+j"}}).empty());
+    REQUIRE(configure_shortcuts({{"parent_folder", "Ctrl+Alt+p"}, {"open_selected", "Ctrl+o"}})
+                .empty());
+    CHECK(rummage::views::command_for(chord(XKB_KEY_BackSpace, {})) == Command::none);
+    CHECK(rummage::views::command_for(chord(XKB_KEY_Up, {.alt = true})) == Command::none);
+    CHECK(rummage::views::command_for(chord(XKB_KEY_Return, {})) == Command::none);
+    Fixture f;
+    f.reset(Browser::Mode::details);
+    CHECK(f.browser.key(chord(XKB_KEY_o, {.ctrl = true}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.folder()->path() == f.root / "sub");
+    CHECK(f.browser.key(chord(XKB_KEY_p, {.ctrl = true, .alt = true}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.folder()->path() == f.root);
+}
+
+TEST_CASE("keyboard browsing: explicit pane focus and expansion commands are bindable") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    REQUIRE(configure_shortcuts({{"focus_first_pane", "Alt+F7"},
+                                 {"focus_second_pane", "Alt+F8"},
+                                 {"expand_folder", "Alt+F9"},
+                                 {"collapse_folder", "Alt+F10"},
+                                 {"focus_places", "Alt+F11"}})
+                .empty());
+    Fixture f;
+    f.reset(Browser::Mode::details);
+    const auto press = [&](xkb_keysym_t sym, Modifiers mods = {}) {
+        CHECK(f.browser.key(chord(sym, mods), Browser::Clock::now()));
+    };
+    press(XKB_KEY_F9, {.alt = true});
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    press(XKB_KEY_F9, {.alt = true});
+    CHECK(f.folder()->path() == f.root / "sub");
+    CHECK(cursor_name_is(*f.folder(), "inner.txt"));
+    press(XKB_KEY_F10, {.alt = true});
+    CHECK(f.folder()->path() == f.root);
+    press(XKB_KEY_F10, {.alt = true});
+    press(XKB_KEY_Down);
+    CHECK(cursor_name_is(*f.folder(), "a.txt"));
+    press(XKB_KEY_F3);
+    REQUIRE(f.browser.split_visible());
+    press(XKB_KEY_F7, {.alt = true});
+    CHECK(f.browser.active_pane() == 0);
+    press(XKB_KEY_F11, {.alt = true});
+    CHECK(f.browser.sidebar().focused());
+    press(XKB_KEY_F8, {.alt = true});
+    CHECK(f.browser.active_pane() == 1);
+    CHECK_FALSE(f.browser.sidebar().focused());
+}
+
+TEST_CASE("keyboard browsing: palette keeps sidebar targets and view commands survive remapping") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    REQUIRE(configure_shortcuts({{"open_selected", "Ctrl+o"}, {"parent_folder", "Ctrl+Alt+p"}})
+                .empty());
+    Fixture f;
+    f.reset(Browser::Mode::details, "a.txt");
+    f.browser.sidebar().set_focused(true);
+    f.browser.key(chord(XKB_KEY_End, {}), Browser::Clock::now());
+    auto items = f.browser.palette_items();
+    auto found = std::ranges::find(items, "place:open_tab", &rummage::views::PaletteItem::id);
+    REQUIRE(found != items.end());
+    auto open = found->action;
+    f.browser.key(chord(XKB_KEY_Home, {}), Browser::Clock::now());
+    open();
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.folder()->path() == f.root / "sub");
+    CHECK_FALSE(f.browser.sidebar().focused());
+    items = f.browser.palette_items();
+    found = std::ranges::find(items, "view:parent", &rummage::views::PaletteItem::id);
+    REQUIRE(found != items.end());
+    found->action();
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.folder()->path() == f.root);
+    f.folder()->select_name("sub");
+    const auto tabs = f.browser.state().tabs.size();
+    CHECK(f.browser.key(chord(XKB_KEY_Return, {.ctrl = true}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.browser.state().tabs.size() == tabs + 1);
+    CHECK(f.folder()->path() == f.root / "sub");
+}
+
+TEST_CASE("keyboard browsing: new defaults yield to prior custom bindings") {
+    ResetBindings reset;
+    using rummage::views::configure_shortcuts;
+    REQUIRE(configure_shortcuts({{"go_to", "Alt+d"},
+                                 {"rename", "Ctrl+Return"},
+                                 {"focus_sidebar", "Shift+F6"},
+                                 {"copy", "Ctrl+Alt+Return"}})
+                .empty());
+    CHECK(rummage::views::keys_for(Command::edit_path).empty());
+    CHECK(rummage::views::keys_for(Command::open_selected_tab).empty());
+    CHECK(rummage::views::keys_for(Command::focus_files).empty());
+    CHECK(rummage::views::keys_for(Command::open_other_pane).empty());
+}
+
+TEST_CASE("keyboard browsing: Unicode movement bindings keep character input in editors") {
+    ResetBindings reset;
+    REQUIRE(rummage::views::configure_shortcuts({{"move_down", "eacute"}}).empty());
+    Fixture f;
+    f.reset(Browser::Mode::details, "a.txt");
+    CHECK(f.browser.key(chord(XKB_KEY_Eacute, {.shift = true}), Browser::Clock::now()));
+    CHECK(cursor_name_is(*f.folder(), "b.txt"));
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"a.txt", "b.txt"});
+    f.folder()->select_name("a.txt");
+    CHECK(f.browser.key(chord(XKB_KEY_F2, {}), Browser::Clock::now()));
+    REQUIRE(f.browser.name_editor().active());
+    auto typed = chord(XKB_KEY_eacute, {});
+    typed.text = "é";
+    CHECK(f.browser.key(typed, Browser::Clock::now()));
+    CHECK(f.browser.key(chord(XKB_KEY_Return, {}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(fs::exists(f.root / "é.txt"));
+    CHECK(fs::exists(f.root / "b.txt"));
+}
+
+TEST_CASE("keyboard browsing: path editing can leave Trash") {
+    Fixture f;
+    f.browser.open(rummage::fs::trash_path());
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.browser.key(chord(XKB_KEY_d, {.alt = true}), Browser::Clock::now()));
+    REQUIRE(f.browser.breadcrumb().editing());
+    CHECK(f.browser.key(chord(XKB_KEY_Return, {}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK_FALSE(f.browser.breadcrumb().editing());
+    CHECK(f.browser.key(chord(XKB_KEY_d, {.alt = true}), Browser::Clock::now()));
+    f.browser.breadcrumb().paste(f.root.string());
+    CHECK(f.browser.key(chord(XKB_KEY_Return, {}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.browser.picker_folder()->path() == f.root);
+}
+
+TEST_CASE("keyboard browsing: relative paths use the displayed location in expanded Details") {
+    Fixture f;
+    f.reset(Browser::Mode::details);
+    f.browser.key(chord(XKB_KEY_Right, {}), Browser::Clock::now());
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    f.browser.key(chord(XKB_KEY_Right, {}), Browser::Clock::now());
+    REQUIRE(f.folder()->path() == f.root / "sub");
+    CHECK(f.browser.key(chord(XKB_KEY_d, {.alt = true}), Browser::Clock::now()));
+    CHECK(f.browser.breadcrumb().text() == f.root.string());
+    f.browser.breadcrumb().paste("sub");
+    CHECK(f.browser.key(chord(XKB_KEY_Return, {}), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK_FALSE(f.browser.breadcrumb().editing());
+    CHECK(f.browser.details().root_folder()->path() == f.root / "sub");
 }

@@ -101,6 +101,11 @@ theme = "system"
 rename = "Ctrl+r"
 ```
 
+Navigation, movement and focus commands are configurable too. Movement chords
+reserve Ctrl and Shift for selection gestures; conflict checks cover those derived
+chords. See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard)
+for the command IDs and a J/K movement example.
+
 ## Settings reference
 
 | Key | Default | Accepted value / behavior |

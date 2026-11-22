@@ -877,7 +877,7 @@ private:
     std::vector<MenuItem> place_navigation_items(const fs::Place& place);
     void drop_actions(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
                       bool own);
-    void place_menu(const fs::Place& place, float x, float y);
+    void place_menu(const fs::Place& place, float x, float y, bool keyboard = false);
     // The sidebar's places, the trash's icon full or empty.
     void show_places();
     // Puts the cursor on the entry after the last one of going that stays (else the one before).
@@ -904,6 +904,10 @@ private:
     bool take_key(const ui::KeyEvent& event, Clock::time_point now);
     void take_pointer(const ui::PointerEvent& event, Clock::time_point now);
     bool view_key(const ui::KeyEvent& event, Clock::time_point now);
+    bool browse_key(const ui::KeyEvent& event, Clock::time_point now);
+    void focus_files();
+    void edit_path();
+    void open_selected_tab();
     void dispatch_area_pointer(const ui::PointerEvent& event, Clock::time_point now);
     void dispatch_pointer(const ui::PointerEvent& event, Clock::time_point now);
     // The callback the views and the sidebar set their resize arrows through.
@@ -1120,6 +1124,7 @@ private:
     bool sidebar_visible_{true};
     fs::Listing::Predicate picker_filter_;
     bool filter_focused_{false};
+    bool keyboard_focus_visible_{false};
     void apply_filters();
     void toolbar_pointer(const ui::PointerEvent& event);
     void draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,

@@ -77,7 +77,17 @@ enum class Command : std::uint8_t {
     reset_folder_view,
     filter_names,
     show_settings,
+    edit_path,
+    focus_files,
+    focus_places,
+    open_selected,
+    open_selected_tab,
+    parent_folder,
+    expand_folder,
+    collapse_folder,
     toggle_split,
+    focus_first_pane,
+    focus_second_pane,
     switch_pane,
     swap_panes,
     orient_panes,
@@ -101,6 +111,11 @@ struct Shortcut {
     Command command{Command::none};
     std::string_view folder_path{};  // go:<path> bindings; owned by active bindings
     std::string_view action_id{};    // registry actions; storage owned by the active bindings
+
+    // Browsing movement leaves Shift/Ctrl available for selection gestures.
+    std::string_view binding_id{};
+    xkb_keysym_t view_symbol{XKB_KEY_NoSymbol};
+    bool movement{false};
 
     [[nodiscard]] bool matches(const ui::KeyEvent& event) const;
 };

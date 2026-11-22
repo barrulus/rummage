@@ -459,6 +459,15 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         Command::scroll_preview_up, Command::scroll_preview_down, Command::scroll_preview_page_up,
         Command::scroll_preview_page_down};
     const std::vector<std::pair<Command, const char*>> commands{
+        {Command::edit_path, "edit_path"},
+        {Command::focus_files, "focus_files"},
+        {Command::focus_places, "focus_places"},
+        {Command::focus_first_pane, "focus_first_pane"},
+        {Command::focus_second_pane, "focus_second_pane"},
+        {Command::open_selected, "open"},
+        {Command::open_selected_tab, "open_tab"},
+        {Command::expand_folder, "expand_folder"},
+        {Command::collapse_folder, "collapse_folder"},
         {Command::columns_view, "columns_view"},
         {Command::grid_view, "grid_view"},
         {Command::details_view, "details_view"},
@@ -503,6 +512,10 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::go_to, "go_to"},
     };
     for (const rummage::views::Shortcut& shortcut : rummage::views::shortcuts()) {
+        if (shortcut.command == Command::parent_folder) {
+            CHECK(seen.contains("view:parent"));
+            continue;
+        }
         if (not_in_palette.contains(shortcut.command)) {
             continue;
         }
