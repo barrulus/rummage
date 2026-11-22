@@ -19,9 +19,15 @@ enum class TransferKind : std::uint8_t {
     trash,        // run_trash (trash.hpp): destination is the home trash
     restore,      // run_restore (trash.hpp): names are paths in a trash's files/
     erase,        // run_erase (erase.hpp): deleted for good; destination unused
+    group,        // move into a new folder, or undo that grouping
     link,         // create symbolic links without following the source items
     compress,     // write one ZIP or tar.gz archive
     empty_trash,  // run_erase: names are trashes, everything in them goes
+};
+
+struct GroupFolder {
+    std::filesystem::path path;
+    std::uint64_t device{0}, inode{0};
 };
 
 struct TransferRequest {
@@ -45,6 +51,8 @@ struct TransferRequest {
     bool tar_gz{false};
     // Optional destination names parallel to names (undo restores a Keep Both item's old name).
     std::vector<std::string> destination_names{};
+    GroupFolder group_folder{};
+    bool ungroup{false};
 };
 
 // What to do with an item whose name is taken in the destination.
@@ -97,6 +105,7 @@ struct TransferResult {
     std::uint64_t bytes_done{0};
     std::vector<std::string> errors;  // "Trip/P1.ORF: Permission denied"
     bool cancelled{false};
+    GroupFolder group_folder{};
 };
 
 struct TransferCallbacks {

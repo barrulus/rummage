@@ -1220,5 +1220,23 @@ moves = "mover"
 "Common layout" = "Disposição comum"
 "Move Bookmark Up" = "Mover favorito para cima"
 
+"Cannot open the new folder safely" = "Não é possível abrir a nova pasta com segurança"
+"Copy Here" = "Copiar aqui"
+"Extract into New Folder…" = "Extrair para uma nova pasta…"
+"Getting ready to extract…" = "Preparando a extração…"
+"Invalid path" = "Caminho inválido"
+"Move Here" = "Mover aqui"
+"Move into New Folder…" = "Mover para uma nova pasta…"
+"No matching paths" = "Nenhum caminho correspondente"
+"No readable archive contents" = "Nenhum conteúdo legível no arquivo compactado"
+"No such file or folder" = "Arquivo ou pasta não encontrado"
+"No such folder" = "Pasta não encontrada"
+"The folder already exists or has changed; nothing was moved" = "A pasta já existe ou foi alterada; nada foi movido"
+"The folder moved during the operation; undo is unavailable" = "A pasta foi movida durante a operação; não é possível desfazer"
+"Use a local path for completion" = "Use um caminho local para completar"
+"{} matching paths · Tab / Shift+Tab to cycle" = "{} caminhos correspondentes · Tab / Shift+Tab para percorrer"
+
+"Hold Alt before entering the destination, then drop again" = "Segure Alt antes de entrar no destino e solte novamente"
+
 [contexts.file-action]
 "Open" = "Abrir"

@@ -1220,5 +1220,23 @@ moves = "移动"
 "Common layout" = "通用布局"
 "Move Bookmark Up" = "上移书签"
 
+"Cannot open the new folder safely" = "无法安全打开新文件夹"
+"Copy Here" = "复制到此处"
+"Extract into New Folder…" = "解压到新文件夹…"
+"Getting ready to extract…" = "正在准备解压…"
+"Invalid path" = "无效路径"
+"Move Here" = "移动到此处"
+"Move into New Folder…" = "移动到新文件夹…"
+"No matching paths" = "没有匹配的路径"
+"No readable archive contents" = "压缩包中没有可读取的内容"
+"No such file or folder" = "文件或文件夹不存在"
+"No such folder" = "文件夹不存在"
+"The folder already exists or has changed; nothing was moved" = "文件夹已存在或已更改；未移动任何内容"
+"The folder moved during the operation; undo is unavailable" = "操作期间文件夹已被移动；无法撤销"
+"Use a local path for completion" = "请使用本地路径进行补全"
+"{} matching paths · Tab / Shift+Tab to cycle" = "{} 个匹配路径 · Tab / Shift+Tab 切换"
+
+"Hold Alt before entering the destination, then drop again" = "进入目标区域前按住 Alt，然后重新拖放"
+
 [contexts.file-action]
 "Open" = "打开"

@@ -497,3 +497,28 @@ TEST_CASE("undo: new links go to the trash, what they lead to stays; redo brings
     f.run(key(XKB_KEY_z, kCtrl));
     CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
 }
+
+TEST_CASE("undo: move into a new folder is one operation with sidecars and redo") {
+    Fixture f;
+    auto shown = f.show(f.photos, "P1.ORF");
+    f.browser.move_into_new_folder();
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    f.browser.confirm_dialog().paste("Selected");
+    f.run(key(XKB_KEY_Return));
+    CHECK(listing(f.photos) == Names{"P2.ORF", "Selected"});
+    CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp"});
+    f.browser.undo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    f.browser.redo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp"});
+    std::ofstream{f.photos / "Selected" / "added.txt"} << "keep";
+    f.browser.undo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos / "Selected") == Names{"added.txt"});
+    CHECK(fs::exists(f.photos / "P1.ORF.xmp"));
+    f.browser.redo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp", "added.txt"});
+}

@@ -9,6 +9,12 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+The breadcrumb path editor completes local and archive paths with Tab/Shift+Tab;
+Enter also reveals typed files. **Move into New Folder…** groups a selection with
+Undo/Redo. Alt-drop offers destination actions and extraction of an archive into
+a named subfolder. Places and bookmarks now have navigation context menus,
+including **Open in New Tab** and **Open in Other Pane**.
+
 Create symbolic links beside selected files and folders, with Undo/Redo.
 **Ctrl+S** selects visible entries by filename fragment or wildcard pattern.
 Mounted drives offer filesystem and space information in Properties and on hover.

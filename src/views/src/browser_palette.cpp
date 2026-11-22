@@ -87,6 +87,9 @@ std::vector<PaletteItem> Browser::palette_items() {
 
     if (editable && !names.empty()) {
         if (!picker_mode_)
+            add("command:move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",
+                [this] { move_into_new_folder(); });
+        if (!picker_mode_)
             add("command:create_link", std::string{i18n::mark("Create Link")}, "",
                 [this] { create_links(); });
         add("command:compress_zip", "Compress to ZIP…", "", [this] { compress(false); });

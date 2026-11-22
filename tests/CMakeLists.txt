@@ -61,6 +61,8 @@ add_executable(rummage-tests
     heif_test.cpp
     filesystem_test.cpp
     links_test.cpp
+    group_test.cpp
+    path_completion_test.cpp
     load_test.cpp
     measure_test.cpp
     memory_test.cpp

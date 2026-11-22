@@ -1229,5 +1229,23 @@ moves = "mover"
 "Common layout" = "Distribución común"
 "Move Bookmark Up" = "Subir marcador"
 
+"Cannot open the new folder safely" = "No se puede abrir la nueva carpeta de forma segura"
+"Copy Here" = "Copiar aquí"
+"Extract into New Folder…" = "Extraer en una carpeta nueva…"
+"Getting ready to extract…" = "Preparando la extracción…"
+"Invalid path" = "Ruta no válida"
+"Move Here" = "Mover aquí"
+"Move into New Folder…" = "Mover a una carpeta nueva…"
+"No matching paths" = "No hay rutas coincidentes"
+"No readable archive contents" = "No hay contenido legible en el archivo comprimido"
+"No such file or folder" = "No existe el archivo o la carpeta"
+"No such folder" = "No existe la carpeta"
+"The folder already exists or has changed; nothing was moved" = "La carpeta ya existe o ha cambiado; no se ha movido nada"
+"The folder moved during the operation; undo is unavailable" = "La carpeta se movió durante la operación; no se puede deshacer"
+"Use a local path for completion" = "Usa una ruta local para completar"
+"{} matching paths · Tab / Shift+Tab to cycle" = "{} rutas coincidentes · Tab / Mayús+Tab para recorrerlas"
+
+"Hold Alt before entering the destination, then drop again" = "Mantén Alt antes de entrar en el destino y vuelve a soltar"
+
 [contexts.file-action]
 "Open" = "Abrir"

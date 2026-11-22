@@ -11,6 +11,7 @@
 #include "rummage/fs/compress.hpp"
 #include "rummage/fs/erase.hpp"
 #include "rummage/fs/extract.hpp"
+#include "rummage/fs/group.hpp"
 #include "rummage/fs/links.hpp"
 #include "rummage/fs/trash.hpp"
 
@@ -142,6 +143,9 @@ void TransferQueue::work() {
 
         TransferResult result;
         switch (request->kind) {
+            case TransferKind::group:
+                result = run_group(*request, token, callbacks);
+                break;
             case TransferKind::link:
                 result = run_link(*request, token, callbacks);
                 break;

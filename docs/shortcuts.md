@@ -183,3 +183,11 @@ shortcut executes while it is being edited.
 
 `reset_folder_view` restores the active folder’s default view preferences and has
 no default shortcut. It is also available in Sort By and the command palette.
+
+### Path completion and drop choices
+
+| Gesture | Action |
+| --- | --- |
+| Tab / Shift+Tab while editing the breadcrumb path | Complete a path and cycle matches forward / backward |
+| Enter while editing the breadcrumb path | Open the folder or reveal the file |
+| Alt while dropping files | Choose a copy, move, grouping or archive extraction action |

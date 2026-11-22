@@ -15,6 +15,7 @@ namespace rummage::views {
 
 struct FileOperation {
     enum class Kind : std::uint8_t {
+        group,         // move into/out of a directory owned by this operation
         batch_rename,  // all explicit names, including sidecars, in one transaction
         rename,        // one item: from the old name to the new (its sidecars follow)
         create,        // one item: to = the new folder or file; from = its template, or empty
@@ -37,7 +38,9 @@ struct FileOperation {
     // Groups that cannot be safely undone (replacements or preexisting sidecars).
     std::size_t undo_excluded{0};
     std::optional<CreatedFile> created_file{};  // clipboard content, checked before undo
-    std::vector<fs::RenameChange> renames{};    // batch rename identities and exact sidecar set
+    fs::GroupFolder group_folder{};
+    bool grouped{false};
+    std::vector<fs::RenameChange> renames{};  // batch rename identities and exact sidecar set
 };
 
 // What the operation did, for "Undone: ..." and "Redone: ...": "“P1.ORF” is “Lake.ORF” again",

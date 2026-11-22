@@ -1228,5 +1228,23 @@ moves = "déplacement"
 "Common layout" = "Disposition commune"
 "Move Bookmark Up" = "Monter le signet"
 
+"Cannot open the new folder safely" = "Impossible d’ouvrir le nouveau dossier en toute sécurité"
+"Copy Here" = "Copier ici"
+"Extract into New Folder…" = "Extraire dans un nouveau dossier…"
+"Getting ready to extract…" = "Préparation de l’extraction…"
+"Invalid path" = "Chemin non valide"
+"Move Here" = "Déplacer ici"
+"Move into New Folder…" = "Déplacer dans un nouveau dossier…"
+"No matching paths" = "Aucun chemin correspondant"
+"No readable archive contents" = "Aucun contenu d’archive lisible"
+"No such file or folder" = "Fichier ou dossier introuvable"
+"No such folder" = "Dossier introuvable"
+"The folder already exists or has changed; nothing was moved" = "Le dossier existe déjà ou a changé ; rien n’a été déplacé"
+"The folder moved during the operation; undo is unavailable" = "Le dossier a été déplacé pendant l’opération ; l’annulation est indisponible"
+"Use a local path for completion" = "Utilisez un chemin local pour la complétion"
+"{} matching paths · Tab / Shift+Tab to cycle" = "{} chemins correspondants · Tab / Maj+Tab pour les parcourir"
+
+"Hold Alt before entering the destination, then drop again" = "Maintenez Alt avant d’entrer dans la destination, puis déposez à nouveau"
+
 [contexts.file-action]
 "Open" = "Ouvrir"

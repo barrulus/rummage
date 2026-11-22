@@ -8,6 +8,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rummage/core/worker_pool.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
@@ -42,7 +43,16 @@ public:
     // (empty for the last).
     using Go = std::function<void(const std::filesystem::path& path, const std::string& child)>;
 
-    Breadcrumb(std::function<void()> redraw, Go go, std::filesystem::path home);
+    Breadcrumb(std::function<void()> redraw, Go go, std::filesystem::path home,
+               core::WorkerPool* pool = nullptr);
+
+    ~Breadcrumb() { completion_job_.cancel(); }
+
+    void set_status_handler(std::function<void(std::string, bool)> status) {
+        status_ = std::move(status);
+    }
+
+    [[nodiscard]] bool completing() const { return completing_; }
 
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, const Folder& folder);
@@ -72,9 +82,20 @@ public:
     void cancel_edit() {
         if (!editing_)
             return;
+        invalidate_completion();
         editing_ = false;
         ++edit_generation_;
         error_.clear();
+        redraw_();
+    }
+
+    void begin_submit() { submitting_ = true; }
+
+    void finish_submit(std::string error) {
+        submitting_ = false;
+        error_ = std::move(error);
+        if (error_.empty())
+            cancel_edit();
         redraw_();
     }
 
@@ -94,6 +115,18 @@ public:
     [[nodiscard]] std::vector<std::string> shown() const;
 
 private:
+    void complete(bool reverse);
+    void invalidate_completion();
+    void choose_completion();
+    core::WorkerPool* pool_;
+    core::CancelToken completion_job_;
+    bool completing_{false};
+    bool submitting_{false};
+    std::vector<std::string> completions_;
+    std::string completed_text_;
+    std::ptrdiff_t completion_index_{0};
+    std::function<void(std::string, bool)> status_;
+
     struct Shown {
         std::optional<std::size_t> crumb;  // nullopt: the "…"
         ui::Rect rect{};

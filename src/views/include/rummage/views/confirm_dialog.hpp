@@ -39,7 +39,7 @@ public:
     void open_password(std::string name, bool retry,
                        std::function<void(std::optional<std::string>)> answer);
     void open_name(std::string title, std::string detail, std::string initial,
-                   std::function<std::string(const std::string&)> accept);
+                   std::function<std::string(const std::string&)> accept, std::string label = {});
     void paste(std::string_view text);
     std::string copy_selection(bool cut);
 
