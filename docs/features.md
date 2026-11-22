@@ -31,6 +31,10 @@ case-insensitive, not locale collation.
   darktable sidecars follow, and the batch has one Undo/Redo step.
 - Freedesktop Trash across filesystems, restore, confirmed permanent deletion and undo/redo.
 - Clipboard exchange and drag/drop with desktop applications.
+- Path completion in the breadcrumb editor, including archive paths and file selection.
+- Move a selection into a new folder with Undo/Redo; Alt-drop offers destination actions
+  and archive extraction into a named folder.
+- Places and bookmarks offer navigation context menus, including Open in New Tab.
 - Mounting internal partitions and removable disks through udisks2, with authorization when required.
 - Mounted-drive filesystem properties and available-space tooltips.
 - Properties and a folder-icon picker, sharing `.directory` metadata with Dolphin.

@@ -1219,5 +1219,23 @@ moves = "移動"
 "Common layout" = "共通の配置"
 "Move Bookmark Up" = "ブックマークを上へ移動"
 
+"Cannot open the new folder safely" = "新しいフォルダーを安全に開けません"
+"Copy Here" = "ここにコピー"
+"Extract into New Folder…" = "新しいフォルダーに展開…"
+"Getting ready to extract…" = "展開を準備中…"
+"Invalid path" = "無効なパス"
+"Move Here" = "ここに移動"
+"Move into New Folder…" = "新しいフォルダーに移動…"
+"No matching paths" = "一致するパスがありません"
+"No readable archive contents" = "読み取れるアーカイブの内容がありません"
+"No such file or folder" = "ファイルまたはフォルダーが見つかりません"
+"No such folder" = "フォルダーが見つかりません"
+"The folder already exists or has changed; nothing was moved" = "フォルダーは既に存在するか変更されています。何も移動していません"
+"The folder moved during the operation; undo is unavailable" = "操作中にフォルダーが移動されました。元に戻せません"
+"Use a local path for completion" = "補完にはローカルパスを使用してください"
+"{} matching paths · Tab / Shift+Tab to cycle" = "一致するパス: {} · Tab / Shift+Tab で切り替え"
+
+"Hold Alt before entering the destination, then drop again" = "移動先に入る前に Alt を押したまま、もう一度ドロップしてください"
+
 [contexts.file-action]
 "Open" = "開く"

@@ -43,6 +43,28 @@ renaming: type a name and press Enter. Escape keeps the generated name. Creation
 participates in file-operation undo. Pasting while a filename or other text field
 is being edited continues to insert text into that field.
 
+## Move into a new folder
+
+Select entries and choose **Move into New Folder…** from the context menu or
+command palette. Enter a folder name to create it and move the selection into it;
+darktable sidecars follow their images. Existing folder names are refused.
+
+**Ctrl+Z** moves the entries back and removes the new folder only if it is still
+the same folder and is empty. Files added later are preserved. **Ctrl+Shift+Z**
+repeats the grouping. If the folder was replaced, the operation is refused.
+This action is unavailable in Trash, archives and file pickers.
+
+Hold **Alt** while dropping files to choose an action at the destination. A drag
+within rummage offers Copy Here, Move Here and Move into New Folder. Grouping also
+works when dropping back into the source folder. Ordinary drops retain their
+usual copy/move behavior.
+
+For a single supported archive, Alt-drop also offers **Extract into New Folder…**.
+Choose a name to extract into a subfolder of the drop destination. If that name is
+taken, a numbered name is used. The original archive stays in place. Extraction
+uses the usual progress, conflict, cancellation and Undo controls. Drops from
+another application negotiate a copy so extraction does not remove its source.
+
 ## Create symbolic links
 
 Select files or folders and choose **Create Link** from their context menu or the

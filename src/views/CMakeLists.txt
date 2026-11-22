@@ -16,6 +16,8 @@ add_library(rummage_views
     src/browser_drives.cpp
     src/browser_folder_settings.cpp
     src/browser_links.cpp
+    src/browser_navigation.cpp
+    src/browser_organise.cpp
     src/browser_archive.cpp
     src/archive_text.cpp
     src/browser.cpp

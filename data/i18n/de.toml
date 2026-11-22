@@ -1231,5 +1231,23 @@ moves = "Bewegung"
 "Show File Extensions" = "Dateiendungen anzeigen"
 "Hide File Extensions" = "Dateiendungen ausblenden"
 
+"Cannot open the new folder safely" = "Der neue Ordner kann nicht sicher geöffnet werden"
+"Copy Here" = "Hierher kopieren"
+"Extract into New Folder…" = "In neuen Ordner entpacken…"
+"Getting ready to extract…" = "Entpacken wird vorbereitet…"
+"Invalid path" = "Ungültiger Pfad"
+"Move Here" = "Hierher verschieben"
+"Move into New Folder…" = "In neuen Ordner verschieben…"
+"No matching paths" = "Keine passenden Pfade"
+"No readable archive contents" = "Kein lesbarer Archivinhalt"
+"No such file or folder" = "Datei oder Ordner nicht gefunden"
+"No such folder" = "Ordner nicht gefunden"
+"The folder already exists or has changed; nothing was moved" = "Der Ordner existiert bereits oder wurde geändert; nichts wurde verschoben"
+"The folder moved during the operation; undo is unavailable" = "Der Ordner wurde während des Vorgangs verschoben; Rückgängigmachen ist nicht möglich"
+"Use a local path for completion" = "Für die Vervollständigung einen lokalen Pfad verwenden"
+"{} matching paths · Tab / Shift+Tab to cycle" = "{} passende Pfade · Tab / Umschalt+Tab zum Durchlaufen"
+
+"Hold Alt before entering the destination, then drop again" = "Alt vor dem Bewegen zum Ziel gedrückt halten und erneut ablegen"
+
 [contexts.file-action]
 "Open" = "Öffnen"

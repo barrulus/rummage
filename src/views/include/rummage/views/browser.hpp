@@ -620,6 +620,7 @@ public:
 
     // Ctrl+L: the card that goes to a folder or a server, the folder shown in it to start with.
     void open_location();
+    std::string navigate_path(const std::string& text);
 
     // Goes where text leads (fs::parse_location): opens a folder, or mounts and opens a server,
     // adding it to the sidebar first when add. Returns what is wrong with text; empty when it went.
@@ -661,6 +662,11 @@ public:
     void open_finder();
     void open_pattern();
     void create_links();
+    void move_into_new_folder();
+    void group_paths(const std::filesystem::path& destination,
+                     std::vector<std::filesystem::path> paths);
+    void extract_dropped_archive(const std::filesystem::path& archive,
+                                 const std::filesystem::path& destination);
     void reset_folder_view();
     [[nodiscard]] bool has_custom_folder_view() const;
 
@@ -741,6 +747,8 @@ public:
     [[nodiscard]] std::vector<std::string> memory_lines() const;
 
 private:
+    std::uint64_t path_navigation_generation_{0};
+
     // Where a drop at (x, y) goes: a folder, and how it is marked.
     struct DropTarget {
         std::filesystem::path folder;
@@ -780,7 +788,7 @@ private:
     // Drops paths into folder: own (rummage's drag: Ctrl copies, Shift moves, else the same disk
     // moves), or another program's with the action agreed.
     void drop_paths(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
-                    bool own, bool move);
+                    bool own, bool move, bool choose = false);
     // Copies or moves paths into destination as one operation.
     void transfer_paths(const std::filesystem::path& destination,
                         const std::vector<std::filesystem::path>& paths, bool move,
@@ -866,6 +874,9 @@ private:
     // The delete confirmed and added up goes to the transfer thread.
     void submit_erase();
     // The sidebar's menu on a place: the trash's has "Empty Trash".
+    std::vector<MenuItem> place_navigation_items(const fs::Place& place);
+    void drop_actions(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
+                      bool own);
     void place_menu(const fs::Place& place, float x, float y);
     // The sidebar's places, the trash's icon full or empty.
     void show_places();
@@ -1216,6 +1227,8 @@ private:
         std::size_t pending{0};
         std::vector<fs::PlacedItem> items;
         std::size_t undo_excluded{0};
+        fs::GroupFolder group_folder{};
+        bool grouped{false};
         bool failed{false};  // something could not be done, or it was stopped
     };
 

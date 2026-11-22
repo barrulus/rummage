@@ -292,6 +292,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "move_into_folder",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -324,6 +325,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "move_into_folder",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -351,6 +353,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "move_into_folder",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -2159,5 +2162,46 @@ TEST_CASE("context menu: mounted drives offer properties even without udisks") {
             f.browser.properties_dialog().close();
         } else
             f.menu().close();
+    }
+}
+
+TEST_CASE("sidebar: places and bookmarks open the clicked folder in a new tab") {
+    Fixture f;
+    rummage::ui::Offscreen gl{800, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& sidebar = f.browser.sidebar();
+    for (const auto section :
+         {rummage::fs::Place::Section::places, rummage::fs::Place::Section::bookmarks}) {
+        f.browser.open(f.photos);
+        REQUIRE(f.settle());
+        sidebar.set_places({{.section = section,
+                             .label = "Target",
+                             .path = f.photos / "sub",
+                             .icon = "folder",
+                             .disk = {}}});
+        renderer.begin_frame(800, 640, 1, {});
+        sidebar.draw(renderer, {0, 0, 200, 640}, {}, icons, f.photos, Browser::Clock::now());
+        renderer.end_frame();
+        float y = 0;
+        for (; y < 640; y += 2) {
+            sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 30, .y = y},
+                            Browser::Clock::now());
+            if (sidebar.hovered_place())
+                break;
+        }
+        REQUIRE(y < 640);
+        sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                         .x = 30,
+                         .y = y,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+        REQUIRE(f.menu().is_open());
+        f.choose("open_tab");
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->path() == f.photos / "sub");
+        const auto state = f.browser.state();
+        CHECK(state.tabs.size() >= 2);
     }
 }

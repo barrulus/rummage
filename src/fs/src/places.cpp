@@ -18,9 +18,9 @@
 #include <vector>
 
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/fs/trash.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::fs {
 namespace {
@@ -437,7 +437,7 @@ std::optional<std::string> add_remote_bookmark(std::string_view text, std::strin
 
 std::optional<Location> parse_location(std::string_view text, const std::filesystem::path& home) {
     text = trim(text);
-    if (text.empty()) {
+    if (text.empty() || text.find('\0') != std::string_view::npos) {
         return std::nullopt;
     }
     if (text.starts_with("\\\\")) {  // \\server\share\dir
@@ -454,8 +454,18 @@ std::optional<Location> parse_location(std::string_view text, const std::filesys
         return Location{.folder = {}, .uri = std::move(uri)};
     }
     if (text.starts_with("file://")) {
-        std::string path = percent_decode(text.substr(7));
-        if (path.empty() || path.front() != '/') {
+        auto encoded = text.substr(7);
+        if (encoded.starts_with("localhost/"))
+            encoded.remove_prefix(9);
+        for (std::size_t i = 0; i < encoded.size(); ++i) {
+            if (encoded[i] == '%' && (i + 2 >= encoded.size() || hex_digit(encoded[i + 1]) < 0 ||
+                                      hex_digit(encoded[i + 2]) < 0))
+                return std::nullopt;
+            if (encoded[i] == '%')
+                i += 2;
+        }
+        std::string path = percent_decode(encoded);
+        if (path.empty() || path.front() != '/' || path.find('\0') != std::string::npos) {
             return std::nullopt;
         }
         return Location{.folder = std::move(path), .uri = {}};

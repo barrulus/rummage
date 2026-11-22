@@ -362,6 +362,7 @@ void Browser::reopen_tab() {
 }
 
 void Browser::select_tab(std::size_t index) {
+    ++path_navigation_generation_;
     if (index >= area().tabs.size() || index == area().active) {
         return;
     }
@@ -1172,9 +1173,10 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
     if (place.section == fs::Place::Section::devices) {
         ++menu_generation_;
         menu_loaders_.clear();
-        std::vector<MenuItem> items;
+        std::vector<MenuItem> items = place_navigation_items(place);
         MenuItem mount;
         mount.id = "mount";
+        mount.separator = !items.empty();
         mount.label = i18n::tr("Mount");
         mount.enabled = !place.disk.mounted && !place.disk.volume.empty() && bool(devices_.mount);
         mount.action = [this, place] { mount_place(place, false); };
@@ -1208,7 +1210,7 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
     if (place.section == fs::Place::Section::bookmarks) {
         ++menu_generation_;
         menu_loaders_.clear();
-        std::vector<MenuItem> items;
+        std::vector<MenuItem> items = place_navigation_items(place);
         if (place.uri.empty()) {
             // Where it stands among the bookmarks shown: the first is not moved up, the last not
             // down.
@@ -1224,6 +1226,7 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
             rename.id = "rename_bookmark";
             rename.label = std::string{i18n::tr("Rename…")};
             rename.keys = "F2";
+            rename.separator = !items.empty();
             rename.action = [this, path = place.path] { sidebar_.start_rename(path); };
             items.push_back(std::move(rename));
             if (folder_chooser_) {
@@ -1285,7 +1288,11 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
         return;
     }
     if (!fs::is_trash(place.path)) {
-        return;  // the others have none
+        ++menu_generation_;
+        menu_loaders_.clear();
+        menu_.open(x, y, configured_menu(place_navigation_items(place), menu_layout_.sidebar),
+                   false);
+        return;
     }
     ++menu_generation_;
     menu_loaders_.clear();
@@ -1294,7 +1301,7 @@ void Browser::place_menu(const fs::Place& place, float x, float y) {
     empty.label = i18n::tr("Empty Trash…");
     empty.enabled = trash_full_;
     empty.action = [this] { empty_trash(); };
-    std::vector<MenuItem> items;
+    std::vector<MenuItem> items = place_navigation_items(place);
     items.push_back(std::move(empty));
     menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), false);
 }
@@ -1506,6 +1513,10 @@ void Browser::transfer_done(const fs::TransferRequest& request, const fs::Transf
     Batch& done = batch->second;
     done.items.insert(done.items.end(), result.items.begin(), result.items.end());
     done.undo_excluded += result.undo_excluded;
+    if (request.kind == fs::TransferKind::group) {
+        done.group_folder = result.group_folder;
+        done.grouped = !request.ungroup;
+    }
     done.failed =
         done.failed || result.cancelled || !result.errors.empty() || !result.refused.empty();
     if (--done.pending == 0) {
@@ -1513,7 +1524,9 @@ void Browser::transfer_done(const fs::TransferRequest& request, const fs::Transf
         batches_.erase(batch);
         record({.kind = finished.kind,
                 .items = std::move(finished.items),
-                .undo_excluded = finished.undo_excluded},
+                .undo_excluded = finished.undo_excluded,
+                .group_folder = std::move(finished.group_folder),
+                .grouped = finished.grouped},
                finished.purpose, finished.failed);
     }
 }
@@ -1576,6 +1589,11 @@ void Browser::report_done(const fs::TransferRequest& request, const fs::Transfer
                      : copy               ? i18n::trf("Copied {}", what)
                                           : i18n::trf("Moved {}", what),
                      false);
+    }
+    if (request.kind == fs::TransferKind::group && !request.ungroup && !result.items.empty()) {
+        if (const auto folder = current_folder();
+            folder && folder->path() == request.destination.parent_path())
+            folder->expect_names({request.destination.filename().string()});
     }
     // What arrived is selected, when its folder is the one shown.
     if (const std::shared_ptr<Folder> folder = current_folder();
@@ -1878,6 +1896,23 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
         placed.push_back(item.to);
     }
     switch (operation.kind) {
+        case FileOperation::Kind::group: {
+            if (operation.items.empty())
+                return;
+            fs::TransferRequest request;
+            request.kind = fs::TransferKind::group;
+            request.source = operation.items.front().to.parent_path();
+            request.destination = operation.items.front().from.parent_path();
+            request.group_folder = operation.group_folder;
+            request.ungroup = operation.grouped;
+            for (const auto& item : operation.items) {
+                request.names.push_back(item.to.filename().string());
+                request.destination_names.push_back(item.from.filename().string());
+            }
+            undoing_ = true;
+            submit(std::move(request), open_batch(purpose, FileOperation::Kind::group));
+            return;
+        }
         case FileOperation::Kind::erase:
             show_message(std::string{i18n::tr("A permanent delete cannot be undone")}, false);
             return;
@@ -2267,6 +2302,9 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         [this] { start_rename(); }, true, count == 1 || (!picker_mode_ && count > 1));
     add("trash", "Move to Trash", keys_for(Command::trash), [this] { trash(); });
     if (!folder->is_archive() && !picker_mode_)
+        add("move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",
+            [this] { move_into_new_folder(); });
+    if (!folder->is_archive() && !picker_mode_)
         add("create_link", std::string{i18n::mark("Create Link")}, "", [this] { create_links(); });
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
@@ -2465,7 +2503,7 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
         extensions();
     } else {
         group({"open", "open_with", "open_tab", "open_terminal"});
-        group({"cut", "copy", "paste", "rename", "create_link"});
+        group({"cut", "copy", "paste", "rename", "create_link", "move_into_folder"});
         group({"action:copy_name", "action:copy_location"});
         group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
         group({"add_bookmark", "running"});
@@ -2611,6 +2649,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
+    ++path_navigation_generation_;
     info_pane_.clear_text_focus();
     cancel_operation_motion();
     remember_folder(pane());
@@ -4272,9 +4311,9 @@ void Browser::send_pointer(Target target, const ui::PointerEvent& event, Clock::
 }
 
 void Browser::go_to(const std::filesystem::path& folder, const std::string& child) {
+    ++path_navigation_generation_;
     if (pane().mode == Mode::columns) {
         pane().restore_mode_on_arrival = true;
-        // The column that shows folder already has its cursor on child.
         if (!pane().columns.focus_folder(folder)) {
             pane().columns.reveal(folder, child.empty() ? folder : folder / child);
         }
@@ -4467,6 +4506,7 @@ void Browser::show_drop_target(const std::optional<DropTarget>& target) {
 void Browser::drop_event(const ui::DropEvent& event) {
     AreaContext addressed{context_area_, area_at(event.x, event.y).value_or(active_area_)};
     using Kind = ui::DropEvent::Kind;
+    const bool choose = !picker_mode_ && dnd_.modifiers && dnd_.modifiers().alt;
     drop_x_ = event.x;
     drop_y_ = event.y;
     if (event.kind == Kind::leave) {
@@ -4483,7 +4523,11 @@ void Browser::drop_event(const ui::DropEvent& event) {
             own.push_back(drag_->directory / name);
         }
         if (target &&
-            (target->bookmark ? !drag_->folders_only : !refusal(target->folder, own).empty())) {
+            (target->bookmark ? !drag_->folders_only
+                              : (!refusal(target->folder, own).empty() &&
+                                 !(choose && std::ranges::all_of(own, [&](const auto& path) {
+                                       return path.parent_path() == target->folder;
+                                   }))))) {
             target.reset();  // not there: nothing would happen, or it cannot be
         }
     } else if (!files) {
@@ -4499,7 +4543,7 @@ void Browser::drop_event(const ui::DropEvent& event) {
             if (target && target->bookmark) {
                 add_to_sidebar(std::move(own));
             } else if (target) {
-                drop_paths(target->folder, std::move(own), true, false);
+                drop_paths(target->folder, std::move(own), true, false, choose);
             }
             return;
         }
@@ -4507,10 +4551,18 @@ void Browser::drop_event(const ui::DropEvent& event) {
             return;
         }
         const bool move = dnd_.action && dnd_.action() == ui::kDndMove;
+        if (choose && move) {
+            // Reading finishes the Wayland offer. A negotiated move could then delete the
+            // source before the user chooses extraction or cancels the menu.
+            show_message(
+                std::string{i18n::tr("Hold Alt before entering the destination, then drop again")},
+                true);
+            return;
+        }
         ++operations_;
         dnd_.read(std::string{kUriList}, [this, alive = alive_, folder = target->folder,
-                                          bookmark = target->bookmark,
-                                          move](const std::optional<std::string>& data) {
+                                          bookmark = target->bookmark, move,
+                                          choose](const std::optional<std::string>& data) {
             if (!*alive) {
                 return;
             }
@@ -4526,7 +4578,7 @@ void Browser::drop_event(const ui::DropEvent& event) {
             if (bookmark) {
                 add_to_sidebar(std::move(dropped.paths));
             } else {
-                drop_paths(folder, std::move(dropped.paths), false, move);
+                drop_paths(folder, std::move(dropped.paths), false, move, choose);
             }
         });
         return;
@@ -4535,7 +4587,7 @@ void Browser::drop_event(const ui::DropEvent& event) {
     if (dnd_.accept) {
         if (!target) {
             dnd_.accept(std::nullopt, 0, 0);
-        } else if (drag_) {
+        } else if (drag_ || choose) {
             dnd_.accept(std::string{kUriList}, ui::kDndCopy, ui::kDndCopy);  // decided at the drop
         } else {
             const std::uint32_t allowed = dnd_.source_actions ? dnd_.source_actions() : 0;
@@ -4584,7 +4636,12 @@ void Browser::stop_auto_scroll() {
 }
 
 void Browser::drop_paths(const std::filesystem::path& folder,
-                         std::vector<std::filesystem::path> paths, bool own, bool move) {
+                         std::vector<std::filesystem::path> paths, bool own, bool move,
+                         bool choose) {
+    if (choose && !picker_mode_ && !fs::is_trash(folder)) {
+        drop_actions(folder, std::move(paths), own);
+        return;
+    }
     if (fs::is_trash(folder)) {
         trash_paths(paths, Purpose::user);
         return;

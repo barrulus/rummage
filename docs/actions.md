@@ -169,7 +169,7 @@ menu customization does not change command-palette or shortcut availability.
 | `entry` | Files or folders targeted in an ordinary folder |
 | `background` | Empty space in an ordinary folder, without a target |
 | `trash` | Trash entries or empty space in Trash |
-| `sidebar` | Devices, bookmarks, and the Trash sidebar item |
+| `sidebar` | Places, devices, bookmarks, and the Trash sidebar item |
 
 Specific arrays override `items`. Without either, rummage uses that context's built-in menu;
 an empty array hides its menu. The [example config](config.example.toml) includes the
@@ -291,3 +291,9 @@ allow inspecting and copying values; change their declared configuration to edit
 The `create_link` menu ID creates symbolic links for the selected entries.
 `reset_folder_view` is the reset action inside Sort By; both can be placed in a
 custom menu layout.
+
+The `move_into_folder` menu ID moves the selection into a newly named folder.
+Sidebar layouts can include `open`, `open_tab`, `open_other_pane`, `open_terminal`,
+`copy_path` and `properties`, alongside bookmark and device actions. These actions
+use the location that was right-clicked. Availability depends on the location and
+whether it is mounted.

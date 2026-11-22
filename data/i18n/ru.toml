@@ -1222,5 +1222,23 @@ moves = "перемещение"
 "Common layout" = "Общее расположение"
 "Move Bookmark Up" = "Переместить закладку вверх"
 
+"Cannot open the new folder safely" = "Не удалось безопасно открыть новую папку"
+"Copy Here" = "Копировать сюда"
+"Extract into New Folder…" = "Распаковать в новую папку…"
+"Getting ready to extract…" = "Подготовка к распаковке…"
+"Invalid path" = "Недопустимый путь"
+"Move Here" = "Переместить сюда"
+"Move into New Folder…" = "Переместить в новую папку…"
+"No matching paths" = "Совпадающих путей нет"
+"No readable archive contents" = "В архиве нет доступного для чтения содержимого"
+"No such file or folder" = "Файл или папка не найдены"
+"No such folder" = "Папка не найдена"
+"The folder already exists or has changed; nothing was moved" = "Папка уже существует или была изменена; ничего не перемещено"
+"The folder moved during the operation; undo is unavailable" = "Папка была перемещена во время операции; отмена недоступна"
+"Use a local path for completion" = "Для дополнения используйте локальный путь"
+"{} matching paths · Tab / Shift+Tab to cycle" = "Совпадающих путей: {} · Tab / Shift+Tab для перебора"
+
+"Hold Alt before entering the destination, then drop again" = "Удерживайте Alt до входа в область назначения, затем повторите перетаскивание"
+
 [contexts.file-action]
 "Open" = "Открыть"

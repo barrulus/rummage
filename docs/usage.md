@@ -14,6 +14,12 @@ free space, operation progress and messages, plus view buttons. The information
 pane shows a preview and metadata for the selected item; expand More details for
 permissions, owner/group, links and folder counts.
 
+Right-click a place or bookmark to open that location, open it in a new tab or
+in the other pane, copy its path, or view Properties. Open in Terminal appears when
+a terminal is configured. Bookmark rename, reorder and removal commands remain in
+the same menu. Unmounted devices offer mounting first; path actions become available
+after mounting.
+
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
 **Ctrl+I** toggles the information pane. Drag its edge to
@@ -110,6 +116,11 @@ Backspace or Alt+Up goes to the parent. Alt+Left/Right and mouse side buttons go
 back/forward through location history. Click an ancestor breadcrumb to navigate. Click the current folder segment or empty
 space in the breadcrumb to edit its path inline. The current path starts selected:
 copy it with Ctrl+C or paste a new path with Ctrl+V. Enter navigates; Escape cancels.
+Tab completes a path; press Tab again to cycle forward, or Shift+Tab to cycle
+backward. Completion includes files, folders and paths inside supported archives.
+Type a leading dot to include hidden names. Absolute paths, paths relative to the
+current folder, `~/` and local `file://` URIs are supported. A completed URI becomes
+a decoded local path. Enter opens a folder or reveals a file in its parent folder.
 An invalid path keeps the field open and shows an error in the status bar.
 
 Arrow keys move the cursor; Page Up/Down moves by a screen and Home/End reaches

@@ -23,12 +23,12 @@ struct CommandLabel {
 };
 
 constexpr std::array commands{
-    CommandLabel{"open", "Open", entry},
+    CommandLabel{"open", "Open", entry | sidebar},
     CommandLabel{"open_with", "Open With", entry},
-    CommandLabel{"open_tab", "Open in New Tab", entry},
-    CommandLabel{"open_terminal", "Open in Terminal", entry | background},
+    CommandLabel{"open_tab", "Open in New Tab", entry | sidebar},
+    CommandLabel{"open_terminal", "Open in Terminal", entry | background | sidebar},
     CommandLabel{"running", "Allow Running as Program", entry},
-    CommandLabel{"copy_path", "Copy Path", entry | background},
+    CommandLabel{"copy_path", "Copy Path", entry | background | sidebar},
     CommandLabel{"compress_zip", "Compress to ZIP…", entry},
     CommandLabel{"compress_tar", "Compress to tar.gz…", entry},
     CommandLabel{"add_bookmark", "Add to Sidebar", entry | background},
@@ -37,6 +37,7 @@ constexpr std::array commands{
     CommandLabel{"paste", "Paste", entry | background},
     CommandLabel{"rename", "Rename…", entry},
     CommandLabel{"create_link", "Create Link", entry},
+    CommandLabel{"move_into_folder", "Move into New Folder…", entry},
     CommandLabel{"reset_folder_view", "Use Default View for This Folder", entry | background},
     CommandLabel{"trash", "Move to Trash", entry},
     CommandLabel{"erase", "Delete Permanently…", entry | trash},
@@ -62,7 +63,7 @@ constexpr std::array pane_commands{
     CommandLabel{"switch_pane", "Switch Pane", entry | background},
     CommandLabel{"swap_panes", "Swap Panes", entry | background},
     CommandLabel{"orient_panes", "Arrange Top / Bottom", entry | background},
-    CommandLabel{"open_other_pane", "Open in Other Pane", entry | background},
+    CommandLabel{"open_other_pane", "Open in Other Pane", entry | background | sidebar},
     CommandLabel{"same_other_pane", "Show Same Folder in Other Pane", entry | background},
     CommandLabel{"copy_other_pane", "Copy to Other Pane", entry},
     CommandLabel{"move_other_pane", "Move to Other Pane", entry},
