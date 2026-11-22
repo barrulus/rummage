@@ -49,10 +49,11 @@ std::string count_of(std::size_t count, std::string_view noun) {
 class Writer {
 public:
     Writer(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-           SelectableText& text)
+           SelectableText& text, std::string& exported)
         : renderer_{renderer},
           palette_{palette},
           text_{text},
+          exported_{exported},
           width_{std::min(bounds.width - (2.0F * kPadding), kMaxColumn)},
           left_{bounds.x + ((bounds.width - width_) / 2.0F)},
           y_{bounds.y + kTop} {}
@@ -67,6 +68,8 @@ public:
 
     void centered(std::string_view id, std::string_view text, float size, ui::Color color,
                   float advance) {
+        if (id != "preview-hint")
+            exported_ += std::string{text} + "\n";
         const float w = std::min(text_width(renderer_, text, size), width_);
         const float height = text_.draw(renderer_, std::string{id}, text,
                                         {left_ + ((width_ - w) / 2.0F), y_, w, 0.0F}, size, color,
@@ -86,11 +89,14 @@ public:
 
     // Labels and values stay readable in narrow panes; soft wraps preserve copied text.
     void row(std::string_view label, const std::string& value,
-             ui::Typeface typeface = ui::Typeface::proportional) {
+             ui::Typeface typeface = ui::Typeface::proportional, bool visible = true) {
         if (value.empty()) {
             return;
         }
         const std::string_view shown_label = i18n::tr(label);
+        exported_ += std::string{shown_label} + ": " + value + "\n";
+        if (!visible)
+            return;
         const float label_width =
             std::min(text_width(renderer_, shown_label, kTextSize), width_ * 0.48F);
         const float room = std::max(1.0F, width_ - label_width - 12.0F);
@@ -114,6 +120,7 @@ private:
     ui::Renderer& renderer_;
     const theme::Palette& palette_;
     SelectableText& text_;
+    std::string& exported_;
     float width_;
     float left_;
     float y_;
@@ -164,6 +171,8 @@ float InfoPane::width_in(float view_width) const {
 
 void InfoPane::set_expanded(bool expanded) {
     expanded_ = expanded;
+    if (!expanded)
+        scroller_.jump_to(0.0F);
     redraw_();
 }
 
@@ -190,6 +199,9 @@ bool InfoPane::pointer(const ui::PointerEvent& event, Clock::time_point /*now*/)
         clear_text_focus();
         return false;
     }
+    if (event.kind == Kind::press && event.button == ui::PointerButton::left &&
+        copy_button_.contains(event.x, event.y))
+        return click(event.x, event.y);
     if (!holding() && metadata_.pointer(event)) {
         redraw_();
         return true;
@@ -243,6 +255,14 @@ bool InfoPane::scroll_text(TextScroll how, Clock::time_point now) {
 }
 
 bool InfoPane::click(float x, float y) {
+    if (!bounds_.contains(x, y))
+        return false;
+    if (copy_ && !copy_text_.empty() && copy_button_.contains(x, y)) {
+        copy_(copy_text_);
+        copied_ = true;
+        redraw_();
+        return true;
+    }
     if (toggle_.width <= 0.0F || x < toggle_.x || x >= toggle_.right() || y < toggle_.y ||
         y >= toggle_.bottom()) {
         return false;
@@ -381,19 +401,41 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                     ui::IconSet& icons, const Folder& folder, Clock::time_point now) {
     toggle_ = {};
     thumbnail_ = {};
+    copy_button_ = {};
+    copy_text_.clear();
     bounds_ = bounds;
+    const float header = copy_ ? 38.0F : 0.0F;
+    const ui::Rect content{bounds.x, bounds.y + header, bounds.width,
+                           std::max(0.0F, bounds.height - header)};
     // Scrolls when the content (as tall as at the last draw) does not fit.
-    scroller_.set_extent(content_height_, bounds.height);
+    scroller_.set_extent(content_height_, content.height);
     scroller_.advance(now);
     const float offset = scroller_.offset();
-    renderer.push_clip(bounds);
-    metadata_.begin_frame(bounds);
-    Writer out{
-        renderer, {bounds.x, bounds.y - offset, bounds.width, bounds.height}, palette, metadata_};
+    renderer.push_clip(content);
+    metadata_.begin_frame(content);
+    Writer out{renderer,
+               {content.x, content.y - offset, content.width, content.height},
+               palette,
+               metadata_,
+               copy_text_};
     const auto finish = [&] {
         metadata_.end_frame();
-        content_height_ = out.y() - (bounds.y - offset) + kTop;
+        content_height_ = out.y() - (content.y - offset) + kTop;
         renderer.pop_clip();
+        if (holding() || job_)
+            copy_text_.clear();
+        if (copy_) {
+            copy_button_ = {out.left(), bounds.y + 6, out.width(), 28};
+            renderer.push_clip(bounds);
+            renderer.draw_box(copy_button_, {.fill = palette.surface_container_high});
+            const auto color = palette.on_surface.with_alpha(copy_text_.empty() ? 0.4F : 1.0F);
+            icons.draw(renderer, copied_ ? "check" : "files", copy_button_.x + 6,
+                       copy_button_.y + 5, 18, color);
+            renderer.draw_text(copied_ ? i18n::tr("Copied") : i18n::tr("Copy all properties"),
+                               copy_button_.x + 30, copy_button_.y + 6, 12, color,
+                               std::max(0.0F, copy_button_.width - 36));
+            renderer.pop_clip();
+        }
     };
     const auto icon = [&](std::string_view name, ui::Color color) {
         icons.draw(renderer, name, out.left() + ((out.width() - kIconSize) / 2.0F), out.y(),
@@ -407,6 +449,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                     single == nullptr ? std::string{} : single->name);
     if (shown_key != shown_key_) {
         shown_key_ = std::move(shown_key);
+        copied_ = false;
         clear_text_focus();
         metadata_.reset();
     }
@@ -625,9 +668,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     }
 
-    if (photo != nullptr && !media_details(*photo).empty()) {
+    if (photo != nullptr && !media_details(*photo, MediaDetails::summary).empty()) {
         out.section(photo->video_codec.empty() ? i18n::tr("MEDIA") : i18n::tr("VIDEO"));
-        for (const auto& [label, value] : media_details(*photo))
+        for (const auto& [label, value] : media_details(*photo, MediaDetails::summary))
             out.row(label, value);
     }
 
@@ -637,7 +680,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     }
 
     // The rest, on request.
-    if (info != nullptr) {
+    if (info != nullptr || photo != nullptr) {
         out.skip(8.0F);
         const std::string_view label =
             expanded_ ? i18n::tr("Fewer details") : i18n::tr("More details");
@@ -651,16 +694,24 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                    theme::readable_foreground(palette.primary, palette.surface_container));
         toggle_ = {x - 8.0F, out.y() - 4.0F, total + 16.0F, kRowHeight};
         out.skip(kRowHeight);
-        if (expanded_) {
-            out.section("MORE");
-            out.row("Permissions", info->permissions, ui::Typeface::monospace);
-            if (!info->owner.empty()) {
-                out.row("Owner", info->owner + " · " + info->group);
-            }
-            out.row("Location", path.parent_path().string());
-            out.row("Link to", info->link_target);
+        if (photo != nullptr) {
+            const auto additional = media_details(*photo, MediaDetails::additional);
+            if (expanded_ && !additional.empty())
+                out.section("Media details");
+            for (const auto& [field, value] : additional)
+                out.row(field, value, ui::Typeface::proportional, expanded_);
         }
-        if (!info->error.empty()) {
+        if (info != nullptr) {
+            if (expanded_)
+                out.section("MORE");
+            out.row("Permissions", info->permissions, ui::Typeface::monospace, expanded_);
+            if (!info->owner.empty())
+                out.row("Owner", info->owner + " · " + info->group, ui::Typeface::proportional,
+                        expanded_);
+            out.row("Location", path.parent_path().string(), ui::Typeface::proportional, expanded_);
+            out.row("Link to", info->link_target, ui::Typeface::proportional, expanded_);
+        }
+        if (info != nullptr && !info->error.empty()) {
             out.skip(6.0F);
             out.centered("error", info->error, kSmallSize, palette.error, 20.0F);
         }

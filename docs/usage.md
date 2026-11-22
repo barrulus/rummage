@@ -11,8 +11,9 @@ the command palette. Both reflect configured actions and shortcuts.
 The sidebar contains places, bookmarks, Trash and devices. The breadcrumb above the
 files opens any parent in the current path. The status bar shows counts, selection,
 free space, operation progress and messages, plus view buttons. The information
-pane shows a preview and metadata for the selected item; expand More details for
-permissions, owner/group, links and folder counts.
+pane shows a preview and a compact metadata summary for the selected item; expand
+More details for extended media fields, permissions, owner/group and links.
+Copy all properties at the top includes collapsed fields.
 
 Right-click a place or bookmark to open that location, open it in a new tab or
 in the other pane, copy its path, or view Properties. Open in Terminal appears when

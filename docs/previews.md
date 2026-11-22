@@ -20,6 +20,11 @@ frames and embedded raw previews can fill more of the window, up to the original
 Older cached thumbnails without dimensions still fill the preview area until the sharp
 image arrives.
 
+The information pane starts with file information, dimensions and a short media
+summary (container, duration and video codec when available). **More details**
+reveals the remaining media metadata and filesystem details. **Copy all properties**
+stays at the top of the pane and includes collapsed fields in the copied text.
+
 **Alt+Enter** opens Properties with a scrollable metadata card and an image or video
 thumbnail beside the filename when available. Unsupported files use their file-type
 icon. Its width follows the filename and metadata instead of reserving an empty
@@ -29,6 +34,9 @@ immediately; expand **Media details** for the remaining media metadata. The copy
 at the top copies all properties, including collapsed details, as labeled plain text.
 The dialog grows for folder-icon controls, link targets and errors; in short windows,
 its contents scroll while the header and action buttons remain visible.
+Use the wider scrollbar to drag through long metadata, or click its track to jump.
+Wheel scrolling moves several lines per notch; touchpad scrolling follows the
+reported pixel movement.
 
 ## Format support in this source tree
 

@@ -33,9 +33,10 @@ namespace rummage::views {
 // object serves them all and keeps what it read.
 //
 // From top to bottom, centered: the preview (a photo's thumbnail, a text file's first lines, else
-// the icon), the name and type, then sections: information (size, pixels, dates), the shot (camera,
-// lens, exposure, the darktable rating) for photos, and on request ("More details") permissions,
-// owner, location and the rest of the exposure. Several entries selected: how many and how big;
+// the icon), the name and type, then information (size, pixels, dates) and a media summary.
+// "More details" reveals the remaining media metadata, permissions, owner and location.
+// A fixed copy button includes all properties, even when collapsed.
+// Several entries selected: how many and how big;
 // nothing selected: the folder itself. What the directory entry says shows at once, the rest when
 // read on a worker. A folder's size (or a selection's with folders in it) is added up on a
 // worker too, once the cursor rests (kMeasureDelay), showing the sum as it grows; moving on
@@ -86,14 +87,17 @@ public:
     [[nodiscard]] std::string selected_text() const;
 
     void set_copy_handler(std::function<void(std::string)> handler) {
-        metadata_.set_copy_handler(std::move(handler));
+        copy_ = std::move(handler);
+        metadata_.set_copy_handler(copy_);
     }
 
     [[nodiscard]] ui::Rect property_bounds(std::string_view id) const {
         return metadata_.bounds(id);
     }
 
-    // A click at (x, y): true when the pane took it ("More details").
+    [[nodiscard]] ui::Rect copy_bounds() const { return copy_button_; }
+
+    // A click at (x, y): true when the pane took a disclosure or copy action.
     bool click(float x, float y);
 
     // A wheel or touchpad scroll: true when it was over the pane, which scrolls when its content
@@ -114,13 +118,17 @@ public:
     [[nodiscard]] bool expanded() const noexcept { return expanded_; }
 
     // "More details" is there, as last drawn.
-    [[nodiscard]] bool clickable_at(float x, float y) const { return toggle_.contains(x, y); }
+    [[nodiscard]] bool clickable_at(float x, float y) const {
+        return bounds_.contains(x, y) &&
+               (toggle_.contains(x, y) || (!copy_text_.empty() && copy_button_.contains(x, y)));
+    }
 
     // Before a frame: what it drew is gone unless it is drawn again (a view without the pane).
     void forget_layout() noexcept {
         bounds_ = {};
         toggle_ = {};
         thumbnail_ = {};
+        copy_button_ = {};
     }
 
     // Stop filesystem work when hidden; end_frame also covers a pane that no longer fits.
@@ -206,6 +214,10 @@ private:
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
     ui::Rect thumbnail_{};
     SelectableText metadata_;
+    std::function<void(std::string)> copy_;
+    std::string copy_text_;
+    ui::Rect copy_button_{};
+    bool copied_{false};
     std::string shown_key_;
     ui::Scroller scroller_;
     float content_height_{0.0F};  // of the last draw

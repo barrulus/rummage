@@ -1988,6 +1988,80 @@ TEST_CASE("properties: applying an icon before removing directory write access")
     REQUIRE(::chmod(path.c_str(), 0755) == 0);  // allow temporary-directory cleanup
 }
 
+TEST_CASE("properties: wheel, touchpad and a draggable scrollbar navigate long metadata") {
+    rummage::ui::Offscreen gl{800, 640};
+    Fixture f;
+    const auto png =
+        rummage::picture::encode_png({.width = 1, .height = 1, .rgba = {10, 20, 30, 255}},
+                                     {{"Long tag", std::string(1200, 'x')}});
+    const auto file =
+        f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(file, [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 640, 1, {});
+        dialog.draw(renderer, {0, 0, 360, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    draw();
+    const auto details = dialog.control_bounds("details");
+    REQUIRE_FALSE(details.empty());
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = details.x + 4,
+                    .y = details.y + 4,
+                    .button = rummage::ui::PointerButton::left});
+    draw();
+    REQUIRE(dialog.scroll_offset() == 0);
+    SUBCASE("wheel notches move rows and touchpad pixels remain precise") {
+        dialog.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 1});
+        CHECK(dialog.scroll_offset() == doctest::Approx(48));
+        dialog.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 0.5F});
+        CHECK(dialog.scroll_offset() == doctest::Approx(72));
+        dialog.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .scroll_y = 18});
+        CHECK(dialog.scroll_offset() == doctest::Approx(90));
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::scroll,
+                        .x = 180,
+                        .y = 300,
+                        .wheel_y = -1000});
+        CHECK(dialog.scroll_offset() == 0);
+    }
+    SUBCASE("wide hit area supports dragging outside the dialog and releases capture") {
+        const auto thumb = dialog.scrollbar_bounds();
+        REQUIRE(thumb.width >= 6);
+        REQUIRE(thumb.height >= 24);
+        const float x = thumb.x - 2;  // within the hit strip, outside the visible thumb
+        CHECK(dialog.cursor_at(x, thumb.y + 5) == rummage::ui::CursorShape::pointer);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = x,
+                        .y = thumb.y + 5,
+                        .button = rummage::ui::PointerButton::left});
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 790, .y = 630});
+        CHECK(dialog.scroll_offset() > 200);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                        .x = 790,
+                        .y = 630,
+                        .button = rummage::ui::PointerButton::left});
+        const auto at_end = dialog.scroll_offset();
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = x, .y = thumb.y});
+        CHECK(dialog.scroll_offset() == at_end);
+    }
+    SUBCASE("track clicks jump through the document") {
+        const auto thumb = dialog.scrollbar_bounds();
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = thumb.x + 2,
+                        .y = dialog.card_bounds().bottom() - 90,
+                        .button = rummage::ui::PointerButton::left});
+        CHECK(dialog.scroll_offset() > 200);
+    }
+}
+
 TEST_CASE("properties: media disclosure and top copy include hidden metadata") {
     rummage::ui::Offscreen gl{800, 900};
     Fixture f;

@@ -19,6 +19,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/picture/png.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -147,6 +148,64 @@ std::unique_ptr<rummage::ui::Offscreen> offscreen() {
 }
 
 }  // namespace
+
+TEST_CASE("info pane: compact media and copy include collapsed details without stale selections") {
+    rummage::ui::Offscreen gl{kWidth, kHeight};
+    Fixture f;
+    const std::string value = "Embedded metadata " + std::string(200, 'x');
+    const auto png = rummage::picture::encode_png(
+        {.width = 1, .height = 1, .rgba = {10, 20, 30, 255}}, {{"Custom tag", value}});
+    f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    f.browser.open(f.dir.path);
+    REQUIRE(f.settle());
+    auto& folder = f.browser.columns().column(0).folder();
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::any_of(folder.entries(),
+                                   [](const auto& entry) { return entry.name == "metadata.png"; });
+    }));
+    folder.select_name("metadata.png");
+    REQUIRE(folder.single_selection());
+    REQUIRE(folder.single_selection()->name == "metadata.png");
+    REQUIRE(run_until(f.loop, [&] {
+        f.draw();
+        return !f.pane().loading() && f.pane().summary() && f.pane().summary()->photo;
+    }));
+    std::string copied;
+    f.pane().set_copy_handler([&](std::string text) { copied = std::move(text); });
+    f.draw();
+    CHECK_FALSE(f.pane().property_bounds("Dimensions.value").empty());
+    CHECK(f.pane().property_bounds("Aspect ratio.value").empty());
+    CHECK(f.pane().property_bounds("PNG · Custom tag.value").empty());
+    const auto copy = f.pane().copy_bounds();
+    REQUIRE_FALSE(copy.empty());
+    CHECK(f.browser.cursor_at(copy.x + 4, copy.y + 4) == rummage::ui::CursorShape::pointer);
+    f.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("metadata.png") != std::string::npos);
+    CHECK(copied.find("Dimensions: 1 × 1\n") != std::string::npos);
+    CHECK(copied.find("PNG · Custom tag: " + value + "\n") != std::string::npos);
+    CHECK(copied.find("Location: " + f.dir.path.string()) != std::string::npos);
+    const auto all = copied;
+    f.pane().set_expanded(true);
+    f.draw();
+    CHECK_FALSE(f.pane().property_bounds("PNG · Custom tag.value").empty());
+    f.click(copy.x + 4, copy.y + 4);
+    CHECK(copied == all);
+    f.wheel(copy.x, copy.bottom() + 20, 20);
+    f.draw(1s);
+    CHECK(f.pane().copy_bounds().y == copy.y);
+    f.click(copy.x + 4, copy.y + 4);
+    CHECK(copied == all);
+    folder.select_name("short.txt");
+    f.draw();
+    CHECK_FALSE(f.pane().click(copy.x + 4, copy.y + 4));
+    CHECK(copied == all);
+    REQUIRE(f.settle());
+    f.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("short.txt") != std::string::npos);
+    CHECK(copied.find("PNG · Custom tag") == std::string::npos);
+    f.pane().forget_layout();
+    CHECK_FALSE(f.pane().click(copy.x + 4, copy.y + 4));
+}
 
 TEST_CASE("info pane: metadata text takes Ctrl+A/C while file selection stays intact") {
     const auto gl = offscreen();
