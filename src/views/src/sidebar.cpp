@@ -613,6 +613,16 @@ void Sidebar::set_cursor_to(const std::filesystem::path& path) {
     }
 }
 
+std::pair<float, float> Sidebar::cursor_anchor() const {
+    for (const auto& row : rows_) {
+        if (row.place == cursor_)
+            return {bounds_.x + 24,
+                    std::clamp(bounds_.y + row.top - scroller_.offset() + kRowHeight * scale(),
+                               bounds_.y, bounds_.bottom())};
+    }
+    return {bounds_.x + 24, bounds_.y + 32};
+}
+
 bool Sidebar::key(const ui::KeyEvent& event) {
     if (event.modifiers.ctrl && !event.modifiers.alt && !event.modifiers.super) {
         switch (event.keysym) {
@@ -642,7 +652,15 @@ bool Sidebar::key(const ui::KeyEvent& event) {
     }
     const std::size_t last = places_.size() - 1;
     const std::size_t at = cursor_.value_or(0);
+    const auto page =
+        static_cast<std::size_t>(std::max(1.0F, bounds_.height / (kRowHeight * scale()) - 1));
     switch (event.keysym) {
+        case XKB_KEY_Page_Up:
+            cursor_ = at > page ? at - page : 0;
+            break;
+        case XKB_KEY_Page_Down:
+            cursor_ = std::min(at + page, last);
+            break;
         case XKB_KEY_Up:
             cursor_ = at > 0 ? at - 1 : 0;
             break;

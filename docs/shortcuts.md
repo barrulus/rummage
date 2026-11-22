@@ -17,6 +17,9 @@ a shortcut's meaning follows the focused control.
 | Alt+Page Down / Alt+Page Up | Scroll the information pane by a page | `scroll_preview_page_down`, `scroll_preview_page_up` |
 | Ctrl+B | Toggle sidebar | `toggle_sidebar` |
 | F6 | Focus sidebar / return to view | `focus_sidebar` |
+| Shift+F6 | Focus the file list; leave path editing or filename filtering | `focus_files` |
+| No default | Focus Places | `focus_places` |
+| Alt+D | Edit the breadcrumb path, with Tab/Shift+Tab completion | `edit_path` |
 | Ctrl+H | Show/hide hidden files | `toggle_hidden` |
 | No default | Toggle thumbnails / file-type icons | `toggle_thumbnails` |
 | No default | Show/hide file extensions | `toggle_extensions` |
@@ -29,11 +32,10 @@ a shortcut's meaning follows the focused control.
 | F1 or ? | Shortcut overlay | `show_shortcuts` |
 | Menu or Shift+F10 | Context menu | `context_menu` |
 | Alt+Left / Alt+Right | History back / forward | `back`, `forward` |
-| Enter | Open selected file/folder | Fixed |
-| Backspace or Alt+Up | Parent folder | Fixed |
-| Alt+Down | Open in grid/details | Fixed |
-| Right / Left | Column hierarchy; expand/collapse/parent in details | Fixed |
-| Arrows, Page Up/Down, Home/End | Move through entries | Fixed |
+| Enter / Alt+Down | Open selected file/folder or focused sidebar location | `open_selected` |
+| Backspace or Alt+Up | Parent folder | `parent_folder` |
+| Right / Left | Column hierarchy; expand/collapse/parent in details | `move_right`, `move_left` |
+| Up / Down, Page Up/Down, Home/End | Move through entries or Places | `move_up`, `move_down`, `page_up`, `page_down`, `first_entry`, `last_entry` |
 | Ctrl+plus / Ctrl+minus / Ctrl+wheel | Increase/decrease zoom | Fixed |
 | Ctrl+0 | Reset zoom | Fixed |
 | Ctrl+Q | Quit | Fixed |
@@ -48,7 +50,9 @@ a shortcut's meaning follows the focused control.
 | Ctrl+F6 | Move selection to the other pane | `move_other_pane` |
 | No default | Swap pane positions | `swap_panes` |
 | No default | Change side-by-side / top-bottom orientation | `orient_panes` |
-| No default | Open selected folder in the other pane | `open_other_pane` |
+| Ctrl+Alt+Enter | Open selected folder or focused sidebar location in the other pane | `open_other_pane` |
+| No default | Focus the first / second pane (left/right or top/bottom) | `focus_first_pane`, `focus_second_pane` |
+| No default | Expand / collapse a folder; in Grid, open it / go to parent | `expand_folder`, `collapse_folder` |
 | No default | Show current folder in the other pane | `same_other_pane` |
 
 Tab retains its normal focus behavior in text fields and dialogs. The picker stays
@@ -60,6 +64,7 @@ commands below operate in the active pane.
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
 | Ctrl+T | New tab | `new_tab` |
+| Ctrl+Enter | Open selected folder or focused sidebar location in a new tab | `open_selected_tab` |
 | Ctrl+W | Close current tab, except the last | `close_tab` |
 | Ctrl+Shift+T | Reopen the last closed tab in this pane | `reopen_tab` |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab | `next_tab`, `previous_tab` |
@@ -133,9 +138,10 @@ it, and an omitted entry retains defaults. Use modifiers `Ctrl`, `Shift`, `Alt`,
 as shown. Use `Ctrl+plus`, not `Ctrl++`, for a literal plus key.
 
 Custom actions use quoted keys such as `"action:compress" = "Ctrl+Alt+z"`; first
-define the action using the [actions guide](actions.md). Fixed navigation,
-range-selection, numbered-tab, quit and editor/dialog keys cannot be reassigned
-through this table. Choose chords that do not collide with them.
+define the action using the [actions guide](actions.md). Numbered-tab, quit and editor/dialog keys remain fixed. Movement bindings retain
+Shift for extending selection and Ctrl for moving without changing selection;
+choose a base chord without Ctrl or Shift. Conflict detection includes these
+selection variants.
 
 Unknown IDs, invalid chords and conflicting bindings reject the binding set.
 Actions, menus and bindings reload together; the prior valid set survives an
@@ -191,3 +197,41 @@ no default shortcut. It is also available in Sort By and the command palette.
 | Tab / Shift+Tab while editing the breadcrumb path | Complete a path and cycle matches forward / backward |
 | Enter while editing the breadcrumb path | Open the folder or reveal the file |
 | Alt while dropping files | Choose a copy, move, grouping or archive extraction action |
+
+### Browse entirely with the keyboard
+
+Use **F6** to focus Places, choose a row with arrows or Page Up/Down, then use
+**Enter**, **Ctrl+Enter** or **Ctrl+Alt+Enter** to open it in the current tab, a new
+tab or the other pane. **Menu / Shift+F10** opens that row’s context menu with its
+first enabled action selected. **F4**, **Alt+Enter** and **Ctrl+Shift+C** act on
+that location too, opening a terminal, showing Properties or copying its path.
+Unmounted locations must be mounted before path-based actions become available.
+Escape from a sidebar menu returns to the same sidebar row; opening a location
+hands focus to its file list. **Shift+F6** explicitly returns to the file list.
+
+**Alt+D** selects the breadcrumb path for editing. Enter navigates, while Escape
+or Shift+F6 cancels the edit. Filename filters remain applied when Shift+F6 returns
+to the files. The active file area gets an outline during keyboard browsing;
+Places uses a highlighted focus row. Dialogs and text editors retain their own
+movement and text input, and closing them restores the underlying browsing focus.
+
+The new navigation and focus commands also appear in the command palette and the
+shortcut editor. With Places focused, the palette offers actions for its focused
+location and commands to return to browsing. For a single selected folder, Ctrl+Enter focuses its new tab;
+several selected folders open background tabs. Files open through the usual Open
+command. In a file picker, Ctrl+Enter continues to confirm the selection.
+
+For example, to move with J/K, change these entries in your existing table:
+
+```toml
+[keybindings]
+move_down = "j"
+move_up = "k"
+command_palette = "Ctrl+Shift+p"
+```
+
+Here Shift+J/K extends the selection and Ctrl+J/K moves the cursor alone. The
+palette is reassigned because Ctrl+K now belongs to movement. Original Up/Down
+bindings are replaced; editors and dialogs keep their normal arrow keys. Each
+action can be reset separately in Settings. New default shortcuts give way to
+existing custom assignments.

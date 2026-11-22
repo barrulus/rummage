@@ -17,12 +17,6 @@ constexpr ui::Modifiers kShift{.shift = true};
 constexpr ui::Modifiers kAlt{.alt = true};
 constexpr ui::Modifiers kCtrlShift{.ctrl = true, .shift = true};
 
-// The keys that move the cursor; Left and Right move it only in the grid (in the columns and the
-// details they go up and in), but Shift and Ctrl work with all of them.
-constexpr std::array<xkb_keysym_t, 8> kMoves{XKB_KEY_Up,    XKB_KEY_Down,    XKB_KEY_Left,
-                                             XKB_KEY_Right, XKB_KEY_Page_Up, XKB_KEY_Page_Down,
-                                             XKB_KEY_Home,  XKB_KEY_End};
-
 constexpr std::array kShortcuts{
     // General
     Shortcut{.group = i18n::mark("General"),
@@ -166,14 +160,14 @@ constexpr std::array kShortcuts{
     Shortcut{.group = i18n::mark("General"),
              .keys = "Menu  Shift+F10",
              .action = i18n::mark("Context menu"),
-             .scope = scope::kViews,
+             .scope = scope::kSidebar | scope::kViews,
              .any_shift = true,
              .keysyms = {XKB_KEY_Menu, XKB_KEY_F10},
              .command = Command::context_menu},
     Shortcut{.group = i18n::mark("General"),
              .keys = "Alt+Enter",
              .action = i18n::mark("Properties"),
-             .scope = scope::kViews,
+             .scope = scope::kSidebar | scope::kViews,
              .modifiers = {.alt = true},
              .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
              .command = Command::properties},
@@ -186,63 +180,101 @@ constexpr std::array kShortcuts{
 
     // Moving
     Shortcut{.group = i18n::mark("Moving"),
-             .keys = "↑  ↓",
-             .action = i18n::mark("Previous, next"),
-             .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Up, XKB_KEY_Down}},
+             .keys = "Up",
+             .action = i18n::mark("Move up"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Up},
+             .binding_id = "move_up",
+             .view_symbol = XKB_KEY_Up,
+             .movement = true},
     Shortcut{.group = i18n::mark("Moving"),
-             .keys = "←  →",
-             .action = i18n::mark("Previous, next (grid)"),
-             .scope = scope::kGrid,
-             .keysyms = {XKB_KEY_Left, XKB_KEY_Right}},
+             .keys = "Down",
+             .action = i18n::mark("Move down"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Down},
+             .binding_id = "move_down",
+             .view_symbol = XKB_KEY_Down,
+             .movement = true},
     Shortcut{.group = i18n::mark("Moving"),
-             .keys = "PgUp  PgDn",
-             .action = i18n::mark("A screenful"),
+             .keys = "Left",
+             .action = i18n::mark("Move left / collapse folder"),
              .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Page_Up, XKB_KEY_Page_Down}},
+             .keysyms = {XKB_KEY_Left},
+             .binding_id = "move_left",
+             .view_symbol = XKB_KEY_Left,
+             .movement = true},
     Shortcut{.group = i18n::mark("Moving"),
-             .keys = "Home  End",
-             .action = i18n::mark("First, last"),
+             .keys = "Right",
+             .action = i18n::mark("Move right / expand folder"),
              .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Home, XKB_KEY_End}},
+             .keysyms = {XKB_KEY_Right},
+             .binding_id = "move_right",
+             .view_symbol = XKB_KEY_Right,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "PgUp",
+             .action = i18n::mark("Move up a page"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Page_Up},
+             .binding_id = "page_up",
+             .view_symbol = XKB_KEY_Page_Up,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "PgDn",
+             .action = i18n::mark("Move down a page"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Page_Down},
+             .binding_id = "page_down",
+             .view_symbol = XKB_KEY_Page_Down,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Home",
+             .action = i18n::mark("First entry"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Home},
+             .binding_id = "first_entry",
+             .view_symbol = XKB_KEY_Home,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "End",
+             .action = i18n::mark("Last entry"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_End},
+             .binding_id = "last_entry",
+             .view_symbol = XKB_KEY_End,
+             .movement = true},
     Shortcut{.group = i18n::mark("Moving"),
              .keys = "Enter",
              .action = i18n::mark("Open (files in their app)"),
-             .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter}},
-    Shortcut{.group = i18n::mark("Moving"),
-             .keys = "→",
-             .action = i18n::mark("Open (columns), expand (details)"),
-             .scope = scope::kColumns | scope::kDetails,
-             .keysyms = {XKB_KEY_Right}},
+             .scope = scope::kSidebar | scope::kViews,
+             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
+             .command = Command::open_selected},
     Shortcut{.group = i18n::mark("Moving"),
              .keys = "Alt+↓",
              .action = i18n::mark("Open (grid, details)"),
-             .scope = scope::kGrid | scope::kDetails,
+             .scope = scope::kSidebar | scope::kGrid | scope::kDetails,
              .modifiers = kAlt,
-             .keysyms = {XKB_KEY_Down}},
+             .keysyms = {XKB_KEY_Down},
+             .command = Command::open_selected},
     Shortcut{.group = i18n::mark("Moving"),
              .keys = "F4",
              .action = i18n::mark("Open in a terminal"),
-             .scope = scope::kViews | scope::kQuickLook,
+             .scope = scope::kSidebar | scope::kViews | scope::kQuickLook,
              .keysyms = {XKB_KEY_F4},
              .command = Command::open_terminal},
     Shortcut{.group = i18n::mark("Moving"),
              .keys = "Backspace",
              .action = i18n::mark("Parent folder"),
              .scope = scope::kViews,
-             .keysyms = {XKB_KEY_BackSpace}},
-    Shortcut{.group = i18n::mark("Moving"),
-             .keys = "←",
-             .action = i18n::mark("Parent (columns), collapse / parent (details)"),
-             .scope = scope::kColumns | scope::kDetails,
-             .keysyms = {XKB_KEY_Left}},
+             .keysyms = {XKB_KEY_BackSpace},
+             .command = Command::parent_folder},
     Shortcut{.group = i18n::mark("Moving"),
              .keys = "Alt+↑",
              .action = i18n::mark("Parent folder"),
              .scope = scope::kViews,
              .modifiers = kAlt,
-             .keysyms = {XKB_KEY_Up}},
+             .keysyms = {XKB_KEY_Up},
+             .command = Command::parent_folder},
     Shortcut{.group = i18n::mark("Moving"),
              .keys = "Alt+←  Alt+→",
              .action = i18n::mark("Back, forward (mouse too)"),
@@ -258,19 +290,76 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_Right},
              .command = Command::forward},
 
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Alt+D",
+             .action = i18n::mark("Edit Path"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kAlt,
+             .keysyms = {XKB_KEY_d, XKB_KEY_D},
+             .command = Command::edit_path},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Shift+F6",
+             .action = i18n::mark("Focus Files"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kShift,
+             .keysyms = {XKB_KEY_F6},
+             .command = Command::focus_files},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Focus Places"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::focus_places},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Ctrl+Enter",
+             .action = i18n::mark("Open in New Tab"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
+             .command = Command::open_selected_tab},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Expand Folder"),
+             .scope = scope::kViews,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::expand_folder},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Collapse Folder"),
+             .scope = scope::kViews,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::collapse_folder},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Focus First Pane"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::focus_first_pane},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Focus Second Pane"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::focus_second_pane},
+
     // Selecting
     Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Shift+moves",
              .action = i18n::mark("Select a range"),
              .scope = scope::kViews,
              .modifiers = kShift,
-             .keysyms = kMoves},
+             .keysyms = {}},
     Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Ctrl+moves",
              .action = i18n::mark("Move without selecting"),
              .scope = scope::kViews,
              .modifiers = kCtrl,
-             .keysyms = kMoves},
+             .keysyms = {}},
     Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Ctrl+Space",
              .action = i18n::mark("Select or unselect"),
@@ -344,11 +433,11 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_NoSymbol},
              .command = Command::orient_panes},
     Shortcut{.group = i18n::mark("Panes"),
-             .keys = "",
+             .keys = "Ctrl+Alt+Enter",
              .action = i18n::mark("Open folder in other pane"),
-             .scope = scope::kViews,
-             .modifiers = {},
-             .keysyms = {XKB_KEY_NoSymbol},
+             .scope = scope::kSidebar | scope::kViews,
+             .modifiers = {.ctrl = true, .alt = true},
+             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
              .command = Command::open_other_pane},
     Shortcut{.group = i18n::mark("Panes"),
              .keys = "",
@@ -448,7 +537,7 @@ constexpr std::array kShortcuts{
     Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Shift+C",
              .action = i18n::mark("Copy the folder's path"),
-             .scope = scope::kViews | scope::kQuickLook,
+             .scope = scope::kSidebar | scope::kViews | scope::kQuickLook,
              .modifiers = kCtrlShift,
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .command = Command::copy_path},
@@ -565,16 +654,6 @@ constexpr std::array kShortcuts{
 
     // Sidebar
     Shortcut{.group = i18n::mark("Sidebar"),
-             .keys = "↑  ↓  Home  End",
-             .action = i18n::mark("Choose a place"),
-             .scope = scope::kSidebar,
-             .keysyms = {XKB_KEY_Up, XKB_KEY_Down, XKB_KEY_Home, XKB_KEY_End}},
-    Shortcut{.group = i18n::mark("Sidebar"),
-             .keys = "Enter",
-             .action = i18n::mark("Open it"),
-             .scope = scope::kSidebar,
-             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter}},
-    Shortcut{.group = i18n::mark("Sidebar"),
              .keys = "Escape",
              .action = i18n::mark("Back to the view"),
              .scope = scope::kSidebar,
@@ -640,6 +719,27 @@ Bindings active;
 
 std::optional<std::size_t> binding_index(std::string_view name) {
     Command command = Command::none;
+    if (name == "edit_path")
+        command = Command::edit_path;
+    if (name == "focus_files")
+        command = Command::focus_files;
+    if (name == "focus_places")
+        command = Command::focus_places;
+    if (name == "open_selected_tab")
+        command = Command::open_selected_tab;
+    if (name == "expand_folder")
+        command = Command::expand_folder;
+    if (name == "collapse_folder")
+        command = Command::collapse_folder;
+    if (name == "focus_first_pane")
+        command = Command::focus_first_pane;
+    if (name == "focus_second_pane")
+        command = Command::focus_second_pane;
+    if (name == "parent_folder")
+        command = Command::parent_folder;
+    if (name == "open_selected")
+        command = Command::open_selected;
+
     if (name == "move_other_pane")
         command = Command::move_other_pane;
     if (name == "copy_other_pane")
@@ -746,6 +846,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::go_to;
     for (std::size_t i = 0; i < kShortcuts.size(); ++i) {
         const auto& entry = kShortcuts[i];
+        if (!entry.binding_id.empty() && entry.binding_id == name)
+            return i;
         if (!entry.action_id.empty() &&
             (name == entry.action_id || name == "action:" + std::string{entry.action_id}))
             return i;
@@ -800,6 +902,10 @@ bool parse_chord(std::string_view text, Shortcut& entry) {
 
 bool Shortcut::matches(const ui::KeyEvent& event) const {
     ui::Modifiers pressed = event.modifiers;
+    if (movement) {
+        pressed.ctrl = false;
+        pressed.shift = false;
+    }
     if (any_shift) {
         pressed.shift = false;
     }
@@ -890,24 +996,51 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
             errors.push_back(std::format("keybindings.{}: invalid chord '{}'", name, chord));
             continue;
         }
+        if (entry.movement && (entry.modifiers.ctrl || entry.modifiers.shift)) {
+            errors.push_back(std::format(
+                "keybindings.{}: movement bindings reserve Ctrl and Shift for selection", name));
+            continue;
+        }
+        // One configured action replaces all of its default chords.
+        if (entry.command != Command::none) {
+            for (std::size_t other = 0; other < kShortcuts.size(); ++other) {
+                if (other != *index && next.entries[other].command == entry.command) {
+                    next.entries[other].keysyms = {};
+                    next.entries[other].keys = {};
+                }
+            }
+        }
         next.labels.push_back(chord);
         entry.keys = next.labels.back();
         changed.push_back(*index);
     }
-    // Preserve explicit user bindings when introducing a new default shortcut.
-    // An explicitly configured copy_path still participates in normal conflict checks.
-    for (const auto* introduced : {"copy_path", "invert_selection", "reopen_tab"}) {
+    const auto overlaps = [](const Shortcut& entry, const Shortcut& other,
+                             const Shortcut* original) {
+        for (const auto symbol : entry.keysyms) {
+            for (unsigned variant = 0; variant < (entry.movement ? 4U : 1U); ++variant) {
+                ui::KeyEvent event;
+                event.keysym = symbol;
+                event.modifiers = entry.modifiers;
+                if (entry.movement) {
+                    event.modifiers.shift = (variant & 1U) != 0;
+                    event.modifiers.ctrl = (variant & 2U) != 0;
+                }
+                if (other.matches(event) && (!original || !original->matches(event)))
+                    return true;
+            }
+        }
+        return false;
+    };
+    // New defaults give way to existing custom chords, including selection variants.
+    for (const auto* introduced : {"copy_path", "invert_selection", "reopen_tab", "edit_path",
+                                   "focus_files", "open_selected_tab", "open_other_pane"}) {
         if (bindings.contains(introduced))
             continue;
-        auto& folder_path = next.entries[*binding_index(introduced)];
+        auto& entry = next.entries[*binding_index(introduced)];
         for (const auto index : changed) {
-            const auto& entry = next.entries[index];
-            for (const auto symbol : entry.keysyms) {
-                if (folder_path.matches(
-                        {.keysym = symbol, .text = {}, .modifiers = entry.modifiers})) {
-                    folder_path.keysyms = {};
-                    folder_path.keys = {};
-                }
+            if (overlaps(next.entries[index], entry, nullptr)) {
+                entry.keysyms = {};
+                entry.keys = {};
             }
         }
     }
@@ -915,23 +1048,13 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         const auto& entry = next.entries[index];
         for (std::size_t other = 0; other < next.entries.size(); ++other) {
             const auto& existing = next.entries[other];
-            // Editors and dialogs own their input, independently of file commands.
-            constexpr auto context =
+            constexpr std::uint16_t context =
                 scope::kViews | scope::kSidebar | scope::kQuickLook | scope::kWindow;
             if (other == index || ((entry.scope & existing.scope & context) == 0 &&
                                    (existing.scope & scope::kWindow) == 0))
                 continue;
-            bool collision = false;
-            for (const auto symbol : entry.keysyms) {
-                ui::KeyEvent event;
-                event.keysym = symbol;
-                event.modifiers = entry.modifiers;
-                collision = collision ||
-                            (existing.matches(event) &&
-                             (index >= kShortcuts.size() || !kShortcuts[index].matches(event)));
-            }
-            // Existing text-preview bindings intentionally share file copy/select-all chords.
-            if (collision)
+            // Existing text-preview bindings intentionally share copy/select-all chords.
+            if (overlaps(entry, existing, index < kShortcuts.size() ? &kShortcuts[index] : nullptr))
                 errors.push_back(std::format("keybindings: '{}' conflicts with '{}'", entry.keys,
                                              existing.action));
         }
@@ -943,7 +1066,25 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
 
 std::vector<std::pair<std::string, std::string>> binding_settings() {
     std::vector<std::pair<std::string, std::string>> result;
-    for (const auto* name : {"show_settings",
+    for (const auto* name : {"edit_path",
+                             "focus_files",
+                             "focus_places",
+                             "open_selected_tab",
+                             "expand_folder",
+                             "collapse_folder",
+                             "focus_first_pane",
+                             "focus_second_pane",
+                             "parent_folder",
+                             "open_selected",
+                             "move_up",
+                             "move_down",
+                             "move_left",
+                             "move_right",
+                             "page_up",
+                             "page_down",
+                             "first_entry",
+                             "last_entry",
+                             "show_settings",
                              "move_other_pane",
                              "copy_other_pane",
                              "same_other_pane",
@@ -1030,6 +1171,13 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
 ui::KeyEvent view_key_event(const ui::KeyEvent& event) {
     for (std::size_t i = 0; i < kShortcuts.size(); ++i) {
         const auto& entry = active.entries[i];
+        if (entry.movement && entry.matches(event)) {
+            auto translated = event;
+            translated.keysym = entry.view_symbol;
+            translated.text.clear();
+            translated.modifiers = {.ctrl = event.modifiers.ctrl, .shift = event.modifiers.shift};
+            return translated;
+        }
         if (entry.command == Command::none && (entry.scope & scope::kViews) != 0 &&
             entry.matches(event) &&
             (entry.action == "Select all" || entry.action == "Select or unselect" ||

@@ -161,11 +161,34 @@ follow_accent = true
 # scroll_preview_page_down = "Alt+Page_Down" # ... and a page down
 # toggle_sidebar = "Ctrl+b"     # Show/hide the sidebar
 # focus_sidebar = "F6"          # Move focus into/out of the sidebar
+# focus_files = "Shift+F6"       # Return to file browsing
+# focus_places = ""              # Focus Places explicitly
+# edit_path = "Alt+d"            # Edit the breadcrumb path
 # toggle_hidden = "Ctrl+h"      # Show/hide hidden files
 # toggle_thumbnails = ""        # Thumbnails/icons; unbound by default, e.g. Ctrl+Alt+t
 # toggle_extensions = ""        # File extensions; unbound by default, e.g. Ctrl+Alt+e
 # add_bookmark = "Ctrl+d"       # Add the folder to the sidebar
 # go_to = "Ctrl+l"              # Go to a folder or a server (smb://, sftp://)
+
+# Browsing: one chord replaces every default for the action.
+# open_selected = "Return"      # Also Alt+Down by default
+# parent_folder = "BackSpace"   # Also Alt+Up by default
+# open_selected_tab = "Ctrl+Return"
+# open_other_pane = "Ctrl+Alt+Return"
+# expand_folder = ""            # Explicit expand/open command
+# collapse_folder = ""          # Explicit collapse/parent command
+# focus_first_pane = ""         # Left or top, when split
+# focus_second_pane = ""        # Right or bottom, when split
+# move_up = "Up"
+# move_down = "Down"
+# move_left = "Left"            # Hierarchy in Columns/Details
+# move_right = "Right"
+# page_up = "Page_Up"
+# page_down = "Page_Down"
+# first_entry = "Home"
+# last_entry = "End"
+# Movement base chords must leave Ctrl/Shift free for selection gestures.
+# Example: move_down="j", move_up="k", command_palette="Ctrl+Shift+p".
 
 # Commands and help
 # show_settings = "Ctrl+comma" # Open Settings (Ctrl+,)
@@ -197,7 +220,6 @@ follow_accent = true
 # These commands have no default shortcut; bind them if useful:
 # swap_panes = "Ctrl+Shift+s"
 # orient_panes = "Ctrl+Shift+F3"
-# open_other_pane = "Ctrl+Shift+o"
 # same_other_pane = "Ctrl+Shift+d"
 
 # Tabs (within the active pane)
@@ -232,13 +254,6 @@ follow_accent = true
 # Fixed shortcuts (reference only; these are not configurable action names):
 # Ctrl+q                  Quit
 # Alt+1 ... Alt+9         Select a numbered tab
-# Up/Down                Move between entries
-# Left/Right             Move in the grid; parent/open in columns;
-#                        collapse/expand in details
-# Home/End, Page_Up/Page_Down  First/last entry, previous/next page
-# Return                 Open the focused entry
-# Alt+Down               Open in grid/details
-# BackSpace, Alt+Up       Parent folder
 # Shift+movement         Select a range
 # Ctrl+movement          Move focus without changing selection
 # Escape                 Collapse selection to one entry

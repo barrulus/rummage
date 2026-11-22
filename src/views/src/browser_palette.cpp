@@ -73,10 +73,29 @@ std::vector<PaletteItem> Browser::palette_items() {
                 ui::KeyEvent event;
                 event.keysym = keysym;
                 event.modifiers = modifiers;
-                view_key(event, Clock::now());
+                browse_key(event, Clock::now());
             });
     };
 
+    if (sidebar_.focused()) {
+        if (const auto* place = sidebar_.cursor_place()) {
+            for (auto& item : place_navigation_items(*place)) {
+                if (item.enabled && item.action)
+                    add("place:" + item.id, item.label, item.keys, std::move(item.action), false,
+                        false);
+            }
+        }
+        command(Command::edit_path, "edit_path", std::string{i18n::mark("Edit Path")});
+        command(Command::focus_files, "focus_files", std::string{i18n::mark("Focus Files")});
+        command(Command::go_to, "go_to", "Go to a folder or a server");
+        if (panes_enabled_ && split_visible_) {
+            command(Command::focus_first_pane, "focus_first_pane",
+                    std::string{i18n::mark("Focus First Pane")});
+            command(Command::focus_second_pane, "focus_second_pane",
+                    std::string{i18n::mark("Focus Second Pane")});
+        }
+        return items;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
     const bool in_trash = folder && folder->is_trash();
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
@@ -95,18 +114,27 @@ std::vector<PaletteItem> Browser::palette_items() {
         add("command:compress_zip", "Compress to ZIP…", "", [this] { compress(false); });
         add("command:compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
     }
-    // Opening and moving.
-    if (cursor != nullptr) {
-        add("command:open", "Open", "Enter", [this] {
-            ui::KeyEvent enter;
-            enter.keysym = XKB_KEY_Return;
-            view_key(enter, Clock::now());
-        });
+    command(Command::edit_path, "edit_path", std::string{i18n::mark("Edit Path")});
+    command(Command::focus_files, "focus_files", std::string{i18n::mark("Focus Files")});
+    command(Command::focus_places, "focus_places", std::string{i18n::mark("Focus Places")});
+    if (panes_enabled_ && split_visible_) {
+        command(Command::focus_first_pane, "focus_first_pane",
+                std::string{i18n::mark("Focus First Pane")});
+        command(Command::focus_second_pane, "focus_second_pane",
+                std::string{i18n::mark("Focus Second Pane")});
     }
+    if (folder) {
+        command(Command::expand_folder, "expand_folder", std::string{i18n::mark("Expand Folder")});
+        command(Command::collapse_folder, "collapse_folder",
+                std::string{i18n::mark("Collapse Folder")});
+    }
+    // Opening and moving.
+    if (cursor != nullptr)
+        command(Command::open_selected, "open", "Open");
     if (cursor != nullptr && editable && choices_ && open_with_) {
         add("command:open_with", "Open With…", "", [this] { open_with_palette(); });
     }
-    if (folder && !in_trash && !names.empty()) {
+    if (panes_enabled_ && !picker_mode_ && folder && !in_trash && !names.empty()) {
         std::vector<std::filesystem::path> folders;
         for (const fs::Entry& entry : folder->entries()) {
             if (entry.is_directory() && std::ranges::find(names, entry.name) != names.end()) {
@@ -115,7 +143,8 @@ std::vector<PaletteItem> Browser::palette_items() {
         }
         if (!folders.empty() && folders.size() == names.size()) {
             add("command:open_tab", folders.size() == 1 ? "Open in New Tab" : "Open in New Tabs",
-                "", [this, folders] { open_tabs(folders); });
+                keys_for(Command::open_selected_tab),
+                [this] { run(Command::open_selected_tab, Clock::now()); });
         }
     }
     if (editable && terminal_) {
@@ -126,7 +155,8 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (folder && folder->path().has_parent_path() &&
         folder->path() != folder->path().root_path()) {
-        view_command("parent", "Go to Parent Folder", "Alt+↑", XKB_KEY_Up, {.alt = true});
+        view_command("parent", "Go to Parent Folder", keys_for(Command::parent_folder), XKB_KEY_Up,
+                     {.alt = true});
     }
     if (pane().here > 0) {
         command(Command::back, "back", "Go Back");
@@ -186,7 +216,8 @@ std::vector<PaletteItem> Browser::palette_items() {
         command(Command::stop_transfer, "stop_transfer", "Stop the Transfer");
     }
     if (folder) {
-        view_command("select_all", "Select All", "Ctrl+A", XKB_KEY_a, {.ctrl = true});
+        view_command("select_all", "Select All", keys_for_binding("select_all"), XKB_KEY_a,
+                     {.ctrl = true});
         add("view:invert_selection", std::string{i18n::mark("Invert Selection")},
             keys_for_binding("invert_selection"), [this] {
                 if (const auto shown = current_folder()) {

@@ -39,7 +39,8 @@ public:
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
 
     [[nodiscard]] bool editing_name() const {
-        return focus_ == 1 && !browser_.has_overlay() && !confirm_.is_open() && !menu_.is_open();
+        return focus_ == 1 && !browser_.has_overlay() && !browser_.breadcrumb().editing() &&
+               !confirm_.is_open() && !menu_.is_open();
     }
 
     [[nodiscard]] const std::string& error() const { return error_; }
