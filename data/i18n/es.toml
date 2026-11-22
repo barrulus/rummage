@@ -30,6 +30,9 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Media details" = "Detalles multimedia"
+"Copied" = "Copiado"
+"Copy all properties" = "Copiar todas las propiedades"
 "Invert the selection" = "Invertir la selección"
 "No closed tab to reopen" = "No hay pestañas cerradas que reabrir"
 "Reopen Closed Tab" = "Reabrir pestaña cerrada"

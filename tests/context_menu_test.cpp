@@ -1856,6 +1856,13 @@ TEST_CASE("properties: embedded image metadata wraps, scrolls and copies in a na
         renderer.end_frame();
     };
     draw();
+    const auto disclosure = properties.control_bounds("details");
+    REQUIRE_FALSE(disclosure.empty());
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = disclosure.x + 8,
+                        .y = disclosure.y + 8,
+                        .button = rummage::ui::PointerButton::left});
+    draw();
     properties.pointer(
         {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 10000});
     draw();
@@ -1938,7 +1945,8 @@ TEST_CASE("properties: every rwx permission toggle is keyboard accessible") {
     dialog.open(path, [] {});
     REQUIRE(f.settle());
     std::uint16_t mode = 0644;
-    // Close initially has focus. Reverse Tab visits Others/execute through Owner/read.
+    // Close initially has focus. Skip Copy, then visit Others/execute through Owner/read.
+    dialog.key(key(XKB_KEY_Tab, {.shift = true}));
     for (unsigned bit = 0; bit < 9; ++bit) {
         dialog.key(key(XKB_KEY_Tab, {.shift = true}));
         dialog.key(key(XKB_KEY_space));
@@ -1968,4 +1976,82 @@ TEST_CASE("properties: applying an icon before removing directory write access")
     CHECK((info.st_mode & 0777) == 0500);
     CHECK(read_file(path / ".directory").find("folder-music") != std::string::npos);
     REQUIRE(::chmod(path.c_str(), 0755) == 0);  // allow temporary-directory cleanup
+}
+
+TEST_CASE("properties: media disclosure and top copy include hidden metadata") {
+    rummage::ui::Offscreen gl{800, 900};
+    Fixture f;
+    const std::string value = "Full embedded value " + std::string(400, 'x');
+    const auto png = rummage::picture::encode_png(
+        {.width = 1, .height = 1, .rgba = {10, 20, 30, 255}}, {{"Custom tag", value}});
+    const auto file =
+        f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    auto& dialog = f.browser.properties_dialog();
+    std::string copied;
+    dialog.set_copy_handler([&](std::string text) { copied = std::move(text); });
+    dialog.open(file, [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 900, 1, {});
+        dialog.draw(renderer, {0, 0, 420, 900}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    const auto click = [&](std::string_view id) {
+        const auto rect = dialog.control_bounds(id);
+        REQUIRE_FALSE(rect.empty());
+        CHECK(dialog.cursor_at(rect.x + 4, rect.y + 4) == rummage::ui::CursorShape::pointer);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = rect.x + 4,
+                        .y = rect.y + 4,
+                        .button = rummage::ui::PointerButton::left});
+        draw();
+    };
+    draw();
+    CHECK_FALSE(dialog.text_bounds("Dimensions").empty());
+    CHECK(dialog.text_bounds("Aspect ratio").empty());
+    CHECK(dialog.text_bounds("PNG · Custom tag").empty());
+    CHECK(dialog.control_bounds("copy").y < dialog.text_bounds("name").y);
+    const float collapsed_height = dialog.card_bounds().height;
+    click("copy");
+    CHECK(copied.find("Name: metadata.png\n") != std::string::npos);
+    CHECK(copied.find("Type: image/png\n") != std::string::npos);
+    CHECK(copied.find("Location: " + file.parent_path().string()) != std::string::npos);
+    CHECK(copied.find("Dimensions: 1 × 1\n") != std::string::npos);
+    CHECK(copied.find("Aspect ratio: 1:1\n") != std::string::npos);
+    CHECK(copied.find("PNG · Custom tag: " + value + "\n") != std::string::npos);
+    const auto all = copied;
+    click("details");
+    CHECK_FALSE(dialog.text_bounds("Aspect ratio").empty());
+    CHECK_FALSE(dialog.text_bounds("PNG · Custom tag").empty());
+    CHECK(dialog.card_bounds().height > collapsed_height);
+    dialog.pointer(
+        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 210, .y = 450, .wheel_y = 10000});
+    draw();
+    CHECK(dialog.control_bounds("copy").y == dialog.card_bounds().y + 12);
+    click("copy");
+    CHECK(copied == all);
+    // Reverse Tab from Copy reaches the disclosure and scrolls it into view.
+    dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+    draw();
+    dialog.key(key(XKB_KEY_space));
+    draw();
+    CHECK(dialog.text_bounds("PNG · Custom tag").empty());
+    CHECK(dialog.card_bounds().height == collapsed_height);
+    dialog.key(key(XKB_KEY_Return));
+    draw();
+    CHECK_FALSE(dialog.text_bounds("PNG · Custom tag").empty());
+    dialog.open(file, [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    draw();
+    CHECK(dialog.text_bounds("PNG · Custom tag").empty());
+    dialog.open(f.photos / "a.txt", [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    draw();
+    CHECK(dialog.control_bounds("details").empty());
+    click("copy");
+    CHECK(copied.find("Name: a.txt\n") != std::string::npos);
+    CHECK(copied.find("Custom tag") == std::string::npos);
 }

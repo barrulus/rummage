@@ -23,6 +23,9 @@ Menu = "Меню"
 moves = "перемещение"
 
 [texts]
+"Media details" = "Сведения о медиа"
+"Copied" = "Скопировано"
+"Copy all properties" = "Копировать все свойства"
 "Invert the selection" = "Инвертировать выделение"
 "No closed tab to reopen" = "Нет закрытых вкладок для восстановления"
 "Reopen Closed Tab" = "Восстановить закрытую вкладку"

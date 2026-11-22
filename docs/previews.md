@@ -24,9 +24,11 @@ image arrives.
 thumbnail beside the filename when available. Unsupported files use their file-type
 icon. Its width follows the filename and metadata instead of reserving an empty
 right-hand column; long labels and values wrap within the window and can be selected
-and copied. The dialog grows
-for folder-icon controls, link targets and errors; in short
-windows, its contents scroll while the action buttons remain visible.
+and copied. File information, dimensions, container, duration and video codec appear
+immediately; expand **Media details** for the remaining media metadata. The copy icon
+at the top copies all properties, including collapsed details, as labeled plain text.
+The dialog grows for folder-icon controls, link targets and errors; in short windows,
+its contents scroll while the header and action buttons remain visible.
 
 ## Format support in this source tree
 

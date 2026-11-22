@@ -58,3 +58,40 @@ TEST_CASE("filename display: extension toggle preserves dotfiles and directory n
     CHECK(display_name("folder.d", true, false) == "folder.d");
     CHECK(display_name("README", false, false) == "README");
 }
+
+TEST_CASE("media details: summary keeps container duration and video codec across locales") {
+    using rummage::views::media_details;
+    using rummage::views::MediaDetails;
+
+    struct RestoreEnglish {
+        ~RestoreEnglish() { rummage::i18n::set_language("en"); }
+    } restore;
+
+    rummage::picture::PhotoInfo info;
+    info.width = 1280;
+    info.height = 720;
+    info.container = "Matroska / WebM";
+    info.duration = "0:23:41.084";
+    info.video_codec = "h264";
+    info.frame_rate = "23.976 fps";
+    info.audio_codec = "eac3";
+    info.add_detail("Stream 1 · Language", "eng");
+    info.details_truncated = true;
+    for (const auto language : {"en", "de", "ja"}) {
+        rummage::i18n::set_language(language);
+        const auto summary = media_details(info, MediaDetails::summary);
+        const auto details = media_details(info, MediaDetails::additional);
+        REQUIRE(summary.size() == 3);
+        CHECK(summary[0].second == info.container);
+        CHECK(summary[1].second == info.duration);
+        CHECK(summary[2].second == info.video_codec);
+        REQUIRE(details.size() == 5);
+        CHECK(details[0].second == "16:9");
+        CHECK(details[1].second == info.frame_rate);
+        CHECK(details[2].second == info.audio_codec);
+        CHECK(details[3].second == "eng");
+        CHECK(media_details(info).size() == summary.size() + details.size());
+        CHECK(media_details({}, MediaDetails::summary).empty());
+        CHECK(media_details({}, MediaDetails::additional).empty());
+    }
+}

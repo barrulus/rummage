@@ -21,6 +21,9 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Media details" = "Detalhes da mídia"
+"Copied" = "Copiado"
+"Copy all properties" = "Copiar todas as propriedades"
 "Invert the selection" = "Inverter a seleção"
 "No closed tab to reopen" = "Não há abas fechadas para reabrir"
 "Reopen Closed Tab" = "Reabrir aba fechada"

@@ -38,6 +38,13 @@ public:
     // Drawn selectable field geometry: name, type, or a metadata row's label.
     [[nodiscard]] ui::Rect text_bounds(std::string_view id) const { return text_.bounds(id); }
 
+    [[nodiscard]] ui::Rect control_bounds(std::string_view id) const {
+        for (const auto& control : controls_)
+            if (control.id == id)
+                return control.rect;
+        return {};
+    }
+
     [[nodiscard]] bool is_open() const { return open_; }
 
     [[nodiscard]] bool loading() const { return loading_ || (picking_ && icons_loading_); }
@@ -98,6 +105,7 @@ private:
         bool enabled{true};
     };
 
+    [[nodiscard]] std::vector<std::pair<std::string, std::string>> property_rows() const;
     void activate(std::string_view id);
     void filter();
     void load_catalogue(std::string theme);
@@ -111,6 +119,7 @@ private:
     core::CancelToken load_job_, save_job_, icons_job_;
     bool open_{false}, loading_{false}, saving_{false}, picking_{false}, editable_{true};
     bool icons_loading_{false};
+    bool details_expanded_{false}, copy_hovered_{false}, copied_{false};
     std::filesystem::path path_;
     Data data_;
     std::uint16_t permissions_{0};

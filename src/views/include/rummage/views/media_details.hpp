@@ -159,11 +159,16 @@ inline std::string media_detail_value(std::string_view label, const std::string&
 }
 }  // namespace detail
 
+enum class MediaDetails { all, summary, additional };
+
 // Only metadata present in the file. The same labels appear in both preview surfaces.
 inline std::vector<std::pair<std::string, std::string>> media_details(
-    const picture::PhotoInfo& info) {
+    const picture::PhotoInfo& info, MediaDetails section = MediaDetails::all) {
     std::vector<std::pair<std::string, std::string>> rows;
-    const auto add = [&](std::string_view label, const std::string& value) {
+    const auto add = [&](std::string_view label, const std::string& value, bool summary = false) {
+        if ((section == MediaDetails::summary && !summary) ||
+            (section == MediaDetails::additional && summary))
+            return;
         if (!value.empty())
             rows.emplace_back(label, value);
     };
@@ -184,9 +189,9 @@ inline std::vector<std::pair<std::string, std::string>> media_details(
     add(i18n::tr("Metering"), info.metering);
     add(i18n::tr("White balance"), info.white_balance);
     add(i18n::tr("Flash"), info.flash);
-    add(i18n::tr("Container"), info.container);
-    add(i18n::tr("Duration"), info.duration);
-    add(i18n::tr("Video codec"), info.video_codec);
+    add(i18n::tr("Container"), info.container, true);
+    add(i18n::tr("Duration"), info.duration, true);
+    add(i18n::tr("Video codec"), info.video_codec, true);
     add(i18n::tr("Frame rate"), info.frame_rate);
     add(i18n::tr("Bitrate"), info.bitrate);
     add(i18n::tr("Pixel format"), info.pixel_format);
@@ -200,9 +205,10 @@ inline std::vector<std::pair<std::string, std::string>> media_details(
     if (info.rating)
         add(i18n::tr("Rating"),
             *info.rating == -1 ? std::string{i18n::tr("Rejected")} : std::to_string(*info.rating));
-    for (const auto& [label, value] : info.details)
-        rows.emplace_back(detail::media_detail_label(label),
-                          detail::media_detail_value(label, value));
+    if (section != MediaDetails::summary)
+        for (const auto& [label, value] : info.details)
+            rows.emplace_back(detail::media_detail_label(label),
+                              detail::media_detail_value(label, value));
     if (info.details_truncated)
         add(i18n::tr("Metadata"),
             std::string{i18n::tr("Some metadata was truncated by the preview limits")});

@@ -20,6 +20,9 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Media details" = "メディアの詳細"
+"Copied" = "コピーしました"
+"Copy all properties" = "すべてのプロパティをコピー"
 "Invert the selection" = "選択を反転"
 "No closed tab to reopen" = "開き直せる閉じたタブはありません"
 "Reopen Closed Tab" = "閉じたタブを開き直す"

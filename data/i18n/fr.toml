@@ -29,6 +29,9 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Media details" = "Détails du média"
+"Copied" = "Copié"
+"Copy all properties" = "Copier toutes les propriétés"
 "Invert the selection" = "Inverser la sélection"
 "No closed tab to reopen" = "Aucun onglet fermé à rouvrir"
 "Reopen Closed Tab" = "Rouvrir l’onglet fermé"
