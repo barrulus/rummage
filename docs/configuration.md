@@ -147,6 +147,12 @@ for binding names, and [actions](actions.md) for action fields and menu layouts.
 The [example file](config.example.toml) supplies commented recipes and full default
 menus. Its commented recipes are opt-in, not enabled defaults.
 
+On upgrade, the two unchanged sidebar menu layouts from older example configs
+automatically gain new actions when loaded. The file itself is not rewritten, so
+this also works with read-only or Nix-managed configs. Modified layouts and
+explicitly empty menus retain their filtering. Include `{ remaining = true }` in
+custom layouts to keep future actions visible.
+
 TOML table placement matters: use one `[keybindings]` table, one `[context_menu]`
 table, and one `[[actions]]` table per action. A field below a table heading belongs
 to that table until the next heading. Do not paste a binding into an action table.

@@ -15,6 +15,7 @@
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/selectable_text.hpp"
 
@@ -71,6 +72,10 @@ public:
     [[nodiscard]] std::uint64_t generation() const { return generation_; }
 
     [[nodiscard]] const ui::Rect& card_bounds() const { return card_; }
+
+    [[nodiscard]] float scroll_offset() const { return scroller_.offset(); }
+
+    [[nodiscard]] ui::Rect scrollbar_bounds() const { return scrollbar_.thumb(scroller_); }
 
     [[nodiscard]] bool can_edit_icon() const;
 
@@ -145,7 +150,8 @@ private:
     ui::Rect grid_{};
     ui::Rect content_{};
     ui::Rect card_{};
-    float scroll_{0}, max_scroll_{0};
+    ui::Scroller scroller_;
+    ui::Scrollbar scrollbar_;
     std::uint64_t generation_{0};
     std::unique_ptr<ui::IconSet> preview_icons_;
     static constexpr std::size_t kPageSize = 15;

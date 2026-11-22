@@ -45,7 +45,8 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     if (saving_)
         return;
     ++generation_;
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
     details_expanded_ = copy_hovered_ = copied_ = false;
     text_.reset();
     load_job_.cancel();
@@ -147,7 +148,8 @@ void PropertiesDialog::choose_icon(std::string icon) {
         return;
     draft_ = std::move(icon);
     picking_ = false;
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
     error_.clear();
     focus_ = "apply";
     redraw_();
@@ -158,7 +160,8 @@ void PropertiesDialog::pick_icon() {
         return;
     picking_ = true;
     text_.reset();
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
     search_.set_text({});
     custom_.set_text(draft_);
     focus_ = "search";
@@ -352,7 +355,8 @@ void PropertiesDialog::activate(std::string_view id) {
         choose_icon({});
     else if (id == "back") {
         picking_ = false;
-        scroll_ = 0;
+        scroller_.jump_to(0);
+        scrollbar_ = ui::Scrollbar{};
         focus_ = "change";
         error_.clear();
         redraw_();
@@ -427,9 +431,9 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
         if (focus_ == "change" || focus_ == "default" || focus_ == "search" || focus_ == "custom" ||
             focus_ == "grid" || focus_ == "details" || focus_.starts_with("permission:")) {
             if (rect.y < content_.y)
-                scroll_ = std::max(0.0F, scroll_ + rect.y - content_.y);
+                scroller_.jump_to(scroller_.offset() + rect.y - content_.y);
             else if (rect.bottom() > content_.bottom())
-                scroll_ = std::min(max_scroll_, scroll_ + rect.bottom() - content_.bottom());
+                scroller_.jump_to(scroller_.offset() + rect.bottom() - content_.bottom());
         }
         redraw_();
         return true;
@@ -517,9 +521,15 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
         redraw_();
         return;
     }
-    if (event.kind == ui::PointerEvent::Kind::scroll && max_scroll_ > 0 &&
+    if (scrollbar_.pointer(event, scroller_)) {
+        redraw_();
+        return;
+    }
+    if (event.kind == ui::PointerEvent::Kind::scroll && scroller_.max_offset() > 0 &&
         content_.contains(event.x, event.y)) {
-        scroll_ = std::clamp(scroll_ + event.wheel_y, 0.0F, max_scroll_);
+        const float delta =
+            event.wheel_y != 0.0F ? event.wheel_y * ui::Scroller::kWheelStep : event.scroll_y;
+        scroller_.jump_to(scroller_.offset() + delta);
         redraw_();
         return;
     }
@@ -566,6 +576,8 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
 ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
     if (saving_)
         return ui::CursorShape::standard;
+    if (scrollbar_.dragging() || scrollbar_.hit(scroller_, x, y))
+        return ui::CursorShape::pointer;
     if (picking_ && content_.contains(x, y) &&
         (search_.bounds().contains(x, y) || custom_.bounds().contains(x, y)))
         return ui::CursorShape::text;
@@ -752,9 +764,9 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     draw_dialog_surface(renderer, bounds, card, palette);
     const float fixed_header = picking_ ? 0.0F : 60.0F;
     content_ = {card.x, card.y + fixed_header, card.width, card.height - 70 - fixed_header};
-    max_scroll_ = std::max(0.0F, natural_height - height);
-    scroll_ = std::clamp(scroll_, 0.0F, max_scroll_);
-    const float top = card.y - scroll_;
+    scroller_.set_extent(natural_height - 70 - fixed_header, content_.height);
+    scrollbar_.layout(content_);
+    const float top = card.y - scroller_.offset();
     renderer.push_clip(content_);
     const float left = card.x + 24;
     text_.begin_frame(content_);
@@ -935,13 +947,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     }
     text_.end_frame();
     renderer.pop_clip();
-    if (max_scroll_ > 0) {
-        const float track = content_.height - 24;
-        const float thumb = track * content_.height / (natural_height - 70 - fixed_header);
-        renderer.draw_box(
-            {card.right() - 7, content_.y + 12 + (track - thumb) * scroll_ / max_scroll_, 3, thumb},
-            {.fill = palette.outline, .radius = {}});
-    }
+    if (const auto thumb = scrollbar_.thumb(scroller_); !thumb.empty())
+        renderer.draw_box(thumb, {.fill = palette.outline, .radius = {}});
     if (!picking_) {
         text(i18n::tr("Properties"), left, card.y + 20, 18, room - 44);
         const ui::Rect copy_button{card.right() - 58, card.y + 12, 34, 34};
