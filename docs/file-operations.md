@@ -43,6 +43,17 @@ renaming: type a name and press Enter. Escape keeps the generated name. Creation
 participates in file-operation undo. Pasting while a filename or other text field
 is being edited continues to insert text into that field.
 
+## Create symbolic links
+
+Select files or folders and choose **Create Link** from their context menu or the
+command palette. rummage creates `Link to <name>` beside each source, choosing a
+numbered name when needed, and selects the new links. Links point to the original
+absolute paths, so you can move them elsewhere. Renaming or moving the originals
+can break those links. Linked folders are not copied or scanned recursively.
+
+**Ctrl+Z** trashes the new links without changing their targets; **Ctrl+Shift+Z**
+restores the links. This action is unavailable in Trash, archives and file pickers.
+
 ## Batch rename
 
 Select several entries and press **F2**, or choose **Batch Rename…** in the context
@@ -160,6 +171,7 @@ Permanent deletion cannot be undone.
 | Trash | Restore |
 | Restore | Trash again |
 | Copy | Trash the copies |
+| Create symbolic links | Trash the links, leaving their targets untouched |
 | Create folder/file | Trash it only if still empty/unchanged as appropriate |
 | Permanent delete | Cannot undo |
 | External action or archive extraction | Not recorded in file-operation undo |

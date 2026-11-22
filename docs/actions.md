@@ -101,7 +101,7 @@ exits early cannot report when that delegated work finishes.
 ## Default menu groups
 
 File and folder menus put opening commands first, followed by Cut/Copy/Paste and Rename,
-then Copy Name/Location, archive operations, and applicable extra actions. Trash and
+then Create Link, Copy Name/Location, archive operations, and applicable extra actions. Trash and
 permanent deletion have their own group. Sort By and Panes stay together near the bottom,
 and Properties is last. Separators appear only between groups that contain commands.
 
@@ -287,3 +287,7 @@ required fields and rules are valid. Existing IDs stay fixed so menu references 
 remain intact. Settings preserves advanced action properties and unrelated configuration keys.
 Use **Record shortcut** in the action form to assign a shortcut directly. Read-only configurations
 allow inspecting and copying values; change their declared configuration to edit them.
+
+The `create_link` menu ID creates symbolic links for the selected entries.
+`reset_folder_view` is the reset action inside Sort By; both can be placed in a
+custom menu layout.

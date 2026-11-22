@@ -867,8 +867,10 @@ TEST_CASE("settings: embedded editors return keyboard focus to host and dismiss 
 
 TEST_CASE("settings: custom action recording receives host shortcuts and Escape cancels") {
     Fixture f;
-    REQUIRE_FALSE(core::write_file_atomically(
-        f.path, "[[actions]]\nid='greeting'\nlabel='Say hello'\nargv=['echo','hello']\n"));
+    REQUIRE_FALSE(
+        core::write_file_atomically(f.path,
+                                    "[keybindings]\nselect_pattern=''\n[[actions]]\nid='greeting'"
+                                    "\nlabel='Say hello'\nargv=['echo','hello']\n"));
     f.open();
     namespace ui = rummage::ui;
     ui::Offscreen gl{800, 700};

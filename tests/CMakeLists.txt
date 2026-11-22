@@ -59,6 +59,8 @@ add_executable(rummage-tests
     tiff_test.cpp
     image_test.cpp
     heif_test.cpp
+    filesystem_test.cpp
+    links_test.cpp
     load_test.cpp
     measure_test.cpp
     memory_test.cpp

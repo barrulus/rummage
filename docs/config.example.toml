@@ -184,6 +184,8 @@ follow_accent = true
 
 # Selection
 # select_all = "Ctrl+a"         # Select all files
+# select_pattern = "Ctrl+s"     # Select by filename pattern
+# reset_folder_view = ""        # Use default view for this folder
 # invert_selection = "Ctrl+Shift+i"
 # toggle_selection = "Ctrl+space" # Select/unselect the focused entry
 

@@ -9,6 +9,11 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Create symbolic links beside selected files and folders, with Undo/Redo.
+**Ctrl+S** selects visible entries by filename fragment or wildcard pattern.
+Mounted drives offer filesystem and space information in Properties and on hover.
+**Use Default View for This Folder** resets and remembers a folder’s view defaults.
+
 Fedora RPM builds and clean-install checks now target Fedora 45. Development
 RPM download names and installation instructions use Fedora 45 consistently.
 

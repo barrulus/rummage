@@ -130,6 +130,14 @@ A drag beginning on an icon or name starts a file drag instead. Rubber-band
 selection scrolls when you move beyond the view's top or bottom. Selection and
 cursor track entries through live directory updates.
 
+**Ctrl+S** opens **Select by Pattern…**. Enter a filename fragment or a wildcard
+pattern such as `*.ORF`, `IMG_??.jpg` or `[ab]*`; matching ignores case. Choose
+**Select** to replace the selection, or **Add to the Selection** to extend it.
+Only visible entries in the current selection scope participate, including any
+active filename/type filter. An empty pattern selects nothing. Spaces can be
+typed normally; Escape leaves the selection unchanged. This is also available
+in Open file pickers, but not Save pickers.
+
 **Ctrl+H** toggles hidden files in the current tab. Hidden entries are dimmed when shown;
 when hidden, they are excluded from Select All and operations on that selection.
 
@@ -161,6 +169,13 @@ filter and session history. The sidebar and information pane are shared by the
 window. New tabs initially inherit view/zoom/sort/hidden settings and start with an empty
 filter. Saved folder preferences take precedence when navigating: view mode, sort,
 zoom and details-column choices, order and widths are remembered for up to 512 recent locations. Pane/tab restoration is described in [saved state](configuration.md#saved-state).
+
+The **Sort By** menu marks a **Custom folder view** when the active folder differs
+from the built-in view defaults. Choose **Use Default View for This Folder** there
+or in the command palette to reset view mode, sorting, zoom and details columns
+for that folder. The reset is remembered on later visits and restarts; other
+visible tabs and panes keep their current appearance. Filters and hidden-file
+visibility are unchanged. This action is unavailable in file pickers.
 
 ## Settings and preview placement
 
@@ -264,6 +279,13 @@ authorization requested when required; use the context menu to mount, unmount or
 disk unmounts its partitions and powers it off when supported. Busy or read-only
 devices report errors in the status bar. Encrypted-device unlocking is not
 implemented. Already mounted volumes can still appear without udisks2.
+
+Hover a mounted drive to see its available and total space. Right-click it and
+choose **Properties…** for mount point, filesystem, device, capacity, used and
+available space, and whether the filesystem is mounted read-only. Values are
+read in the background when opened; no directory tree scan is needed. Available
+space can be smaller than capacity minus used space because of filesystem
+reservations. Unmounted drives must be mounted before these details are available.
 
 ## Network folders
 

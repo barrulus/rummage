@@ -1030,3 +1030,19 @@ TEST_CASE("panes: explicitly choosing columns replaces a child's remembered grid
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::columns);
 }
+
+TEST_CASE("panes: resetting a folder leaves other visible tabs unchanged") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_list_size(3);
+    f.browser.toggle_split();
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.reset_folder_view();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.has_custom_folder_view());
+    f.browser.focus_pane(0);
+    CHECK(f.browser.mode() == Browser::Mode::details);
+    CHECK(f.browser.details().list_size() == 3);
+}

@@ -773,3 +773,43 @@ TEST_CASE("picker: a browser dialog owns clipboard keys while the save name has 
     f.browser.location_dialog().close();
     CHECK(picker->editing_name());
 }
+
+TEST_CASE("picker: pattern selection works for Open and is unavailable for both Save modes") {
+    Fixture f;
+    f.browser.set_picker_mode(true);
+    f.browser.set_panes_enabled(false);
+    core::PickerRequest request;
+    request.mode = Mode::open;
+    request.multiple = true;
+    auto open = f.picker(request);
+    REQUIRE(f.settle());
+    f.browser.picker_folder()->select_name("one.txt");
+    const auto commands = f.browser.palette_items();
+    CHECK(std::ranges::none_of(commands,
+                               [](const auto& item) { return item.id == "command:create_link"; }));
+    CHECK(std::ranges::any_of(commands,
+                              [](const auto& item) { return item.id == "command:compress_zip"; }));
+    f.browser.create_links();
+    REQUIRE(f.settle());
+    CHECK_FALSE(fs::exists(f.temp.path / "Link to one.txt"));
+    REQUIRE(open->key({.keysym = XKB_KEY_s, .text = {}, .modifiers = {.ctrl = true}}));
+    REQUIRE(f.browser.command_palette().is_open());
+    f.browser.command_palette().set_query("*.txt");
+    open->key({.keysym = XKB_KEY_Return, .text = {}});
+    CHECK(f.browser.picker_folder()->selected_names() == std::vector<std::string>{"one.txt"});
+    open.reset();
+    for (const auto mode : {Mode::save, Mode::save_files}) {
+        request.mode = mode;
+        request.name = "new.txt";
+        request.files = {"new.txt"};
+        auto save = f.picker(request);
+        const auto selection = f.browser.picker_folder()->selected_names();
+        save->key({.keysym = XKB_KEY_s, .text = {}, .modifiers = {.ctrl = true}});
+        CHECK_FALSE(f.browser.command_palette().is_open());
+        CHECK(f.browser.picker_folder()->selected_names() == selection);
+        const auto items = f.browser.palette_items();
+        CHECK(std::ranges::none_of(
+            items, [](const auto& item) { return item.id == "command:select_pattern"; }));
+        CHECK_FALSE(f.result);
+    }
+}

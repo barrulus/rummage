@@ -35,6 +35,7 @@ std::string first_chord(Command command) {
 }  // namespace
 
 void Browser::open_palette() {
+    palette_use_ = PaletteUse::commands;
     menu_.close();
     shortcuts_.close();
     palette_.open(palette_items(), palette_recent_,
@@ -84,7 +85,10 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !folder->is_archive() && names.size() <= 1 && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
-    if (editable && !names.empty() && !picker_mode_) {
+    if (editable && !names.empty()) {
+        if (!picker_mode_)
+            add("command:create_link", std::string{i18n::mark("Create Link")}, "",
+                [this] { create_links(); });
         add("command:compress_zip", "Compress to ZIP…", "", [this] { compress(false); });
         add("command:compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
     }
@@ -191,6 +195,12 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (editable) {
         command(Command::add_bookmark, "add_bookmark", "Add to Sidebar");
     }
+    if (has_custom_folder_view())
+        command(Command::reset_folder_view, "reset_folder_view",
+                "Use Default View for This Folder");
+    if (folder && pattern_selection_enabled_)
+        command(Command::select_pattern, "select_pattern",
+                std::string{i18n::mark("Select by Pattern…")});
     command(Command::go_to, "go_to", "Go to Folder or Server…");
 
     // The same registry entries and captured targets as the context menu.
@@ -391,6 +401,7 @@ void Browser::open_finder() {
     menu_.close();
     shortcuts_.close();
     palette_.close();
+    palette_use_ = PaletteUse::files;
     finder_ = std::make_unique<FileFinder>(pool_, [this] { refresh_found(); });
     const std::filesystem::path root = folder->path();
     std::string name = root.filename().string();
@@ -404,6 +415,76 @@ void Browser::open_finder() {
     });
     finder_->start(root, pane().show_hidden);
     refresh_found();
+}
+
+void Browser::open_pattern() {
+    const std::shared_ptr<Folder> folder = current_folder();
+    if (!folder) {
+        return;
+    }
+    if (!pattern_selection_enabled_) {
+        show_message(std::string{i18n::tr("Nothing is selected by name while saving")}, false);
+        return;
+    }
+    quick_look_.close();  // the cursor may move: Quick Look would no longer show it
+    menu_.close();
+    shortcuts_.close();
+    palette_.close();
+    palette_use_ = PaletteUse::pattern;
+    palette_.open_external(std::string{i18n::tr("Select by name: *.ORF, IMG_00??.*")},
+                           [this](const std::string& typed) { refresh_pattern(typed); });
+    refresh_pattern({});
+}
+
+void Browser::refresh_pattern(const std::string& typed) {
+    const std::shared_ptr<Folder> folder = current_folder();
+    if (!folder || palette_use_ != PaletteUse::pattern) {
+        return;
+    }
+    const std::string glob = typed;
+    if (glob.empty()) {
+        palette_.set_results(
+            {}, std::string{i18n::tr("* any text, ? one character, [abc] one of them")});
+        return;
+    }
+    const std::vector<std::size_t> rows = folder->matching(glob);
+    const std::size_t shown = folder->entries().size();
+    if (rows.empty()) {
+        palette_.set_results({}, i18n::trf("None of {} match", shown));
+        return;
+    }
+    std::vector<PaletteItem> items;
+    const auto row = [&](std::string id, std::string label, bool add) {
+        items.push_back({.id = std::move(id),
+                         .label = std::move(label),
+                         .keys = {},
+                         .remember = false,
+                         .action = [this, glob, add] { select_pattern(glob, add); },
+                         .path = false,
+                         .quick_look = {},
+                         .open = {}});
+    };
+    const std::size_t count = rows.size();
+    row("pattern:select", i18n::trn("Select {} Item", "Select {} Items", count), false);
+    // Adding differs from selecting only when something else is selected.
+    const auto selected_in = std::ranges::count_if(
+        rows, [&](std::size_t i) { return folder->is_selected(folder->entries()[i].name); });
+    if (folder->selected_count() > static_cast<std::size_t>(selected_in)) {
+        row("pattern:add", i18n::trf("Add {} to the Selection", count), true);
+    }
+    palette_.set_results(std::move(items), i18n::trf("{} of {} match", count, shown));
+}
+
+void Browser::select_pattern(const std::string& glob, bool add) {
+    if (const std::shared_ptr<Folder> folder = current_folder()) {
+        // Matched again: the folder may have changed since the last key.
+        const std::vector<std::size_t> rows = folder->matching(glob);
+        if (rows.empty()) {
+            show_message(std::string{i18n::tr("Nothing matches any more")}, false);
+            return;
+        }
+        folder->select_rows(rows, add);
+    }
 }
 
 void Browser::refresh_found() {

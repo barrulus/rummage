@@ -663,6 +663,8 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "cut",
                                           "paste",
                                           "rename",
+                                          "create_link",
+                                          "reset_folder_view",
                                           "trash",
                                           "erase",
                                           "restore",

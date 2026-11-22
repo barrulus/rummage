@@ -11,6 +11,7 @@
 #include "rummage/fs/compress.hpp"
 #include "rummage/fs/erase.hpp"
 #include "rummage/fs/extract.hpp"
+#include "rummage/fs/links.hpp"
 #include "rummage/fs/trash.hpp"
 
 namespace rummage::fs {
@@ -141,6 +142,9 @@ void TransferQueue::work() {
 
         TransferResult result;
         switch (request->kind) {
+            case TransferKind::link:
+                result = run_link(*request, token, callbacks);
+                break;
             case TransferKind::compress:
                 result = run_compress(*request, token, callbacks);
                 break;

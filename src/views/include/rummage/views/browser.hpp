@@ -659,6 +659,12 @@ public:
 
     // Ctrl+F (ROADMAP 8b): the palette finds files under the folder shown, matched by their paths.
     void open_finder();
+    void open_pattern();
+    void create_links();
+    void reset_folder_view();
+    [[nodiscard]] bool has_custom_folder_view() const;
+
+    void set_pattern_selection_enabled(bool enabled) { pattern_selection_enabled_ = enabled; }
 
     // While finding files: the finder (tests); nullptr otherwise.
     [[nodiscard]] FileFinder* file_finder() noexcept { return finder_.get(); }
@@ -851,6 +857,8 @@ private:
     void open_with_palette();
     // The palette's list from the finder's results.
     void refresh_found();
+    void refresh_pattern(const std::string& typed);
+    void select_pattern(const std::string& pattern, bool add);
     void erase_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     // Opens the card for request (erase or empty_trash), adds up what it removes on a worker and
     // submits it once confirmed and added up; after runs when it is confirmed.
@@ -871,6 +879,7 @@ private:
     [[nodiscard]] bool opens_as_folder(const fs::Entry& file) const;
     void open_archive_members(const std::filesystem::path& source, std::vector<fs::Entry> files);
     void compress(bool tar_gz);
+    void links_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     void compress_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     bool open_selection();
     // F4: a terminal in the cursor's folder, else in the folder shown.
@@ -988,6 +997,11 @@ private:
     };
 
     State::Folders folder_settings_;
+    core::CancelToken drive_hover_job_;
+    std::filesystem::path drive_hover_path_;
+    std::string drive_hover_text_;
+    void draw_drive_tooltip(ui::Renderer& renderer, const theme::Palette& palette,
+                            const ui::Rect& bounds);
     std::filesystem::path last_folder_;
     std::array<std::unique_ptr<BrowsingArea>, 2> areas_;
     std::size_t active_area_{0};
@@ -1073,6 +1087,9 @@ private:
     std::function<void()> open_config_;
     std::function<void(const core::ConfigResult&)> settings_applied_;
     ContextMenu menu_;
+    enum class PaletteUse : std::uint8_t { commands, files, pattern };
+    PaletteUse palette_use_{PaletteUse::commands};
+    bool pattern_selection_enabled_{true};
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
     std::unique_ptr<FileFinder> finder_;  // while finding files

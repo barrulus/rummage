@@ -911,11 +911,13 @@ TEST_CASE("sidebar disks: a click on the eject icon ejects; the right click offe
     click(40.0F, spare, PointerButton::right);
     REQUIRE(f.browser.context_menu().is_open());
     const auto& items = f.browser.context_menu().items();
-    REQUIRE(items.size() == 2);
+    REQUIRE(items.size() == 3);
     CHECK(items[0].id == "mount");
     CHECK(items[0].enabled);
     CHECK(items[1].id == "unmount");
     CHECK_FALSE(items[1].enabled);
+    CHECK(items[2].id == "properties");
+    CHECK_FALSE(items[2].enabled);
     f.browser.context_menu().close();
 
     // Nothing can be dropped onto a disk not mounted.

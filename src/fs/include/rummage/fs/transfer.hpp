@@ -19,6 +19,7 @@ enum class TransferKind : std::uint8_t {
     trash,        // run_trash (trash.hpp): destination is the home trash
     restore,      // run_restore (trash.hpp): names are paths in a trash's files/
     erase,        // run_erase (erase.hpp): deleted for good; destination unused
+    link,         // create symbolic links without following the source items
     compress,     // write one ZIP or tar.gz archive
     empty_trash,  // run_erase: names are trashes, everything in them goes
 };

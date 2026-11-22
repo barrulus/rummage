@@ -202,6 +202,7 @@ FilePicker::FilePicker(Browser& browser, core::PickerRequest request,
             choice.selected = choice.options.front().id;
         }
     }
+    browser_.set_pattern_selection_enabled(request_.mode == Mode::open);
     set_filter(request_.filter);
     browser_.set_open_handler([this](const auto&, const auto& files) {
         if (request_.mode == Mode::save && !files.empty()) {
@@ -216,6 +217,7 @@ FilePicker::FilePicker(Browser& browser, core::PickerRequest request,
 }
 
 FilePicker::~FilePicker() {
+    browser_.set_pattern_selection_enabled(true);
     if (terminal_cancel_)
         terminal_cancel_();
     browser_.set_open_handler({});
@@ -480,7 +482,8 @@ bool FilePicker::key(const ui::KeyEvent& event) {
     }
     const auto command = command_for(event);
     if (!browser_.has_overlay() &&
-        (command == Command::filter_names || command == Command::new_folder)) {
+        (command == Command::filter_names || command == Command::new_folder ||
+         command == Command::select_pattern)) {
         focus_ = 0;
         return browser_.key(event, Browser::Clock::now());
     }
