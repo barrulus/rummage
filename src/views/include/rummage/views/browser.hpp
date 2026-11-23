@@ -49,6 +49,7 @@
 #include "rummage/views/password_dialog.hpp"
 #include "rummage/views/properties_dialog.hpp"
 #include "rummage/views/quick_look.hpp"
+#include "rummage/views/search_results.hpp"
 #include "rummage/views/settings_dialog.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "rummage/views/shortcuts_overlay.hpp"
@@ -240,7 +241,7 @@ public:
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open();
+               quick_look_.is_open() || properties_.is_open() || searching_results();
     }
 
     [[nodiscard]] std::shared_ptr<Folder> picker_folder() const { return current_folder(); }
@@ -437,6 +438,8 @@ public:
 
     // A line in the status bar for a few seconds (what opening a file did).
     void show_message(std::string text, bool error) {
+        if (searching_results())
+            search_results_->message(text);
         if (error)
             start_motion(core::MotionEvent::invalid_operation);
         status_bar_.show_message(std::move(text), error);
@@ -670,6 +673,18 @@ public:
 
     // Ctrl+F (ROADMAP 8b): the palette finds files under the folder shown, matched by their paths.
     void open_finder();
+    void open_search_results(std::filesystem::path root = {}, std::string query = {},
+                             std::optional<bool> hidden = {});
+    void open_saved_searches(bool remove = false);
+    void search_action(SearchResults::Action action);
+
+    [[nodiscard]] SearchResults* search_results() const { return search_results_.get(); }
+
+    [[nodiscard]] bool searching_results() const {
+        return search_results_ && search_results_->is_open();
+    }
+
+    void settle_search_preview();
     void open_pattern();
     void create_links();
     void move_into_new_folder();
@@ -1137,6 +1152,11 @@ private:
     bool pattern_selection_enabled_{true};
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
+    std::unique_ptr<SearchResults> search_results_;
+    std::vector<State::SavedSearch> saved_searches_;
+    std::shared_ptr<Folder> search_preview_;
+    bool search_preview_pending_{false};
+    std::uint64_t search_generation_{0};
     std::unique_ptr<FileFinder> finder_;  // while finding files
 
     struct FoundAfter {
@@ -1185,6 +1205,7 @@ private:
         std::filesystem::path directory;
         std::vector<std::string> names;
         bool cut{false};
+        std::vector<std::filesystem::path> paths{};
     };
 
     Clipboard clipboard_;

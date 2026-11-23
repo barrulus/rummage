@@ -68,6 +68,26 @@ std::vector<PaletteItem> Browser::palette_items() {
         add(std::string{"command:"} + id, std::move(label), first_chord(which),
             [this, which] { run(which, Clock::now()); });
     };
+    if (searching_results()) {
+        using Action = SearchResults::Action;
+        const auto count = search_results_->chosen().size();
+        const auto offer = [&](const char* id, std::string_view label, Action action,
+                               bool enabled = true) {
+            if (enabled)
+                add(id, std::string{label}, "", [this, action] { search_action(action); }, false);
+        };
+        offer("search:copy", i18n::mark("Copy"), Action::copy, count > 0);
+        offer("search:cut", i18n::mark("Cut"), Action::cut, count > 0);
+        offer("search:trash", i18n::mark("Move to Trash"), Action::trash, count > 0);
+        offer("search:rename", i18n::mark("Rename…"), Action::rename, count == 1);
+        offer("search:preview", i18n::mark("Quick Look"), Action::preview, count == 1);
+        offer("search:reveal", i18n::mark("Show in Folder"), Action::reveal, count == 1);
+        offer("search:save", i18n::mark("Save Search…"), Action::save);
+        offer("search:saved", i18n::mark("Saved Searches…"), Action::saved);
+        offer("search:details", i18n::mark("Copy Search Details"), Action::details);
+        offer("search:close", i18n::mark("Close"), Action::close);
+        return items;
+    }
     // A key the view handles itself (zoom, select all, parent): the same key, sent to it.
     const auto view_command = [&](const char* id, std::string label, std::string keys,
                                   xkb_keysym_t keysym, ui::Modifiers modifiers) {
@@ -183,7 +203,7 @@ std::vector<PaletteItem> Browser::palette_items() {
         if (!folder->is_archive())
             command(Command::cut, "cut", "Cut");
     }
-    bool can_paste = !clipboard_.names.empty();
+    bool can_paste = !clipboard_.names.empty() || !clipboard_.paths.empty();
     if (!can_paste && system_.types) {
         const std::vector<std::string> types = system_.types();
         can_paste = std::ranges::find(types, kGnomeFiles) != types.end() ||
@@ -365,6 +385,12 @@ std::vector<PaletteItem> Browser::palette_items() {
         }
     }
 
+    if (!picker_mode_) {
+        add("command:search_results", std::string{i18n::mark("Search Results…")}, "",
+            [this] { open_search_results(); });
+        add("command:saved_searches", std::string{i18n::mark("Saved Searches…")}, "",
+            [this] { open_saved_searches(); });
+    }
     // rummage.
     if (folder && !in_trash) {
         command(Command::filter_names, "filter_names", "Filter Names…");
@@ -745,7 +771,8 @@ void Browser::refresh_found() {
              .quick_look = then(FoundAction::quick_look),
              .open = then(FoundAction::open)});
     }
-    palette_.set_results(std::move(items), finder_->status());
+    palette_.set_results(std::move(items), finder_->status() + " · " +
+                                               std::string{i18n::tr("Ctrl+Enter: manage results")});
     if (!finder_->results().empty() && !finder_->scanning() && !finder_->matching())
         start_motion(core::MotionEvent::search_results);
 }
@@ -782,6 +809,7 @@ void Browser::show_found(const std::filesystem::path& root, const std::string& r
 }
 
 void Browser::settle_found(Clock::time_point now) {
+    settle_search_preview();
     if (!found_after_) {
         return;
     }

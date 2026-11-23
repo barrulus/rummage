@@ -236,3 +236,14 @@ palette is reassigned because Ctrl+K now belongs to movement. Original Up/Down
 bindings are replaced; editors and dialogs keep their normal arrow keys. Each
 action can be reset separately in Settings. New default shortcuts give way to
 existing custom assignments.
+
+### Search results
+
+In Ctrl+F, **Ctrl+Enter** opens the query in the Search Results view. There, Down
+moves from the query field to the list. Ctrl/Shift-click and Shift+arrows extend
+selection; Ctrl+A selects displayed results while the list has focus. Ctrl+C and
+Ctrl+X copy/cut the selected files, Delete trashes them, F2 renames one item, Space
+previews, Enter opens and Shift+Enter reveals it in its folder. Ctrl+Z/Ctrl+Shift+Z
+undo/redo file operations from the list. Ctrl+S saves a query, Ctrl+Shift+S opens
+saved searches, F5 refreshes and Escape closes. Tab visits the query, toolbar and
+list. The query field retains its normal text-editing shortcuts.
