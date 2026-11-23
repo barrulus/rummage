@@ -708,7 +708,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         insights_button_ = {out.left(), out.y(), out.width(), 30};
         renderer.draw_box(insights_button_, {.fill = palette.primary.with_alpha(0.12F),
                                              .radius = ui::Corners::all(4)});
-        renderer.draw_text(i18n::tr("Folder insights…"), out.left() + 10, out.y() + 6, kTextSize,
+        renderer.draw_text(i18n::tr("Insights…"), out.left() + 10, out.y() + 6, kTextSize,
                            palette.primary, out.width() - 20);
         out.skip(40.0F);
         insights_button_ = insights_button_.intersect(content);

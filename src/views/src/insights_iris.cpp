@@ -13,24 +13,6 @@
 namespace rummage::views {
 namespace {
 constexpr float turn = 2 * std::numbers::pi_v<float>;
-constexpr std::size_t max_segments = 48;
-constexpr std::size_t max_context = 3;
-
-ui::Color accent_for(const InsightsView::Row& row, const theme::Palette& palette) {
-    // Share the categorical colours used by the space map, with stable identities across
-    // drill-down and sorting. A folder retains its colour when it moves to an outer ring.
-    const std::array colors{ui::Color::rgb(0x7AA2F7), ui::Color::rgb(0x9ECE6A),
-                            ui::Color::rgb(0xE0AF68), ui::Color::rgb(0xBB9AF7),
-                            ui::Color::rgb(0x7DCFFF), ui::Color::rgb(0xF7768E)};
-    const auto key = row.directory ? row.label : fs::insight_extension(row.label);
-    std::uint32_t hash = 2166136261U;
-    for (char ch : key)
-        hash = (hash ^ static_cast<unsigned char>(ch)) * 16777619U;
-    const auto color = colors[hash % colors.size()];
-    return {std::lerp(palette.primary.r, color.r, 0.85F),
-            std::lerp(palette.primary.g, color.g, 0.85F),
-            std::lerp(palette.primary.b, color.b, 0.85F), 1};
-}
 
 ui::AnnularSector interpolate(ui::AnnularSector a, ui::AnnularSector b, float t) {
     return {std::lerp(a.x, b.x, t),         std::lerp(a.y, b.y, t),
@@ -61,6 +43,90 @@ std::vector<ui::AnnularSector> insight_ring(const std::vector<double>& weights, 
     return result;
 }
 
+std::vector<InsightSlice> insight_sunburst(const fs::InsightSnapshot& snapshot,
+                                           const std::vector<std::size_t>& roots, bool bytes) {
+    struct Branch {
+        std::vector<std::size_t> children;
+        std::size_t parent, depth;
+        float start, sweep;
+    };
+
+    std::vector<InsightSlice> result;
+    if (roots.empty())
+        return result;
+    std::vector<Branch> pending{{roots, snapshot.nodes[roots.front()].parent, 0, -turn / 4, turn}};
+    for (std::size_t at = 0; at < pending.size() && result.size() < 256; ++at) {
+        auto branch = std::move(pending[at]);
+        const auto weight = [&](std::size_t node) {
+            return bytes ? snapshot.nodes[node].bytes : snapshot.nodes[node].files;
+        };
+        std::ranges::sort(branch.children, [&](auto a, auto b) {
+            return weight(a) != weight(b)
+                       ? weight(a) > weight(b)
+                       : fs::natural_compare(snapshot.nodes[a].name, snapshot.nodes[b].name) < 0;
+        });
+        long double total = 0;
+        for (auto node : branch.children)
+            total += weight(node);
+        if (total <= 0)
+            continue;
+        const auto limit = std::min<std::size_t>(48, 255 - result.size());
+        std::vector<InsightSlice> ring;
+        InsightSlice more{.node = branch.parent, .parent = branch.parent, .depth = branch.depth};
+        for (auto node : branch.children) {
+            if (weight(node) == 0)
+                continue;
+            const auto& entry = snapshot.nodes[node];
+            const auto angle =
+                static_cast<float>(static_cast<long double>(weight(node)) / total) * branch.sweep;
+            if (ring.size() >= limit || angle < turn / 360) {
+                if (more.grouped == 0)
+                    more.first = node;
+                ++more.grouped;
+                more.files += entry.files;
+                more.bytes += entry.bytes;
+                more.partial = more.partial || entry.partial;
+            } else
+                ring.push_back({.node = node,
+                                .parent = branch.parent,
+                                .depth = branch.depth,
+                                .files = entry.files,
+                                .bytes = entry.bytes,
+                                .partial = entry.partial});
+        }
+        if (more.grouped)
+            ring.push_back(more);
+        long double accumulated = 0;
+        for (auto slice : ring) {
+            slice.start = branch.start + static_cast<float>(accumulated / total) * branch.sweep;
+            accumulated += bytes ? slice.bytes : slice.files;
+            const float end = branch.start + static_cast<float>(accumulated / total) * branch.sweep;
+            slice.sweep = end - slice.start;
+            result.push_back(slice);
+            if (slice.grouped || slice.depth >= 2 || !snapshot.nodes[slice.node].directory)
+                continue;
+            std::vector<std::size_t> children;
+            for (auto child = slice.node + 1; child < snapshot.nodes[slice.node].end;
+                 child = snapshot.nodes[child].end)
+                children.push_back(child);
+            if (!children.empty())
+                pending.push_back(
+                    {std::move(children), slice.node, slice.depth + 1, slice.start, slice.sweep});
+        }
+    }
+    return result;
+}
+
+bool InsightsView::chart_hover(std::size_t index) const {
+    if (hover_ == std::format("tile:{}", index))
+        return true;
+    if (view_ != View::iris)
+        return false;
+    return std::ranges::any_of(iris_target_, [&](const IrisSegment& segment) {
+        return segment.level > 0 && segment.index == index && hover_ == "iris-node:" + segment.key;
+    });
+}
+
 void InsightsView::set_iris_motion(float duration_seconds) {
     iris_duration_ = std::isfinite(duration_seconds) ? std::clamp(duration_seconds, 0.0F, 2.0F) : 0;
     if (iris_duration_ == 0)
@@ -69,6 +135,7 @@ void InsightsView::set_iris_motion(float duration_seconds) {
 
 void InsightsView::invalidate_iris() {
     iris_dirty_ = true;
+    map_layout_.dirty = true;
     // Old hit targets refer to the previous row order/snapshot. Keep only the geometry for
     // animation; no stale file actions can run between a model change and the next frame.
     std::erase_if(controls_, [](const Control& control) { return control.sector.has_value(); });
@@ -80,19 +147,11 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
     const bool resized = iris_bounds_.x != bounds.x || iris_bounds_.y != bounds.y ||
                          iris_bounds_.width != bounds.width || iris_bounds_.height != bounds.height;
     const auto muted = theme::readable_foreground(palette.on_surface_variant, palette.surface);
-    const float radius = std::min(bounds.width - 16, bounds.height - 88) / 2;
+    const float radius = std::min(bounds.width - 16, bounds.height - 126) / 2;
     if (radius < 24)
         return;
-    const float cx = bounds.x + bounds.width / 2, cy = bounds.y + 34 + (bounds.height - 88) / 2;
-    std::vector<std::size_t> ancestors;
-    if (data_)
-        for (auto child = scope_; child != 0 && ancestors.size() < max_context;) {
-            child = data_->nodes[child].parent;
-            ancestors.push_back(child);
-        }
-    const float context_width = std::min(15.0F, radius * 0.075F);
-    const float main_outer = radius - static_cast<float>(ancestors.size()) * context_width;
-    const float hole = main_outer * 0.48F;
+    const float cx = bounds.x + bounds.width / 2, cy = bounds.y + 4 + (bounds.height - 126) / 2;
+    const float hole = radius * 0.28F;
     if (iris_dirty_ || resized || iris_snapshot_ != data_) {
         const bool same_snapshot = iris_snapshot_ == data_;
         iris_from_ = resized ? std::vector<IrisSegment>{} : iris_painted_;
@@ -100,95 +159,45 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
         iris_bounds_ = bounds;
         iris_snapshot_ = data_;
         if (data_) {
-            const auto add_ring = [&](std::vector<IrisSegment> entries, std::size_t parent,
-                                      std::size_t level, float inner, float outer) {
-                const auto weight = [this](const IrisSegment& segment) {
-                    return bytes_ ? segment.row.bytes : segment.row.files;
-                };
-                long double total = 0;
-                for (const auto& entry : entries)
-                    total += weight(entry);
-                // Stable metric order keeps table sorts from spinning the diagram. Only the
-                // largest entries get individual arcs; small ones share a truthful More arc.
-                std::ranges::sort(entries, [&](const auto& a, const auto& b) {
-                    const auto aw = weight(a), bw = weight(b);
-                    return aw != bw ? aw > bw : fs::natural_compare(a.row.label, b.row.label) < 0;
-                });
-                IrisSegment more{.key = std::format("more:{}", parent),
-                                 .row = {.directory = true},
-                                 .shape = {},
-                                 .index = rows_.size(),
-                                 .parent = parent,
-                                 .level = level,
-                                 .more = true};
-                std::size_t grouped = 0, shown = 0;
-                std::vector<IrisSegment> ring;
-                std::vector<double> weights;
-                for (auto& entry : entries) {
-                    const auto amount = weight(entry);
-                    if (amount == 0)
-                        continue;
-                    if (!entry.on_path &&
-                        (shown >= max_segments || static_cast<long double>(amount) < total / 360)) {
-                        more.row.files += entry.row.files;
-                        more.row.bytes += entry.row.bytes;
-                        more.row.partial = more.row.partial || entry.row.partial;
-                        more.index = std::min(more.index, entry.index);
-                        ++grouped;
-                        continue;
-                    }
-                    weights.push_back(static_cast<double>(amount));
-                    ring.push_back(std::move(entry));
-                    ++shown;
-                }
-                if (grouped != 0) {
-                    more.row.label = i18n::trf("{} more", grouped);
-                    weights.push_back(static_cast<double>(weight(more)));
-                    ring.push_back(std::move(more));
-                }
-                const auto shapes = insight_ring(weights, cx, cy, inner, outer);
-                for (std::size_t i = 0; i < ring.size(); ++i) {
-                    ring[i].shape = shapes[i];
-                    // A one-pixel separator, capped so tiny measured portions aren't erased.
-                    const float gap = shapes[i].sweep >= turn - 0.0001F
-                                          ? 0
-                                          : std::min(1.5F / outer, shapes[i].sweep * 0.12F);
-                    ring[i].shape.start += gap / 2;
-                    ring[i].shape.sweep -= gap;
-                    iris_target_.push_back(std::move(ring[i]));
-                }
-            };
-            std::vector<IrisSegment> entries;
-            for (std::size_t i = 0; i < rows_.size(); ++i)
-                entries.push_back({.key = std::to_string(rows_[i].node),
-                                   .row = rows_[i],
-                                   .shape = {},
-                                   .index = i,
-                                   .parent = scope_});
-            add_ring(std::move(entries), scope_, 0, hole + 5, main_outer);
-            auto on_path = scope_;
-            for (std::size_t level = 0; level < ancestors.size(); ++level) {
-                const auto parent = ancestors[level];
-                std::vector<IrisSegment> children;
-                for (auto child = parent + 1; child < data_->nodes[parent].end;
-                     child = data_->nodes[child].end) {
-                    const auto& node = data_->nodes[child];
-                    children.push_back({.key = std::to_string(child),
-                                        .row = {.label = node.name,
-                                                .node = child,
-                                                .files = node.files,
-                                                .bytes = node.bytes,
-                                                .directory = node.directory,
-                                                .partial = node.partial},
-                                        .shape = {},
-                                        .parent = parent,
-                                        .level = level + 1,
-                                        .on_path = child == on_path});
-                }
-                const float inner = main_outer + static_cast<float>(level) * context_width + 3;
-                add_ring(std::move(children), parent, level + 1, inner,
-                         main_outer + static_cast<float>(level + 1) * context_width);
-                on_path = parent;
+            std::vector<std::size_t> roots;
+            for (const auto& row : rows_)
+                roots.push_back(row.node);
+            const auto slices = insight_sunburst(*data_, roots, bytes_);
+            std::size_t levels = 1;
+            for (const auto& slice : slices)
+                levels = std::max(levels, slice.depth + 1);
+            const float band = (radius - hole - 5) / static_cast<float>(levels);
+            for (const auto& slice : slices) {
+                const auto& node = data_->nodes[slice.node];
+                const auto source = slice.grouped ? slice.first : slice.node;
+                // Link each deeper segment to its immediate ancestor's table row.
+                auto ancestor = source;
+                while (data_->nodes[ancestor].parent != scope_ && ancestor != 0)
+                    ancestor = data_->nodes[ancestor].parent;
+                const auto found = std::ranges::find(rows_, ancestor, &Row::node);
+                const auto index = static_cast<std::size_t>(found - rows_.begin());
+                Row row{.label = slice.grouped ? i18n::trf("{} more", slice.grouped) : node.name,
+                        .node = source,
+                        .files = slice.files,
+                        .bytes = slice.bytes,
+                        .directory = slice.grouped || node.directory,
+                        .partial = slice.partial,
+                        .other = slice.grouped != 0};
+                if (slice.depth == 0 && !slice.grouped && found != rows_.end())
+                    row = *found;
+                const float inner = hole + 5 + static_cast<float>(slice.depth) * band;
+                const float outer = inner + band - 3;
+                const float gap =
+                    slice.sweep >= turn - 0.0001F ? 0 : std::min(1.2F / outer, slice.sweep * 0.12F);
+                iris_target_.push_back(
+                    {.key = slice.grouped ? std::format("more:{}", slice.parent)
+                                          : std::to_string(slice.node),
+                     .row = std::move(row),
+                     .shape = {cx, cy, inner, outer, slice.start + gap / 2, slice.sweep - gap},
+                     .index = index,
+                     .parent = slice.parent,
+                     .level = slice.depth,
+                     .more = slice.grouped != 0});
             }
         }
         // Node identities only mean the same thing inside the same scan. A new scan fades
@@ -213,19 +222,15 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
         const auto& shape = segment.shape;
         const auto id = segment.level == 0 ? (segment.more ? std::string{"iris-more"}
                                                            : std::format("tile:{}", segment.index))
-                                           : "iris-context:" + segment.key;
-        const bool row_hot =
-            segment.level == 0 && !segment.more &&
-            (hover_ == std::format("row:{}", segment.index) ||
-             focus_ == std::format("row:{}", segment.index) || selected(segment.index));
+                                           : "iris-node:" + segment.key;
+        const bool row_hot = !segment.more && (hover_ == std::format("row:{}", segment.index) ||
+                                               focus_ == std::format("row:{}", segment.index) ||
+                                               selected(segment.index));
         const bool hot = interactive && (hover_ == id || focus_ == id || row_hot);
-        const auto accent = segment.more ? palette.outline : accent_for(segment.row, palette);
-        const float opacity = segment.level == 0 ? (hot ? 0.95F : 0.72F)
-                              : segment.on_path  ? 0.85F
-                              : hot              ? 0.65F
-                                                 : 0.25F;
+        const auto accent = row_color(segment.row, palette, mime);
+        const float opacity = hot ? 0.95F : 0.76F;
         renderer.draw_sector(shape, accent.with_alpha(opacity * segment.opacity));
-        if (hot || segment.on_path) {
+        if (hot) {
             auto rim = shape;
             rim.inner = std::max(shape.inner, shape.outer - 2);
             renderer.draw_sector(rim, palette.on_surface.with_alpha(segment.opacity * 0.65F));
@@ -250,9 +255,19 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
                          const auto node = segment.more ? segment.parent : segment.row.node;
                          const auto destination =
                              node == 0 ? data_->root : data_->root / data_->relative_path(node);
-                         if (segment.more || segment.row.directory)
+                         if (segment.more || segment.row.directory) {
                              navigate(destination);
-                         else {
+                             if (segment.more) {
+                                 const auto found =
+                                     std::ranges::find(rows_, segment.row.node, &Row::node);
+                                 if (found != rows_.end()) {
+                                     const auto index =
+                                         static_cast<std::size_t>(found - rows_.begin());
+                                     requested_scroll_ = static_cast<float>(index) * 44;
+                                     focus_ = std::format("row:{}", index);
+                                 }
+                             }
+                         } else {
                              navigate(destination.parent_path());
                              const auto found = std::ranges::find(rows_, node, &Row::node);
                              if (found != rows_.end()) {
@@ -267,7 +282,7 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
         }
         // Files are recognisable native MIME icons, folders use the same folder icon as the
         // browser. Only draw when there is real arc space; the list labels every entry.
-        if (segment.level == 0 && shape.sweep * r >= 32 && shape.outer - shape.inner >= 30) {
+        if (shape.sweep * r >= 32 && shape.outer - shape.inner >= 30) {
             const auto type = segment.row.directory ? fs::MimeDatabase::kDirectory
                                                     : mime.by_name(segment.row.label).mime;
             if (segment.more)
@@ -275,7 +290,10 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
                            palette.on_surface.with_alpha(segment.opacity));
             else {
                 const float label_width = std::min(100.0F, (shape.outer - shape.inner) * 0.8F);
-                const bool labelled = label_width >= 52 && shape.sweep * r >= 100;
+                const float name_width =
+                    renderer.fonts().layout(segment.row.label, 11, renderer.scale()).width /
+                    renderer.scale();
+                const bool labelled = label_width >= name_width && shape.sweep * r >= 100;
                 icons.draw_file(renderer, mime.name(type), fs::icon_name(mime, type), px - 12,
                                 py - (labelled ? 22 : 12), 24,
                                 palette.on_surface.with_alpha(segment.opacity));
@@ -342,34 +360,11 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
         icons.draw(renderer, "chevron-up", cx - 8, cy - 8, 16, muted);
     if (can_up())
         controls_.push_back({"iris-up", {cx - 12, cy - 12, 24, 24}, [this] { up(); }, hub});
-    // Explicit ancestor controls explain the context rings and remain available by keyboard.
-    if (!ancestors.empty()) {
-        const float chip_width =
-            std::min(160.0F, bounds.width / static_cast<float>(ancestors.size()));
-        for (std::size_t i = 0; i < ancestors.size(); ++i) {
-            const auto parent = ancestors[i];
-            const auto destination =
-                parent == 0 ? data_->root : data_->root / data_->relative_path(parent);
-            const auto label = destination.filename().empty() ? destination.string()
-                                                              : destination.filename().string();
-            const ui::Rect chip{bounds.x + static_cast<float>(i) * chip_width, bounds.y,
-                                chip_width - 4, 26};
-            const auto id = std::format("iris-parent:{}", i);
-            icons.draw(renderer, "chevron-up", chip.x + 4, chip.y + 5, 14, muted);
-            renderer.draw_text(label, chip.x + 22, chip.y + 5, 12, muted, chip.width - 26,
-                               ui::Ellipsis::middle);
-            if (focus_ == id || hover_ == id)
-                renderer.draw_box(chip, {.fill = palette.primary.with_alpha(0.06F),
-                                         .border_width = 1,
-                                         .border = palette.primary});
-            controls_.push_back({id, chip, [this, destination] { navigate(destination); }});
-        }
-    }
     const IrisSegment* detail = nullptr;
     for (const auto& segment : iris_target_) {
         const auto id = segment.level == 0 ? (segment.more ? std::string{"iris-more"}
                                                            : std::format("tile:{}", segment.index))
-                                           : "iris-context:" + segment.key;
+                                           : "iris-node:" + segment.key;
         if (hover_ == id || focus_ == id ||
             (segment.level == 0 && !segment.more &&
              hover_ == std::format("row:{}", segment.index))) {
@@ -383,7 +378,7 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
                 detail = &segment;
                 break;
             }
-    const float caption_y = bounds.bottom() - 44;
+    const float caption_y = bounds.bottom() - 112;
     if (detail) {
         auto amount = bytes_ ? format_size(detail->row.bytes)
                              : i18n::trn("{} file", "{} files", detail->row.files);
@@ -393,14 +388,15 @@ void InsightsView::draw_iris(ui::Renderer& renderer, ui::Rect bounds, const them
                            bounds.width - 16, ui::Ellipsis::middle);
         renderer.draw_text(amount, bounds.x + 8, caption_y + 22, 12, muted, bounds.width - 16);
     } else {
-        renderer.draw_text(iris_target_.empty()
-                               ? (loading_ ? i18n::tr("No files measured yet")
-                                           : i18n::tr("No area for zero values"))
-                               : i18n::tr("Inner ring: contents · Outer rings: parents"),
+        renderer.draw_text(iris_target_.empty() ? (loading_ ? i18n::tr("No files measured yet")
+                                                            : i18n::tr("No area for zero values"))
+                                                : i18n::tr("Outer rings show deeper folders"),
                            bounds.x + 8, caption_y, 12, muted, bounds.width - 16);
         renderer.draw_text(i18n::tr("Select a segment to explore · Centre goes up"), bounds.x + 8,
                            caption_y + 22, 12, muted, bounds.width - 16);
     }
+    draw_legend(renderer, {bounds.x + 8, bounds.bottom() - 58, bounds.width - 16, 48}, palette,
+                mime);
     renderer.pop_clip();
 }
 }  // namespace rummage::views

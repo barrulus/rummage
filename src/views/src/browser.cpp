@@ -421,7 +421,7 @@ std::vector<std::string> Browser::tab_titles() const {
         const std::shared_ptr<Folder> folder =
             each->mode == Mode::details ? each->details.root_folder() : folder_of(*each);
         if (each->insights.is_open()) {
-            titles.push_back(std::format("{} · {}", i18n::tr("Folder insights"),
+            titles.push_back(std::format("{} · {}", i18n::tr("Insights"),
                                          each->insights.current_path().filename().string()));
         } else if (!folder) {
             titles.emplace_back();
@@ -2378,7 +2378,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
         true, count == 1);
     if (!picker_mode_ && count == 1 && cursor && cursor->is_directory() && !folder->is_archive())
-        add("folder_insights", "Folder insights…", keys_for(Command::folder_insights),
+        add("folder_insights", "Insights…", keys_for(Command::folder_insights),
             [this, path = folder->path_of(*cursor)] { show_insights(path); });
     for (auto& item : action_items(action_context(folder))) {
         items.push_back(std::move(item));
@@ -2490,7 +2490,7 @@ std::vector<MenuItem> Browser::folder_menu() {
     if (!picker_mode_ && shown && !shown->is_archive() && !shown->is_trash()) {
         MenuItem insights;
         insights.id = "folder_insights";
-        insights.label = i18n::tr("Folder insights…");
+        insights.label = i18n::tr("Insights…");
         insights.keys = keys_for(Command::folder_insights);
         insights.action = [this, path = shown->path()] { show_insights(path); };
         items.push_back(std::move(insights));
@@ -3533,14 +3533,11 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         const float view_width = std::max(60.0F, width_of(i18n::tr("View")) + 20.0F);
         float view_right = area().settings_bounds.x - 6;
         const auto folder = current_folder();
+        const float insights_width = width_of(i18n::tr("Insights")) + 20;
         if (!picker_mode_ && folder && !folder->is_archive() && !folder->is_trash() &&
-            view_right - field_x >= view_width + 6 + 34 + 8 + 48) {
-            const float label = width_of(i18n::tr("Folder insights")) + 44;
-            const float width =
-                bounds.width >= 600 && view_right - field_x >= view_width + 6 + label + 8 + 120
-                    ? label
-                    : 34.0F;
-            area().insights_bounds = {view_right - width, bounds.y + 6, width, 32};
+            view_right - field_x >= view_width + 6 + insights_width + 8 + 48) {
+            area().insights_bounds = {view_right - insights_width, bounds.y + 6, insights_width,
+                                      32};
             view_right = area().insights_bounds.x - 6;
         }
         area().view_menu_bounds = {view_right - view_width, bounds.y + 6, view_width, 32};
@@ -3606,10 +3603,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
             box, {.fill = active ? palette.primary_container : palette.surface_container_highest,
                   .radius = {}});
         const auto ink = active ? palette.on_primary_container : palette.on_surface;
-        icons.draw(renderer, "aperture", box.x + 8, box.y + 7, 18, ink);
-        if (box.width > 34)
-            text_in(i18n::tr("Folder insights"), {box.x + 34, box.y, box.width - 42, box.height},
-                    ink);
+        text_in(i18n::tr("Insights"), {box.x + 10, box.y, box.width - 20, box.height}, ink);
     }
     if (!area().sort_bounds.empty())
         button(area().sort_bounds, "Sort By");

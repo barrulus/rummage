@@ -50,10 +50,10 @@ FUSE folders are skipped (“—” when nothing could be counted); local fusebl
 such as NTFS and exFAT are counted. Sizes reflect the tree when it was measured;
 changes deep inside it may require selecting it again to recount.
 
-## Folder insights
+## Insights
 
-Use **Folder insights** between **View** and the settings cog (a circular aperture
-icon in narrow panes), press **Ctrl+Alt+I**, choose **Folder insights…** from the
+Use the text-only **Insights** button between **View** and the settings cog,
+press **Ctrl+Alt+I**, or choose **Insights…** from the
 command palette or a folder's context menu, or use the information-pane button. A single selected
 folder is inspected; otherwise the current folder is used. This view is available
 for local folders in the browser, outside Trash, archives and file-picker mode.
@@ -63,18 +63,34 @@ its × or Ctrl+W. Choosing a Place or bookmark while insights is active recentre
 the graphs on that folder. The information/preview pane is hidden in insights,
 leaving the full content width for graphs and file results.
 
-- **File types** groups regular files by filename extension, ignoring ASCII case.
+The view and size selectors are segmented controls. Subfolders and Hidden files
+use visual switches. Controls share one row where space allows and wrap in narrow
+panes. Numeric columns are right-aligned with fixed-width digits. Proportional
+row fills make quantities comparable without relying on tiny underlines.
+
+Map, Iris and file-type results use a consistent category palette and legend for
+folders, documents, code, images, audio, video, archives and other files. Age uses
+an ordered colour scale. Hover links chart segments and their rows in both
+directions. Tiny map entries share a More tile; labels that cannot fit are hidden,
+with the full name and amount shown in the chart's hover caption. The list remains
+scrollable, with a total item count rather than page navigation.
+
+- **Types** groups regular files by filename extension, ignoring ASCII case.
   PDF, DOC, DOCX and MD remain separate; common compound archive suffixes such as
   `.tar.gz` stay together. Extensionless files have their own row. This classifies
   names without reading file contents; it does not verify the actual format.
-- **File count / File size** changes ordering, proportions and treemap areas using
+  With more than twelve types, the overview retains up to twelve leading types
+  contributing at least 1% of the active measure and groups the remainder into
+  **Other**. Select Other to browse all its types, then a type to see its files.
+  No files or measured bytes are discarded by grouping.
+- **Size by: Size / Count** changes ordering, proportions and treemap areas using
   the same scan. File size is selected initially. Click any table-column header to
   sort it; click again to reverse the direction. **Sort By** offers the same columns
   and ascending/descending options. Source columns include Files, Lines, Code,
   Comments and Blanks; embedded languages stay grouped with their parent. Sorting
   preserves the selected file. Wide type tables show percentages
   of the current scope (of the files counted so far when incomplete).
-- **Include subfolders** and **Hidden files** define the scan scope. Hidden files
+- **Subfolders** and **Hidden files** define the scan scope. Hidden files
   initially follow the browser's setting. Changing either option starts a new scan.
 - Select a type to list its exact matches. Single-click a matching file to select
   it in place.
@@ -82,31 +98,30 @@ leaving the full content width for graphs and file results.
   menu, copy/cut commands, drag-out and F2 inline rename act on that file without
   leaving insights. Ctrl/Shift selection and Ctrl+A operate on results in the
   selected file’s parent folder, as in the expandable details view.
-  **Space map** shows immediate children weighted by their total
+  **Map** shows immediate children weighted by their total
   file count or size; select a folder to drill into it. The accompanying scrollable
   list also includes zero-sized entries and items too small to label on the map.
   Colored tiles represent folders; files use their file-type icons. Selecting a
   file selects it in place; double-click opens it. Icon sizes are capped for
   readability; use the size labels and list bars for exact comparisons.
-- **Iris** is a circular view inspired by [Luciole](https://github.com/Excelsies/luciole).
-  The inner ring shows the current folder's immediate entries, weighted by file
-  count or size. Up to three thinner outer rings show the contents of scanned
-  parent folders, with the route to the current folder highlighted. These rings
-  show ancestors, not deeper descendants. The centre goes **Up**; the parent
-  labels above the chart jump directly to those folders. Above the scan root,
-  navigation starts a new scan rather than inventing proportions for unscanned folders.
-  Select a folder segment to drill in. Files use their normal icons and actions;
-  hover a segment or its list row for its name and amount. Small entries share a
-  **More** segment that scrolls to the first grouped entry in the full list.
-  Zero-valued entries remain in the list without being assigned artificial area.
-  Sorting changes the list; the graph keeps a stable order by its active measure.
-  Filtering narrows the inner ring; parent rings retain their full scanned context.
-  Ring transitions animate navigation and measure changes, respecting the app's
-  motion and reduced-motion settings. Partial scans show only measured proportions.
-- **Largest files** ranks individual files across the scope by logical size, with
+- **Iris** is a sunburst inspired by [Luciole](https://github.com/Excelsies/luciole).
+  The centre is the current folder and goes **Up** when clicked. Three rings show
+  children, grandchildren and great-grandchildren: every child stays inside its
+  parent's angular span. File branches end where the file appears. Size or count
+  controls the angles; unmeasured folders and zero values get no invented area.
+  Select a folder at any depth to drill in. Selecting a deeper file brings its
+  containing folder and file selection into the same insights tab.
+  The graph caps individual segments and combines tiny portions into **More**;
+  selecting More brings the remaining entries into the scrollable list. Charts
+  keep metric order when the list is sorted. Filtering selects the top-level
+  branches and includes their descendants. The diagram is bounded to 256 segments;
+  drill down to explore branches beyond its three displayed levels or segment budget.
+  Navigation and measure changes animate with the app's motion and reduced-motion
+  settings. Partial scans show only measured proportions.
+- **Largest** ranks individual files across the scope by logical size, with
   proportional bars and relative paths. Select one to inspect it or use its normal
   file actions.
-- **Modified age** groups file modification times into the last 24 hours, 1–7 days,
+- **Age** groups file modification times into the last 24 hours, 1–7 days,
   7–30 days, 30–365 days, over a year, and future dates. These are elapsed periods
   relative to the scan time, not calendar dates. Switch between count and size;
   select a group to list its files.

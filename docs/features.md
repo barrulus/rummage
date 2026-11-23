@@ -23,10 +23,11 @@ unlocking are not implemented. Local bookmarks can be renamed, repointed and
 reordered. Name sorting is natural and ASCII
 case-insensitive, not locale collation.
 
-## Folder insights
+## Insights
 
-[Folder insights](usage.md#folder-insights) groups files by extension and maps
-folders by file count or size. Largest-file and modification-age graphs reveal
+[Insights](usage.md#insights) groups files by extension and maps
+folders by file count or size. Iris shows three descendant levels as a sunburst,
+with category colours shared across charts and results. Largest-file and modification-age graphs reveal
 where space is used and how recently files changed. Optional Tokei source analysis
 shows language, code, comment and blank-line statistics, including embedded code.
 Explore these views in a dedicated tab with full-width graphs, a folder dropdown

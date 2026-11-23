@@ -108,7 +108,7 @@ std::vector<PaletteItem> Browser::palette_items() {
         command(Command::properties, "properties", "Properties…");
 
     if (editable && !picker_mode_)
-        command(Command::folder_insights, "folder_insights", "Folder insights…");
+        command(Command::folder_insights, "folder_insights", "Insights…");
 
     if (editable && !names.empty()) {
         if (!picker_mode_)

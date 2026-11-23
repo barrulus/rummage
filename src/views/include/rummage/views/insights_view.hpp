@@ -29,10 +29,28 @@ namespace rummage::views {
                                                           float x, float y, float inner,
                                                           float outer);
 
+struct InsightSlice {
+    std::size_t node{0}, parent{0}, depth{0}, grouped{0}, first{0};
+    float start{0}, sweep{0};
+    std::uint64_t files{0}, bytes{0};
+    bool partial{false};
+};
+
+// Three descendant levels. A child occupies its parent's angular span; files terminate a branch.
+[[nodiscard]] std::vector<InsightSlice> insight_sunburst(const fs::InsightSnapshot& snapshot,
+                                                         const std::vector<std::size_t>& roots,
+                                                         bool bytes);
+
+enum class InsightCategory { folders, documents, code, images, audio, video, archives, other };
+[[nodiscard]] InsightCategory insight_category(std::string_view name, bool directory,
+                                               const fs::MimeDatabase& mime);
+[[nodiscard]] ui::Color insight_color(InsightCategory category);
+
 class InsightsView {
 public:
     enum class View {
         types,
+        other_types,
         space,
         iris,
         matches,
@@ -47,7 +65,7 @@ public:
         std::string label{}, extension{};
         std::size_t node{0};
         std::uint64_t files{0}, bytes{0};
-        bool directory{false}, partial{false};
+        bool directory{false}, partial{false}, other{false};
         platform::CodeCounts code{};
         std::filesystem::path path{};
         std::size_t depth{0};
@@ -195,9 +213,26 @@ private:
     void rebuild_tree();
     void choose_tree(std::size_t index);
 
+    [[nodiscard]] bool chart_hover(std::size_t index) const;
+    void draw_map(ui::Renderer&, ui::Rect, const theme::Palette&, ui::IconSet&,
+                  const fs::MimeDatabase&);
+    [[nodiscard]] ui::Color row_color(const Row&, const theme::Palette&,
+                                      const fs::MimeDatabase&) const;
+    void draw_legend(ui::Renderer&, ui::Rect, const theme::Palette&, const fs::MimeDatabase&) const;
     void draw_iris(ui::Renderer&, ui::Rect, const theme::Palette&, ui::IconSet&,
                    const fs::MimeDatabase&, ui::Scroller::Clock::time_point);
     void invalidate_iris();
+
+    struct MapLayout {
+        std::vector<std::size_t> shown;
+        std::vector<double> weights;
+        Row more;
+        std::size_t grouped{0}, first{0};
+        ui::Rect bounds{};
+        bool dirty{true};
+    };
+
+    MapLayout map_layout_;
 
     struct IrisSegment {
         std::string key;
@@ -205,7 +240,7 @@ private:
         ui::AnnularSector shape;
         std::size_t index{0}, parent{0}, level{0};
         float opacity{1};
-        bool more{false}, on_path{false};
+        bool more{false};
     };
 
     std::vector<IrisSegment> iris_target_, iris_from_, iris_painted_;
