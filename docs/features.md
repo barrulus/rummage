@@ -23,6 +23,12 @@ unlocking are not implemented. Local bookmarks can be renamed, repointed and
 reordered. Name sorting is natural and ASCII
 case-insensitive, not locale collation.
 
+## Folder insights
+
+[Folder insights](usage.md#folder-insights) groups files by extension and maps
+folders by file count or size. Drill into folders or reveal matching files, with
+explicit partial results when scans reach their limits.
+
 ## Files and external applications
 
 - Copy/move with progress, cancellation and conflict choices; rename and create from templates.

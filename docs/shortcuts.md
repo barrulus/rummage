@@ -84,6 +84,7 @@ selection gestures are covered in [Using rummage](usage.md#navigate-and-select).
 
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
+| Ctrl+Alt+I | Folder insights: file types and space map | `folder_insights` |
 | Alt+Enter | Properties / folder icon selection | `properties` |
 | F2 | Rename; Batch Rename with several entries selected | `rename` |
 | Ctrl+Shift+N | New folder | `new_folder` |

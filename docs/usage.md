@@ -50,6 +50,61 @@ FUSE folders are skipped (“—” when nothing could be counted); local fusebl
 such as NTFS and exFAT are counted. Sizes reflect the tree when it was measured;
 changes deep inside it may require selecting it again to recount.
 
+## Folder insights
+
+Press **Ctrl+Alt+I**, choose **Folder insights…** from the command palette or a
+folder's context menu, or use the button in the information pane. A single selected
+folder is inspected; otherwise the current folder is used. This view is available
+for local folders in the browser, outside Trash, archives and file-picker mode.
+
+- **File types** groups regular files by filename extension, ignoring ASCII case.
+  PDF, DOC, DOCX and MD remain separate; common compound archive suffixes such as
+  `.tar.gz` stay together. Extensionless files have their own row. This classifies
+  names without reading file contents; it does not verify the actual format.
+- **File count / File size** changes ordering, proportions and treemap areas using
+  the same scan. File size is selected initially. Wide type tables show percentages
+  of the current scope (of the files counted so far when incomplete).
+- **Include subfolders** and **Hidden files** define the scan scope. Hidden files
+  initially follow the browser's setting. Changing either option starts a new scan.
+- Select a type to list its exact matches. Select a matching file to reveal it in
+  the browser, clearing the filename filter and showing hidden files if needed.
+  **Space map** shows immediate children weighted by their total
+  file count or size; select a folder to drill into it. The accompanying paginated
+  list also includes zero-sized entries and items too small to label on the map.
+  Colored tiles represent folders; files use their file-type icons. Selecting a
+  file reveals it in the browser. Icon sizes are capped for readability; use the
+  size labels and list bars for exact comparisons.
+- **Back**, **Backspace**, or **Alt+Left** retraces your visits, including type matches.
+  **Up** or **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an
+  ancestor; the ellipsis reaches ancestors that do not fit. **Show folder** opens
+  the inspected folder in the browser. **Tab**, **Shift+Tab**, arrows and **Enter**
+  operate controls and visible rows; **Page Up/Down**, the wheel, or
+  **Previous/Next** pages through results. **Escape** returns from matches to types,
+  then closes the view.
+
+Closing and reopening insights for the same starting folder restores the last
+location, view, measurement, page and scan options during the current app session,
+then scans again for fresh data. Opening a different folder starts there, keeping
+the preferred view and measurement; hidden files initially follow the browser.
+
+File sizes are logical bytes summed **per filename**, including every hard-link
+name. They are not allocated space on disk and can differ from the information
+pane's deduplicated total. Symbolic links, including a linked scan root, are not
+followed. Hidden files are included only when enabled; sockets, devices and pipes
+never contribute to regular-file totals.
+
+Scans run on a worker, stay on one filesystem, and stop at 200,000 examined entries,
+32 MiB of names, 64 directory levels or 30 seconds between filesystem calls.
+Folders are discovered breadth-first, so a deep tree does not hide its siblings.
+Unreadable or skipped folders and stopped/limited scans are explicitly partial.
+The map shows measured files only; unmeasured folders remain in the list as
+**Unknown**, rather than appearing to be empty. Select a partial folder to scan
+that smaller scope with a fresh budget.
+**Stop** retains the partial result; closing cancels outstanding work. Network and
+FUSE roots are skipped, except local fuseblk disks. Charts are snapshots, not live
+filesystem monitors: use **Refresh** after changes. Refreshing a nested scope keeps
+Back available. The filename filter in the browser does not restrict these scans.
+
 ## Choose a view
 
 | View | Shortcut | Behavior |
