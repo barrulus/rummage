@@ -1375,14 +1375,20 @@ TEST_CASE("insights: sunburst descendants stay inside their parent's angular spa
     for (auto node = std::size_t{1}; node < snapshot.nodes[0].end; node = snapshot.nodes[node].end)
         roots.push_back(node);
     for (bool bytes : {true, false}) {
+        CAPTURE(bytes);
         const auto slices = rummage::views::insight_sunburst(snapshot, roots, bytes);
         CHECK(slices.size() <= 256);
         bool saw_depth_two = false;
+        bool saw_empty = false;
         float total = 0;
         for (const auto& slice : slices) {
             CHECK(slice.depth < 3);
             CHECK(slice.sweep > 0);
-            CHECK(snapshot.nodes[slice.node].name != "empty");
+            if (snapshot.nodes[slice.node].name == "empty") {
+                saw_empty = true;
+                CHECK(slice.bytes == 0);
+                CHECK(slice.files == 1);
+            }
             if (slice.depth == 0)
                 total += slice.sweep;
             else {
@@ -1400,6 +1406,8 @@ TEST_CASE("insights: sunburst descendants stay inside their parent's angular spa
                 saw_depth_two = saw_depth_two || slice.depth == 2;
             }
         }
+        // An empty file contributes no bytes, but still counts as one file.
+        CHECK(saw_empty == !bytes);
         CHECK(saw_depth_two);
         CHECK(total == doctest::Approx(2 * std::numbers::pi_v<float>));
     }
