@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <stdexcept>
 #include <vector>
@@ -447,4 +448,38 @@ TEST_CASE(
     CHECK(top != render());
     dialog.key({.keysym = XKB_KEY_Escape, .text = {}});
     CHECK_FALSE(dialog.is_open());
+}
+
+TEST_CASE("renderer: annular sectors keep transparent holes and wrap beyond a half turn") {
+    for (const float scale : {1.0F, 1.5F, 2.0F}) {
+        CAPTURE(scale);
+        const int size = static_cast<int>(128 * scale);
+        const auto gl = offscreen(size, size);
+        REQUIRE(gl);
+        ui::FontSystem fonts;
+        ui::Renderer renderer{fonts};
+        renderer.begin_frame(size, size, scale, ui::Color::rgb(0x000000));
+        // Three clockwise quadrants, from top through right and bottom to left.
+        renderer.draw_sector(
+            {64, 64, 20, 50, -std::numbers::pi_v<float> / 2, 3 * std::numbers::pi_v<float> / 2},
+            ui::Color::rgb(0xFF0000));
+        // An ordinary box afterwards verifies that sector parameters don't leak across draws.
+        renderer.fill_rect({1, 1, 8, 8}, ui::Color::rgb(0x00FF00));
+        renderer.end_frame();
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(size * size * 4));
+        glReadPixels(0, 0, size, size, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        const auto channel = [&](float x, float y, std::size_t c) {
+            const auto px = static_cast<int>(x * scale);
+            const auto py = size - 1 - static_cast<int>(y * scale);
+            return pixels[static_cast<std::size_t>((py * size + px) * 4) + c];
+        };
+        CHECK(channel(64, 64, 0) == 0);   // Hole.
+        CHECK(channel(120, 64, 0) == 0);  // Outside.
+        CHECK(channel(39, 39, 0) == 0);   // Missing upper-left quadrant.
+        CHECK(channel(89, 39, 0) > 250);
+        CHECK(channel(89, 89, 0) > 250);
+        CHECK(channel(39, 89, 0) > 250);
+        CHECK(channel(4, 4, 1) > 250);
+        CHECK(glGetError() == GL_NO_ERROR);
+    }
 }

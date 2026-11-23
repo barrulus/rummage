@@ -29,6 +29,8 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Anneau intérieur : contenu · Extérieurs : dossiers parents"
+"Select a segment to explore · Centre goes up" = "Sélectionnez un segment · Le centre remonte au parent"
 "Changed files skipped: {}" = "Fichiers modifiés ignorés : {}"
 "Close the quoted search text" = "Fermez les guillemets du texte recherché"
 "Content limit reached (512 MiB)" = "Limite de contenu atteinte (512 MiB)"

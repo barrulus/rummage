@@ -3888,6 +3888,9 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
 void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, ui::IconSet& icons, Clock::time_point now) {
     if (pane().insights.is_open()) {
+        pane().insights.set_iris_motion(motion_.config().enabled && !motion_.reduced()
+                                            ? 0.28F * motion_.config().duration_scale
+                                            : 0);
         pane().insights.draw(renderer, bounds, palette, icons, *mime_, now);
         return;
     }

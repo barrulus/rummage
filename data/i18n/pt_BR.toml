@@ -21,6 +21,8 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Anel interno: conteúdo · Externos: pastas superiores"
+"Select a segment to explore · Centre goes up" = "Selecione um segmento para explorar · O centro sobe"
 "Changed files skipped: {}" = "Arquivos alterados ignorados: {}"
 "Close the quoted search text" = "Feche as aspas do texto de pesquisa"
 "Content limit reached (512 MiB)" = "Limite de conteúdo atingido (512 MiB)"

@@ -33,6 +33,8 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Innenring: Inhalt · Außenringe: übergeordnete Ordner"
+"Select a segment to explore · Centre goes up" = "Segment zum Erkunden wählen · Mitte führt nach oben"
 "Changed files skipped: {}" = "Geänderte Dateien übersprungen: {}"
 "Close the quoted search text" = "Anführungszeichen im Suchtext schließen"
 "Content limit reached (512 MiB)" = "Inhaltslimit erreicht (512 MiB)"

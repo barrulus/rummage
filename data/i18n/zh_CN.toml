@@ -21,6 +21,8 @@ Menu = "菜单"
 moves = "移动"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "内环：内容 · 外环：上级文件夹"
+"Select a segment to explore · Centre goes up" = "选择扇区以浏览 · 点击中心返回上级"
 "Changed files skipped: {}" = "已跳过更改的文件：{}"
 "Close the quoted search text" = "请闭合搜索文本的引号"
 "Content limit reached (512 MiB)" = "已达到内容上限（512 MiB）"

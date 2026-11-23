@@ -20,6 +20,8 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "内側のリング：内容 · 外側のリング：親フォルダー"
+"Select a segment to explore · Centre goes up" = "セグメントを選択して探索 · 中央で上の階層へ"
 "Changed files skipped: {}" = "変更されたためスキップしたファイル: {}"
 "Close the quoted search text" = "検索テキストの引用符を閉じてください"
 "Content limit reached (512 MiB)" = "内容の上限に達しました (512 MiB)"
