@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <iterator>
@@ -81,6 +82,17 @@ struct Fixture {
         const auto out = dir.path / name;
         fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archives" / fixture, out);
         return out;
+    }
+
+    fs::path split_seven_zip(const std::string& fixture, const std::string& name) {
+        const auto data = read(fs::path{RUMMAGE_TEST_DATA} / "archives" / fixture);
+        constexpr std::size_t part_size = 64;
+        REQUIRE(data.size() > part_size);
+        // 7-Zip volumes are consecutive slices of the original archive byte stream.
+        for (std::size_t offset = 0; offset < data.size(); offset += part_size)
+            dir.write(name + std::format(".{:03}", offset / part_size + 1),
+                      std::string_view{data}.substr(offset, part_size));
+        return dir.path / (name + ".001");
     }
 
     bool until(const std::function<bool()>& ready) {
@@ -403,6 +415,84 @@ TEST_CASE("archives: encrypted ZIP RAR and 7z prompt and retry without File Roll
             CHECK(fs::exists(archive));
             CHECK_FALSE(fs::exists(f.dir.path / "secret*[1] 'quoted' (extracting)"));
         }
+    }
+}
+
+TEST_CASE("archives: split 7z volumes extract with and without passwords") {
+    for (const auto* fixture :
+         {"sample.7z", "encrypted-content.7z", "encrypted-headers.7z", "encrypted-unicode.7z"}) {
+        for (const bool here : {false, true}) {
+            Fixture f;
+            if (!f.install("7z"))
+                return;
+            CAPTURE(std::string{fixture});
+            CAPTURE(here);
+            const bool encrypted = std::string_view{fixture} != "sample.7z";
+            const std::string name = "release*[1]? 'quoted'";
+            const auto first = f.split_seven_zip(fixture, name + (here ? ".7z" : ".7Z"));
+            f.dir.write("release-other1x 'quoted'.7z.002", "unrelated");
+            const auto destination = here ? f.dir.path : f.destination;
+            unsigned prompts = 0;
+            ActionHandoff handoff{
+                f.loop, f.environment, f.report(), {}, [&](const auto&, auto done) {
+                    done(destination);
+                }};
+            handoff.set_password_prompt([&](const auto& path, bool retry, auto done) {
+                CHECK(path == first);
+                CHECK(retry == (prompts != 0));
+                CHECK_FALSE(fs::exists(destination / (name + " (extracting)")));
+                REQUIRE(++prompts <= 2);
+                done(prompts == 1 ? "wrong"
+                                  : (std::string_view{fixture} == "encrypted-unicode.7z"
+                                         ? "päss 🔒 archive test"
+                                         : "archive test"));
+            });
+            handoff.run(
+                registered_action(here ? "extract_here" : "extract_to"),
+                {.directory = f.dir.path, .targets = {{first, "application/x-7z-compressed"}}});
+            REQUIRE(f.wait());
+            INFO((f.errors.empty() ? "" : f.errors.front()));
+            REQUIRE(f.errors.empty());
+            CHECK(prompts == (encrypted ? 2 : 0));
+            CHECK(read(destination / name / (encrypted ? "message.txt" : "folder/message.txt")) ==
+                  "archive payload\n");
+            CHECK(fs::exists(first));
+            CHECK_FALSE(fs::exists(destination / (name + " (extracting)")));
+        }
+    }
+}
+
+TEST_CASE("archives: split 7z missing volumes and cancellation publish no output") {
+    for (const bool cancel : {false, true}) {
+        Fixture f;
+        if (!f.install("7z"))
+            return;
+        const auto first =
+            f.split_seven_zip(cancel ? "encrypted-headers.7z" : "sample.7z", "split.7z");
+        if (!cancel)
+            REQUIRE(fs::remove(f.dir.path / "split.7z.002"));
+        ActionHandoff handoff{f.loop, f.environment, f.report()};
+        unsigned prompts = 0;
+        handoff.set_password_prompt([&](const auto&, bool, auto done) {
+            CHECK(cancel);
+            ++prompts;
+            done(std::nullopt);
+        });
+        handoff.run(
+            registered_action("extract_here"),
+            {.directory = f.destination, .targets = {{first, "application/x-7z-compressed"}}});
+        REQUIRE(f.until([&] { return !f.errors.empty() || !f.messages.empty(); }));
+        CHECK(prompts == (cancel ? 1 : 0));
+        if (cancel) {
+            CHECK(f.errors.empty());
+            REQUIRE(f.messages.size() == 1);
+            CHECK(f.messages.front().starts_with("Extraction cancelled:"));
+        } else {
+            REQUIRE(f.errors.size() == 1);
+            CHECK(f.errors.front().find(first.string()) != std::string::npos);
+        }
+        CHECK(fs::is_empty(f.destination));
+        CHECK(fs::exists(first));
     }
 }
 
