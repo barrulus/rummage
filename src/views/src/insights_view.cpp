@@ -269,9 +269,10 @@ void InsightsView::finish_rows() {
     }
     if (name_order_ && view_ != View::languages)
         std::ranges::stable_sort(rows_, {}, &Row::label);
-    if (!filter_.empty())
-        std::erase_if(rows_,
-                      [this](const Row& row) { return !fs::matches_name(row.label, filter_); });
+    if (!filter_.empty()) {
+        const fs::NamePattern pattern{filter_};
+        std::erase_if(rows_, [&pattern](const Row& row) { return !pattern.matches(row.label); });
+    }
 }
 
 void InsightsView::set_filter(std::string query) {

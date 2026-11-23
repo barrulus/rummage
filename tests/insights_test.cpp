@@ -863,6 +863,14 @@ TEST_CASE(
     browser.set_name_filter("other");
     REQUIRE(view.rows().size() == 1);
     CHECK(view.rows()[0].label == "other.md");
+    browser.set_name_filter("re:^other\\.md$");
+    REQUIRE(view.rows().size() == 1);
+    CHECK(view.rows()[0].label == "other.md");
+    browser.set_name_filter("re:[");
+    REQUIRE(view.rows().size() == 1);  // Invalid input preserves the last valid filter.
+    CHECK(view.rows()[0].label == "other.md");
+    browser.set_name_filter("case:glob:OTHER.*");
+    CHECK(view.rows().empty());
     browser.set_name_filter({});
     view.select_row(row(view, "other.md"));
     REQUIRE(until(loop, [&] { return !view.loading(); }));

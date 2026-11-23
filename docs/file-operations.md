@@ -80,14 +80,52 @@ restores the links. This action is unavailable in Trash, archives and file picke
 
 Select several entries and press **F2**, or choose **Batch Rename…** in the context
 menu or command palette. The dialog previews old and new names as you type.
-**Find** and **Replace** perform case-sensitive literal replacement in the name
-without its final extension. The template then uses `{name}` for that result,
-`{ext}` for the original extension including its dot, and `{n}` for a number.
-Folder names are kept whole and have no extension token.
+Choose **Target: Basename**, **Extension** (without its dot), or **Whole name**.
+The dialog applies Find/Replace first, then the character edit, then case conversion,
+then the template. Folder names and leading-dot names such as `.profile` have no
+extension. Extension-only edits leave directory names unchanged. Removing an
+extension also removes its delimiter dot.
+
+**Find: Literal** performs case-sensitive literal replacement. Switch to **Find: Regex**
+for [RE2 expressions](https://github.com/google/re2/wiki/Syntax). For example, find
+`^IMG_([0-9]+)$` and replace with `Photo-\1` to turn `IMG_123.JPG` into `Photo-123.JPG`.
+`\0` inserts the whole match, `\1`–`\9` insert capture groups, and `\\` inserts a
+backslash. Inline `(?i)` enables case-insensitive matching. An empty Find disables
+replacement. Invalid patterns or capture references disable Rename; lookaround and
+pattern backreferences are unsupported. Regex compilation is bounded and matching
+does not backtrack.
+
+**Position (from 0)** and **Remove characters** choose a range in the selected
+target; **Insert text** replaces that range. Position 0 inserts at the beginning;
+a position beyond the end appends. For `aé😀z.txt`, position 1, removal 2 and insertion
+`新` produces `a新z.txt`. Positions count Unicode scalar values, not bytes or grapheme
+clusters: combining marks are separate positions. Invalid UTF-8 bytes count as one
+position each and otherwise remain unchanged.
+
+The **Case** control offers unchanged, lower, upper and title case for ASCII letters.
+Non-ASCII characters are preserved, and no normalization is performed. For example,
+lowercase on the basename turns `PHOTO.JPG` into `photo.JPG`; on the whole name it
+produces `photo.jpg`. Title case capitalizes ASCII words separated by punctuation
+or spaces.
+
+| Template token | Value |
+| --- | --- |
+| `{name}` | Transformed basename |
+| `{ext}` | Transformed extension including its dot |
+| `{n}` | Sequence number with the chosen padding |
+| `{date}`, `{time}` | UTC date (`YYYY-MM-DD`) and time (`HH-MM-SS`) when the dialog opened |
+| `{mtime}`, `{mtime_time}` | File's modification date and time in the same UTC formats |
+| `{size}` | Regular file's byte size |
+
+Metadata is a snapshot taken while preparing the preview. Missing requested metadata
+disables Rename, rather than inserting an empty value; `{size}` is unavailable for
+directories and symlinks. These are filesystem metadata tokens, not EXIF, media tags
+or darktable-sidecar metadata. The date/time used for the batch stays fixed while
+editing the preview.
 For example, `bug-report_{n}{ext}` with start 1 and padding 2 produces
 `bug-report_01.png`, `bug-report_02.png`, and so on. Numbering follows the current
-view order; sort before opening the dialog. Step must be positive. Regex is not
-supported.
+view order; sort before opening the dialog. Step must be positive. Names must fit
+within 255 bytes, and replacement/insertion fields within 255 bytes each.
 
 Recognized darktable sidecars follow their photo, including duplicate sidecars.
 Selecting them together with the photo does not consume extra numbers. The
@@ -95,7 +133,9 @@ preview includes their destination names. Invalid names, duplicate targets and
 names occupied by unrelated entries disable Rename. Changes are checked again
 when applied; files replaced since the preview are refused.
 
-Tab moves through the fields, preview and buttons. Enter applies, Escape cancels,
+Tab moves through the fields, transformation controls, preview and buttons.
+Space or Enter cycles a transformation control; Left/Right cycle backwards/forwards.
+Enter elsewhere applies, Escape cancels,
 and Page Up/Down or the wheel scrolls the preview. **Ctrl+Z** undoes the entire
 batch, including its sidecars; **Ctrl+Shift+Z** redoes it. Swaps and chains use a
 private temporary directory, and no step overwrites an existing entry. A failure
@@ -112,6 +152,31 @@ clipboard formats allow exchange with other desktop applications; only local
 file paths/URIs are accepted for transfers.
 
 Transfers run outside the UI thread, with progress and a stop button.
+**View → Verify copied contents**, or **Enable Copy Verification** in the command
+palette, enables verification for subsequent copies and moves in this window.
+It defaults to off, is not saved across restarts, and each queued transfer keeps
+the setting it was submitted with.
+
+For regular files, including nested files and sidecars, verification flushes the
+staged destination and rereads both files in bounded chunks for a byte-for-byte
+comparison. This compares the contents directly rather than comparing checksum
+digests. Copy and verification byte counts are shown separately; parallel files
+can be copying and verifying at the same time. Verification adds two reads of the
+data and a flush, which can be expensive on slow or network storage.
+
+A failed or cancelled comparison does not publish that file or replace an existing
+destination. Cross-filesystem moves retain unverified source files. Source identity,
+size and modification/change timestamps are checked, including before deletion;
+an externally changed source is reported instead of claiming success. As with other
+partial transfers, successfully completed files may remain at the destination.
+This is a consistency check through the operating system, not a guarantee against
+future media failure or changes made after the check.
+
+Same-filesystem moves remain renames and do not reread data. Symlinks copy their
+link target without following it; their referent contents are not verified.
+Archive extraction does not support this option and reports that limitation until
+verification is disabled. With verification off, existing transfer behavior is unchanged.
+
 **Shift+Escape** stops the active transfer from a file view or Quick Look; the
 command palette also offers **Stop the Transfer** while work is pending. The
 `stop_transfer` binding can be changed in Settings or `config.toml`.

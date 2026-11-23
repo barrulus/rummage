@@ -3,6 +3,7 @@ add_library(rummage_fs
     src/compress.cpp
     src/extract.cpp
     src/batch_rename.cpp
+    src/name_pattern.cpp
     src/permissions.cpp
     src/directory.cpp
     src/directory_model.cpp
@@ -28,4 +29,4 @@ add_library(rummage_fs
 add_library(rummage::fs ALIAS rummage_fs)
 
 target_include_directories(rummage_fs PUBLIC include)
-target_link_libraries(rummage_fs PUBLIC rummage::core rummage::archive PRIVATE PkgConfig::ZLIB rummage::warnings)
+target_link_libraries(rummage_fs PUBLIC rummage::core rummage::archive PRIVATE PkgConfig::ZLIB PkgConfig::RE2 rummage::warnings)

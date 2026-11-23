@@ -350,6 +350,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Text | `harfbuzz`, `freetype2`, `fontconfig` |
 | Configuration | `tomlplusplus` |
 | Source statistics JSON | `nlohmann_json >= 3.11` |
+| Filename regular expressions | `re2` |
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
 | SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |

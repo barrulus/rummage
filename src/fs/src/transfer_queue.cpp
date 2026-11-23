@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/archive_folder.hpp"
 #include "rummage/fs/compress.hpp"
 #include "rummage/fs/erase.hpp"
@@ -165,7 +166,10 @@ void TransferQueue::work() {
             case TransferKind::copy:
             case TransferKind::move:
                 if (request->from_archive) {
-                    if (request->kind == TransferKind::move)
+                    if (request->verify)
+                        result.refused =
+                            i18n::tr("Copy verification is unavailable for archive extraction");
+                    else if (request->kind == TransferKind::move)
                         result.refused = "Archive contents are read-only; copy them instead";
                     else
                         result = run_extract(*request, token, callbacks);

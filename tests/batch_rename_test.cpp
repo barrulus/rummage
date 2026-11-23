@@ -140,6 +140,155 @@ TEST_CASE("batch rename: directory names have no extension and take no photo sid
     REQUIRE(ops::rename_batch(dir.path, p.changes).error.empty());
     CHECK(fs::is_directory(dir.path / "album.2026-01"));
     CHECK(fs::exists(dir.path / "album.2026.xmp"));
+    CHECK(plan(dir, {"album.2026-01"},
+               {.target = ops::RenameOptions::Target::extension, .insert = "txt"})
+              .changes.front()
+              .to == "album.2026-01");
+}
+
+TEST_CASE("batch rename: target and ASCII case transformations preserve extensions and UTF-8") {
+    using Options = ops::RenameOptions;
+    TempDir dir;
+    dir.write("Été PHOTO.JPG", "photo");
+    auto options = Options{};
+    const auto renamed = [&] {
+        const auto result = plan(dir, {"Été PHOTO.JPG"}, options);
+        REQUIRE(result.error.empty());
+        return result.changes.front().to;
+    };
+    options.letter_case = Options::Case::lower;
+    CHECK(renamed() == "Été photo.JPG");
+    options.target = Options::Target::extension;
+    CHECK(renamed() == "Été PHOTO.jpg");
+    options.target = Options::Target::whole;
+    CHECK(renamed() == "Été photo.jpg");
+    options.letter_case = Options::Case::upper;
+    CHECK(renamed() == "ÉTé PHOTO.JPG");
+    options.letter_case = Options::Case::title;
+    CHECK(renamed() == "Été Photo.Jpg");
+    dir.write("trailing.", "x");
+    CHECK(plan(dir, {"trailing."}, {}).changes.front().to == "trailing.");
+    CHECK(plan(dir, {"trailing."}, {.target = Options::Target::whole}).changes.front().to ==
+          "trailing.");
+    dir.write(".hidden", "x");
+    CHECK(plan(dir, {".hidden"}, {.letter_case = Options::Case::upper}).changes.front().to ==
+          ".HIDDEN");
+}
+
+TEST_CASE("batch rename: character edits use scalar positions and clamp at the end") {
+    TempDir dir;
+    dir.write("aé😀z.txt", "x");
+    const auto result = plan(dir, {"aé😀z.txt"}, {.position = 1, .remove = 2, .insert = "新"});
+    REQUIRE(result.error.empty());
+    CHECK(result.changes.front().to == "a新z.txt");
+    const auto appended = plan(dir, {"aé😀z.txt"},
+                               {.position = std::numeric_limits<std::uint64_t>::max(),
+                                .remove = std::numeric_limits<std::uint64_t>::max(),
+                                .insert = "!"});
+    REQUIRE(appended.error.empty());
+    CHECK(appended.changes.front().to == "aé😀z!.txt");
+    CHECK_FALSE(plan(dir, {"aé😀z.txt"}, {.insert = "/"}).error.empty());
+    const auto extension =
+        plan(dir, {"aé😀z.txt"},
+             {.target = ops::RenameOptions::Target::extension, .remove = 3, .insert = "md"});
+    REQUIRE(extension.error.empty());
+    CHECK(extension.changes.front().to == "aé😀z.md");
+    const auto no_extension =
+        plan(dir, {"aé😀z.txt"}, {.target = ops::RenameOptions::Target::extension, .remove = 3});
+    REQUIRE(no_extension.error.empty());
+    CHECK(no_extension.changes.front().to == "aé😀z");
+}
+
+TEST_CASE("batch rename: regex captures, invalid expressions and bounded replacement") {
+    TempDir dir;
+    dir.write("IMG_123.JPG", "x");
+    auto options =
+        ops::RenameOptions{.find = "^IMG_([0-9]+)$", .replace = "Photo-\\1", .regex = true};
+    const auto result = plan(dir, {"IMG_123.JPG"}, options);
+    REQUIRE(result.error.empty());
+    CHECK(result.changes.front().to == "Photo-123.JPG");
+    options.replace = "\\2";
+    CHECK_FALSE(plan(dir, {"IMG_123.JPG"}, options).error.empty());
+    options.find = "[";
+    CHECK_FALSE(plan(dir, {"IMG_123.JPG"}, options).error.empty());
+    options.find = "(IMG)\\1";
+    CHECK_FALSE(plan(dir, {"IMG_123.JPG"}, options).error.empty());
+    options.find = ".";
+    options.replace = std::string(255, 'x');
+    CHECK_FALSE(plan(dir, {"IMG_123.JPG"}, options).error.empty());
+    dir.write(std::string(200, 'a') + "!", "x");
+    options.find = "^(a+)+$";
+    options.replace = "x";
+    CHECK(plan(dir, {std::string(200, 'a') + "!"}, options).error.empty());
+}
+
+TEST_CASE("batch rename: UTC date and filesystem metadata tokens use the preview snapshot") {
+    TempDir dir;
+    dir.write("a.txt", "abc");
+    auto entries = ops::rename_directory(dir.path).entries;
+    REQUIRE(entries.size() == 1);
+    CHECK(entries[0].size == 3);
+    REQUIRE(entries[0].modified.has_value());
+    entries[0].modified = 0;
+    const std::vector<std::string> names{"a.txt"};
+    ops::RenameOptions options{.pattern = "{date}_{time}_{mtime}_{mtime_time}_{size}{ext}",
+                               .timestamp = 86401};
+    auto result = ops::plan_rename(entries, names, options);
+    REQUIRE(result.error.empty());
+    CHECK(result.changes.front().to == "1970-01-02_00-00-01_1970-01-01_00-00-00_3.txt");
+    entries[0].modified.reset();
+    CHECK_FALSE(ops::plan_rename(entries, names, options).error.empty());
+    options.pattern = "{size}{ext}";
+    entries[0].size.reset();
+    CHECK_FALSE(ops::plan_rename(entries, names, options).error.empty());
+    options.pattern = "{date}{ext}";
+    options.timestamp.reset();
+    CHECK_FALSE(ops::plan_rename(entries, names, options).error.empty());
+}
+
+TEST_CASE("batch rename: transforms retain collision checks and sidecar following") {
+    TempDir dir;
+    dir.write("PHOTO.ORF", "photo");
+    dir.write("PHOTO.ORF.xmp", "sidecar");
+    const ops::RenameOptions options{.target = ops::RenameOptions::Target::whole,
+                                     .letter_case = ops::RenameOptions::Case::lower};
+    const auto result = plan(dir, {"PHOTO.ORF", "PHOTO.ORF.xmp"}, options);
+    REQUIRE(result.error.empty());
+    REQUIRE(result.changes.size() == 2);
+    CHECK(result.changes[0].to == "photo.orf");
+    CHECK(result.changes[1].to == "photo.orf.xmp");
+    CHECK(result.changes[1].sidecar);
+    dir.write("photo.orf", "occupied");
+    CHECK_FALSE(plan(dir, {"PHOTO.ORF"}, options).error.empty());
+    CHECK(read(dir.path / "PHOTO.ORF") == "photo");
+    CHECK(read(dir.path / "photo.orf") == "occupied");
+}
+
+TEST_CASE("batch rename: dialog transform choices are keyboard accessible and reset on reopen") {
+    TempDir dir;
+    dir.write("PHOTO.JPG", "x");
+    BatchRenameDialog dialog{[] {}};
+    dialog.open(ops::rename_directory(dir.path).entries, {"PHOTO.JPG"}, [](const auto&) {});
+    for (int i = 0; i < 9; ++i)
+        dialog.key(key(XKB_KEY_Tab));
+    dialog.key(key(XKB_KEY_space));  // Target: Extension
+    dialog.key(key(XKB_KEY_Tab));
+    dialog.key(key(XKB_KEY_space));  // Lowercase
+    REQUIRE(dialog.can_apply());
+    CHECK(dialog.preview().changes.front().to == "PHOTO.jpg");
+    dialog.key(key(XKB_KEY_Left));  // Case: Unchanged
+    CHECK_FALSE(dialog.can_apply());
+    dialog.close();
+    dialog.open(ops::rename_directory(dir.path).entries, {"PHOTO.JPG"}, [](const auto&) {});
+    CHECK_FALSE(dialog.can_apply());
+    dialog.key(key(XKB_KEY_Tab));
+    dialog.key(key(XKB_KEY_Tab));
+    dialog.paste("{date}_{name}{ext}");
+    REQUIRE(dialog.can_apply());
+    const auto first = dialog.preview().changes.front().to;
+    dialog.key(key(XKB_KEY_Tab));
+    dialog.paste("2");
+    CHECK(dialog.preview().changes.front().to == first);
 }
 
 TEST_CASE("batch rename: invalid names, templates, duplicate and occupied targets stay disabled") {
@@ -569,6 +718,11 @@ TEST_CASE("batch rename: preview renders with scrolling and disabled conflicts")
         renderer.end_frame();
         CHECK(glGetError() == GL_NO_ERROR);
         CHECK(dialog.key(key(XKB_KEY_Page_Down)));
+        renderer.begin_frame(width, height, 1.0F, {});
+        dialog.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                    rummage::theme::Palette{});
+        renderer.end_frame();
+        CHECK(glGetError() == GL_NO_ERROR);
         if (const char* const out = std::getenv("RUMMAGE_BATCH_RENAME_FRAMES")) {
             std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
             glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());

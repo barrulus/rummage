@@ -353,8 +353,9 @@ std::vector<std::size_t> Folder::matching(const std::string& glob) const {
         return rows;
     }
     const std::vector<fs::Entry>& list = entries();
+    const fs::NamePattern pattern{glob};
     for (std::size_t i = 0; i < list.size(); ++i) {
-        if (fs::matches_name(list[i].name, glob)) {
+        if (pattern.matches(list[i].name)) {
             rows.push_back(i);
         }
     }

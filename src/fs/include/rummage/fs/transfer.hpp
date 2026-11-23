@@ -53,6 +53,9 @@ struct TransferRequest {
     std::vector<std::string> destination_names{};
     GroupFolder group_folder{};
     bool ungroup{false};
+    // Reread and compare regular-file data before publication. Same-disk renames and
+    // symlinks do not copy file contents. Archive extraction does not support this option.
+    bool verify{false};
 };
 
 // What to do with an item whose name is taken in the destination.
@@ -78,7 +81,10 @@ struct TransferProgress {
     std::uint64_t bytes_total{0};  // 0 for a move on one disk: nothing is copied
     std::size_t files_done{0};
     std::size_t files_total{0};
-    std::string current;  // the item being transferred
+    std::string current;    // the item being transferred
+    bool verifying{false};  // most recent activity; parallel files may still be copying
+    std::uint64_t bytes_verified{0};
+    std::size_t files_verified{0};
 };
 
 // An item a transfer placed: where it was and where it is now (undo needs both).
@@ -106,6 +112,7 @@ struct TransferResult {
     std::vector<std::string> errors;  // "Trip/P1.ORF: Permission denied"
     bool cancelled{false};
     GroupFolder group_folder{};
+    std::size_t files_verified{0};
 };
 
 struct TransferCallbacks {

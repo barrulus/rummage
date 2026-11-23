@@ -736,6 +736,8 @@ std::uint64_t Browser::open_batch(Purpose purpose, FileOperation::Kind kind) {
 
 void Browser::submit(fs::TransferRequest request, std::uint64_t batch,
                      std::optional<std::uint64_t> empty_clipboard) {
+    if (request.kind == fs::TransferKind::copy || request.kind == fs::TransferKind::move)
+        request.verify = request.verify || verify_transfers_;
     if (batch_rename_preparing_ || batch_rename_running_) {
         batches_.erase(batch);
         show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
@@ -1482,6 +1484,19 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
             status.text = i18n::trn("Getting ready to move {} item…",
                                     "Getting ready to move {} items…", items);
         }
+    } else if (request.verify && !request.from_archive &&
+               (progress.bytes_total > 0 || progress.verifying)) {
+        status.fraction =
+            progress.bytes_total > 0
+                ? static_cast<float>((static_cast<double>(progress.bytes_done) +
+                                      static_cast<double>(progress.bytes_verified)) /
+                                     (2.0 * static_cast<double>(progress.bytes_total)))
+                : -1.0F;
+        status.text =
+            i18n::trf("Copied {} of {} · verified {}", format_size(progress.bytes_done),
+                      format_size(progress.bytes_total), format_size(progress.bytes_verified));
+        if (progress.verifying)
+            status.text = std::string{i18n::tr("Verifying…")} + " " + status.text;
     } else if (progress.bytes_total > 0) {
         const auto now = std::chrono::steady_clock::now();
         if (!copy_started_) {
@@ -1606,6 +1621,10 @@ void Browser::report_done(const fs::TransferRequest& request, const fs::Transfer
                      true);
     } else if (result.placed.empty()) {
         show_message(std::string{i18n::tr("Nothing to do: every name was skipped")}, false);
+    } else if (result.files_verified > 0) {
+        show_message(
+            i18n::trf("Transfer complete · verified regular files: {}", result.files_verified),
+            false);
     } else if (result.bytes_done > 0) {
         const std::string size = format_size(result.bytes_done);
         show_message(request.from_archive ? i18n::trf("Extracted {} ({})", what, size)
@@ -2475,7 +2494,7 @@ void Browser::show_insights(std::filesystem::path path, std::optional<InsightsVi
     info_pane_.clear_text_focus();
     info_pane_.cancel_measurement();
     filter_focused_ = false;
-    pane().insights.set_filter(name_filter());
+    pane().insights.set_filter(pane().valid_filter);
     pane().insights.open(
         std::move(path), pane().show_hidden,
         [this](const std::filesystem::path& target, bool directory) {
@@ -3110,16 +3129,64 @@ void Browser::set_entry_filter(fs::Listing::Predicate filter) {
     apply_filters();
 }
 
+MenuItem Browser::name_filter_menu() {
+    using Pattern = fs::NamePattern;
+    MenuItem menu;
+    menu.id = "name_filter_mode";
+    menu.label = i18n::tr("Name matching");
+    menu.submenu = true;
+    auto spec = Pattern::parse(name_filter());
+    for (const auto& [mode, label] : {std::pair{Pattern::Mode::automatic, i18n::mark("Automatic")},
+                                      {Pattern::Mode::text, i18n::mark("Plain text")},
+                                      {Pattern::Mode::glob, i18n::mark("Glob")},
+                                      {Pattern::Mode::regex, i18n::mark("Regular expression")}}) {
+        MenuItem item;
+        item.id = "filter_mode_" + std::to_string(static_cast<int>(mode));
+        item.label = i18n::tr(label);
+        item.radio = true;
+        item.checked = spec.mode == mode;
+        item.action = [this, spec, mode]() mutable {
+            spec.mode = mode;
+            set_name_filter(Pattern::encode(spec));
+            filter_focused_ = true;
+        };
+        menu.children.push_back(std::move(item));
+    }
+    MenuItem sensitive;
+    sensitive.id = "filter_case";
+    sensitive.label = i18n::tr("Case sensitive");
+    sensitive.separator = true;
+    sensitive.checkable = true;
+    sensitive.checked = spec.case_sensitive;
+    sensitive.action = [this, spec]() mutable {
+        spec.case_sensitive = !spec.case_sensitive;
+        set_name_filter(Pattern::encode(spec));
+        filter_focused_ = true;
+    };
+    menu.children.push_back(std::move(sensitive));
+    return menu;
+}
+
 void Browser::set_name_filter(std::string text) {
     pane().filter_field.set_text(std::move(text));
     apply_filters();
 }
 
 void Browser::apply_filters() {
-    pane().insights.set_filter(name_filter());
-    pane().entry_filter = [filter = picker_filter_,
-                           text = pane().filter_field.text()](const fs::Entry& entry) {
-        return (!filter || filter(entry)) && fs::matches_name(entry.name, text);
+    fs::NamePattern pattern{pane().filter_field.text()};
+    if (pattern.error().empty() && !pane().filter_error.empty() &&
+        status_bar_.message() == pane().filter_error)
+        show_message({}, false);
+    pane().filter_error = pattern.error();
+    if (!pane().filter_error.empty()) {
+        show_message(pane().filter_error, true);
+        pattern = fs::NamePattern{pane().valid_filter};
+    } else {
+        pane().valid_filter = pane().filter_field.text();
+    }
+    pane().insights.set_filter(pane().valid_filter);
+    pane().entry_filter = [filter = picker_filter_, pattern](const fs::Entry& entry) {
+        return (!filter || filter(entry)) && pattern.matches(entry.name);
     };
     pane().columns.set_entry_filter(pane().entry_filter);
     pane().grid.set_entry_filter(pane().entry_filter);
@@ -3253,7 +3320,7 @@ State::Tab Browser::tab_of(const Pane& each, std::size_t side) {
     tab.details_widths = each.details.widths();
     tab.sort_descending = each.details.order().descending;
     tab.show_hidden = each.show_hidden;
-    tab.filter = each.filter_field.text();
+    tab.filter = each.valid_filter;
     return tab;
 }
 
@@ -3465,8 +3532,9 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     pane().filter_field.draw(
         renderer, area().filter_bounds, 14,
         {.background = palette.surface,
-         .border = (filter_focused_ && context_area_ == active_area_) ? palette.primary
-                                                                      : palette.outline_variant,
+         .border = !pane().filter_error.empty()                         ? palette.error
+                   : (filter_focused_ && context_area_ == active_area_) ? palette.primary
+                                                                        : palette.outline_variant,
          .text = palette.on_surface,
          .selection = palette.primary_container,
          .caret = (filter_focused_ && context_area_ == active_area_)
@@ -5478,7 +5546,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
-        if (command_for(event) == Command::new_folder) {
+        if (event.keysym == XKB_KEY_space && event.modifiers == ui::Modifiers{.ctrl = true}) {
+            menu_.open(area().filter_bounds.x, area().filter_bounds.bottom(),
+                       name_filter_menu().children, true);
+            filter_focused_ = false;
+        } else if (command_for(event) == Command::new_folder) {
             new_folder();
         } else if (event.keysym == XKB_KEY_Escape) {
             set_name_filter({});

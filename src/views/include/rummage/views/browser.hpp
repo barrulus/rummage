@@ -749,6 +749,13 @@ public:
     // Stops the transfer running (the status bar's ×).
     void cancel_transfer();
 
+    void set_verify_transfers(bool enabled) {
+        verify_transfers_ = enabled;
+        redraw_();
+    }
+
+    [[nodiscard]] bool verifies_transfers() const { return verify_transfers_; }
+
     [[nodiscard]] ConflictDialog& conflict_dialog() noexcept { return conflict_; }
 
     [[nodiscard]] const CutMarks& cut_marks() const noexcept { return cut_marks_; }
@@ -957,6 +964,7 @@ private:
     void invoke_action(const core::Action& action, const core::ActionContext& context);
     void run_action(std::string_view id);
     [[nodiscard]] MenuItem sort_menu();
+    [[nodiscard]] MenuItem name_filter_menu();
     [[nodiscard]] MenuItem details_columns_menu();
     // A new tab at index at, inheriting view settings from this area's active tab.
     Pane& add_pane(std::size_t at);
@@ -1285,6 +1293,7 @@ private:
     std::optional<RateStart> copy_started_;
     // Last: its thread stops first, while everything its callbacks touch is still there.
     fs::TransferQueue transfers_;
+    bool verify_transfers_{false};
 };
 
 }  // namespace rummage::views
