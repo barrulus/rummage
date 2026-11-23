@@ -12,6 +12,7 @@
 #include "rummage/platform/code_stats.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
@@ -92,15 +93,28 @@ public:
     [[nodiscard]] std::filesystem::path current_path() const { return scope_path(); }
 
     void key(const ui::KeyEvent& event);
-    void pointer(const ui::PointerEvent& event);
+    void pointer(const ui::PointerEvent& event,
+                 ui::Scroller::Clock::time_point now = ui::Scroller::Clock::now());
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons, const fs::MimeDatabase& mime);
+              ui::IconSet& icons, const fs::MimeDatabase& mime,
+              ui::Scroller::Clock::time_point now = ui::Scroller::Clock::now());
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
+
+    [[nodiscard]] bool animating() const {
+        return open_ && (scroller_.animating() || tree_scroller_.animating());
+    }
+
+    [[nodiscard]] ui::Rect scrollbar_thumb() const { return scrollbar_.thumb(scroller_); }
+
+    [[nodiscard]] ui::Rect list_bounds() const { return list_; }
+
+    [[nodiscard]] bool tree_open() const { return tree_open_; }
 
     [[nodiscard]] bool is_open() const { return open_; }
 
     [[nodiscard]] bool loading() const {
         return loading_ || source_.running() ||
+               (scope_folder_ && scope_folder_->model().loading()) ||
                (selected_folder_ && selected_folder_->model().loading());
     }
 
@@ -144,6 +158,28 @@ private:
     void restore(Location location);
     void rebuild();
     void page(int direction);
+    void toggle_tree();
+    void draw_tree(ui::Renderer&, const theme::Palette&, ui::IconSet&,
+                   ui::Scroller::Clock::time_point);
+    bool tree_pointer(const ui::PointerEvent&, ui::Scroller::Clock::time_point);
+    void tree_key(const ui::KeyEvent&);
+    void rebuild_tree();
+    void choose_tree(std::size_t index);
+
+    struct TreeRow {
+        std::filesystem::path path;
+        std::size_t depth;
+    };
+
+    std::vector<TreeRow> tree_rows_;
+    std::size_t tree_cursor_{0};
+    bool tree_open_{false};
+    ui::Rect tree_bounds_{};
+    ui::Scroller tree_scroller_;
+    ui::Scrollbar tree_scrollbar_;
+    ui::Scroller scroller_;
+    ui::Scrollbar scrollbar_;
+    std::optional<float> requested_scroll_{0.0F};
     void reveal(std::size_t node);
     [[nodiscard]] std::filesystem::path scope_path() const;
     [[nodiscard]] std::string status() const;

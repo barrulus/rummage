@@ -56,8 +56,11 @@ Press **Ctrl+Alt+I**, choose **Folder insights…** from the command palette or 
 folder's context menu, or use the button in the information pane. A single selected
 folder is inspected; otherwise the current folder is used. This view is available
 for local folders in the browser, outside Trash, archives and file-picker mode.
-Insights occupies the current tab's content pane. The sidebar, toolbar, tabs and
-other split pane remain available, and each tab retains its own insights state.
+Insights opens in a dedicated tab, leaving the original file-browsing tab and its
+selection intact. Switch tabs to return to browsing; close the insights tab with
+its × or Ctrl+W. Choosing a Place or bookmark while insights is active recentres
+the graphs on that folder. The information/preview pane is hidden in insights,
+leaving the full content width for graphs and file results.
 
 - **File types** groups regular files by filename extension, ignoring ASCII case.
   PDF, DOC, DOCX and MD remain separate; common compound archive suffixes such as
@@ -69,13 +72,13 @@ other split pane remain available, and each tab retains its own insights state.
 - **Include subfolders** and **Hidden files** define the scan scope. Hidden files
   initially follow the browser's setting. Changing either option starts a new scan.
 - Select a type to list its exact matches. Single-click a matching file to select
-  it in place and show its information.
+  it in place.
   Double-click or press Enter to open it; Space opens Quick Look. The normal context
   menu, copy/cut commands, drag-out and F2 inline rename act on that file without
   leaving insights. Ctrl/Shift selection and Ctrl+A operate on results in the
   selected file’s parent folder, as in the expandable details view.
   **Space map** shows immediate children weighted by their total
-  file count or size; select a folder to drill into it. The accompanying paginated
+  file count or size; select a folder to drill into it. The accompanying scrollable
   list also includes zero-sized entries and items too small to label on the map.
   Colored tiles represent folders; files use their file-type icons. Selecting a
   file selects it in place; double-click opens it. Icon sizes are capped for
@@ -94,17 +97,16 @@ other split pane remain available, and each tab retains its own insights state.
   counts physical source files once. Select a language to see its source files.
 - **Back**, **Backspace**, or **Alt+Left** retraces your visits, including type matches.
   **Up** or **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an
-  ancestor using the browser breadcrumb. **Files** returns to ordinary browsing
-  in the inspected folder. **Tab**, **Shift+Tab**, arrows and **Enter**
-  operate controls and visible rows; **Page Up/Down**, the wheel, or
-  **Previous/Next** pages through results. **Escape** returns from matching files
-  to their previous view, then closes the view.
+  ancestor using the browser breadcrumb. The folder-path dropdown above the graph
+  shows the ancestor chain and child folders; choose a folder to recentre insights.
+  **Tab**, **Shift+Tab**, arrows and **Enter** operate controls, the folder dropdown
+  and file rows. The wheel, touchpad, scrollbar and **Page Up/Down** scroll results.
+  **Escape** dismisses the folder dropdown or returns from matching files to their
+  previous graph; it leaves the insights tab open.
 
-Switching tabs preserves the open insight and selection. Leaving and reopening
-insights for the same starting folder restores the last
-location, view, measurement, page and scan options during the current app session,
-then scans again for fresh data. Opening a different folder starts there, keeping
-the preferred view and measurement; hidden files initially follow the browser.
+Switching tabs preserves the open insight, selection, location, measurement,
+scroll position and scan options. A newly opened insights tab starts at the
+selected folder; hidden files initially follow the browser setting.
 
 Source analysis starts only when you open **Languages** or **Source statistics…**
 from the information pane. The pane then shows the **Last source analysis** for

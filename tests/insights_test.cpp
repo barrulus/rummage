@@ -558,7 +558,7 @@ TEST_CASE("insights: native browser entry points, rendering and pane navigation"
                 rummage::views::Browser::Clock::now());
     CHECK(dialog.current_path() == dir.path);
     draw(640, 600, "compact");
-    for (const auto id : {"close", "recursive", "hidden", "refresh"}) {
+    for (const auto id : {"location", "recursive", "hidden", "refresh"}) {
         const auto r = dialog.control_bounds(id);
         CHECK_FALSE(r.empty());
         CHECK(r.x >= 0);
@@ -573,7 +573,7 @@ TEST_CASE("insights: native browser entry points, rendering and pane navigation"
     CHECK(dialog.is_open());
     CHECK(dialog.view() == InsightsView::View::types);
     browser.key({.keysym = XKB_KEY_Escape, .text = {}}, rummage::views::Browser::Clock::now());
-    CHECK_FALSE(dialog.is_open());
+    CHECK(dialog.is_open());
     browser.set_name_filter({});
     browser.show_insights(dir.path);
     dialog.set_hidden(true);
@@ -829,7 +829,7 @@ TEST_CASE(
     CHECK(browser.picker_folder()->path() == dir.path / "two");
     CHECK(browser.picker_folder()->single_selection()->name == "report.md");
     draw("pane-selected");
-    CHECK_FALSE(browser.info_pane().copy_bounds().empty());
+    CHECK(browser.info_pane().copy_bounds().empty());
     browser.key({.keysym = XKB_KEY_c, .text = {}, .modifiers = {.ctrl = true}},
                 Browser::Clock::now());
     REQUIRE_FALSE(offered.empty());
@@ -881,6 +881,9 @@ TEST_CASE(
     browser.new_tab();
     CHECK_FALSE(browser.insights_view().is_open());
     browser.select_tab(0);
+    CHECK_FALSE(browser.insights_view().is_open());
+    CHECK(browser.picker_folder()->path() == dir.path);
+    browser.select_tab(1);
     CHECK(browser.insights_view().is_open());
     CHECK(browser.insights_view().view() == InsightsView::View::matches);
     draw("pane-restored");
@@ -901,10 +904,11 @@ TEST_CASE(
     browser.focus_pane(0);
     browser.toggle_split();
     browser.open(dir.path / "two");
-    CHECK_FALSE(browser.insights_view().is_open());
+    CHECK(browser.insights_view().is_open());
     REQUIRE(until(loop, [&] { return !browser.loading(); }));
     CHECK(browser.picker_folder()->path() == dir.path / "two");
 #ifdef RUMMAGE_TEST_TOKEI
+    view.navigate(dir.path);
     browser.show_insights(dir.path, InsightsView::View::languages);
     REQUIRE(until(loop, [&] { return !view.loading(); }));
     view.activate_row(row(view, "Markdown"));
@@ -924,4 +928,137 @@ TEST_CASE(
     browser.key({.keysym = XKB_KEY_Return, .text = {}}, Browser::Clock::now());
     CHECK(opened.empty());
 #endif
+}
+
+TEST_CASE(
+    "insights: dedicated tab follows Places with full-width scrolling and folder navigation") {
+    using rummage::ui::PointerButton;
+    using rummage::ui::PointerEvent;
+    using rummage::views::Browser;
+    rummage::ui::Offscreen offscreen{1280, 900};
+    const TempDir dir;
+    fs::create_directories(dir.path / "first");
+    fs::create_directories(dir.path / "second/child");
+    dir.write("first/keep.md", "Keep the original selection");
+    dir.write("second/child/deep.md", "deep");
+    for (int i = 0; i < 80; ++i)
+        dir.write(std::format("second/file-{:02}.md", i), "sample");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.set_places({{.label = "First", .path = dir.path / "first", .icon = "folder"},
+                        {.label = "Second", .path = dir.path / "second", .icon = "folder"}});
+    browser.open(dir.path / "first");
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    browser.picker_folder()->select_name("keep.md");
+    const auto original = browser.picker_folder();
+    browser.show_insights();
+    REQUIRE(browser.tab_count() == 2);
+    REQUIRE(browser.active_tab() == 1);
+    auto& view = browser.insights_view();
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    view.set_view(InsightsView::View::largest);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto now = Browser::Clock::now();
+    const auto draw = [&](const std::string& name, int width = 1280, int height = 900,
+                          bool light = false) {
+        const auto palette = light ? rummage::theme::desktop_palette({.dark = false, .accent = {}})
+                                   : rummage::theme::Palette{};
+        renderer.begin_frame(width, height, 1, palette.surface);
+        browser.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                     palette, icons, now);
+        renderer.end_frame();
+        capture(name, width, height);
+    };
+    const auto click = [&](rummage::ui::Rect rect) {
+        REQUIRE_FALSE(rect.empty());
+        browser.pointer({.kind = PointerEvent::Kind::press,
+                         .x = rect.x + 8,
+                         .y = rect.y + 8,
+                         .button = PointerButton::left},
+                        now);
+        browser.pointer({.kind = PointerEvent::Kind::release,
+                         .x = rect.x + 8,
+                         .y = rect.y + 8,
+                         .button = PointerButton::left},
+                        now);
+    };
+    draw("qol-start");
+    CHECK(browser.info_pane().copy_bounds().empty());
+    CHECK(view.control_bounds("close").empty());
+    CHECK(view.control_bounds("previous").empty());
+    CHECK(view.control_bounds("next").empty());
+    CHECK(view.list_bounds().right() > 1200);
+    const auto place = browser.sidebar().place_icon_rect(dir.path / "second");
+    REQUIRE(place);
+    click(*place);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(browser.active_tab() == 1);
+    CHECK(browser.tab_count() == 2);
+    CHECK(view.current_path() == dir.path / "second");
+    REQUIRE(view.rows().size() == 81);
+    draw("qol-results");
+    REQUIRE_FALSE(view.scrollbar_thumb().empty());
+    const auto list = view.list_bounds();
+    browser.pointer(
+        {.kind = PointerEvent::Kind::scroll, .x = list.x + 30, .y = list.y + 20, .wheel_y = 2},
+        now);
+    CHECK(browser.animating());
+    now += 250ms;
+    draw("qol-scrolled");
+    CHECK(view.control_bounds("row:0").empty());
+    auto thumb = view.scrollbar_thumb();
+    const float x = thumb.x + thumb.width / 2, y = thumb.y + thumb.height / 2;
+    browser.pointer(
+        {.kind = PointerEvent::Kind::press, .x = x, .y = y, .button = PointerButton::left}, now);
+    browser.pointer({.kind = PointerEvent::Kind::motion, .x = x, .y = list.bottom() - 2}, now);
+    browser.pointer({.kind = PointerEvent::Kind::release,
+                     .x = x,
+                     .y = list.bottom() - 2,
+                     .button = PointerButton::left},
+                    now);
+    draw("qol-scroll-bottom");
+    const auto last = view.control_bounds("row:80");
+    REQUIRE_FALSE(last.empty());
+    CHECK(last.bottom() <= list.bottom());
+    click(last);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(browser.picker_folder()->path() == dir.path / "second/child");
+    browser.select_tab(0);
+    CHECK_FALSE(browser.insights_view().is_open());
+    CHECK(browser.picker_folder() == original);
+    CHECK(original->is_selected("keep.md"));
+    browser.select_tab(1);
+    draw("qol-restored");
+    CHECK_FALSE(view.control_bounds("row:80").empty());
+    click(view.control_bounds("location"));
+    CHECK(view.tree_open());
+    draw("qol-folder-tree");
+    browser.key({.keysym = XKB_KEY_End, .text = {}}, now);
+    browser.key({.keysym = XKB_KEY_Return, .text = {}}, now);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK_FALSE(view.tree_open());
+    CHECK(view.current_path() == dir.path / "second/child");
+    browser.back();
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(view.current_path() == dir.path / "second");
+    browser.key({.keysym = XKB_KEY_Escape, .text = {}}, now);
+    CHECK(view.is_open());
+    draw("qol-light", 1280, 900, true);
+    draw("qol-compact", 640, 640);
+    CHECK_FALSE(view.scrollbar_thumb().empty());
+    CHECK(view.scrollbar_thumb().bottom() <= view.list_bounds().bottom());
+    browser.set_preview_in_sidebar(true);
+    draw("qol-sidebar-preview-hidden");
+    CHECK(browser.info_pane().copy_bounds().empty());
+    browser.set_preview_in_sidebar(false);
+    view.set_view(InsightsView::View::space);
+    draw("qol-space");
+    browser.close_tab(1);
+    CHECK(browser.active_tab() == 0);
+    CHECK(browser.tab_count() == 1);
+    CHECK(browser.picker_folder() == original);
 }
