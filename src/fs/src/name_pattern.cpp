@@ -138,4 +138,16 @@ bool NamePattern::matches(const std::string& name) const {
 bool matches_name(const std::string& name, const std::string& pattern) {
     return NamePattern{pattern}.matches(name);
 }
+
+std::string NamePattern::replace_all(std::string& text, const std::string& replacement) const {
+    if (!error_.empty())
+        return error_;
+    if (spec_.mode != Mode::regex || !regex_)
+        return std::string{i18n::tr("Choose a regular expression for regex replacement")};
+    std::string error;
+    if (!regex_->CheckRewriteString(replacement, &error))
+        return i18n::trf("Invalid replacement: {}", error);
+    re2::RE2::GlobalReplace(&text, *regex_, replacement);
+    return {};
+}
 }  // namespace rummage::fs

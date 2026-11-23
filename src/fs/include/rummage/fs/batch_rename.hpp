@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -14,6 +15,8 @@ struct RenameSource {
     bool directory{false};
     std::uint64_t device{0};
     std::uint64_t inode{0};
+    std::optional<std::uint64_t> size{};
+    std::optional<std::int64_t> modified{};  // seconds since the Unix epoch
 };
 
 struct RenameDirectory {
@@ -25,6 +28,8 @@ struct RenameDirectory {
 [[nodiscard]] RenameDirectory rename_directory(const std::filesystem::path& directory);
 
 struct RenameOptions {
+    enum class Target { basename, extension, whole };
+    enum class Case { unchanged, lower, upper, title };
     std::string find{};
     std::string replace{};
     // {name}: the stem after literal replacement, {ext}: extension including its dot, {n}: number.
@@ -32,6 +37,13 @@ struct RenameOptions {
     std::uint64_t start{1};
     std::uint64_t step{1};
     unsigned padding{2};
+    Target target{Target::basename};
+    Case letter_case{Case::unchanged};  // ASCII case; other UTF-8 characters are preserved
+    bool regex{false};
+    std::uint64_t position{0};  // zero-based Unicode scalar position; beyond end appends
+    std::uint64_t remove{0};
+    std::string insert{};
+    std::optional<std::int64_t> timestamp{};  // fixed when the dialog opens, for {date}/{time}
 };
 
 struct RenameChange {
