@@ -2998,15 +2998,63 @@ void Browser::set_entry_filter(fs::Listing::Predicate filter) {
     apply_filters();
 }
 
+MenuItem Browser::name_filter_menu() {
+    using Pattern = fs::NamePattern;
+    MenuItem menu;
+    menu.id = "name_filter_mode";
+    menu.label = i18n::tr("Name matching");
+    menu.submenu = true;
+    auto spec = Pattern::parse(name_filter());
+    for (const auto& [mode, label] : {std::pair{Pattern::Mode::automatic, i18n::mark("Automatic")},
+                                      {Pattern::Mode::text, i18n::mark("Plain text")},
+                                      {Pattern::Mode::glob, i18n::mark("Glob")},
+                                      {Pattern::Mode::regex, i18n::mark("Regular expression")}}) {
+        MenuItem item;
+        item.id = "filter_mode_" + std::to_string(static_cast<int>(mode));
+        item.label = i18n::tr(label);
+        item.radio = true;
+        item.checked = spec.mode == mode;
+        item.action = [this, spec, mode]() mutable {
+            spec.mode = mode;
+            set_name_filter(Pattern::encode(spec));
+            filter_focused_ = true;
+        };
+        menu.children.push_back(std::move(item));
+    }
+    MenuItem sensitive;
+    sensitive.id = "filter_case";
+    sensitive.label = i18n::tr("Case sensitive");
+    sensitive.separator = true;
+    sensitive.checkable = true;
+    sensitive.checked = spec.case_sensitive;
+    sensitive.action = [this, spec]() mutable {
+        spec.case_sensitive = !spec.case_sensitive;
+        set_name_filter(Pattern::encode(spec));
+        filter_focused_ = true;
+    };
+    menu.children.push_back(std::move(sensitive));
+    return menu;
+}
+
 void Browser::set_name_filter(std::string text) {
     pane().filter_field.set_text(std::move(text));
     apply_filters();
 }
 
 void Browser::apply_filters() {
-    pane().entry_filter = [filter = picker_filter_,
-                           text = pane().filter_field.text()](const fs::Entry& entry) {
-        return (!filter || filter(entry)) && fs::matches_name(entry.name, text);
+    fs::NamePattern pattern{pane().filter_field.text()};
+    if (pattern.error().empty() && !pane().filter_error.empty() &&
+        status_bar_.message() == pane().filter_error)
+        show_message({}, false);
+    pane().filter_error = pattern.error();
+    if (!pane().filter_error.empty()) {
+        show_message(pane().filter_error, true);
+        pattern = fs::NamePattern{pane().valid_filter};
+    } else {
+        pane().valid_filter = pane().filter_field.text();
+    }
+    pane().entry_filter = [filter = picker_filter_, pattern](const fs::Entry& entry) {
+        return (!filter || filter(entry)) && pattern.matches(entry.name);
     };
     pane().columns.set_entry_filter(pane().entry_filter);
     pane().grid.set_entry_filter(pane().entry_filter);
@@ -3139,7 +3187,7 @@ State::Tab Browser::tab_of(const Pane& each, std::size_t side) {
     tab.details_widths = each.details.widths();
     tab.sort_descending = each.details.order().descending;
     tab.show_hidden = each.show_hidden;
-    tab.filter = each.filter_field.text();
+    tab.filter = each.valid_filter;
     return tab;
 }
 
@@ -3350,8 +3398,9 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     pane().filter_field.draw(
         renderer, area().filter_bounds, 14,
         {.background = palette.surface,
-         .border = (filter_focused_ && context_area_ == active_area_) ? palette.primary
-                                                                      : palette.outline_variant,
+         .border = !pane().filter_error.empty()                         ? palette.error
+                   : (filter_focused_ && context_area_ == active_area_) ? palette.primary
+                                                                        : palette.outline_variant,
          .text = palette.on_surface,
          .selection = palette.primary_container,
          .caret = (filter_focused_ && context_area_ == active_area_)
@@ -5321,7 +5370,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
-        if (command_for(event) == Command::new_folder) {
+        if (event.keysym == XKB_KEY_space && event.modifiers == ui::Modifiers{.ctrl = true}) {
+            menu_.open(area().filter_bounds.x, area().filter_bounds.bottom(),
+                       name_filter_menu().children, true);
+            filter_focused_ = false;
+        } else if (command_for(event) == Command::new_folder) {
             new_folder();
         } else if (event.keysym == XKB_KEY_Escape) {
             set_name_filter({});

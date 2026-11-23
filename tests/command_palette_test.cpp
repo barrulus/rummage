@@ -804,3 +804,86 @@ TEST_CASE("select by name: stale matches are checked again before selection") {
     f.press(key(XKB_KEY_Return));
     CHECK(f.folder()->selected_names() == std::vector<std::string>{"p2.orf"});
 }
+
+TEST_CASE("name patterns: explicit modes, case, Unicode and invalid input") {
+    using rummage::fs::matches_name;
+    using rummage::fs::NamePattern;
+    CHECK(matches_name("Photo[1].JPG", "text:[1]"));
+    CHECK(matches_name("Photo.JPG", "glob:*.jpg"));
+    CHECK_FALSE(matches_name("Photo.JPG", "case:glob:*.jpg"));
+    CHECK(matches_name("Photo.JPG", "case:text:Photo"));
+    CHECK_FALSE(matches_name("Photo.JPG", "case:text:photo"));
+    CHECK(matches_name("IMG_123.JPG", "re:^IMG_[0-9]+\\.jpg$"));
+    CHECK_FALSE(matches_name("IMG_abc.JPG", "re:^IMG_[0-9]+\\.jpg$"));
+    CHECK(matches_name("école.txt", "re:^ÉCOLE"));
+    CHECK(matches_name("re:literal", "text:re:literal"));
+    CHECK(matches_name("case:literal", "text:case:literal"));
+    for (const auto* invalid : {"re:[", "re:(a)\\1", "re:(?=x)", "glob:[abc", "glob:abc\\"}) {
+        CAPTURE(invalid);
+        CHECK_FALSE(NamePattern{invalid}.error().empty());
+    }
+    CHECK_FALSE(NamePattern{std::string(1025, 'a')}.error().empty());
+    CHECK(matches_name("]", "glob:[]]"));
+    CHECK(matches_name("a", "glob:[[:alpha:]]"));
+    CHECK_FALSE(matches_name(std::string(255, 'a') + "!", "re:^(a+)+$"));
+    std::string glob = "glob:";
+    for (int i = 0; i < 60; ++i)
+        glob += "*[a]";
+    CHECK_FALSE(matches_name(std::string(255, 'a'), glob + "b"));
+    CHECK_FALSE(NamePattern{"glob:[z-a]"}.error().empty());
+    CHECK(matches_name("line\nbreak.txt", "glob:*.txt"));
+    const auto spec = NamePattern::parse("case:re:^name$");
+    CHECK(NamePattern::encode(spec) == "case:re:^name$");
+}
+
+TEST_CASE("filter: invalid queries retain the usable view and persist the last valid query") {
+    PatternFixture f;
+    f.browser.open_tab(f.a, false);
+    REQUIRE(f.settle());
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        f.browser.set_mode(mode);
+        f.browser.set_name_filter("re:^P1");
+        REQUIRE(f.settle());
+        REQUIRE(f.browser.picker_folder()->entries().size() == 2);
+        const auto before = f.browser.state();
+        f.browser.set_name_filter("re:[");
+        CHECK(f.browser.name_filter() == "re:[");
+        CHECK(f.browser.picker_folder()->entries().size() == 2);
+        CHECK(f.browser.state().tabs.front().filter == "re:^P1");
+        CHECK(f.browser.status_bar().message().starts_with("Invalid pattern:"));
+        CHECK(f.browser.state().tabs.front().filter == before.tabs.front().filter);
+        f.browser.set_name_filter("case:glob:*.ORF");
+        f.browser.open_pattern();
+        f.type("re:^P[0-9]");
+        CHECK(f.browser.command_palette().status() == "1 of 1 match");
+        f.press(key(XKB_KEY_Return));
+    }
+}
+
+TEST_CASE("select by name: invalid regex leaves selection unchanged") {
+    PatternFixture f;
+    f.folder()->select_name("P1.ORF");
+    f.browser.open_pattern();
+    f.type("re:[");
+    CHECK(f.browser.command_palette().items().empty());
+    CHECK(f.browser.command_palette().status().starts_with("Invalid pattern:"));
+    f.press(key(XKB_KEY_Return));
+    CHECK(f.folder()->selected_names() == std::vector<std::string>{"P1.ORF"});
+}
+
+TEST_CASE("filter: keyboard menu changes matching mode and case sensitivity") {
+    PatternFixture f;
+    f.browser.set_name_filter("P1");
+    f.press(key(XKB_KEY_F, {.ctrl = true, .shift = true}));
+    REQUIRE(f.browser.filtering());
+    f.press(key(XKB_KEY_space, kCtrl));
+    REQUIRE(f.browser.context_menu().is_open());
+    f.press(key(XKB_KEY_Down));  // Plain text
+    f.press(key(XKB_KEY_Return));
+    CHECK(f.browser.name_filter() == "text:P1");
+    REQUIRE(f.browser.filtering());
+    f.press(key(XKB_KEY_space, kCtrl));
+    f.press(key(XKB_KEY_End));  // Case sensitive
+    f.press(key(XKB_KEY_Return));
+    CHECK(f.browser.name_filter() == "case:text:P1");
+}

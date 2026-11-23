@@ -46,6 +46,8 @@ struct Pane {
     GridView grid;
     DetailsView details;
     ui::TextField filter_field;
+    std::string valid_filter;
+    std::string filter_error;
     fs::Listing::Predicate entry_filter;
     bool show_hidden{false};
     ViewMode mode{ViewMode::columns};

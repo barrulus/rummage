@@ -24,6 +24,7 @@
   librsvg,
   pango,
   zlib,
+  re2,
   sdbus-cpp_2,
   shared-mime-info,
   hicolor-icon-theme,
@@ -99,6 +100,7 @@ stdenv.mkDerivation {
     librsvg
     pango
     zlib
+    re2
     sdbus-cpp_2
   ]
   ++ lib.optional withTests shared-mime-info

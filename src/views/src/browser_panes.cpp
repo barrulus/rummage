@@ -200,6 +200,7 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         items.push_back(std::move(item));
     }
     items.push_back(sort_menu());
+    items.push_back(name_filter_menu());
     MenuItem show;
     show.id = "show";
     show.label = i18n::tr("Show");
