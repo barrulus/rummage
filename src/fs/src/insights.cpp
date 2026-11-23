@@ -53,6 +53,21 @@ std::filesystem::path InsightSnapshot::relative_path(std::size_t node) const {
     return path;
 }
 
+InsightAge insight_age(std::int64_t modified, std::int64_t now) {
+    if (modified > now)
+        return InsightAge::future;
+    const auto seconds = static_cast<std::uint64_t>(now) - static_cast<std::uint64_t>(modified);
+    if (seconds < 86400)
+        return InsightAge::day;
+    if (seconds < 7 * 86400)
+        return InsightAge::week;
+    if (seconds < 30 * 86400)
+        return InsightAge::month;
+    if (seconds < 365 * 86400)
+        return InsightAge::year;
+    return InsightAge::older;
+}
+
 std::string insight_extension(std::string_view name) {
     const auto dot = name.rfind('.');
     if (dot == std::string_view::npos || dot == 0 || dot + 1 == name.size())
@@ -75,6 +90,9 @@ InsightSnapshot scan_insights(const std::filesystem::path& root, const InsightOp
                               const core::CancelToken& token,
                               const std::function<void(InsightProgress)>& progress) {
     InsightSnapshot result;
+    result.captured_seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                                  std::chrono::system_clock::now().time_since_epoch())
+                                  .count();
     auto scan_root = root;
     while (!scan_root.has_filename() && scan_root != scan_root.root_path())
         scan_root = scan_root.parent_path();
@@ -222,12 +240,14 @@ InsightSnapshot scan_insights(const std::filesystem::path& root, const InsightOp
             const bool is_directory = S_ISDIR(info.st_mode);
             const auto bytes =
                 !is_directory && info.st_size > 0 ? static_cast<std::uint64_t>(info.st_size) : 0;
-            result.nodes.push_back({.name = std::string{name},
-                                    .parent = current.node,
-                                    .files = is_directory ? 0U : 1U,
-                                    .bytes = bytes,
-                                    .directory = is_directory,
-                                    .partial = is_directory && options.recursive});
+            result.nodes.push_back(
+                {.name = std::string{name},
+                 .parent = current.node,
+                 .files = is_directory ? 0U : 1U,
+                 .bytes = bytes,
+                 .modified_seconds = static_cast<std::int64_t>(info.st_mtim.tv_sec),
+                 .directory = is_directory,
+                 .partial = is_directory && options.recursive});
             if (!is_directory) {
                 ++totals.files;
                 totals.bytes += bytes;

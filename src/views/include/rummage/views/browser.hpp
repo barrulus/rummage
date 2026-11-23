@@ -42,7 +42,7 @@
 #include "rummage/views/file_finder.hpp"
 #include "rummage/views/grid_view.hpp"
 #include "rummage/views/info_pane.hpp"
-#include "rummage/views/insights_dialog.hpp"
+#include "rummage/views/insights_view.hpp"
 #include "rummage/views/location_dialog.hpp"
 #include "rummage/views/name_editor.hpp"
 #include "rummage/views/pane.hpp"
@@ -240,7 +240,7 @@ public:
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open() || insights_.is_open();
+               quick_look_.is_open() || properties_.is_open();
     }
 
     [[nodiscard]] std::shared_ptr<Folder> picker_folder() const { return current_folder(); }
@@ -720,9 +720,10 @@ public:
     [[nodiscard]] LocationDialog& location_dialog() noexcept { return location_; }
 
     void show_properties();
-    void show_insights(std::filesystem::path path = {});
+    void show_insights(std::filesystem::path path = {},
+                       std::optional<InsightsView::View> initial = {});
 
-    [[nodiscard]] InsightsDialog& insights_dialog() noexcept { return insights_; }
+    [[nodiscard]] InsightsView& insights_view() noexcept { return pane().insights; }
 
     [[nodiscard]] PropertiesDialog& properties_dialog() noexcept { return properties_; }
 
@@ -1123,7 +1124,6 @@ private:
     std::uint64_t batch_rename_generation_{0};
     ErrorDialog errors_;
     PropertiesDialog properties_;
-    InsightsDialog insights_;
     SettingsDialog settings_;
     std::filesystem::path config_path_;
     std::function<void()> open_config_;

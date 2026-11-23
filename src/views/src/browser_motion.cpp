@@ -7,6 +7,11 @@
 namespace rummage::views {
 
 ItemBounds Browser::motion_item_bounds() const {
+    if (pane().insights.is_open()) {
+        ItemBounds result;
+        result.cursor = result.selection = pane().insights.selected_bounds();
+        return result;
+    }
     switch (pane().mode) {
         case Mode::columns:
             return pane().columns.motion_bounds();
@@ -30,6 +35,12 @@ void Browser::start_motion(core::MotionEvent event) {
 
 void Browser::observe_motion(Clock::time_point now) {
     auto& observed = area();
+    if (pane().insights.is_open()) {
+        motion_.cancel(ui::pane_motion_channel(context_area_));
+        observed.motion_pending = false;
+        observed.motion_tab = nullptr;
+        return;
+    }
     const auto folder = current_folder();
     if (!folder) {
         motion_.cancel(ui::pane_motion_channel(context_area_));

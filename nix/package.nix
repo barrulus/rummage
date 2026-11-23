@@ -14,6 +14,8 @@
   freetype,
   fontconfig,
   tomlplusplus,
+  nlohmann_json,
+  tokei,
   libwebp,
   ffmpeg,
   callPackage,
@@ -73,6 +75,7 @@ stdenv.mkDerivation {
     pkg-config
     makeWrapper
     wayland-scanner
+    tokei
   ]
   ++ lib.optionals withTests [
     doctest
@@ -90,6 +93,7 @@ stdenv.mkDerivation {
     freetype
     fontconfig
     tomlplusplus
+    nlohmann_json
     libwebp
     libjxl
     # nixpkgs includes the built-in libde265 HEVC decoder in libheif.

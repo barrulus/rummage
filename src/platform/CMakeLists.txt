@@ -1,4 +1,6 @@
 add_library(rummage_platform
+    src/code_stats.cpp
+    src/code_report.cpp
     src/program.cpp
     src/action_handoff.cpp
     src/archives.cpp
@@ -25,4 +27,8 @@ target_include_directories(rummage_platform PUBLIC include)
 # thumbs: file_uri(), the file:// URIs %u and %U take, escaped as GLib does.
 target_link_libraries(rummage_platform
     PUBLIC rummage::core rummage::fs
-    PRIVATE rummage::thumbs rummage::warnings PkgConfig::SDBUSCPP ${CMAKE_DL_LIBS})
+    PRIVATE rummage::thumbs rummage::warnings nlohmann_json::nlohmann_json PkgConfig::SDBUSCPP ${CMAKE_DL_LIBS})
+
+if(TOKEI_EXECUTABLE)
+    target_compile_definitions(rummage_platform PRIVATE RUMMAGE_TOKEI_PROGRAM="${TOKEI_EXECUTABLE}")
+endif()

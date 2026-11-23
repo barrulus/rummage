@@ -56,6 +56,8 @@ Press **Ctrl+Alt+I**, choose **Folder insights…** from the command palette or 
 folder's context menu, or use the button in the information pane. A single selected
 folder is inspected; otherwise the current folder is used. This view is available
 for local folders in the browser, outside Trash, archives and file-picker mode.
+Insights occupies the current tab's content pane. The sidebar, toolbar, tabs and
+other split pane remain available, and each tab retains its own insights state.
 
 - **File types** groups regular files by filename extension, ignoring ASCII case.
   PDF, DOC, DOCX and MD remain separate; common compound archive suffixes such as
@@ -66,26 +68,57 @@ for local folders in the browser, outside Trash, archives and file-picker mode.
   of the current scope (of the files counted so far when incomplete).
 - **Include subfolders** and **Hidden files** define the scan scope. Hidden files
   initially follow the browser's setting. Changing either option starts a new scan.
-- Select a type to list its exact matches. Select a matching file to reveal it in
-  the browser, clearing the filename filter and showing hidden files if needed.
+- Select a type to list its exact matches. Single-click a matching file to select
+  it in place and show its information.
+  Double-click or press Enter to open it; Space opens Quick Look. The normal context
+  menu, copy/cut commands, drag-out and F2 inline rename act on that file without
+  leaving insights. Ctrl/Shift selection and Ctrl+A operate on results in the
+  selected file’s parent folder, as in the expandable details view.
   **Space map** shows immediate children weighted by their total
   file count or size; select a folder to drill into it. The accompanying paginated
   list also includes zero-sized entries and items too small to label on the map.
   Colored tiles represent folders; files use their file-type icons. Selecting a
-  file reveals it in the browser. Icon sizes are capped for readability; use the
-  size labels and list bars for exact comparisons.
+  file selects it in place; double-click opens it. Icon sizes are capped for
+  readability; use the size labels and list bars for exact comparisons.
+- **Largest files** ranks individual files across the scope by logical size, with
+  proportional bars and relative paths. Select one to inspect it or use its normal
+  file actions.
+- **Modified age** groups file modification times into the last 24 hours, 1–7 days,
+  7–30 days, 30–365 days, over a year, and future dates. These are elapsed periods
+  relative to the scan time, not calendar dates. Switch between count and size;
+  select a group to list its files.
+- **Languages** reads source files with [Tokei](https://github.com/XAMPPRocky/tokei)
+  and shows files, lines, code, comments and blanks, with a stacked composition
+  graph. Embedded languages (such as Python in Markdown) appear indented under
+  their parent; their lines are counted separately, while the overall file total
+  counts physical source files once. Select a language to see its source files.
 - **Back**, **Backspace**, or **Alt+Left** retraces your visits, including type matches.
   **Up** or **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an
-  ancestor; the ellipsis reaches ancestors that do not fit. **Show folder** opens
-  the inspected folder in the browser. **Tab**, **Shift+Tab**, arrows and **Enter**
+  ancestor using the browser breadcrumb. **Files** returns to ordinary browsing
+  in the inspected folder. **Tab**, **Shift+Tab**, arrows and **Enter**
   operate controls and visible rows; **Page Up/Down**, the wheel, or
-  **Previous/Next** pages through results. **Escape** returns from matches to types,
-  then closes the view.
+  **Previous/Next** pages through results. **Escape** returns from matching files
+  to their previous view, then closes the view.
 
-Closing and reopening insights for the same starting folder restores the last
+Switching tabs preserves the open insight and selection. Leaving and reopening
+insights for the same starting folder restores the last
 location, view, measurement, page and scan options during the current app session,
 then scans again for fresh data. Opening a different folder starts there, keeping
 the preferred view and measurement; hidden files initially follow the browser.
+
+Source analysis starts only when you open **Languages** or **Source statistics…**
+from the information pane. The pane then shows the **Last source analysis** for
+that folder. Refresh the analysis after edits; the summary is a snapshot, not live
+indexing. Nix builds include Tokei. Other installations need `tokei` on `PATH`;
+without it, the other insights views still work.
+
+Tokei respects ignore files such as `.gitignore`, in addition to the subfolder and
+hidden-file switches. Its source totals can therefore differ from the metadata
+views. It uses its own traversal rules and can cross mounted subdirectories.
+Analysis stops after 30 seconds (with a short termination grace period), and
+reports over 16 MiB are rejected. Failed, stopped or oversized analyses display an
+error rather than incomplete counts. Tokei may also report unreadable source files;
+that condition is shown alongside the available counts.
 
 File sizes are logical bytes summed **per filename**, including every hard-link
 name. They are not allocated space on disk and can differ from the information
@@ -93,7 +126,7 @@ pane's deduplicated total. Symbolic links, including a linked scan root, are not
 followed. Hidden files are included only when enabled; sockets, devices and pipes
 never contribute to regular-file totals.
 
-Scans run on a worker, stay on one filesystem, and stop at 200,000 examined entries,
+Metadata scans run on a worker, stay on one filesystem, and stop at 200,000 examined entries,
 32 MiB of names, 64 directory levels or 30 seconds between filesystem calls.
 Folders are discovered breadth-first, so a deep tree does not hide its siblings.
 Unreadable or skipped folders and stopped/limited scans are explicitly partial.
