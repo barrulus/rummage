@@ -31,8 +31,6 @@ class Thumbnails;
 // Loop thread only.
 class Column {
 public:
-    [[nodiscard]] ui::Rect expanded_name_bounds() const { return expanded_name_; }
-
     using Clock = ui::Scroller::Clock;
 
     static constexpr float kRowHeight = kListSizes[kUsualListSize].row;  // at the usual size
@@ -96,7 +94,6 @@ public:
     bool set_hovered(std::optional<std::size_t> row);
 
 private:
-    ui::Rect expanded_name_{};
     ItemBounds motion_bounds_{};
     void reveal_cursor(Folder::Reveal reveal, Clock::time_point now);
 

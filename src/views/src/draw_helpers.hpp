@@ -54,12 +54,6 @@ void draw_right_aligned(ui::Renderer& renderer, std::string_view text, float rig
 void draw_button_text(ui::Renderer& renderer, std::string_view text, const ui::Rect& bounds,
                       ui::Color color);
 
-// The selected filename expands at its own label, above neighbouring entries. The returned
-// bounds also route clicks on wrapped lines back to the selected entry.
-ui::Rect draw_selected_name(ui::Renderer& renderer, std::string_view name, ui::Rect anchor,
-                            const ui::Rect& viewport, float size, ui::Color text,
-                            ui::Color background, bool centered = false);
-
 // The mark of a file that may run as a program (issue #17): a dot at the bottom right of its
 // icon (the square at x, y, size wide), in dot, ringed in behind (the colour under it) so it
 // stands apart from the icon on any theme. Its size follows the icon's, 6 to 12 px.

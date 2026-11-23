@@ -97,7 +97,9 @@ pane and tab and is remembered between sessions.
 all panes and tabs; the choice is remembered between sessions. Folder names and
 leading-dot names such as `.profile` stay intact. Files on disk keep their names.
 Long labels end in an ellipsis. Selecting a single file shows its complete name,
-including its extension, by expanding and wrapping its label at the file itself.
+including its extension, in the status bar even when the preview is hidden.
+Labels stay on one line and truncate to fit in every view. The status bar gives
+the filename priority over disk space; names wider than the bar are ellipsized.
 The preview and Quick Look also show the complete name. Rename always edits the
 real filename, with only its base name initially selected.
 

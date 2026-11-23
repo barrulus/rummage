@@ -39,7 +39,7 @@ struct TransferStatus {
 };
 
 // "12 items", "12 items, 3 hidden", "3 of 12 selected", "12 items, loading…", or the folder's
-// error.
+// error. A single selection shows its full filename, including its extension.
 [[nodiscard]] std::string status_of(const Folder& folder);
 
 // The bar under the view: at the left the folder's status and the free space of its file system
