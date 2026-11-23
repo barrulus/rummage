@@ -29,7 +29,8 @@ case-insensitive, not locale collation.
 folders by file count or size. Largest-file and modification-age graphs reveal
 where space is used and how recently files changed. Optional Tokei source analysis
 shows language, code, comment and blank-line statistics, including embedded code.
-Drill into folders or reveal matching files, with
+Explore these views in a browser pane, select matching files, preview or open
+them and use the normal file context menu in place, with
 explicit partial results when scans reach their limits.
 
 ## Files and external applications

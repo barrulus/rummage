@@ -8,6 +8,7 @@ Pane::Pane(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& 
            InfoPane* info_pane)
     : columns{loop, pool, watcher, mime, redraw, set_cursor, info_pane, thumbnails},
       grid{loop, pool, watcher, mime, redraw, set_cursor, thumbnails, info_pane},
-      details{loop, pool, watcher, mime, redraw, set_cursor, info_pane, thumbnails} {}
+      details{loop, pool, watcher, mime, redraw, set_cursor, info_pane, thumbnails},
+      insights{loop, pool, redraw} {}
 
 }  // namespace rummage::views

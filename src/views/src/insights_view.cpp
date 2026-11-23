@@ -1,4 +1,4 @@
-#include "rummage/views/insights_dialog.hpp"
+#include "rummage/views/insights_view.hpp"
 
 #include <algorithm>
 #include <array>
@@ -11,7 +11,7 @@
 
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
-#include "rummage/views/dialog_chrome.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/views/format.hpp"
 
 namespace rummage::views {
@@ -43,7 +43,7 @@ ui::Color mix(ui::Color a, ui::Color b, float t) {
     return {a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1};
 }
 
-ui::Color row_color(const InsightsDialog::Row& row, const theme::Palette& palette) {
+ui::Color row_color(const InsightsView::Row& row, const theme::Palette& palette) {
     // Categorical chart accents stay distinct even with a monochrome desktop palette.
     // Mix in the user's accent and derive readable foregrounds on the actual surfaces.
     const std::array colors{ui::Color::rgb(0x7AA2F7), ui::Color::rgb(0x9ECE6A),
@@ -100,17 +100,212 @@ std::vector<ui::Rect> insight_treemap(const std::vector<double>& weights, ui::Re
     return result;
 }
 
-InsightsDialog::InsightsDialog(core::EventLoop& loop, core::WorkerPool& pool,
-                               std::function<void()> redraw, fs::InsightOptions options)
+InsightsView::InsightsView(core::EventLoop& loop, core::WorkerPool& pool,
+                           std::function<void()> redraw, fs::InsightOptions options)
     : pool_{pool}, source_{loop, pool}, redraw_{std::move(redraw)}, options_{options} {}
 
-InsightsDialog::~InsightsDialog() {
+InsightsView::~InsightsView() {
+    clear_selection();
     stop_.cancel();
     job_.cancel();
 }
 
-void InsightsDialog::open(std::filesystem::path root, bool hidden, Reveal reveal_handler,
-                          std::optional<View> initial) {
+void InsightsView::set_browser_handlers(FolderFactory factory, std::function<void()> activate,
+                                        std::function<void(float, float)> menu, EditSlot* edit) {
+    folder_factory_ = std::move(factory);
+    activate_file_ = std::move(activate);
+    menu_ = std::move(menu);
+    edit_ = edit;
+}
+
+void InsightsView::clear_selection() {
+    if (selected_folder_)
+        selected_folder_->set_changed_handler({});
+    selected_folder_.reset();
+    selected_row_.reset();
+    selected_path_.clear();
+    pending_open_ = false;
+    pending_menu_.reset();
+}
+
+void InsightsView::sync_folder() {
+    if (folder_factory_ && (!scope_folder_ || scope_folder_->path() != scope_path()))
+        scope_folder_ = folder_factory_(scope_path());
+}
+
+bool InsightsView::file_row(std::size_t index) const {
+    return index < rows_.size() && !rows_[index].directory &&
+           (view_ == View::matches || view_ == View::largest || view_ == View::age_matches ||
+            view_ == View::code_matches || view_ == View::space);
+}
+
+std::filesystem::path InsightsView::row_path(std::size_t index) const {
+    if (!file_row(index))
+        return {};
+    const auto& row = rows_[index];
+    if (row.path.is_absolute())
+        return row.path;
+    if (view_ == View::code_matches && code_)
+        return code_->root / row.path;
+    return data_ ? data_->root / data_->relative_path(row.node) : std::filesystem::path{};
+}
+
+bool InsightsView::selected(std::size_t index) const {
+    const auto path = row_path(index);
+    return selected_folder_ && path.parent_path() == selected_folder_->path() &&
+           selected_folder_->is_selected(path.filename().string());
+}
+
+void InsightsView::select_row(std::size_t index, ui::Modifiers modifiers) {
+    if (!file_row(index) || !folder_factory_)
+        return;
+    const auto path = row_path(index);
+    const auto previous = selected_row_;
+    const bool same_parent = selected_folder_ && selected_folder_->path() == path.parent_path();
+    if (!same_parent) {
+        clear_selection();
+        selected_folder_ = folder_factory_(path.parent_path());
+        selected_folder_->set_changed_handler([this] { selection_changed(); });
+    }
+    selected_row_ = index;
+    selected_path_ = path;
+    pending_open_ = false;
+    pending_menu_.reset();
+    focus_ = std::format("row:{}", index);
+    const auto& entries = selected_folder_->entries();
+    const auto found = std::ranges::find(entries, path.filename().string(), &fs::Entry::name);
+    if (same_parent && modifiers.shift && previous) {
+        std::vector<std::size_t> matches;
+        for (auto i = std::min(index, *previous); i <= std::max(index, *previous); ++i) {
+            const auto candidate = row_path(i);
+            if (candidate.parent_path() != path.parent_path())
+                continue;
+            const auto at =
+                std::ranges::find(entries, candidate.filename().string(), &fs::Entry::name);
+            if (at != entries.end())
+                matches.push_back(static_cast<std::size_t>(at - entries.begin()));
+        }
+        selected_folder_->select_rows(matches, modifiers.ctrl);
+        if (found != entries.end())
+            selected_folder_->set_cursor(static_cast<std::size_t>(found - entries.begin()),
+                                         SelectMode::keep);
+    } else if (same_parent && modifiers.ctrl && found != entries.end()) {
+        selected_folder_->set_cursor(static_cast<std::size_t>(found - entries.begin()),
+                                     SelectMode::toggle);
+    } else
+        selected_folder_->select_name(path.filename().string());
+    redraw_();
+}
+
+void InsightsView::selection_changed() {
+    if (!selected_folder_)
+        return;
+    const auto* entry = selected_folder_->cursor_entry();
+    if (entry && selected_row_ && *selected_row_ < rows_.size()) {
+        const auto path = selected_folder_->path_of(*entry);
+        if (path != selected_path_ &&
+            std::ranges::find(selected_folder_->entries(), selected_path_.filename().string(),
+                              &fs::Entry::name) == selected_folder_->entries().end()) {
+            // Folder's watched model follows a rename; keep its result row in place.
+            for (auto& [original, target] : renamed_paths_)
+                if (target == selected_path_)
+                    target = path;
+            renamed_paths_[selected_path_] = path;
+            auto& row = rows_[*selected_row_];
+            row.path = path;
+            row.label = view_ == View::code_matches ? path.lexically_relative(scope_path()).string()
+                                                    : entry->name;
+            row.bytes = entry->size;
+            selected_path_ = path;
+        }
+        if (pending_open_) {
+            pending_open_ = false;
+            if (activate_file_)
+                activate_file_();
+            return;
+        }
+        if (pending_menu_) {
+            const auto [x, y] = *pending_menu_;
+            pending_menu_.reset();
+            if (menu_)
+                menu_(x, y);
+            return;
+        }
+    } else if (!selected_folder_->model().loading()) {
+        pending_open_ = false;
+        pending_menu_.reset();
+    }
+    redraw_();
+}
+
+void InsightsView::select_all(bool invert) {
+    if (!selected_folder_ || selected_folder_->model().loading())
+        return;
+    const auto& entries = selected_folder_->entries();
+    std::vector<std::size_t> matches;
+    for (std::size_t i = 0; i < rows_.size(); ++i) {
+        const auto path = row_path(i);
+        if (path.parent_path() != selected_folder_->path())
+            continue;
+        const auto found = std::ranges::find(entries, path.filename().string(), &fs::Entry::name);
+        if (found != entries.end() && (!invert || !selected_folder_->is_selected(found->name)))
+            matches.push_back(static_cast<std::size_t>(found - entries.begin()));
+    }
+    if (matches.empty())
+        selected_folder_->set_cursor(std::nullopt);
+    else
+        selected_folder_->select_rows(matches, false);
+}
+
+void InsightsView::finish_rows() {
+    for (std::size_t i = 0; i < rows_.size(); ++i) {
+        const auto found = renamed_paths_.find(row_path(i));
+        if (found != renamed_paths_.end()) {
+            rows_[i].path = found->second;
+            rows_[i].label = view_ == View::code_matches
+                                 ? found->second.lexically_relative(scope_path()).string()
+                                 : found->second.filename().string();
+        }
+    }
+    if (name_order_ && view_ != View::languages)
+        std::ranges::stable_sort(rows_, {}, &Row::label);
+    if (!filter_.empty())
+        std::erase_if(rows_,
+                      [this](const Row& row) { return !fs::matches_name(row.label, filter_); });
+}
+
+void InsightsView::set_filter(std::string query) {
+    if (query == filter_)
+        return;
+    filter_ = std::move(query);
+    if (open_)
+        rebuild();
+}
+
+ui::Rect InsightsView::selected_bounds() const {
+    return selected_row_ ? control_bounds(std::format("row:{}", *selected_row_)) : ui::Rect{};
+}
+
+std::optional<ViewHit> InsightsView::hit(float x, float y) const {
+    if (!selected_folder_ || !selected_row_ || !selected_folder_->cursor())
+        return {};
+    const auto row = control_bounds(std::format("row:{}", *selected_row_));
+    const auto tile = control_bounds(std::format("tile:{}", *selected_row_));
+    if (!row.contains(x, y) && !tile.contains(x, y))
+        return {};
+    return ViewHit{selected_folder_, selected_folder_->cursor(), true};
+}
+
+bool InsightsView::edit_name(ui::Rect rect, std::size_t index, float size) {
+    if (!edit_ || !selected_folder_ || edit_->folder != selected_folder_.get() ||
+        row_path(index) != selected_folder_->path() / edit_->name)
+        return false;
+    edit_->place(rect, size);
+    return true;
+}
+
+void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_handler,
+                        std::optional<View> initial) {
     const bool resume = !initial && root == entry_root_;
     const auto destination = resume ? scope_path() : root;
     entry_root_ = std::move(root);
@@ -143,10 +338,12 @@ void InsightsDialog::open(std::filesystem::path root, bool hidden, Reveal reveal
     refresh();
 }
 
-void InsightsDialog::close() {
+void InsightsView::close() {
     if (!open_)
         return;
     root_ = scope_path();
+    clear_selection();
+    scope_folder_.reset();
     if (loading())
         offset_ = pending_offset_;
     stop_.cancel();
@@ -162,14 +359,15 @@ void InsightsDialog::close() {
     redraw_();
 }
 
-std::filesystem::path InsightsDialog::scope_path() const {
+std::filesystem::path InsightsView::scope_path() const {
     return data_ ? (scope_ == 0 ? data_->root : data_->root / data_->relative_path(scope_)) : root_;
 }
 
-void InsightsDialog::refresh() {
+void InsightsView::refresh() {
     if (!open_)
         return;
     root_ = scope_path();
+    renamed_paths_.clear();
     stop_.cancel();
     job_.cancel();
     stop_ = core::CancelToken{};
@@ -179,6 +377,8 @@ void InsightsDialog::refresh() {
     scope_ = offset_ = 0;
     rows_.clear();
     controls_.clear();
+    clear_selection();
+    sync_folder();
     source_.cancel();
     code_.reset();
     loading_ = false;
@@ -215,13 +415,13 @@ void InsightsDialog::refresh() {
     redraw_();
 }
 
-void InsightsDialog::stop() {
+void InsightsView::stop() {
     source_.stop();
     stop_.cancel();  // Keep delivery enabled: publish the partial snapshot when the walk stops.
     redraw_();
 }
 
-void InsightsDialog::set_view(View view) {
+void InsightsView::set_view(View view) {
     if (view == view_)
         return;
     remember();
@@ -236,26 +436,29 @@ void InsightsDialog::set_view(View view) {
     }
 }
 
-void InsightsDialog::set_size_measure(bool bytes) {
+void InsightsView::set_size_measure(bool bytes) {
+    name_order_ = false;
     bytes_ = bytes;
     rebuild();
 }
 
-void InsightsDialog::set_recursive(bool recursive) {
+void InsightsView::set_recursive(bool recursive) {
     if (options_.recursive != recursive) {
         options_.recursive = recursive;
         refresh();
     }
 }
 
-void InsightsDialog::set_hidden(bool hidden) {
+void InsightsView::set_hidden(bool hidden) {
     if (options_.hidden != hidden) {
         options_.hidden = hidden;
         refresh();
     }
 }
 
-void InsightsDialog::rebuild() {
+void InsightsView::rebuild() {
+    clear_selection();
+    sync_folder();
     pending_offset_ = 0;
     hover_.clear();
     rows_.clear();
@@ -285,6 +488,7 @@ void InsightsDialog::rebuild() {
                                                           : a.label < b.label;
             });
         }
+        finish_rows();
         redraw_();
         return;
     }
@@ -349,10 +553,11 @@ void InsightsDialog::rebuild() {
             return left != right ? left > right : a.label < b.label;
         });
     }
+    finish_rows();
     redraw_();
 }
 
-void InsightsDialog::reveal(std::size_t node) {
+void InsightsView::reveal(std::size_t node) {
     if (!data_ || node >= data_->nodes.size())
         return;
     const auto path = data_->root / data_->relative_path(node);
@@ -363,10 +568,16 @@ void InsightsDialog::reveal(std::size_t node) {
         handler(path, directory);
 }
 
-void InsightsDialog::activate_row(std::size_t index) {
+void InsightsView::activate_row(std::size_t index) {
     if (index >= rows_.size())
         return;
     const auto row = rows_[index];
+    if (file_row(index) && folder_factory_) {
+        select_row(index);
+        pending_open_ = true;
+        selection_changed();
+        return;
+    }
     if (view_ == View::code_matches) {
         const auto path = code_->root / row.path;
         const auto handler = reveal_;
@@ -389,13 +600,13 @@ void InsightsDialog::activate_row(std::size_t index) {
     }
 }
 
-void InsightsDialog::remember() {
+void InsightsView::remember() {
     if (history_.size() == 128)
         history_.erase(history_.begin());
     history_.push_back({scope_path(), view_, extension_, offset_});
 }
 
-void InsightsDialog::restore(Location location) {
+void InsightsView::restore(Location location) {
     view_ = location.view;
     extension_ = std::move(location.extension);
     if (source_view()) {
@@ -446,7 +657,7 @@ void InsightsDialog::restore(Location location) {
     refresh();
 }
 
-void InsightsDialog::navigate(const std::filesystem::path& path) {
+void InsightsView::navigate(const std::filesystem::path& path) {
     if (path.empty() || path == scope_path())
         return;
     remember();
@@ -459,7 +670,7 @@ void InsightsDialog::navigate(const std::filesystem::path& path) {
              0});
 }
 
-void InsightsDialog::back() {
+void InsightsView::back() {
     if (history_.empty())
         return;
     auto previous = std::move(history_.back());
@@ -467,17 +678,17 @@ void InsightsDialog::back() {
     restore(std::move(previous));
 }
 
-bool InsightsDialog::can_up() const {
+bool InsightsView::can_up() const {
     const auto path = scope_path();
     return !path.empty() && path.parent_path() != path;
 }
 
-void InsightsDialog::up() {
+void InsightsView::up() {
     if (can_up())
         navigate(scope_path().parent_path());
 }
 
-void InsightsDialog::page(int direction) {
+void InsightsView::page(int direction) {
     if (direction > 0 && offset_ + page_size_ < rows_.size())
         offset_ += page_size_;
     else if (direction < 0)
@@ -486,7 +697,7 @@ void InsightsDialog::page(int direction) {
     redraw_();
 }
 
-std::string InsightsDialog::status() const {
+std::string InsightsView::status() const {
     if (source_view()) {
         if (source_.running())
             return std::string{i18n::tr("Analyzing source…")};
@@ -533,9 +744,47 @@ std::string InsightsDialog::status() const {
     return std::string{i18n::tr("Scan complete · Refresh to check for changes")};
 }
 
-void InsightsDialog::key(const ui::KeyEvent& event) {
+void InsightsView::key(const ui::KeyEvent& event) {
     if (!open_)
         return;
+    if (folder_factory_ && event.modifiers.ctrl &&
+        (event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A ||
+         ((event.keysym == XKB_KEY_i || event.keysym == XKB_KEY_I) && event.modifiers.shift))) {
+        select_all(event.modifiers.shift);
+        return;
+    }
+    if (folder_factory_ && !event.modifiers.alt && !rows_.empty() &&
+        (event.keysym == XKB_KEY_Down || event.keysym == XKB_KEY_Up ||
+         event.keysym == XKB_KEY_Home || event.keysym == XKB_KEY_End)) {
+        std::size_t index = selected_row_.value_or(0);
+        if (event.keysym == XKB_KEY_Home)
+            index = 0;
+        else if (event.keysym == XKB_KEY_End)
+            index = rows_.size() - 1;
+        else if (selected_row_)
+            index = event.keysym == XKB_KEY_Down ? std::min(index + 1, rows_.size() - 1)
+                    : index > 0                  ? index - 1
+                                                 : 0;
+        if (file_row(index))
+            select_row(index, event.modifiers);
+        else {
+            selected_row_ = index;
+            focus_ = std::format("row:{}", index);
+        }
+        if (index < offset_)
+            offset_ = index;
+        if (index >= offset_ + page_size_)
+            offset_ = index - page_size_ + 1;
+        redraw_();
+        return;
+    }
+    if (folder_factory_ && selected_row_ &&
+        (focus_ == std::format("row:{}", *selected_row_) ||
+         focus_ == std::format("tile:{}", *selected_row_)) &&
+        (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter)) {
+        activate_row(*selected_row_);
+        return;
+    }
     if (event.keysym == XKB_KEY_Escape) {
         if (view_ == View::matches || view_ == View::age_matches || view_ == View::code_matches)
             back();
@@ -580,7 +829,7 @@ void InsightsDialog::key(const ui::KeyEvent& event) {
     }
 }
 
-void InsightsDialog::pointer(const ui::PointerEvent& event) {
+void InsightsView::pointer(const ui::PointerEvent& event) {
     if (event.kind == ui::PointerEvent::Kind::motion) {
         std::string hovered;
         for (const auto& control : controls_)
@@ -595,10 +844,39 @@ void InsightsDialog::pointer(const ui::PointerEvent& event) {
     }
     if (event.kind == ui::PointerEvent::Kind::scroll && list_.contains(event.x, event.y)) {
         const float delta = event.wheel_y != 0 ? event.wheel_y : event.scroll_y;
-        if (delta != 0)
-            page(delta > 0 ? 1 : -1);
+        if (delta != 0) {
+            offset_ = delta > 0
+                          ? std::min(offset_ + 3,
+                                     rows_.size() > page_size_ ? rows_.size() - page_size_ : 0)
+                      : offset_ > 3 ? offset_ - 3
+                                    : 0;
+            controls_.clear();
+            redraw_();
+        }
     }
-    if (event.kind != ui::PointerEvent::Kind::press || event.button != ui::PointerButton::left)
+    if (event.kind != ui::PointerEvent::Kind::press || !card_.contains(event.x, event.y))
+        return;
+    if (folder_factory_ &&
+        (event.button == ui::PointerButton::left || event.button == ui::PointerButton::right)) {
+        for (const auto& control : controls_) {
+            if (!control.bounds.contains(event.x, event.y) ||
+                (!control.id.starts_with("row:") && !control.id.starts_with("tile:")))
+                continue;
+            const auto i =
+                static_cast<std::size_t>(std::stoull(control.id.substr(control.id.find(':') + 1)));
+            if (file_row(i)) {
+                if (event.button == ui::PointerButton::left || !selected(i))
+                    select_row(i, event.modifiers);
+                if (event.button == ui::PointerButton::right)
+                    pending_menu_ = {event.x, event.y};
+                else if (event.click_count == 2)
+                    pending_open_ = true;
+                selection_changed();
+                return;
+            }
+        }
+    }
+    if (event.button != ui::PointerButton::left)
         return;
     for (const auto& control : controls_)
         if (control.bounds.contains(event.x, event.y)) {
@@ -609,27 +887,34 @@ void InsightsDialog::pointer(const ui::PointerEvent& event) {
         }
 }
 
-ui::CursorShape InsightsDialog::cursor_at(float x, float y) const {
+ui::CursorShape InsightsView::cursor_at(float x, float y) const {
     return std::ranges::any_of(controls_, [&](const Control& c) { return c.bounds.contains(x, y); })
                ? ui::CursorShape::pointer
                : ui::CursorShape::standard;
 }
 
-ui::Rect InsightsDialog::control_bounds(std::string_view id) const {
+ui::Rect InsightsView::control_bounds(std::string_view id) const {
     const auto found = std::ranges::find(controls_, id, &Control::id);
     return found == controls_.end() ? ui::Rect{} : found->bounds;
 }
 
-void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
-                          const theme::Palette& palette, ui::IconSet& icons,
-                          const fs::MimeDatabase& mime) {
+void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
+                        const theme::Palette& palette, ui::IconSet& icons,
+                        const fs::MimeDatabase& mime) {
     if (!open_)
         return;
     controls_.clear();
-    const auto frame = DialogFrame::fit(bounds, 1080, 820, 112);
-    card_ = frame.card;
-    frame.draw(renderer, bounds, palette, i18n::tr("Folder insights"));
-    const auto surface = palette.surface_container_high;
+    const float footer_height = std::min(78.0F, bounds.height);
+
+    struct Frame {
+        ui::Rect body, footer;
+    };
+
+    const Frame frame{{bounds.x, bounds.y, bounds.width, bounds.height - footer_height},
+                      {bounds.x, bounds.bottom() - footer_height, bounds.width, footer_height}};
+    card_ = bounds;
+    const auto surface = palette.surface_container;
+    renderer.fill_background(bounds, surface);
     const auto muted = theme::readable_foreground(palette.on_surface_variant, surface);
     const float left = frame.body.x + 16, width = std::max(1.0F, frame.body.width - 32);
     const auto text_width = [&](std::string_view text) {
@@ -645,7 +930,7 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (!enabled)
             ink = ink.with_alpha(0.35F);
         renderer.draw_box(rect, {.fill = fill,
-                                 .radius = ui::Corners::all(8),
+                                 .radius = ui::Corners::all(3),
                                  .border_width = enabled && focus_ == id ? 2.0F
                                                  : selected              ? 1.0F
                                                                          : 0,
@@ -662,64 +947,10 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     };
     renderer.push_clip(frame.body);
     float x = left, y = frame.body.y + 12;
-    const float back_width = text_width(i18n::tr("Back")) + 48;
-    const float up_width = text_width(i18n::tr("Up")) + 48;
-    control(
-        "back", i18n::tr("Back"), {x, y, back_width, 32}, [this] { back(); }, "chevron-left", false,
-        can_back());
-    x += back_width + 6;
-    control(
-        "up", i18n::tr("Up"), {x, y, up_width, 32}, [this] { up(); }, "chevron-up", false,
-        can_up());
-    x += up_width + 14;
-    // Breadcrumbs show the nearest ancestors that fit. The ellipsis navigates to
-    // the next hidden ancestor, so even very long paths remain usable.
-    std::vector<std::filesystem::path> crumbs;
-    auto path = scope_path();
-    for (auto parent = path; !parent.empty();) {
-        crumbs.push_back(parent);
-        const auto next = parent.parent_path();
-        if (next == parent)
-            break;
-        parent = next;
-    }
-    std::ranges::reverse(crumbs);
+    const auto path = scope_path();
     const auto crumb_label = [](const std::filesystem::path& value) {
         return value.has_filename() ? value.filename().string() : value.string();
     };
-    std::size_t first = crumbs.size();
-    float used = 0;
-    const float crumb_space = std::max(0.0F, left + width - x);
-    while (first > 0) {
-        const float w = std::clamp(text_width(crumb_label(crumbs[first - 1])) + 20, 40.0F, 160.0F);
-        if (used + w + 18 + (first > 1 ? 36 : 0) > crumb_space && first != crumbs.size())
-            break;
-        used += w + 18;
-        --first;
-    }
-    if (first > 0 && crumb_space > 80) {
-        control("crumb:more", "…", {x, y, 30, 32},
-                [this, target = crumbs[first - 1]] { navigate(target); });
-        x += 36;
-    }
-    for (std::size_t i = first; i < crumbs.size() && x < left + width - 12; ++i) {
-        const auto label = crumb_label(crumbs[i]);
-        const float w =
-            std::min(left + width - x, std::clamp(text_width(label) + 20, 40.0F, 160.0F));
-        if (i + 1 == crumbs.size())
-            renderer.draw_text(label, x + 8, y + 8, 13, palette.on_surface, w - 12,
-                               ui::Ellipsis::middle);
-        else
-            control(std::format("crumb:{}", i), label, {x, y, w, 32},
-                    [this, target = crumbs[i]] { navigate(target); });
-        x += w;
-        if (i + 1 < crumbs.size()) {
-            icons.draw(renderer, "chevron-right", x + 1, y + 9, 14, muted);
-            x += 18;
-        }
-    }
-    x = left;
-    y += 44;
     const auto button = [&](std::string id, std::string_view label, std::function<void()> action,
                             bool selected = false, std::string_view glyph = {}) {
         const float w =
@@ -733,6 +964,17 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             control(std::move(id), label, rect, std::move(action), glyph, selected);
         x += w + 6;
     };
+    button(
+        "close", i18n::tr("Files"),
+        [this] {
+            const auto target = scope_path();
+            const auto handler = reveal_;
+            close();
+            if (handler)
+                handler(target, true);
+        },
+        false, "folder");
+    button("up", i18n::tr("Up"), [this] { up(); }, false, "chevron-up");
     button(
         "types", i18n::tr("File types"), [this] { set_view(View::types); },
         view_ == View::types || view_ == View::matches, "list-details");
@@ -779,15 +1021,10 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                       ? std::format("{} · {}", i18n::trn("{} file", "{} files", code_->files),
                                     i18n::trn("{} line", "{} lines", code_->total.lines()))
                       : status();
-    const ui::Rect heading{left, y, width, 64};
-    const auto heading_fill = mix(surface, palette.secondary, 0.07F);
-    renderer.draw_box(heading, {.fill = heading_fill, .radius = ui::Corners::all(10)});
-    icons.draw(renderer, "folder", left + 14, y + 16, 32,
-               theme::readable_foreground(palette.secondary, heading_fill));
-    renderer.draw_text(crumb_label(path), left + 60, y + 10, 17, palette.on_surface, width - 76,
-                       ui::Ellipsis::middle);
-    renderer.draw_text(summary, left + 60, y + 36, 13, muted, width - 76);
-    y += 76;
+    renderer.draw_text(i18n::tr("Folder insights"), left, y, 15, palette.on_surface, width);
+    renderer.draw_text(std::format("{} · {}", crumb_label(path), summary), left, y + 24, 12, muted,
+                       width);
+    y += 56;
     if (view_ == View::space && partial && !loading_) {
         renderer.draw_text(i18n::tr("Partial map · Only measured files have area"), left, y, 12,
                            muted, width);
@@ -840,7 +1077,7 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             const auto id = std::format("tile:{}", i);
             const bool folder = i >= shown || rows_[i].directory;
             const auto accent = i < shown ? row_color(rows_[i], palette) : palette.secondary;
-            const bool hot = hover_ == id || focus_ == id;
+            const bool hot = hover_ == id || focus_ == id || (i < rows_.size() && selected(i));
             const auto fill = mix(palette.surface_container_low, accent, hot ? 0.34F : 0.25F);
             const auto ink =
                 theme::readable_foreground(accent, folder ? fill : palette.surface_container_low);
@@ -965,23 +1202,34 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 break;
             const auto id = std::format("row:{}", i);
             const auto accent = row_color(row, palette);
-            renderer.draw_box(
-                rect, {.fill = mix(surface, accent, hover_ == id || focus_ == id ? 0.15F : 0.045F),
-                       .radius = ui::Corners::all(7),
-                       .border_width = focus_ == id ? 1.0F : 0,
-                       .border = accent});
-            const float indent = static_cast<float>(std::min<std::size_t>(row.depth, 4)) * 12;
+            renderer.draw_box(rect, {.fill = mix(surface, accent,
+                                                 selected(i)                    ? 0.22F
+                                                 : hover_ == id || focus_ == id ? 0.10F
+                                                                                : 0.0F),
+                                     .radius = ui::Corners::all(0),
+                                     .border_width = focus_ == id ? 1.0F : 0,
+                                     .border = accent});
+            const float indent = view_ == View::code_matches
+                                     ? 26.0F
+                                     : static_cast<float>(std::min<std::size_t>(row.depth, 4)) * 12;
+            if (view_ == View::code_matches)
+                row_icon(row, {rect.x + 6, rect.y + 10, 18, 18}, accent);
             const std::array cells{
                 row.depth ? "↳ " + row.label : row.label, std::to_string(row.files),
                 std::to_string(row.code.lines()),         std::to_string(row.code.code),
                 std::to_string(row.code.comments),        std::to_string(row.code.blanks)};
-            for (std::size_t k = 0; k < columns.size(); ++k)
+            for (std::size_t k = 0; k < columns.size(); ++k) {
+                if (k == 0 && edit_name({rect.x + 6 + indent, rect.y + 4,
+                                         rect.width * 0.38F - 12 - indent, 30},
+                                        i, 12))
+                    continue;
                 renderer.draw_text(
                     cells[k], rect.x + rect.width * columns[k] + 6 + (k == 0 ? indent : 0),
                     rect.y + 10, 12, k == 0 ? palette.on_surface : muted,
                     rect.width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]) - 10 -
                         (k == 0 ? indent : 0),
                     ui::Ellipsis::middle);
+            }
             stack({rect.x + 6 + indent, rect.bottom() - 5, rect.width * 0.35F - indent, 2},
                   row.code, code_ ? code_->total.lines() : 0);
             controls_.push_back({id, rect, [this, i] { activate_row(i); }});
@@ -1020,21 +1268,23 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 break;
             const auto id = std::format("row:{}", i);
             const auto accent = row_color(row, palette);
-            const bool hot = hover_ == id || focus_ == id;
-            renderer.draw_box(rect, {.fill = mix(surface, accent, hot ? 0.15F : 0.045F),
-                                     .radius = ui::Corners::all(7),
+            const bool hot = hover_ == id || focus_ == id || (i < rows_.size() && selected(i));
+            renderer.draw_box(rect, {.fill = mix(surface, accent,
+                                                 selected(i) ? 0.22F
+                                                 : hot       ? 0.10F
+                                                             : 0.0F),
+                                     .radius = ui::Corners::all(0),
                                      .border_width = focus_ == id ? 1.0F : 0,
                                      .border = accent});
             const auto label =
-                (view_ == View::matches || view_ == View::largest || view_ == View::age_matches) &&
-                        data_
-                    ? data_->relative_path(row.node).string()
-                    : row.label;
+                file_row(i) ? row_path(i).lexically_relative(scope_path()).string() : row.label;
             row_icon(row, {rect.x + 10, rect.y + 10, 20, 20},
                      theme::readable_foreground(accent, surface));
-            renderer.draw_text(label, rect.x + 40, rect.y + 10, 13, palette.on_surface,
-                               std::max(0.0F, rect.width * (count_x - 0.03F) - 40),
-                               ui::Ellipsis::middle);
+            if (!edit_name({rect.x + 40, rect.y + 4, rect.width * (count_x - 0.03F) - 40, 30}, i,
+                           13))
+                renderer.draw_text(label, rect.x + 40, rect.y + 10, 13, palette.on_surface,
+                                   std::max(0.0F, rect.width * (count_x - 0.03F) - 40),
+                                   ui::Ellipsis::middle);
             const auto total = bytes_ || view_ == View::largest ? bytes : files;
             const auto value = bytes_ || view_ == View::largest ? row.bytes : row.files;
             const float share =
@@ -1079,14 +1329,13 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             : i18n::tr("File sizes per name, including hard links · Links are not followed"),
         left, frame.footer.y + 26, 11, muted, width);
     x = left;
-    y = frame.footer.y + 48;
+    y = frame.footer.y + 42;
     const auto footer_button = [&](std::string id, std::string_view label,
                                    std::function<void()> action, bool enabled = true) {
         const float w = std::min(128.0F, width / 5 - 6);
         control(std::move(id), label, {x, y, w, 32}, std::move(action), {}, false, enabled);
         x += w + 6;
     };
-    footer_button("close", i18n::tr("Close"), [this] { close(); });
     footer_button(
         "refresh", loading() ? i18n::tr("Stop") : i18n::tr("Refresh"),
         [this] {
@@ -1096,20 +1345,14 @@ void InsightsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 refresh();
         },
         source_view() || !loading_ || !stop_.cancelled());
-    footer_button("reveal", i18n::tr("Show folder"), [this] {
-        const auto target = scope_path();
-        const auto handler = reveal_;
-        close();
-        if (handler)
-            handler(target, true);
-    });
     footer_button("previous", i18n::tr("Previous"), [this] { page(-1); }, offset_ > 0);
     footer_button(
         "next", i18n::tr("Next"), [this] { page(1); }, offset_ + page_size_ < rows_.size());
     if (!rows_.empty())
         renderer.draw_text(i18n::trf("{}–{} of {} · Select a row to explore", offset_ + 1,
                                      std::min(offset_ + page_size_, rows_.size()), rows_.size()),
-                           left, frame.footer.y + 86, 11, muted, width);
+                           x + 8, frame.footer.y + 52, 11, muted,
+                           std::max(0.0F, left + width - x - 8));
     renderer.pop_clip();
 }
 

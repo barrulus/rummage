@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,6 +13,9 @@
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/views/drop_mark.hpp"
+#include "rummage/views/edit_slot.hpp"
+#include "rummage/views/folder.hpp"
 
 namespace rummage::views {
 
@@ -19,7 +23,7 @@ namespace rummage::views {
 [[nodiscard]] std::vector<ui::Rect> insight_treemap(const std::vector<double>& weights,
                                                     ui::Rect bounds);
 
-class InsightsDialog {
+class InsightsView {
 public:
     enum class View { types, space, matches, largest, age, age_matches, languages, code_matches };
 
@@ -34,9 +38,9 @@ public:
     };
 
     using Reveal = std::function<void(const std::filesystem::path&, bool)>;
-    InsightsDialog(core::EventLoop& loop, core::WorkerPool& pool, std::function<void()> redraw,
-                   fs::InsightOptions options = {});
-    ~InsightsDialog();
+    InsightsView(core::EventLoop& loop, core::WorkerPool& pool, std::function<void()> redraw,
+                 fs::InsightOptions options = {});
+    ~InsightsView();
     void open(std::filesystem::path root, bool hidden, Reveal reveal,
               std::optional<View> initial = {});
 
@@ -52,6 +56,31 @@ public:
     void set_recursive(bool recursive);
     void set_hidden(bool hidden);
     void activate_row(std::size_t index);
+    using FolderFactory = std::function<std::shared_ptr<Folder>(const std::filesystem::path&)>;
+    void set_browser_handlers(FolderFactory factory, std::function<void()> activate,
+                              std::function<void(float, float)> menu, EditSlot* edit);
+    void select_row(std::size_t index, ui::Modifiers modifiers = {});
+    void select_all(bool invert = false);
+    void set_filter(std::string query);
+
+    void set_name_order(bool enabled) {
+        name_order_ = enabled;
+        rebuild();
+    }
+
+    [[nodiscard]] bool name_order() const { return name_order_; }
+
+    [[nodiscard]] bool size_measure() const { return bytes_; }
+
+    [[nodiscard]] std::shared_ptr<Folder> folder() const {
+        return selected_folder_ ? selected_folder_ : scope_folder_;
+    }
+
+    [[nodiscard]] std::shared_ptr<Folder> scope_folder() const { return scope_folder_; }
+
+    [[nodiscard]] std::optional<ViewHit> hit(float x, float y) const;
+    [[nodiscard]] ui::Rect selected_bounds() const;
+
     void back();
     void up();
     void navigate(const std::filesystem::path& path);
@@ -70,7 +99,10 @@ public:
 
     [[nodiscard]] bool is_open() const { return open_; }
 
-    [[nodiscard]] bool loading() const { return loading_ || source_.running(); }
+    [[nodiscard]] bool loading() const {
+        return loading_ || source_.running() ||
+               (selected_folder_ && selected_folder_->model().loading());
+    }
 
     [[nodiscard]] View view() const { return view_; }
 
@@ -100,6 +132,14 @@ private:
         return view_ == View::languages || view_ == View::code_matches;
     }
 
+    void clear_selection();
+    void sync_folder();
+    void selection_changed();
+    void finish_rows();
+    [[nodiscard]] bool file_row(std::size_t index) const;
+    [[nodiscard]] std::filesystem::path row_path(std::size_t index) const;
+    [[nodiscard]] bool selected(std::size_t index) const;
+    bool edit_name(ui::Rect rect, std::size_t index, float size);
     void remember();
     void restore(Location location);
     void rebuild();
@@ -107,6 +147,18 @@ private:
     void reveal(std::size_t node);
     [[nodiscard]] std::filesystem::path scope_path() const;
     [[nodiscard]] std::string status() const;
+    FolderFactory folder_factory_;
+    std::function<void()> activate_file_;
+    std::function<void(float, float)> menu_;
+    std::shared_ptr<Folder> scope_folder_, selected_folder_;
+    std::optional<std::size_t> selected_row_;
+    std::filesystem::path selected_path_;
+    std::optional<std::pair<float, float>> pending_menu_;
+    bool pending_open_{false};
+    EditSlot* edit_{nullptr};
+    std::string filter_;
+    bool name_order_{false};
+    std::map<std::filesystem::path, std::filesystem::path> renamed_paths_;
     core::WorkerPool& pool_;
     platform::CodeAnalysis source_;
     platform::CodeAnalysis::Done code_done_;

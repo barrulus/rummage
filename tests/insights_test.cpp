@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <limits>
@@ -22,7 +23,7 @@
 #include "rummage/theme/desktop.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
-#include "rummage/views/insights_dialog.hpp"
+#include "rummage/views/insights_view.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "temp_dir.hpp"
 
@@ -32,7 +33,7 @@ using namespace std::chrono_literals;
 using rummage::core::CancelToken;
 using rummage::fs::scan_insights;
 using rummage::test::TempDir;
-using rummage::views::InsightsDialog;
+using rummage::views::InsightsView;
 
 bool until(rummage::core::EventLoop& loop, const std::function<bool()>& done) {
     bool ok = false;
@@ -49,8 +50,8 @@ bool until(rummage::core::EventLoop& loop, const std::function<bool()>& done) {
     return ok;
 }
 
-std::size_t row(const InsightsDialog& dialog, std::string_view name) {
-    const auto found = std::ranges::find(dialog.rows(), name, &InsightsDialog::Row::label);
+std::size_t row(const InsightsView& dialog, std::string_view name) {
+    const auto found = std::ranges::find(dialog.rows(), name, &InsightsView::Row::label);
     REQUIRE(found != dialog.rows().end());
     return static_cast<std::size_t>(found - dialog.rows().begin());
 }
@@ -240,7 +241,7 @@ TEST_CASE("insights: exact type matches, cached measures, drill-down and refresh
     dir.write(".hidden.pdf", "x");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     fs::path revealed;
     dialog.open(dir.path, false, [&](const fs::path& path, bool directory) {
         CHECK_FALSE(directory);
@@ -259,12 +260,12 @@ TEST_CASE("insights: exact type matches, cached measures, drill-down and refresh
     CHECK_FALSE(dialog.loading());
     CHECK(dialog.rows().front().label == ".txt");
     dialog.activate_row(row(dialog, ".pdf"));
-    CHECK(dialog.view() == InsightsDialog::View::matches);
+    CHECK(dialog.view() == InsightsView::View::matches);
     REQUIRE(dialog.rows().size() == 2);
     CHECK(std::ranges::none_of(dialog.rows(),
                                [](const auto& r) { return r.label == "misleading.pdf.txt"; }));
     dialog.back();
-    dialog.set_view(InsightsDialog::View::space);
+    dialog.set_view(InsightsView::View::space);
     dialog.activate_row(row(dialog, "sub"));
     CHECK(dialog.scope() != 0);
     CHECK(dialog.snapshot() == original);
@@ -279,7 +280,7 @@ TEST_CASE("insights: exact type matches, cached measures, drill-down and refresh
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.set_recursive(false);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
-    dialog.set_view(InsightsDialog::View::types);
+    dialog.set_view(InsightsView::View::types);
     CHECK(dialog.rows()[row(dialog, ".pdf")].files == 2);
     dialog.activate_row(row(dialog, ".pdf"));
     dialog.activate_row(row(dialog, "a.PDF"));
@@ -290,7 +291,7 @@ TEST_CASE("insights: exact type matches, cached measures, drill-down and refresh
         revealed = path;
     });
     dialog.set_recursive(true);
-    dialog.set_view(InsightsDialog::View::types);
+    dialog.set_view(InsightsView::View::types);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.activate_row(row(dialog, ".pdf"));
     dialog.activate_row(row(dialog, "b.pdf"));
@@ -307,11 +308,11 @@ TEST_CASE("insights: partial map keeps unknown siblings available for drilling")
     dir.write("large.pdf", std::string(4000, 'x'));
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{loop, pool, [] {}, {.max_entries = 3}};
+    InsightsView dialog{loop, pool, [] {}, {.max_entries = 3}};
     dialog.open(dir.path, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     REQUIRE(dialog.snapshot()->limited);
-    dialog.set_view(InsightsDialog::View::space);
+    dialog.set_view(InsightsView::View::space);
     REQUIRE(dialog.rows().size() == 3);
     const auto documents = row(dialog, "Documents");
     CHECK(dialog.rows()[documents].partial);
@@ -351,10 +352,10 @@ TEST_CASE("insights: reopening restores location, view and options with fresh da
     dir.write("Other/.private.pdf", "hidden");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     dialog.open(library, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
-    dialog.set_view(InsightsDialog::View::space);
+    dialog.set_view(InsightsView::View::space);
     dialog.activate_row(row(dialog, "Research"));
     dialog.activate_row(row(dialog, "deep"));
     dialog.set_hidden(true);
@@ -368,7 +369,7 @@ TEST_CASE("insights: reopening restores location, view and options with fresh da
     dialog.open(library, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.current_path() == library / "Research/deep");
-    CHECK(dialog.view() == InsightsDialog::View::space);
+    CHECK(dialog.view() == InsightsView::View::space);
     CHECK(dialog.rows().front().label == "Many");
     CHECK(dialog.rows()[row(dialog, ".private.pdf")].files == 1);
     CHECK(dialog.rows()[row(dialog, "new.md")].files == 1);
@@ -385,7 +386,7 @@ TEST_CASE("insights: reopening restores location, view and options with fresh da
     dialog.open(dir.path / "Other", false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.current_path() == dir.path / "Other");
-    CHECK(dialog.view() == InsightsDialog::View::space);
+    CHECK(dialog.view() == InsightsView::View::space);
     CHECK(dialog.rows().empty());
     CHECK_FALSE(dialog.can_back());
     CHECK(dialog.can_up());
@@ -401,25 +402,25 @@ TEST_CASE("insights: Back restores type matches while Up navigates folders") {
     dir.write("sub/a.pdf", "x");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     dialog.open(dir.path / "sub", false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.activate_row(row(dialog, ".pdf"));
     dialog.close();
     dialog.open(dir.path / "sub", false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
-    CHECK(dialog.view() == InsightsDialog::View::matches);
+    CHECK(dialog.view() == InsightsView::View::matches);
     CHECK(dialog.rows().front().label == "a.pdf");
     dialog.key({.keysym = XKB_KEY_Up, .text = {}, .modifiers = {.alt = true}});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.current_path() == dir.path);
-    CHECK(dialog.view() == InsightsDialog::View::types);
+    CHECK(dialog.view() == InsightsView::View::types);
     dialog.key({.keysym = XKB_KEY_Left, .text = {}, .modifiers = {.alt = true}});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.current_path() == dir.path / "sub");
-    CHECK(dialog.view() == InsightsDialog::View::matches);
+    CHECK(dialog.view() == InsightsView::View::matches);
     dialog.key({.keysym = XKB_KEY_BackSpace, .text = {}});
-    CHECK(dialog.view() == InsightsDialog::View::types);
+    CHECK(dialog.view() == InsightsView::View::types);
 }
 
 TEST_CASE("insights: reopening preserves the result page and light theme remains usable") {
@@ -429,7 +430,7 @@ TEST_CASE("insights: reopening preserves the result page and light theme remains
         dir.write("report-" + std::to_string(i) + ".pdf", "x");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
     rummage::ui::IconSet icons{fonts};
@@ -456,11 +457,11 @@ TEST_CASE("insights: reopening preserves the result page and light theme remains
     dialog.open(dir.path, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     draw();
-    CHECK(dialog.view() == InsightsDialog::View::matches);
+    CHECK(dialog.view() == InsightsView::View::matches);
     CHECK(dialog.control_bounds("row:0").empty());
     CHECK_FALSE(dialog.control_bounds("row:" + std::to_string(page_size)).empty());
     capture("light", 1100, 820);
-    dialog.set_view(InsightsDialog::View::space);
+    dialog.set_view(InsightsView::View::space);
     draw();
     capture("light-files", 1100, 820);
 }
@@ -471,7 +472,7 @@ TEST_CASE("insights: replacement, stop and close cancel obsolete deliveries") {
     second.write("b.md", "1234");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     dialog.open(first.path, false, {});
     dialog.open(second.path, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
@@ -490,7 +491,7 @@ TEST_CASE("insights: replacement, stop and close cancel obsolete deliveries") {
     CHECK(dialog.snapshot() == nullptr);
 }
 
-TEST_CASE("insights: native browser entry points, rendering and modal input") {
+TEST_CASE("insights: native browser entry points, rendering and pane navigation") {
     rummage::ui::Offscreen offscreen{1100, 820};
     const TempDir dir;
     fs::create_directories(dir.path / "Research");
@@ -519,7 +520,7 @@ TEST_CASE("insights: native browser entry points, rendering and modal input") {
         .keysym = XKB_KEY_I, .text = {}, .modifiers = {.ctrl = true, .alt = true}};
     CHECK(rummage::views::command_for(shortcut) == rummage::views::Command::folder_insights);
     browser.key(shortcut, rummage::views::Browser::Clock::now());
-    auto& dialog = browser.insights_dialog();
+    auto& dialog = browser.insights_view();
     REQUIRE(dialog.is_open());
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     const auto draw = [&](int width, int height, const std::string& name) {
@@ -537,12 +538,12 @@ TEST_CASE("insights: native browser entry points, rendering and modal input") {
                      .y = space.y + 4,
                      .button = rummage::ui::PointerButton::left},
                     rummage::views::Browser::Clock::now());
-    CHECK(dialog.view() == InsightsDialog::View::space);
+    CHECK(dialog.view() == InsightsView::View::space);
     draw(1100, 820, "space");
     CHECK_FALSE(dialog.control_bounds("tile:0").empty());
     dialog.activate_row(row(dialog, "Research"));
     draw(1100, 820, "files");
-    CHECK_FALSE(dialog.control_bounds("back").empty());
+    CHECK_FALSE(browser.has_overlay());
     CHECK_FALSE(dialog.control_bounds("up").empty());
     const auto up_button = dialog.control_bounds("up");
     dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
@@ -553,17 +554,11 @@ TEST_CASE("insights: native browser entry points, rendering and modal input") {
     dialog.back();
     CHECK(dialog.current_path() == dir.path / "Research");
     draw(1100, 820, "files");
-    // The parent breadcrumb remains a direct navigation target.
-    const auto depth = static_cast<std::size_t>(std::distance(dir.path.begin(), dir.path.end()));
-    const auto crumb = dialog.control_bounds("crumb:" + std::to_string(depth - 1));
-    REQUIRE_FALSE(crumb.empty());
-    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                    .x = crumb.x + 5,
-                    .y = crumb.y + 5,
-                    .button = rummage::ui::PointerButton::left});
+    browser.key({.keysym = XKB_KEY_Up, .text = {}, .modifiers = {.alt = true}},
+                rummage::views::Browser::Clock::now());
     CHECK(dialog.current_path() == dir.path);
     draw(640, 600, "compact");
-    for (const auto id : {"close", "recursive", "hidden", "refresh", "reveal"}) {
+    for (const auto id : {"close", "recursive", "hidden", "refresh"}) {
         const auto r = dialog.control_bounds(id);
         CHECK_FALSE(r.empty());
         CHECK(r.x >= 0);
@@ -571,26 +566,26 @@ TEST_CASE("insights: native browser entry points, rendering and modal input") {
         CHECK(r.right() <= 640);
         CHECK(r.bottom() <= 600);
     }
-    dialog.set_view(InsightsDialog::View::types);
+    dialog.set_view(InsightsView::View::types);
     dialog.activate_row(row(dialog, ".pdf"));
     draw(1100, 820, "matches");
     browser.key({.keysym = XKB_KEY_Escape, .text = {}}, rummage::views::Browser::Clock::now());
     CHECK(dialog.is_open());
-    CHECK(dialog.view() == InsightsDialog::View::types);
+    CHECK(dialog.view() == InsightsView::View::types);
     browser.key({.keysym = XKB_KEY_Escape, .text = {}}, rummage::views::Browser::Clock::now());
     CHECK_FALSE(dialog.is_open());
-    browser.set_name_filter("no-match");
+    browser.set_name_filter({});
     browser.show_insights(dir.path);
     dialog.set_hidden(true);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.activate_row(row(dialog, ".pdf"));
-    dialog.activate_row(row(dialog, ".secret.pdf"));
+    dialog.select_row(row(dialog, ".secret.pdf"));
     REQUIRE(until(loop, [&] { return !browser.loading(); }));
-    CHECK(browser.name_filter().empty());
-    CHECK(browser.shows_hidden());
+    CHECK(dialog.is_open());
     const auto selected = browser.picker_folder()->single_selection();
     REQUIRE(selected != nullptr);
     CHECK(selected->name == ".secret.pdf");
+    dialog.close();
     browser.set_picker_mode(true);
     browser.show_insights(dir.path);
     CHECK_FALSE(dialog.is_open());
@@ -630,7 +625,7 @@ TEST_CASE("insights: largest files and age graphs drill down and preserve scope"
     }
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     fs::path revealed;
     dialog.open(dir.path, false, [&](const auto& target, bool directory) {
         CHECK_FALSE(directory);
@@ -638,7 +633,7 @@ TEST_CASE("insights: largest files and age graphs drill down and preserve scope"
     });
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.set_size_measure(false);
-    dialog.set_view(InsightsDialog::View::largest);
+    dialog.set_view(InsightsView::View::largest);
     REQUIRE(dialog.rows().size() == 4);
     CHECK(dialog.rows()[0].label == "large.pdf");
     CHECK(dialog.rows()[0].bytes == 12000);
@@ -658,7 +653,7 @@ TEST_CASE("insights: largest files and age graphs drill down and preserve scope"
     };
     draw("largest");
     draw("light-largest");
-    dialog.set_view(InsightsDialog::View::age);
+    dialog.set_view(InsightsView::View::age);
     CHECK(dialog.rows().size() == 4);
     CHECK(dialog.rows()[row(dialog, "7–30 days")].bytes == 12000);
     CHECK(dialog.rows()[row(dialog, "Future dates")].files == 1);
@@ -668,14 +663,14 @@ TEST_CASE("insights: largest files and age graphs drill down and preserve scope"
     REQUIRE(dialog.rows().size() == 1);
     CHECK(dialog.rows()[0].label == "large.pdf");
     dialog.back();
-    CHECK(dialog.view() == InsightsDialog::View::age);
+    CHECK(dialog.view() == InsightsView::View::age);
     dialog.set_size_measure(true);
     draw("age-size");
     draw("age-compact", 640, 640);
     dialog.set_recursive(false);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.rows().size() == 3);
-    dialog.set_view(InsightsDialog::View::largest);
+    dialog.set_view(InsightsView::View::largest);
     REQUIRE(dialog.rows().size() == 3);
     CHECK(dialog.rows()[0].label == "recent.md");
     dialog.activate_row(0);
@@ -696,13 +691,13 @@ TEST_CASE("insights: real Tokei language graph, embedded files, options and resu
     dir.write(".gitignore", "ignored.py\n");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
-    InsightsDialog dialog{loop, pool, [] {}};
+    InsightsView dialog{loop, pool, [] {}};
     fs::path revealed;
     const auto reveal = [&](const auto& target, bool directory) {
         CHECK_FALSE(directory);
         revealed = target;
     };
-    dialog.open(dir.path, false, reveal, InsightsDialog::View::languages);
+    dialog.open(dir.path, false, reveal, InsightsView::View::languages);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     REQUIRE(dialog.code_report() != nullptr);
     REQUIRE(dialog.code_report()->error == rummage::platform::CodeError::none);
@@ -728,7 +723,7 @@ TEST_CASE("insights: real Tokei language graph, embedded files, options and resu
     draw("light-languages");
     draw("languages-compact", 640, 640);
     dialog.activate_row(row(dialog, "Python"));
-    CHECK(dialog.view() == InsightsDialog::View::code_matches);
+    CHECK(dialog.view() == InsightsView::View::code_matches);
     REQUIRE(dialog.rows().size() == 1);
     CHECK(dialog.rows()[0].label == "README.md");
     CHECK(dialog.rows()[0].code.lines() == 2);
@@ -736,10 +731,10 @@ TEST_CASE("insights: real Tokei language graph, embedded files, options and resu
     dialog.close();
     dialog.open(dir.path, false, reveal);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
-    CHECK(dialog.view() == InsightsDialog::View::code_matches);
+    CHECK(dialog.view() == InsightsView::View::code_matches);
     REQUIRE(dialog.rows().size() == 1);
     dialog.back();
-    CHECK(dialog.view() == InsightsDialog::View::languages);
+    CHECK(dialog.view() == InsightsView::View::languages);
     dialog.set_recursive(false);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     REQUIRE(dialog.code_report()->error == rummage::platform::CodeError::none);
@@ -747,15 +742,178 @@ TEST_CASE("insights: real Tokei language graph, embedded files, options and resu
     dialog.set_hidden(true);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.code_report()->files == 2);
-    dialog.set_view(InsightsDialog::View::space);
+    dialog.set_view(InsightsView::View::space);
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.snapshot() != nullptr);
     dialog.back();
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
-    CHECK(dialog.view() == InsightsDialog::View::languages);
+    CHECK(dialog.view() == InsightsView::View::languages);
     dialog.activate_row(row(dialog, "Markdown"));
     dialog.activate_row(0);
     CHECK(revealed == dir.path / "README.md");
     CHECK_FALSE(dialog.is_open());
 }
 #endif
+
+TEST_CASE(
+    "insights: native results select, open, preview, copy and rename without leaving their pane") {
+    using rummage::ui::PointerButton;
+    using rummage::ui::PointerEvent;
+    using rummage::views::Browser;
+    rummage::ui::Offscreen offscreen{1400, 900};
+    const TempDir dir;
+    fs::create_directories(dir.path / "one");
+    fs::create_directories(dir.path / "two");
+    dir.write("one/report.md", "# First\n");
+    dir.write("one/other.md", "# Another\n");
+    dir.write("one/unrelated.txt", "Not a result\n");
+    dir.write("two/report.md", "# Second file\n");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    fs::path opened;
+    browser.set_open_handler([&](const fs::path& parent, auto files) {
+        REQUIRE(files.size() == 1);
+        opened = parent / files[0].name;
+    });
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    browser.set_system_clipboard(std::move(clipboard));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&](const std::string& name) {
+        renderer.begin_frame(1400, 900, 1, {});
+        browser.draw(renderer, {0, 0, 1400, 900}, rummage::theme::Palette{}, icons,
+                     Browser::Clock::now());
+        renderer.end_frame();
+        capture(name, 1400, 900);
+    };
+    browser.open(dir.path);
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    browser.show_insights(dir.path);
+    auto& view = browser.insights_view();
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    view.activate_row(row(view, ".md"));
+    REQUIRE(view.rows().size() == 3);
+    CHECK_FALSE(browser.has_overlay());
+    draw("pane-matches");
+    const auto click = [&](std::size_t index, PointerButton button = PointerButton::left,
+                           int clicks = 1) {
+        const auto rect = view.control_bounds(std::format("row:{}", index));
+        REQUIRE_FALSE(rect.empty());
+        browser.pointer({.kind = PointerEvent::Kind::press,
+                         .x = rect.x + 50,
+                         .y = rect.y + 15,
+                         .button = button,
+                         .click_count = clicks},
+                        Browser::Clock::now());
+        browser.pointer({.kind = PointerEvent::Kind::release,
+                         .x = rect.x + 50,
+                         .y = rect.y + 15,
+                         .button = button},
+                        Browser::Clock::now());
+    };
+    // Same basenames from different folders retain their actual file-operation target.
+    const auto target = std::ranges::find_if(view.rows(), [&](const auto& entry) {
+        return view.snapshot()->relative_path(entry.node) == fs::path{"two/report.md"};
+    });
+    REQUIRE(target != view.rows().end());
+    const auto index = static_cast<std::size_t>(target - view.rows().begin());
+    click(index);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(opened.empty());
+    REQUIRE(browser.picker_folder()->single_selection());
+    CHECK(browser.picker_folder()->path() == dir.path / "two");
+    CHECK(browser.picker_folder()->single_selection()->name == "report.md");
+    draw("pane-selected");
+    CHECK_FALSE(browser.info_pane().copy_bounds().empty());
+    browser.key({.keysym = XKB_KEY_c, .text = {}, .modifiers = {.ctrl = true}},
+                Browser::Clock::now());
+    REQUIRE_FALSE(offered.empty());
+    CHECK(std::ranges::any_of(offered, [&](const auto& format) {
+        return format.second.find((dir.path / "two/report.md").string()) != std::string::npos;
+    }));
+    click(index, PointerButton::left, 2);
+    CHECK(opened == dir.path / "two/report.md");
+    CHECK(view.is_open());
+    browser.key({.keysym = XKB_KEY_space, .text = {}}, Browser::Clock::now());
+    CHECK(browser.quick_look().is_open());
+    browser.key({.keysym = XKB_KEY_Escape, .text = {}}, Browser::Clock::now());
+    CHECK_FALSE(browser.quick_look().is_open());
+    CHECK(view.is_open());
+    click(index, PointerButton::right);
+    CHECK(browser.context_menu().is_open());
+    browser.context_menu().close();
+    browser.key({.keysym = XKB_KEY_F2, .text = {}}, Browser::Clock::now());
+    REQUIRE(browser.name_editor().active());
+    draw("pane-rename");
+    REQUIRE(browser.name_editor().slot().rect.has_value());
+    browser.name_editor().paste("renamed");
+    browser.key({.keysym = XKB_KEY_Return, .text = {}}, Browser::Clock::now());
+    REQUIRE(until(loop, [&] {
+        return !browser.name_editor().active() && fs::exists(dir.path / "two/renamed.md");
+    }));
+    REQUIRE(until(loop, [&] { return view.rows()[index].label == "renamed.md"; }));
+    CHECK(view.is_open());
+    CHECK_FALSE(fs::exists(dir.path / "two/report.md"));
+    CHECK(fs::exists(dir.path / "one/report.md"));
+    browser.set_name_filter("other");
+    REQUIRE(view.rows().size() == 1);
+    CHECK(view.rows()[0].label == "other.md");
+    browser.set_name_filter({});
+    view.select_row(row(view, "other.md"));
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    browser.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}},
+                Browser::Clock::now());
+    CHECK(browser.picker_folder()->selected_count() == 2);
+    CHECK_FALSE(browser.picker_folder()->is_selected("unrelated.txt"));
+    browser.new_tab();
+    CHECK_FALSE(browser.insights_view().is_open());
+    browser.select_tab(0);
+    CHECK(browser.insights_view().is_open());
+    CHECK(browser.insights_view().view() == InsightsView::View::matches);
+    draw("pane-restored");
+    browser.key({.keysym = XKB_KEY_i, .text = {}, .modifiers = {.ctrl = true, .shift = true}},
+                Browser::Clock::now());
+    CHECK(browser.picker_folder()->selected_count() == 0);
+    browser.toggle_split();
+    CHECK(browser.active_pane() == 1);
+    CHECK_FALSE(browser.insights_view().is_open());
+    browser.open(dir.path / "two");
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    browser.focus_pane(0);
+    CHECK(browser.insights_view().is_open());
+    draw("pane-split");
+    CHECK_FALSE(browser.has_overlay());
+    browser.focus_pane(1);
+    CHECK(browser.picker_folder()->path() == dir.path / "two");
+    browser.focus_pane(0);
+    browser.toggle_split();
+    browser.open(dir.path / "two");
+    CHECK_FALSE(browser.insights_view().is_open());
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.picker_folder()->path() == dir.path / "two");
+#ifdef RUMMAGE_TEST_TOKEI
+    browser.show_insights(dir.path, InsightsView::View::languages);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    view.activate_row(row(view, "Markdown"));
+    REQUIRE(view.view() == InsightsView::View::code_matches);
+    REQUIRE(view.rows().size() == 3);
+    view.select_row(0);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    draw("pane-source-files");
+    opened.clear();
+    browser.key({.keysym = XKB_KEY_Return, .text = {}}, Browser::Clock::now());
+    CHECK_FALSE(opened.empty());
+    CHECK(view.is_open());
+    // Tab moves focus away from the result; Enter must activate that control.
+    browser.key({.keysym = XKB_KEY_Tab, .text = {}, .modifiers = {.shift = true}},
+                Browser::Clock::now());
+    opened.clear();
+    browser.key({.keysym = XKB_KEY_Return, .text = {}}, Browser::Clock::now());
+    CHECK(opened.empty());
+#endif
+}

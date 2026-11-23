@@ -43,7 +43,7 @@ add_library(rummage_views
     src/fuzzy.cpp
     src/grid_view.cpp
     src/info_pane.cpp
-    src/insights_dialog.cpp
+    src/insights_view.cpp
     src/location_dialog.cpp
     src/markdown_view.cpp
     src/name_editor.cpp

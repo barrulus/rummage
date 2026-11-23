@@ -494,9 +494,9 @@ TEST_CASE("info pane: source summary is scoped to its folder and opens language 
     auto button = f.pane().code_bounds();
     REQUIRE_FALSE(button.empty());
     f.click(button.x + 4, button.y + 4);
-    CHECK(f.browser.insights_dialog().is_open());
-    CHECK(f.browser.insights_dialog().view() == rummage::views::InsightsDialog::View::languages);
-    f.browser.insights_dialog().close();
+    CHECK(f.browser.insights_view().is_open());
+    CHECK(f.browser.insights_view().view() == rummage::views::InsightsView::View::languages);
+    f.browser.insights_view().close();
     f.browser.picker_folder()->select_name("short.txt");
     REQUIRE(f.settle());
     CHECK(f.pane().code_bounds().empty());

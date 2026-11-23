@@ -19,6 +19,7 @@
 #include "rummage/views/details_view.hpp"
 #include "rummage/views/grid_view.hpp"
 #include "rummage/views/info_pane.hpp"
+#include "rummage/views/insights_view.hpp"
 #include "rummage/views/state.hpp"
 #include "rummage/views/thumbnails.hpp"
 
@@ -45,6 +46,7 @@ struct Pane {
     ColumnView columns;  // before grid: grid folders may report to it
     GridView grid;
     DetailsView details;
+    InsightsView insights;
     ui::TextField filter_field;
     fs::Listing::Predicate entry_filter;
     bool show_hidden{false};
