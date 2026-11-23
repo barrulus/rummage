@@ -208,6 +208,11 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
     verification.checked = verifies_transfers();
     verification.action = [this] { set_verify_transfers(!verifies_transfers()); };
     items.push_back(std::move(verification));
+    MenuItem transfers;
+    transfers.id = "transfers";
+    transfers.label = i18n::tr("Transfers…");
+    transfers.action = [this] { open_transfers(); };
+    items.push_back(std::move(transfers));
     MenuItem show;
     show.id = "show";
     show.label = i18n::tr("Show");

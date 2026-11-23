@@ -522,3 +522,61 @@ TEST_CASE("undo: move into a new folder is one operation with sidecars and redo"
     REQUIRE(f.settle());
     CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp", "added.txt"});
 }
+
+TEST_CASE("transfer tasks: queued cancellation preserves another job's conflict and undo") {
+    Fixture f;
+    std::ofstream{f.album / "P1.ORF"} << "old";
+    f.show(f.photos, "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    f.browser.paste();
+    REQUIRE(run_until(f.loop, [&] { return f.browser.conflict_dialog().is_open(); }));
+    f.browser.paste();
+    const auto tasks = f.browser.transfer_tasks();
+    REQUIRE(tasks.size() == 2);
+    f.browser.cancel_transfer_task(tasks.back().id);
+    REQUIRE(run_until(f.loop, [&] { return f.browser.transfer_tasks().back().finished(); }));
+    CHECK(f.browser.conflict_dialog().is_open());
+    CHECK(f.browser.conflict_dialog().conflict().name == "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_Return)));  // keep both
+    REQUIRE(f.settle());
+    REQUIRE(fs::exists(f.album / "P1 2.ORF"));
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK_FALSE(fs::exists(f.album / "P1 2.ORF"));
+    CHECK(fs::exists(f.album / "P1.ORF"));
+}
+
+TEST_CASE("transfer tasks: palette filters tasks and exposes completed details and clear") {
+    Fixture f;
+    f.show(f.photos, "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    f.run(key(XKB_KEY_v, kCtrl));
+    f.browser.open_transfers();
+    auto& palette = f.browser.command_palette();
+    REQUIRE(palette.external());
+    palette.set_query("P1.ORF");
+    REQUIRE(palette.items().size() == 1);
+    CHECK(palette.items().front().label.find("Completed") != std::string::npos);
+    palette.choose_highlighted();
+    REQUIRE(palette.external());
+    CHECK(palette.status().find("Completed") != std::string::npos);
+    CHECK(std::ranges::none_of(palette.items(), [](const auto& item) {
+        return item.id == "task:cancel" || item.id == "task:pause";
+    }));
+    palette.set_query("Source:");
+    REQUIRE(palette.items().size() == 1);
+    CHECK(palette.items().front().label.find(f.photos.string()) != std::string::npos);
+    palette.choose_highlighted();  // informational rows keep the panel open
+    CHECK(palette.external());
+    f.browser.open_transfers();
+    palette.set_query("Clear Finished Tasks");
+    REQUIRE(palette.items().size() == 1);
+    palette.choose_highlighted();
+    CHECK(palette.external());
+    CHECK(palette.status() == "No transfers yet");
+    CHECK(f.browser.transfer_tasks().empty());
+    palette.close();
+    f.run(key(XKB_KEY_z, kCtrl));  // clearing visible history does not clear undo
+    CHECK(listing(f.album).empty());
+}

@@ -236,6 +236,41 @@ Right-click **Restore** to return an entry to its original path, recreating miss
 parent directories and asking about name conflicts. Restore does not merge a
 conflicting directory. Supported trashed sidecars return with their photo.
 
+## Transfer tasks
+
+Open **View → Transfers…**, or search for **Transfers** in **Ctrl+K**, to see this
+window's queued, running, waiting, paused, completed, failed and cancelled file
+operations. Type to search by operation, state, name or source/destination path.
+Select a task for progress, paths, errors and controls. **Copy Task Details** copies
+the displayed details in full, including paths that are shortened on screen.
+
+**Cancel Task** stops only that job. Cancelling a queued job leaves its files
+untouched and does not dismiss another job's conflict question. Cancelling a running
+job keeps work already completed; the usual partial-result and undo rules apply.
+Answer an open conflict dialog before returning to the task list, or cancel that
+operation from its dialog.
+
+**Pause Task** and **Resume Task** apply to ordinary filesystem copies and moves,
+including copy verification. Pause takes effect at the next data-chunk or item
+checkpoint; a filesystem call already in progress may finish first. A same-filesystem
+rename may finish before pause takes effect. Archive extraction, compression,
+trash/restore, deletion, links and grouping do not support pause; their task details
+say so. A queued archive source discovered by the worker loses its pause control
+when extraction starts.
+
+Jobs run in submission order. A paused queued job holds up later jobs until it is
+resumed or cancelled. There is no reordering or automatic retry: after a failure,
+inspect the partial results and submit a fresh operation for the remaining items.
+Existing conflict choices still apply, and completed reversible work remains
+available through Undo. External commands and batch renames use their own progress
+and are not listed here.
+
+History belongs to the current window and is not saved across restarts. The latest
+100 finished tasks are retained alongside all pending tasks. Each task shows up to
+64 names and 64 error messages, with counts for omitted entries. **Clear Finished
+Tasks** removes finished records from this list without clearing Undo or affecting
+pending work.
+
 ## Permanent deletion
 
 **Shift+Delete** permanently deletes from a normal folder. **Delete** in Trash

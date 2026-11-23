@@ -19,6 +19,8 @@
 #include "rummage/views/browser.hpp"
 #include "rummage/views/command_palette.hpp"
 #include "rummage/views/file_clipboard.hpp"
+#include "rummage/views/format.hpp"
+#include "rummage/views/fuzzy.hpp"
 #include "rummage/views/shortcuts.hpp"
 
 namespace rummage::views {
@@ -219,6 +221,8 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (transfers_.pending() > 0) {
         command(Command::stop_transfer, "stop_transfer", "Stop the Transfer");
     }
+    add("command:transfers", std::string{i18n::mark("Transfers…")}, "",
+        [this] { open_transfers(); });
     add("command:verify_transfers",
         std::string{verifies_transfers() ? i18n::mark("Disable Copy Verification")
                                          : i18n::mark("Enable Copy Verification")},
@@ -371,6 +375,186 @@ std::vector<PaletteItem> Browser::palette_items() {
         add("command:quit", "Quit", "Ctrl+Q", [this] { quit_(); });
     }
     return items;
+}
+
+namespace {
+
+std::string task_state(fs::TransferState state) {
+    switch (state) {
+        case fs::TransferState::queued:
+            return std::string{i18n::tr("Queued")};
+        case fs::TransferState::running:
+            return std::string{i18n::tr("Running")};
+        case fs::TransferState::paused:
+            return std::string{i18n::tr("Paused")};
+        case fs::TransferState::waiting:
+            return std::string{i18n::tr("Waiting for an answer")};
+        case fs::TransferState::completed:
+            return std::string{i18n::tr("Completed")};
+        case fs::TransferState::failed:
+            return std::string{i18n::tr("Failed")};
+        case fs::TransferState::cancelled:
+            return std::string{i18n::tr("Cancelled")};
+    }
+    return {};
+}
+
+std::string task_kind(const fs::TransferRequest& request) {
+    switch (request.kind) {
+        case fs::TransferKind::copy:
+            return std::string{request.from_archive ? i18n::tr("Extract") : i18n::tr("Copy")};
+        case fs::TransferKind::move:
+            return std::string{i18n::tr("Move")};
+        case fs::TransferKind::trash:
+            return std::string{i18n::tr("Move to Trash")};
+        case fs::TransferKind::restore:
+            return std::string{i18n::tr("Restore")};
+        case fs::TransferKind::erase:
+            return std::string{i18n::tr("Delete Permanently…")};
+        case fs::TransferKind::group:
+            return std::string{i18n::tr("Move into New Folder…")};
+        case fs::TransferKind::link:
+            return std::string{i18n::tr("Create Link")};
+        case fs::TransferKind::compress:
+            return std::string{i18n::tr("Compress")};
+        case fs::TransferKind::empty_trash:
+            return std::string{i18n::tr("Empty Trash…")};
+    }
+    return {};
+}
+
+std::string task_progress(const fs::TransferTask& task) {
+    const auto& p = task.progress;
+    if (!task.started)
+        return task_state(task.state);
+    if (p.preparing && !task.finished())
+        return std::string{i18n::tr("Adding up the size…")};
+    if (task.request.verify)
+        return i18n::trf("Copied {} of {} · verified {}", format_size(p.bytes_done),
+                         format_size(p.bytes_total), format_size(p.bytes_verified));
+    return i18n::trf("Items: {} / {} · {} / {}", p.files_done, p.files_total,
+                     format_size(p.bytes_done), format_size(p.bytes_total));
+}
+
+}  // namespace
+
+void Browser::open_transfers() {
+    palette_.close();
+    menu_.close();
+    shortcuts_.close();
+    quick_look_.close();
+    transfer_task_id_.reset();
+    palette_use_ = PaletteUse::transfers;
+    palette_.open_external(std::string{i18n::tr("Search transfers")},
+                           [this](const std::string&) { refresh_transfer_tasks(); });
+    refresh_transfer_tasks();
+}
+
+void Browser::open_transfer_task(std::uint64_t id) {
+    open_transfers();
+    transfer_task_id_ = id;
+    refresh_transfer_tasks();
+}
+
+void Browser::refresh_transfer_tasks() {
+    if (palette_use_ != PaletteUse::transfers || !palette_.external())
+        return;
+    const auto tasks = transfers_.tasks();
+    std::vector<PaletteItem> items;
+    FuzzyQuery query{palette_.query()};
+    const auto add = [&](std::string id, std::string label, std::function<void()> action = {},
+                         std::string search = {}) {
+        if (!query.score(label + " " + search))
+            return;
+        items.push_back({.id = std::move(id),
+                         .label = std::move(label),
+                         .keys = {},
+                         .remember = false,
+                         .action = std::move(action),
+                         .path = false,
+                         .quick_look = {},
+                         .open = {}});
+    };
+    if (!transfer_task_id_) {
+        for (const auto& task : tasks) {
+            const auto& r = task.request;
+            const std::string name =
+                r.names.empty() ? r.source.filename().string() : r.names.front();
+            std::string search = r.source.string() + " " + r.destination.string();
+            for (const auto& n : r.names)
+                search += " " + n;
+            add(
+                std::format("task:{}", task.id),
+                std::format("#{} · {} · {} · {} · {}", task.id, task_state(task.state),
+                            task_kind(r), name, task_progress(task)),
+                [this, id = task.id] { open_transfer_task(id); }, std::move(search));
+        }
+        if (std::ranges::any_of(tasks, &fs::TransferTask::finished)) {
+            add("tasks:clear", std::string{i18n::tr("Clear Finished Tasks")}, [this] {
+                transfers_.clear_finished();
+                open_transfers();
+            });
+        }
+        palette_.set_results(std::move(items), tasks.empty()
+                                                   ? std::string{i18n::tr("No transfers yet")}
+                                                   : i18n::trf("Tasks: {} · pending: {}",
+                                                               tasks.size(), transfers_.pending()));
+        return;
+    }
+    const auto id = *transfer_task_id_;
+    add("tasks:back", std::string{i18n::tr("Back to Transfers")}, [this] { open_transfers(); });
+    const auto found = std::ranges::find(tasks, id, &fs::TransferTask::id);
+    if (found == tasks.end()) {
+        palette_.set_results(std::move(items),
+                             std::string{i18n::tr("This task is no longer in history")});
+        return;
+    }
+    const auto& task = *found;
+    if (!task.finished()) {
+        if (task.pausable) {
+            const bool paused = task.state == fs::TransferState::paused;
+            add("task:pause",
+                std::string{paused ? i18n::tr("Resume Task") : i18n::tr("Pause Task")},
+                [this, id, paused] {
+                    transfers_.pause(id, !paused);
+                    copy_started_.reset();
+                    open_transfer_task(id);
+                });
+        } else {
+            add("task:unsupported",
+                std::string{i18n::tr("Pause is unavailable for this operation")});
+        }
+        add("task:cancel", std::string{i18n::tr("Cancel Task")}, [this, id] {
+            cancel_transfer_task(id);
+            open_transfer_task(id);
+        });
+    }
+    const std::string heading =
+        std::format("#{} · {} · {}", id, task_kind(task.request), task_state(task.state));
+    std::string details = heading + "\n" + task_progress(task);
+    const auto info = [&](std::string key, std::string text) {
+        details += "\n" + text;
+        add(std::move(key), std::move(text));
+    };
+    add("task:progress", task_progress(task));
+    info("task:source", i18n::trf("Source: {}", task.request.source.string()));
+    if (!task.request.destination.empty())
+        info("task:destination", i18n::trf("Destination: {}", task.request.destination.string()));
+    for (std::size_t i = 0; i < task.request.names.size() && i < 64; ++i)
+        info(std::format("task:name:{}", i), task.request.names[i]);
+    if (task.request.names.size() > 64)
+        info("task:more", i18n::trf("Additional items: {}", task.request.names.size() - 64));
+    for (std::size_t i = 0; i < task.errors.size(); ++i)
+        info(std::format("task:error:{}", i), task.errors[i]);
+    if (task.error_count > task.errors.size())
+        info("task:more-errors",
+             i18n::trf("Additional errors: {}", task.error_count - task.errors.size()));
+    add("task:copy-details", std::string{i18n::tr("Copy Task Details")},
+        [this, id, details = std::move(details)] {
+            copy_text(details);
+            open_transfer_task(id);
+        });
+    palette_.set_results(std::move(items), heading);
 }
 
 void Browser::open_with_palette() {
