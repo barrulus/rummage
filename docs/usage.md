@@ -312,7 +312,30 @@ whole filename, ignoring case: `*.svg` matches SVG files, `icon?.svg` matches a
 single character after `icon`, and `icon[0-9].svg` matches a digit. Use `*svg*` to
 match anywhere with wildcards. Backslash escapes wildcard characters, such as
 `*\[draft\]*` for names containing `[draft]`. These are wildcard patterns, not
-regular expressions.
+regular expressions. Unprefixed queries retain this automatic behavior.
+
+Choose **View → Name matching**, or press **Ctrl+Space** while editing the filter,
+to choose **Plain text**, **Glob**, **Regular expression**, or **Case sensitive**.
+The choice is visible as a prefix in the field, and works in **Select by Pattern** too:
+
+| Query | Matches |
+| --- | --- |
+| `text:[draft]` | Literal `[draft]` anywhere in a name |
+| `glob:*.jpg` | Whole filenames ending in `.jpg`, ignoring case |
+| `re:^IMG_[0-9]+\\.jpg$` | Numbered image names, ignoring case |
+| `case:text:Photo` | Literal `Photo`, with matching case |
+| `text:re:notes` | A literal filename fragment beginning with `re:` |
+
+Regex uses [RE2 syntax](https://github.com/google/re2/wiki/Syntax): matches may occur
+anywhere unless anchored with `^` or `$`. Lookaround and pattern backreferences are
+unsupported. Patterns are limited to 1024 bytes, with bounded regex compilation
+memory and no backtracking. Text matching folds ASCII case; glob and regex matching use
+Unicode simple case folding without Unicode
+normalization. Use case-sensitive text to match arbitrary filename bytes exactly.
+Invalid patterns show an error and retain the last valid filter, including when
+the folder changes. Only the last valid filter is saved with the tab. Invalid
+selection patterns leave the selection unchanged. Selection applies to the active
+folder's visible entries; expanded details descendants are not selected implicitly.
 
 In Miller columns the filter affects only the last column;
 ancestor columns remain visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and

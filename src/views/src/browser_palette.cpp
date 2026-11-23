@@ -14,6 +14,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/command_palette.hpp"
@@ -468,7 +469,7 @@ void Browser::open_pattern() {
     shortcuts_.close();
     palette_.close();
     palette_use_ = PaletteUse::pattern;
-    palette_.open_external(std::string{i18n::tr("Select by name: *.ORF, IMG_00??.*")},
+    palette_.open_external(std::string{i18n::tr("Select by name: text:, glob:, re:, case:")},
                            [this](const std::string& typed) { refresh_pattern(typed); });
     refresh_pattern({});
 }
@@ -481,7 +482,12 @@ void Browser::refresh_pattern(const std::string& typed) {
     const std::string glob = typed;
     if (glob.empty()) {
         palette_.set_results(
-            {}, std::string{i18n::tr("* any text, ? one character, [abc] one of them")});
+            {}, std::string{i18n::tr("Examples: glob:*.ORF, re:^IMG_[0-9]+, case:text:Photo")});
+        return;
+    }
+    const fs::NamePattern pattern{glob};
+    if (!pattern.error().empty()) {
+        palette_.set_results({}, pattern.error());
         return;
     }
     const std::vector<std::size_t> rows = folder->matching(glob);

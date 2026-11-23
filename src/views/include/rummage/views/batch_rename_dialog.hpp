@@ -53,10 +53,16 @@ private:
     std::string busy_message_;
     std::vector<fs::RenameSource> directory_;
     std::vector<std::string> selection_;
-    std::array<ui::TextField, 6> fields_;
+    std::array<ui::TextField, 9> fields_;
+    fs::RenameOptions::Target target_{fs::RenameOptions::Target::basename};
+    fs::RenameOptions::Case letter_case_{fs::RenameOptions::Case::unchanged};
+    bool regex_{false};
+    std::int64_t timestamp_{0};
+    std::array<ui::Rect, 3> choices_;
+    void cycle_choice(std::size_t choice, bool reverse = false);
     fs::RenamePlan preview_;
     std::size_t generation_{0};
-    std::size_t focus_{0};  // six fields, preview, Cancel, Rename
+    std::size_t focus_{0};  // fields, three choices, preview, Cancel, Rename
     float offset_{0};
     float max_scroll_{0};
     float form_offset_{0};

@@ -11,7 +11,7 @@ hostmakedepends="pkgconf wayland-devel python3 patch"
 makedepends="wayland-devel wayland-protocols libglvnd-devel libxkbcommon-devel
  harfbuzz-devel freetype-devel fontconfig-devel tomlplusplus-devel
  ffmpeg6-devel libwebp-devel libjxl-devel libheif-devel lcms2-devel librsvg-devel pango-devel cairo-devel
- zlib-devel sdbus-c++-devel glib-devel libjpeg-turbo-devel libpng-devel tiff-devel"
+ zlib-devel re2-devel sdbus-c++-devel glib-devel libjpeg-turbo-devel libpng-devel tiff-devel"
 # MIME types from shared-mime-info's database; udisks2 (disks in the sidebar)
 # and xdg-desktop-portal (desktop colours) are used when present
 depends="shared-mime-info hicolor-icon-theme libheif>=1.23"

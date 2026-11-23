@@ -1,18 +1,40 @@
 #pragma once
-#include <algorithm>
-#include <fnmatch.h>
+#include <memory>
 #include <string>
 
-namespace rummage::fs {
-// Empty matches everything. Without wildcards, match literal text anywhere (including backslashes).
-// Wildcard expressions use the same case-insensitive fnmatch rules as the file chooser.
-[[nodiscard]] inline bool matches_name(const std::string& name, const std::string& pattern) {
-    if (pattern.find_first_of("*?[") != std::string::npos)
-        return fnmatch(pattern.c_str(), name.c_str(), FNM_CASEFOLD) == 0;
-    const auto fold = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
-    return std::search(name.begin(), name.end(), pattern.begin(), pattern.end(),
-                       [fold](unsigned char a, unsigned char b) { return fold(a) == fold(b); }) !=
-               name.end() ||
-           pattern.empty();
+namespace re2 {
+class RE2;
 }
+
+namespace rummage::fs {
+// Explicit prefixes: text:, glob:, re:, optionally preceded by case:.
+// Unprefixed queries preserve the historical substring/automatic-wildcard behavior.
+class NamePattern {
+public:
+    enum class Mode { automatic, text, glob, regex };
+
+    struct Spec {
+        Mode mode{Mode::automatic};
+        bool case_sensitive{false};
+        std::string text;
+    };
+
+    explicit NamePattern(const std::string& query);
+    [[nodiscard]] static Spec parse(const std::string& query);
+    [[nodiscard]] static std::string encode(const Spec& spec);
+
+    [[nodiscard]] const std::string& error() const { return error_; }
+
+    [[nodiscard]] bool matches(const std::string& name) const;
+    // Regex replacement: \\0 is the match, \\1…\\9 are groups, \\\\ is a backslash.
+    // Returns an error without changing text when the regex or replacement is invalid.
+    [[nodiscard]] std::string replace_all(std::string& text, const std::string& replacement) const;
+
+private:
+    Spec spec_;
+    std::shared_ptr<const re2::RE2> regex_;
+    std::string error_;
+};
+
+[[nodiscard]] bool matches_name(const std::string& name, const std::string& pattern);
 }  // namespace rummage::fs

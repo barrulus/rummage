@@ -118,6 +118,7 @@ pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2)
 pkg_check_modules(RSVG REQUIRED IMPORTED_TARGET librsvg-2.0>=2.52)
 pkg_check_modules(PANGOCAIRO REQUIRED IMPORTED_TARGET pangocairo>=1.44 pangoft2>=1.44)
 pkg_check_modules(ZLIB REQUIRED IMPORTED_TARGET zlib)
+pkg_check_modules(RE2 REQUIRED IMPORTED_TARGET re2)
 pkg_check_modules(SDBUSCPP REQUIRED IMPORTED_TARGET sdbus-c++)  # udisks2 (ROADMAP 7.3)
 pkg_check_modules(TURBOJPEG IMPORTED_TARGET libturbojpeg)  # optional for now: the benchmark
 

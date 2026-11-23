@@ -956,6 +956,7 @@ private:
     void invoke_action(const core::Action& action, const core::ActionContext& context);
     void run_action(std::string_view id);
     [[nodiscard]] MenuItem sort_menu();
+    [[nodiscard]] MenuItem name_filter_menu();
     [[nodiscard]] MenuItem details_columns_menu();
     // A new tab at index at, inheriting view settings from this area's active tab.
     Pane& add_pane(std::size_t at);
