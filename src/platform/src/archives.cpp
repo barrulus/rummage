@@ -100,8 +100,18 @@ std::optional<ArchiveBackend> archive_backend(const core::ActionTarget& target,
 }
 
 std::string archive_output_name(const std::filesystem::path& archive) {
-    const auto lower = lower_name(archive);
+    auto lower = lower_name(archive);
     auto name = archive.filename().string();
+    // A split 7z's numeric volume suffix is not part of its output folder name.
+    const auto split = lower.rfind(".7z.");
+    if (split != std::string::npos) {
+        const auto number = std::string_view{lower}.substr(split + 4);
+        if (number.size() >= 3 &&
+            std::ranges::all_of(number, [](char c) { return c >= '0' && c <= '9'; })) {
+            name.resize(split + 3);
+            lower.resize(split + 3);
+        }
+    }
     for (const auto* suffix :
          {".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".tgz", ".tbz2", ".tbz", ".txz", ".tzst",
           ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz", ".zst"}) {
