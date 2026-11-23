@@ -78,6 +78,17 @@ struct State {
         std::shared_ptr<const Entries> entries_{std::make_shared<const Entries>()};
     };
 
+    struct SavedSearch {
+        std::string name;
+        std::filesystem::path root;
+        std::string query;
+        bool hidden{false};
+        bool operator==(const SavedSearch&) const = default;
+    };
+
+    static constexpr std::size_t kMaxSavedSearches = 64;
+    std::vector<SavedSearch> saved_searches;
+
     Folders folders;
     std::filesystem::path last_folder;
     // The window's size when it was last neither maximized, fullscreen nor tiled; logical pixels.

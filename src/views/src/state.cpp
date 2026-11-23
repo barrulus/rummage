@@ -411,6 +411,30 @@ StateResult parse_state(std::string_view text, std::string_view source) {
         }
     }
 
+    if (const auto* searches = root.get_as<toml::array>("search")) {
+        for (const auto& node : *searches) {
+            const auto* table = node.as_table();
+            if (!table || s.saved_searches.size() == State::kMaxSavedSearches)
+                continue;
+            const auto name = (*table)["name"].value<std::string>().value_or("");
+            const auto folder = (*table)["root"].value<std::string>().value_or("");
+            const auto query = (*table)["query"].value<std::string>().value_or("");
+            if (name.empty() || name.size() > 128 || query.size() > 16384 ||
+                name.find_first_of("\r\n") != std::string::npos ||
+                folder.find('\0') != std::string::npos || name.find('\0') != std::string::npos ||
+                query.find('\0') != std::string::npos ||
+                !std::filesystem::path{folder}.is_absolute() ||
+                std::ranges::find(s.saved_searches, name, &State::SavedSearch::name) !=
+                    s.saved_searches.end()) {
+                result.problems.push_back(
+                    std::format("{}: invalid or duplicate saved search; ignored", source));
+                continue;
+            }
+            s.saved_searches.push_back(
+                {name, folder, query, (*table)["hidden"].value<bool>().value_or(false)});
+        }
+    }
+
     // [palette] recent: a list of ids; what is not a string is left out.
     if (const toml::node* recent = root.at_path("palette.recent").node()) {
         if (const toml::array* list = recent->as_array()) {
@@ -564,6 +588,21 @@ std::string format_state(const State& s) {
                 std::format("{}{}", recent.empty() ? "" : ", ", toml_string(s.palette_recent[i]));
         }
     }
+    std::string searches;
+    for (std::size_t i = 0; i < s.saved_searches.size() && i < State::kMaxSavedSearches; ++i) {
+        const auto& search = s.saved_searches[i];
+        if (search.name.empty() || search.name.size() > 128 || search.query.size() > 16384 ||
+            search.name.find_first_of("\r\n") != std::string::npos ||
+            search.name.find('\0') != std::string::npos ||
+            search.query.find('\0') != std::string::npos ||
+            search.root.string().find('\0') != std::string::npos || !search.root.is_absolute() ||
+            !valid_utf8(search.name) || !valid_utf8(search.root.string()) ||
+            !valid_utf8(search.query))
+            continue;
+        searches += std::format("\n[[search]]\nname = {}\nroot = {}\nquery = {}\nhidden = {}\n",
+                                toml_string(search.name), toml_string(search.root.string()),
+                                toml_string(search.query), flag(search.hidden));
+    }
     std::string tabs;
     for (std::size_t i = 0; i < s.tabs.size(); ++i) {
         const State::Tab& tab = s.tabs[i];
@@ -664,7 +703,7 @@ std::string format_state(const State& s) {
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,
                s.active_pane) +
-           tabs + folders;
+           tabs + folders + searches;
 }
 
 // Writes in generation order: one older than the last written is dropped.

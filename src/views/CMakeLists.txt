@@ -39,6 +39,8 @@ add_library(rummage_views
     src/folder.cpp
     src/format.cpp
     src/file_finder.cpp
+    src/search_results.cpp
+    src/browser_search.cpp
     src/file_picker.cpp
     src/fuzzy.cpp
     src/grid_view.cpp

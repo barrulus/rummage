@@ -130,6 +130,14 @@ void Browser::drop_actions(const std::filesystem::path& folder,
 
 std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
     std::vector<MenuItem> items;
+    if (place.uri == "rummage:saved-searches") {
+        MenuItem item;
+        item.id = "saved_searches";
+        item.label = i18n::tr("Saved Searches…");
+        item.action = [this] { open_saved_searches(); };
+        items.push_back(std::move(item));
+        return items;
+    }
     const bool mounted = place.disk.mounted && !place.path.empty();
     const bool trash = fs::is_trash(place.path);
     const auto add = [&](std::string id, std::string_view label, std::function<void()> action,

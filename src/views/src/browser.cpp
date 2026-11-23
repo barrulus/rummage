@@ -648,6 +648,18 @@ void Browser::paste() {
             return;
         }
     }
+    if (!clipboard_.paths.empty()) {
+        const auto paths = clipboard_.paths;
+        const bool cut = clipboard_.cut;
+        transfer_paths(folder->path(), paths, cut, std::nullopt);
+        if (cut) {
+            clipboard_ = {};
+            cut_marks_ = {};
+            if (system_.clear)
+                system_.clear();
+        }
+        return;
+    }
     if (clipboard_.names.empty()) {
         show_message(std::string{i18n::tr("Nothing to paste: Ctrl+C or Ctrl+X first")}, false);
         return;
@@ -820,6 +832,9 @@ void Browser::paste_text() {
     const auto settings_generation = settings_.generation();
     const bool for_properties = properties_.is_open();
     const auto properties_generation = properties_.generation();
+    const bool for_search =
+        searching_results() && search_results_->editing() && !palette_.is_open();
+    const auto search_generation = search_generation_;
     const bool for_breadcrumb = area().breadcrumb.editing();
     const auto breadcrumb_generation = area().breadcrumb.edit_generation();
     const auto breadcrumb_area = context_area_;
@@ -829,70 +844,76 @@ void Browser::paste_text() {
             continue;
         }
         ++operations_;
-        system_.read(std::string{type}, [this, alive = alive_, for_confirm, confirm_generation,
-                                         for_password, password_generation, for_properties,
-                                         properties_generation, for_settings, settings_generation,
-                                         for_batch_rename, batch_rename_generation, for_breadcrumb,
-                                         breadcrumb_generation, breadcrumb_area,
-                                         breadcrumb_owner](const std::optional<std::string>& text) {
-            if (!*alive) {
-                return;
-            }
-            --operations_;
-            if (!text) {
-                return;
-            }
-            if (for_batch_rename) {
-                if (batch_rename_.is_open() &&
-                    batch_rename_.generation() == batch_rename_generation)
-                    batch_rename_.paste(*text);
-                return;
-            }
-            if (for_confirm) {
-                if (confirm_.is_open() && confirm_.generation() == confirm_generation)
-                    confirm_.paste(*text);
-                return;
-            }
-            if (for_password) {
-                if (password_.is_open() && password_.generation() == password_generation)
-                    password_.paste(*text);
-                return;
-            }
-            if (for_settings) {
-                if (settings_.is_open() && settings_.generation() == settings_generation)
-                    settings_.paste(*text);
-                return;
-            }
-            if (for_properties) {
-                if (properties_.is_open() && properties_.generation() == properties_generation)
-                    properties_.paste(*text);
-                return;
-            }
-            if (for_breadcrumb) {
-                auto* owner = areas_[breadcrumb_area].get();
-                if (owner == breadcrumb_owner && owner && owner->breadcrumb.editing() &&
-                    owner->breadcrumb.edit_generation() == breadcrumb_generation)
-                    owner->breadcrumb.paste(*text);
-                return;
-            }
-            if (mount_password_.is_open()) {
-                mount_password_.paste(*text);
-            } else if (location_.is_open()) {
-                location_.paste(*text);
-            } else if (palette_.is_open()) {
-                palette_.paste(*text);
-            } else if (editor_.active()) {
-                editor_.paste(*text);
-            } else if (sidebar_.renaming()) {
-                sidebar_.paste(*text);
-            } else if (filter_focused_) {
-                pane().filter_field.insert(
-                    std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
-                apply_filters();
-            } else {
-                editor_.paste(*text);
-            }
-        });
+        system_.read(
+            std::string{type},
+            [this, alive = alive_, for_confirm, confirm_generation, for_password,
+             password_generation, for_properties, properties_generation, for_settings,
+             settings_generation, for_batch_rename, batch_rename_generation, for_breadcrumb,
+             breadcrumb_generation, breadcrumb_area, breadcrumb_owner, for_search,
+             search_generation](const std::optional<std::string>& text) {
+                if (!*alive) {
+                    return;
+                }
+                --operations_;
+                if (!text) {
+                    return;
+                }
+                if (for_batch_rename) {
+                    if (batch_rename_.is_open() &&
+                        batch_rename_.generation() == batch_rename_generation)
+                        batch_rename_.paste(*text);
+                    return;
+                }
+                if (for_confirm) {
+                    if (confirm_.is_open() && confirm_.generation() == confirm_generation)
+                        confirm_.paste(*text);
+                    return;
+                }
+                if (for_password) {
+                    if (password_.is_open() && password_.generation() == password_generation)
+                        password_.paste(*text);
+                    return;
+                }
+                if (for_settings) {
+                    if (settings_.is_open() && settings_.generation() == settings_generation)
+                        settings_.paste(*text);
+                    return;
+                }
+                if (for_properties) {
+                    if (properties_.is_open() && properties_.generation() == properties_generation)
+                        properties_.paste(*text);
+                    return;
+                }
+                if (for_search) {
+                    if (searching_results() && search_generation_ == search_generation)
+                        search_results_->paste(*text);
+                    return;
+                }
+                if (for_breadcrumb) {
+                    auto* owner = areas_[breadcrumb_area].get();
+                    if (owner == breadcrumb_owner && owner && owner->breadcrumb.editing() &&
+                        owner->breadcrumb.edit_generation() == breadcrumb_generation)
+                        owner->breadcrumb.paste(*text);
+                    return;
+                }
+                if (mount_password_.is_open()) {
+                    mount_password_.paste(*text);
+                } else if (location_.is_open()) {
+                    location_.paste(*text);
+                } else if (palette_.is_open()) {
+                    palette_.paste(*text);
+                } else if (editor_.active()) {
+                    editor_.paste(*text);
+                } else if (sidebar_.renaming()) {
+                    sidebar_.paste(*text);
+                } else if (filter_focused_) {
+                    pane().filter_field.insert(
+                        std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
+                    apply_filters();
+                } else {
+                    editor_.paste(*text);
+                }
+            });
         return;
     }
 }
@@ -920,6 +941,8 @@ bool Browser::text_field_key(const ui::KeyEvent& event) {
         text = location_.copy_selection(cut);
     else if (palette_.is_open())
         text = cut ? palette_.cut() : palette_.field().selected_text();
+    else if (searching_results() && search_results_->editing())
+        text = search_results_->copy_query(cut);
     else if (editor_.active())
         text = cut ? editor_.cut() : editor_.field().selected_text();
     else if (sidebar_.renaming())
@@ -1375,6 +1398,15 @@ void Browser::show_places() {
             place.icon = trash_full_ ? "trash-filled" : "trash";
         }
     }
+    if (!saved_searches_.empty() && !picker_mode_) {
+        const auto end_places = std::ranges::find_if(
+            places, [](const auto& place) { return place.section != fs::Place::Section::places; });
+        places.insert(end_places, fs::Place{.section = fs::Place::Section::places,
+                                            .label = std::string{i18n::tr("Saved Searches…")},
+                                            .path = {},
+                                            .icon = "search",
+                                            .uri = "rummage:saved-searches"});
+    }
     sidebar_.set_places(std::move(places));
 }
 
@@ -1552,6 +1584,8 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
 }
 
 void Browser::transfer_done(const fs::TransferRequest& request, const fs::TransferResult& result) {
+    if (searching_results())
+        search_results_->refresh();
     Submitted submitted;
     if (const auto found = std::ranges::find(submitted_, request.id, &Submitted::id);
         found != submitted_.end()) {
@@ -2772,6 +2806,8 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
                     false);
             }
             editor_.finished(true);
+            if (searching_results())
+                search_results_->refresh();
         });
 }
 
@@ -3294,6 +3330,7 @@ State Browser::state() {
     state.list_size = pane().details.list_size();
     state.grid_icon = static_cast<std::int32_t>(pane().grid.icon_size());
     state.palette_recent = palette_recent_;
+    state.saved_searches = saved_searches_;
     state.split_visible = split_visible_;
     state.panes_initialized = areas_[1] != nullptr;
     state.stacked = stacked_;
@@ -3438,6 +3475,8 @@ void Browser::apply(const State& state) {
     show_thumbnails_ = state.show_thumbnails;
     pane().show_hidden = state.show_hidden;
     palette_recent_ = state.palette_recent;
+    saved_searches_ = state.saved_searches;
+    show_places();
     for (const std::unique_ptr<Pane>& each : area().tabs) {
         each->show_hidden = state.show_hidden;
         each->columns.set_show_hidden(state.show_hidden);
@@ -3758,8 +3797,11 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     draw_drive_tooltip(renderer, palette, bounds);
     draw_band(renderer, palette);
     editor_.draw(renderer, palette);
+    if (searching_results())
+        search_results_->draw(renderer, bounds, palette);
     if (quick_look_.is_open())
-        quick_look_.follow(current_folder());
+        quick_look_.follow(searching_results() && search_preview_ ? search_preview_
+                                                                  : current_folder());
     const auto overlay_motion = begin_overlay_motion(renderer, bounds, palette, icons, now);
     quick_look_.draw(renderer, bounds, palette, icons, now);
     shortcuts_.draw(renderer, bounds, palette);
@@ -3929,6 +3971,9 @@ bool Browser::animating() const {
 }
 
 bool Browser::loading() const {
+    if ((searching_results() && search_results_->loading()) ||
+        (search_preview_pending_ && search_preview_ && search_preview_->model().loading()))
+        return true;
     if (finder_ && (finder_->scanning() || finder_->matching()))
         return true;
     if (operations_ > 0 || menu_loads_ > 0 || transfers_.pending() > 0 || quick_look_.loading() ||
@@ -4026,6 +4071,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (menu_.is_open() || shortcuts_.is_open() || quick_look_.is_open()) {
         return Shape::standard;
     }
+    if (searching_results())
+        return search_results_->cursor_at(x, y);
     if (editor_.active() && editor_.field().bounds().contains(x, y)) {
         return Shape::text;
     }
@@ -4147,6 +4194,13 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
             pointer_x_ = event.x;
             pointer_y_ = event.y;
         }
+        return;
+    }
+    if (searching_results()) {
+        if (quick_look_.is_open())
+            quick_look_.pointer(event, now);
+        else
+            search_results_->pointer(event);
         return;
     }
     // While a name is edited, a press in its field is the field's; elsewhere it keeps the name,
@@ -4796,6 +4850,13 @@ void Browser::show_drop_target(const std::optional<DropTarget>& target) {
 }
 
 void Browser::drop_event(const ui::DropEvent& event) {
+    if (searching_results()) {
+        show_drop_target(std::nullopt);
+        stop_auto_scroll();
+        if (dnd_.accept)
+            dnd_.accept(std::nullopt, 0, 0);
+        return;
+    }
     AreaContext addressed{context_area_, area_at(event.x, event.y).value_or(active_area_)};
     using Kind = ui::DropEvent::Kind;
     const bool choose = !picker_mode_ && dnd_.modifiers && dnd_.modifiers().alt;
@@ -5171,6 +5232,10 @@ void Browser::next_bookmark_change() {
 }
 
 void Browser::open_place(const fs::Place& place) {
+    if (place.uri == "rummage:saved-searches") {
+        open_saved_searches();
+        return;
+    }
     if (!place.uri.empty() && !place.disk.mounted) {
         mount_remote(place, true);
         return;
@@ -5540,8 +5605,39 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             properties_.key(event);
         return true;
     }
+    if (searching_results() && !palette_.is_open() && !menu_.is_open()) {
+        if (quick_look_.is_open()) {
+            if (event.keysym == XKB_KEY_Escape || event.keysym == XKB_KEY_space)
+                quick_look_.close();
+            else if (quick_look_.shows_text() && event.modifiers == ui::Modifiers{.ctrl = true} &&
+                     (event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A))
+                quick_look_.select_all_text();
+            else if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+                     (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C)) {
+                if (auto text = quick_look_.selected_text(); !text.empty())
+                    copy_text(std::move(text));
+                else
+                    search_action(SearchResults::Action::copy);
+            } else
+                quick_look_.text_key(event, now);
+        } else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_f || event.keysym == XKB_KEY_F))
+            search_results_->focus_query();
+        else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_k || event.keysym == XKB_KEY_K))
+            open_palette();
+        else if (!search_results_->editing() || !text_field_key(event))
+            search_results_->key(event);
+        return true;
+    }
     found_after_.reset();  // a key while a file found is on its way: it stays shown, no more
     if (palette_.is_open()) {
+        if (palette_use_ == PaletteUse::files && finder_ && event.keysym == XKB_KEY_Return &&
+            event.modifiers == ui::Modifiers{.ctrl = true}) {
+            const auto root = finder_->root();
+            const auto query = finder_->query();
+            const bool hidden = finder_->hidden();
+            open_search_results(root, query, hidden);
+            return true;
+        }
         const Command command = command_for(event);
         if (command == Command::command_palette || command == Command::find_files ||
             command == Command::select_pattern) {

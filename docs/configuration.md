@@ -189,6 +189,12 @@ copy are not automatically synchronized by updates.
 
 ## Saved state
 
+Named searches are stored as `[[search]]` definitions in `state.toml`, with `name`,
+`root`, `query` and `hidden` fields. Up to 64 definitions are retained; names are
+limited to 128 bytes and queries to 16,384 bytes. Roots must be absolute paths.
+Definitions are managed through **Save Search…** and **Saved Searches…**, and are
+rerun when opened. Results themselves are not saved.
+
 rummage remembers window size/maximization, pane layout and divider, sidebar zoom,
 info-pane settings, file-extension visibility (`view.show_extensions` in saved state),
 file previews (`view.show_thumbnails`, default `true`, toggled by **View → Show → Thumbnails**),
