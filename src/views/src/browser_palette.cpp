@@ -369,6 +369,11 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !in_trash) {
         command(Command::filter_names, "filter_names", "Filter Names…");
         command(Command::find_files, "find_files", "Find Files…");
+        add("command:find_contents", std::string{i18n::mark("Find File Contents…")}, "", [this] {
+            open_finder();
+            if (finder_)
+                palette_.set_query("content: ");
+        });
     }
     command(Command::show_shortcuts, "show_shortcuts", "Keyboard Shortcuts");
     if (quit_) {
@@ -729,14 +734,16 @@ void Browser::refresh_found() {
         const auto then = [this, root, path = found.path](FoundAction after) {
             return [this, root, path, after] { show_found(root, path, after); };
         };
-        items.push_back({.id = "file:" + found.path,
-                         .label = found.path,
-                         .keys = found.directory ? std::string{i18n::tr("Folder")} : std::string{},
-                         .remember = false,
-                         .action = then(FoundAction::show),
-                         .path = true,
-                         .quick_look = then(FoundAction::quick_look),
-                         .open = then(FoundAction::open)});
+        items.push_back(
+            {.id = "file:" + found.path,
+             .label = found.line ? std::format("{}:{} · {}", found.path, found.line, found.context)
+                                 : found.path,
+             .keys = found.directory ? std::string{i18n::tr("Folder")} : std::string{},
+             .remember = false,
+             .action = then(FoundAction::show),
+             .path = true,
+             .quick_look = then(FoundAction::quick_look),
+             .open = then(FoundAction::open)});
     }
     palette_.set_results(std::move(items), finder_->status());
     if (!finder_->results().empty() && !finder_->scanning() && !finder_->matching())

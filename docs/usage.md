@@ -391,11 +391,48 @@ Spaces separate terms that must all match, in any order, in both file search and
 the command palette. Long result labels keep their highlighted match visible.
 Enter reveals a result; Shift+Enter opens its default application. Space inserts a
 space while typing. After Up/Down or Page Up/Down moves into the results, Space
-opens Quick Look; Shift+Space always inserts a space. This searches paths, not file contents.
+opens Quick Look; Shift+Space always inserts a space.
+
+Choose **Find File Contents…** in Ctrl+K, or begin the search with `content:`, to
+find literal text inside files. Each matching file appears once, with the first
+matching line number and a short excerpt. Content matching is case-sensitive;
+`case:fold` ignores ASCII letter case. Filename matching remains fuzzy.
+
+These filters work in either mode; quote values containing spaces:
+
+| Filter | Meaning |
+| --- | --- |
+| `type:file`, `type:folder`, `type:link` | Regular files, directories or symbolic links |
+| `ext:txt` | Final filename extension, ignoring ASCII case; an optional leading dot is accepted |
+| `after:2026-01-01` | Modified on or after this UTC date |
+| `before:2026-02-01` | Modified before this UTC date (exclusive) |
+| `hidden:yes`, `hidden:no` | Override the current hidden-file setting |
+| `exclude:node_modules` | Skip directories with this basename, anywhere under the scope |
+| `exclude:build/cache` | Skip this directory relative to the search root |
+
+For example, `content:"release notes" ext:md after:2026-01-01 exclude:.git`
+finds that phrase in Markdown files. `name:` selects filename/path mode. Quote a
+whole token, such as `"content:notes"`, to search for a filename containing a
+filter-like prefix. Inside quotes, `\\` and `\"` represent a backslash and quote.
+Invalid filters display an error rather than silently widening the search.
+
+Content search reads UTF-8/ASCII regular files only. It skips binary/control-filled
+files, invalid UTF-8, symlinks, files larger than 8 MiB and files changed during
+reading. PDF, office documents and archives are not decoded for content search;
+UTF-16 and legacy encodings are not converted. No external tool or persistent
+content index is required. Each query reads at most 512 MiB across all workers;
+the status reports that limit and counts unreadable, changed, non-text and oversized
+files. Results can arrive while matching continues. Press Escape to close and
+cancel pending scanning and reads. Filesystem calls already in progress may finish
+before cancellation takes effect.
 
 Search excludes hidden entries unless shown, does not follow symlink directories
-or cross into other mounted filesystems, and stops at 300,000 entries with a
-message. Closing the search releases its index.
+or cross into filesystems on another device. It stops at 300,000 entries and does
+not enter directories at depth 64; the status reports these limits. The best 200
+matches are retained, with an explicit shown/total count when more match. Narrow
+the query or scope to see omitted results. Unreadable folders are reported.
+Closing the search releases its in-memory path index. Optional persistent indexing
+is separate future work; current searches operate directly on the filesystem.
 
 ## Places, bookmarks and devices
 

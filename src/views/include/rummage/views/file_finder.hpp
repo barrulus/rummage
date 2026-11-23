@@ -11,6 +11,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/walk.hpp"
 #include "rummage/views/fuzzy.hpp"
+#include "rummage/views/search_query.hpp"
 
 // Finding files under a folder (Ctrl+F, ROADMAP 8b): every entry under it is listed once, on a
 // worker, breadth first, and what is typed is matched against their paths on the workers, a new
@@ -24,6 +25,9 @@ struct FoundFile {
     std::string path;  // relative to the folder searched
     bool directory{false};
     PathRank rank;  // how well it matches (default with nothing typed)
+
+    std::size_t line{0};
+    std::string context{};
 
     bool operator==(const FoundFile&) const = default;
 };
@@ -47,6 +51,16 @@ public:
     [[nodiscard]] const std::filesystem::path& root() const noexcept { return root_; }
 
     void set_query(const std::string& query);
+    void stop();
+    void refresh();
+
+    [[nodiscard]] const SearchQuery& specification() const { return spec_; }
+
+    [[nodiscard]] const SearchStats& stats() const { return stats_; }
+
+    [[nodiscard]] bool hidden() const { return hidden_; }
+
+    [[nodiscard]] bool stopped() const { return stopped_; }
 
     [[nodiscard]] const std::string& query() const noexcept { return query_; }
 
@@ -72,6 +86,7 @@ private:
     using Batch = std::shared_ptr<const fs::PathBatch>;
 
     void match(std::vector<Batch> batches);
+    void cancel_matches();
     void merge(std::vector<FoundFile> found);
     void fill_nearest();
 
@@ -80,17 +95,32 @@ private:
     fs::WalkOptions options_;
     std::filesystem::path root_;
     std::vector<Batch> batches_;
+    std::vector<Batch> pending_content_;
     std::size_t entries_{0};
     bool scanning_{false};
     fs::WalkResult walked_;
     core::CancelToken scan_token_;
     std::string query_;
+    SearchQuery spec_;
+    SearchStats stats_;
+    bool hidden_{false}, stopped_{false};
+    std::shared_ptr<SearchBudget> budget_{std::make_shared<SearchBudget>()};
     std::uint64_t generation_{0};
     std::vector<core::CancelToken> match_tokens_;
     std::size_t matching_{0};
     std::vector<FoundFile> results_;
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
 };
+
+struct SearchMatches {
+    std::vector<FoundFile> files;
+    SearchStats stats;
+};
+
+[[nodiscard]] SearchMatches match_files(
+    const std::filesystem::path& root,
+    const std::vector<std::shared_ptr<const fs::PathBatch>>& batches, const SearchQuery& query,
+    std::size_t limit, const core::CancelToken& token, SearchBudget& budget);
 
 // The best of batches for query, at most limit, ordered as FileFinder::results(). Blocking (the
 // workers'); polls token.
