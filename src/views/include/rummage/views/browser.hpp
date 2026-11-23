@@ -349,6 +349,8 @@ public:
 
     [[nodiscard]] ui::Rect settings_bounds() const { return area().settings_bounds; }
 
+    [[nodiscard]] ui::Rect insights_bounds() const { return area().insights_bounds; }
+
     bool restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown);
 
     [[nodiscard]] bool sidebar_visible() const noexcept { return sidebar_visible_; }
@@ -1041,7 +1043,7 @@ private:
         ui::Rect back{}, forward{};
         int navigation_pressed{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
-        ui::Rect view_menu_bounds{}, settings_bounds{}, sort_bounds{};
+        ui::Rect view_menu_bounds{}, insights_bounds{}, settings_bounds{}, sort_bounds{};
         std::filesystem::path motion_folder;
         const Pane* motion_tab{nullptr};
         Mode motion_mode{Mode::columns};

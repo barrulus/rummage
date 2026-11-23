@@ -2541,6 +2541,8 @@ void Browser::show_insights(std::filesystem::path path, std::optional<InsightsVi
         if (const auto* selected = folder->single_selection(); selected && selected->is_directory())
             path = folder->path_of(*selected);
     }
+    if (!pane().insights.is_open())
+        open_tab(path, true);
     menu_.close();
     palette_.close();
     quick_look_.close();
@@ -2810,7 +2812,17 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
-    pane().insights.close();
+    if (pane().insights.is_open()) {
+        ++path_navigation_generation_;
+        quick_look_.close();
+        menu_.close();
+        if (directory == fs::trash_path())
+            open_tab(directory, true);
+        else
+            pane().insights.navigate(directory);
+        redraw_();
+        return;
+    }
     ++path_navigation_generation_;
     info_pane_.clear_text_focus();
     cancel_operation_motion();
@@ -2979,7 +2991,7 @@ void Browser::note_location() {
 
 bool Browser::can_travel(int direction) const {
     if (pane().insights.is_open())
-        return direction < 0;
+        return direction < 0 && pane().insights.can_back();
     return direction < 0 ? !pane().history.empty() && pane().here > 0
                          : pane().here + 1 < pane().history.size();
 }
@@ -3012,8 +3024,6 @@ void Browser::travel(int direction) {
         if (direction < 0) {
             if (pane().insights.can_back())
                 pane().insights.back();
-            else
-                pane().insights.close();
         }
         return;
     }
@@ -3137,24 +3147,23 @@ MenuItem Browser::sort_menu() {
 
     if (pane().insights.is_open()) {
         auto& insights = pane().insights;
-        // Keep chronological buckets and embedded-language groups in their natural order.
-        if (insights.view() == InsightsView::View::languages ||
-            insights.view() == InsightsView::View::age) {
+        sort.label = i18n::tr("Sort By");
+        for (const auto& column : insights.sort_columns())
             sort.children.push_back(
-                choice("sort:natural",
-                       insights.view() == InsightsView::View::languages ? "Name" : "Modified", true,
-                       [] {}));
-            return sort;
-        }
-        sort.children.push_back(choice("sort:name", "Name", insights.name_order(),
-                                       [this] { pane().insights.set_name_order(true); }));
-        const auto measure =
-            insights.view() == InsightsView::View::code_matches ? "Lines"
-            : insights.view() == InsightsView::View::largest || insights.size_measure()
-                ? "File size"
-                : "File count";
-        sort.children.push_back(choice("sort:measure", measure, !insights.name_order(),
-                                       [this] { pane().insights.set_name_order(false); }));
+                choice("sort:" + std::string{column.id}, std::string{column.label},
+                       insights.sort_key() == column.key, [this, key = column.key] {
+                           pane().insights.set_sort(key, pane().insights.sort_descending());
+                       }));
+        for (const bool descending : {false, true})
+            sort.children.push_back(choice(
+                descending ? "sort:descending" : "sort:ascending",
+                descending ? "Descending" : "Ascending", insights.sort_descending() == descending,
+                [this, descending] {
+                    pane().insights.set_sort(
+                        pane().insights.sort_key().value_or(InsightsView::SortKey::name),
+                        descending);
+                },
+                !descending));
         return sort;
     }
     for (const auto& column : kDetailsColumns) {
@@ -3496,7 +3505,8 @@ void Browser::apply(const State& state) {
 }
 
 void Browser::set_mode(Mode mode) {
-    pane().insights.close();
+    if (pane().insights.is_open())
+        open_tab(pane().insights.current_path(), true);
     pane().retained_folder_mode.reset();
     if (mode == pane().mode) {
         return;
@@ -3538,7 +3548,8 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            const theme::Palette& palette, ui::IconSet& icons) {
     area().toolbar_bounds = bounds;
     area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
-    area().view_menu_bounds = area().settings_bounds = area().sort_bounds = {};
+    area().view_menu_bounds = area().insights_bounds = area().settings_bounds =
+        area().sort_bounds = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -3559,8 +3570,19 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         area().settings_bounds = {field_right - 34, bounds.y + 6, 34, 32};
         // As wide as its label in the interface's language ("View", "Ansicht").
         const float view_width = std::max(60.0F, width_of(i18n::tr("View")) + 20.0F);
-        area().view_menu_bounds = {area().settings_bounds.x - view_width - 6, bounds.y + 6,
-                                   view_width, 32};
+        float view_right = area().settings_bounds.x - 6;
+        const auto folder = current_folder();
+        if (!picker_mode_ && folder && !folder->is_archive() && !folder->is_trash() &&
+            view_right - field_x >= view_width + 6 + 34 + 8 + 48) {
+            const float label = width_of(i18n::tr("Folder insights")) + 44;
+            const float width =
+                bounds.width >= 600 && view_right - field_x >= view_width + 6 + label + 8 + 120
+                    ? label
+                    : 34.0F;
+            area().insights_bounds = {view_right - width, bounds.y + 6, width, 32};
+            view_right = area().insights_bounds.x - 6;
+        }
+        area().view_menu_bounds = {view_right - view_width, bounds.y + 6, view_width, 32};
         field_right = area().view_menu_bounds.x - 8;
     }
     const float sort_width = std::max(72.0F, width_of(i18n::tr("Sort By")) + 20.0F);
@@ -3616,6 +3638,18 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         icons.draw(renderer, "settings", box.x + (box.width - 18.0F) / 2.0F,
                    box.y + (box.height - 18.0F) / 2.0F, 18.0F, palette.on_surface);
     }
+    if (!area().insights_bounds.empty()) {
+        const auto& box = area().insights_bounds;
+        const bool active = pane().insights.is_open();
+        renderer.draw_box(
+            box, {.fill = active ? palette.primary_container : palette.surface_container_highest,
+                  .radius = {}});
+        const auto ink = active ? palette.on_primary_container : palette.on_surface;
+        icons.draw(renderer, "aperture", box.x + 8, box.y + 7, 18, ink);
+        if (box.width > 34)
+            text_in(i18n::tr("Folder insights"), {box.x + 34, box.y, box.width - 42, box.height},
+                    ink);
+    }
     if (!area().sort_bounds.empty())
         button(area().sort_bounds, "Sort By");
     if (!area().clear_filter_bounds.empty()) {
@@ -3641,6 +3675,9 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     } else if (area().sort_bounds.contains(event.x, event.y)) {
         filter_focused_ = false;
         menu_.open(area().sort_bounds.x, area().sort_bounds.bottom(), sort_menu().children, false);
+    } else if (area().insights_bounds.contains(event.x, event.y)) {
+        if (!pane().insights.is_open())
+            show_insights();
     } else if (area().settings_bounds.contains(event.x, event.y)) {
         open_settings();
     } else if (area().filter_bounds.contains(event.x, event.y)) {
@@ -3672,7 +3709,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     sidebar_preview_divider_ = {};
     sidebar_bounds_ = {bounds.x, bounds.y, sidebar_width, bounds.height};
     preview_below_places_ = panes_enabled_ && preview_in_sidebar_ && sidebar_drawn_ &&
-                            info_visible_ && bounds.height >= 240;
+                            info_visible_ && !pane().insights.is_open() && bounds.height >= 240;
     if (!sidebar_drawn_ && sidebar_.focused())
         sidebar_.set_focused(false);
     settle_found(now);
@@ -3697,7 +3734,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         status_bar_.draw(renderer, {content.x, content.bottom() - bar, content.width, bar}, palette,
                          icons, *folder, static_cast<std::size_t>(pane().mode));
     content.height -= bar;
-    if (split_visible_ && info_visible_ && !preview_below_places_) {
+    if (split_visible_ && info_visible_ && !preview_below_places_ && !pane().insights.is_open()) {
         const float width =
             info_pane_.width_in(content.width - (stacked_ ? 0.0F : InfoPane::kMinContent));
         if (width > 0) {
@@ -3813,7 +3850,7 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
         view.y += height;
         view.height -= height;
     }
-    if ((split_visible_ || area().tabs.size() > 1) &&
+    if ((split_visible_ || area().tabs.size() > 1 || pane().insights.is_open()) &&
         view.height > TabBar::kHeight + kTitleHeight) {
         area().tab_bar.draw(renderer, {view.x, view.y, view.width, TabBar::kHeight}, palette, icons,
                             tab_titles(), area().active);
@@ -3893,17 +3930,10 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
 void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, ui::IconSet& icons, Clock::time_point now) {
     if (pane().insights.is_open()) {
-        auto chart = bounds;
-        if (!split_visible_ && info_visible_ && !preview_below_places_ &&
-            pane().insights.folder()) {
-            const float width = info_pane_.width_in(bounds.width);
-            if (width > 0) {
-                chart.width -= width;
-                info_pane_.draw(renderer, {chart.right(), bounds.y, width, bounds.height}, palette,
-                                icons, *pane().insights.folder(), now);
-            }
-        }
-        pane().insights.draw(renderer, chart, palette, icons, *mime_);
+        pane().insights.set_iris_motion(motion_.config().enabled && !motion_.reduced()
+                                            ? 0.28F * motion_.config().duration_scale
+                                            : 0);
+        pane().insights.draw(renderer, bounds, palette, icons, *mime_, now);
         return;
     }
     pane().columns.set_show_thumbnails(show_thumbnails_);
@@ -3932,7 +3962,7 @@ bool Browser::animating() const {
         if (!areas_[i] || (!split_visible_ && i != active_area_))
             continue;
         const auto& tab = *areas_[i]->tabs[areas_[i]->active];
-        if ((tab.mode == Mode::columns && tab.columns.animating()) ||
+        if (tab.insights.animating() || (tab.mode == Mode::columns && tab.columns.animating()) ||
             (tab.mode == Mode::grid && tab.grid.animating()) ||
             (tab.mode == Mode::details && tab.details.animating()))
             return true;
@@ -4065,7 +4095,7 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
             return Shape::text;
         if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
             owner.view_menu_bounds.contains(x, y) || owner.sort_bounds.contains(x, y) ||
-            owner.settings_bounds.contains(x, y))
+            owner.insights_bounds.contains(x, y) || owner.settings_bounds.contains(x, y))
             return Shape::pointer;
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
@@ -5476,12 +5506,7 @@ void Browser::eject_place(const fs::Place& place) {
 
 void Browser::view_pointer(const ui::PointerEvent& event, Clock::time_point now) {
     if (pane().insights.is_open()) {
-        if (info_pane_.clickable_at(event.x, event.y) &&
-            event.kind == ui::PointerEvent::Kind::press && event.button == ui::PointerButton::left)
-            info_pane_.click(event.x, event.y);
-        else if (event.kind == ui::PointerEvent::Kind::scroll && info_pane_.scroll(event, now)) {
-        } else
-            pane().insights.pointer(event);
+        pane().insights.pointer(event, now);
         return;
     }
     switch (pane().mode) {

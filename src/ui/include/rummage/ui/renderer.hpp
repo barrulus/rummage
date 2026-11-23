@@ -91,6 +91,9 @@ public:
 
     void draw_box(const Rect& rect, const BoxStyle& style);
 
+    // Antialiased annular sector, batched with boxes; sweep is clamped to one turn.
+    void draw_sector(const AnnularSector& sector, Color color);
+
     void fill_rect(const Rect& rect, Color color) { draw_box(rect, {.fill = color}); }
 
     // Replaces the base background inside rect, respecting clips and background opacity.

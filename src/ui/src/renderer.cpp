@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <format>
 #include <iterator>
+#include <numbers>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -45,7 +46,11 @@ flat out vec2 v_params;
 
 void main() {
     float pad = a_params.y > 0.0 ? 3.0 * a_params.y : 1.0;
-    vec2 pos = a_rect.xy - pad + a_corner * (a_rect.zw + 2.0 * pad);
+    // Sectors carry a tight drawing rectangle in the otherwise unused border attribute.
+    // Keep v_rect as the full circle for the distance calculation, avoiding full-circle
+    // overdraw for every small segment and thin context ring.
+    vec4 bounds = a_params.y < 0.0 ? a_border_color : a_rect;
+    vec2 pos = bounds.xy - pad + a_corner * (bounds.zw + 2.0 * pad);
     v_pos = pos;
     v_rect = a_rect;
     v_radii = a_radii;
@@ -88,6 +93,20 @@ float erf_approx(float x) {
 void main() {
     vec2 half_size = v_rect.zw * 0.5;
     vec2 p = v_pos - (v_rect.xy + half_size);
+    // Negative sigma selects an annular sector. This uses the same instanced quad and
+    // batching as boxes; radii carry inner radius, start angle and sweep instead.
+    if (v_params.y < 0.0) {
+        float radius = length(p);
+        float d = max(v_radii.x - radius, radius - half_size.x);
+        if (v_radii.z < 6.2831853) {
+            float mid = v_radii.y + v_radii.z * 0.5;
+            float angle = mod(atan(p.y, p.x) - mid + 3.14159265, 6.2831853) - 3.14159265;
+            float edge = abs(angle) - v_radii.z * 0.5;
+            d = max(d, radius * sin(clamp(edge, -1.5707963, 1.5707963)));
+        }
+        o_color = v_fill * clamp(0.5 - d, 0.0, 1.0);
+        return;
+    }
     float d = rounded_box_distance(p, half_size, v_radii);
 
     float sigma = v_params.y;
@@ -852,6 +871,47 @@ void Renderer::draw_box(const Rect& rect, const BoxStyle& style) {
         .border_color = {border_color.r, border_color.g, border_color.b, border_color.a},
         .params = {border, 0.0F},
     });
+}
+
+void Renderer::draw_sector(const AnnularSector& sector, Color color) {
+    if (!std::isfinite(sector.x) || !std::isfinite(sector.y) || !std::isfinite(sector.inner) ||
+        !std::isfinite(sector.outer) || !std::isfinite(sector.start) ||
+        !std::isfinite(sector.sweep) || sector.inner < 0 || sector.outer <= sector.inner ||
+        sector.sweep <= 0)
+        return;
+    constexpr float turn = 2 * std::numbers::pi_v<float>;
+    const float start = std::remainder(sector.start, turn);
+    const float sweep = std::min(sector.sweep, turn);
+    float left = sector.x + sector.outer, top = sector.y + sector.outer;
+    float right = sector.x - sector.outer, bottom = sector.y - sector.outer;
+    const auto include = [&](float angle, float radius) {
+        const float x = sector.x + radius * std::cos(angle);
+        const float y = sector.y + radius * std::sin(angle);
+        left = std::min(left, x);
+        right = std::max(right, x);
+        top = std::min(top, y);
+        bottom = std::max(bottom, y);
+    };
+    for (const float radius : {sector.inner, sector.outer}) {
+        include(start, radius);
+        include(start + sweep, radius);
+    }
+    for (int i = 0; i < 4; ++i) {
+        const float angle = static_cast<float>(i) * turn / 4;
+        float relative = std::fmod(angle - start, turn);
+        if (relative < 0)
+            relative += turn;
+        if (relative <= sweep)
+            include(angle, sector.outer);
+    }
+    const auto fill = color.premultiplied();
+    push_box({.rect = {(sector.x - sector.outer) * scale_, (sector.y - sector.outer) * scale_,
+                       2 * sector.outer * scale_, 2 * sector.outer * scale_},
+              .radii = {sector.inner * scale_, start, sweep, 0},
+              .fill = {fill.r, fill.g, fill.b, fill.a},
+              .border_color = {left * scale_, top * scale_, (right - left) * scale_,
+                               (bottom - top) * scale_},
+              .params = {0, -1}});
 }
 
 void Renderer::draw_shadow(const Rect& rect, const Corners& radius, float blur, Color color) {

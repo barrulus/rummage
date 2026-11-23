@@ -6,12 +6,14 @@
 #include <format>
 #include <map>
 #include <numeric>
+#include <ranges>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/fs/name_pattern.hpp"
+#include "rummage/fs/sort.hpp"
 #include "rummage/views/format.hpp"
 
 namespace rummage::views {
@@ -136,7 +138,7 @@ void InsightsView::sync_folder() {
 bool InsightsView::file_row(std::size_t index) const {
     return index < rows_.size() && !rows_[index].directory &&
            (view_ == View::matches || view_ == View::largest || view_ == View::age_matches ||
-            view_ == View::code_matches || view_ == View::space);
+            view_ == View::code_matches || view_ == View::space || view_ == View::iris);
 }
 
 std::filesystem::path InsightsView::row_path(std::size_t index) const {
@@ -216,6 +218,7 @@ void InsightsView::selection_changed() {
             row.label = view_ == View::code_matches ? path.lexically_relative(scope_path()).string()
                                                     : entry->name;
             row.bytes = entry->size;
+            invalidate_iris();
             selected_path_ = path;
         }
         if (pending_open_) {
@@ -257,6 +260,140 @@ void InsightsView::select_all(bool invert) {
         selected_folder_->select_rows(matches, false);
 }
 
+std::vector<InsightsView::SortColumn> InsightsView::sort_columns() const {
+    std::vector<SortColumn> columns{{SortKey::name, "name",
+                                     view_ == View::languages ? i18n::mark("Language")
+                                     : view_ == View::types   ? i18n::mark("Extension")
+                                                              : i18n::mark("Name")},
+                                    {SortKey::files, "files", i18n::mark("Files")}};
+    if (source_view()) {
+        columns.push_back({SortKey::lines, "lines", i18n::mark("Lines")});
+        columns.push_back({SortKey::code, "code", i18n::mark("Code")});
+        columns.push_back({SortKey::comments, "comments", i18n::mark("Comments")});
+        columns.push_back({SortKey::blanks, "blanks", i18n::mark("Blanks")});
+    } else {
+        columns.push_back({SortKey::bytes, "bytes", i18n::mark("File size")});
+        if (view_ == View::types || view_ == View::age || view_ == View::largest)
+            columns.push_back({SortKey::share, "share", i18n::mark("Share")});
+    }
+    return columns;
+}
+
+std::optional<InsightsView::SortKey> InsightsView::sort_key() const {
+    if (sort_) {
+        const auto columns = sort_columns();
+        if (std::ranges::find(columns, *sort_, &SortColumn::key) != columns.end())
+            return sort_;
+    }
+    if (view_ == View::age)
+        return {};  // Initially show age buckets chronologically.
+    if (view_ == View::languages)
+        return SortKey::name;
+    if (view_ == View::code_matches)
+        return SortKey::lines;
+    return bytes_ || view_ == View::largest ? SortKey::bytes : SortKey::files;
+}
+
+bool InsightsView::sort_descending() const {
+    if (sort_ && sort_key() == sort_)
+        return sort_descending_;
+    return view_ != View::languages && view_ != View::age;
+}
+
+void InsightsView::set_sort(SortKey key, bool descending) {
+    const auto columns = sort_columns();
+    if (std::ranges::find(columns, key, &SortColumn::key) == columns.end())
+        return;
+    invalidate_iris();
+    sort_ = key;
+    sort_descending_ = descending;
+    const auto selected = selected_row_ && *selected_row_ < rows_.size()
+                              ? std::optional<Row>{rows_[*selected_row_]}
+                              : std::nullopt;
+    sort_rows();
+    requested_scroll_ = 0;
+    if (selected) {
+        const auto found = std::ranges::find_if(rows_, [&](const Row& row) {
+            return row.node == selected->node && row.extension == selected->extension &&
+                   row.path == selected->path && row.label == selected->label;
+        });
+        if (found != rows_.end()) {
+            selected_row_ = static_cast<std::size_t>(found - rows_.begin());
+            requested_scroll_ = static_cast<float>(*selected_row_) * 44;
+            if (focus_.starts_with("row:") || focus_.starts_with("tile:"))
+                focus_ = std::format("row:{}", *selected_row_);
+        }
+    }
+    controls_.clear();
+    redraw_();
+}
+
+void InsightsView::sort_rows() {
+    const auto key = sort_key();
+    const bool descending = sort_descending();
+    const auto value = [&](const Row& row) -> std::uint64_t {
+        switch (key.value_or(SortKey::name)) {
+            case SortKey::files:
+                return row.files;
+            case SortKey::bytes:
+                return row.bytes;
+            case SortKey::lines:
+                return row.code.lines();
+            case SortKey::code:
+                return row.code.code;
+            case SortKey::comments:
+                return row.code.comments;
+            case SortKey::blanks:
+                return row.code.blanks;
+            case SortKey::share:
+                return bytes_ || view_ == View::largest ? row.bytes : row.files;
+            case SortKey::name:
+                return 0;
+        }
+        return 0;
+    };
+    const auto less = [&](const Row& a, const Row& b) {
+        if (!key)
+            return a.extension < b.extension;
+        if (*key == SortKey::name)
+            return descending ? fs::natural_compare(a.label, b.label) > 0
+                              : fs::natural_compare(a.label, b.label) < 0;
+        const auto left = value(a), right = value(b);
+        return left != right ? (descending ? left > right : left < right)
+                             : fs::natural_compare(a.label, b.label) < 0;
+    };
+    if (view_ != View::languages) {
+        std::stable_sort(rows_.begin(), rows_.end(), less);
+        return;
+    }
+    // Sort siblings while keeping embedded languages attached to their parent.
+    const auto root = rows_.size();
+    std::map<std::string, std::size_t> by_key;
+    for (std::size_t i = 0; i < rows_.size(); ++i)
+        by_key.emplace(rows_[i].extension, i);
+    std::vector<std::vector<std::size_t>> children(root + 1);
+    for (std::size_t i = 0; i < rows_.size(); ++i) {
+        const auto& language = rows_[i].extension;
+        const auto split = language.find_last_of('\x1f');
+        const auto parent =
+            split == std::string::npos ? by_key.end() : by_key.find(language.substr(0, split));
+        children[parent == by_key.end() ? root : parent->second].push_back(i);
+    }
+    for (auto& siblings : children)
+        std::stable_sort(siblings.begin(), siblings.end(),
+                         [&](auto a, auto b) { return less(rows_[a], rows_[b]); });
+    std::vector<Row> ordered;
+    ordered.reserve(rows_.size());
+    const auto append = [&](auto&& self, std::size_t parent) -> void {
+        for (const auto index : children[parent]) {
+            ordered.push_back(std::move(rows_[index]));
+            self(self, index);
+        }
+    };
+    append(append, root);
+    rows_ = std::move(ordered);
+}
+
 void InsightsView::finish_rows() {
     for (std::size_t i = 0; i < rows_.size(); ++i) {
         const auto found = renamed_paths_.find(row_path(i));
@@ -267,8 +404,7 @@ void InsightsView::finish_rows() {
                                  : found->second.filename().string();
         }
     }
-    if (name_order_ && view_ != View::languages)
-        std::ranges::stable_sort(rows_, {}, &Row::label);
+    sort_rows();
     if (!filter_.empty()) {
         const fs::NamePattern pattern{filter_};
         std::erase_if(rows_, [&pattern](const Row& row) { return !pattern.matches(row.label); });
@@ -290,14 +426,17 @@ ui::Rect InsightsView::selected_bounds() const {
 std::optional<ViewHit> InsightsView::hit(float x, float y) const {
     if (!selected_folder_ || !selected_row_ || !selected_folder_->cursor())
         return {};
-    const auto row = control_bounds(std::format("row:{}", *selected_row_));
-    const auto tile = control_bounds(std::format("tile:{}", *selected_row_));
-    if (!row.contains(x, y) && !tile.contains(x, y))
+    const auto controls = std::views::reverse(controls_);
+    const auto found = std::ranges::find_if(
+        controls, [&](const Control& control) { return control.contains(x, y); });
+    if (found == controls.end() || (found->id != std::format("row:{}", *selected_row_) &&
+                                    found->id != std::format("tile:{}", *selected_row_)))
         return {};
     return ViewHit{selected_folder_, selected_folder_->cursor(), true};
 }
 
 bool InsightsView::edit_name(ui::Rect rect, std::size_t index, float size) {
+    rect = rect.intersect(list_);
     if (!edit_ || !selected_folder_ || edit_->folder != selected_folder_.get() ||
         row_path(index) != selected_folder_->path() / edit_->name)
         return false;
@@ -330,6 +469,7 @@ void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_h
     scope_ = 0;
     focus_ = can_back()               ? "back"
              : source_view()          ? "languages"
+             : view_ == View::iris    ? "iris"
              : view_ == View::space   ? "space"
              : view_ == View::largest ? "largest"
              : view_ == View::age     ? "age"
@@ -340,6 +480,12 @@ void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_h
 }
 
 void InsightsView::close() {
+    tree_open_ = false;
+    iris_animating_ = false;
+    iris_target_.clear();
+    iris_from_.clear();
+    iris_painted_.clear();
+    iris_snapshot_.reset();
     if (!open_)
         return;
     root_ = scope_path();
@@ -365,6 +511,7 @@ std::filesystem::path InsightsView::scope_path() const {
 }
 
 void InsightsView::refresh() {
+    invalidate_iris();
     if (!open_)
         return;
     root_ = scope_path();
@@ -389,6 +536,7 @@ void InsightsView::refresh() {
             const auto offset = pending_offset_;
             rebuild();
             offset_ = rows_.empty() ? 0 : std::min(offset, rows_.size() - 1);
+            requested_scroll_ = static_cast<float>(offset_) * 44;
             if (code_done_ && code_->error == platform::CodeError::none)
                 code_done_(code_);
         });
@@ -412,6 +560,7 @@ void InsightsView::refresh() {
             const auto offset = pending_offset_;
             rebuild();
             offset_ = rows_.empty() ? 0 : std::min(offset, rows_.size() - 1);
+            requested_scroll_ = static_cast<float>(offset_) * 44;
         });
     redraw_();
 }
@@ -438,7 +587,7 @@ void InsightsView::set_view(View view) {
 }
 
 void InsightsView::set_size_measure(bool bytes) {
-    name_order_ = false;
+    sort_.reset();
     bytes_ = bytes;
     rebuild();
 }
@@ -458,9 +607,11 @@ void InsightsView::set_hidden(bool hidden) {
 }
 
 void InsightsView::rebuild() {
+    invalidate_iris();
     clear_selection();
     sync_folder();
     pending_offset_ = 0;
+    requested_scroll_ = 0.0F;
     hover_.clear();
     rows_.clear();
     controls_.clear();
@@ -497,7 +648,7 @@ void InsightsView::rebuild() {
         std::map<std::string, Row> groups;
         for (std::size_t i = scope_ + 1; i < data_->nodes[scope_].end; ++i) {
             const auto& node = data_->nodes[i];
-            if (view_ == View::space) {
+            if (view_ == View::space || view_ == View::iris) {
                 if (node.parent == scope_)
                     rows_.push_back({.label = node.name,
                                      .extension = {},
@@ -614,6 +765,7 @@ void InsightsView::restore(Location location) {
         if (code_ && code_->root == location.path) {
             rebuild();
             offset_ = rows_.empty() ? 0 : std::min(location.offset, rows_.size() - 1);
+            requested_scroll_ = static_cast<float>(offset_) * 44;
             return;
         }
         root_ = location.path;
@@ -646,6 +798,7 @@ void InsightsView::restore(Location location) {
             scope_ = id;
             rebuild();
             offset_ = rows_.empty() ? 0 : std::min(location.offset, rows_.size() - 1);
+            requested_scroll_ = static_cast<float>(offset_) * 44;
             focus_ = "back";
             return;
         }
@@ -690,10 +843,7 @@ void InsightsView::up() {
 }
 
 void InsightsView::page(int direction) {
-    if (direction > 0 && offset_ + page_size_ < rows_.size())
-        offset_ += page_size_;
-    else if (direction < 0)
-        offset_ = offset_ > page_size_ ? offset_ - page_size_ : 0;
+    scroller_.jump_to(scroller_.offset() + static_cast<float>(direction) * list_.height);
     controls_.clear();
     redraw_();
 }
@@ -748,6 +898,10 @@ std::string InsightsView::status() const {
 void InsightsView::key(const ui::KeyEvent& event) {
     if (!open_)
         return;
+    if (tree_open_) {
+        tree_key(event);
+        return;
+    }
     if (folder_factory_ && event.modifiers.ctrl &&
         (event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A ||
          ((event.keysym == XKB_KEY_i || event.keysym == XKB_KEY_I) && event.modifiers.shift))) {
@@ -772,10 +926,11 @@ void InsightsView::key(const ui::KeyEvent& event) {
             selected_row_ = index;
             focus_ = std::format("row:{}", index);
         }
-        if (index < offset_)
-            offset_ = index;
-        if (index >= offset_ + page_size_)
-            offset_ = index - page_size_ + 1;
+        const float top = static_cast<float>(index) * 44;
+        if (top < scroller_.offset())
+            scroller_.jump_to(top);
+        else if (top + 44 > scroller_.offset() + list_.height)
+            scroller_.jump_to(top + 44 - list_.height);
         redraw_();
         return;
     }
@@ -789,8 +944,6 @@ void InsightsView::key(const ui::KeyEvent& event) {
     if (event.keysym == XKB_KEY_Escape) {
         if (view_ == View::matches || view_ == View::age_matches || view_ == View::code_matches)
             back();
-        else
-            close();
         return;
     }
     if (event.keysym == XKB_KEY_BackSpace ||
@@ -830,11 +983,18 @@ void InsightsView::key(const ui::KeyEvent& event) {
     }
 }
 
-void InsightsView::pointer(const ui::PointerEvent& event) {
+void InsightsView::pointer(const ui::PointerEvent& event, ui::Scroller::Clock::time_point now) {
+    if (tree_open_ && tree_pointer(event, now))
+        return;
+    if (scrollbar_.pointer(event, scroller_)) {
+        controls_.clear();
+        redraw_();
+        return;
+    }
     if (event.kind == ui::PointerEvent::Kind::motion) {
         std::string hovered;
-        for (const auto& control : controls_)
-            if (control.bounds.contains(event.x, event.y)) {
+        for (const auto& control : std::views::reverse(controls_))
+            if (control.contains(event.x, event.y)) {
                 hovered = control.id;
                 break;
             }
@@ -844,52 +1004,54 @@ void InsightsView::pointer(const ui::PointerEvent& event) {
         }
     }
     if (event.kind == ui::PointerEvent::Kind::scroll && list_.contains(event.x, event.y)) {
-        const float delta = event.wheel_y != 0 ? event.wheel_y : event.scroll_y;
-        if (delta != 0) {
-            offset_ = delta > 0
-                          ? std::min(offset_ + 3,
-                                     rows_.size() > page_size_ ? rows_.size() - page_size_ : 0)
-                      : offset_ > 3 ? offset_ - 3
-                                    : 0;
-            controls_.clear();
-            redraw_();
-        }
+        if (event.wheel_y != 0)
+            scroller_.wheel(event.wheel_y, now);
+        else if (event.scroll_y != 0)
+            scroller_.finger(event.scroll_y, now);
+        if (event.scroll_finger && event.scroll_stop)
+            scroller_.release(now);
+        redraw_();
+        return;
     }
     if (event.kind != ui::PointerEvent::Kind::press || !card_.contains(event.x, event.y))
         return;
-    if (folder_factory_ &&
-        (event.button == ui::PointerButton::left || event.button == ui::PointerButton::right)) {
-        for (const auto& control : controls_) {
-            if (!control.bounds.contains(event.x, event.y) ||
-                (!control.id.starts_with("row:") && !control.id.starts_with("tile:")))
-                continue;
-            const auto i =
-                static_cast<std::size_t>(std::stoull(control.id.substr(control.id.find(':') + 1)));
-            if (file_row(i)) {
-                if (event.button == ui::PointerButton::left || !selected(i))
-                    select_row(i, event.modifiers);
-                if (event.button == ui::PointerButton::right)
-                    pending_menu_ = {event.x, event.y};
-                else if (event.click_count == 2)
-                    pending_open_ = true;
-                selection_changed();
-                return;
-            }
-        }
-    }
-    if (event.button != ui::PointerButton::left)
+    // The last painted control owns the point, including overlapping rings during a zoom.
+    // Resolve once before deciding whether this is a file action or navigation.
+    const auto controls = std::views::reverse(controls_);
+    const auto found = std::ranges::find_if(
+        controls, [&](const Control& control) { return control.contains(event.x, event.y); });
+    if (found == controls.end())
         return;
-    for (const auto& control : controls_)
-        if (control.bounds.contains(event.x, event.y)) {
-            focus_ = control.id;
-            auto action = control.action;
-            action();
+    const auto control = *found;
+    if (folder_factory_ &&
+        (event.button == ui::PointerButton::left || event.button == ui::PointerButton::right) &&
+        (control.id.starts_with("row:") || control.id.starts_with("tile:"))) {
+        const auto i =
+            static_cast<std::size_t>(std::stoull(control.id.substr(control.id.find(':') + 1)));
+        if (file_row(i)) {
+            if (event.button == ui::PointerButton::left || !selected(i))
+                select_row(i, event.modifiers);
+            if (view_ == View::iris && control.sector)
+                requested_scroll_ = static_cast<float>(i) * 44;
+            if (event.button == ui::PointerButton::right)
+                pending_menu_ = {event.x, event.y};
+            else if (event.click_count == 2)
+                pending_open_ = true;
+            selection_changed();
             return;
         }
+    }
+    if (event.button == ui::PointerButton::left) {
+        focus_ = control.id;
+        control.action();
+    }
 }
 
 ui::CursorShape InsightsView::cursor_at(float x, float y) const {
-    return std::ranges::any_of(controls_, [&](const Control& c) { return c.bounds.contains(x, y); })
+    if (scrollbar_.hit(scroller_, x, y) ||
+        (tree_open_ && tree_scrollbar_.hit(tree_scroller_, x, y)))
+        return ui::CursorShape::standard;
+    return std::ranges::any_of(controls_, [&](const Control& c) { return c.contains(x, y); })
                ? ui::CursorShape::pointer
                : ui::CursorShape::standard;
 }
@@ -899,9 +1061,158 @@ ui::Rect InsightsView::control_bounds(std::string_view id) const {
     return found == controls_.end() ? ui::Rect{} : found->bounds;
 }
 
+void InsightsView::rebuild_tree() {
+    const auto current = scope_path();
+    const auto selected =
+        tree_cursor_ < tree_rows_.size() ? tree_rows_[tree_cursor_].path : current;
+    tree_rows_.clear();
+    std::vector<std::filesystem::path> ancestors;
+    for (auto path = current; !path.empty();) {
+        ancestors.push_back(path);
+        const auto parent = path.parent_path();
+        if (parent == path)
+            break;
+        path = parent;
+    }
+    std::ranges::reverse(ancestors);
+    for (std::size_t i = 0; i < ancestors.size(); ++i)
+        tree_rows_.push_back({ancestors[i], i});
+    if (scope_folder_ && scope_folder_->path() == current)
+        for (const auto& entry : scope_folder_->entries())
+            if (entry.is_directory() && !entry.is_link &&
+                (options_.hidden || !entry.name.starts_with('.')))
+                tree_rows_.push_back({scope_folder_->path_of(entry), ancestors.size()});
+    const auto children = tree_rows_.begin() + static_cast<std::ptrdiff_t>(ancestors.size());
+    std::sort(children, tree_rows_.end(),
+              [](const auto& a, const auto& b) { return a.path < b.path; });
+    const auto found = std::ranges::find(tree_rows_, selected, &TreeRow::path);
+    tree_cursor_ = found == tree_rows_.end() ? ancestors.size() - 1
+                                             : static_cast<std::size_t>(found - tree_rows_.begin());
+}
+
+void InsightsView::toggle_tree() {
+    tree_open_ = !tree_open_;
+    if (tree_open_) {
+        tree_rows_.clear();
+        rebuild_tree();
+        tree_scroller_.jump_to(0);
+    }
+    redraw_();
+}
+
+void InsightsView::choose_tree(std::size_t index) {
+    if (index >= tree_rows_.size())
+        return;
+    const auto path = tree_rows_[index].path;
+    tree_open_ = false;
+    navigate(path);
+    focus_ = "location";
+    redraw_();
+}
+
+void InsightsView::tree_key(const ui::KeyEvent& event) {
+    rebuild_tree();
+    if (event.keysym == XKB_KEY_Escape || event.keysym == XKB_KEY_Tab) {
+        tree_open_ = false;
+        focus_ = "location";
+    } else if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
+        choose_tree(tree_cursor_);
+    } else if (!tree_rows_.empty()) {
+        if (event.keysym == XKB_KEY_Up)
+            tree_cursor_ = tree_cursor_ > 0 ? tree_cursor_ - 1 : 0;
+        else if (event.keysym == XKB_KEY_Down)
+            tree_cursor_ = std::min(tree_cursor_ + 1, tree_rows_.size() - 1);
+        else if (event.keysym == XKB_KEY_Home)
+            tree_cursor_ = 0;
+        else if (event.keysym == XKB_KEY_End)
+            tree_cursor_ = tree_rows_.size() - 1;
+        const float top = static_cast<float>(tree_cursor_) * 32;
+        if (top < tree_scroller_.offset())
+            tree_scroller_.jump_to(top);
+        else if (top + 32 > tree_scroller_.offset() + tree_bounds_.height)
+            tree_scroller_.jump_to(top + 32 - tree_bounds_.height);
+    }
+    redraw_();
+}
+
+bool InsightsView::tree_pointer(const ui::PointerEvent& event,
+                                ui::Scroller::Clock::time_point now) {
+    if (tree_scrollbar_.pointer(event, tree_scroller_)) {
+        redraw_();
+        return true;
+    }
+    if (event.kind == ui::PointerEvent::Kind::press && !tree_bounds_.contains(event.x, event.y)) {
+        tree_open_ = false;
+        redraw_();
+        return true;  // Dismiss without activating a result behind the popup.
+    }
+    if (event.kind == ui::PointerEvent::Kind::leave) {
+        tree_open_ = false;
+        redraw_();
+        return false;
+    }
+    if (!tree_bounds_.contains(event.x, event.y))
+        return false;
+    if (event.kind == ui::PointerEvent::Kind::scroll) {
+        if (event.wheel_y != 0)
+            tree_scroller_.wheel(event.wheel_y, now);
+        else if (event.scroll_y != 0)
+            tree_scroller_.finger(event.scroll_y, now);
+        if (event.scroll_finger && event.scroll_stop)
+            tree_scroller_.release(now);
+        redraw_();
+    } else if (event.kind == ui::PointerEvent::Kind::press &&
+               event.button == ui::PointerButton::left) {
+        choose_tree(
+            static_cast<std::size_t>((event.y - tree_bounds_.y + tree_scroller_.offset()) / 32));
+    }
+    return true;
+}
+
+void InsightsView::draw_tree(ui::Renderer& renderer, const theme::Palette& palette,
+                             ui::IconSet& icons, ui::Scroller::Clock::time_point now) {
+    rebuild_tree();
+    const auto anchor = control_bounds("location");
+    const float height = std::min({320.0F, static_cast<float>(tree_rows_.size()) * 32,
+                                   std::max(0.0F, card_.bottom() - anchor.bottom() - 8)});
+    tree_bounds_ = {anchor.x, anchor.bottom() + 4,
+                    std::min(std::max(anchor.width, 280.0F), card_.right() - anchor.x - 8), height};
+    renderer.draw_box(tree_bounds_, {.fill = palette.surface_container,
+                                     .radius = ui::Corners::all(4),
+                                     .border_width = 1,
+                                     .border = palette.outline});
+    tree_scroller_.set_extent(static_cast<float>(tree_rows_.size()) * 32, height);
+    tree_scroller_.advance(now);
+    tree_scrollbar_.layout(tree_bounds_);
+    renderer.push_clip(tree_bounds_);
+    const auto first = static_cast<std::size_t>(tree_scroller_.offset() / 32);
+    for (auto i = first; i < tree_rows_.size(); ++i) {
+        const auto& row = tree_rows_[i];
+        const float y = tree_bounds_.y + static_cast<float>(i) * 32 - tree_scroller_.offset();
+        if (y >= tree_bounds_.bottom())
+            break;
+        const ui::Rect rect{tree_bounds_.x, y, tree_bounds_.width - 20, 32};
+        if (i == tree_cursor_)
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(0.18F)});
+        const float x = rect.x + 8 + static_cast<float>(std::min<std::size_t>(row.depth, 8)) * 14;
+        icons.draw(renderer, row.path == scope_path() ? "chevron-down" : "folder", x, y + 8, 16,
+                   palette.primary);
+        renderer.draw_text(
+            row.path.has_filename() ? row.path.filename().string() : row.path.string(), x + 24,
+            y + 8, 13, palette.on_surface, std::max(0.0F, rect.right() - x - 30),
+            ui::Ellipsis::middle);
+        controls_.push_back({std::format("tree:{}", i), rect.intersect(tree_bounds_),
+                             [this, i] { choose_tree(i); }});
+    }
+    if (const auto thumb = tree_scrollbar_.thumb(tree_scroller_); !thumb.empty())
+        renderer.draw_box(thumb, {.fill = palette.on_surface_variant.with_alpha(0.6F),
+                                  .radius = ui::Corners::all(3)});
+    renderer.pop_clip();
+}
+
 void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, ui::IconSet& icons,
-                        const fs::MimeDatabase& mime) {
+                        const fs::MimeDatabase& mime, ui::Scroller::Clock::time_point now) {
     if (!open_)
         return;
     controls_.clear();
@@ -914,8 +1225,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const Frame frame{{bounds.x, bounds.y, bounds.width, bounds.height - footer_height},
                       {bounds.x, bounds.bottom() - footer_height, bounds.width, footer_height}};
     card_ = bounds;
-    const auto surface = palette.surface_container;
-    renderer.fill_background(bounds, surface);
+    const auto surface = palette.surface;
     const auto muted = theme::readable_foreground(palette.on_surface_variant, surface);
     const float left = frame.body.x + 16, width = std::max(1.0F, frame.body.width - 32);
     const auto text_width = [&](std::string_view text) {
@@ -942,16 +1252,13 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (!glyph.empty())
             icons.draw(renderer, glyph, rect.x + 10, rect.y + 8, 16, ink);
         renderer.draw_text(label, label_x, rect.y + 8, 13, ink,
-                           std::max(0.0F, rect.right() - label_x - 8));
+                           std::max(0.0F, rect.right() - label_x - (id == "location" ? 32 : 8)));
         if (enabled && rect.bottom() <= frame.footer.bottom())
             controls_.push_back({std::move(id), rect, std::move(action)});
     };
     renderer.push_clip(frame.body);
     float x = left, y = frame.body.y + 12;
     const auto path = scope_path();
-    const auto crumb_label = [](const std::filesystem::path& value) {
-        return value.has_filename() ? value.filename().string() : value.string();
-    };
     const auto button = [&](std::string id, std::string_view label, std::function<void()> action,
                             bool selected = false, std::string_view glyph = {}) {
         const float w =
@@ -965,16 +1272,6 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             control(std::move(id), label, rect, std::move(action), glyph, selected);
         x += w + 6;
     };
-    button(
-        "close", i18n::tr("Files"),
-        [this] {
-            const auto target = scope_path();
-            const auto handler = reveal_;
-            close();
-            if (handler)
-                handler(target, true);
-        },
-        false, "folder");
     button("up", i18n::tr("Up"), [this] { up(); }, false, "chevron-up");
     button(
         "types", i18n::tr("File types"), [this] { set_view(View::types); },
@@ -982,6 +1279,9 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     button(
         "space", i18n::tr("Space map"), [this] { set_view(View::space); }, view_ == View::space,
         "layout-grid");
+    button(
+        "iris", i18n::tr("Iris"), [this] { set_view(View::iris); }, view_ == View::iris,
+        "aperture");
     button(
         "largest", i18n::tr("Largest files"), [this] { set_view(View::largest); },
         view_ == View::largest);
@@ -1002,7 +1302,14 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
            [this] { set_recursive(!options_.recursive); });
     button("hidden", options_.hidden ? i18n::tr("Hidden files: on") : i18n::tr("Hidden files: off"),
            [this] { set_hidden(!options_.hidden); });
-    y += 44;
+    y += 42;
+    const ui::Rect location{
+        left, y,
+        std::min(width, std::max(320.0F, std::min(560.0F, text_width(path.string()) + 80))), 32};
+    control("location", path.string(), location, [this] { toggle_tree(); }, "folder", tree_open_);
+    icons.draw(renderer, "chevron-down", location.right() - 24, location.y + 8, 16,
+               palette.on_surface);
+    y += 42;
     const auto files = data_ ? data_->nodes[scope_].files : progress_.files;
     const auto bytes = data_ ? data_->nodes[scope_].bytes : progress_.bytes;
     const bool partial = loading_ || (data_ && data_->nodes[scope_].partial);
@@ -1022,11 +1329,9 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                       ? std::format("{} · {}", i18n::trn("{} file", "{} files", code_->files),
                                     i18n::trn("{} line", "{} lines", code_->total.lines()))
                       : status();
-    renderer.draw_text(i18n::tr("Folder insights"), left, y, 15, palette.on_surface, width);
-    renderer.draw_text(std::format("{} · {}", crumb_label(path), summary), left, y + 24, 12, muted,
-                       width);
-    y += 56;
-    if (view_ == View::space && partial && !loading_) {
+    renderer.draw_text(summary, left, y, 12, muted, width);
+    y += 30;
+    if ((view_ == View::space || view_ == View::iris) && partial && !loading_) {
         renderer.draw_text(i18n::tr("Partial map · Only measured files have area"), left, y, 12,
                            muted, width);
         y += 24;
@@ -1136,6 +1441,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                          activate_row(i);
                                      else {
                                          offset_ = shown;
+                                         requested_scroll_ = static_cast<float>(shown) * 44;
                                          controls_.clear();
                                          redraw_();
                                      }
@@ -1146,6 +1452,61 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                                      : i18n::tr("No area for zero values"),
                                map.x + 12, map.y + 12, 13, muted, map.width - 24);
     }
+    if (view_ == View::iris && available.height >= 300) {
+        const bool wide = width >= 760;
+        const ui::Rect chart{available.x, available.y, wide ? width * 0.55F : width,
+                             wide ? available.height : std::min(360.0F, available.height * 0.55F)};
+        if (wide) {
+            list_.x = chart.right() + 16;
+            list_.width = available.right() - list_.x;
+        } else {
+            list_.y = chart.bottom() + 12;
+            list_.height = available.bottom() - list_.y;
+        }
+        draw_iris(renderer, chart, palette, icons, mime, now);
+    } else {
+        iris_animating_ = false;
+        iris_painted_.clear();
+        iris_target_.clear();
+        iris_from_.clear();
+        iris_snapshot_.reset();
+        iris_dirty_ = true;
+    }
+    const auto sortable = sort_columns();
+    const auto column_header = [&](const SortColumn& column, float x0, float cell_width) {
+        const std::string id = "sort:" + std::string{column.id};
+        const ui::Rect rect{x0, list_.y - 4, std::max(0.0F, cell_width), 28};
+        const bool sorted = sort_key() == column.key;
+        if (hover_ == id || focus_ == id)
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(0.08F),
+                                     .border_width = focus_ == id ? 1.0F : 0,
+                                     .border = palette.primary});
+        const auto label = column.key == SortKey::share && partial ? i18n::tr("Share so far")
+                                                                   : i18n::tr(column.label);
+        renderer.draw_text(label, rect.x + 6, list_.y, 12, sorted ? palette.on_surface : muted,
+                           std::max(0.0F, rect.width - (sorted ? 28 : 12)));
+        if (sorted && rect.width >= 28)
+            icons.draw(renderer, sort_descending() ? "chevron-down" : "chevron-up",
+                       rect.right() - 18, list_.y, 14, palette.on_surface);
+        controls_.push_back({id, rect.intersect(frame.body), [this, key = column.key] {
+                                 set_sort(key, sort_key() == key ? !sort_descending()
+                                                                 : key != SortKey::name);
+                             }});
+    };
+    const auto begin_rows = [&] {
+        list_.y += 28;
+        list_.height = std::max(0.0F, list_.height - 28);
+        scroller_.set_extent(static_cast<float>(rows_.size()) * 44.0F, list_.height);
+        if (requested_scroll_) {
+            scroller_.jump_to(*requested_scroll_);
+            requested_scroll_.reset();
+        }
+        scroller_.advance(now);
+        scrollbar_.layout(list_);
+        offset_ = static_cast<std::size_t>(scroller_.offset() / 44.0F);
+        page_size_ = static_cast<std::size_t>(std::ceil(list_.height / 44.0F)) + 1;
+        renderer.push_clip(list_);
+    };
     if (source_view()) {
         // Shared scale and legend: parent rows contain only their own language;
         // indented embedded-language rows contribute separately to the total.
@@ -1180,36 +1541,24 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             list_.height -= 48;
         }
         const std::array columns{0.0F, 0.38F, 0.50F, 0.62F, 0.74F, 0.88F};
-        const std::array headings{
-            view_ == View::languages ? i18n::tr("Language") : i18n::tr("Name"),
-            i18n::tr("Files"),
-            i18n::tr("Lines"),
-            labels[0],
-            labels[1],
-            labels[2]};
+        const float table_width = std::max(0.0F, list_.width - 20);
         for (std::size_t k = 0; k < columns.size(); ++k)
-            renderer.draw_text(
-                headings[k], list_.x + list_.width * columns[k] + 6, list_.y, 12, muted,
-                list_.width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]) - 10);
-        page_size_ = std::max<std::size_t>(
-            1, static_cast<std::size_t>(std::max(0.0F, list_.height - 28) / 44));
-        if (!rows_.empty())
-            offset_ = std::min(offset_, rows_.size() - 1);
+            column_header(
+                sortable[k], list_.x + table_width * columns[k],
+                table_width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]));
+        begin_rows();
         for (std::size_t i = offset_; i < rows_.size() && i < offset_ + page_size_; ++i) {
             const auto& row = rows_[i];
-            const ui::Rect rect{list_.x, list_.y + 28 + static_cast<float>(i - offset_) * 44,
-                                list_.width, 40};
-            if (rect.bottom() > frame.body.bottom())
-                break;
+            const ui::Rect rect{list_.x, list_.y + static_cast<float>(i) * 44 - scroller_.offset(),
+                                list_.width - 20, 40};
             const auto id = std::format("row:{}", i);
             const auto accent = row_color(row, palette);
-            renderer.draw_box(rect, {.fill = mix(surface, accent,
-                                                 selected(i)                    ? 0.22F
-                                                 : hover_ == id || focus_ == id ? 0.10F
-                                                                                : 0.0F),
-                                     .radius = ui::Corners::all(0),
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(selected(i)    ? 0.18F
+                                                                        : hover_ == id ? 0.08F
+                                                                                       : 0.0F),
+                                     .radius = {},
                                      .border_width = focus_ == id ? 1.0F : 0,
-                                     .border = accent});
+                                     .border = palette.primary});
             const float indent = view_ == View::code_matches
                                      ? 26.0F
                                      : static_cast<float>(std::min<std::size_t>(row.depth, 4)) * 12;
@@ -1233,7 +1582,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             }
             stack({rect.x + 6 + indent, rect.bottom() - 5, rect.width * 0.35F - indent, 2},
                   row.code, code_ ? code_->total.lines() : 0);
-            controls_.push_back({id, rect, [this, i] { activate_row(i); }});
+            controls_.push_back({id, rect.intersect(list_), [this, i] { activate_row(i); }});
         }
         if (rows_.empty())
             renderer.draw_text(source_.running() ? i18n::tr("Analyzing source…")
@@ -1246,37 +1595,30 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             (view_ == View::types || view_ == View::age || view_ == View::largest) &&
             list_.width >= 520;
         const float count_x = shares ? 0.48F : 0.55F, size_x = shares ? 0.64F : 0.76F;
-        renderer.draw_text(view_ == View::types ? i18n::tr("Extension") : i18n::tr("Name"),
-                           list_.x + 10, list_.y, 12, muted, list_.width * (count_x - 0.03F));
-        renderer.draw_text(i18n::tr("Files"), list_.x + list_.width * count_x, list_.y, 12, muted,
-                           list_.width * 0.17F);
-        renderer.draw_text(i18n::tr("File size"), list_.x + list_.width * size_x, list_.y, 12,
-                           muted, list_.width * (shares ? 0.18F : 0.24F));
+        const float table_width = std::max(0.0F, list_.width - 20);
+        column_header(sortable[0], list_.x, table_width * count_x);
+        column_header(sortable[1], list_.x + table_width * count_x,
+                      table_width * (size_x - count_x));
+        column_header(sortable[2], list_.x + table_width * size_x,
+                      table_width * ((shares ? 0.84F : 1.0F) - size_x));
         if (shares)
-            renderer.draw_text(partial ? i18n::tr("Share so far") : i18n::tr("Share"),
-                               list_.x + list_.width * 0.84F, list_.y, 12, muted,
-                               list_.width * 0.16F);
-        page_size_ = std::max<std::size_t>(
-            1, static_cast<std::size_t>(std::max(0.0F, list_.height - 28) / 44));
-        // A resize must never leave the remembered page beyond the visible result range.
-        if (!rows_.empty())
-            offset_ = std::min(offset_, rows_.size() - 1);
+            column_header(sortable[3], list_.x + table_width * 0.84F, table_width * 0.16F);
+        begin_rows();
         for (std::size_t i = offset_; i < rows_.size() && i < offset_ + page_size_; ++i) {
             const auto& row = rows_[i];
-            const ui::Rect rect{list_.x, list_.y + 28 + static_cast<float>(i - offset_) * 44,
-                                list_.width, 40};
-            if (rect.bottom() > frame.body.bottom())
-                break;
+            const ui::Rect rect{list_.x, list_.y + static_cast<float>(i) * 44 - scroller_.offset(),
+                                list_.width - 20, 40};
             const auto id = std::format("row:{}", i);
             const auto accent = row_color(row, palette);
-            const bool hot = hover_ == id || focus_ == id || (i < rows_.size() && selected(i));
-            renderer.draw_box(rect, {.fill = mix(surface, accent,
-                                                 selected(i) ? 0.22F
-                                                 : hot       ? 0.10F
-                                                             : 0.0F),
-                                     .radius = ui::Corners::all(0),
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(
+                                         selected(i) ? 0.18F
+                                         : (hover_ == id || (view_ == View::iris &&
+                                                             hover_ == std::format("tile:{}", i)))
+                                             ? 0.08F
+                                             : 0.0F),
+                                     .radius = {},
                                      .border_width = focus_ == id ? 1.0F : 0,
-                                     .border = accent});
+                                     .border = palette.primary});
             const auto label =
                 file_row(i) ? row_path(i).lexically_relative(scope_path()).string() : row.label;
             row_icon(row, {rect.x + 10, rect.y + 10, 20, 20},
@@ -1291,8 +1633,8 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             const float share =
                 total ? static_cast<float>(static_cast<double>(value) / static_cast<double>(total))
                       : 0;
-            if (view_ == View::types || view_ == View::space || view_ == View::age ||
-                view_ == View::largest)
+            if (view_ == View::types || view_ == View::space || view_ == View::iris ||
+                view_ == View::age || view_ == View::largest)
                 renderer.draw_box({rect.x + 40, rect.bottom() - 5,
                                    (rect.width * (count_x - 0.03F) - 40) * share, 2},
                                   {.fill = accent, .radius = ui::Corners::all(1)});
@@ -1313,7 +1655,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                             : format_size(row.bytes);
             renderer.draw_text(size, rect.x + rect.width * size_x, rect.y + 10, 12, muted,
                                rect.width * (shares ? 0.18F : 0.24F));
-            controls_.push_back({id, rect, [this, i] { activate_row(i); }});
+            controls_.push_back({id, rect.intersect(list_), [this, i] { activate_row(i); }});
         }
         if (rows_.empty())
             renderer.draw_text(loading_  ? i18n::tr("Counting…")
@@ -1321,7 +1663,13 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                          : i18n::tr("No files in this scope"),
                                list_.x + 10, list_.y + 36, 13, muted, list_.width - 20);
     }
-    renderer.pop_clip();
+    renderer.pop_clip();  // rows
+    if (const auto thumb = scrollbar_.thumb(scroller_); !thumb.empty())
+        renderer.draw_box(
+            thumb,
+            {.fill = palette.on_surface_variant.with_alpha(scrollbar_.dragging() ? 0.75F : 0.45F),
+             .radius = ui::Corners::all(3)});
+    renderer.pop_clip();  // body
     renderer.push_clip(frame.footer);
     renderer.draw_text(status(), left, frame.footer.y + 8, 11, muted, width);
     renderer.draw_text(
@@ -1346,15 +1694,14 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 refresh();
         },
         source_view() || !loading_ || !stop_.cancelled());
-    footer_button("previous", i18n::tr("Previous"), [this] { page(-1); }, offset_ > 0);
-    footer_button(
-        "next", i18n::tr("Next"), [this] { page(1); }, offset_ + page_size_ < rows_.size());
     if (!rows_.empty())
         renderer.draw_text(i18n::trf("{}–{} of {} · Select a row to explore", offset_ + 1,
                                      std::min(offset_ + page_size_, rows_.size()), rows_.size()),
                            x + 8, frame.footer.y + 52, 11, muted,
                            std::max(0.0F, left + width - x - 8));
     renderer.pop_clip();
+    if (tree_open_)
+        draw_tree(renderer, palette, icons, now);
 }
 
 }  // namespace rummage::views

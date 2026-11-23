@@ -12,6 +12,7 @@
 #include "rummage/platform/code_stats.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/drop_mark.hpp"
 #include "rummage/views/edit_slot.hpp"
@@ -23,9 +24,24 @@ namespace rummage::views {
 [[nodiscard]] std::vector<ui::Rect> insight_treemap(const std::vector<double>& weights,
                                                     ui::Rect bounds);
 
+// Full-circle weighted ring. Non-positive/non-finite weights get empty sectors.
+[[nodiscard]] std::vector<ui::AnnularSector> insight_ring(const std::vector<double>& weights,
+                                                          float x, float y, float inner,
+                                                          float outer);
+
 class InsightsView {
 public:
-    enum class View { types, space, matches, largest, age, age_matches, languages, code_matches };
+    enum class View {
+        types,
+        space,
+        iris,
+        matches,
+        largest,
+        age,
+        age_matches,
+        languages,
+        code_matches
+    };
 
     struct Row {
         std::string label{}, extension{};
@@ -63,12 +79,17 @@ public:
     void select_all(bool invert = false);
     void set_filter(std::string query);
 
-    void set_name_order(bool enabled) {
-        name_order_ = enabled;
-        rebuild();
-    }
+    enum class SortKey { name, files, bytes, lines, code, comments, blanks, share };
 
-    [[nodiscard]] bool name_order() const { return name_order_; }
+    struct SortColumn {
+        SortKey key;
+        std::string_view id, label;
+    };
+
+    [[nodiscard]] std::vector<SortColumn> sort_columns() const;
+    [[nodiscard]] std::optional<SortKey> sort_key() const;
+    [[nodiscard]] bool sort_descending() const;
+    void set_sort(SortKey key, bool descending);
 
     [[nodiscard]] bool size_measure() const { return bytes_; }
 
@@ -92,15 +113,31 @@ public:
     [[nodiscard]] std::filesystem::path current_path() const { return scope_path(); }
 
     void key(const ui::KeyEvent& event);
-    void pointer(const ui::PointerEvent& event);
+    void pointer(const ui::PointerEvent& event,
+                 ui::Scroller::Clock::time_point now = ui::Scroller::Clock::now());
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons, const fs::MimeDatabase& mime);
+              ui::IconSet& icons, const fs::MimeDatabase& mime,
+              ui::Scroller::Clock::time_point now = ui::Scroller::Clock::now());
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
+
+    // Uses the app's motion/reduced-motion policy. Zero duration settles immediately.
+    void set_iris_motion(float duration_seconds);
+
+    [[nodiscard]] bool animating() const {
+        return open_ && (scroller_.animating() || tree_scroller_.animating() || iris_animating_);
+    }
+
+    [[nodiscard]] ui::Rect scrollbar_thumb() const { return scrollbar_.thumb(scroller_); }
+
+    [[nodiscard]] ui::Rect list_bounds() const { return list_; }
+
+    [[nodiscard]] bool tree_open() const { return tree_open_; }
 
     [[nodiscard]] bool is_open() const { return open_; }
 
     [[nodiscard]] bool loading() const {
         return loading_ || source_.running() ||
+               (scope_folder_ && scope_folder_->model().loading()) ||
                (selected_folder_ && selected_folder_->model().loading());
     }
 
@@ -119,6 +156,11 @@ private:
         std::string id;
         ui::Rect bounds;
         std::function<void()> action;
+        std::optional<ui::AnnularSector> sector{};
+
+        [[nodiscard]] bool contains(float x, float y) const {
+            return sector ? sector->contains(x, y) : bounds.contains(x, y);
+        }
     };
 
     struct Location {
@@ -136,6 +178,7 @@ private:
     void sync_folder();
     void selection_changed();
     void finish_rows();
+    void sort_rows();
     [[nodiscard]] bool file_row(std::size_t index) const;
     [[nodiscard]] std::filesystem::path row_path(std::size_t index) const;
     [[nodiscard]] bool selected(std::size_t index) const;
@@ -144,6 +187,48 @@ private:
     void restore(Location location);
     void rebuild();
     void page(int direction);
+    void toggle_tree();
+    void draw_tree(ui::Renderer&, const theme::Palette&, ui::IconSet&,
+                   ui::Scroller::Clock::time_point);
+    bool tree_pointer(const ui::PointerEvent&, ui::Scroller::Clock::time_point);
+    void tree_key(const ui::KeyEvent&);
+    void rebuild_tree();
+    void choose_tree(std::size_t index);
+
+    void draw_iris(ui::Renderer&, ui::Rect, const theme::Palette&, ui::IconSet&,
+                   const fs::MimeDatabase&, ui::Scroller::Clock::time_point);
+    void invalidate_iris();
+
+    struct IrisSegment {
+        std::string key;
+        Row row;
+        ui::AnnularSector shape;
+        std::size_t index{0}, parent{0}, level{0};
+        float opacity{1};
+        bool more{false}, on_path{false};
+    };
+
+    std::vector<IrisSegment> iris_target_, iris_from_, iris_painted_;
+    ui::Rect iris_bounds_{};
+    std::shared_ptr<const fs::InsightSnapshot> iris_snapshot_;
+    ui::Scroller::Clock::time_point iris_started_{};
+    float iris_duration_{0.28F};
+    bool iris_dirty_{true}, iris_animating_{false};
+
+    struct TreeRow {
+        std::filesystem::path path;
+        std::size_t depth;
+    };
+
+    std::vector<TreeRow> tree_rows_;
+    std::size_t tree_cursor_{0};
+    bool tree_open_{false};
+    ui::Rect tree_bounds_{};
+    ui::Scroller tree_scroller_;
+    ui::Scrollbar tree_scrollbar_;
+    ui::Scroller scroller_;
+    ui::Scrollbar scrollbar_;
+    std::optional<float> requested_scroll_{0.0F};
     void reveal(std::size_t node);
     [[nodiscard]] std::filesystem::path scope_path() const;
     [[nodiscard]] std::string status() const;
@@ -157,7 +242,8 @@ private:
     bool pending_open_{false};
     EditSlot* edit_{nullptr};
     std::string filter_;
-    bool name_order_{false};
+    std::optional<SortKey> sort_;
+    bool sort_descending_{false};
     std::map<std::filesystem::path, std::filesystem::path> renamed_paths_;
     core::WorkerPool& pool_;
     platform::CodeAnalysis source_;

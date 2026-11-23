@@ -52,34 +52,57 @@ changes deep inside it may require selecting it again to recount.
 
 ## Folder insights
 
-Press **Ctrl+Alt+I**, choose **Folder insights…** from the command palette or a
-folder's context menu, or use the button in the information pane. A single selected
+Use **Folder insights** between **View** and the settings cog (a circular aperture
+icon in narrow panes), press **Ctrl+Alt+I**, choose **Folder insights…** from the
+command palette or a folder's context menu, or use the information-pane button. A single selected
 folder is inspected; otherwise the current folder is used. This view is available
 for local folders in the browser, outside Trash, archives and file-picker mode.
-Insights occupies the current tab's content pane. The sidebar, toolbar, tabs and
-other split pane remain available, and each tab retains its own insights state.
+Insights opens in a dedicated tab, leaving the original file-browsing tab and its
+selection intact. Switch tabs to return to browsing; close the insights tab with
+its × or Ctrl+W. Choosing a Place or bookmark while insights is active recentres
+the graphs on that folder. The information/preview pane is hidden in insights,
+leaving the full content width for graphs and file results.
 
 - **File types** groups regular files by filename extension, ignoring ASCII case.
   PDF, DOC, DOCX and MD remain separate; common compound archive suffixes such as
   `.tar.gz` stay together. Extensionless files have their own row. This classifies
   names without reading file contents; it does not verify the actual format.
 - **File count / File size** changes ordering, proportions and treemap areas using
-  the same scan. File size is selected initially. Wide type tables show percentages
+  the same scan. File size is selected initially. Click any table-column header to
+  sort it; click again to reverse the direction. **Sort By** offers the same columns
+  and ascending/descending options. Source columns include Files, Lines, Code,
+  Comments and Blanks; embedded languages stay grouped with their parent. Sorting
+  preserves the selected file. Wide type tables show percentages
   of the current scope (of the files counted so far when incomplete).
 - **Include subfolders** and **Hidden files** define the scan scope. Hidden files
   initially follow the browser's setting. Changing either option starts a new scan.
 - Select a type to list its exact matches. Single-click a matching file to select
-  it in place and show its information.
+  it in place.
   Double-click or press Enter to open it; Space opens Quick Look. The normal context
   menu, copy/cut commands, drag-out and F2 inline rename act on that file without
   leaving insights. Ctrl/Shift selection and Ctrl+A operate on results in the
   selected file’s parent folder, as in the expandable details view.
   **Space map** shows immediate children weighted by their total
-  file count or size; select a folder to drill into it. The accompanying paginated
+  file count or size; select a folder to drill into it. The accompanying scrollable
   list also includes zero-sized entries and items too small to label on the map.
   Colored tiles represent folders; files use their file-type icons. Selecting a
   file selects it in place; double-click opens it. Icon sizes are capped for
   readability; use the size labels and list bars for exact comparisons.
+- **Iris** is a circular view inspired by [Luciole](https://github.com/Excelsies/luciole).
+  The inner ring shows the current folder's immediate entries, weighted by file
+  count or size. Up to three thinner outer rings show the contents of scanned
+  parent folders, with the route to the current folder highlighted. These rings
+  show ancestors, not deeper descendants. The centre goes **Up**; the parent
+  labels above the chart jump directly to those folders. Above the scan root,
+  navigation starts a new scan rather than inventing proportions for unscanned folders.
+  Select a folder segment to drill in. Files use their normal icons and actions;
+  hover a segment or its list row for its name and amount. Small entries share a
+  **More** segment that scrolls to the first grouped entry in the full list.
+  Zero-valued entries remain in the list without being assigned artificial area.
+  Sorting changes the list; the graph keeps a stable order by its active measure.
+  Filtering narrows the inner ring; parent rings retain their full scanned context.
+  Ring transitions animate navigation and measure changes, respecting the app's
+  motion and reduced-motion settings. Partial scans show only measured proportions.
 - **Largest files** ranks individual files across the scope by logical size, with
   proportional bars and relative paths. Select one to inspect it or use its normal
   file actions.
@@ -94,17 +117,16 @@ other split pane remain available, and each tab retains its own insights state.
   counts physical source files once. Select a language to see its source files.
 - **Back**, **Backspace**, or **Alt+Left** retraces your visits, including type matches.
   **Up** or **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an
-  ancestor using the browser breadcrumb. **Files** returns to ordinary browsing
-  in the inspected folder. **Tab**, **Shift+Tab**, arrows and **Enter**
-  operate controls and visible rows; **Page Up/Down**, the wheel, or
-  **Previous/Next** pages through results. **Escape** returns from matching files
-  to their previous view, then closes the view.
+  ancestor using the browser breadcrumb. The folder-path dropdown above the graph
+  shows the ancestor chain and child folders; choose a folder to recentre insights.
+  **Tab**, **Shift+Tab**, arrows and **Enter** operate controls, the folder dropdown
+  and file rows. The wheel, touchpad, scrollbar and **Page Up/Down** scroll results.
+  **Escape** dismisses the folder dropdown or returns from matching files to their
+  previous graph; it leaves the insights tab open.
 
-Switching tabs preserves the open insight and selection. Leaving and reopening
-insights for the same starting folder restores the last
-location, view, measurement, page and scan options during the current app session,
-then scans again for fresh data. Opening a different folder starts there, keeping
-the preferred view and measurement; hidden files initially follow the browser.
+Switching tabs preserves the open insight, selection, location, measurement,
+scroll position and scan options. A newly opened insights tab starts at the
+selected folder; hidden files initially follow the browser setting.
 
 Source analysis starts only when you open **Languages** or **Source statistics…**
 from the information pane. The pane then shows the **Last source analysis** for
