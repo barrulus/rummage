@@ -20,6 +20,8 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "内側のリング：内容 · 外側のリング：親フォルダー"
+"Select a segment to explore · Centre goes up" = "セグメントを選択して探索 · 中央で上の階層へ"
 "Back to Transfers" = "転送一覧に戻る"
 "Cancel Task" = "タスクをキャンセル"
 "Cancelled" = "キャンセル済み"

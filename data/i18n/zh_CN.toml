@@ -21,6 +21,8 @@ Menu = "菜单"
 moves = "移动"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "内环：内容 · 外环：上级文件夹"
+"Select a segment to explore · Centre goes up" = "选择扇区以浏览 · 点击中心返回上级"
 "Back to Transfers" = "返回传输列表"
 "Cancel Task" = "取消任务"
 "Cancelled" = "已取消"

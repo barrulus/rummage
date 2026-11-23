@@ -23,6 +23,8 @@ Menu = "Меню"
 moves = "перемещение"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Внутреннее кольцо: содержимое · Внешние: родительские папки"
+"Select a segment to explore · Centre goes up" = "Выберите сектор для перехода · Центр ведёт вверх"
 "Back to Transfers" = "Назад к передачам"
 "Cancel Task" = "Отменить задачу"
 "Cancelled" = "Отменено"

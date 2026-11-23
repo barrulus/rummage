@@ -10,6 +10,7 @@
 #include <fstream>
 #include <functional>
 #include <limits>
+#include <numbers>
 #include <numeric>
 #include <string>
 #include <sys/stat.h>
@@ -1162,4 +1163,154 @@ TEST_CASE(
     CHECK(view.sort_key() == InsightsView::SortKey::files);
     draw();
     capture("sortable-headers", 1100, 820);
+}
+
+TEST_CASE("insights: Iris proportions and hit testing preserve holes and angular boundaries") {
+    constexpr float turn = 2 * std::numbers::pi_v<float>;
+    const std::vector<double> weights{6, 3, 1, 0, -4, std::numeric_limits<double>::infinity()};
+    const auto sectors = rummage::views::insight_ring(weights, 100, 100, 30, 90);
+    REQUIRE(sectors.size() == weights.size());
+    float sum = 0;
+    for (std::size_t i = 0; i < 3; ++i) {
+        const auto& sector = sectors[i];
+        CHECK(sector.sweep == doctest::Approx(static_cast<double>(turn) * weights[i] / 10));
+        const float angle = sector.start + sector.sweep / 2;
+        const float x = 100 + 60 * std::cos(angle), y = 100 + 60 * std::sin(angle);
+        CHECK(sector.contains(x, y));
+        CHECK_FALSE(sector.contains(100, 100));
+        CHECK_FALSE(sector.contains(100 + 95 * std::cos(angle), 100 + 95 * std::sin(angle)));
+        for (std::size_t j = 0; j < sectors.size(); ++j)
+            if (i != j)
+                CHECK_FALSE(sectors[j].contains(x, y));
+        sum += sector.sweep;
+    }
+    CHECK(sum == doctest::Approx(turn));
+    for (std::size_t i = 3; i < sectors.size(); ++i)
+        CHECK(sectors[i].sweep == 0);
+    const auto full = rummage::views::insight_ring({1}, 100, 100, 30, 90).front();
+    CHECK(full.contains(160, 100));
+    CHECK(full.contains(40, 100));
+    CHECK(full.contains(100, 40));
+    CHECK(full.contains(100, 160));
+    CHECK(rummage::views::insight_ring({0, 0}, 0, 0, 0, 10)[0].sweep == 0);
+    CHECK(rummage::views::insight_ring({1}, 0, 0, 10, 5)[0].sweep == 0);
+}
+
+TEST_CASE("insights: Iris native files, parent context, sorting and reduced motion") {
+    using rummage::ui::PointerButton;
+    using rummage::ui::PointerEvent;
+    using rummage::views::Browser;
+    rummage::ui::Offscreen offscreen{1400, 1000};
+    const TempDir dir;
+    fs::create_directories(dir.path / "Research/deep");
+    fs::create_directories(dir.path / "Projects");
+    dir.write("Research/paper.pdf", std::string(4000, 'p'));
+    dir.write("Research/notes.md", std::string(2000, 'n'));
+    dir.write("Research/deep/source.cpp", std::string(1000, 's'));
+    dir.write("Projects/plan.doc", std::string(3000, 'd'));
+    dir.write("empty.txt", "");
+    for (int i = 0; i < 80; ++i)
+        dir.write(std::format("small-{:02}.txt", i), "x");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    Browser browser{loop, pool, watcher, mime, [] {}, [](auto) {}};
+    fs::path opened;
+    browser.set_open_handler([&](const fs::path& parent, auto files) {
+        REQUIRE(files.size() == 1);
+        opened = parent / files[0].name;
+    });
+    browser.open(dir.path);
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    browser.show_insights(dir.path, InsightsView::View::iris);
+    auto& view = browser.insights_view();
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto now = rummage::ui::Scroller::Clock::now();
+    const auto draw = [&](const std::string& name = "", int width = 1400,
+                          const rummage::theme::Palette& palette = {}) {
+        renderer.begin_frame(width, 1000, 1, palette.surface);
+        view.draw(renderer, {0, 0, static_cast<float>(width), 1000}, palette, icons, *mime, now);
+        renderer.end_frame();
+        if (!name.empty())
+            capture(name, width, 1000);
+    };
+    const auto click = [&](const std::string& id, int clicks = 1,
+                           PointerButton button = PointerButton::left) {
+        const auto rect = view.control_bounds(id);
+        REQUIRE_FALSE(rect.empty());
+        view.pointer({.kind = PointerEvent::Kind::press,
+                      .x = rect.x + rect.width / 2,
+                      .y = rect.y + rect.height / 2,
+                      .button = button,
+                      .click_count = clicks},
+                     now);
+    };
+    view.set_iris_motion(0);
+    draw("iris-root");
+    CHECK_FALSE(view.animating());
+    const auto snapshot = view.snapshot();
+    const auto empty = row(view, "empty.txt");
+    CHECK(view.control_bounds(std::format("tile:{}", empty)).empty());
+    // The grouped tail stays reachable through the list rather than disappearing.
+    click("iris-more");
+    draw();
+    CHECK_FALSE(view.control_bounds(std::format("row:{}", row(view, "small-00.txt"))).empty());
+    click(std::format("tile:{}", row(view, "Research")));
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(view.snapshot() == snapshot);
+    CHECK(view.current_path() == dir.path / "Research");
+    draw("iris-children");
+    CHECK_FALSE(view.control_bounds("iris-parent:0").empty());
+    const auto file = row(view, "paper.pdf");
+    click(std::format("tile:{}", file));
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(opened.empty());
+    REQUIRE(view.folder()->single_selection());
+    CHECK(view.folder()->single_selection()->name == "paper.pdf");
+    draw();
+    const auto arc = view.control_bounds(std::format("tile:{}", file));
+    CHECK(view.hit(arc.x + 10, arc.y + 10).has_value());
+    const auto hub = view.control_bounds("iris-up");
+    CHECK_FALSE(view.hit(hub.x + 12, hub.y + 12).has_value());
+    view.set_sort(InsightsView::SortKey::name, true);
+    draw();
+    click(std::format("tile:{}", row(view, "paper.pdf")), 2);
+    CHECK(opened == dir.path / "Research/paper.pdf");
+    CHECK(view.is_open());
+    // A parent-ring sibling navigates directly, with the same snapshot and native tab.
+    const auto projects =
+        std::ranges::find(snapshot->nodes, "Projects", &rummage::fs::InsightNode::name);
+    REQUIRE(projects != snapshot->nodes.end());
+    const auto project_id = static_cast<std::size_t>(projects - snapshot->nodes.begin());
+    click(std::format("iris-context:{}", project_id));
+    CHECK(view.current_path() == dir.path / "Projects");
+    view.back();
+    CHECK(view.current_path() == dir.path / "Research");
+    view.set_iris_motion(0.28F);
+    view.set_size_measure(false);
+    draw();
+    CHECK(view.animating());
+    now += 140ms;
+    draw("iris-transition");
+    CHECK(view.animating());
+    now += 200ms;
+    draw("iris-count");
+    CHECK_FALSE(view.animating());
+    click(std::format("tile:{}", row(view, "deep")));
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    draw();
+    CHECK(view.animating());
+    view.set_iris_motion(0);  // Reduced motion also settles an in-flight transition.
+    draw("iris-deep");
+    CHECK_FALSE(view.animating());
+    CHECK_FALSE(view.control_bounds("iris-parent:1").empty());
+    click("iris-up");
+    CHECK(view.current_path() == dir.path / "Research");
+    draw("iris-compact", 640);
+    draw("iris-light", 1400, rummage::theme::desktop_palette({.dark = false, .accent = {}}));
+    CHECK(glGetError() == GL_NO_ERROR);
 }

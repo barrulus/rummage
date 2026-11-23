@@ -6,6 +6,7 @@
 #include <format>
 #include <map>
 #include <numeric>
+#include <ranges>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -137,7 +138,7 @@ void InsightsView::sync_folder() {
 bool InsightsView::file_row(std::size_t index) const {
     return index < rows_.size() && !rows_[index].directory &&
            (view_ == View::matches || view_ == View::largest || view_ == View::age_matches ||
-            view_ == View::code_matches || view_ == View::space);
+            view_ == View::code_matches || view_ == View::space || view_ == View::iris);
 }
 
 std::filesystem::path InsightsView::row_path(std::size_t index) const {
@@ -217,6 +218,7 @@ void InsightsView::selection_changed() {
             row.label = view_ == View::code_matches ? path.lexically_relative(scope_path()).string()
                                                     : entry->name;
             row.bytes = entry->size;
+            invalidate_iris();
             selected_path_ = path;
         }
         if (pending_open_) {
@@ -302,6 +304,7 @@ void InsightsView::set_sort(SortKey key, bool descending) {
     const auto columns = sort_columns();
     if (std::ranges::find(columns, key, &SortColumn::key) == columns.end())
         return;
+    invalidate_iris();
     sort_ = key;
     sort_descending_ = descending;
     const auto selected = selected_row_ && *selected_row_ < rows_.size()
@@ -423,9 +426,11 @@ ui::Rect InsightsView::selected_bounds() const {
 std::optional<ViewHit> InsightsView::hit(float x, float y) const {
     if (!selected_folder_ || !selected_row_ || !selected_folder_->cursor())
         return {};
-    const auto row = control_bounds(std::format("row:{}", *selected_row_));
-    const auto tile = control_bounds(std::format("tile:{}", *selected_row_));
-    if (!row.contains(x, y) && !tile.contains(x, y))
+    const auto controls = std::views::reverse(controls_);
+    const auto found = std::ranges::find_if(
+        controls, [&](const Control& control) { return control.contains(x, y); });
+    if (found == controls.end() || (found->id != std::format("row:{}", *selected_row_) &&
+                                    found->id != std::format("tile:{}", *selected_row_)))
         return {};
     return ViewHit{selected_folder_, selected_folder_->cursor(), true};
 }
@@ -464,6 +469,7 @@ void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_h
     scope_ = 0;
     focus_ = can_back()               ? "back"
              : source_view()          ? "languages"
+             : view_ == View::iris    ? "iris"
              : view_ == View::space   ? "space"
              : view_ == View::largest ? "largest"
              : view_ == View::age     ? "age"
@@ -475,6 +481,11 @@ void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_h
 
 void InsightsView::close() {
     tree_open_ = false;
+    iris_animating_ = false;
+    iris_target_.clear();
+    iris_from_.clear();
+    iris_painted_.clear();
+    iris_snapshot_.reset();
     if (!open_)
         return;
     root_ = scope_path();
@@ -500,6 +511,7 @@ std::filesystem::path InsightsView::scope_path() const {
 }
 
 void InsightsView::refresh() {
+    invalidate_iris();
     if (!open_)
         return;
     root_ = scope_path();
@@ -595,6 +607,7 @@ void InsightsView::set_hidden(bool hidden) {
 }
 
 void InsightsView::rebuild() {
+    invalidate_iris();
     clear_selection();
     sync_folder();
     pending_offset_ = 0;
@@ -635,7 +648,7 @@ void InsightsView::rebuild() {
         std::map<std::string, Row> groups;
         for (std::size_t i = scope_ + 1; i < data_->nodes[scope_].end; ++i) {
             const auto& node = data_->nodes[i];
-            if (view_ == View::space) {
+            if (view_ == View::space || view_ == View::iris) {
                 if (node.parent == scope_)
                     rows_.push_back({.label = node.name,
                                      .extension = {},
@@ -980,8 +993,8 @@ void InsightsView::pointer(const ui::PointerEvent& event, ui::Scroller::Clock::t
     }
     if (event.kind == ui::PointerEvent::Kind::motion) {
         std::string hovered;
-        for (const auto& control : controls_)
-            if (control.bounds.contains(event.x, event.y)) {
+        for (const auto& control : std::views::reverse(controls_))
+            if (control.contains(event.x, event.y)) {
                 hovered = control.id;
                 break;
             }
@@ -1002,42 +1015,43 @@ void InsightsView::pointer(const ui::PointerEvent& event, ui::Scroller::Clock::t
     }
     if (event.kind != ui::PointerEvent::Kind::press || !card_.contains(event.x, event.y))
         return;
-    if (folder_factory_ &&
-        (event.button == ui::PointerButton::left || event.button == ui::PointerButton::right)) {
-        for (const auto& control : controls_) {
-            if (!control.bounds.contains(event.x, event.y) ||
-                (!control.id.starts_with("row:") && !control.id.starts_with("tile:")))
-                continue;
-            const auto i =
-                static_cast<std::size_t>(std::stoull(control.id.substr(control.id.find(':') + 1)));
-            if (file_row(i)) {
-                if (event.button == ui::PointerButton::left || !selected(i))
-                    select_row(i, event.modifiers);
-                if (event.button == ui::PointerButton::right)
-                    pending_menu_ = {event.x, event.y};
-                else if (event.click_count == 2)
-                    pending_open_ = true;
-                selection_changed();
-                return;
-            }
-        }
-    }
-    if (event.button != ui::PointerButton::left)
+    // The last painted control owns the point, including overlapping rings during a zoom.
+    // Resolve once before deciding whether this is a file action or navigation.
+    const auto controls = std::views::reverse(controls_);
+    const auto found = std::ranges::find_if(
+        controls, [&](const Control& control) { return control.contains(event.x, event.y); });
+    if (found == controls.end())
         return;
-    for (const auto& control : controls_)
-        if (control.bounds.contains(event.x, event.y)) {
-            focus_ = control.id;
-            auto action = control.action;
-            action();
+    const auto control = *found;
+    if (folder_factory_ &&
+        (event.button == ui::PointerButton::left || event.button == ui::PointerButton::right) &&
+        (control.id.starts_with("row:") || control.id.starts_with("tile:"))) {
+        const auto i =
+            static_cast<std::size_t>(std::stoull(control.id.substr(control.id.find(':') + 1)));
+        if (file_row(i)) {
+            if (event.button == ui::PointerButton::left || !selected(i))
+                select_row(i, event.modifiers);
+            if (view_ == View::iris && control.sector)
+                requested_scroll_ = static_cast<float>(i) * 44;
+            if (event.button == ui::PointerButton::right)
+                pending_menu_ = {event.x, event.y};
+            else if (event.click_count == 2)
+                pending_open_ = true;
+            selection_changed();
             return;
         }
+    }
+    if (event.button == ui::PointerButton::left) {
+        focus_ = control.id;
+        control.action();
+    }
 }
 
 ui::CursorShape InsightsView::cursor_at(float x, float y) const {
     if (scrollbar_.hit(scroller_, x, y) ||
         (tree_open_ && tree_scrollbar_.hit(tree_scroller_, x, y)))
         return ui::CursorShape::standard;
-    return std::ranges::any_of(controls_, [&](const Control& c) { return c.bounds.contains(x, y); })
+    return std::ranges::any_of(controls_, [&](const Control& c) { return c.contains(x, y); })
                ? ui::CursorShape::pointer
                : ui::CursorShape::standard;
 }
@@ -1266,6 +1280,9 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         "space", i18n::tr("Space map"), [this] { set_view(View::space); }, view_ == View::space,
         "layout-grid");
     button(
+        "iris", i18n::tr("Iris"), [this] { set_view(View::iris); }, view_ == View::iris,
+        "aperture");
+    button(
         "largest", i18n::tr("Largest files"), [this] { set_view(View::largest); },
         view_ == View::largest);
     button(
@@ -1314,7 +1331,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                       : status();
     renderer.draw_text(summary, left, y, 12, muted, width);
     y += 30;
-    if (view_ == View::space && partial && !loading_) {
+    if ((view_ == View::space || view_ == View::iris) && partial && !loading_) {
         renderer.draw_text(i18n::tr("Partial map · Only measured files have area"), left, y, 12,
                            muted, width);
         y += 24;
@@ -1434,6 +1451,26 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             renderer.draw_text(partial && files == 0 ? i18n::tr("No files measured yet")
                                                      : i18n::tr("No area for zero values"),
                                map.x + 12, map.y + 12, 13, muted, map.width - 24);
+    }
+    if (view_ == View::iris && available.height >= 300) {
+        const bool wide = width >= 760;
+        const ui::Rect chart{available.x, available.y, wide ? width * 0.55F : width,
+                             wide ? available.height : std::min(360.0F, available.height * 0.55F)};
+        if (wide) {
+            list_.x = chart.right() + 16;
+            list_.width = available.right() - list_.x;
+        } else {
+            list_.y = chart.bottom() + 12;
+            list_.height = available.bottom() - list_.y;
+        }
+        draw_iris(renderer, chart, palette, icons, mime, now);
+    } else {
+        iris_animating_ = false;
+        iris_painted_.clear();
+        iris_target_.clear();
+        iris_from_.clear();
+        iris_snapshot_.reset();
+        iris_dirty_ = true;
     }
     const auto sortable = sort_columns();
     const auto column_header = [&](const SortColumn& column, float x0, float cell_width) {
@@ -1573,9 +1610,12 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                 list_.width - 20, 40};
             const auto id = std::format("row:{}", i);
             const auto accent = row_color(row, palette);
-            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(selected(i)    ? 0.18F
-                                                                        : hover_ == id ? 0.08F
-                                                                                       : 0.0F),
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(
+                                         selected(i) ? 0.18F
+                                         : (hover_ == id || (view_ == View::iris &&
+                                                             hover_ == std::format("tile:{}", i)))
+                                             ? 0.08F
+                                             : 0.0F),
                                      .radius = {},
                                      .border_width = focus_ == id ? 1.0F : 0,
                                      .border = palette.primary});
@@ -1593,8 +1633,8 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             const float share =
                 total ? static_cast<float>(static_cast<double>(value) / static_cast<double>(total))
                       : 0;
-            if (view_ == View::types || view_ == View::space || view_ == View::age ||
-                view_ == View::largest)
+            if (view_ == View::types || view_ == View::space || view_ == View::iris ||
+                view_ == View::age || view_ == View::largest)
                 renderer.draw_box({rect.x + 40, rect.bottom() - 5,
                                    (rect.width * (count_x - 0.03F) - 40) * share, 2},
                                   {.fill = accent, .radius = ui::Corners::all(1)});

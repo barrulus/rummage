@@ -24,9 +24,24 @@ namespace rummage::views {
 [[nodiscard]] std::vector<ui::Rect> insight_treemap(const std::vector<double>& weights,
                                                     ui::Rect bounds);
 
+// Full-circle weighted ring. Non-positive/non-finite weights get empty sectors.
+[[nodiscard]] std::vector<ui::AnnularSector> insight_ring(const std::vector<double>& weights,
+                                                          float x, float y, float inner,
+                                                          float outer);
+
 class InsightsView {
 public:
-    enum class View { types, space, matches, largest, age, age_matches, languages, code_matches };
+    enum class View {
+        types,
+        space,
+        iris,
+        matches,
+        largest,
+        age,
+        age_matches,
+        languages,
+        code_matches
+    };
 
     struct Row {
         std::string label{}, extension{};
@@ -105,8 +120,11 @@ public:
               ui::Scroller::Clock::time_point now = ui::Scroller::Clock::now());
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
 
+    // Uses the app's motion/reduced-motion policy. Zero duration settles immediately.
+    void set_iris_motion(float duration_seconds);
+
     [[nodiscard]] bool animating() const {
-        return open_ && (scroller_.animating() || tree_scroller_.animating());
+        return open_ && (scroller_.animating() || tree_scroller_.animating() || iris_animating_);
     }
 
     [[nodiscard]] ui::Rect scrollbar_thumb() const { return scrollbar_.thumb(scroller_); }
@@ -138,6 +156,11 @@ private:
         std::string id;
         ui::Rect bounds;
         std::function<void()> action;
+        std::optional<ui::AnnularSector> sector{};
+
+        [[nodiscard]] bool contains(float x, float y) const {
+            return sector ? sector->contains(x, y) : bounds.contains(x, y);
+        }
     };
 
     struct Location {
@@ -171,6 +194,26 @@ private:
     void tree_key(const ui::KeyEvent&);
     void rebuild_tree();
     void choose_tree(std::size_t index);
+
+    void draw_iris(ui::Renderer&, ui::Rect, const theme::Palette&, ui::IconSet&,
+                   const fs::MimeDatabase&, ui::Scroller::Clock::time_point);
+    void invalidate_iris();
+
+    struct IrisSegment {
+        std::string key;
+        Row row;
+        ui::AnnularSector shape;
+        std::size_t index{0}, parent{0}, level{0};
+        float opacity{1};
+        bool more{false}, on_path{false};
+    };
+
+    std::vector<IrisSegment> iris_target_, iris_from_, iris_painted_;
+    ui::Rect iris_bounds_{};
+    std::shared_ptr<const fs::InsightSnapshot> iris_snapshot_;
+    ui::Scroller::Clock::time_point iris_started_{};
+    float iris_duration_{0.28F};
+    bool iris_dirty_{true}, iris_animating_{false};
 
     struct TreeRow {
         std::filesystem::path path;

@@ -21,6 +21,8 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Anel interno: conteúdo · Externos: pastas superiores"
+"Select a segment to explore · Centre goes up" = "Selecione um segmento para explorar · O centro sobe"
 "Back to Transfers" = "Voltar às transferências"
 "Cancel Task" = "Cancelar tarefa"
 "Cancelled" = "Cancelada"

@@ -30,6 +30,8 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Anillo interior: contenido · Exteriores: carpetas superiores"
+"Select a segment to explore · Centre goes up" = "Selecciona un segmento para explorar · El centro sube"
 "Back to Transfers" = "Volver a las transferencias"
 "Cancel Task" = "Cancelar tarea"
 "Cancelled" = "Cancelada"

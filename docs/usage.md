@@ -88,6 +88,21 @@ leaving the full content width for graphs and file results.
   Colored tiles represent folders; files use their file-type icons. Selecting a
   file selects it in place; double-click opens it. Icon sizes are capped for
   readability; use the size labels and list bars for exact comparisons.
+- **Iris** is a circular view inspired by [Luciole](https://github.com/Excelsies/luciole).
+  The inner ring shows the current folder's immediate entries, weighted by file
+  count or size. Up to three thinner outer rings show the contents of scanned
+  parent folders, with the route to the current folder highlighted. These rings
+  show ancestors, not deeper descendants. The centre goes **Up**; the parent
+  labels above the chart jump directly to those folders. Above the scan root,
+  navigation starts a new scan rather than inventing proportions for unscanned folders.
+  Select a folder segment to drill in. Files use their normal icons and actions;
+  hover a segment or its list row for its name and amount. Small entries share a
+  **More** segment that scrolls to the first grouped entry in the full list.
+  Zero-valued entries remain in the list without being assigned artificial area.
+  Sorting changes the list; the graph keeps a stable order by its active measure.
+  Filtering narrows the inner ring; parent rings retain their full scanned context.
+  Ring transitions animate navigation and measure changes, respecting the app's
+  motion and reduced-motion settings. Partial scans show only measured proportions.
 - **Largest files** ranks individual files across the scope by logical size, with
   proportional bars and relative paths. Select one to inspect it or use its normal
   file actions.

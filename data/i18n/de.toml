@@ -33,6 +33,8 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Inner ring: contents · Outer rings: parents" = "Innenring: Inhalt · Außenringe: übergeordnete Ordner"
+"Select a segment to explore · Centre goes up" = "Segment zum Erkunden wählen · Mitte führt nach oben"
 "Back to Transfers" = "Zurück zu Übertragungen"
 "Cancel Task" = "Aufgabe abbrechen"
 "Cancelled" = "Abgebrochen"
