@@ -74,12 +74,23 @@ for local folders in the browser, outside Trash, archives and file-picker mode.
   Colored tiles represent folders; files use their file-type icons. Selecting a
   file reveals it in the browser. Icon sizes are capped for readability; use the
   size labels and list bars for exact comparisons.
+- **Largest files** ranks individual files across the scope by logical size, with
+  proportional bars and relative paths. Select one to reveal it in the browser.
+- **Modified age** groups file modification times into the last 24 hours, 1–7 days,
+  7–30 days, 30–365 days, over a year, and future dates. These are elapsed periods
+  relative to the scan time, not calendar dates. Switch between count and size;
+  select a group to list its files.
+- **Languages** reads source files with [Tokei](https://github.com/XAMPPRocky/tokei)
+  and shows files, lines, code, comments and blanks, with a stacked composition
+  graph. Embedded languages (such as Python in Markdown) appear indented under
+  their parent; their lines are counted separately, while the overall file total
+  counts physical source files once. Select a language to see its source files.
 - **Back**, **Backspace**, or **Alt+Left** retraces your visits, including type matches.
   **Up** or **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an
   ancestor; the ellipsis reaches ancestors that do not fit. **Show folder** opens
   the inspected folder in the browser. **Tab**, **Shift+Tab**, arrows and **Enter**
   operate controls and visible rows; **Page Up/Down**, the wheel, or
-  **Previous/Next** pages through results. **Escape** returns from matches to types,
+  **Previous/Next** pages through results. **Escape** returns from matching files to their previous view,
   then closes the view.
 
 Closing and reopening insights for the same starting folder restores the last
@@ -87,13 +98,27 @@ location, view, measurement, page and scan options during the current app sessio
 then scans again for fresh data. Opening a different folder starts there, keeping
 the preferred view and measurement; hidden files initially follow the browser.
 
+Source analysis starts only when you open **Languages** or **Source statistics…**
+from the information pane. The pane then shows the **Last source analysis** for
+that folder. Refresh the analysis after edits; the summary is a snapshot, not live
+indexing. Nix builds include Tokei. Other installations need `tokei` on `PATH`;
+without it, the other insights views still work.
+
+Tokei respects ignore files such as `.gitignore`, in addition to the subfolder and
+hidden-file switches. Its source totals can therefore differ from the metadata
+views. It uses its own traversal rules and can cross mounted subdirectories.
+Analysis stops after 30 seconds (with a short termination grace period), and
+reports over 16 MiB are rejected. Failed, stopped or oversized analyses display an
+error rather than incomplete counts. Tokei may also report unreadable source files;
+that condition is shown alongside the available counts.
+
 File sizes are logical bytes summed **per filename**, including every hard-link
 name. They are not allocated space on disk and can differ from the information
 pane's deduplicated total. Symbolic links, including a linked scan root, are not
 followed. Hidden files are included only when enabled; sockets, devices and pipes
 never contribute to regular-file totals.
 
-Scans run on a worker, stay on one filesystem, and stop at 200,000 examined entries,
+Metadata scans run on a worker, stay on one filesystem, and stop at 200,000 examined entries,
 32 MiB of names, 64 directory levels or 30 seconds between filesystem calls.
 Folders are discovered breadth-first, so a deep tree does not hide its siblings.
 Unreadable or skipped folders and stopped/limited scans are explicitly partial.

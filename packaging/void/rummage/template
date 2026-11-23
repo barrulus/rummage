@@ -9,7 +9,7 @@ build_style=cmake
 configure_args="-DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
 hostmakedepends="pkgconf wayland-devel python3 patch"
 makedepends="wayland-devel wayland-protocols libglvnd-devel libxkbcommon-devel
- harfbuzz-devel freetype-devel fontconfig-devel tomlplusplus-devel
+ harfbuzz-devel freetype-devel fontconfig-devel tomlplusplus-devel json-c++
  ffmpeg6-devel libwebp-devel libjxl-devel libheif-devel lcms2-devel librsvg-devel pango-devel cairo-devel
  zlib-devel sdbus-c++-devel glib-devel libjpeg-turbo-devel libpng-devel tiff-devel"
 # MIME types from shared-mime-info's database; udisks2 (disks in the sidebar)

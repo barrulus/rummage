@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -451,4 +452,55 @@ TEST_CASE("info pane: applying permissions refreshes cached metadata without cha
     REQUIRE(f.settle());
     REQUIRE(f.pane().summary());
     CHECK(f.pane().summary()->info.permissions == "-rw-------");
+}
+
+TEST_CASE("info pane: source summary is scoped to its folder and opens language insights") {
+    rummage::ui::Offscreen offscreen{kWidth, kHeight};
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::grid);
+    REQUIRE(f.settle());
+    fs::create_directory(f.dir.path / "source");
+    auto& folder = *f.browser.picker_folder();
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::any_of(folder.entries(),
+                                   [](const auto& entry) { return entry.name == "source"; });
+    }));
+    folder.select_name("source");
+    REQUIRE(f.settle());
+    auto report = std::make_shared<rummage::platform::CodeReport>();
+    report->root = f.dir.path / "source";
+    report->files = 2;
+    report->total = {17, 8, 3};
+    f.pane().set_code_report(report);
+    std::string copied;
+    f.pane().set_copy_handler([&](std::string text) { copied = std::move(text); });
+    f.draw();
+    if (const char* directory = std::getenv("RUMMAGE_INSIGHTS_FRAMES")) {
+        std::vector<unsigned char> pixels(static_cast<std::size_t>(kWidth * kHeight * 4));
+        glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        std::ofstream image{fs::path{directory} / "info-source.ppm", std::ios::binary};
+        image << "P6\n" << kWidth << " " << kHeight << "\n255\n";
+        for (int y = kHeight - 1; y >= 0; --y)
+            for (int x = 0; x < kWidth; ++x)
+                image.write(reinterpret_cast<const char*>(pixels.data() + (y * kWidth + x) * 4), 3);
+        REQUIRE(image.good());
+    }
+    auto copy = f.pane().copy_bounds();
+    REQUIRE_FALSE(copy.empty());
+    f.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Source files: 2\n") != std::string::npos);
+    CHECK(copied.find("Lines: 28\n") != std::string::npos);
+    CHECK(copied.find("Code: 17\n") != std::string::npos);
+    auto button = f.pane().code_bounds();
+    REQUIRE_FALSE(button.empty());
+    f.click(button.x + 4, button.y + 4);
+    CHECK(f.browser.insights_dialog().is_open());
+    CHECK(f.browser.insights_dialog().view() == rummage::views::InsightsDialog::View::languages);
+    f.browser.insights_dialog().close();
+    f.browser.picker_folder()->select_name("short.txt");
+    REQUIRE(f.settle());
+    CHECK(f.pane().code_bounds().empty());
+    copy = f.pane().copy_bounds();
+    f.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Source files:") == std::string::npos);
 }

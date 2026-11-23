@@ -67,5 +67,5 @@ add_library(rummage::views ALIAS rummage_views)
 
 target_include_directories(rummage_views PUBLIC include)
 target_link_libraries(rummage_views
-    PUBLIC rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
+    PUBLIC rummage::platform rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
     PRIVATE rummage::warnings PkgConfig::TOMLPLUSPLUS rummage_fzy)

@@ -28,6 +28,7 @@ struct InsightNode {
     std::string name;
     std::size_t parent{0}, end{0};
     std::uint64_t files{0}, bytes{0};
+    std::int64_t modified_seconds{0};
     bool directory{false}, partial{false};
 };
 
@@ -37,12 +38,16 @@ struct InsightProgress {
 
 struct InsightSnapshot {
     std::filesystem::path root;
+    std::int64_t captured_seconds{0};
     std::vector<InsightNode> nodes;
     std::uint64_t unreadable{0}, skipped_folders{0}, links{0};
     bool limited{false}, cancelled{false}, remote{false};
     [[nodiscard]] bool complete() const;
     [[nodiscard]] std::filesystem::path relative_path(std::size_t node) const;
 };
+
+enum class InsightAge : std::size_t { day, week, month, year, older, future, count };
+[[nodiscard]] InsightAge insight_age(std::int64_t modified_seconds, std::int64_t now_seconds);
 
 // Filename extensions, ASCII case folded. Dotfiles without another suffix and trailing dots
 // have no extension. Common compound archives keep their full suffix. No content is opened.

@@ -720,7 +720,8 @@ public:
     [[nodiscard]] LocationDialog& location_dialog() noexcept { return location_; }
 
     void show_properties();
-    void show_insights(std::filesystem::path path = {});
+    void show_insights(std::filesystem::path path = {},
+                       std::optional<InsightsDialog::View> initial = {});
 
     [[nodiscard]] InsightsDialog& insights_dialog() noexcept { return insights_; }
 

@@ -2,11 +2,13 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "rummage/fs/insights.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/platform/code_stats.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/seat.hpp"
@@ -19,20 +21,29 @@ namespace rummage::views {
 
 class InsightsDialog {
 public:
-    enum class View { types, space, matches };
+    enum class View { types, space, matches, largest, age, age_matches, languages, code_matches };
 
     struct Row {
-        std::string label, extension;
+        std::string label{}, extension{};
         std::size_t node{0};
         std::uint64_t files{0}, bytes{0};
         bool directory{false}, partial{false};
+        platform::CodeCounts code{};
+        std::filesystem::path path{};
+        std::size_t depth{0};
     };
 
     using Reveal = std::function<void(const std::filesystem::path&, bool)>;
-    InsightsDialog(core::WorkerPool& pool, std::function<void()> redraw,
+    InsightsDialog(core::EventLoop& loop, core::WorkerPool& pool, std::function<void()> redraw,
                    fs::InsightOptions options = {});
     ~InsightsDialog();
-    void open(std::filesystem::path root, bool hidden, Reveal reveal);
+    void open(std::filesystem::path root, bool hidden, Reveal reveal,
+              std::optional<View> initial = {});
+
+    void set_code_handler(platform::CodeAnalysis::Done done) { code_done_ = std::move(done); }
+
+    [[nodiscard]] const platform::CodeReport* code_report() const { return code_.get(); }
+
     void close();
     void refresh();
     void stop();
@@ -59,7 +70,7 @@ public:
 
     [[nodiscard]] bool is_open() const { return open_; }
 
-    [[nodiscard]] bool loading() const { return loading_; }
+    [[nodiscard]] bool loading() const { return loading_ || source_.running(); }
 
     [[nodiscard]] View view() const { return view_; }
 
@@ -85,6 +96,10 @@ private:
         std::size_t offset;
     };
 
+    [[nodiscard]] bool source_view() const {
+        return view_ == View::languages || view_ == View::code_matches;
+    }
+
     void remember();
     void restore(Location location);
     void rebuild();
@@ -93,6 +108,9 @@ private:
     [[nodiscard]] std::filesystem::path scope_path() const;
     [[nodiscard]] std::string status() const;
     core::WorkerPool& pool_;
+    platform::CodeAnalysis source_;
+    platform::CodeAnalysis::Done code_done_;
+    std::shared_ptr<const platform::CodeReport> code_;
     std::function<void()> redraw_;
     Reveal reveal_;
     core::CancelToken job_, stop_;

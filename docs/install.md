@@ -335,6 +335,10 @@ manages Home Manager. Installing the package does not select it as a portal back
 
 ## Build dependencies
 
+Source statistics use `nlohmann_json >= 3.11` (required to build) and Tokei (optional at runtime
+on native packages, included by Nix). Install `tokei` and make it available on
+`PATH` to enable the Languages view.
+
 [CMakeLists.txt](../CMakeLists.txt) is the authoritative list for this checkout.
 Use a C++20 compiler and standard library with `std::format`, CMake 3.20 or newer,
 Ninja (for the examples), and pkg-config. Required library/module names are:
@@ -345,6 +349,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Protocol generation | `wayland-scanner`, `wayland-protocols` including xdg-dialog-v1 and stable tablet-v2 XML |
 | Text | `harfbuzz`, `freetype2`, `fontconfig` |
 | Configuration | `tomlplusplus` |
+| Source statistics JSON | `nlohmann_json >= 3.11` |
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
 | SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |

@@ -82,7 +82,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       batch_rename_{redraw},
       errors_{redraw, [this](std::string text) { copy_text(std::move(text)); }},
       properties_{pool, mime, redraw},
-      insights_{pool, redraw},
+      insights_{loop, pool, redraw},
       settings_{pool, redraw},
       menu_{std::move(redraw)},
       palette_{redraw_},
@@ -101,6 +101,11 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
     properties_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
     info_pane_.set_insights_handler(
         [this](const std::filesystem::path& path) { show_insights(path); });
+    info_pane_.set_code_handler([this](const std::filesystem::path& path) {
+        show_insights(path, InsightsDialog::View::languages);
+    });
+    insights_.set_code_handler(
+        [this](auto report) { info_pane_.set_code_report(std::move(report)); });
     areas_[0] = std::make_unique<BrowsingArea>(*this);
     add_pane(0);
     palette_.set_chosen_handler([this](const std::string& id) {
@@ -2437,7 +2442,8 @@ std::vector<MenuItem> Browser::folder_menu() {
     return items;
 }
 
-void Browser::show_insights(std::filesystem::path path) {
+void Browser::show_insights(std::filesystem::path path,
+                            std::optional<InsightsDialog::View> initial) {
     const auto folder = current_folder();
     if (!folder || folder->is_archive() || folder->is_trash() || picker_mode_)
         return;
@@ -2466,7 +2472,8 @@ void Browser::show_insights(std::filesystem::path path) {
                 open(target);
             else
                 show_found(target.parent_path(), target.filename().string(), FoundAction::show);
-        });
+        },
+        initial);
 }
 
 void Browser::show_properties() {

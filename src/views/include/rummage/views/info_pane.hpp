@@ -15,6 +15,7 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/measure.hpp"
+#include "rummage/platform/code_stats.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -101,6 +102,14 @@ public:
         insights_ = std::move(handler);
     }
 
+    void set_code_handler(std::function<void(const std::filesystem::path&)> handler) {
+        code_action_ = std::move(handler);
+    }
+
+    void set_code_report(std::shared_ptr<const platform::CodeReport> report);
+
+    [[nodiscard]] ui::Rect code_bounds() const { return code_button_; }
+
     // A click at (x, y): true when the pane took a disclosure or copy action.
     bool click(float x, float y);
 
@@ -125,6 +134,7 @@ public:
     [[nodiscard]] bool clickable_at(float x, float y) const {
         return bounds_.contains(x, y) &&
                (toggle_.contains(x, y) || insights_button_.contains(x, y) ||
+                code_button_.contains(x, y) ||
                 (!copy_text_.empty() && copy_button_.contains(x, y)));
     }
 
@@ -133,6 +143,7 @@ public:
         bounds_ = {};
         toggle_ = {};
         insights_button_ = {};
+        code_button_ = {};
         thumbnail_ = {};
         copy_button_ = {};
     }
@@ -218,7 +229,9 @@ private:
     float width_{kWidth};
     std::function<void(const std::filesystem::path&)> insights_;
     std::filesystem::path insights_path_;
-    ui::Rect insights_button_{};
+    ui::Rect insights_button_{}, code_button_{};
+    std::function<void(const std::filesystem::path&)> code_action_;
+    std::shared_ptr<const platform::CodeReport> code_report_;
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
     ui::Rect thumbnail_{};

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -239,7 +240,7 @@ TEST_CASE("insights: exact type matches, cached measures, drill-down and refresh
     dir.write(".hidden.pdf", "x");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
-    InsightsDialog dialog{pool, [] {}};
+    InsightsDialog dialog{loop, pool, [] {}};
     fs::path revealed;
     dialog.open(dir.path, false, [&](const fs::path& path, bool directory) {
         CHECK_FALSE(directory);
@@ -306,7 +307,7 @@ TEST_CASE("insights: partial map keeps unknown siblings available for drilling")
     dir.write("large.pdf", std::string(4000, 'x'));
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{pool, [] {}, {.max_entries = 3}};
+    InsightsDialog dialog{loop, pool, [] {}, {.max_entries = 3}};
     dialog.open(dir.path, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     REQUIRE(dialog.snapshot()->limited);
@@ -350,7 +351,7 @@ TEST_CASE("insights: reopening restores location, view and options with fresh da
     dir.write("Other/.private.pdf", "hidden");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{pool, [] {}};
+    InsightsDialog dialog{loop, pool, [] {}};
     dialog.open(library, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.set_view(InsightsDialog::View::space);
@@ -400,7 +401,7 @@ TEST_CASE("insights: Back restores type matches while Up navigates folders") {
     dir.write("sub/a.pdf", "x");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{pool, [] {}};
+    InsightsDialog dialog{loop, pool, [] {}};
     dialog.open(dir.path / "sub", false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     dialog.activate_row(row(dialog, ".pdf"));
@@ -428,7 +429,7 @@ TEST_CASE("insights: reopening preserves the result page and light theme remains
         dir.write("report-" + std::to_string(i) + ".pdf", "x");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{pool, [] {}};
+    InsightsDialog dialog{loop, pool, [] {}};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
     rummage::ui::IconSet icons{fonts};
@@ -470,7 +471,7 @@ TEST_CASE("insights: replacement, stop and close cancel obsolete deliveries") {
     second.write("b.md", "1234");
     rummage::core::EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};
-    InsightsDialog dialog{pool, [] {}};
+    InsightsDialog dialog{loop, pool, [] {}};
     dialog.open(first.path, false, {});
     dialog.open(second.path, false, {});
     REQUIRE(until(loop, [&] { return !dialog.loading(); }));
@@ -594,3 +595,167 @@ TEST_CASE("insights: native browser entry points, rendering and modal input") {
     browser.show_insights(dir.path);
     CHECK_FALSE(dialog.is_open());
 }
+
+TEST_CASE("insights: modification age boundaries include future and extreme dates") {
+    using rummage::fs::insight_age;
+    using rummage::fs::InsightAge;
+    constexpr std::int64_t now = 1'800'000'000;
+    CHECK(insight_age(now + 1, now) == InsightAge::future);
+    CHECK(insight_age(now, now) == InsightAge::day);
+    CHECK(insight_age(now - 86399, now) == InsightAge::day);
+    CHECK(insight_age(now - 86400, now) == InsightAge::week);
+    CHECK(insight_age(now - 7 * 86400, now) == InsightAge::month);
+    CHECK(insight_age(now - 30 * 86400, now) == InsightAge::year);
+    CHECK(insight_age(now - 365 * 86400, now) == InsightAge::older);
+    CHECK(insight_age(std::numeric_limits<std::int64_t>::min(),
+                      std::numeric_limits<std::int64_t>::max()) == InsightAge::older);
+}
+
+TEST_CASE("insights: largest files and age graphs drill down and preserve scope") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const TempDir dir;
+    fs::create_directory(dir.path / "Research");
+    dir.write("Research/large.pdf", std::string(12000, 'x'));
+    dir.write("recent.md", std::string(3000, 'x'));
+    dir.write("old.txt", std::string(1000, 'x'));
+    dir.write("future.txt", "x");
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+    for (const auto& [name, age] : {std::pair{"Research/large.pdf", 10 * 86400},
+                                    {"old.txt", 400 * 86400},
+                                    {"future.txt", -86400}}) {
+        const timespec times[2]{{now - age, 0}, {now - age, 0}};
+        REQUIRE(utimensat(AT_FDCWD, (dir.path / name).c_str(), times, 0) == 0);
+    }
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsDialog dialog{loop, pool, [] {}};
+    fs::path revealed;
+    dialog.open(dir.path, false, [&](const auto& target, bool directory) {
+        CHECK_FALSE(directory);
+        revealed = target;
+    });
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.set_size_measure(false);
+    dialog.set_view(InsightsDialog::View::largest);
+    REQUIRE(dialog.rows().size() == 4);
+    CHECK(dialog.rows()[0].label == "large.pdf");
+    CHECK(dialog.rows()[0].bytes == 12000);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    const auto draw = [&](const std::string& name, int width = 1100, int height = 820) {
+        renderer.begin_frame(width, height, 1, {});
+        dialog.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                    name.starts_with("light-")
+                        ? rummage::theme::desktop_palette({.dark = false, .accent = {}})
+                        : rummage::theme::Palette{},
+                    icons, *mime);
+        renderer.end_frame();
+        capture(name, width, height);
+    };
+    draw("largest");
+    draw("light-largest");
+    dialog.set_view(InsightsDialog::View::age);
+    CHECK(dialog.rows().size() == 4);
+    CHECK(dialog.rows()[row(dialog, "7–30 days")].bytes == 12000);
+    CHECK(dialog.rows()[row(dialog, "Future dates")].files == 1);
+    draw("age");
+    draw("light-age");
+    dialog.activate_row(row(dialog, "7–30 days"));
+    REQUIRE(dialog.rows().size() == 1);
+    CHECK(dialog.rows()[0].label == "large.pdf");
+    dialog.back();
+    CHECK(dialog.view() == InsightsDialog::View::age);
+    dialog.set_size_measure(true);
+    draw("age-size");
+    draw("age-compact", 640, 640);
+    dialog.set_recursive(false);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.rows().size() == 3);
+    dialog.set_view(InsightsDialog::View::largest);
+    REQUIRE(dialog.rows().size() == 3);
+    CHECK(dialog.rows()[0].label == "recent.md");
+    dialog.activate_row(0);
+    CHECK(revealed == dir.path / "recent.md");
+    CHECK_FALSE(dialog.is_open());
+}
+
+#ifdef RUMMAGE_TEST_TOKEI
+TEST_CASE("insights: real Tokei language graph, embedded files, options and resume") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const TempDir dir;
+    fs::create_directory(dir.path / "src");
+    fs::create_directory(dir.path / ".git");
+    dir.write("README.md", "# Example\n\n```python\n# Example\nprint('hello')\n```\n");
+    dir.write("src/main.rs", "// A comment\nfn main() {}\n\n");
+    dir.write(".hidden.py", "print('hidden')\n");
+    dir.write("ignored.py", "print('ignored')\n");
+    dir.write(".gitignore", "ignored.py\n");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    InsightsDialog dialog{loop, pool, [] {}};
+    fs::path revealed;
+    const auto reveal = [&](const auto& target, bool directory) {
+        CHECK_FALSE(directory);
+        revealed = target;
+    };
+    dialog.open(dir.path, false, reveal, InsightsDialog::View::languages);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    REQUIRE(dialog.code_report() != nullptr);
+    REQUIRE(dialog.code_report()->error == rummage::platform::CodeError::none);
+    CHECK(dialog.code_report()->files == 2);
+    CHECK(dialog.code_report()->total.lines() == 9);
+    REQUIRE(dialog.rows().size() == 3);
+    CHECK(dialog.rows()[row(dialog, "Python")].depth == 1);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    const auto draw = [&](const std::string& name, int width = 1100, int height = 820) {
+        renderer.begin_frame(width, height, 1, {});
+        dialog.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                    name.starts_with("light-")
+                        ? rummage::theme::desktop_palette({.dark = false, .accent = {}})
+                        : rummage::theme::Palette{},
+                    icons, *mime);
+        renderer.end_frame();
+        capture(name, width, height);
+    };
+    draw("languages");
+    draw("light-languages");
+    draw("languages-compact", 640, 640);
+    dialog.activate_row(row(dialog, "Python"));
+    CHECK(dialog.view() == InsightsDialog::View::code_matches);
+    REQUIRE(dialog.rows().size() == 1);
+    CHECK(dialog.rows()[0].label == "README.md");
+    CHECK(dialog.rows()[0].code.lines() == 2);
+    draw("language-files");
+    dialog.close();
+    dialog.open(dir.path, false, reveal);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.view() == InsightsDialog::View::code_matches);
+    REQUIRE(dialog.rows().size() == 1);
+    dialog.back();
+    CHECK(dialog.view() == InsightsDialog::View::languages);
+    dialog.set_recursive(false);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    REQUIRE(dialog.code_report()->error == rummage::platform::CodeError::none);
+    CHECK(dialog.code_report()->files == 1);
+    dialog.set_hidden(true);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.code_report()->files == 2);
+    dialog.set_view(InsightsDialog::View::space);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot() != nullptr);
+    dialog.back();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.view() == InsightsDialog::View::languages);
+    dialog.activate_row(row(dialog, "Markdown"));
+    dialog.activate_row(0);
+    CHECK(revealed == dir.path / "README.md");
+    CHECK_FALSE(dialog.is_open());
+}
+#endif
