@@ -477,7 +477,7 @@ public:
     // Ctrl+W, a tab's ×, a middle click on it: the tab closes; the last one stays.
     void close_tab(std::size_t index);
     void reopen_tab();
-    static constexpr std::size_t kMaxClosedTabs = 10;
+    static constexpr std::size_t kMaxClosedTabs = 16;
     [[nodiscard]] std::size_t closed_tab_count() const;
     // A click on a tab, Ctrl+Tab, Ctrl+Shift+Tab, Alt+1…9.
     void select_tab(std::size_t index);
@@ -982,7 +982,6 @@ private:
         State::Tab tab;
         std::vector<HistoryStep> history;
         std::size_t here{}, index{};
-        bool off_disk{};
     };
 
     [[nodiscard]] static State::Tab tab_of(const Pane& pane, std::size_t side);

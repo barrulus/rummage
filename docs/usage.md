@@ -170,8 +170,11 @@ They remain visible when the compositor provides the title bar.
 **Ctrl+Shift+T** or **Reopen Closed Tab** in the command palette restores the last
 closed tab in the active pane, at its previous position, with its view, zoom,
 history, filter, hidden-file setting and details columns. Each pane keeps its last
-ten closed tabs until the window closes. A folder that has disappeared is reported
-and skipped; press again to restore the preceding tab.
+16 closed tabs until the window closes; this history is not saved across restarts.
+A missing or inaccessible folder reopens at its saved path with the usual folder
+error. Column view starts at the restored folder, and expanded details rows are
+not reconstructed. Hiding or swapping panes keeps their closed-tab histories
+with them. Closed-tab recovery is separate from file-operation Undo.
 
 **Ctrl+Shift+I** inverts selection among visible entries. Hidden files and entries
 excluded by the filename or picker filter stay unselected.
