@@ -748,6 +748,13 @@ public:
 
     // Stops the transfer running (the status bar's ×).
     void cancel_transfer();
+    void open_transfers();
+    void open_transfer_task(std::uint64_t id);
+    void cancel_transfer_task(std::uint64_t id);
+
+    [[nodiscard]] std::vector<fs::TransferTask> transfer_tasks() const {
+        return transfers_.tasks();
+    }
 
     void set_verify_transfers(bool enabled) {
         verify_transfers_ = enabled;
@@ -885,6 +892,7 @@ private:
     // The palette's list from the finder's results.
     void refresh_found();
     void refresh_pattern(const std::string& typed);
+    void refresh_transfer_tasks();
     void select_pattern(const std::string& pattern, bool add);
     void erase_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     // Opens the card for request (erase or empty_trash), adds up what it removes on a worker and
@@ -1121,8 +1129,9 @@ private:
     std::function<void()> open_config_;
     std::function<void(const core::ConfigResult&)> settings_applied_;
     ContextMenu menu_;
-    enum class PaletteUse : std::uint8_t { commands, files, pattern };
+    enum class PaletteUse : std::uint8_t { commands, files, pattern, transfers };
     PaletteUse palette_use_{PaletteUse::commands};
+    std::optional<std::uint64_t> transfer_task_id_;
     bool pattern_selection_enabled_{true};
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
@@ -1238,6 +1247,7 @@ private:
     // For each transfer submitted and not done, in order (the queue's): its batch and the
     // clipboard generation to empty after it (submit()).
     struct Submitted {
+        std::uint64_t id{0};
         std::uint64_t batch{0};
         std::optional<std::uint64_t> empty_clipboard;
         OperationMotion motion;

@@ -211,6 +211,8 @@ private:
 
     // Any thread.
     [[nodiscard]] bool cancelled() {
+        if (callbacks_.checkpoint)
+            callbacks_.checkpoint();
         if (token_.cancelled()) {
             cancelled_ = true;
         }
@@ -401,7 +403,7 @@ void Engine::count(const std::filesystem::path& path) {
         std::error_code ignored;
         for (const std::filesystem::directory_entry& entry :
              std::filesystem::directory_iterator{path, ignored}) {
-            if (token_.cancelled()) {
+            if (cancelled()) {
                 return;
             }
             count(entry.path());

@@ -56,6 +56,7 @@ struct TransferRequest {
     // Reread and compare regular-file data before publication. Same-disk renames and
     // symlinks do not copy file contents. Archive extraction does not support this option.
     bool verify{false};
+    std::uint64_t id{0};  // assigned by TransferQueue; never reused within that queue
 };
 
 // What to do with an item whose name is taken in the destination.
@@ -113,12 +114,16 @@ struct TransferResult {
     bool cancelled{false};
     GroupFolder group_folder{};
     std::size_t files_verified{0};
+    bool cancelled_before_start{false};  // queue cancellation; no operation-specific state began
 };
 
 struct TransferCallbacks {
     std::function<void(const TransferProgress&)> progress;  // often: throttle it
     // Asked for every taken name, on the transfer's thread; it may block until the user answers.
     std::function<Resolution(const Conflict&)> resolve;
+    // Optional cooperative pause gate. Called without engine locks at bounded copy/read
+    // checkpoints and between items. It must also unblock on cancellation/shutdown.
+    std::function<void()> checkpoint{};
 };
 
 // Copies or moves request.names from request.source into request.destination.

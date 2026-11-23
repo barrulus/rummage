@@ -95,6 +95,10 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
                  },
                  [this](const fs::TransferRequest& request, const fs::TransferResult& result) {
                      transfer_done(request, result);
+                 },
+                 [this] {
+                     refresh_transfer_tasks();
+                     redraw_();
                  }} {
     info_pane_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
     properties_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
@@ -749,7 +753,7 @@ void Browser::submit(fs::TransferRequest request, std::uint64_t batch,
     submitted_.push_back({.batch = batch,
                           .empty_clipboard = empty_clipboard,
                           .motion = capture_operation_motion(request)});
-    transfers_.submit(std::move(request));
+    submitted_.back().id = transfers_.submit(std::move(request));
 }
 
 void Browser::paste_files(const std::filesystem::path& destination, const ClipboardFiles& files,
@@ -1379,6 +1383,18 @@ void Browser::cancel_transfer() {
     conflict_.close();
 }
 
+void Browser::cancel_transfer_task(std::uint64_t id) {
+    const auto tasks = transfers_.tasks();
+    const auto task = std::ranges::find(tasks, id, &fs::TransferTask::id);
+    const bool active = task != tasks.end() && task->started && !task->finished();
+    if (transfers_.cancel(id) && active) {
+        conflict_.close();
+        // Archive-size confirmation is the other question a running transfer can own.
+        if (task->request.from_archive && confirm_.is_open())
+            confirm_.close();
+    }
+}
+
 void Browser::ask(const fs::Conflict& conflict, std::function<void(fs::Resolution)> answer) {
     if (!conflict.question.empty()) {
         confirm_.open(
@@ -1537,9 +1553,10 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
 
 void Browser::transfer_done(const fs::TransferRequest& request, const fs::TransferResult& result) {
     Submitted submitted;
-    if (!submitted_.empty()) {
-        submitted = submitted_.front();
-        submitted_.pop_front();
+    if (const auto found = std::ranges::find(submitted_, request.id, &Submitted::id);
+        found != submitted_.end()) {
+        submitted = *found;
+        submitted_.erase(found);
     }
     complete_operation_motion(submitted.motion, request, result);
     // Another program's cut that moved something: nobody should move those files again. Unless
@@ -1548,7 +1565,10 @@ void Browser::transfer_done(const fs::TransferRequest& request, const fs::Transf
         system_.generation && system_.generation() == *submitted.empty_clipboard) {
         system_.clear();
     }
-    report_done(request, result);
+    if (!result.cancelled_before_start)
+        report_done(request, result);
+    else if (transfers_.pending() == 0)
+        status_bar_.set_transfer(std::nullopt);
     const auto batch = batches_.find(submitted.batch);
     if (batch == batches_.end()) {
         return;
