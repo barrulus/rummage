@@ -1095,3 +1095,152 @@ TEST_CASE("transfer queue: a link request runs and reports like the others") {
     CHECK(fs::read_symlink(t.to / "P1.ORF") == "../from/P1.ORF");
     CHECK(listing(t.to) == Names{"P1.ORF"});  // the sidecars stay with the photo
 }
+
+TEST_CASE("transfer tasks: cancelling a queued ID leaves the active question intact") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::vector<std::uint64_t> completed;
+    TransferQueue queue{loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+                        [&](const auto& request, const auto& result) {
+                            completed.push_back(request.id);
+                            if (result.cancelled)
+                                CHECK(result.cancelled_before_start);
+                        }};
+    const auto first =
+        queue.submit({.source = t.from, .names = {"notes.txt"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    const auto second = queue.submit({.source = t.from, .names = {"Trip"}, .destination = t.to});
+    CHECK(second > first);
+    REQUIRE(queue.cancel(second));
+    CHECK_FALSE(queue.cancel(second));
+    REQUIRE(run_until(loop, [&] { return completed.size() == 1; }));
+    CHECK(completed.front() == second);
+    CHECK(queue.pending() == 1);
+    CHECK(queue.tasks().front().state == rummage::fs::TransferState::waiting);
+    CHECK_FALSE(fs::exists(t.to / "Trip"));
+    answer(Resolution::keep_both);
+    REQUIRE(run_until(loop, [&] { return queue.pending() == 0; }));
+    CHECK(completed.back() == first);
+    CHECK(read_file(t.to / "notes 2.txt") == "notes.txt");
+    CHECK(queue.tasks()[1].state == rummage::fs::TransferState::cancelled);
+    CHECK_FALSE(queue.pause(first, true));
+    queue.clear_finished();
+    CHECK(queue.tasks().empty());
+}
+
+TEST_CASE("transfer tasks: pause holds an answered conflict until resume or cancel") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::optional<TransferResult> done;
+    auto queue = std::make_unique<TransferQueue>(
+        loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+        [&](const auto&, const auto& result) { done = result; });
+    const auto id = queue->submit(
+        {.source = t.from, .names = {"notes.txt"}, .destination = t.to, .verify = true});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    REQUIRE(queue->pause(id, true));
+    answer(Resolution::replace);
+    bool elapsed = false;
+    const auto timer = loop.add_timer(40ms, 0ms, [&] { elapsed = true; });
+    REQUIRE(run_until(loop, [&] { return elapsed; }));
+    loop.remove(timer);
+    CHECK_FALSE(done.has_value());
+    CHECK(read_file(t.to / "notes.txt") == "old");
+    CHECK(queue->tasks().front().state == rummage::fs::TransferState::paused);
+    SUBCASE("resume completes verification") {
+        REQUIRE(queue->pause(id, false));
+        REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+        CHECK(done->files_verified == 1);
+        CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    }
+    SUBCASE("cancel wakes the paused worker") {
+        REQUIRE(queue->cancel(id));
+        REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+        CHECK(done->cancelled);
+        CHECK_FALSE(done->cancelled_before_start);
+        CHECK(read_file(t.to / "notes.txt") == "old");
+        answer(Resolution::replace);  // a stale reply must not restart anything
+    }
+    SUBCASE("destruction wakes and joins the paused worker") {
+        queue.reset();
+        answer(Resolution::replace);
+        CHECK(read_file(t.to / "notes.txt") == "old");
+    }
+}
+
+TEST_CASE("transfer tasks: a paused queued head preserves FIFO and can be cancelled") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::vector<std::uint64_t> done;
+    TransferQueue queue{loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+                        [&](const auto& request, const auto&) { done.push_back(request.id); }};
+    const auto first =
+        queue.submit({.source = t.from, .names = {"notes.txt"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    const auto held = queue.submit({.source = t.from, .names = {"Trip"}, .destination = t.to});
+    const auto last = queue.submit({.source = t.from, .names = {"P1.ORF"}, .destination = t.to});
+    REQUIRE(queue.pause(held, true));
+    answer(Resolution::skip);
+    REQUIRE(run_until(loop, [&] { return !done.empty(); }));
+    CHECK(done.front() == first);
+    queue.clear_finished();
+    REQUIRE(queue.tasks().size() == 2);
+    CHECK(queue.tasks().front().id == held);
+    CHECK_FALSE(queue.tasks().front().started);
+    CHECK_FALSE(fs::exists(t.to / "P1.ORF"));
+    REQUIRE(queue.cancel(held));
+    REQUIRE(run_until(loop, [&] { return queue.pending() == 0; }));
+    CHECK(done.back() == last);
+    CHECK_FALSE(fs::exists(t.to / "Trip"));
+    CHECK(fs::exists(t.to / "P1.ORF"));
+}
+
+TEST_CASE("transfer tasks: unsupported pause, failed history and retention") {
+    Tree t;
+    EventLoop loop;
+    TransferQueue queue{loop, nullptr, nullptr, nullptr};
+    for (std::size_t i = 0; i < TransferQueue::kHistoryLimit + 5; ++i) {
+        const auto id = queue.submit({.source = t.from,
+                                      .names = {"missing"},
+                                      .destination = t.to,
+                                      .from_archive = true,
+                                      .verify = true});
+        CHECK_FALSE(queue.pause(id, true));
+        REQUIRE(run_until(loop, [&] { return queue.pending() == 0; }));
+    }
+    const auto tasks = queue.tasks();
+    REQUIRE(tasks.size() == TransferQueue::kHistoryLimit);
+    CHECK(tasks.front().id == 6);
+    CHECK(tasks.back().state == rummage::fs::TransferState::failed);
+    CHECK(tasks.back().error_count == 1);
+    REQUIRE(tasks.back().errors.size() == 1);
+    CHECK(tasks.back().errors.front() == "Copy verification is unavailable for archive extraction");
+    CHECK_FALSE(queue.cancel(tasks.back().id));
+    CHECK_FALSE(queue.cancel(1));
+    CHECK_FALSE(queue.pause(1, true));
+    queue.clear_finished();
+    CHECK(queue.tasks().empty());
+}
+
+TEST_CASE("transfer tasks: cancelling a conflict also wakes a paused transfer") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::optional<TransferResult> done;
+    TransferQueue queue{loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+                        [&](const auto&, const auto& result) { done = result; }};
+    const auto id = queue.submit({.source = t.from, .names = {"notes.txt"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    REQUIRE(queue.pause(id, true));
+    answer(Resolution::cancel);
+    REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+    CHECK(done->cancelled);
+    CHECK(read_file(t.to / "notes.txt") == "old");
+}
