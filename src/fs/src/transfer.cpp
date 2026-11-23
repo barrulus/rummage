@@ -77,6 +77,16 @@ std::optional<struct stat> status_of(const std::filesystem::path& path) {
 
 bool taken(const std::filesystem::path& path) { return status_of(path).has_value(); }
 
+bool unchanged(const struct stat& before, const struct stat& after) {
+    return before.st_dev == after.st_dev && before.st_ino == after.st_ino &&
+           before.st_size == after.st_size &&
+           (before.st_mode & S_IFMT) == (after.st_mode & S_IFMT) &&
+           before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+           before.st_mtim.tv_nsec == after.st_mtim.tv_nsec &&
+           before.st_ctim.tv_sec == after.st_ctim.tv_sec &&
+           before.st_ctim.tv_nsec == after.st_ctim.tv_nsec;
+}
+
 // The folders a transfer goes from and to are followed, as Extract follows its folder (a
 // ~/Pictures that is a link to another disk). What is copied from them or made in them never is.
 std::optional<struct stat> folder_status_of(const std::filesystem::path& path) {
@@ -223,6 +233,7 @@ private:
     void add_bytes(std::uint64_t bytes) {
         const std::scoped_lock lock{state_};
         progress_.bytes_done += bytes;
+        progress_.verifying = false;
         result_.bytes_done += bytes;
         report_locked();
     }
@@ -299,6 +310,7 @@ private:
     bool merge(const std::filesystem::path& source, const std::filesystem::path& target,
                const std::string& where, std::vector<PlacedItem>& made);
     bool copy_data(int from, int to, const std::string& where);
+    bool verify_data(int from, int to, const struct stat& original, const std::string& where);
     // A free hidden name next to target for a temporary.
     std::filesystem::path temporary(const std::filesystem::path& target);
 
@@ -458,6 +470,80 @@ bool Engine::copy_data(int from, int to, const std::string& where) {
     }
 }
 
+bool Engine::verify_data(int from, int to, const struct stat& original, const std::string& where) {
+    struct stat destination{};
+    if (fstat(to, &destination) != 0) {
+        error(where, i18n::trf("Verification read failed: {}", last_error().message()));
+        return false;
+    }
+    if (destination.st_size != original.st_size) {
+        error(where, i18n::tr("Verification failed: copied contents differ"));
+        return false;
+    }
+    {
+        const std::scoped_lock lock{state_};
+        progress_.verifying = true;
+        progress_.current = where;
+        report_locked();
+    }
+    std::array<char, kBuffer> source_bytes{}, destination_bytes{};
+    const auto read_exact = [&](int fd, char* buffer, std::size_t size, off_t offset) {
+        std::size_t done = 0;
+        while (done < size) {
+            if (cancelled())
+                return false;
+            const ssize_t n =
+                pread(fd, buffer + done, size - done, offset + static_cast<off_t>(done));
+            if (n < 0 && errno == EINTR)
+                continue;
+            if (n <= 0) {
+                error(where, i18n::trf("Verification read failed: {}",
+                                       n < 0 ? last_error().message()
+                                             : std::string{i18n::tr("Unexpected end of file")}));
+                return false;
+            }
+            done += static_cast<std::size_t>(n);
+        }
+        return true;
+    };
+    for (off_t offset = 0; offset < original.st_size;) {
+        if (cancelled())
+            return false;
+        const auto size =
+            static_cast<std::size_t>(std::min<off_t>(original.st_size - offset, kBuffer));
+        if (!read_exact(from, source_bytes.data(), size, offset) ||
+            !read_exact(to, destination_bytes.data(), size, offset))
+            return false;
+        if (!std::equal(source_bytes.begin(),
+                        source_bytes.begin() + static_cast<std::ptrdiff_t>(size),
+                        destination_bytes.begin())) {
+            error(where, i18n::tr("Verification failed: copied contents differ"));
+            return false;
+        }
+        offset += static_cast<off_t>(size);
+        const std::scoped_lock lock{state_};
+        progress_.verifying = true;
+        progress_.current = where;
+        progress_.bytes_verified += size;
+        report_locked();
+    }
+    struct stat source_after{}, destination_after{};
+    if (fstat(from, &source_after) != 0 || fstat(to, &destination_after) != 0) {
+        error(where, i18n::trf("Verification read failed: {}", last_error().message()));
+        return false;
+    }
+    if (!unchanged(original, source_after) || !unchanged(destination, destination_after)) {
+        error(where, i18n::tr("File changed during verification"));
+        return false;
+    }
+    if (cancelled())
+        return false;
+    const std::scoped_lock lock{state_};
+    ++progress_.files_verified;
+    ++result_.files_verified;
+    return true;
+}
+
 bool Engine::copy_file(const std::filesystem::path& source, const struct stat& info,
                        const std::filesystem::path& target, const std::string& where, bool replace,
                        bool fresh) {
@@ -473,12 +559,14 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
     }
     struct stat opened{};
     if (fstat(from.get(), &opened) != 0 || !S_ISREG(opened.st_mode) ||
-        opened.st_dev != info.st_dev || opened.st_ino != info.st_ino) {
+        opened.st_dev != info.st_dev || opened.st_ino != info.st_ino ||
+        (request_.verify && !unchanged(info, opened))) {
         error(where, i18n::tr("changed while being copied"));
         return false;
     }
     const std::filesystem::path part = fresh ? target : temporary(target);
-    Fd to{open(part.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600)};
+    Fd to{open(part.c_str(), (request_.verify ? O_RDWR : O_WRONLY) | O_CREAT | O_EXCL | O_CLOEXEC,
+               0600)};
     if (to.get() < 0) {
         error(where, last_error());
         return false;
@@ -487,6 +575,23 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
     if (!copy_data(from.get(), to.get(), where)) {
         give_up();
         return false;
+    }
+    if (request_.verify) {
+        if (fsync(to.get()) != 0) {
+            error(where, last_error());
+            give_up();
+            return false;
+        }
+        if (!verify_data(from.get(), to.get(), opened, where)) {
+            give_up();
+            return false;
+        }
+        const auto current = status_of(source);
+        if (!current || !unchanged(opened, *current)) {
+            error(where, i18n::tr("File changed during verification"));
+            give_up();
+            return false;
+        }
     }
     const std::array<timespec, 2> times{info.st_atim, info.st_mtim};
     fchmod(to.get(), info.st_mode & 07777);
@@ -714,7 +819,8 @@ bool Engine::remove_source(const std::filesystem::path& source, const struct sta
     if (!now || now->st_dev != info.st_dev || now->st_ino != info.st_ino ||
         (now->st_mode & S_IFMT) != (info.st_mode & S_IFMT) || now->st_size != info.st_size ||
         now->st_mtim.tv_sec != info.st_mtim.tv_sec ||
-        now->st_mtim.tv_nsec != info.st_mtim.tv_nsec) {
+        now->st_mtim.tv_nsec != info.st_mtim.tv_nsec ||
+        (request_.verify && S_ISREG(info.st_mode) && !unchanged(info, *now))) {
         error(where, i18n::tr("changed while being moved"));
         return false;
     }

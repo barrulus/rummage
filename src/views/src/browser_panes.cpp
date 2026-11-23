@@ -201,6 +201,13 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
     }
     items.push_back(sort_menu());
     items.push_back(name_filter_menu());
+    MenuItem verification;
+    verification.id = "verify_transfers";
+    verification.label = i18n::tr("Verify copied contents");
+    verification.checkable = true;
+    verification.checked = verifies_transfers();
+    verification.action = [this] { set_verify_transfers(!verifies_transfers()); };
+    items.push_back(std::move(verification));
     MenuItem show;
     show.id = "show";
     show.label = i18n::tr("Show");

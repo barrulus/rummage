@@ -714,6 +714,8 @@ std::uint64_t Browser::open_batch(Purpose purpose, FileOperation::Kind kind) {
 
 void Browser::submit(fs::TransferRequest request, std::uint64_t batch,
                      std::optional<std::uint64_t> empty_clipboard) {
+    if (request.kind == fs::TransferKind::copy || request.kind == fs::TransferKind::move)
+        request.verify = request.verify || verify_transfers_;
     if (batch_rename_preparing_ || batch_rename_running_) {
         batches_.erase(batch);
         show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
@@ -1460,6 +1462,19 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
             status.text = i18n::trn("Getting ready to move {} item…",
                                     "Getting ready to move {} items…", items);
         }
+    } else if (request.verify && !request.from_archive &&
+               (progress.bytes_total > 0 || progress.verifying)) {
+        status.fraction =
+            progress.bytes_total > 0
+                ? static_cast<float>((static_cast<double>(progress.bytes_done) +
+                                      static_cast<double>(progress.bytes_verified)) /
+                                     (2.0 * static_cast<double>(progress.bytes_total)))
+                : -1.0F;
+        status.text =
+            i18n::trf("Copied {} of {} · verified {}", format_size(progress.bytes_done),
+                      format_size(progress.bytes_total), format_size(progress.bytes_verified));
+        if (progress.verifying)
+            status.text = std::string{i18n::tr("Verifying…")} + " " + status.text;
     } else if (progress.bytes_total > 0) {
         const auto now = std::chrono::steady_clock::now();
         if (!copy_started_) {
@@ -1584,6 +1599,10 @@ void Browser::report_done(const fs::TransferRequest& request, const fs::Transfer
                      true);
     } else if (result.placed.empty()) {
         show_message(std::string{i18n::tr("Nothing to do: every name was skipped")}, false);
+    } else if (result.files_verified > 0) {
+        show_message(
+            i18n::trf("Transfer complete · verified regular files: {}", result.files_verified),
+            false);
     } else if (result.bytes_done > 0) {
         const std::string size = format_size(result.bytes_done);
         show_message(request.from_archive ? i18n::trf("Extracted {} ({})", what, size)
