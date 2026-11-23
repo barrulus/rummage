@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <fcntl.h>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -11,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <utility>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -430,4 +432,172 @@ TEST_CASE("find files: in the columns, the way down from the first column stays"
     }));
     CHECK(f.browser.columns().column(0).folder().path() == f.a);
     CHECK(f.browser.columns().column_count() == 3);  // a, photos, deep
+}
+
+TEST_CASE("search query: explicit modes, filters, quoted text and UTC dates") {
+    using rummage::views::parse_search_query;
+    const auto query = parse_search_query(
+        "content:\"two words\" type:file ext:.TXT after:2024-02-29 before:2024-03-01 hidden:yes "
+        "case:fold exclude:.git exclude:build/cache");
+    CHECK(query.error.empty());
+    CHECK(query.content);
+    CHECK(query.text == "two words");
+    CHECK(query.type == "file");
+    CHECK(query.extension == "txt");
+    CHECK(query.hidden);
+    CHECK(query.fold_case);
+    CHECK(parse_search_query("exclude:build/cache/").excluded ==
+          std::vector<std::string>{"build/cache"});
+    CHECK(query.excluded == std::vector<std::string>{".git", "build/cache"});
+    REQUIRE(query.after);
+    REQUIRE(query.before);
+    CHECK(*query.before - *query.after == 86400);
+    CHECK(parse_search_query("\"content:notes\"").text == "content:notes");
+    CHECK_FALSE(parse_search_query("\"content:notes\"").content);
+    for (const auto* invalid :
+         {"after:2023-02-29", "before:tomorrow", "after:2024-01-02 before:2024-01-01",
+          "type:unknown", "hidden:maybe", "case:maybe", "exclude:../outside", "exclude:/tmp",
+          "content:\"unfinished"}) {
+        INFO(invalid);
+        CHECK_FALSE(parse_search_query(invalid).error.empty());
+    }
+}
+
+namespace {
+rummage::views::SearchMatches search_tree(const fs::path& root, const std::string& text,
+                                          rummage::views::SearchBudget* supplied = nullptr) {
+    const auto query = rummage::views::parse_search_query(text);
+    std::vector<std::shared_ptr<const PathBatch>> batches;
+    walk(root, {.hidden = query.hidden, .excluded = query.excluded}, {}, [&](PathBatch batch) {
+        batches.push_back(std::make_shared<const PathBatch>(std::move(batch)));
+    });
+    rummage::views::SearchBudget budget;
+    return rummage::views::match_files(root, batches, query, 200, {},
+                                       supplied ? *supplied : budget);
+}
+}  // namespace
+
+TEST_CASE("content search: literal text, context, case, binary, large files and links") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "nested");
+    std::ofstream{dir.path / "nested" / "notes.txt"}
+        << "first line\nA Needle in UTF-8 café\nlast line\n";
+    std::ofstream{dir.path / "other.md"} << "Needle too";
+    std::ofstream binary{dir.path / "binary.bin"};
+    binary.write("Needle\0bytes", 12);
+    binary.close();
+    std::ofstream{dir.path / "large.txt"} << "Needle";
+    fs::resize_file(dir.path / "large.txt", rummage::views::SearchBudget::kFileBytes + 1);
+    std::ofstream invalid{dir.path / "invalid.txt"};
+    invalid << "Needle" << char(0xff);
+    invalid.close();
+    fs::create_symlink(dir.path / "nested" / "notes.txt", dir.path / "linked.txt");
+    const auto exact = search_tree(dir.path, "content:Needle");
+    REQUIRE(exact.files.size() == 2);
+    CHECK(exact.stats.matches == 2);
+    CHECK(exact.stats.binary == 2);
+    CHECK(exact.stats.oversized == 1);
+    const auto text = std::ranges::find(exact.files, "nested/notes.txt", &FoundFile::path);
+    REQUIRE(text != exact.files.end());
+    CHECK(text->line == 2);
+    CHECK(text->context.find("café") != std::string::npos);
+    CHECK(text->context.find('\n') == std::string::npos);
+    CHECK(search_tree(dir.path, "content:needle").files.empty());
+    CHECK(search_tree(dir.path, "content:needle case:fold").files.size() == 2);
+    CHECK(search_tree(dir.path, "content:Needle ext:md").files.size() == 1);
+    CHECK(search_tree(dir.path, "content:\"Needle.*\"").files.empty());
+    CHECK(search_tree(dir.path, "content:").files.empty());
+    CHECK(search_tree(dir.path, "type:link").files.size() == 1);
+    CHECK(search_tree(dir.path, "type:folder").files.size() == 1);
+    rummage::views::SearchBudget exhausted;
+    exhausted.bytes = rummage::views::SearchBudget::kTotalBytes;
+    const auto limited = search_tree(dir.path, "content:Needle", &exhausted);
+    CHECK(limited.files.empty());
+    CHECK(limited.stats.byte_limit);
+}
+
+TEST_CASE("content search: bounded reads cross chunks, refuse ancestor links and FIFOs") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "inside");
+    std::ofstream{dir.path / "inside" / "large.txt"} << std::string(65534, 'x') << "needle";
+    auto batch = std::make_shared<PathBatch>();
+    batch->add("inside/large.txt", false);
+    const auto query = rummage::views::parse_search_query("content:needle");
+    rummage::views::SearchBudget budget;
+    CHECK(rummage::views::match_files(dir.path, {batch}, query, 10, {}, budget).files.size() == 1);
+    fs::rename(dir.path / "inside", dir.path / "elsewhere");
+    fs::create_directory_symlink(dir.path / "elsewhere", dir.path / "inside");
+    const auto replaced = rummage::views::match_files(dir.path, {batch}, query, 10, {}, budget);
+    CHECK(replaced.files.empty());
+    CHECK(replaced.stats.unreadable == 1);
+    REQUIRE(::mkfifo((dir.path / "pipe").c_str(), 0600) == 0);
+    batch = std::make_shared<PathBatch>();
+    batch->add("pipe", false);
+    CHECK(rummage::views::match_files(dir.path, {batch}, query, 10, {}, budget).files.empty());
+    CancelToken cancelled;
+    cancelled.cancel();
+    CHECK(
+        rummage::views::match_files(dir.path, {batch}, query, 10, cancelled, budget).files.empty());
+}
+
+TEST_CASE("search filters: hidden entries, exclusions and modified date boundaries") {
+    const TempDir dir;
+    make_tree(dir.path);
+    const auto excluded = walk_all(dir.path, {.hidden = true, .excluded = {"photos", ".hidden"}});
+    CHECK(std::ranges::none_of(excluded.paths, [](const auto& path) {
+        return path.starts_with("photos") || path.starts_with(".hidden");
+    }));
+    struct timespec times[2]{{.tv_sec = 1709164800, .tv_nsec = 0},
+                             {.tv_sec = 1709164800, .tv_nsec = 0}};  // 2024-02-29 UTC
+    REQUIRE(::utimensat(AT_FDCWD, (dir.path / "a.txt").c_str(), times, 0) == 0);
+    const auto dates =
+        search_tree(dir.path, "type:file ext:txt after:2024-02-29 before:2024-03-01");
+    REQUIRE(dates.files.size() == 1);
+    CHECK(dates.files.front().path == "a.txt");
+    CHECK(search_tree(dir.path, "type:file ext:txt before:2024-02-29").files.empty());
+    CHECK(search_tree(dir.path, "secret hidden:yes").files.size() == 1);
+    CHECK(search_tree(dir.path, "secret hidden:no").files.empty());
+}
+
+TEST_CASE("file finder: changing modes and scan scope cannot deliver stale results") {
+    const TempDir dir;
+    make_tree(dir.path);
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    FileFinder finder{pool, [] {}, {.batch = 1}};
+    finder.start(dir.path, false);
+    finder.set_query("content:x");
+    finder.set_query("secret hidden:yes");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    REQUIRE(finder.results().size() == 1);
+    CHECK(finder.results().front().path == ".hidden/secret.orf");
+    finder.set_query("type:invalid");
+    CHECK_FALSE(finder.specification().error.empty());
+    CHECK(finder.results().empty());
+    finder.set_query("content:x exclude:photos hidden:no");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    CHECK(finder.results().size() == 2);
+    finder.stop();
+    CHECK(finder.stopped());
+    CHECK_FALSE(finder.scanning());
+    CHECK_FALSE(finder.matching());
+    finder.refresh();
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    CHECK_FALSE(finder.stopped());
+    CHECK(finder.results().size() == 2);
+}
+
+TEST_CASE("file finder: result truncation is explicit and includes total matches") {
+    const TempDir dir;
+    for (int i = 0; i < 205; ++i)
+        touch(dir.path / std::format("match-{}.txt", i));
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    FileFinder finder{pool, [] {}, {.batch = 10}};
+    finder.start(dir.path, false);
+    finder.set_query("match");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    CHECK(finder.results().size() == FileFinder::kMaxResults);
+    CHECK(finder.stats().matches == 205);
+    CHECK(finder.status().find("Showing 200 of 205 matches") != std::string::npos);
 }

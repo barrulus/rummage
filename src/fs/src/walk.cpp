@@ -1,5 +1,7 @@
 #include "rummage/fs/walk.hpp"
 
+#include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <deque>
 #include <dirent.h>
@@ -46,12 +48,47 @@ struct Pending {
 
 }  // namespace
 
+int open_walk_path(int root, std::string_view relative, int flags) {
+    int parent = ::dup(root);
+    if (parent < 0)
+        return -1;
+    while (!relative.empty()) {
+        const auto slash = relative.find('/');
+        const std::string part{relative.substr(0, slash)};
+        if (part.empty() || part == "." || part == "..") {
+            ::close(parent);
+            errno = EINVAL;
+            return -1;
+        }
+        const bool last = slash == std::string_view::npos;
+        const int fd = ::openat(parent, part.c_str(),
+                                (last ? flags : O_RDONLY | O_DIRECTORY) | O_CLOEXEC | O_NOFOLLOW);
+        const int error = errno;
+        ::close(parent);
+        if (fd < 0) {
+            errno = error;
+            return -1;
+        }
+        if (last)
+            return fd;
+        parent = fd;
+        relative.remove_prefix(slash + 1);
+    }
+    ::close(parent);
+    errno = EINVAL;
+    return -1;
+}
+
 WalkResult walk(const std::filesystem::path& root, const WalkOptions& options,
                 const core::CancelToken& token, const std::function<void(PathBatch)>& emit) {
     WalkResult result;
     struct stat root_stat{};
     if (::stat(root.c_str(), &root_stat) != 0 || !S_ISDIR(root_stat.st_mode)) {
         result.unreadable = 1;
+        return result;
+    }
+    if (options.max_entries == 0) {
+        result.truncated = true;
         return result;
     }
     const dev_t device = root_stat.st_dev;
@@ -70,7 +107,7 @@ WalkResult walk(const std::filesystem::path& root, const WalkOptions& options,
     };
     std::deque<Pending> folders{{.relative = {}, .depth = 0}};
     std::string path;
-    while (!folders.empty() && !result.truncated) {
+    while (!folders.empty() && !result.truncated && !result.cancelled) {
         if (token.cancelled()) {
             result.cancelled = true;
             break;
@@ -79,9 +116,14 @@ WalkResult walk(const std::filesystem::path& root, const WalkOptions& options,
         folders.pop_front();
         const int fd = folder.relative.empty()
                            ? ::dup(root_fd)
-                           : ::openat(root_fd, folder.relative.c_str(),
-                                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+                           : open_walk_path(root_fd, folder.relative, O_RDONLY | O_DIRECTORY);
         if (fd < 0) {
+            ++result.unreadable;
+            continue;
+        }
+        struct stat opened{};
+        if (::fstat(fd, &opened) != 0 || opened.st_dev != device) {
+            ::close(fd);
             ++result.unreadable;
             continue;
         }
@@ -91,7 +133,14 @@ WalkResult walk(const std::filesystem::path& root, const WalkOptions& options,
             ++result.unreadable;
             continue;
         }
-        while (const dirent* entry = ::readdir(dir.get())) {
+        for (;;) {
+            errno = 0;
+            const dirent* entry = ::readdir(dir.get());
+            if (!entry) {
+                if (errno != 0)
+                    ++result.unreadable;
+                break;
+            }
             const char* name = entry->d_name;
             if (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'))) {
                 continue;
@@ -110,11 +159,22 @@ WalkResult walk(const std::filesystem::path& root, const WalkOptions& options,
                 directory = ::fstatat(::dirfd(dir.get()), name, &st, AT_SYMLINK_NOFOLLOW) == 0 &&
                             S_ISDIR(st.st_mode);
             }
+            if (token.cancelled()) {
+                result.cancelled = true;
+                break;
+            }
+            if (directory && std::ranges::any_of(options.excluded, [&](const auto& excluded) {
+                    return excluded == path ||
+                           (excluded.find('/') == std::string::npos && excluded == name);
+                }))
+                continue;
             batch.add(path, directory);
             if (++result.entries == options.max_entries) {
                 result.truncated = true;
                 break;
             }
+            if (directory && folder.depth + 1 >= options.max_depth)
+                result.depth_limited = true;
             if (directory && folder.depth + 1 < options.max_depth) {
                 // Entered only on the same file system.
                 struct stat st{};
