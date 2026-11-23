@@ -64,12 +64,17 @@ public:
     void select_all(bool invert = false);
     void set_filter(std::string query);
 
-    void set_name_order(bool enabled) {
-        name_order_ = enabled;
-        rebuild();
-    }
+    enum class SortKey { name, files, bytes, lines, code, comments, blanks, share };
 
-    [[nodiscard]] bool name_order() const { return name_order_; }
+    struct SortColumn {
+        SortKey key;
+        std::string_view id, label;
+    };
+
+    [[nodiscard]] std::vector<SortColumn> sort_columns() const;
+    [[nodiscard]] std::optional<SortKey> sort_key() const;
+    [[nodiscard]] bool sort_descending() const;
+    void set_sort(SortKey key, bool descending);
 
     [[nodiscard]] bool size_measure() const { return bytes_; }
 
@@ -150,6 +155,7 @@ private:
     void sync_folder();
     void selection_changed();
     void finish_rows();
+    void sort_rows();
     [[nodiscard]] bool file_row(std::size_t index) const;
     [[nodiscard]] std::filesystem::path row_path(std::size_t index) const;
     [[nodiscard]] bool selected(std::size_t index) const;
@@ -193,7 +199,8 @@ private:
     bool pending_open_{false};
     EditSlot* edit_{nullptr};
     std::string filter_;
-    bool name_order_{false};
+    std::optional<SortKey> sort_;
+    bool sort_descending_{false};
     std::map<std::filesystem::path, std::filesystem::path> renamed_paths_;
     core::WorkerPool& pool_;
     platform::CodeAnalysis source_;
