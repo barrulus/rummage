@@ -735,14 +735,16 @@ TEST_CASE("Show in Folder: stale filters are cleared and selection remains visib
     }
 }
 
-TEST_CASE("views: sort button and full selected filename remain available with preview hidden") {
+TEST_CASE("views: selected labels stay within their rows and the status shows the full filename") {
     const auto gl = offscreen();
     REQUIRE(gl);
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
     rummage::ui::IconSet icons{fonts};
     Fixture f;
-    const std::string name = std::string(170, 'a') + ".txt";
+    std::string name;
+    SUBCASE("short filename") { name = "barrulus.png"; }
+    SUBCASE("long filename") { name = std::string(170, 'a') + ".txt"; }
     std::ofstream{f.a / name} << "text";
     f.browser.set_info_visible(false);
     f.browser.set_sidebar_visible(false);
@@ -751,29 +753,45 @@ TEST_CASE("views: sort button and full selected filename remain available with p
         f.browser.set_mode(mode);
         f.browser.show_items({f.a / name}, false);
         REQUIRE(f.settle());
+        rummage::theme::Palette palette;
+        palette.primary = rummage::ui::Color::rgb(0xff00ff);
         renderer.begin_frame(kWidth, kHeight, 1, {});
-        f.browser.draw(renderer, {0, 0, 600, kHeight}, rummage::theme::Palette{}, icons,
-                       Browser::Clock::now());
+        f.browser.draw(renderer, {0, 0, 600, kHeight}, palette, icons, Browser::Clock::now());
         renderer.end_frame();
-        const auto label =
-            mode == Browser::Mode::grid ? f.browser.grid().expanded_name_bounds()
+        const auto folder = mode == Browser::Mode::columns ? f.browser.columns().focused_folder()
+                            : mode == Browser::Mode::grid  ? f.browser.grid().folder()
+                                                           : f.browser.details().folder();
+        REQUIRE(folder);
+        CHECK(rummage::views::status_of(*folder) == name);
+        const auto selected =
+            mode == Browser::Mode::grid ? f.browser.grid().motion_bounds().selection
             : mode == Browser::Mode::details
-                ? f.browser.details().expanded_name_bounds()
-                : f.browser.columns().column(f.browser.columns().focus()).expanded_name_bounds();
-        CHECK(label.height > 40);
-        CHECK(label.width < 400);
-        CHECK(label.y < 300);  // at the selected file, not a footer
-        const float x = label.x + label.width / 2;
-        const float y = label.bottom() - 6;
-        if (mode == Browser::Mode::columns) {
-            const auto& column = f.browser.columns().column(f.browser.columns().focus());
-            CHECK(column.row_at(x, y) == column.folder().cursor());
-        } else {
-            const auto hit = mode == Browser::Mode::grid ? f.browser.grid().hit(x, y)
-                                                         : f.browser.details().hit(x, y);
-            REQUIRE(hit);
-            CHECK(hit->entry == hit->folder->cursor());
-            CHECK(hit->on_item);
+                ? f.browser.details().motion_bounds().selection
+                : f.browser.columns().column(f.browser.columns().focus()).motion_bounds().selection;
+        REQUIRE_FALSE(selected.empty());
+        std::vector<std::uint8_t> pixels(kWidth * kHeight * 4);
+        glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        // No selected-name background may protrude above or below the regular row/cell.
+        for (const int y :
+             {static_cast<int>(selected.y) - 1, static_cast<int>(selected.bottom()) + 1}) {
+            for (int x = static_cast<int>(selected.x) + 1;
+                 x < static_cast<int>(selected.right()) - 1; ++x) {
+                const auto offset = static_cast<std::size_t>(((kHeight - 1 - y) * kWidth + x) * 4);
+                CHECK_FALSE((pixels[offset] == 255 && pixels[offset + 1] == 0 &&
+                             pixels[offset + 2] == 255));
+            }
+        }
+        if (mode != Browser::Mode::grid) {
+            const float x = selected.x + 100;
+            const float y = selected.bottom() + 6;
+            if (mode == Browser::Mode::columns) {
+                const auto& column = f.browser.columns().column(f.browser.columns().focus());
+                CHECK(column.row_at(x, y) != folder->cursor());
+            } else {
+                const auto hit = f.browser.details().hit(x, y);
+                REQUIRE(hit);
+                CHECK(hit->entry != folder->cursor());
+            }
         }
         const auto button = f.browser.sort_bounds();
         REQUIRE_FALSE(button.empty());

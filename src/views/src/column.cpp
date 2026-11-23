@@ -77,9 +77,6 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
                   const CutMarks* cut, const DropMark* drop, bool show_extensions,
                   Thumbnails* thumbnails) {
     motion_bounds_ = {};
-    expanded_name_ = {};
-    ui::Rect name_anchor{};
-    ui::Color name_text{}, name_background{};
     const std::vector<fs::Entry>& entries = folder_->entries();
     rows_area_ = bounds;
     const float content = static_cast<float>(entries.size()) * size_.row;
@@ -138,14 +135,6 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
             item_right_.push_back(name_right);
             continue;
         }
-        if (&entry == folder_->single_selection()) {
-            name_anchor = {name_x - 4, y + ((size_.row - size_.text) / 2) - 6,
-                           std::max(1.0F, name_right - name_x) + 8, 0};
-            name_text = style.text;
-            name_background = style.fill.value_or(palette.surface);
-            item_right_.push_back(name_right + kItemSlack);
-            continue;
-        }
         const float drawn =
             renderer.draw_text(display_name(entry.name, entry.is_directory(), show_extensions),
                                name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
@@ -153,10 +142,6 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         item_right_.push_back(name_x + drawn + kItemSlack);
     }
 
-    if (name_anchor.width > 0)
-        expanded_name_ =
-            draw_selected_name(renderer, folder_->single_selection()->name, name_anchor, bounds,
-                               size_.text, name_text, name_background);
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
         draw_centered(renderer, model.problem(), bounds, bounds.y + 24.0F, size_.text,
@@ -189,8 +174,6 @@ std::optional<std::size_t> Column::row_at(float x, float y) const {
         y >= rows_area_.bottom()) {
         return std::nullopt;
     }
-    if (folder_->single_selection() && expanded_name_.contains(x, y))
-        return folder_->cursor();
     const float content_y = y - rows_area_.y + scroller_.offset();
     const auto row = static_cast<std::size_t>(content_y / size_.row);
     if (row >= folder_->entries().size()) {

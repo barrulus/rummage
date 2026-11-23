@@ -51,9 +51,18 @@ std::string status_of(const Folder& folder) {
     if (model.loading()) {
         return prefix + i18n::trn("{} item, loading…", "{} items, loading…", count);
     }
-    std::string status = prefix + (i18n::trn("{} item", "{} items", count));
-    if (const std::size_t hidden = folder.hidden_count(); hidden > 0) {
-        status += i18n::trf(", {} hidden", hidden);
+    std::string status = prefix;
+    if (const auto* selected = folder.single_selection()) {
+        status += selected->name;
+    } else if (folder.selected_count() == 1) {
+        // Ctrl+navigation can move the cursor away from the only selected entry.
+        const auto names = folder.selected_names();
+        if (!names.empty())
+            status += names.front();
+    } else {
+        status += i18n::trn("{} item", "{} items", count);
+        if (const std::size_t hidden = folder.hidden_count(); hidden > 0)
+            status += i18n::trf(", {} hidden", hidden);
     }
     if (const auto problem = model.problem(); !problem.empty())
         status += "  ·  " + problem;
@@ -205,6 +214,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
 
     // The message, else a transfer, else the status and the free space; cut in the middle when
     // the buttons leave too little room.
+    const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     std::string text = message_;
     ui::Color color = message_error_ ? palette.error : palette.on_surface;
     if (message_.empty() && transfer_) {
@@ -213,12 +223,17 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     } else if (message_.empty()) {
         text = status_of(folder);
         if (free_ && !folder.model().error()) {
-            text += i18n::trf("  ·  {} free of {}", format_size(free_->free),
-                              format_size(free_->total));
+            const auto with_space = text + i18n::trf("  ·  {} free of {}", format_size(free_->free),
+                                                     format_size(free_->total));
+            // Give the selected filename the full bar before truncating it for disk usage.
+            if (folder.selected_count() != 1 ||
+                renderer.fonts().layout(with_space, text_size_, renderer.scale()).width /
+                        renderer.scale() <=
+                    room)
+                text = with_space;
         }
         color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }
-    const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     const auto& line =
         renderer.fonts().layout(text, text_size_, renderer.scale(), room, ui::Ellipsis::middle);
     const float line_height = (line.ascent + line.descent) / renderer.scale();

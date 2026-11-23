@@ -7,7 +7,6 @@
 #include "item_style.hpp"
 #include "rummage/engines/engines.hpp"
 #include "rummage/fs/icon.hpp"
-#include "rummage/views/selectable_text.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -87,27 +86,6 @@ void draw_item_visual(ui::Renderer& renderer, ui::IconSet& icons, const theme::P
     }
     if (visual.executable)
         draw_run_mark(renderer, bounds.x, bounds.y, size, visual.run_color, visual.run_background);
-}
-
-ui::Rect draw_selected_name(ui::Renderer& renderer, std::string_view name, ui::Rect anchor,
-                            const ui::Rect& viewport, float size, ui::Color text,
-                            ui::Color background, bool centered) {
-    constexpr float pad = 4;
-    const float room = std::max(1.0F, anchor.width - 2 * pad);
-    const float width = std::min(text_width(renderer, name, size), room);
-    const float height = SelectableText::height(renderer, name, room, size);
-    anchor.height = height + 2 * pad;
-    // Keep a bottom-row filename readable without moving the rest of the file list.
-    anchor.y = std::max(viewport.y, std::min(anchor.y, viewport.bottom() - anchor.height));
-    renderer.fill_rect(anchor, background);
-    SelectableText label;
-    label.begin_frame(viewport);
-    label.draw(renderer, "name", name,
-               {anchor.x + (centered ? (anchor.width - width) / 2 : pad), anchor.y + pad,
-                centered ? width : room, 0},
-               size, text, background);
-    label.end_frame();
-    return anchor.intersect(viewport);
 }
 
 float text_width(ui::Renderer& renderer, std::string_view text, float size) {

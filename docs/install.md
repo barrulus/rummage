@@ -218,7 +218,12 @@ upload; older revisions and aarch64 builds may require local compilation. Comple
 dependencies are uploaded even if a later application check fails. Use `development`
 to select a revision whose complete release checks passed.
 
-With Cachix installed, enable it once:
+The flake advertises this cache and its public signing key through `nixConfig`.
+When running commands such as `nix run`, Nix prompts to accept these settings
+unless you have already configured whether to trust them. They extend your existing
+cache settings. Accept them to use cached builds when available.
+
+To configure the cache independently of the flake, enable it once with Cachix installed:
 
 ```sh
 cachix use rummage-fm

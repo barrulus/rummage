@@ -474,9 +474,6 @@ void DetailsView::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                        const theme::Palette& palette, ui::IconSet& icons, Clock::time_point now) {
     motion_bounds_ = {};
-    expanded_name_ = {};
-    ui::Rect name_anchor{};
-    ui::Color name_text{}, name_background{};
     if (!folder_) {
         return;
     }
@@ -614,12 +611,6 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             if (!room.empty())
                 edit_->place(room, size_.text);
             item_right_.push_back(name_x + name_room);
-        } else if (&entry == folder_->single_selection()) {
-            name_anchor = {name_x - 4, y + ((size_.row - size_.text) / 2) - 6,
-                           std::max(1.0F, name_room) + 8, 0};
-            name_text = style.text;
-            name_background = style.fill.value_or(palette.surface);
-            item_right_.push_back(name_x + name_room + kItemSlack);
         } else {
             const float drawn =
                 renderer.draw_text(display_name(entry.name, entry.is_directory(), show_extensions_),
@@ -675,10 +666,6 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
              false);
     }
 
-    if (name_anchor.width > 0)
-        expanded_name_ =
-            draw_selected_name(renderer, folder_->single_selection()->name, name_anchor, rows_,
-                               size_.text, name_text, name_background);
     const fs::DirectoryModel& model = root_->model();
     if (model.error()) {
         draw_centered(renderer, model.error().message(), rows_, rows_.y + 24.0F, size_.text,
@@ -736,8 +723,6 @@ std::optional<std::size_t> DetailsView::row_at(float x, float y) const {
     if (!folder_ || x < rows_.x || x >= rows_.right() || y < rows_.y || y >= rows_.bottom()) {
         return std::nullopt;
     }
-    if (folder_->single_selection() && expanded_name_.contains(x, y))
-        return cursor_row();
     const auto row = static_cast<std::size_t>((y - rows_.y + scroller_.offset()) / size_.row);
     if (row >= tree_rows_.size()) {
         return std::nullopt;

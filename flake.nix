@@ -3,6 +3,13 @@
 
   inputs.nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
 
+  nixConfig = {
+    extra-substituters = [ "https://rummage-fm.cachix.org" ];
+    extra-trusted-public-keys = [
+      "rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA="
+    ];
+  };
+
   outputs =
     { self, nixpkgs }:
     let

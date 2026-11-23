@@ -44,8 +44,6 @@ namespace rummage::views {
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class GridView {
 public:
-    [[nodiscard]] ui::Rect expanded_name_bounds() const { return expanded_name_; }
-
     void set_show_extensions(bool show) { show_extensions_ = show; }
 
     void set_show_thumbnails(bool show) { show_thumbnails_ = show; }
@@ -143,7 +141,6 @@ public:
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
 private:
-    ui::Rect expanded_name_{};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
     ItemBounds motion_bounds_{};

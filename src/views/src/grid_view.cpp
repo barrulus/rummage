@@ -77,9 +77,6 @@ std::optional<ViewHit> GridView::hit(float x, float y) const {
 }
 
 bool GridView::on_item(std::size_t index, float x, float y) const {
-    if (folder_ && folder_->single_selection() && folder_->cursor() == index &&
-        expanded_name_.contains(x, y))
-        return true;
     if (index < item_first_ || index - item_first_ >= name_width_.size() || columns_ == 0) {
         return false;
     }
@@ -286,9 +283,6 @@ void GridView::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
 void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                     ui::IconSet& icons, Clock::time_point now) {
     motion_bounds_ = {};
-    expanded_name_ = {};
-    ui::Rect name_anchor{};
-    ui::Color name_text{}, name_background{};
     if (!folder_) {
         return;
     }
@@ -365,14 +359,6 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 name_width_.push_back(cell_width_ - (2.0F * kNameMargin));
                 continue;
             }
-            if (&entry == folder_->single_selection()) {
-                name_anchor = {x + kNameMargin - 4, y + kIconTop + icon + kNameGap - 4,
-                               std::max(1.0F, cell_width_ - 2 * kNameMargin) + 8, 0};
-                name_text = style.text;
-                name_background = style.fill.value_or(palette.surface);
-                name_width_.push_back(cell_width_ - 2 * kNameMargin);
-                continue;
-            }
             const ui::TextLayout& name =
                 fonts.layout(display_name(entry.name, entry.is_directory(), show_extensions_),
                              kTextSize, renderer.scale(),
@@ -384,11 +370,6 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     }
 
-    if (name_anchor.width > 0) {
-        expanded_name_ =
-            draw_selected_name(renderer, folder_->single_selection()->name, name_anchor, area_,
-                               kTextSize, name_text, name_background, true);
-    }
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
         draw_centered(renderer, model.problem(), area_, area_.y + 24.0F, 14.0F, palette.error);
@@ -427,8 +408,6 @@ std::optional<std::size_t> GridView::cell_at(float x, float y) const {
     if (!folder_ || x < area_.x || x >= area_.right() || y < area_.y || y >= area_.bottom()) {
         return std::nullopt;
     }
-    if (folder_->single_selection() && expanded_name_.contains(x, y))
-        return folder_->cursor();
     const float content_x = x - area_.x - kPadding;
     const float content_y = y - area_.y + scroller_.offset() - kPadding;
     if (content_x < 0.0F || content_y < 0.0F || cell_width_ <= 0.0F) {

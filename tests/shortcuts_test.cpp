@@ -367,6 +367,18 @@ TEST_CASE("status bar: the status and the free space") {
     Fixture f;
     f.reset(Browser::Mode::details);
     std::shared_ptr<Folder> folder = f.folder();
+    folder->set_cursor(std::nullopt);
+    CHECK(rummage::views::status_of(*folder) == "3 items");
+    folder->set_cursor(1);
+    REQUIRE(folder->single_selection());
+    CHECK(rummage::views::status_of(*folder) == folder->single_selection()->name);
+    folder->set_cursor(0);
+    REQUIRE(folder->single_selection());
+    CHECK(rummage::views::status_of(*folder) == "sub");
+    folder->set_cursor(1, rummage::views::SelectMode::keep);
+    CHECK_FALSE(folder->single_selection());
+    CHECK(rummage::views::status_of(*folder) == "sub");
+    folder->set_cursor(std::nullopt);
     CHECK(rummage::views::status_of(*folder) == "3 items");
     folder->select_all();
     CHECK(rummage::views::status_of(*folder) == "3 of 3 selected");
