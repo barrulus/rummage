@@ -142,6 +142,7 @@ struct Fixture {
         browser.command_palette().close();
         browser.confirm_dialog().close();
         browser.properties_dialog().close();
+        browser.insights_dialog().close();
         browser.settings_dialog().close();
         browser.location_dialog().close();
         browser.sidebar().set_focused(false);
@@ -1114,4 +1115,20 @@ TEST_CASE("keyboard browsing: relative paths use the displayed location in expan
     REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
     CHECK_FALSE(f.browser.breadcrumb().editing());
     CHECK(f.browser.details().root_folder()->path() == f.root / "sub");
+}
+
+TEST_CASE("insights: shortcut coexists with inversion and yields to custom chords") {
+    ResetBindings reset;
+    CHECK(rummage::views::command_for(chord(XKB_KEY_I, {.ctrl = true, .alt = true})) ==
+          Command::folder_insights);
+    CHECK(rummage::views::command_for(chord(XKB_KEY_I, {.ctrl = true, .shift = true})) ==
+          Command::none);
+    CHECK(rummage::views::keys_for_binding("invert_selection") == "Ctrl+Shift+I");
+    REQUIRE(rummage::views::configure_shortcuts({{"copy", "Ctrl+Alt+i"}}).empty());
+    CHECK(rummage::views::keys_for(Command::folder_insights).empty());
+    CHECK(rummage::views::command_for(chord(XKB_KEY_I, {.ctrl = true, .alt = true})) ==
+          Command::copy);
+    REQUIRE(rummage::views::configure_shortcuts({{"folder_insights", "Ctrl+Alt+f"}}).empty());
+    CHECK(rummage::views::command_for(chord(XKB_KEY_F, {.ctrl = true, .alt = true})) ==
+          Command::folder_insights);
 }

@@ -369,7 +369,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "sort",
                                                "panes",
                                                "|",
-                                               "properties"});
+                                               "properties",
+                                               "folder_insights"});
 
     // Copy from the menu; then Paste can be chosen, here and on empty space.
     f.choose("copy");
@@ -377,9 +378,10 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     CHECK(f.browser.status_bar().message() == "Ctrl+V copies “sub” where you want them");
     f.select({});
     CHECK(f.press(key(XKB_KEY_Menu)));
-    CHECK(ids(f.menu().items(), true) ==
-          Names{"new_folder", "new_file", "|", "paste", "action:copy_location", "|",
-                "open_terminal", "add_bookmark", "|", "sort", "panes", "|", "properties"});
+    CHECK(ids(f.menu().items(), true) == Names{"new_folder", "new_file", "|", "paste",
+                                               "action:copy_location", "|", "open_terminal",
+                                               "add_bookmark", "|", "sort", "panes", "|",
+                                               "properties", "folder_insights"});
     REQUIRE(f.settle());  // the templates looked for: none
     CHECK(ids(f.menu().items()[1].children) == Names{"empty_file"});
 }

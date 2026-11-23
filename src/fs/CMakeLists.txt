@@ -15,6 +15,7 @@ add_library(rummage_fs
     src/links.cpp
     src/group.cpp
     src/path_completion.cpp
+    src/insights.cpp
     src/measure.cpp
     src/mime.cpp
     src/operations.cpp

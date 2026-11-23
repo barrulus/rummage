@@ -58,6 +58,7 @@ enum class Command : std::uint8_t {
     stop_transfer,
     context_menu,
     properties,
+    folder_insights,
     back,
     forward,
     toggle_hidden,

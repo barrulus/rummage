@@ -1,0 +1,596 @@
+#include "rummage/fs/insights.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <limits>
+#include <numeric>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+
+#include <doctest/doctest.h>
+
+#include "rummage/core/event_loop.hpp"
+#include "rummage/fs/directory_watcher.hpp"
+#include "rummage/theme/desktop.hpp"
+#include "rummage/ui/offscreen.hpp"
+#include "rummage/views/browser.hpp"
+#include "rummage/views/insights_dialog.hpp"
+#include "rummage/views/shortcuts.hpp"
+#include "temp_dir.hpp"
+
+namespace {
+namespace fs = std::filesystem;
+using namespace std::chrono_literals;
+using rummage::core::CancelToken;
+using rummage::fs::scan_insights;
+using rummage::test::TempDir;
+using rummage::views::InsightsDialog;
+
+bool until(rummage::core::EventLoop& loop, const std::function<bool()>& done) {
+    bool ok = false;
+    const auto poll = loop.add_timer(1ms, 1ms, [&] {
+        if (done()) {
+            ok = true;
+            loop.quit(0);
+        }
+    });
+    const auto timeout = loop.add_timer(5s, 0ms, [&] { loop.quit(1); });
+    loop.run();
+    loop.remove(poll);
+    loop.remove(timeout);
+    return ok;
+}
+
+std::size_t row(const InsightsDialog& dialog, std::string_view name) {
+    const auto found = std::ranges::find(dialog.rows(), name, &InsightsDialog::Row::label);
+    REQUIRE(found != dialog.rows().end());
+    return static_cast<std::size_t>(found - dialog.rows().begin());
+}
+
+void capture(const std::string& name, int width, int height) {
+    const char* directory = std::getenv("RUMMAGE_INSIGHTS_FRAMES");
+    if (!directory)
+        return;
+    std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    std::ofstream out{fs::path{directory} / (name + ".ppm"), std::ios::binary};
+    out << "P6\n" << width << " " << height << "\n255\n";
+    for (int y = height - 1; y >= 0; --y)
+        for (int x = 0; x < width; ++x)
+            out.write(reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4), 3);
+    REQUIRE(out.good());
+}
+}  // namespace
+
+TEST_CASE("insights: extensions are exact, case folded, and content independent") {
+    using rummage::fs::insight_extension;
+    CHECK(insight_extension("report.PDF") == ".pdf");
+    CHECK(insight_extension("report.pdf.txt") == ".txt");
+    CHECK(insight_extension("data.TAR.GZ") == ".tar.gz");
+    CHECK(insight_extension("README").empty());
+    CHECK(insight_extension(".bashrc").empty());
+    CHECK(insight_extension(".hidden.MD") == ".md");
+    CHECK(insight_extension("trailing.").empty());
+    CHECK(insight_extension("letter.doc") != insight_extension("letter.docx"));
+}
+
+TEST_CASE("insights: bounded tree stores additive counts, paths, hidden scope and links") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "sub/deep");
+    fs::create_directories(dir.path / ".private");
+    dir.write("a.PDF", "1234");
+    dir.write("sub/b.md", "123");
+    dir.write("sub/deep/c.doc", "12");
+    dir.write(".private/secret.pdf", "123456789");
+    dir.write(".hidden", "x");
+    fs::create_hard_link(dir.path / "a.PDF", dir.path / "sub/linked.pdf");
+    fs::create_directory_symlink(dir.path, dir.path / "sub/cycle");
+    fs::create_symlink("missing", dir.path / "broken");
+    REQUIRE(mkfifo((dir.path / "pipe").c_str(), 0600) == 0);
+    const auto snapshot = scan_insights(dir.path, {}, CancelToken{});
+    REQUIRE(snapshot.complete());
+    CHECK(snapshot.nodes[0].files == 4);
+    CHECK(snapshot.nodes[0].bytes == 13);  // Per name: hard-linked files are both represented.
+    CHECK(snapshot.links == 2);
+    CHECK(snapshot.nodes[0].end == snapshot.nodes.size());
+    std::uint64_t sum = 0;
+    for (std::size_t i = 1; i < snapshot.nodes.size(); ++i) {
+        const auto& node = snapshot.nodes[i];
+        CHECK(node.end > i);
+        CHECK(node.end <= snapshot.nodes.size());
+        CHECK(node.parent < i);
+        if (node.parent == 0)
+            sum += node.bytes;
+        if (node.name == "c.doc")
+            CHECK(snapshot.relative_path(i) == "sub/deep/c.doc");
+    }
+    CHECK(sum == snapshot.nodes[0].bytes);
+    const auto direct = scan_insights(dir.path, {.recursive = false}, CancelToken{});
+    CHECK(direct.complete());
+    CHECK(direct.nodes[0].files == 1);
+    CHECK(direct.nodes[0].bytes == 4);
+    const auto hidden = scan_insights(dir.path, {.hidden = true}, CancelToken{});
+    CHECK(hidden.nodes[0].files == 6);
+    CHECK(hidden.nodes[0].bytes == 23);
+}
+
+TEST_CASE("insights: bounded scans discover sibling folders before a deep tree") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "dev/deep");
+    fs::create_directories(dir.path / "Documents");
+    fs::create_directories(dir.path / "Pictures");
+    dir.write("Documents/report.pdf", "1234");
+    dir.write("Pictures/photo.jpg", "123456");
+    for (int i = 0; i < 30; ++i)
+        dir.write("dev/deep/" + std::to_string(i) + ".md", "x");
+    const auto data = scan_insights(dir.path, {.max_entries = 12}, CancelToken{});
+    CHECK(data.limited);
+    std::size_t folders = 0;
+    for (std::size_t i = 1; i < data.nodes.size(); ++i) {
+        const auto& node = data.nodes[i];
+        if (node.parent == 0) {
+            ++folders;
+            if (node.name == "dev")
+                CHECK(node.partial);
+            else {
+                CHECK_FALSE(node.partial);
+                CHECK(node.files == 1);
+                CHECK(node.bytes == (node.name == "Documents" ? 4 : 6));
+            }
+        }
+        // Reordering preserves exactly the descendants, not the next sibling.
+        for (std::size_t j = i + 1; j < data.nodes.size(); ++j) {
+            auto ancestor = data.nodes[j].parent;
+            while (ancestor > i)
+                ancestor = data.nodes[ancestor].parent;
+            CHECK((ancestor == i) == (j < node.end));
+        }
+    }
+    CHECK(folders == 3);
+    CHECK(data.nodes[0].files == 8);
+    CHECK(data.nodes[0].bytes == 16);
+    const auto pending = scan_insights(dir.path, {.max_entries = 3}, CancelToken{});
+    CHECK(pending.limited);
+    REQUIRE(pending.nodes.size() == 4);
+    for (std::size_t i = 1; i < pending.nodes.size(); ++i) {
+        CHECK(pending.nodes[i].parent == 0);
+        CHECK(pending.nodes[i].partial);
+        CHECK(pending.nodes[i].files == 0);
+    }
+    // Drilling into a previously unmeasured folder gives it a fresh budget.
+    const auto nested = scan_insights(dir.path / "Documents", {}, CancelToken{});
+    CHECK(nested.complete());
+    CHECK(nested.nodes[0].bytes == 4);
+}
+
+TEST_CASE("insights: incomplete scans never present an exact empty result") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "sub/deep");
+    dir.write("sub/deep/a.pdf", "123");
+    rummage::fs::InsightOptions options;
+    SUBCASE("entry budget") { options.max_entries = 1; }
+    SUBCASE("name budget") { options.max_name_bytes = 1; }
+    SUBCASE("deadline") { options.time_limit = 0ms; }
+    SUBCASE("depth") { options.max_depth = 1; }
+    const auto snapshot = scan_insights(dir.path, options, CancelToken{});
+    CHECK_FALSE(snapshot.complete());
+    CHECK(snapshot.nodes[0].partial);
+    CHECK((snapshot.limited || snapshot.skipped_folders > 0));
+    const CancelToken cancelled;
+    cancelled.cancel();
+    const auto stopped = scan_insights(dir.path, {}, cancelled);
+    CHECK(stopped.cancelled);
+    CHECK(stopped.nodes[0].partial);
+    const auto missing = scan_insights(dir.path / "missing", {}, CancelToken{});
+    CHECK(missing.unreadable == 1);
+    CHECK_FALSE(missing.complete());
+    fs::create_directory_symlink(dir.path / "sub", dir.path / "link");
+    CHECK_FALSE(scan_insights(dir.path / "link", {}, CancelToken{}).complete());
+    CHECK_FALSE(scan_insights(dir.path / "link/", {}, CancelToken{}).complete());
+}
+
+TEST_CASE("insights: unreadable folders propagate partial state to their parents") {
+    if (geteuid() == 0)
+        return;
+    const TempDir dir;
+    fs::create_directories(dir.path / "closed");
+    dir.write("closed/private.pdf", "123");
+    fs::permissions(dir.path / "closed", fs::perms::none);
+    const auto data = scan_insights(dir.path, {}, CancelToken{});
+    fs::permissions(dir.path / "closed", fs::perms::owner_all);
+    CHECK(data.unreadable == 1);
+    CHECK(data.nodes[0].partial);
+    CHECK(data.nodes[1].partial);
+}
+
+TEST_CASE("insights: treemap preserves areas and ignores zero or invalid weights") {
+    const std::vector<double> weights{60, 30, 10, 0, -1, std::numeric_limits<double>::infinity()};
+    const rummage::ui::Rect bounds{10, 20, 600, 400};
+    const auto rects = rummage::views::insight_treemap(weights, bounds);
+    REQUIRE(rects.size() == weights.size());
+    for (std::size_t i = 0; i < 3; ++i) {
+        const auto r = rects[i];
+        CHECK(r.width * r.height == doctest::Approx(240000 * weights[i] / 100));
+        CHECK(r.x >= bounds.x);
+        CHECK(r.y >= bounds.y);
+        CHECK(r.right() <= bounds.right());
+        CHECK(r.bottom() <= bounds.bottom());
+        for (std::size_t j = i + 1; j < 3; ++j)
+            CHECK(r.intersect(rects[j]).empty());
+    }
+    for (std::size_t i = 3; i < rects.size(); ++i)
+        CHECK(rects[i].empty());
+    CHECK(rummage::views::insight_treemap({0, 0}, bounds)[0].empty());
+}
+
+TEST_CASE("insights: exact type matches, cached measures, drill-down and refresh history") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "sub");
+    dir.write("a.PDF", "12");
+    dir.write("misleading.pdf.txt", "1234567890");
+    dir.write("sub/b.pdf", "123");
+    dir.write(".hidden.pdf", "x");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    InsightsDialog dialog{pool, [] {}};
+    fs::path revealed;
+    dialog.open(dir.path, false, [&](const fs::path& path, bool directory) {
+        CHECK_FALSE(directory);
+        revealed = path;
+    });
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    const auto* original = dialog.snapshot();
+    REQUIRE(original != nullptr);
+    CHECK(dialog.rows()[row(dialog, ".pdf")].files == 2);
+    // Size is the initial measure; switching to count and back uses the same snapshot.
+    CHECK(dialog.rows().front().label == ".txt");
+    dialog.set_size_measure(false);
+    CHECK(dialog.rows().front().label == ".pdf");
+    dialog.set_size_measure(true);
+    CHECK(dialog.snapshot() == original);
+    CHECK_FALSE(dialog.loading());
+    CHECK(dialog.rows().front().label == ".txt");
+    dialog.activate_row(row(dialog, ".pdf"));
+    CHECK(dialog.view() == InsightsDialog::View::matches);
+    REQUIRE(dialog.rows().size() == 2);
+    CHECK(std::ranges::none_of(dialog.rows(),
+                               [](const auto& r) { return r.label == "misleading.pdf.txt"; }));
+    dialog.back();
+    dialog.set_view(InsightsDialog::View::space);
+    dialog.activate_row(row(dialog, "sub"));
+    CHECK(dialog.scope() != 0);
+    CHECK(dialog.snapshot() == original);
+    REQUIRE(dialog.rows().size() == 1);
+    dialog.refresh();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->root == dir.path / "sub");
+    dialog.up();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->root == dir.path);
+    dialog.set_hidden(true);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.set_recursive(false);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.set_view(InsightsDialog::View::types);
+    CHECK(dialog.rows()[row(dialog, ".pdf")].files == 2);
+    dialog.activate_row(row(dialog, ".pdf"));
+    dialog.activate_row(row(dialog, "a.PDF"));
+    CHECK(revealed == dir.path / "a.PDF");
+    CHECK_FALSE(dialog.is_open());
+    dialog.open(dir.path, false, [&](const fs::path& path, bool directory) {
+        CHECK_FALSE(directory);
+        revealed = path;
+    });
+    dialog.set_recursive(true);
+    dialog.set_view(InsightsDialog::View::types);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.activate_row(row(dialog, ".pdf"));
+    dialog.activate_row(row(dialog, "b.pdf"));
+    CHECK(revealed == dir.path / "sub/b.pdf");
+}
+
+TEST_CASE("insights: partial map keeps unknown siblings available for drilling") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const TempDir dir;
+    fs::create_directories(dir.path / "Documents");
+    fs::create_directories(dir.path / "Projects");
+    dir.write("Documents/report.pdf", "1234");
+    dir.write("Projects/notes.md", "123");
+    dir.write("large.pdf", std::string(4000, 'x'));
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsDialog dialog{pool, [] {}, {.max_entries = 3}};
+    dialog.open(dir.path, false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    REQUIRE(dialog.snapshot()->limited);
+    dialog.set_view(InsightsDialog::View::space);
+    REQUIRE(dialog.rows().size() == 3);
+    const auto documents = row(dialog, "Documents");
+    CHECK(dialog.rows()[documents].partial);
+    CHECK(dialog.rows()[documents].files == 0);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    renderer.begin_frame(1100, 820, 1, {});
+    rummage::ui::IconSet icons{fonts};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    dialog.draw(renderer, {0, 0, 1100, 820}, {}, icons, *mime);
+    renderer.end_frame();
+    capture("partial", 1100, 820);
+    CHECK_FALSE(dialog.control_bounds("row:" + std::to_string(documents)).empty());
+    // Unknown folders have rows but no fictitious chart area.
+    CHECK(dialog.control_bounds("tile:" + std::to_string(documents)).empty());
+    dialog.activate_row(documents);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->complete());
+    CHECK(dialog.snapshot()->root == dir.path / "Documents");
+    CHECK(dialog.snapshot()->nodes[0].bytes == 4);
+    dialog.up();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->root == dir.path);
+    CHECK(dialog.snapshot()->limited);
+}
+
+TEST_CASE("insights: reopening restores location, view and options with fresh data") {
+    const TempDir dir;
+    const auto library = dir.path / "Library";
+    fs::create_directories(library / "Research/deep/Many");
+    fs::create_directories(library / "Research/deep/Large");
+    fs::create_directories(dir.path / "Other");
+    dir.write("Library/Research/deep/Many/a.md", "a");
+    dir.write("Library/Research/deep/Many/b.md", "b");
+    dir.write("Library/Research/deep/Large/book.pdf", std::string(1000, 'x'));
+    dir.write("Library/Research/deep/.private.pdf", "hidden");
+    dir.write("Other/.private.pdf", "hidden");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsDialog dialog{pool, [] {}};
+    dialog.open(library, false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.set_view(InsightsDialog::View::space);
+    dialog.activate_row(row(dialog, "Research"));
+    dialog.activate_row(row(dialog, "deep"));
+    dialog.set_hidden(true);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->root == library / "Research/deep");
+    dialog.set_size_measure(false);
+    CHECK(dialog.rows().front().label == "Many");
+    dialog.close();
+    CHECK(dialog.snapshot() == nullptr);  // Closing still releases the potentially large tree.
+    dir.write("Library/Research/deep/new.md", "new");
+    dialog.open(library, false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == library / "Research/deep");
+    CHECK(dialog.view() == InsightsDialog::View::space);
+    CHECK(dialog.rows().front().label == "Many");
+    CHECK(dialog.rows()[row(dialog, ".private.pdf")].files == 1);
+    CHECK(dialog.rows()[row(dialog, "new.md")].files == 1);
+    dialog.back();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == library / "Research");
+    dialog.up();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == library);
+    dialog.back();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == library / "Research");
+    dialog.close();
+    dialog.open(dir.path / "Other", false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == dir.path / "Other");
+    CHECK(dialog.view() == InsightsDialog::View::space);
+    CHECK(dialog.rows().empty());
+    CHECK_FALSE(dialog.can_back());
+    CHECK(dialog.can_up());
+    // At the initial scan root, Up can still visit the actual filesystem parent.
+    dialog.up();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == dir.path);
+}
+
+TEST_CASE("insights: Back restores type matches while Up navigates folders") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "sub");
+    dir.write("sub/a.pdf", "x");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsDialog dialog{pool, [] {}};
+    dialog.open(dir.path / "sub", false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.activate_row(row(dialog, ".pdf"));
+    dialog.close();
+    dialog.open(dir.path / "sub", false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.view() == InsightsDialog::View::matches);
+    CHECK(dialog.rows().front().label == "a.pdf");
+    dialog.key({.keysym = XKB_KEY_Up, .text = {}, .modifiers = {.alt = true}});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == dir.path);
+    CHECK(dialog.view() == InsightsDialog::View::types);
+    dialog.key({.keysym = XKB_KEY_Left, .text = {}, .modifiers = {.alt = true}});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.current_path() == dir.path / "sub");
+    CHECK(dialog.view() == InsightsDialog::View::matches);
+    dialog.key({.keysym = XKB_KEY_BackSpace, .text = {}});
+    CHECK(dialog.view() == InsightsDialog::View::types);
+}
+
+TEST_CASE("insights: reopening preserves the result page and light theme remains usable") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const TempDir dir;
+    for (int i = 0; i < 30; ++i)
+        dir.write("report-" + std::to_string(i) + ".pdf", "x");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsDialog dialog{pool, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    const auto draw = [&] {
+        renderer.begin_frame(1100, 820, 1, {});
+        dialog.draw(renderer, {0, 0, 1100, 820},
+                    rummage::theme::desktop_palette({.dark = false, .accent = {}}), icons, *mime);
+        renderer.end_frame();
+    };
+    dialog.open(dir.path, false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.activate_row(row(dialog, ".pdf"));
+    draw();
+    std::size_t page_size = 0;
+    while (!dialog.control_bounds("row:" + std::to_string(page_size)).empty())
+        ++page_size;
+    REQUIRE(page_size > 0);
+    REQUIRE(page_size < 30);
+    dialog.key({.keysym = XKB_KEY_Page_Down, .text = {}});
+    draw();
+    REQUIRE_FALSE(dialog.control_bounds("row:" + std::to_string(page_size)).empty());
+    dialog.close();
+    dialog.open(dir.path, false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    draw();
+    CHECK(dialog.view() == InsightsDialog::View::matches);
+    CHECK(dialog.control_bounds("row:0").empty());
+    CHECK_FALSE(dialog.control_bounds("row:" + std::to_string(page_size)).empty());
+    capture("light", 1100, 820);
+    dialog.set_view(InsightsDialog::View::space);
+    draw();
+    capture("light-files", 1100, 820);
+}
+
+TEST_CASE("insights: replacement, stop and close cancel obsolete deliveries") {
+    const TempDir first, second;
+    first.write("a.pdf", "123");
+    second.write("b.md", "1234");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsDialog dialog{pool, [] {}};
+    dialog.open(first.path, false, {});
+    dialog.open(second.path, false, {});
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->root == second.path);
+    REQUIRE(dialog.rows().size() == 1);
+    CHECK(dialog.rows()[0].label == ".md");
+    dialog.refresh();
+    dialog.stop();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.snapshot()->cancelled);
+    CHECK_FALSE(dialog.snapshot()->complete());
+    dialog.refresh();
+    dialog.close();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    CHECK_FALSE(dialog.is_open());
+    CHECK(dialog.snapshot() == nullptr);
+}
+
+TEST_CASE("insights: native browser entry points, rendering and modal input") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const TempDir dir;
+    fs::create_directories(dir.path / "Research");
+    fs::create_directories(dir.path / "Projects");
+    dir.write("Research/paper.PDF", std::string(12500, 'x'));
+    dir.write("Research/notes.md", "notes");
+    dir.write("Projects/report.docx", std::string(7200, 'x'));
+    dir.write("draft.doc", std::string(2300, 'x'));
+    dir.write("README", "example");
+    dir.write(".secret.pdf", "hidden");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    rummage::views::Browser browser{loop,    pool,
+                                    watcher, rummage::fs::MimeDatabase::load(),
+                                    [] {},   [](rummage::ui::CursorShape) {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    browser.open(dir.path);
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    const auto commands = browser.palette_items();
+    CHECK(std::ranges::find(commands, "command:folder_insights",
+                            &rummage::views::PaletteItem::id) != commands.end());
+    const rummage::ui::KeyEvent shortcut{
+        .keysym = XKB_KEY_I, .text = {}, .modifiers = {.ctrl = true, .alt = true}};
+    CHECK(rummage::views::command_for(shortcut) == rummage::views::Command::folder_insights);
+    browser.key(shortcut, rummage::views::Browser::Clock::now());
+    auto& dialog = browser.insights_dialog();
+    REQUIRE(dialog.is_open());
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    const auto draw = [&](int width, int height, const std::string& name) {
+        renderer.begin_frame(width, height, 1, {});
+        browser.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                     rummage::theme::Palette{}, icons, rummage::views::Browser::Clock::now());
+        renderer.end_frame();
+        capture(name, width, height);
+    };
+    draw(1100, 820, "types");
+    const auto space = dialog.control_bounds("space");
+    REQUIRE_FALSE(space.empty());
+    browser.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                     .x = space.x + 4,
+                     .y = space.y + 4,
+                     .button = rummage::ui::PointerButton::left},
+                    rummage::views::Browser::Clock::now());
+    CHECK(dialog.view() == InsightsDialog::View::space);
+    draw(1100, 820, "space");
+    CHECK_FALSE(dialog.control_bounds("tile:0").empty());
+    dialog.activate_row(row(dialog, "Research"));
+    draw(1100, 820, "files");
+    CHECK_FALSE(dialog.control_bounds("back").empty());
+    CHECK_FALSE(dialog.control_bounds("up").empty());
+    const auto up_button = dialog.control_bounds("up");
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = up_button.x + 5,
+                    .y = up_button.y + 5,
+                    .button = rummage::ui::PointerButton::left});
+    CHECK(dialog.current_path() == dir.path);
+    dialog.back();
+    CHECK(dialog.current_path() == dir.path / "Research");
+    draw(1100, 820, "files");
+    // The parent breadcrumb remains a direct navigation target.
+    const auto depth = static_cast<std::size_t>(std::distance(dir.path.begin(), dir.path.end()));
+    const auto crumb = dialog.control_bounds("crumb:" + std::to_string(depth - 1));
+    REQUIRE_FALSE(crumb.empty());
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = crumb.x + 5,
+                    .y = crumb.y + 5,
+                    .button = rummage::ui::PointerButton::left});
+    CHECK(dialog.current_path() == dir.path);
+    draw(640, 600, "compact");
+    for (const auto id : {"close", "recursive", "hidden", "refresh", "reveal"}) {
+        const auto r = dialog.control_bounds(id);
+        CHECK_FALSE(r.empty());
+        CHECK(r.x >= 0);
+        CHECK(r.y >= 0);
+        CHECK(r.right() <= 640);
+        CHECK(r.bottom() <= 600);
+    }
+    dialog.set_view(InsightsDialog::View::types);
+    dialog.activate_row(row(dialog, ".pdf"));
+    draw(1100, 820, "matches");
+    browser.key({.keysym = XKB_KEY_Escape, .text = {}}, rummage::views::Browser::Clock::now());
+    CHECK(dialog.is_open());
+    CHECK(dialog.view() == InsightsDialog::View::types);
+    browser.key({.keysym = XKB_KEY_Escape, .text = {}}, rummage::views::Browser::Clock::now());
+    CHECK_FALSE(dialog.is_open());
+    browser.set_name_filter("no-match");
+    browser.show_insights(dir.path);
+    dialog.set_hidden(true);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    dialog.activate_row(row(dialog, ".pdf"));
+    dialog.activate_row(row(dialog, ".secret.pdf"));
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.name_filter().empty());
+    CHECK(browser.shows_hidden());
+    const auto selected = browser.picker_folder()->single_selection();
+    REQUIRE(selected != nullptr);
+    CHECK(selected->name == ".secret.pdf");
+    browser.set_picker_mode(true);
+    browser.show_insights(dir.path);
+    CHECK_FALSE(dialog.is_open());
+}

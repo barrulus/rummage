@@ -255,6 +255,10 @@ bool InfoPane::scroll_text(TextScroll how, Clock::time_point now) {
 }
 
 bool InfoPane::click(float x, float y) {
+    if (bounds_.contains(x, y) && insights_button_.contains(x, y) && insights_) {
+        insights_(insights_path_);
+        return true;
+    }
     if (!bounds_.contains(x, y))
         return false;
     if (copy_ && !copy_text_.empty() && copy_button_.contains(x, y)) {
@@ -400,6 +404,7 @@ std::string InfoPane::size_text() const {
 void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                     ui::IconSet& icons, const Folder& folder, Clock::time_point now) {
     toggle_ = {};
+    insights_button_ = {};
     thumbnail_ = {};
     copy_button_ = {};
     copy_text_.clear();
@@ -677,6 +682,19 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     if (summary && summary->text) {
         for (const auto& [label, value] : content_details(*summary))
             out.row(label, value);
+    }
+
+    if (insights_ && !folder.is_archive() && !folder.is_trash() &&
+        (single == nullptr || (single->is_directory() && !single->is_link))) {
+        insights_path_ = path;
+        out.skip(10.0F);
+        insights_button_ = {out.left(), out.y(), out.width(), 30};
+        renderer.draw_box(insights_button_, {.fill = palette.primary.with_alpha(0.12F),
+                                             .radius = ui::Corners::all(4)});
+        renderer.draw_text(i18n::tr("Folder insights…"), out.left() + 10, out.y() + 6, kTextSize,
+                           palette.primary, out.width() - 20);
+        out.skip(40.0F);
+        insights_button_ = insights_button_.intersect(content);
     }
 
     // The rest, on request.
