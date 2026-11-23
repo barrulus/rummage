@@ -45,20 +45,6 @@ ui::Color mix(ui::Color a, ui::Color b, float t) {
     return {a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1};
 }
 
-ui::Color row_color(const InsightsView::Row& row, const theme::Palette& palette) {
-    // Categorical chart accents stay distinct even with a monochrome desktop palette.
-    // Mix in the user's accent and derive readable foregrounds on the actual surfaces.
-    const std::array colors{ui::Color::rgb(0x7AA2F7), ui::Color::rgb(0x9ECE6A),
-                            ui::Color::rgb(0xE0AF68), ui::Color::rgb(0xBB9AF7),
-                            ui::Color::rgb(0x7DCFFF), ui::Color::rgb(0xF7768E)};
-    const auto key = row.directory           ? row.label
-                     : row.extension.empty() ? fs::insight_extension(row.label)
-                                             : row.extension;
-    std::uint32_t hash = 2166136261U;
-    for (const char ch : key)
-        hash = (hash ^ static_cast<unsigned char>(ch)) * 16777619U;
-    return mix(palette.primary, colors[hash % colors.size()], 0.85F);
-}
 }  // namespace
 
 std::vector<ui::Rect> insight_treemap(const std::vector<double>& weights, ui::Rect bounds) {
@@ -261,11 +247,12 @@ void InsightsView::select_all(bool invert) {
 }
 
 std::vector<InsightsView::SortColumn> InsightsView::sort_columns() const {
-    std::vector<SortColumn> columns{{SortKey::name, "name",
-                                     view_ == View::languages ? i18n::mark("Language")
-                                     : view_ == View::types   ? i18n::mark("Extension")
-                                                              : i18n::mark("Name")},
-                                    {SortKey::files, "files", i18n::mark("Files")}};
+    std::vector<SortColumn> columns{
+        {SortKey::name, "name",
+         view_ == View::languages                               ? i18n::mark("Language")
+         : (view_ == View::types || view_ == View::other_types) ? i18n::mark("Extension")
+                                                                : i18n::mark("Name")},
+        {SortKey::files, "files", i18n::mark("Files")}};
     if (source_view()) {
         columns.push_back({SortKey::lines, "lines", i18n::mark("Lines")});
         columns.push_back({SortKey::code, "code", i18n::mark("Code")});
@@ -273,7 +260,8 @@ std::vector<InsightsView::SortColumn> InsightsView::sort_columns() const {
         columns.push_back({SortKey::blanks, "blanks", i18n::mark("Blanks")});
     } else {
         columns.push_back({SortKey::bytes, "bytes", i18n::mark("File size")});
-        if (view_ == View::types || view_ == View::age || view_ == View::largest)
+        if (view_ == View::types || view_ == View::other_types || view_ == View::age ||
+            view_ == View::largest)
             columns.push_back({SortKey::share, "share", i18n::mark("Share")});
     }
     return columns;
@@ -455,7 +443,7 @@ void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_h
         history_.clear();
         extension_.clear();
         offset_ = 0;
-        if (view_ == View::matches)
+        if (view_ == View::matches || view_ == View::other_types)
             view_ = View::types;
         if (view_ == View::age_matches)
             view_ = View::age;
@@ -705,6 +693,30 @@ void InsightsView::rebuild() {
             return left != right ? left > right : a.label < b.label;
         });
     }
+    // Keep the leading types readable; Other can be expanded into the complete tail.
+    // Compute membership from the active measure before user sorting/filtering.
+    if (((view_ == View::types && filter_.empty()) || view_ == View::other_types) &&
+        rows_.size() > 12) {
+        long double total = 0;
+        for (const auto& row : rows_)
+            total += bytes_ ? row.bytes : row.files;
+        std::size_t keep = 0;
+        while (keep < 12 && keep < rows_.size() &&
+               (keep == 0 || static_cast<long double>(bytes_ ? rows_[keep].bytes
+                                                             : rows_[keep].files) >= total * 0.01L))
+            ++keep;
+        if (view_ == View::other_types)
+            rows_.erase(rows_.begin(), rows_.begin() + static_cast<std::ptrdiff_t>(keep));
+        else {
+            Row other{.label = std::string{i18n::tr("Other")}, .other = true};
+            for (std::size_t i = keep; i < rows_.size(); ++i) {
+                other.files += rows_[i].files;
+                other.bytes += rows_[i].bytes;
+            }
+            rows_.resize(keep);
+            rows_.push_back(std::move(other));
+        }
+    }
     finish_rows();
     redraw_();
 }
@@ -724,6 +736,12 @@ void InsightsView::activate_row(std::size_t index) {
     if (index >= rows_.size())
         return;
     const auto row = rows_[index];
+    if (row.other) {
+        remember();
+        view_ = View::other_types;
+        rebuild();
+        return;
+    }
     if (file_row(index) && folder_factory_) {
         select_row(index);
         pending_open_ = true;
@@ -738,12 +756,13 @@ void InsightsView::activate_row(std::size_t index) {
             handler(path, false);
         return;
     }
-    if (view_ == View::types || view_ == View::age || view_ == View::languages) {
+    if (view_ == View::types || view_ == View::other_types || view_ == View::age ||
+        view_ == View::languages) {
         remember();
         extension_ = row.extension;
-        view_ = view_ == View::types ? View::matches
-                : view_ == View::age ? View::age_matches
-                                     : View::code_matches;
+        view_ = (view_ == View::types || view_ == View::other_types) ? View::matches
+                : view_ == View::age                                 ? View::age_matches
+                                                                     : View::code_matches;
         rebuild();
     } else if (row.directory) {
         navigate(data_->root / data_->relative_path(row.node));
@@ -816,10 +835,10 @@ void InsightsView::navigate(const std::filesystem::path& path) {
         return;
     remember();
     restore({path,
-             view_ == View::matches        ? View::types
-             : view_ == View::age_matches  ? View::age
-             : view_ == View::code_matches ? View::languages
-                                           : view_,
+             (view_ == View::matches || view_ == View::other_types) ? View::types
+             : view_ == View::age_matches                           ? View::age
+             : view_ == View::code_matches                          ? View::languages
+                                                                    : view_,
              {},
              0});
 }
@@ -942,7 +961,8 @@ void InsightsView::key(const ui::KeyEvent& event) {
         return;
     }
     if (event.keysym == XKB_KEY_Escape) {
-        if (view_ == View::matches || view_ == View::age_matches || view_ == View::code_matches)
+        if (view_ == View::matches || view_ == View::other_types || view_ == View::age_matches ||
+            view_ == View::code_matches)
             back();
         return;
     }
@@ -1259,57 +1279,114 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     renderer.push_clip(frame.body);
     float x = left, y = frame.body.y + 12;
     const auto path = scope_path();
-    const auto button = [&](std::string id, std::string_view label, std::function<void()> action,
-                            bool selected = false, std::string_view glyph = {}) {
-        const float w =
-            std::min(width, std::max(72.0F, text_width(label) + (glyph.empty() ? 24 : 44)));
+    const auto fit = [&](float w) {
         if (x > left && x + w > left + width) {
             x = left;
             y += 38;
         }
+    };
+
+    struct Segment {
+        std::string id;
+        std::string_view label;
+        std::function<void()> action;
+        bool active;
+    };
+
+    const auto segmented = [&](const std::vector<Segment>& segments) {
+        float total_width = 4;
+        for (const auto& segment : segments)
+            total_width += text_width(segment.label) + 20;
+        fit(std::min(width, total_width));
+        // Wrap only when the pane cannot fit the group; never truncate the selected mode.
+        float group_x = x, group_y = y;
+        const auto outline = [&](float end) {
+            renderer.draw_box({group_x, group_y, end - group_x, 32},
+                              {.fill = palette.primary.with_alpha(0.035F),
+                               .radius = ui::Corners::all(6),
+                               .border_width = 1,
+                               .border = palette.outline_variant});
+        };
+        outline(std::min(left + width, x + total_width));
+        x += 2;
+        for (const auto& segment : segments) {
+            const float w = std::min(width - 4, text_width(segment.label) + 20);
+            if (x + w + 2 > left + width && x > left + 2) {
+                x = left;
+                y += 38;
+                group_x = x;
+                group_y = y;
+                outline(std::min(left + width, x + total_width));
+                x += 2;
+            }
+            const ui::Rect rect{x, y + 2, w, 28};
+            const bool hot = hover_ == segment.id;
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(segment.active ? 0.20F
+                                                                        : hot          ? 0.08F
+                                                                                       : 0),
+                                     .radius = ui::Corners::all(4),
+                                     .border_width = focus_ == segment.id ? 1.0F : 0,
+                                     .border = palette.primary});
+            renderer.draw_text(segment.label, x + 10, y + 8, 13,
+                               segment.active ? palette.on_surface : muted, w - 20);
+            if (rect.bottom() <= frame.body.bottom())
+                controls_.push_back({segment.id, rect, segment.action});
+            x += w;
+        }
+        x += 12;
+    };
+    segmented({{"types", i18n::tr("Types"), [this] { set_view(View::types); },
+                view_ == View::types || view_ == View::other_types || view_ == View::matches},
+               {"space", i18n::tr("Map"), [this] { set_view(View::space); }, view_ == View::space},
+               {"iris", i18n::tr("Iris"), [this] { set_view(View::iris); }, view_ == View::iris},
+               {"largest", i18n::tr("Largest"), [this] { set_view(View::largest); },
+                view_ == View::largest},
+               {"age", i18n::tr("Age"), [this] { set_view(View::age); },
+                view_ == View::age || view_ == View::age_matches},
+               {"languages", i18n::tr("Languages"), [this] { set_view(View::languages); },
+                source_view()}});
+    if (!source_view() && view_ != View::largest) {
+        const float label_width = text_width(i18n::tr("Size by:")) + 8;
+        fit(label_width + text_width(i18n::tr("Size")) + text_width(i18n::tr("Count")) + 44);
+        renderer.draw_text(i18n::tr("Size by:"), x, y + 8, 13, muted, label_width);
+        x += label_width;
+        segmented({{"bytes", i18n::tr("Size"), [this] { set_size_measure(true); }, bytes_},
+                   {"count", i18n::tr("Count"), [this] { set_size_measure(false); }, !bytes_}});
+    }
+    const auto toggle = [&](std::string id, std::string_view label, bool checked,
+                            std::function<void()> action) {
+        const float w = std::min(width, text_width(label) + 44);
+        fit(w);
         const ui::Rect rect{x, y, w, 32};
+        if (hover_ == id || focus_ == id)
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(0.06F),
+                                     .radius = ui::Corners::all(5),
+                                     .border_width = focus_ == id ? 1.0F : 0,
+                                     .border = palette.primary});
+        renderer.draw_box(
+            {x + 4, y + 8, 26, 16},
+            {.fill = checked ? palette.primary : palette.outline, .radius = ui::Corners::all(8)});
+        renderer.draw_box({x + (checked ? 16 : 6), y + 10, 12, 12},
+                          {.fill = checked ? palette.on_primary : palette.surface,
+                           .radius = ui::Corners::all(6)});
+        renderer.draw_text(label, x + 36, y + 8, 13, palette.on_surface, w - 36);
         if (rect.bottom() <= frame.body.bottom())
-            control(std::move(id), label, rect, std::move(action), glyph, selected);
+            controls_.push_back({id, rect, std::move(action)});
         x += w + 6;
     };
-    button("up", i18n::tr("Up"), [this] { up(); }, false, "chevron-up");
-    button(
-        "types", i18n::tr("File types"), [this] { set_view(View::types); },
-        view_ == View::types || view_ == View::matches, "list-details");
-    button(
-        "space", i18n::tr("Space map"), [this] { set_view(View::space); }, view_ == View::space,
-        "layout-grid");
-    button(
-        "iris", i18n::tr("Iris"), [this] { set_view(View::iris); }, view_ == View::iris,
-        "aperture");
-    button(
-        "largest", i18n::tr("Largest files"), [this] { set_view(View::largest); },
-        view_ == View::largest);
-    button(
-        "age", i18n::tr("Modified age"), [this] { set_view(View::age); },
-        view_ == View::age || view_ == View::age_matches);
-    button(
-        "languages", i18n::tr("Languages"), [this] { set_view(View::languages); }, source_view());
-    x = left;
-    y += 38;
-    if (!source_view() && view_ != View::largest) {
-        button("count", i18n::tr("File count"), [this] { set_size_measure(false); }, !bytes_);
-        button("bytes", i18n::tr("File size"), [this] { set_size_measure(true); }, bytes_);
-    }
-    button("recursive",
-           options_.recursive ? i18n::tr("Include subfolders: on")
-                              : i18n::tr("Include subfolders: off"),
+    toggle("recursive", i18n::tr("Subfolders"), options_.recursive,
            [this] { set_recursive(!options_.recursive); });
-    button("hidden", options_.hidden ? i18n::tr("Hidden files: on") : i18n::tr("Hidden files: off"),
+    toggle("hidden", i18n::tr("Hidden files"), options_.hidden,
            [this] { set_hidden(!options_.hidden); });
     y += 42;
+    const ui::Rect up_button{left, y, 54, 30};
+    control("up", i18n::tr("Up"), up_button, [this] { up(); }, {}, false, can_up());
     const ui::Rect location{
-        left, y,
-        std::min(width, std::max(320.0F, std::min(560.0F, text_width(path.string()) + 80))), 32};
-    control("location", path.string(), location, [this] { toggle_tree(); }, "folder", tree_open_);
-    icons.draw(renderer, "chevron-down", location.right() - 24, location.y + 8, 16,
+        left + 62, y, std::max(1.0F, std::min(width - 62, text_width(path.string()) + 54)), 30};
+    control("location", path.string(), location, [this] { toggle_tree(); }, {}, tree_open_);
+    icons.draw(renderer, "chevron-down", location.right() - 24, location.y + 8, 14,
                palette.on_surface);
-    y += 42;
+    y += 38;
     const auto files = data_ ? data_->nodes[scope_].files : progress_.files;
     const auto bytes = data_ ? data_->nodes[scope_].bytes : progress_.bytes;
     const bool partial = loading_ || (data_ && data_->nodes[scope_].partial);
@@ -1317,6 +1394,8 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         std::format("{} · {}", i18n::trn("{} file", "{} files", files), format_size(bytes));
     if (partial)
         summary = i18n::trf("At least {}", summary);
+    if (view_ == View::other_types)
+        summary = std::format("{} · {}", i18n::tr("Other"), summary);
     if (view_ == View::matches || view_ == View::age_matches)
         summary = std::format("{} · {}",
                               view_ == View::age_matches
@@ -1339,23 +1418,27 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     ui::Rect available{left, y, width, std::max(0.0F, frame.body.bottom() - y - 12)};
     list_ = available;
     const auto row_icon = [&](const Row& row, const ui::Rect& icon, ui::Color color) {
+        if (row.other) {
+            icons.draw(renderer, "chevron-right", icon.x, icon.y, icon.width, color);
+            return;
+        }
         if (view_ == View::age) {
             icons.draw(renderer, "calendar", icon.x, icon.y, icon.width, color);
             return;
         }
-        const auto type =
-            row.directory
-                ? fs::MimeDatabase::kDirectory
-                : mime.by_name(view_ == View::types ? "file" + row.extension : row.label).mime;
+        const auto type = row.directory
+                              ? fs::MimeDatabase::kDirectory
+                              : mime.by_name((view_ == View::types || view_ == View::other_types)
+                                                 ? "file" + row.extension
+                                                 : row.label)
+                                    .mime;
         icons.draw_file(renderer, mime.name(type), fs::icon_name(mime, type), icon.x, icon.y,
                         icon.width, color);
     };
-    if (view_ == View::space && !rows_.empty() && available.height >= 150) {
+    if (view_ == View::space && available.height >= 200) {
         const bool wide = width >= 760;
         const ui::Rect map{available.x, available.y, wide ? width * 0.55F : width,
-                           wide ? available.height : available.height * 0.44F};
-        renderer.draw_box(map,
-                          {.fill = palette.surface_container_low, .radius = ui::Corners::all(12)});
+                           wide ? available.height : available.height * 0.48F};
         if (wide) {
             list_.x = map.right() + 16;
             list_.width = available.right() - list_.x;
@@ -1363,94 +1446,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             list_.y = map.bottom() + 12;
             list_.height = available.bottom() - list_.y;
         }
-        constexpr std::size_t max_tiles = 48;
-        std::vector<double> weights;
-        const std::size_t shown = std::min(max_tiles, rows_.size());
-        for (std::size_t i = 0; i < shown; ++i)
-            weights.push_back(static_cast<double>(bytes_ ? rows_[i].bytes : rows_[i].files));
-        if (shown < rows_.size()) {
-            double rest = 0;
-            for (std::size_t i = shown; i < rows_.size(); ++i)
-                rest += static_cast<double>(bytes_ ? rows_[i].bytes : rows_[i].files);
-            weights.push_back(rest);
-        }
-        const auto tiles = insight_treemap(weights, map.inset(4));
-        for (std::size_t i = 0; i < tiles.size(); ++i) {
-            const auto cell = tiles[i];
-            if (cell.empty())
-                continue;
-            const auto rect = cell.inset(std::min(3.0F, std::min(cell.width, cell.height) / 8));
-            const auto id = std::format("tile:{}", i);
-            const bool folder = i >= shown || rows_[i].directory;
-            const auto accent = i < shown ? row_color(rows_[i], palette) : palette.secondary;
-            const bool hot = hover_ == id || focus_ == id || (i < rows_.size() && selected(i));
-            const auto fill = mix(palette.surface_container_low, accent, hot ? 0.34F : 0.25F);
-            const auto ink =
-                theme::readable_foreground(accent, folder ? fill : palette.surface_container_low);
-            renderer.push_clip(rect);
-            if (folder) {
-                renderer.draw_box(rect, {.fill = fill,
-                                         .radius = ui::Corners::all(8),
-                                         .border_width = hot ? 2.0F : 1.0F,
-                                         .border = accent.with_alpha(hot ? 0.8F : 0.22F)});
-                if (rect.width > 140 && rect.height > 140)
-                    icons.draw(renderer, "folder", rect.right() - 108, rect.bottom() - 102, 92,
-                               accent.with_alpha(0.1F));
-            } else if (hot) {
-                renderer.draw_box(rect, {.fill = mix(palette.surface_container_low, accent, 0.08F),
-                                         .radius = ui::Corners::all(8),
-                                         .border_width = 1,
-                                         .border = accent.with_alpha(0.5F)});
-            }
-            const auto label =
-                i < shown ? rows_[i].label : i18n::trf("{} more", rows_.size() - shown);
-            auto amount =
-                bytes_ ? format_size(static_cast<std::uint64_t>(weights[i]))
-                       : i18n::trn("{} file", "{} files", static_cast<std::uint64_t>(weights[i]));
-            if (i < shown ? rows_[i].partial : partial)
-                amount = i18n::trf("≥ {}", amount);
-            if (folder && rect.width >= 80 && rect.height >= 32) {
-                icons.draw(renderer, "folder", rect.x + 10, rect.y + 8, 20, ink);
-                renderer.draw_text(label, rect.x + 38, rect.y + 10, 13, palette.on_surface,
-                                   rect.width - 54);
-                if (rect.height >= 60)
-                    renderer.draw_text(amount, rect.x + 12, rect.y + 40, 12,
-                                       theme::readable_foreground(muted, fill), rect.width - 24);
-            } else if (!folder && rect.width >= 22 && rect.height >= 22) {
-                const bool labelled = rect.width >= 84 && rect.height >= 96;
-                const float size =
-                    std::min({96.0F, rect.width - 8, rect.height - (labelled ? 54 : 8)});
-                const float icon_y = rect.y + (rect.height - size - (labelled ? 42 : 0)) / 2;
-                row_icon(rows_[i], {rect.x + (rect.width - size) / 2, icon_y, size, size}, ink);
-                if (labelled) {
-                    const float label_y = icon_y + size + 8;
-                    const float label_width = std::min(rect.width - 16, text_width(label));
-                    const float amount_width =
-                        std::min(rect.width - 16,
-                                 renderer.fonts().layout(amount, 12, renderer.scale()).width /
-                                     renderer.scale());
-                    renderer.draw_text(label, rect.x + (rect.width - label_width) / 2, label_y, 13,
-                                       palette.on_surface, label_width, ui::Ellipsis::middle);
-                    renderer.draw_text(amount, rect.x + (rect.width - amount_width) / 2,
-                                       label_y + 20, 12, muted, amount_width);
-                }
-            }
-            renderer.pop_clip();
-            controls_.push_back({id, cell, [this, i, shown] {
-                                     if (i < shown)
-                                         activate_row(i);
-                                     else {
-                                         offset_ = shown;
-                                         requested_scroll_ = static_cast<float>(shown) * 44;
-                                         controls_.clear();
-                                         redraw_();
-                                     }
-                                 }});
-        }
-        if (std::ranges::all_of(weights, [](double value) { return value == 0; }))
-            renderer.draw_text(partial && files == 0 ? i18n::tr("No files measured yet")
-                                                     : i18n::tr("No area for zero values"),
-                               map.x + 12, map.y + 12, 13, muted, map.width - 24);
+        draw_map(renderer, map, palette, icons, mime);
     }
     if (view_ == View::iris && available.height >= 300) {
         const bool wide = width >= 760;
@@ -1472,6 +1468,18 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         iris_snapshot_.reset();
         iris_dirty_ = true;
     }
+    if (view_ == View::types || view_ == View::other_types || view_ == View::largest) {
+        draw_legend(renderer, {list_.x + 6, list_.y, list_.width - 12, 40}, palette, mime);
+        list_.y += 44;
+        list_.height = std::max(0.0F, list_.height - 44);
+    }
+    const auto number = [&](std::string_view text, ui::Rect cell, float size = 12.0F) {
+        if (cell.width <= 0)
+            return;
+        const auto& layout = renderer.fonts().layout(text, size, renderer.scale(), cell.width,
+                                                     ui::Ellipsis::end, ui::Typeface::monospace);
+        renderer.draw_layout(layout, cell.right() - layout.width / renderer.scale(), cell.y, muted);
+    };
     const auto sortable = sort_columns();
     const auto column_header = [&](const SortColumn& column, float x0, float cell_width) {
         const std::string id = "sort:" + std::string{column.id};
@@ -1483,8 +1491,14 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                      .border = palette.primary});
         const auto label = column.key == SortKey::share && partial ? i18n::tr("Share so far")
                                                                    : i18n::tr(column.label);
-        renderer.draw_text(label, rect.x + 6, list_.y, 12, sorted ? palette.on_surface : muted,
-                           std::max(0.0F, rect.width - (sorted ? 28 : 12)));
+        const float label_width =
+            std::min(std::max(0.0F, rect.width - (sorted ? 28 : 12)),
+                     renderer.fonts().layout(label, 12, renderer.scale()).width / renderer.scale());
+        renderer.draw_text(label,
+                           column.key == SortKey::name
+                               ? rect.x + 6
+                               : rect.right() - (sorted ? 22 : 6) - label_width,
+                           list_.y, 12, sorted ? palette.on_surface : muted, label_width);
         if (sorted && rect.width >= 28)
             icons.draw(renderer, sort_descending() ? "chevron-down" : "chevron-up",
                        rect.right() - 18, list_.y, 14, palette.on_surface);
@@ -1514,7 +1528,7 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                  ui::Color::rgb(0xE0AF68)};
         const std::array labels{i18n::tr("Code"), i18n::tr("Comments"), i18n::tr("Blanks")};
         const auto stack = [&](ui::Rect rect, const platform::CodeCounts& counts,
-                               std::uint64_t total) {
+                               std::uint64_t total, float opacity = 1.0F) {
             const std::array values{counts.code, counts.comments, counts.blanks};
             float at = rect.x;
             for (std::size_t k = 0; k < values.size(); ++k) {
@@ -1523,7 +1537,8 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                                             static_cast<double>(total))
                           : 0;
                 if (w > 0)
-                    renderer.draw_box({at, rect.y, w, rect.height}, {.fill = accents[k]});
+                    renderer.draw_box({at, rect.y, w, rect.height},
+                                      {.fill = accents[k].with_alpha(opacity)});
                 at += w;
             }
         };
@@ -1552,7 +1567,8 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             const ui::Rect rect{list_.x, list_.y + static_cast<float>(i) * 44 - scroller_.offset(),
                                 list_.width - 20, 40};
             const auto id = std::format("row:{}", i);
-            const auto accent = row_color(row, palette);
+            const auto accent = row_color(row, palette, mime);
+            stack(rect, row.code, code_ ? code_->total.lines() : 0, 0.12F);
             renderer.draw_box(rect, {.fill = palette.primary.with_alpha(selected(i)    ? 0.18F
                                                                         : hover_ == id ? 0.08F
                                                                                        : 0.0F),
@@ -1573,15 +1589,16 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                          rect.width * 0.38F - 12 - indent, 30},
                                         i, 12))
                     continue;
-                renderer.draw_text(
-                    cells[k], rect.x + rect.width * columns[k] + 6 + (k == 0 ? indent : 0),
-                    rect.y + 10, 12, k == 0 ? palette.on_surface : muted,
-                    rect.width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]) - 10 -
-                        (k == 0 ? indent : 0),
-                    ui::Ellipsis::middle);
+                const float start = rect.x + rect.width * columns[k] + 6 + (k == 0 ? indent : 0);
+                const float cell_width =
+                    rect.width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]) - 12 -
+                    (k == 0 ? indent : 0);
+                if (k == 0)
+                    renderer.draw_text(cells[k], start, rect.y + 8, 12, palette.on_surface,
+                                       cell_width, ui::Ellipsis::middle);
+                else
+                    number(cells[k], {start, rect.y + 8, cell_width, 16});
             }
-            stack({rect.x + 6 + indent, rect.bottom() - 5, rect.width * 0.35F - indent, 2},
-                  row.code, code_ ? code_->total.lines() : 0);
             controls_.push_back({id, rect.intersect(list_), [this, i] { activate_row(i); }});
         }
         if (rows_.empty())
@@ -1591,9 +1608,9 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                    : status(),
                                list_.x + 6, list_.y + 36, 13, muted, list_.width - 12);
     } else {
-        const bool shares =
-            (view_ == View::types || view_ == View::age || view_ == View::largest) &&
-            list_.width >= 520;
+        const bool shares = (view_ == View::types || view_ == View::other_types ||
+                             view_ == View::age || view_ == View::largest) &&
+                            list_.width >= 520;
         const float count_x = shares ? 0.48F : 0.55F, size_x = shares ? 0.64F : 0.76F;
         const float table_width = std::max(0.0F, list_.width - 20);
         column_header(sortable[0], list_.x, table_width * count_x);
@@ -1609,16 +1626,25 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             const ui::Rect rect{list_.x, list_.y + static_cast<float>(i) * 44 - scroller_.offset(),
                                 list_.width - 20, 40};
             const auto id = std::format("row:{}", i);
-            const auto accent = row_color(row, palette);
-            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(
-                                         selected(i) ? 0.18F
-                                         : (hover_ == id || (view_ == View::iris &&
-                                                             hover_ == std::format("tile:{}", i)))
-                                             ? 0.08F
-                                             : 0.0F),
-                                     .radius = {},
-                                     .border_width = focus_ == id ? 1.0F : 0,
-                                     .border = palette.primary});
+            const auto accent = row_color(row, palette, mime);
+            const auto total = bytes_ || view_ == View::largest ? bytes : files;
+            const auto value = bytes_ || view_ == View::largest ? row.bytes : row.files;
+            const float share =
+                total ? static_cast<float>(static_cast<double>(value) / static_cast<double>(total))
+                      : 0;
+            renderer.fill_rect(
+                {rect.x, rect.y, rect.width * std::clamp(share, 0.0F, 1.0F), rect.height},
+                accent.with_alpha(0.12F));
+            renderer.draw_box(
+                rect, {.fill = palette.primary.with_alpha(
+                           selected(i) ? 0.18F
+                           : (hover_ == id ||
+                              ((view_ == View::iris || view_ == View::space) && chart_hover(i)))
+                               ? 0.08F
+                               : 0.0F),
+                       .radius = {},
+                       .border_width = focus_ == id ? 1.0F : 0,
+                       .border = palette.primary});
             const auto label =
                 file_row(i) ? row_path(i).lexically_relative(scope_path()).string() : row.label;
             row_icon(row, {rect.x + 10, rect.y + 10, 20, 20},
@@ -1628,33 +1654,23 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 renderer.draw_text(label, rect.x + 40, rect.y + 10, 13, palette.on_surface,
                                    std::max(0.0F, rect.width * (count_x - 0.03F) - 40),
                                    ui::Ellipsis::middle);
-            const auto total = bytes_ || view_ == View::largest ? bytes : files;
-            const auto value = bytes_ || view_ == View::largest ? row.bytes : row.files;
-            const float share =
-                total ? static_cast<float>(static_cast<double>(value) / static_cast<double>(total))
-                      : 0;
-            if (view_ == View::types || view_ == View::space || view_ == View::iris ||
-                view_ == View::age || view_ == View::largest)
-                renderer.draw_box({rect.x + 40, rect.bottom() - 5,
-                                   (rect.width * (count_x - 0.03F) - 40) * share, 2},
-                                  {.fill = accent, .radius = ui::Corners::all(1)});
             if (shares)
-                renderer.draw_text(std::format("{:.1f}%", share * 100), rect.x + rect.width * 0.84F,
-                                   rect.y + 10, 12, muted, rect.width * 0.16F);
+                number(std::format("{:.1f}%", share * 100),
+                       {rect.x + rect.width * 0.84F, rect.y + 10, rect.width * 0.16F - 6, 18});
             const bool unscanned = row.directory && !options_.recursive;
             const bool unknown = row.partial && row.files == 0;
-            renderer.draw_text(unscanned     ? "—"
-                               : unknown     ? std::string{i18n::tr("Unknown")}
-                               : row.partial ? i18n::trf("≥ {}", row.files)
-                                             : std::to_string(row.files),
-                               rect.x + rect.width * count_x, rect.y + 10, 12, muted,
-                               rect.width * (size_x - count_x - 0.02F));
+            number(unscanned     ? "—"
+                   : unknown     ? std::string{i18n::tr("Unknown")}
+                   : row.partial ? i18n::trf("≥ {}", row.files)
+                                 : std::to_string(row.files),
+                   {rect.x + rect.width * count_x, rect.y + 10, rect.width * (size_x - count_x) - 6,
+                    18});
             const auto size = unscanned     ? std::string{"—"}
                               : unknown     ? std::string{i18n::tr("Unknown")}
                               : row.partial ? i18n::trf("≥ {}", format_size(row.bytes))
                                             : format_size(row.bytes);
-            renderer.draw_text(size, rect.x + rect.width * size_x, rect.y + 10, 12, muted,
-                               rect.width * (shares ? 0.18F : 0.24F));
+            number(size, {rect.x + rect.width * size_x, rect.y + 10,
+                          rect.width * ((shares ? 0.84F : 1.0F) - size_x) - 6, 18});
             controls_.push_back({id, rect.intersect(list_), [this, i] { activate_row(i); }});
         }
         if (rows_.empty())
@@ -1695,10 +1711,8 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         },
         source_view() || !loading_ || !stop_.cancelled());
     if (!rows_.empty())
-        renderer.draw_text(i18n::trf("{}–{} of {} · Select a row to explore", offset_ + 1,
-                                     std::min(offset_ + page_size_, rows_.size()), rows_.size()),
-                           x + 8, frame.footer.y + 52, 11, muted,
-                           std::max(0.0F, left + width - x - 8));
+        renderer.draw_text(i18n::trf("{} items · Select a row to explore", rows_.size()), x + 8,
+                           frame.footer.y + 52, 11, muted, std::max(0.0F, left + width - x - 8));
     renderer.pop_clip();
     if (tree_open_)
         draw_tree(renderer, palette, icons, now);

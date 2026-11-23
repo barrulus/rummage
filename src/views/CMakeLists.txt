@@ -47,6 +47,7 @@ add_library(rummage_views
     src/info_pane.cpp
     src/insights_view.cpp
     src/insights_iris.cpp
+    src/insights_charts.cpp
     src/location_dialog.cpp
     src/markdown_view.cpp
     src/name_editor.cpp

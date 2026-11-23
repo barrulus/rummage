@@ -1,6 +1,7 @@
 #include "rummage/fs/insights.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -1196,7 +1197,7 @@ TEST_CASE("insights: Iris proportions and hit testing preserve holes and angular
     CHECK(rummage::views::insight_ring({1}, 0, 0, 10, 5)[0].sweep == 0);
 }
 
-TEST_CASE("insights: Iris native files, parent context, sorting and reduced motion") {
+TEST_CASE("insights: Iris native files, descendant rings, sorting and reduced motion") {
     using rummage::ui::PointerButton;
     using rummage::ui::PointerEvent;
     using rummage::views::Browser;
@@ -1251,6 +1252,9 @@ TEST_CASE("insights: Iris native files, parent context, sorting and reduced moti
     };
     view.set_iris_motion(0);
     draw("iris-root");
+    CHECK(view.control_bounds("types").y == view.control_bounds("hidden").y + 2);
+    CHECK(view.control_bounds("space").x == doctest::Approx(view.control_bounds("types").right()));
+    CHECK(view.control_bounds("count").x == doctest::Approx(view.control_bounds("bytes").right()));
     CHECK_FALSE(view.animating());
     const auto snapshot = view.snapshot();
     const auto empty = row(view, "empty.txt");
@@ -1264,7 +1268,12 @@ TEST_CASE("insights: Iris native files, parent context, sorting and reduced moti
     CHECK(view.snapshot() == snapshot);
     CHECK(view.current_path() == dir.path / "Research");
     draw("iris-children");
-    CHECK_FALSE(view.control_bounds("iris-parent:0").empty());
+    CHECK(view.control_bounds("iris-parent:0").empty());
+    const auto source =
+        std::ranges::find(snapshot->nodes, "source.cpp", &rummage::fs::InsightNode::name);
+    REQUIRE(source != snapshot->nodes.end());
+    const auto source_id = static_cast<std::size_t>(source - snapshot->nodes.begin());
+    CHECK_FALSE(view.control_bounds(std::format("iris-node:{}", source_id)).empty());
     const auto file = row(view, "paper.pdf");
     click(std::format("tile:{}", file));
     REQUIRE(until(loop, [&] { return !view.loading(); }));
@@ -1281,13 +1290,12 @@ TEST_CASE("insights: Iris native files, parent context, sorting and reduced moti
     click(std::format("tile:{}", row(view, "paper.pdf")), 2);
     CHECK(opened == dir.path / "Research/paper.pdf");
     CHECK(view.is_open());
-    // A parent-ring sibling navigates directly, with the same snapshot and native tab.
-    const auto projects =
-        std::ranges::find(snapshot->nodes, "Projects", &rummage::fs::InsightNode::name);
-    REQUIRE(projects != snapshot->nodes.end());
-    const auto project_id = static_cast<std::size_t>(projects - snapshot->nodes.begin());
-    click(std::format("iris-context:{}", project_id));
-    CHECK(view.current_path() == dir.path / "Projects");
+    // A deeper leaf selects the real file in its parent folder, keeping the insights tab.
+    click(std::format("iris-node:{}", source_id));
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    CHECK(view.current_path() == dir.path / "Research/deep");
+    REQUIRE(view.folder()->single_selection());
+    CHECK(view.folder()->single_selection()->name == "source.cpp");
     view.back();
     CHECK(view.current_path() == dir.path / "Research");
     view.set_iris_motion(0.28F);
@@ -1307,10 +1315,154 @@ TEST_CASE("insights: Iris native files, parent context, sorting and reduced moti
     view.set_iris_motion(0);  // Reduced motion also settles an in-flight transition.
     draw("iris-deep");
     CHECK_FALSE(view.animating());
-    CHECK_FALSE(view.control_bounds("iris-parent:1").empty());
+    CHECK(view.control_bounds("iris-parent:1").empty());
     click("iris-up");
     CHECK(view.current_path() == dir.path / "Research");
     draw("iris-compact", 640);
     draw("iris-light", 1400, rummage::theme::desktop_palette({.dark = false, .accent = {}}));
+    view.navigate(dir.path);
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    view.set_view(InsightsView::View::space);
+    view.set_size_measure(true);
+    draw("map-design");
+    CHECK_FALSE(view.control_bounds("map-more").empty());
+    CHECK(view.control_bounds("previous").empty());
+    CHECK(view.control_bounds("next").empty());
+    const auto research = row(view, "Research");
+    const auto tile = view.control_bounds(std::format("tile:{}", research));
+    const auto table_row = view.control_bounds(std::format("row:{}", research));
+    REQUIRE_FALSE(tile.empty());
+    REQUIRE_FALSE(table_row.empty());
+    const auto pixel = [&](rummage::ui::Rect rect) {
+        std::array<unsigned char, 4> value{};
+        glReadPixels(static_cast<int>(rect.x + rect.width - 5),
+                     1000 - 1 - static_cast<int>(rect.y + 5), 1, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                     value.data());
+        return value;
+    };
+    const auto row_before = pixel(table_row);
+    view.pointer({.kind = PointerEvent::Kind::motion,
+                  .x = tile.x + tile.width / 2,
+                  .y = tile.y + tile.height / 2});
+    draw("map-tile-hover");
+    CHECK(pixel(table_row) != row_before);
+    view.pointer({.kind = PointerEvent::Kind::motion, .x = 0, .y = 0});
+    draw();
+    const auto tile_before = pixel(tile);
+    view.pointer(
+        {.kind = PointerEvent::Kind::motion, .x = table_row.x + 30, .y = table_row.y + 20});
+    draw("map-row-hover");
+    CHECK(pixel(tile) != tile_before);
+    click("map-more");
+    draw("map-grouped-tail");
+    CHECK_FALSE(view.control_bounds(std::format("row:{}", row(view, "small-00.txt"))).empty());
+    draw("map-compact", 640);
+    draw("map-light", 1400, rummage::theme::desktop_palette({.dark = false, .accent = {}}));
     CHECK(glGetError() == GL_NO_ERROR);
+}
+
+TEST_CASE("insights: sunburst descendants stay inside their parent's angular span") {
+    const TempDir dir;
+    fs::create_directories(dir.path / "a/deep/deeper");
+    fs::create_directories(dir.path / "b");
+    dir.write("a/one.pdf", std::string(600, 'x'));
+    dir.write("a/deep/two.cpp", std::string(200, 'x'));
+    dir.write("a/deep/deeper/three.md", std::string(200, 'x'));
+    dir.write("b/four.png", std::string(1000, 'x'));
+    dir.write("empty", "");
+    const auto snapshot = scan_insights(dir.path, {}, CancelToken{});
+    std::vector<std::size_t> roots;
+    for (auto node = std::size_t{1}; node < snapshot.nodes[0].end; node = snapshot.nodes[node].end)
+        roots.push_back(node);
+    for (bool bytes : {true, false}) {
+        const auto slices = rummage::views::insight_sunburst(snapshot, roots, bytes);
+        CHECK(slices.size() <= 256);
+        bool saw_depth_two = false;
+        float total = 0;
+        for (const auto& slice : slices) {
+            CHECK(slice.depth < 3);
+            CHECK(slice.sweep > 0);
+            CHECK(snapshot.nodes[slice.node].name != "empty");
+            if (slice.depth == 0)
+                total += slice.sweep;
+            else {
+                const auto parent =
+                    std::ranges::find(slices, slice.parent, &rummage::views::InsightSlice::node);
+                REQUIRE(parent != slices.end());
+                CHECK(slice.depth == parent->depth + 1);
+                CHECK(slice.start >= parent->start - 0.00001F);
+                CHECK(slice.start + slice.sweep <= parent->start + parent->sweep + 0.00001F);
+                const auto value = bytes ? slice.bytes : slice.files;
+                const auto parent_value = bytes ? parent->bytes : parent->files;
+                CHECK(slice.sweep / parent->sweep ==
+                      doctest::Approx(static_cast<double>(value) /
+                                      static_cast<double>(parent_value)));
+                saw_depth_two = saw_depth_two || slice.depth == 2;
+            }
+        }
+        CHECK(saw_depth_two);
+        CHECK(total == doctest::Approx(2 * std::numbers::pi_v<float>));
+    }
+    // A filtered root includes only that branch; it never draws ancestors or siblings.
+    const auto folder = std::ranges::find(snapshot.nodes, "a", &rummage::fs::InsightNode::name);
+    REQUIRE(folder != snapshot.nodes.end());
+    const auto id = static_cast<std::size_t>(folder - snapshot.nodes.begin());
+    const auto only = rummage::views::insight_sunburst(snapshot, {id}, true);
+    REQUIRE_FALSE(only.empty());
+    for (const auto& slice : only)
+        CHECK((slice.node >= id && slice.node < snapshot.nodes[id].end));
+}
+
+TEST_CASE("insights: Other preserves every type, count and byte and supports exact matches") {
+    const TempDir dir;
+    dir.write("main.pdf", std::string(10000, 'x'));
+    for (int i = 0; i < 40; ++i)
+        dir.write(std::format("small.rare{}", i), "x");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsView view{loop, pool, [] {}};
+    view.open(dir.path, false, {});
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    REQUIRE(view.rows().size() == 2);
+    const auto other = std::ranges::find(view.rows(), true, &InsightsView::Row::other);
+    REQUIRE(other != view.rows().end());
+    CHECK(other->files == 40);
+    CHECK(other->bytes == 40);
+    CHECK(view.rows()[row(view, ".pdf")].bytes + other->bytes == view.snapshot()->nodes[0].bytes);
+    view.activate_row(static_cast<std::size_t>(other - view.rows().begin()));
+    CHECK(view.view() == InsightsView::View::other_types);
+    REQUIRE(view.rows().size() == 40);
+    view.activate_row(row(view, ".rare37"));
+    REQUIRE(view.rows().size() == 1);
+    CHECK(view.rows().front().label == "small.rare37");
+    view.back();
+    CHECK(view.rows().size() == 40);
+    view.back();
+    CHECK(view.rows().size() == 2);
+    view.set_filter(".rare37");  // A type search must reach an entry folded into Other.
+    REQUIRE(view.rows().size() == 1);
+    CHECK(view.rows().front().label == ".rare37");
+    view.set_filter("");
+    view.set_size_measure(false);
+    std::uint64_t files = 0, bytes = 0;
+    for (const auto& entry : view.rows()) {
+        files += entry.files;
+        bytes += entry.bytes;
+    }
+    CHECK(view.rows().size() <= 13);
+    CHECK(files == 41);
+    CHECK(bytes == 10040);
+}
+
+TEST_CASE("insights: file category colours have stable semantic meaning") {
+    using rummage::views::insight_category;
+    using rummage::views::InsightCategory;
+    const auto mime = rummage::fs::MimeDatabase::load();
+    CHECK(insight_category("a.pdf", false, *mime) == InsightCategory::documents);
+    CHECK(insight_category("a.md", false, *mime) == InsightCategory::documents);
+    CHECK(insight_category("a.cpp", false, *mime) == InsightCategory::code);
+    CHECK(insight_category("a.py", false, *mime) == InsightCategory::code);
+    CHECK(insight_category("a.tar.gz", false, *mime) == InsightCategory::archives);
+    CHECK(insight_category("a.PNG", false, *mime) == InsightCategory::images);
+    CHECK(insight_category("a.py", true, *mime) == InsightCategory::folders);
 }
