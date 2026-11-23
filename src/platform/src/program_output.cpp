@@ -1,5 +1,6 @@
 #include "rummage/platform/program_output.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <csignal>
@@ -47,7 +48,8 @@ ProgramOutput::~ProgramOutput() {
 }
 
 bool ProgramOutput::start(const std::filesystem::path& program,
-                          const std::vector<std::string>& arguments) {
+                          const std::vector<std::string>& arguments,
+                          const std::filesystem::path& directory) {
     std::array<int, 2> pipe_fds{-1, -1};
     if (pipe2(pipe_fds.data(), O_CLOEXEC) != 0) {
         log::warn("no pipe for {}: {}", program.string(), std::strerror(errno));
@@ -64,6 +66,8 @@ bool ProgramOutput::start(const std::filesystem::path& program,
 
     posix_spawn_file_actions_t actions{};
     posix_spawn_file_actions_init(&actions);
+    if (!directory.empty())
+        posix_spawn_file_actions_addchdir_np(&actions, directory.c_str());
     posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
     posix_spawn_file_actions_adddup2(&actions, pipe_fds[1], STDOUT_FILENO);
     // Rummage and its services block the signals they read from a signalfd: the program starts
@@ -134,9 +138,10 @@ void ProgramOutput::read_output() {
     for (;;) {
         const ssize_t got = read(output_, buffer.data(), buffer.size());
         if (got > 0) {
-            if (received_.size() < kMaxOutput) {
-                received_.append(buffer.data(), static_cast<std::size_t>(got));
-            }
+            const auto accepted =
+                std::min(static_cast<std::size_t>(got), kMaxOutput - received_.size());
+            received_.append(buffer.data(), accepted);
+            truncated_ = truncated_ || accepted < static_cast<std::size_t>(got);
             continue;
         }
         if (got < 0 && errno == EINTR) {

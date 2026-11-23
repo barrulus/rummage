@@ -64,6 +64,7 @@
             packages = with pkgs; [
               clang-tools
               doctest
+              tokei
               gdb
               git
               ffmpeg

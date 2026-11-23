@@ -27,10 +27,13 @@ public:
     ProgramOutput& operator=(ProgramOutput&&) = delete;
 
     // Starts program with arguments; false (and done never called) when it cannot be started.
-    bool start(const std::filesystem::path& program, const std::vector<std::string>& arguments);
+    bool start(const std::filesystem::path& program, const std::vector<std::string>& arguments,
+               const std::filesystem::path& directory = {});
 
     // Asks the program to close (SIGTERM, SIGKILL 3 s later): done follows when it has.
     void stop();
+
+    [[nodiscard]] bool truncated() const { return truncated_; }
 
     [[nodiscard]] bool running() const noexcept { return pid_ > 0; }
 
@@ -48,6 +51,7 @@ private:
     core::EventLoop::SourceId exit_source_{0};
     core::EventLoop::SourceId kill_timer_{0};
     std::string received_;
+    bool truncated_{false};
 };
 
 }  // namespace rummage::platform

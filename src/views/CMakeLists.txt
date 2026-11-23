@@ -43,7 +43,7 @@ add_library(rummage_views
     src/fuzzy.cpp
     src/grid_view.cpp
     src/info_pane.cpp
-    src/insights_dialog.cpp
+    src/insights_view.cpp
     src/location_dialog.cpp
     src/markdown_view.cpp
     src/name_editor.cpp
@@ -67,5 +67,5 @@ add_library(rummage::views ALIAS rummage_views)
 
 target_include_directories(rummage_views PUBLIC include)
 target_link_libraries(rummage_views
-    PUBLIC rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
+    PUBLIC rummage::platform rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
     PRIVATE rummage::warnings PkgConfig::TOMLPLUSPLUS rummage_fzy)

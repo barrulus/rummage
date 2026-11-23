@@ -254,7 +254,23 @@ bool InfoPane::scroll_text(TextScroll how, Clock::time_point now) {
     return true;
 }
 
+void InfoPane::set_code_report(std::shared_ptr<const platform::CodeReport> report) {
+    // The pane only retains a summary, not every file in the source report.
+    auto summary = std::make_shared<platform::CodeReport>();
+    summary->root = report->root;
+    summary->total = report->total;
+    summary->files = report->files;
+    summary->inaccurate = report->inaccurate;
+    summary->error = report->error;
+    code_report_ = std::move(summary);
+    redraw_();
+}
+
 bool InfoPane::click(float x, float y) {
+    if (bounds_.contains(x, y) && code_button_.contains(x, y) && code_action_) {
+        code_action_(insights_path_);
+        return true;
+    }
     if (bounds_.contains(x, y) && insights_button_.contains(x, y) && insights_) {
         insights_(insights_path_);
         return true;
@@ -405,6 +421,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                     ui::IconSet& icons, const Folder& folder, Clock::time_point now) {
     toggle_ = {};
     insights_button_ = {};
+    code_button_ = {};
     thumbnail_ = {};
     copy_button_ = {};
     copy_text_.clear();
@@ -695,6 +712,29 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                            palette.primary, out.width() - 20);
         out.skip(40.0F);
         insights_button_ = insights_button_.intersect(content);
+        if (code_action_) {
+            if (code_report_ && code_report_->root == path &&
+                code_report_->error == platform::CodeError::none) {
+                out.section(i18n::tr("Last source analysis"));
+                out.row(i18n::mark("Source files"), std::to_string(code_report_->files));
+                out.row("Lines", std::to_string(code_report_->total.lines()));
+                out.row("Code", std::to_string(code_report_->total.code));
+                out.row("Comments", std::to_string(code_report_->total.comments));
+                out.row("Blanks", std::to_string(code_report_->total.blanks));
+                if (code_report_->inaccurate)
+                    out.row("Status", std::string{i18n::tr("Some source files could not be read")});
+                out.skip(8.0F);
+            }
+            code_button_ = {out.left(), out.y(), out.width(), 30};
+            renderer.draw_box(code_button_, {.fill = palette.secondary.with_alpha(0.12F),
+                                             .radius = ui::Corners::all(4)});
+            renderer.draw_text(
+                i18n::tr("Source statistics…"), out.left() + 10, out.y() + 6, kTextSize,
+                theme::readable_foreground(palette.secondary, palette.surface_container),
+                out.width() - 20);
+            out.skip(40.0F);
+            code_button_ = code_button_.intersect(content);
+        }
     }
 
     // The rest, on request.
