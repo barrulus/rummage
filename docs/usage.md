@@ -434,6 +434,48 @@ the query or scope to see omitted results. Unreadable folders are reported.
 Closing the search releases its in-memory path index. Optional persistent indexing
 is separate future work; current searches operate directly on the filesystem.
 
+### Managing and saving search results
+
+Press **Ctrl+Enter** from Ctrl+F to open the current query in **Search Results**.
+You can also choose **View → Search Results…** or find that command in Ctrl+K.
+The view shows each result's name and parent folder, plus the matching line and
+excerpt for content searches. The query uses the same filters described above.
+
+Click a result to select it, Ctrl-click to toggle it, and Shift-click to select a
+range. Down moves from the query into the list; there, Ctrl+A selects all displayed
+results, arrows and Page Up/Down navigate, Enter opens one result, Shift+Enter
+reveals it in its folder, and Space opens Quick Look without closing the search.
+Tab visits the query, toolbar and list. In the query field, the usual text editing
+and clipboard shortcuts apply. In the list:
+
+- **Ctrl+C / Copy** and **Ctrl+X / Cut** collect selected paths across all their parent
+  folders. Close the view, navigate to a destination, then paste with Ctrl+V.
+- **Delete / Move to Trash** trashes the selection across folders. These operations
+  use the normal conflict, darktable-sidecar and Undo behavior as one operation.
+- **F2 / Rename…** renames one selected result. Rename is unavailable for multiple
+  effective targets; other operations do not silently narrow a mixed-folder selection.
+- **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo supported file operations while the list
+  has focus. A selected directory includes its children, so descendants selected
+  with it are not processed twice.
+
+Results remain interactive while scanning and matching. Selection follows paths
+when rows reorder. **Stop** keeps results already delivered; **Refresh / F5** reruns
+the search. Completed file operations refresh the list. External changes are picked
+up by Refresh; a file removed or moved meanwhile may fail an action and is reported,
+with completed parts of a multi-file operation still eligible for Undo. The shown/
+total count makes the 200-result cap explicit. **Copy Search Details** copies the
+full scope, query and status, including any limits or errors shortened on screen.
+Escape or **Close** cancels work and releases the in-memory index.
+
+**Save Search… / Ctrl+S** stores a unique name, root folder, query and filters,
+including the hidden-file default used for that search. **Saved Searches…** is
+available from View, Ctrl+K, the results toolbar (Ctrl+Shift+S), and the sidebar
+once a search has been saved. Choosing a saved search reruns it against the current
+filesystem. Its remove command deletes only the definition, never files.
+Up to 64 definitions are kept in the normal saved state across restarts. Match
+lists, selections and previews are not persisted. Search results are not offered
+inside the file picker.
+
 ## Places, bookmarks and devices
 
 Home folders follow XDG user-directory settings. **Ctrl+D** bookmarks the current

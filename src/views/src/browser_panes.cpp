@@ -201,6 +201,18 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
     }
     items.push_back(sort_menu());
     items.push_back(name_filter_menu());
+    if (!picker_mode_) {
+        MenuItem results;
+        results.id = "search_results";
+        results.label = i18n::tr("Search Results…");
+        results.action = [this] { open_search_results(); };
+        items.push_back(std::move(results));
+        MenuItem saved;
+        saved.id = "saved_searches";
+        saved.label = i18n::tr("Saved Searches…");
+        saved.action = [this] { open_saved_searches(); };
+        items.push_back(std::move(saved));
+    }
     MenuItem verification;
     verification.id = "verify_transfers";
     verification.label = i18n::tr("Verify copied contents");

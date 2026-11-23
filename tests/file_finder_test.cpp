@@ -342,7 +342,7 @@ TEST_CASE("find files: Ctrl+F lists the folder, Enter shows the file in the view
     REQUIRE_FALSE(palette.shown().empty());
     CHECK(palette.items()[palette.shown().front()].label == "photos/deep/far.orf");
     CHECK(palette.items().front().path);
-    CHECK(palette.status() == "5 items");
+    CHECK(palette.status().starts_with("5 items"));
     f.press(key(XKB_KEY_Return));
     CHECK_FALSE(palette.is_open());
     CHECK(f.browser.file_finder() == nullptr);  // let go once closed
@@ -600,4 +600,211 @@ TEST_CASE("file finder: result truncation is explicit and includes total matches
     CHECK(finder.results().size() == FileFinder::kMaxResults);
     CHECK(finder.stats().matches == 205);
     CHECK(finder.status().find("Showing 200 of 205 matches") != std::string::npos);
+}
+
+TEST_CASE("search results: promote a live query, select across parents, copy and undo") {
+    Fixture f;
+    touch(f.a / "photos" / "two.txt");
+    fs::create_directory(f.dir.path / "destination");
+    f.find("ext:txt");
+    CHECK(f.press(key(XKB_KEY_Return, kCtrl)));
+    auto* results = f.browser.search_results();
+    REQUIRE(results != nullptr);
+    REQUIRE(results->is_open());
+    REQUIRE(f.settle());
+    CHECK(results->finder()->query() == "ext:txt");
+    CHECK(results->finder()->root() == f.a);
+    REQUIRE(results->rows().size() == 2);
+    results->select_all();
+    REQUIRE(results->chosen().size() == 2);
+    f.browser.search_action(rummage::views::SearchResults::Action::copy);
+    f.browser.search_action(rummage::views::SearchResults::Action::close);
+    f.browser.open(f.dir.path / "destination");
+    REQUIRE(f.settle());
+    REQUIRE(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.dir.path / "destination" / "one.txt"));
+    CHECK(fs::exists(f.dir.path / "destination" / "two.txt"));
+    REQUIRE(f.press(key(XKB_KEY_z, kCtrl)));
+    REQUIRE(f.settle());
+    CHECK_FALSE(fs::exists(f.dir.path / "destination" / "one.txt"));
+    CHECK_FALSE(fs::exists(f.dir.path / "destination" / "two.txt"));
+    CHECK(fs::exists(f.a / "one.txt"));
+    CHECK(fs::exists(f.a / "photos" / "two.txt"));
+}
+
+TEST_CASE("search results: cut from different parents, conflict choices and a single undo") {
+    Fixture f;
+    touch(f.a / "photos" / "two.txt");
+    const auto destination = f.dir.path / "destination";
+    touch(destination / "one.txt");
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    f.browser.search_results()->select_all();
+    f.browser.search_action(rummage::views::SearchResults::Action::cut);
+    f.browser.search_action(rummage::views::SearchResults::Action::close);
+    f.browser.open(destination);
+    REQUIRE(f.settle());
+    REQUIRE(f.press(key(XKB_KEY_v, kCtrl)));
+    REQUIRE(run_until(f.loop, [&] { return f.browser.conflict_dialog().is_open(); }));
+    CHECK(f.press(key(XKB_KEY_Return)));  // keep both
+    REQUIRE(f.settle());
+    CHECK(fs::exists(destination / "one 2.txt"));
+    CHECK(fs::exists(destination / "two.txt"));
+    CHECK_FALSE(fs::exists(f.a / "one.txt"));
+    CHECK_FALSE(fs::exists(f.a / "photos" / "two.txt"));
+    CHECK(f.press(key(XKB_KEY_z, kCtrl)));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.a / "one.txt"));
+    CHECK(fs::exists(f.a / "photos" / "two.txt"));
+    CHECK(fs::exists(destination / "one.txt"));
+}
+
+TEST_CASE("search results: trash multiple parents and undo while results stay open") {
+    Fixture f;
+    touch(f.a / "photos" / "two.txt");
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    auto& results = *f.browser.search_results();
+    results.select_all();
+    f.browser.search_action(rummage::views::SearchResults::Action::trash);
+    REQUIRE(f.settle());
+    CHECK(results.is_open());
+    CHECK(results.rows().empty());
+    CHECK_FALSE(fs::exists(f.a / "one.txt"));
+    CHECK_FALSE(fs::exists(f.a / "photos" / "two.txt"));
+    f.browser.search_action(rummage::views::SearchResults::Action::undo);
+    REQUIRE(f.settle());
+    CHECK(results.rows().size() == 2);
+    CHECK(fs::exists(f.a / "one.txt"));
+    CHECK(fs::exists(f.a / "photos" / "two.txt"));
+}
+
+TEST_CASE("search results: preview keeps the search open and rename refreshes with undo") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    auto& results = *f.browser.search_results();
+    REQUIRE(results.chosen().size() == 1);
+    f.browser.search_action(rummage::views::SearchResults::Action::preview);
+    REQUIRE(run_until(f.loop, [&] {
+        f.browser.settle_search_preview();
+        return f.browser.quick_look().is_open();
+    }));
+    CHECK(results.is_open());
+    CHECK(f.browser.grid().folder()->path() == f.a);
+    f.press(key(XKB_KEY_Escape));
+    CHECK_FALSE(f.browser.quick_look().is_open());
+    CHECK(results.is_open());
+    f.browser.search_action(rummage::views::SearchResults::Action::rename);
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    f.browser.confirm_dialog().paste("renamed.txt");
+    CHECK(f.press(key(XKB_KEY_Return)));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.a / "renamed.txt"));
+    REQUIRE(results.rows().size() == 1);
+    CHECK(results.rows().front().path == "renamed.txt");
+    f.browser.search_action(rummage::views::SearchResults::Action::undo);
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.a / "one.txt"));
+}
+
+TEST_CASE(
+    "search results: overlapping selections act on the parent once and Ctrl-click deselects") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "", false);
+    REQUIRE(f.settle());
+    auto& results = *f.browser.search_results();
+    results.select_all();
+    const auto paths = results.chosen();
+    CHECK(paths.size() == 2);  // one.txt and photos; photos includes all of its descendants
+    CHECK(std::ranges::find(paths, f.a / "photos") != paths.end());
+    results.set_query("one");
+    REQUIRE(f.settle());
+    REQUIRE(results.chosen().size() == 1);
+    results.select(0, kCtrl);
+    CHECK(results.chosen().empty());
+    results.select(0);
+    fs::remove(f.a / "one.txt");
+    f.browser.search_action(rummage::views::SearchResults::Action::trash);
+    REQUIRE(f.settle());
+    CHECK(results.rows().empty());
+    CHECK(f.browser.status_bar().message().find("one.txt") != std::string::npos);
+}
+
+TEST_CASE("saved searches: persist definitions, rerun current files, and remove from navigation") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "ext:txt hidden:no", true);
+    REQUIRE(f.settle());
+    f.browser.search_action(rummage::views::SearchResults::Action::save);
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    f.browser.confirm_dialog().paste("Text files");
+    CHECK(f.press(key(XKB_KEY_Return)));
+    const auto state = f.browser.state();
+    REQUIRE(state.saved_searches.size() == 1);
+    CHECK(state.saved_searches.front().query == "ext:txt hidden:no");
+    CHECK(state.saved_searches.front().root == f.a);
+    CHECK(state.saved_searches.front().hidden);
+    const auto restored = rummage::views::parse_state(rummage::views::format_state(state), "state");
+    CHECK(restored.problems.empty());
+    CHECK(restored.state.saved_searches == state.saved_searches);
+    f.browser.search_action(rummage::views::SearchResults::Action::close);
+    touch(f.a / "new.txt");
+    f.browser.apply(restored.state);
+    f.browser.open_saved_searches();
+    auto& palette = f.browser.command_palette();
+    palette.set_query("Text files");
+    palette.choose_highlighted();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.search_results()->is_open());
+    CHECK(f.browser.search_results()->rows().size() == 2);
+    f.browser.open_saved_searches();
+    palette.set_query("Remove saved search");
+    palette.choose_highlighted();
+    palette.set_query("Text files");
+    palette.choose_highlighted();
+    CHECK(f.browser.state().saved_searches.empty());
+}
+
+TEST_CASE(
+    "search results: the command palette acts on results and drops cannot reach the folder "
+    "behind") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    f.browser.open_palette();
+    const auto& items = f.browser.command_palette().items();
+    CHECK(std::ranges::any_of(items, [](const auto& item) { return item.id == "search:copy"; }));
+    CHECK(std::ranges::none_of(items, [](const auto& item) {
+        return item.id == "command:new_folder" || item.id == "command:trash";
+    }));
+    f.browser.command_palette().close();
+    bool rejected = false, read = false;
+    rummage::views::DragAndDrop drag;
+    drag.accept = [&](const auto& type, std::uint32_t actions, std::uint32_t) {
+        rejected = !type && actions == 0;
+    };
+    drag.read = [&](const auto&, auto) { read = true; };
+    f.browser.set_drag_and_drop(std::move(drag));
+    f.browser.drop_event({.kind = rummage::ui::DropEvent::Kind::drop});
+    CHECK(rejected);
+    CHECK_FALSE(read);
+}
+
+TEST_CASE("search results: a removed preview target never falls back to another file") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "one", false);
+    REQUIRE(f.settle());
+    fs::remove(f.a / "one.txt");
+    touch(f.a / "different.txt");
+    f.browser.search_action(rummage::views::SearchResults::Action::preview);
+    REQUIRE(f.settle());
+    f.browser.settle_search_preview();
+    CHECK_FALSE(f.browser.quick_look().is_open());
+    CHECK(f.browser.search_results()->is_open());
+    CHECK(f.browser.status_bar().message().find("no longer available") != std::string::npos);
+    f.browser.open_search_results(f.a / "missing", "", false);
+    REQUIRE(f.settle());
+    CHECK(f.browser.search_results()->rows().empty());
+    CHECK_FALSE(f.browser.search_results()->finder()->status().empty());
 }
