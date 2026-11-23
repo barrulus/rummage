@@ -152,6 +152,31 @@ clipboard formats allow exchange with other desktop applications; only local
 file paths/URIs are accepted for transfers.
 
 Transfers run outside the UI thread, with progress and a stop button.
+**View → Verify copied contents**, or **Enable Copy Verification** in the command
+palette, enables verification for subsequent copies and moves in this window.
+It defaults to off, is not saved across restarts, and each queued transfer keeps
+the setting it was submitted with.
+
+For regular files, including nested files and sidecars, verification flushes the
+staged destination and rereads both files in bounded chunks for a byte-for-byte
+comparison. This compares the contents directly rather than comparing checksum
+digests. Copy and verification byte counts are shown separately; parallel files
+can be copying and verifying at the same time. Verification adds two reads of the
+data and a flush, which can be expensive on slow or network storage.
+
+A failed or cancelled comparison does not publish that file or replace an existing
+destination. Cross-filesystem moves retain unverified source files. Source identity,
+size and modification/change timestamps are checked, including before deletion;
+an externally changed source is reported instead of claiming success. As with other
+partial transfers, successfully completed files may remain at the destination.
+This is a consistency check through the operating system, not a guarantee against
+future media failure or changes made after the check.
+
+Same-filesystem moves remain renames and do not reread data. Symlinks copy their
+link target without following it; their referent contents are not verified.
+Archive extraction does not support this option and reports that limitation until
+verification is disabled. With verification off, existing transfer behavior is unchanged.
+
 **Shift+Escape** stops the active transfer from a file view or Quick Look; the
 command palette also offers **Stop the Transfer** while work is pending. The
 `stop_transfer` binding can be changed in Settings or `config.toml`.

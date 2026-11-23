@@ -748,6 +748,13 @@ public:
     // Stops the transfer running (the status bar's ×).
     void cancel_transfer();
 
+    void set_verify_transfers(bool enabled) {
+        verify_transfers_ = enabled;
+        redraw_();
+    }
+
+    [[nodiscard]] bool verifies_transfers() const { return verify_transfers_; }
+
     [[nodiscard]] ConflictDialog& conflict_dialog() noexcept { return conflict_; }
 
     [[nodiscard]] const CutMarks& cut_marks() const noexcept { return cut_marks_; }
@@ -1286,6 +1293,7 @@ private:
     std::optional<RateStart> copy_started_;
     // Last: its thread stops first, while everything its callbacks touch is still there.
     fs::TransferQueue transfers_;
+    bool verify_transfers_{false};
 };
 
 }  // namespace rummage::views

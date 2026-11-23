@@ -923,6 +923,162 @@ TEST_CASE("transfer queue: progress, a question answered later, the result") {
     CHECK(read_file(t.to / "notes.txt") == "old");
 }
 
+TEST_CASE("transfer: verification rereads files, nested contents and sidecars") {
+    Tree t;
+    std::ofstream{t.from / "empty"};
+    TransferProgress last;
+    bool verifying = false;
+    const auto result =
+        rummage::fs::run_transfer({.source = t.from,
+                                   .names = {"P1.ORF", "notes.txt", "Trip", "link", "empty"},
+                                   .destination = t.to,
+                                   .verify = true},
+                                  {},
+                                  {.progress =
+                                       [&](const TransferProgress& p) {
+                                           last = p;
+                                           verifying = verifying || p.verifying;
+                                       },
+                                   .resolve = nullptr});
+    REQUIRE(result.errors.empty());
+    REQUIRE(result.refused.empty());
+    CHECK_FALSE(result.cancelled);
+    CHECK(verifying);
+    CHECK(result.files_verified == 7);
+    CHECK(last.files_verified == 7);
+    CHECK(last.bytes_verified == last.bytes_done);
+    CHECK(read_file(t.to / "Trip/deep/b.jpg") == "Trip/deep/b.jpg");
+    CHECK(read_file(t.to / "P1.ORF.xmp") == "P1.ORF.xmp");
+    CHECK(fs::read_symlink(t.to / "link") == "notes.txt");
+}
+
+TEST_CASE("transfer: verified cross-filesystem move deletes only after comparison") {
+    Tree t;
+    bool source_during_verification = false;
+    const auto result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                   .source = t.from,
+                                                   .names = {"notes.txt"},
+                                                   .destination = t.to,
+                                                   .force_copy = true,
+                                                   .verify = true},
+                                                  {},
+                                                  {.progress =
+                                                       [&](const TransferProgress& p) {
+                                                           if (p.verifying && p.files_verified == 0)
+                                                               source_during_verification =
+                                                                   fs::exists(t.from / "notes.txt");
+                                                       },
+                                                   .resolve = nullptr});
+    REQUIRE(result.errors.empty());
+    CHECK(source_during_verification);
+    CHECK(result.files_verified == 1);
+    CHECK_FALSE(fs::exists(t.from / "notes.txt"));
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+}
+
+TEST_CASE("transfer: verification failure preserves source and an existing destination") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old destination";
+    bool injected = false;
+    bool truncate = false;
+    SUBCASE("different copied bytes") {}
+    SUBCASE("verification read reaches an unexpected EOF") { truncate = true; }
+    const auto result = rummage::fs::run_transfer(
+        {.kind = TransferKind::move,
+         .source = t.from,
+         .names = {"notes.txt"},
+         .destination = t.to,
+         .force_copy = true,
+         .verify = true},
+        {},
+        {.progress =
+             [&](const TransferProgress& p) {
+                 if (!p.verifying || injected)
+                     return;
+                 for (const auto& entry : fs::directory_iterator{t.to}) {
+                     if (entry.path().filename().string().starts_with(".rummage-part-")) {
+                         std::ofstream out{entry.path(), std::ios::binary | std::ios::trunc};
+                         if (!truncate)
+                             out << "corrupted";
+                         injected = true;
+                     }
+                 }
+             },
+         .resolve = [](const Conflict&) { return Resolution::replace; }});
+    REQUIRE(injected);
+    REQUIRE_FALSE(result.errors.empty());
+    CHECK(result.errors.front().find(truncate ? "Verification read failed"
+                                              : "copied contents differ") != std::string::npos);
+    CHECK(result.placed.empty());
+    CHECK(result.files_verified == 0);
+    CHECK(read_file(t.from / "notes.txt") == "notes.txt");
+    CHECK(read_file(t.to / "notes.txt") == "old destination");
+    CHECK(listing(t.to) == Names{"notes.txt"});
+}
+
+TEST_CASE("transfer: source changes and cancellation during verification cannot succeed") {
+    Tree t;
+    CancelToken stop;
+    bool cancel = false;
+    SUBCASE("source changes after its bytes have been compared") {}
+    SUBCASE("cancel during comparison") { cancel = true; }
+    bool changed = false;
+    const auto result =
+        rummage::fs::run_transfer({.kind = TransferKind::move,
+                                   .source = t.from,
+                                   .names = {"notes.txt"},
+                                   .destination = t.to,
+                                   .force_copy = true,
+                                   .verify = true},
+                                  stop,
+                                  {.progress =
+                                       [&](const TransferProgress& p) {
+                                           if (!p.verifying || p.bytes_verified == 0 || changed)
+                                               return;
+                                           changed = true;
+                                           if (cancel)
+                                               stop.cancel();
+                                           else
+                                               std::ofstream{t.from / "notes.txt"} << "new notes";
+                                       },
+                                   .resolve = nullptr});
+    REQUIRE(changed);
+    CHECK(result.placed.empty());
+    CHECK(result.files_verified == 0);
+    CHECK(fs::exists(t.from / "notes.txt"));
+    CHECK(listing(t.to).empty());
+    if (cancel)
+        CHECK(result.cancelled);
+    else {
+        REQUIRE_FALSE(result.errors.empty());
+        CHECK(result.errors.front().find("File changed during verification") != std::string::npos);
+    }
+}
+
+TEST_CASE("transfer: verification leaves same-filesystem renames fast and refuses archives") {
+    Tree t;
+    const auto result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                   .source = t.from,
+                                                   .names = {"notes.txt"},
+                                                   .destination = t.to,
+                                                   .verify = true},
+                                                  {}, {});
+    CHECK(result.errors.empty());
+    CHECK(result.files_verified == 0);
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    EventLoop loop;
+    std::optional<TransferResult> done;
+    TransferQueue queue{loop, nullptr, nullptr, [&](const auto&, const auto& r) { done = r; }};
+    queue.submit({.source = t.from,
+                  .names = {"Trip"},
+                  .destination = t.to,
+                  .from_archive = true,
+                  .verify = true});
+    REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+    CHECK(done->refused == "Copy verification is unavailable for archive extraction");
+    CHECK_FALSE(fs::exists(t.to / "Trip"));
+}
+
 TEST_CASE("transfer queue: a link request runs and reports like the others") {
     Tree t;
     EventLoop loop;

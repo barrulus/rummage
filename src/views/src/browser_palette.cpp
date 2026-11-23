@@ -219,6 +219,10 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (transfers_.pending() > 0) {
         command(Command::stop_transfer, "stop_transfer", "Stop the Transfer");
     }
+    add("command:verify_transfers",
+        std::string{verifies_transfers() ? i18n::mark("Disable Copy Verification")
+                                         : i18n::mark("Enable Copy Verification")},
+        "", [this] { set_verify_transfers(!verifies_transfers()); });
     if (folder) {
         view_command("select_all", "Select All", keys_for_binding("select_all"), XKB_KEY_a,
                      {.ctrl = true});
