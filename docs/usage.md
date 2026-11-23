@@ -52,8 +52,9 @@ changes deep inside it may require selecting it again to recount.
 
 ## Folder insights
 
-Press **Ctrl+Alt+I**, choose **Folder insights…** from the command palette or a
-folder's context menu, or use the button in the information pane. A single selected
+Use **Folder insights** between **View** and the settings cog (a circular aperture
+icon in narrow panes), press **Ctrl+Alt+I**, choose **Folder insights…** from the
+command palette or a folder's context menu, or use the information-pane button. A single selected
 folder is inspected; otherwise the current folder is used. This view is available
 for local folders in the browser, outside Trash, archives and file-picker mode.
 Insights opens in a dedicated tab, leaving the original file-browsing tab and its
@@ -67,7 +68,11 @@ leaving the full content width for graphs and file results.
   `.tar.gz` stay together. Extensionless files have their own row. This classifies
   names without reading file contents; it does not verify the actual format.
 - **File count / File size** changes ordering, proportions and treemap areas using
-  the same scan. File size is selected initially. Wide type tables show percentages
+  the same scan. File size is selected initially. Click any table-column header to
+  sort it; click again to reverse the direction. **Sort By** offers the same columns
+  and ascending/descending options. Source columns include Files, Lines, Code,
+  Comments and Blanks; embedded languages stay grouped with their parent. Sorting
+  preserves the selected file. Wide type tables show percentages
   of the current scope (of the files counted so far when incomplete).
 - **Include subfolders** and **Hidden files** define the scan scope. Hidden files
   initially follow the browser's setting. Changing either option starts a new scan.

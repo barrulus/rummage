@@ -3111,24 +3111,23 @@ MenuItem Browser::sort_menu() {
 
     if (pane().insights.is_open()) {
         auto& insights = pane().insights;
-        // Keep chronological buckets and embedded-language groups in their natural order.
-        if (insights.view() == InsightsView::View::languages ||
-            insights.view() == InsightsView::View::age) {
+        sort.label = i18n::tr("Sort By");
+        for (const auto& column : insights.sort_columns())
             sort.children.push_back(
-                choice("sort:natural",
-                       insights.view() == InsightsView::View::languages ? "Name" : "Modified", true,
-                       [] {}));
-            return sort;
-        }
-        sort.children.push_back(choice("sort:name", "Name", insights.name_order(),
-                                       [this] { pane().insights.set_name_order(true); }));
-        const auto measure =
-            insights.view() == InsightsView::View::code_matches ? "Lines"
-            : insights.view() == InsightsView::View::largest || insights.size_measure()
-                ? "File size"
-                : "File count";
-        sort.children.push_back(choice("sort:measure", measure, !insights.name_order(),
-                                       [this] { pane().insights.set_name_order(false); }));
+                choice("sort:" + std::string{column.id}, std::string{column.label},
+                       insights.sort_key() == column.key, [this, key = column.key] {
+                           pane().insights.set_sort(key, pane().insights.sort_descending());
+                       }));
+        for (const bool descending : {false, true})
+            sort.children.push_back(choice(
+                descending ? "sort:descending" : "sort:ascending",
+                descending ? "Descending" : "Ascending", insights.sort_descending() == descending,
+                [this, descending] {
+                    pane().insights.set_sort(
+                        pane().insights.sort_key().value_or(InsightsView::SortKey::name),
+                        descending);
+                },
+                !descending));
         return sort;
     }
     for (const auto& column : kDetailsColumns) {
@@ -3510,7 +3509,8 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            const theme::Palette& palette, ui::IconSet& icons) {
     area().toolbar_bounds = bounds;
     area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
-    area().view_menu_bounds = area().settings_bounds = area().sort_bounds = {};
+    area().view_menu_bounds = area().insights_bounds = area().settings_bounds =
+        area().sort_bounds = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -3531,8 +3531,19 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         area().settings_bounds = {field_right - 34, bounds.y + 6, 34, 32};
         // As wide as its label in the interface's language ("View", "Ansicht").
         const float view_width = std::max(60.0F, width_of(i18n::tr("View")) + 20.0F);
-        area().view_menu_bounds = {area().settings_bounds.x - view_width - 6, bounds.y + 6,
-                                   view_width, 32};
+        float view_right = area().settings_bounds.x - 6;
+        const auto folder = current_folder();
+        if (!picker_mode_ && folder && !folder->is_archive() && !folder->is_trash() &&
+            view_right - field_x >= view_width + 6 + 34 + 8 + 48) {
+            const float label = width_of(i18n::tr("Folder insights")) + 44;
+            const float width =
+                bounds.width >= 600 && view_right - field_x >= view_width + 6 + label + 8 + 120
+                    ? label
+                    : 34.0F;
+            area().insights_bounds = {view_right - width, bounds.y + 6, width, 32};
+            view_right = area().insights_bounds.x - 6;
+        }
+        area().view_menu_bounds = {view_right - view_width, bounds.y + 6, view_width, 32};
         field_right = area().view_menu_bounds.x - 8;
     }
     const float sort_width = std::max(72.0F, width_of(i18n::tr("Sort By")) + 20.0F);
@@ -3588,6 +3599,18 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         icons.draw(renderer, "settings", box.x + (box.width - 18.0F) / 2.0F,
                    box.y + (box.height - 18.0F) / 2.0F, 18.0F, palette.on_surface);
     }
+    if (!area().insights_bounds.empty()) {
+        const auto& box = area().insights_bounds;
+        const bool active = pane().insights.is_open();
+        renderer.draw_box(
+            box, {.fill = active ? palette.primary_container : palette.surface_container_highest,
+                  .radius = {}});
+        const auto ink = active ? palette.on_primary_container : palette.on_surface;
+        icons.draw(renderer, "aperture", box.x + 8, box.y + 7, 18, ink);
+        if (box.width > 34)
+            text_in(i18n::tr("Folder insights"), {box.x + 34, box.y, box.width - 42, box.height},
+                    ink);
+    }
     if (!area().sort_bounds.empty())
         button(area().sort_bounds, "Sort By");
     if (!area().clear_filter_bounds.empty()) {
@@ -3613,6 +3636,9 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     } else if (area().sort_bounds.contains(event.x, event.y)) {
         filter_focused_ = false;
         menu_.open(area().sort_bounds.x, area().sort_bounds.bottom(), sort_menu().children, false);
+    } else if (area().insights_bounds.contains(event.x, event.y)) {
+        if (!pane().insights.is_open())
+            show_insights();
     } else if (area().settings_bounds.contains(event.x, event.y)) {
         open_settings();
     } else if (area().filter_bounds.contains(event.x, event.y)) {
@@ -4019,7 +4045,7 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
             return Shape::text;
         if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
             owner.view_menu_bounds.contains(x, y) || owner.sort_bounds.contains(x, y) ||
-            owner.settings_bounds.contains(x, y))
+            owner.insights_bounds.contains(x, y) || owner.settings_bounds.contains(x, y))
             return Shape::pointer;
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));

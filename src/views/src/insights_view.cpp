@@ -12,6 +12,7 @@
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/fs/name_pattern.hpp"
+#include "rummage/fs/sort.hpp"
 #include "rummage/views/format.hpp"
 
 namespace rummage::views {
@@ -257,6 +258,139 @@ void InsightsView::select_all(bool invert) {
         selected_folder_->select_rows(matches, false);
 }
 
+std::vector<InsightsView::SortColumn> InsightsView::sort_columns() const {
+    std::vector<SortColumn> columns{{SortKey::name, "name",
+                                     view_ == View::languages ? i18n::mark("Language")
+                                     : view_ == View::types   ? i18n::mark("Extension")
+                                                              : i18n::mark("Name")},
+                                    {SortKey::files, "files", i18n::mark("Files")}};
+    if (source_view()) {
+        columns.push_back({SortKey::lines, "lines", i18n::mark("Lines")});
+        columns.push_back({SortKey::code, "code", i18n::mark("Code")});
+        columns.push_back({SortKey::comments, "comments", i18n::mark("Comments")});
+        columns.push_back({SortKey::blanks, "blanks", i18n::mark("Blanks")});
+    } else {
+        columns.push_back({SortKey::bytes, "bytes", i18n::mark("File size")});
+        if (view_ == View::types || view_ == View::age || view_ == View::largest)
+            columns.push_back({SortKey::share, "share", i18n::mark("Share")});
+    }
+    return columns;
+}
+
+std::optional<InsightsView::SortKey> InsightsView::sort_key() const {
+    if (sort_) {
+        const auto columns = sort_columns();
+        if (std::ranges::find(columns, *sort_, &SortColumn::key) != columns.end())
+            return sort_;
+    }
+    if (view_ == View::age)
+        return {};  // Initially show age buckets chronologically.
+    if (view_ == View::languages)
+        return SortKey::name;
+    if (view_ == View::code_matches)
+        return SortKey::lines;
+    return bytes_ || view_ == View::largest ? SortKey::bytes : SortKey::files;
+}
+
+bool InsightsView::sort_descending() const {
+    if (sort_ && sort_key() == sort_)
+        return sort_descending_;
+    return view_ != View::languages && view_ != View::age;
+}
+
+void InsightsView::set_sort(SortKey key, bool descending) {
+    const auto columns = sort_columns();
+    if (std::ranges::find(columns, key, &SortColumn::key) == columns.end())
+        return;
+    sort_ = key;
+    sort_descending_ = descending;
+    const auto selected = selected_row_ && *selected_row_ < rows_.size()
+                              ? std::optional<Row>{rows_[*selected_row_]}
+                              : std::nullopt;
+    sort_rows();
+    requested_scroll_ = 0;
+    if (selected) {
+        const auto found = std::ranges::find_if(rows_, [&](const Row& row) {
+            return row.node == selected->node && row.extension == selected->extension &&
+                   row.path == selected->path && row.label == selected->label;
+        });
+        if (found != rows_.end()) {
+            selected_row_ = static_cast<std::size_t>(found - rows_.begin());
+            requested_scroll_ = static_cast<float>(*selected_row_) * 44;
+            if (focus_.starts_with("row:") || focus_.starts_with("tile:"))
+                focus_ = std::format("row:{}", *selected_row_);
+        }
+    }
+    controls_.clear();
+    redraw_();
+}
+
+void InsightsView::sort_rows() {
+    const auto key = sort_key();
+    const bool descending = sort_descending();
+    const auto value = [&](const Row& row) -> std::uint64_t {
+        switch (key.value_or(SortKey::name)) {
+            case SortKey::files:
+                return row.files;
+            case SortKey::bytes:
+                return row.bytes;
+            case SortKey::lines:
+                return row.code.lines();
+            case SortKey::code:
+                return row.code.code;
+            case SortKey::comments:
+                return row.code.comments;
+            case SortKey::blanks:
+                return row.code.blanks;
+            case SortKey::share:
+                return bytes_ || view_ == View::largest ? row.bytes : row.files;
+            case SortKey::name:
+                return 0;
+        }
+        return 0;
+    };
+    const auto less = [&](const Row& a, const Row& b) {
+        if (!key)
+            return a.extension < b.extension;
+        if (*key == SortKey::name)
+            return descending ? fs::natural_compare(a.label, b.label) > 0
+                              : fs::natural_compare(a.label, b.label) < 0;
+        const auto left = value(a), right = value(b);
+        return left != right ? (descending ? left > right : left < right)
+                             : fs::natural_compare(a.label, b.label) < 0;
+    };
+    if (view_ != View::languages) {
+        std::stable_sort(rows_.begin(), rows_.end(), less);
+        return;
+    }
+    // Sort siblings while keeping embedded languages attached to their parent.
+    const auto root = rows_.size();
+    std::map<std::string, std::size_t> by_key;
+    for (std::size_t i = 0; i < rows_.size(); ++i)
+        by_key.emplace(rows_[i].extension, i);
+    std::vector<std::vector<std::size_t>> children(root + 1);
+    for (std::size_t i = 0; i < rows_.size(); ++i) {
+        const auto& language = rows_[i].extension;
+        const auto split = language.find_last_of('\x1f');
+        const auto parent =
+            split == std::string::npos ? by_key.end() : by_key.find(language.substr(0, split));
+        children[parent == by_key.end() ? root : parent->second].push_back(i);
+    }
+    for (auto& siblings : children)
+        std::stable_sort(siblings.begin(), siblings.end(),
+                         [&](auto a, auto b) { return less(rows_[a], rows_[b]); });
+    std::vector<Row> ordered;
+    ordered.reserve(rows_.size());
+    const auto append = [&](auto&& self, std::size_t parent) -> void {
+        for (const auto index : children[parent]) {
+            ordered.push_back(std::move(rows_[index]));
+            self(self, index);
+        }
+    };
+    append(append, root);
+    rows_ = std::move(ordered);
+}
+
 void InsightsView::finish_rows() {
     for (std::size_t i = 0; i < rows_.size(); ++i) {
         const auto found = renamed_paths_.find(row_path(i));
@@ -267,8 +401,7 @@ void InsightsView::finish_rows() {
                                  : found->second.filename().string();
         }
     }
-    if (name_order_ && view_ != View::languages)
-        std::ranges::stable_sort(rows_, {}, &Row::label);
+    sort_rows();
     if (!filter_.empty()) {
         const fs::NamePattern pattern{filter_};
         std::erase_if(rows_, [&pattern](const Row& row) { return !pattern.matches(row.label); });
@@ -442,7 +575,7 @@ void InsightsView::set_view(View view) {
 }
 
 void InsightsView::set_size_measure(bool bytes) {
-    name_order_ = false;
+    sort_.reset();
     bytes_ = bytes;
     rebuild();
 }
@@ -1302,6 +1435,27 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                                      : i18n::tr("No area for zero values"),
                                map.x + 12, map.y + 12, 13, muted, map.width - 24);
     }
+    const auto sortable = sort_columns();
+    const auto column_header = [&](const SortColumn& column, float x0, float cell_width) {
+        const std::string id = "sort:" + std::string{column.id};
+        const ui::Rect rect{x0, list_.y - 4, std::max(0.0F, cell_width), 28};
+        const bool sorted = sort_key() == column.key;
+        if (hover_ == id || focus_ == id)
+            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(0.08F),
+                                     .border_width = focus_ == id ? 1.0F : 0,
+                                     .border = palette.primary});
+        const auto label = column.key == SortKey::share && partial ? i18n::tr("Share so far")
+                                                                   : i18n::tr(column.label);
+        renderer.draw_text(label, rect.x + 6, list_.y, 12, sorted ? palette.on_surface : muted,
+                           std::max(0.0F, rect.width - (sorted ? 28 : 12)));
+        if (sorted && rect.width >= 28)
+            icons.draw(renderer, sort_descending() ? "chevron-down" : "chevron-up",
+                       rect.right() - 18, list_.y, 14, palette.on_surface);
+        controls_.push_back({id, rect.intersect(frame.body), [this, key = column.key] {
+                                 set_sort(key, sort_key() == key ? !sort_descending()
+                                                                 : key != SortKey::name);
+                             }});
+    };
     const auto begin_rows = [&] {
         list_.y += 28;
         list_.height = std::max(0.0F, list_.height - 28);
@@ -1350,18 +1504,11 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             list_.height -= 48;
         }
         const std::array columns{0.0F, 0.38F, 0.50F, 0.62F, 0.74F, 0.88F};
-        const std::array headings{
-            view_ == View::languages ? i18n::tr("Language") : i18n::tr("Name"),
-            i18n::tr("Files"),
-            i18n::tr("Lines"),
-            labels[0],
-            labels[1],
-            labels[2]};
         const float table_width = std::max(0.0F, list_.width - 20);
         for (std::size_t k = 0; k < columns.size(); ++k)
-            renderer.draw_text(
-                headings[k], list_.x + table_width * columns[k] + 6, list_.y, 12, muted,
-                table_width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]) - 10);
+            column_header(
+                sortable[k], list_.x + table_width * columns[k],
+                table_width * ((k + 1 < columns.size() ? columns[k + 1] : 1) - columns[k]));
         begin_rows();
         for (std::size_t i = offset_; i < rows_.size() && i < offset_ + page_size_; ++i) {
             const auto& row = rows_[i];
@@ -1412,16 +1559,13 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             list_.width >= 520;
         const float count_x = shares ? 0.48F : 0.55F, size_x = shares ? 0.64F : 0.76F;
         const float table_width = std::max(0.0F, list_.width - 20);
-        renderer.draw_text(view_ == View::types ? i18n::tr("Extension") : i18n::tr("Name"),
-                           list_.x + 10, list_.y, 12, muted, table_width * (count_x - 0.03F));
-        renderer.draw_text(i18n::tr("Files"), list_.x + table_width * count_x, list_.y, 12, muted,
-                           table_width * 0.17F);
-        renderer.draw_text(i18n::tr("File size"), list_.x + table_width * size_x, list_.y, 12,
-                           muted, table_width * (shares ? 0.18F : 0.24F));
+        column_header(sortable[0], list_.x, table_width * count_x);
+        column_header(sortable[1], list_.x + table_width * count_x,
+                      table_width * (size_x - count_x));
+        column_header(sortable[2], list_.x + table_width * size_x,
+                      table_width * ((shares ? 0.84F : 1.0F) - size_x));
         if (shares)
-            renderer.draw_text(partial ? i18n::tr("Share so far") : i18n::tr("Share"),
-                               list_.x + table_width * 0.84F, list_.y, 12, muted,
-                               table_width * 0.16F);
+            column_header(sortable[3], list_.x + table_width * 0.84F, table_width * 0.16F);
         begin_rows();
         for (std::size_t i = offset_; i < rows_.size() && i < offset_ + page_size_; ++i) {
             const auto& row = rows_[i];

@@ -722,6 +722,27 @@ TEST_CASE("insights: real Tokei language graph, embedded files, options and resu
     draw("languages");
     draw("light-languages");
     draw("languages-compact", 640, 640);
+    for (const auto& column : dialog.sort_columns()) {
+        for (const bool descending : {false, true}) {
+            dialog.set_sort(column.key, descending);
+            CHECK(dialog.sort_key() == column.key);
+            CHECK(dialog.sort_descending() == descending);
+            REQUIRE(dialog.rows().size() == 3);
+            CHECK(row(dialog, "Python") == row(dialog, "Markdown") + 1);
+        }
+        draw("language-sort-" + std::string{column.id});
+        const auto header = dialog.control_bounds("sort:" + std::string{column.id});
+        REQUIRE_FALSE(header.empty());
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = header.x + 8,
+                        .y = header.y + 8,
+                        .button = rummage::ui::PointerButton::left});
+        CHECK_FALSE(dialog.sort_descending());
+    }
+    dialog.set_sort(InsightsView::SortKey::code, true);
+    CHECK(dialog.rows().front().label == "Rust");
+    dialog.set_sort(InsightsView::SortKey::code, false);
+    CHECK(dialog.rows().front().label == "Markdown");
     dialog.activate_row(row(dialog, "Python"));
     CHECK(dialog.view() == InsightsView::View::code_matches);
     REQUIRE(dialog.rows().size() == 1);
@@ -953,12 +974,6 @@ TEST_CASE(
     REQUIRE(until(loop, [&] { return !browser.loading(); }));
     browser.picker_folder()->select_name("keep.md");
     const auto original = browser.picker_folder();
-    browser.show_insights();
-    REQUIRE(browser.tab_count() == 2);
-    REQUIRE(browser.active_tab() == 1);
-    auto& view = browser.insights_view();
-    REQUIRE(until(loop, [&] { return !browser.loading(); }));
-    view.set_view(InsightsView::View::largest);
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
     rummage::ui::IconSet icons{fonts};
@@ -986,7 +1001,20 @@ TEST_CASE(
                          .button = PointerButton::left},
                         now);
     };
+    draw("qol-toolbar");
+    REQUIRE_FALSE(browser.insights_bounds().empty());
+    CHECK(browser.view_menu_bounds().right() < browser.insights_bounds().x);
+    CHECK(browser.insights_bounds().right() < browser.settings_bounds().x);
+    click(browser.insights_bounds());
+    REQUIRE(browser.tab_count() == 2);
+    REQUIRE(browser.active_tab() == 1);
+    auto& view = browser.insights_view();
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    view.set_view(InsightsView::View::largest);
     draw("qol-start");
+    click(browser.insights_bounds());
+    CHECK(browser.tab_count() == 2);  // Already in insights: do not open another tab or rescan.
+
     CHECK(browser.info_pane().copy_bounds().empty());
     CHECK(view.control_bounds("close").empty());
     CHECK(view.control_bounds("previous").empty());
@@ -1027,6 +1055,14 @@ TEST_CASE(
     click(last);
     REQUIRE(until(loop, [&] { return !view.loading(); }));
     CHECK(browser.picker_folder()->path() == dir.path / "second/child");
+    const auto selected_folder = browser.picker_folder();
+    view.set_sort(InsightsView::SortKey::name, false);
+    draw("qol-sorted-selection");
+    CHECK(browser.picker_folder() == selected_folder);
+    REQUIRE(selected_folder->single_selection());
+    CHECK(selected_folder->single_selection()->name == "deep.md");
+    view.set_sort(InsightsView::SortKey::bytes, true);
+    draw("qol-size-selection");
     browser.select_tab(0);
     CHECK_FALSE(browser.insights_view().is_open());
     CHECK(browser.picker_folder() == original);
@@ -1049,6 +1085,8 @@ TEST_CASE(
     CHECK(view.is_open());
     draw("qol-light", 1280, 900, true);
     draw("qol-compact", 640, 640);
+    CHECK_FALSE(browser.insights_bounds().empty());
+    CHECK(browser.insights_bounds().right() < browser.settings_bounds().x);
     CHECK_FALSE(view.scrollbar_thumb().empty());
     CHECK(view.scrollbar_thumb().bottom() <= view.list_bounds().bottom());
     browser.set_preview_in_sidebar(true);
@@ -1061,4 +1099,67 @@ TEST_CASE(
     CHECK(browser.active_tab() == 0);
     CHECK(browser.tab_count() == 1);
     CHECK(browser.picker_folder() == original);
+}
+
+TEST_CASE(
+    "insights: clickable columns sort counts, sizes, shares and natural names in both directions") {
+    const TempDir dir;
+    dir.write("notes.md", std::string(100, 'x'));
+    dir.write("report-2.pdf", std::string(10, 'x'));
+    dir.write("report-10.pdf", std::string(10, 'x'));
+    for (int i = 0; i < 3; ++i)
+        dir.write(std::format("text-{}.txt", i), "x");
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    InsightsView view{loop, pool, [] {}};
+    rummage::ui::Offscreen offscreen{1100, 820};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    const auto draw = [&] {
+        const rummage::theme::Palette palette;
+        renderer.begin_frame(1100, 820, 1, palette.surface);
+        view.draw(renderer, {0, 0, 1100, 820}, palette, icons, *mime);
+        renderer.end_frame();
+    };
+    const auto click = [&](const std::string& id) {
+        draw();
+        const auto rect = view.control_bounds("sort:" + id);
+        REQUIRE_FALSE(rect.empty());
+        view.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                      .x = rect.x + 8,
+                      .y = rect.y + 8,
+                      .button = rummage::ui::PointerButton::left});
+    };
+    view.open(dir.path, false, {});
+    REQUIRE(until(loop, [&] { return !view.loading(); }));
+    REQUIRE(view.rows().size() == 3);
+    CHECK(view.rows().front().label == ".md");
+    click("files");
+    CHECK(view.rows().front().label == ".txt");
+    CHECK(view.sort_descending());
+    click("files");
+    CHECK(view.rows().front().label == ".md");
+    CHECK_FALSE(view.sort_descending());
+    click("bytes");
+    CHECK(view.rows().front().label == ".md");
+    click("bytes");
+    CHECK(view.rows().front().label == ".txt");
+    click("share");
+    CHECK(view.rows().front().label == ".md");
+    click("share");
+    CHECK(view.rows().front().label == ".txt");
+    click("name");
+    CHECK(view.rows().front().label == ".md");
+    click("name");
+    CHECK(view.rows().front().label == ".txt");
+    view.set_view(InsightsView::View::largest);
+    click("name");  // Reverse the retained descending name order.
+    CHECK(row(view, "report-2.pdf") < row(view, "report-10.pdf"));
+    view.set_view(InsightsView::View::age);
+    click("files");
+    CHECK(view.sort_key() == InsightsView::SortKey::files);
+    draw();
+    capture("sortable-headers", 1100, 820);
 }
