@@ -433,12 +433,21 @@ TEST_CASE("archive folders: Quick Look shows what an archive holds, from outside
     REQUIRE(held->top.size() == 3);
     CHECK(held->top[0].name == "docs");
 
-    // Inside it, the status bar says which archive, and that nothing changes there.
+    // Inside it, the status bar retains the archive context for every selection state.
     browser.go_to(dir.path / "basic.zip", "a.txt");
     REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
-    REQUIRE(browser.columns().focused_folder()->is_archive());
-    CHECK(rummage::views::status_of(*browser.columns().focused_folder()) ==
-          "zip archive  ·  read-only  ·  3 items");
+    const auto folder = browser.columns().focused_folder();
+    REQUIRE(folder);
+    REQUIRE(folder->is_archive());
+    REQUIRE(folder->single_selection());
+    CHECK(folder->single_selection()->name == "a.txt");
+    CHECK(rummage::views::status_of(*folder) == "zip archive  ·  read-only  ·  a.txt");
+
+    folder->set_cursor(std::nullopt);
+    CHECK(rummage::views::status_of(*folder) == "zip archive  ·  read-only  ·  3 items");
+
+    folder->select_all();
+    CHECK(rummage::views::status_of(*folder) == "zip archive  ·  read-only  ·  3 of 3 selected");
 }
 
 TEST_CASE("archive folders: Quick Look shows a picture from inside an archive") {
