@@ -64,6 +64,7 @@ add_executable(rummage-tests
     group_test.cpp
     path_completion_test.cpp
     load_test.cpp
+    insights_test.cpp
     measure_test.cpp
     memory_test.cpp
     mime_test.cpp

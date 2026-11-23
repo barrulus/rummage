@@ -105,6 +105,9 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !folder->is_archive() && names.size() <= 1 && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
+    if (editable && !picker_mode_)
+        command(Command::folder_insights, "folder_insights", "Folder insights…");
+
     if (editable && !names.empty()) {
         if (!picker_mode_)
             add("command:move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",

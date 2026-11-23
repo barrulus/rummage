@@ -82,6 +82,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       batch_rename_{redraw},
       errors_{redraw, [this](std::string text) { copy_text(std::move(text)); }},
       properties_{pool, mime, redraw},
+      insights_{pool, redraw},
       settings_{pool, redraw},
       menu_{std::move(redraw)},
       palette_{redraw_},
@@ -98,6 +99,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
                  }} {
     info_pane_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
     properties_.set_copy_handler([this](std::string text) { copy_text(std::move(text)); });
+    info_pane_.set_insights_handler(
+        [this](const std::filesystem::path& path) { show_insights(path); });
     areas_[0] = std::make_unique<BrowsingArea>(*this);
     add_pane(0);
     palette_.set_chosen_handler([this](const std::string& id) {
@@ -2313,6 +2316,9 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     add(
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
         true, count == 1);
+    if (!picker_mode_ && count == 1 && cursor && cursor->is_directory() && !folder->is_archive())
+        add("folder_insights", "Folder insights…", keys_for(Command::folder_insights),
+            [this, path = folder->path_of(*cursor)] { show_insights(path); });
     for (auto& item : action_items(action_context(folder))) {
         items.push_back(std::move(item));
     }
@@ -2419,7 +2425,48 @@ std::vector<MenuItem> Browser::folder_menu() {
     properties.separator = true;
     properties.action = [this] { show_properties(); };
     items.push_back(std::move(properties));
+    const auto shown = current_folder();
+    if (!picker_mode_ && shown && !shown->is_archive() && !shown->is_trash()) {
+        MenuItem insights;
+        insights.id = "folder_insights";
+        insights.label = i18n::tr("Folder insights…");
+        insights.keys = keys_for(Command::folder_insights);
+        insights.action = [this, path = shown->path()] { show_insights(path); };
+        items.push_back(std::move(insights));
+    }
     return items;
+}
+
+void Browser::show_insights(std::filesystem::path path) {
+    const auto folder = current_folder();
+    if (!folder || folder->is_archive() || folder->is_trash() || picker_mode_)
+        return;
+    if (path.empty()) {
+        path = folder->path();
+        if (const auto* selected = folder->single_selection(); selected && selected->is_directory())
+            path = folder->path_of(*selected);
+    }
+    menu_.close();
+    palette_.close();
+    quick_look_.close();
+    shortcuts_.close();
+    info_pane_.clear_text_focus();
+    info_pane_.cancel_measurement();
+    filter_focused_ = false;
+    insights_.open(
+        std::move(path), pane().show_hidden,
+        [this](const std::filesystem::path& target, bool directory) {
+            set_name_filter({});
+            if (std::ranges::any_of(target, [](const std::filesystem::path& part) {
+                    const auto& name = part.native();
+                    return name != "." && name != ".." && !name.empty() && name.front() == '.';
+                }))
+                set_show_hidden(true, false);
+            if (directory)
+                open(target);
+            else
+                show_found(target.parent_path(), target.filename().string(), FoundAction::show);
+        });
 }
 
 void Browser::show_properties() {
@@ -2514,7 +2561,7 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
         group({"trash", "erase"});
     }
     group({"sort", "panes"});
-    group({"properties"});
+    group({"properties", "folder_insights"});
     return arrange_menu(items, layout);
 }
 
@@ -3466,8 +3513,8 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                    ui::IconSet& icons, Clock::time_point now) {
     if (password_.is_open() || errors_.is_open() || conflict_.is_open() || confirm_.is_open() ||
         mount_password_.is_open() || location_.is_open() || batch_rename_.is_open() ||
-        settings_.is_open() || properties_.is_open() || palette_.is_open() || menu_.is_open() ||
-        shortcuts_.is_open() || quick_look_.is_open() || editor_.active())
+        settings_.is_open() || properties_.is_open() || insights_.is_open() || palette_.is_open() ||
+        menu_.is_open() || shortcuts_.is_open() || quick_look_.is_open() || editor_.active())
         info_pane_.clear_text_focus();
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
@@ -3557,6 +3604,8 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     if (folder && shared_info_bounds_.width > 0)
         info_pane_.draw(renderer, shared_info_bounds_, palette, icons, *folder, now);
     info_pane_.end_frame();
+    if (insights_.is_open())
+        info_pane_.cancel_measurement();
     if (!sidebar_preview_divider_.empty()) {
         renderer.fill_background(sidebar_preview_divider_, palette.outline_variant);
         const float edge = 1.0F / renderer.scale();
@@ -3576,6 +3625,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     palette_.draw(renderer, bounds, palette);
     end_overlay_motion(renderer, overlay_motion, bounds, palette);
     properties_.draw(renderer, bounds, palette, icons, thumbnails_.get());
+    insights_.draw(renderer, bounds, palette, icons, *mime_);
     settings_.draw(renderer, bounds, palette, icons);
     conflict_.draw(renderer, bounds, palette);
     confirm_.draw(renderer, bounds, palette);
@@ -3732,7 +3782,8 @@ bool Browser::loading() const {
         return true;
     if (operations_ > 0 || menu_loads_ > 0 || transfers_.pending() > 0 || quick_look_.loading() ||
         info_pane_.loading() || status_bar_.loading() || properties_.loading() ||
-        properties_.saving() || settings_.busy() || (thumbnails_ && thumbnails_->loading()))
+        insights_.loading() || properties_.saving() || settings_.busy() ||
+        (thumbnails_ && thumbnails_->loading()))
         return true;
     for (const auto& owner : areas_) {
         if (!owner)
@@ -3814,6 +3865,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     }
     if (settings_.is_open())
         return settings_.cursor_at(x, y);
+    if (insights_.is_open())
+        return insights_.cursor_at(x, y);
     if (properties_.is_open())
         return properties_.cursor_at(x, y);
     if (palette_.is_open()) {
@@ -3878,8 +3931,9 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     if (event.kind == ui::PointerEvent::Kind::release &&
         (errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
          location_.is_open() || batch_rename_.is_open() || conflict_.is_open() ||
-         confirm_.is_open() || properties_.is_open() || settings_.is_open() || palette_.is_open() ||
-         menu_.is_open() || shortcuts_.is_open() || quick_look_.is_open())) {
+         confirm_.is_open() || properties_.is_open() || insights_.is_open() ||
+         settings_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
+         quick_look_.is_open())) {
         // Taken by what the press opened (a menu from a right click): the button is up all the
         // same, and the next press finds its target again.
         button_held_ = false;
@@ -3916,6 +3970,10 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     }
     if (settings_.is_open()) {
         settings_.pointer(event);
+        return;
+    }
+    if (insights_.is_open()) {
+        insights_.pointer(event);
         return;
     }
     if (properties_.is_open()) {
@@ -5311,6 +5369,10 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             settings_.key(event);
         return true;
     }
+    if (insights_.is_open()) {
+        insights_.key(event);
+        return true;
+    }
     if (properties_.is_open()) {
         if (event.modifiers == ui::Modifiers{.ctrl = true} &&
             (event.keysym == XKB_KEY_v || event.keysym == XKB_KEY_V))
@@ -5766,6 +5828,9 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::context_menu:
             open_menu_from_keyboard();
+            break;
+        case Command::folder_insights:
+            show_insights();
             break;
         case Command::properties:
             show_properties();

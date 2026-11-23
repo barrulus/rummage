@@ -97,6 +97,10 @@ public:
 
     [[nodiscard]] ui::Rect copy_bounds() const { return copy_button_; }
 
+    void set_insights_handler(std::function<void(const std::filesystem::path&)> handler) {
+        insights_ = std::move(handler);
+    }
+
     // A click at (x, y): true when the pane took a disclosure or copy action.
     bool click(float x, float y);
 
@@ -120,13 +124,15 @@ public:
     // "More details" is there, as last drawn.
     [[nodiscard]] bool clickable_at(float x, float y) const {
         return bounds_.contains(x, y) &&
-               (toggle_.contains(x, y) || (!copy_text_.empty() && copy_button_.contains(x, y)));
+               (toggle_.contains(x, y) || insights_button_.contains(x, y) ||
+                (!copy_text_.empty() && copy_button_.contains(x, y)));
     }
 
     // Before a frame: what it drew is gone unless it is drawn again (a view without the pane).
     void forget_layout() noexcept {
         bounds_ = {};
         toggle_ = {};
+        insights_button_ = {};
         thumbnail_ = {};
         copy_button_ = {};
     }
@@ -210,6 +216,9 @@ private:
     bool size_done_{false};
     bool expanded_{false};
     float width_{kWidth};
+    std::function<void(const std::filesystem::path&)> insights_;
+    std::filesystem::path insights_path_;
+    ui::Rect insights_button_{};
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
     ui::Rect thumbnail_{};

@@ -42,6 +42,7 @@
 #include "rummage/views/file_finder.hpp"
 #include "rummage/views/grid_view.hpp"
 #include "rummage/views/info_pane.hpp"
+#include "rummage/views/insights_dialog.hpp"
 #include "rummage/views/location_dialog.hpp"
 #include "rummage/views/name_editor.hpp"
 #include "rummage/views/pane.hpp"
@@ -239,7 +240,7 @@ public:
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open();
+               quick_look_.is_open() || properties_.is_open() || insights_.is_open();
     }
 
     [[nodiscard]] std::shared_ptr<Folder> picker_folder() const { return current_folder(); }
@@ -398,7 +399,14 @@ public:
     // allow_and_run() is called on "Allow and Run" (issue #17).
     void ask_to_run(const std::filesystem::path& program, std::function<void()> allow_and_run);
 
-    void set_picker_mode(bool picker) { picker_mode_ = picker; }
+    void set_picker_mode(bool picker) {
+        picker_mode_ = picker;
+        if (picker)
+            info_pane_.set_insights_handler({});
+        else
+            info_pane_.set_insights_handler(
+                [this](const std::filesystem::path& path) { show_insights(path); });
+    }
 
     using ActionHandoff = std::function<void(const core::Action&, const core::ActionContext&)>;
 
@@ -712,6 +720,9 @@ public:
     [[nodiscard]] LocationDialog& location_dialog() noexcept { return location_; }
 
     void show_properties();
+    void show_insights(std::filesystem::path path = {});
+
+    [[nodiscard]] InsightsDialog& insights_dialog() noexcept { return insights_; }
 
     [[nodiscard]] PropertiesDialog& properties_dialog() noexcept { return properties_; }
 
@@ -1097,6 +1108,7 @@ private:
     std::uint64_t batch_rename_generation_{0};
     ErrorDialog errors_;
     PropertiesDialog properties_;
+    InsightsDialog insights_;
     SettingsDialog settings_;
     std::filesystem::path config_path_;
     std::function<void()> open_config_;

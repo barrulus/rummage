@@ -478,6 +478,7 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::show_shortcuts, "show_shortcuts"},
         {Command::show_settings, "show_settings"},
         {Command::properties, "properties"},
+        {Command::folder_insights, "folder_insights"},
         {Command::rename, "rename"},
         {Command::new_folder, "new_folder"},
         {Command::copy, "copy"},

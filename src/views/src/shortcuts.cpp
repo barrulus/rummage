@@ -172,6 +172,13 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
              .command = Command::properties},
     Shortcut{.group = i18n::mark("General"),
+             .keys = "Ctrl+Alt+I",
+             .action = i18n::mark("Folder insights"),
+             .scope = scope::kViews,
+             .modifiers = ui::Modifiers{.ctrl = true, .alt = true},
+             .keysyms = {XKB_KEY_i, XKB_KEY_I},
+             .command = Command::folder_insights},
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+Q",
              .action = i18n::mark("Quit"),
              .scope = scope::kWindow,
@@ -806,6 +813,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::stop_transfer;
     if (name == "context_menu")
         command = Command::context_menu;
+    if (name == "folder_insights")
+        command = Command::folder_insights;
     if (name == "properties")
         command = Command::properties;
     if (name == "back")
@@ -1032,8 +1041,9 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         return false;
     };
     // New defaults give way to existing custom chords, including selection variants.
-    for (const auto* introduced : {"copy_path", "invert_selection", "reopen_tab", "edit_path",
-                                   "focus_files", "open_selected_tab", "open_other_pane"}) {
+    for (const auto* introduced :
+         {"folder_insights", "copy_path", "invert_selection", "reopen_tab", "edit_path",
+          "focus_files", "open_selected_tab", "open_other_pane"}) {
         if (bindings.contains(introduced))
             continue;
         auto& entry = next.entries[*binding_index(introduced)];
@@ -1119,6 +1129,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "stop_transfer",
                              "context_menu",
                              "properties",
+                             "folder_insights",
                              "back",
                              "forward",
                              "toggle_hidden",
