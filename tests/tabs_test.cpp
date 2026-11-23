@@ -953,63 +953,51 @@ TEST_CASE("tabs: Ctrl+Shift+T brings back the tab closed last, where it was and 
     CHECK(f.browser.grid().folder()->path() == f.b);
 }
 
-TEST_CASE("tabs: closed tabs come back newest first; ten are kept") {
+TEST_CASE("tabs: closed history is bounded and is not persisted in session state") {
     Fixture f;
-    for (int i = 0; i < 11; ++i) {
-        fs::create_directories(f.dir.path / std::format("d{}", i));
-        f.browser.open_tab(f.dir.path / std::format("d{}", i), true);
+    for (std::size_t i = 0; i < Browser::kMaxClosedTabs + 2; ++i) {
+        const auto path = f.dir.path / std::to_string(i);
+        fs::create_directory(path);
+        f.browser.open_tab(path, true);
         REQUIRE(f.settle());
-    }
-    CHECK(f.browser.tab_count() == 12);
-    for (int i = 0; i < 11; ++i) {
         f.browser.close_tab(1);
     }
-    CHECK(f.browser.tab_count() == 1);
-    CHECK(f.browser.closed_tab_count() == Browser::kMaxClosedTabs);
-    std::vector<std::string> back;
+    const auto saved = f.browser.state();
+    Browser again{
+        f.loop, f.pool, f.watcher, rummage::fs::MimeDatabase::load(), [] {}, [](CursorShape) {}};
+    again.apply(saved);
+    CHECK_FALSE(again.closed_tab_count());
     for (std::size_t i = 0; i < Browser::kMaxClosedTabs; ++i) {
-        CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
-        REQUIRE(f.browser.columns().focused_folder() != nullptr);
-        back.push_back(f.browser.columns().focused_folder()->path().filename().string());
+        REQUIRE(f.browser.closed_tab_count());
+        f.browser.reopen_tab();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->path().filename() ==
+              std::to_string(Browser::kMaxClosedTabs + 1 - i));
     }
-    CHECK(f.browser.tab_count() == 11);
-    CHECK(back ==
-          std::vector<std::string>{"d10", "d9", "d8", "d7", "d6", "d5", "d4", "d3", "d2", "d1"});
-    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
-    CHECK(f.browser.tab_count() == 11);
-    CHECK(f.browser.status_bar().message() == "No closed tab to reopen");
+    CHECK_FALSE(f.browser.closed_tab_count());
+    CHECK(f.browser.tab_count() == Browser::kMaxClosedTabs + 1);
 }
 
-TEST_CASE("tabs: a closed tab whose folder is gone is dropped, with a message") {
+TEST_CASE("tabs: reopening a removed location retains its path and reports the folder error") {
     Fixture f;
-    f.browser.open_tab(f.b, true);
-    REQUIRE(f.settle());
-    f.browser.close_tab(1);
-    fs::remove_all(f.b);
-    REQUIRE(f.settle());
-    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
-    CHECK(f.browser.tab_count() == 1);
-    CHECK(f.browser.status_bar().message() == "b no longer exists");
-    CHECK(f.browser.closed_tab_count() == 0);
-
-    // Two closed, the newer one gone: the next Ctrl+Shift+T takes the one before it.
-    fs::create_directories(f.b);
-    f.browser.open_tab(f.b, true);
-    REQUIRE(f.settle());
     f.browser.open_tab(f.a / "sub", true);
     REQUIRE(f.settle());
-    f.browser.close_tab(1);  // b
-    f.browser.close_tab(1);  // sub
-    fs::remove_all(f.a / "sub");
+    SUBCASE("a directly opened folder") {}
+    SUBCASE("a nested column chain") {
+        std::ofstream{f.a / "sub/item.txt"} << "item";
+        f.browser.reveal(f.dir.path, f.a / "sub/item.txt");
+        REQUIRE(f.settle());
+        REQUIRE(f.browser.picker_folder()->path() == f.a / "sub");
+        fs::remove(f.a / "sub/item.txt");
+    }
+    f.browser.close_tab(1);
+    fs::remove(f.a / "sub");
+    f.browser.reopen_tab();
     REQUIRE(f.settle());
-    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
-    CHECK(f.browser.tab_count() == 1);
-    CHECK(f.browser.status_bar().message() == "sub no longer exists");
-    CHECK(f.browser.closed_tab_count() == 1);
-    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    REQUIRE(f.browser.picker_folder());
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+    CHECK(f.browser.picker_folder()->model().error());
     CHECK(f.browser.tab_count() == 2);
-    REQUIRE(f.browser.columns().focused_folder() != nullptr);
-    CHECK(f.browser.columns().focused_folder()->path() == f.b);
 }
 
 TEST_CASE("tabs: a tab closed by its × while another is shown keeps its last cursor") {
@@ -1041,7 +1029,7 @@ TEST_CASE("tabs: Ctrl+Shift+T in a name being edited is the field's") {
     CHECK(f.browser.name_editor().active());
 }
 
-TEST_CASE("tabs: columns come back unfolded from their first folder") {
+TEST_CASE("tabs: reopened columns start at the saved location") {
     Fixture f;
     fs::create_directories(f.a / "sub" / "deep");
     CHECK(f.press(key(XKB_KEY_t, kCtrl)));
@@ -1052,7 +1040,7 @@ TEST_CASE("tabs: columns come back unfolded from their first folder") {
     const fs::path shown = f.browser.columns().focused_folder()->path();
     CHECK(f.press(key(XKB_KEY_w, kCtrl)));
     CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
-    CHECK(f.browser.columns().column(0).folder().path() == f.a);
+    CHECK(f.browser.columns().column(0).folder().path() == shown);
     CHECK(f.browser.columns().focused_folder()->path() == shown);
 }
 
@@ -1209,4 +1197,99 @@ TEST_CASE("folders: reset restores built-in defaults for future visits and after
     REQUIRE(run_until(f.loop, [&] { return !again.loading(); }));
     CHECK(again.mode() == Browser::Mode::grid);
     CHECK(again.grid().size_index() == 5);
+}
+
+TEST_CASE("tabs: reopen restores settings and history over changed folder preferences") {
+    using Field = rummage::views::DetailsView::Field;
+    Fixture f;
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.close_tab(0);  // The last tab never enters closed history.
+    f.browser.reopen_tab();
+    CHECK(f.browser.tab_count() == 1);
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    f.browser.back();
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_show_hidden(true);
+    f.browser.set_sort(Field::size, true);
+    f.browser.details().set_columns({Field::name, Field::permissions, Field::size});
+    f.browser.set_name_filter("two");
+    CHECK(f.press(key(XKB_KEY_plus, kCtrl)));
+    f.browser.details().folder()->select_name("two.txt");
+    const auto before = f.browser.state().tabs.at(1);
+    const auto history_size = f.browser.history().size();
+    const auto history_index = f.browser.history_index();
+    CHECK(f.press(key(XKB_KEY_w, kCtrl)));
+    REQUIRE(f.browser.closed_tab_count());
+
+    // Another tab changes the same folder's remembered settings after the close.
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.set_sort(Field::name, false);
+    f.browser.set_show_hidden(false);
+    CHECK(f.press(key(XKB_KEY_t, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.active_tab() == 1);
+    CHECK(f.browser.state().tabs.at(1) == before);
+    CHECK(f.browser.history().size() == history_size);
+    CHECK(f.browser.history_index() == history_index);
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.forward();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a);
+}
+
+TEST_CASE("tabs: closed history follows its pane through hiding and swapping") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    f.browser.toggle_split();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.open_tab(f.a / "sub", true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    f.browser.toggle_split();  // Hide the split, keeping the active area's history.
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.toggle_split();
+    f.browser.swap_panes();
+    f.browser.switch_pane();
+    REQUIRE(f.browser.closed_tab_count());
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.b);
+}
+
+TEST_CASE("tabs: reopen supports Trash and archive folders") {
+    Fixture f;
+    SUBCASE("Trash") {
+        f.browser.open_tab(rummage::fs::trash_path(), true);
+        REQUIRE(f.settle());
+        f.browser.close_tab(1);
+        f.browser.reopen_tab();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->is_trash());
+    }
+    SUBCASE("archive") {
+        const auto archive = f.dir.path / "example.zip";
+        fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archives/sample.zip", archive);
+        f.browser.open_tab(archive, true);
+        REQUIRE(f.settle());
+        REQUIRE(f.browser.picker_folder()->is_archive());
+        const auto count = f.browser.picker_folder()->entries().size();
+        f.browser.close_tab(1);
+        f.browser.reopen_tab();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->is_archive());
+        CHECK(f.browser.picker_folder()->path() == archive);
+        CHECK(f.browser.picker_folder()->entries().size() == count);
+    }
 }

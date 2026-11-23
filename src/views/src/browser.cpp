@@ -311,8 +311,7 @@ void Browser::close_tab(std::size_t index) {
         area().closed_tabs.push_back({.tab = tab_of(closing, context_area_),
                                       .history = std::move(history),
                                       .here = closing.here,
-                                      .index = index,
-                                      .off_disk = folder->is_trash() || folder->is_archive()});
+                                      .index = index});
         if (area().closed_tabs.size() > kMaxClosedTabs)
             area().closed_tabs.erase(area().closed_tabs.begin());
     }
@@ -335,29 +334,33 @@ void Browser::reopen_tab() {
         show_message(std::string{i18n::tr("No closed tab to reopen")}, false);
         return;
     }
+    note_location();
+    leave_pane();
     auto closed = std::move(area().closed_tabs.back());
     area().closed_tabs.pop_back();
-    std::error_code error;
-    if (!closed.off_disk && !std::filesystem::is_directory(closed.tab.folder, error)) {
-        show_message(i18n::trf("{} no longer exists", closed.tab.folder.filename().empty()
-                                                          ? closed.tab.folder.string()
-                                                          : closed.tab.folder.filename().string()),
-                     true);
-        return;
-    }
-    note_location();
-    const auto list = pane().details.list_size();
-    const auto grid = pane().grid.size_index();
-    leave_pane();
-    const auto at = std::min(closed.index, area().tabs.size());
-    add_pane(at);
-    area().active = at;
-    restore_tab(closed.tab, list, grid);
-    if (closed.here < closed.history.size() &&
-        closed.history[closed.here].folder == closed.tab.folder) {
-        pane().history = std::move(closed.history);
-        pane().here = closed.here;
-    }
+    const auto index = std::min(closed.index, area().tabs.size());
+    add_pane(index);
+    area().active = index;
+    const auto& tab = closed.tab;
+    pane().mode = static_cast<Mode>(tab.mode);
+    // The tab's snapshot wins over folder preferences changed since it closed.
+    pane().settings_folder = tab.folder.lexically_normal();
+    set_list_size(*tab.list_size);
+    set_grid_size(grid_index(*tab.grid_icon));
+    set_sort(*tab.sort_key, tab.sort_descending);
+    pane().details.set_columns(*tab.details_columns);
+    pane().details.set_widths(*tab.details_widths);
+    set_show_hidden(*tab.show_hidden, false);
+    set_name_filter(tab.filter);
+    // Open the saved location directly, including in columns. Reconstructing ancestors
+    // by selecting through them can stop at a different folder after a rename, filter
+    // change or permissions change. Listing here stays asynchronous, and missing or
+    // inaccessible locations use the ordinary folder error view.
+    open(tab.folder);
+    if (const auto folder = current_folder(); folder && !tab.cursor.empty())
+        folder->select_name(tab.cursor);
+    pane().history = std::move(closed.history);
+    pane().here = closed.here;
     enter_pane();
 }
 
