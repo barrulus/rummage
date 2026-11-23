@@ -40,3 +40,11 @@ Their password is `password`; they contain `a.txt` through `d.txt`, each contain
 | `encrypted-headers-rar5.rar` | `test_read_format_rar5_encrypted_filenames.rar.uu` |
 
 Source: https://github.com/libarchive/libarchive/tree/4a5944b726d24c8e86589ad09cef958c6f1a6e9c/libarchive/test
+
+`multipart.part1.rar` through `multipart.part3.rar` are the unencrypted
+`test_rar_multivolume_single_file.part{1,2,3}.rar.uu` fixtures from the same
+libarchive commit and license above, decoded without changing the archive bytes.
+They contain `LibarchiveAddingTest.html` (20,111 bytes), spanning all three volumes.
+The extracted file's SHA-256 is
+`ee16390e87152d7dec632ae2b37566da6135966e46b5166e6f40a1c827fa61ad`.
+Tests also rename these volumes to exercise zero-padded and old-style RAR names.
