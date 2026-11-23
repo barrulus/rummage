@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <ctime>
 #include <format>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -12,11 +13,24 @@
 namespace rummage::views {
 namespace {
 constexpr float kRow = 24.0F;
-constexpr std::size_t kPreview = 6;
-constexpr std::size_t kCancel = 7;
-constexpr std::size_t kApply = 8;
-constexpr std::array<std::string_view, 6> labels{
-    "Find in name (literal)", "Replace with", "Template", "Start", "Step", "Zero padding"};
+constexpr std::size_t kChoices = 9;
+constexpr std::size_t kPreview = 12;
+constexpr std::size_t kCancel = 13;
+constexpr std::size_t kApply = 14;
+constexpr std::array<std::string_view, 9> labels{i18n::mark("Find"),
+                                                 "Replace with",
+                                                 "Template",
+                                                 "Start",
+                                                 "Step",
+                                                 "Zero padding",
+                                                 i18n::mark("Position (from 0)"),
+                                                 i18n::mark("Remove characters"),
+                                                 i18n::mark("Insert text")};
+constexpr std::array target_labels{i18n::mark("Target: Basename"), i18n::mark("Target: Extension"),
+                                   i18n::mark("Target: Whole name")};
+constexpr std::array case_labels{i18n::mark("Case: Unchanged"), i18n::mark("Case: lower (ASCII)"),
+                                 i18n::mark("Case: UPPER (ASCII)"),
+                                 i18n::mark("Case: Title (ASCII)")};
 
 bool number(std::string_view text, std::uint64_t& value) {
     const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
@@ -40,6 +54,12 @@ void BatchRenameDialog::open(std::vector<fs::RenameSource> directory,
     fields_[3].set_text("1");
     fields_[4].set_text("1");
     fields_[5].set_text("2");
+    fields_[6].set_text("0");
+    fields_[7].set_text("0");
+    target_ = fs::RenameOptions::Target::basename;
+    letter_case_ = fs::RenameOptions::Case::unchanged;
+    regex_ = false;
+    timestamp_ = static_cast<std::int64_t>(std::time(nullptr));
     focus_ = 0;
     offset_ = 0;
     form_offset_ = 0;
@@ -64,7 +84,20 @@ void BatchRenameDialog::close() {
 void BatchRenameDialog::update() {
     fs::RenameOptions options{
         .find = fields_[0].text(), .replace = fields_[1].text(), .pattern = fields_[2].text()};
+    options.target = target_;
+    options.letter_case = letter_case_;
+    options.regex = regex_;
+    options.insert = fields_[8].text();
+    options.timestamp = timestamp_;
     std::uint64_t padding = 0;
+    if (!number(fields_[6].text(), options.position) ||
+        !number(fields_[7].text(), options.remove)) {
+        preview_ = {};
+        preview_.error =
+            std::string{i18n::tr("Position and removal count must be non-negative whole numbers")};
+        redraw_();
+        return;
+    }
     if (!number(fields_[3].text(), options.start) || !number(fields_[4].text(), options.step) ||
         !number(fields_[5].text(), padding) || padding > 20 || options.step == 0) {
         preview_ = {};
@@ -75,6 +108,18 @@ void BatchRenameDialog::update() {
         preview_ = fs::plan_rename(directory_, selection_, options);
     }
     redraw_();
+}
+
+void BatchRenameDialog::cycle_choice(std::size_t choice, bool reverse) {
+    if (choice == 0)
+        target_ = static_cast<fs::RenameOptions::Target>(
+            (static_cast<unsigned>(target_) + (reverse ? 2U : 1U)) % 3U);
+    else if (choice == 1)
+        letter_case_ = static_cast<fs::RenameOptions::Case>(
+            (static_cast<unsigned>(letter_case_) + (reverse ? 3U : 1U)) % 4U);
+    else
+        regex_ = !regex_;
+    update();
 }
 
 void BatchRenameDialog::submit() {
@@ -104,9 +149,10 @@ bool BatchRenameDialog::key(const ui::KeyEvent& event) {
             return true;
         case XKB_KEY_Tab:
         case XKB_KEY_ISO_Left_Tab:
-            focus_ = (focus_ +
-                      ((event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab) ? 8 : 1)) %
-                     9;
+            focus_ =
+                (focus_ +
+                 ((event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab) ? kApply : 1)) %
+                (kApply + 1);
             if (focus_ < fields_.size()) {
                 fields_[focus_].select_all();
                 const auto& rect = fields_[focus_].bounds();
@@ -116,6 +162,13 @@ bool BatchRenameDialog::key(const ui::KeyEvent& event) {
                     form_offset_ =
                         std::min(max_form_scroll_, form_offset_ + rect.bottom() - body_.bottom());
                 }
+            } else if (focus_ < kPreview) {
+                const auto& rect = choices_[focus_ - kChoices];
+                if (rect.y < body_.y)
+                    form_offset_ = std::max(0.0F, form_offset_ + rect.y - body_.y);
+                else if (rect.bottom() > body_.bottom())
+                    form_offset_ =
+                        std::min(max_form_scroll_, form_offset_ + rect.bottom() - body_.bottom());
             } else if (focus_ == kPreview) {
                 form_offset_ = max_form_scroll_;
             }
@@ -123,7 +176,9 @@ bool BatchRenameDialog::key(const ui::KeyEvent& event) {
             return true;
         case XKB_KEY_Return:
         case XKB_KEY_KP_Enter:
-            if (focus_ == kCancel) {
+            if (focus_ >= kChoices && focus_ < kPreview) {
+                cycle_choice(focus_ - kChoices);
+            } else if (focus_ == kCancel) {
                 close();
             } else {
                 submit();
@@ -149,6 +204,10 @@ bool BatchRenameDialog::key(const ui::KeyEvent& event) {
         if (fields_[focus_].key(event)) {
             update();
         }
+    } else if (focus_ < kPreview) {
+        if (event.keysym == XKB_KEY_space || event.keysym == XKB_KEY_Left ||
+            event.keysym == XKB_KEY_Right)
+            cycle_choice(focus_ - kChoices, event.keysym == XKB_KEY_Left);
     } else if (focus_ == kPreview) {
         if (event.keysym == XKB_KEY_Up) {
             scroll(-kRow);
@@ -196,6 +255,9 @@ ui::CursorShape BatchRenameDialog::cursor_at(float x, float y) const {
             return ui::CursorShape::text;
         }
     }
+    for (const auto& choice : choices_)
+        if (body_.contains(x, y) && choice.contains(x, y))
+            return ui::CursorShape::pointer;
     if (cancel_.contains(x, y) || (can_apply() && apply_button_.contains(x, y))) {
         return ui::CursorShape::pointer;
     }
@@ -230,6 +292,13 @@ void BatchRenameDialog::pointer(const ui::PointerEvent& event) {
             focus_ = i;
             fields_[i].pointer(event);
             redraw_();
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < choices_.size(); ++i) {
+        if (body_.contains(event.x, event.y) && choices_[i].contains(event.x, event.y)) {
+            focus_ = kChoices + i;
+            cycle_choice(i);
             return;
         }
     }
@@ -280,7 +349,7 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float buttons_y = card.bottom() - 50.0F;
     body_ = {left, y, room, std::max(30.0F, buttons_y - 42.0F - y)};
     const bool wide = room >= 600.0F;
-    const float form_height = wide ? 178.0F : 232.0F;
+    const float form_height = wide ? 268.0F : 378.0F;
     const float list_height = std::max(96.0F, body_.height - form_height);
     max_form_scroll_ = std::max(0.0F, form_height + list_height - body_.height);
     form_offset_ = std::clamp(form_offset_, 0.0F, max_form_scroll_);
@@ -314,8 +383,32 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         field(i, numbers_x + static_cast<float>(i - 3) * (third + 12.0F), third, y);
     }
     y += 54.0F;
+    const float edit_width = (room - 24.0F) / 3.0F;
+    for (std::size_t i = 6; i < 9; ++i)
+        field(i, left + static_cast<float>(i - 6) * (edit_width + 12.0F), edit_width, y);
+    y += 54.0F;
+    const std::array choice_labels{
+        target_labels[static_cast<std::size_t>(target_)],
+        case_labels[static_cast<std::size_t>(letter_case_)],
+        regex_ ? i18n::mark("Find: Regex") : i18n::mark("Find: Literal")};
+    for (std::size_t i = 0; i < choices_.size(); ++i) {
+        choices_[i] = {wide ? left + static_cast<float>(i) * (edit_width + 12.0F) : left, y,
+                       wide ? edit_width : room, 28.0F};
+        renderer.draw_box(
+            choices_[i],
+            {.fill = palette.surface_container_highest,
+             .radius = ui::Corners::all(4.0F),
+             .border_width = 1.0F,
+             .border = focus_ == kChoices + i ? palette.primary : palette.outline_variant});
+        draw_button_text(renderer, i18n::tr(choice_labels[i]), choices_[i], palette.on_surface);
+        if (!wide)
+            y += 28.0F;
+    }
+    if (wide)
+        y += 28.0F;
+    y += 8.0F;
     renderer.draw_text(
-        i18n::tr("{name} = name after replacement     {n} = number     {ext} = extension"), left, y,
+        i18n::tr("Tokens: {name} {ext} {n} {date} {time} {mtime} {mtime_time} {size}"), left, y,
         12.0F, palette.on_surface_variant, room);
     y += 24.0F;
     renderer.draw_text(i18n::tr("Old name"), left + 6.0F, y, 13.0F, palette.on_surface_variant,

@@ -26,6 +26,9 @@ public:
     [[nodiscard]] const std::string& error() const { return error_; }
 
     [[nodiscard]] bool matches(const std::string& name) const;
+    // Regex replacement: \\0 is the match, \\1…\\9 are groups, \\\\ is a backslash.
+    // Returns an error without changing text when the regex or replacement is invalid.
+    [[nodiscard]] std::string replace_all(std::string& text, const std::string& replacement) const;
 
 private:
     Spec spec_;

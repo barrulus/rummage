@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
+#include <ctime>
 #include <fcntl.h>
 #include <format>
 #include <limits>
@@ -12,6 +13,7 @@
 #include <unistd.h>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::fs {
@@ -19,45 +21,141 @@ namespace {
 
 std::string system_error() { return std::error_code{errno, std::generic_category()}.message(); }
 
-std::string new_name(std::string_view original, bool folder, const RenameOptions& options,
-                     std::uint64_t number, std::string& error) {
-    const auto dot = original.rfind('.');
-    const bool extension = !folder && dot != std::string_view::npos && dot != 0;
-    std::string name{extension ? original.substr(0, dot) : original};
-    const std::string_view ext = extension ? original.substr(dot) : std::string_view{};
+// UTF-8 scalars are editing units. Invalid filename bytes remain individual units.
+std::vector<std::size_t> boundaries(std::string_view text) {
+    std::vector<std::size_t> out{0};
+    for (std::size_t i = 0; i < text.size();) {
+        const auto first = static_cast<unsigned char>(text[i]);
+        std::size_t count = first >= 0xc2 && first <= 0xdf   ? 2
+                            : first >= 0xe0 && first <= 0xef ? 3
+                            : first >= 0xf0 && first <= 0xf4 ? 4
+                                                             : 1;
+        bool valid = i + count <= text.size();
+        for (std::size_t j = 1; valid && j < count; ++j) {
+            const auto c = static_cast<unsigned char>(text[i + j]);
+            valid = c >= 0x80 && c <= 0xbf;
+            if (j == 1)
+                valid = valid && !(first == 0xe0 && c < 0xa0) && !(first == 0xed && c >= 0xa0) &&
+                        !(first == 0xf0 && c < 0x90) && !(first == 0xf4 && c >= 0x90);
+        }
+        i += valid ? count : 1;
+        out.push_back(i);
+    }
+    return out;
+}
+
+void change_case(std::string& text, RenameOptions::Case mode) {
+    bool word_start = true;
+    for (char& c : text) {
+        const bool alpha = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        const bool upper = mode == RenameOptions::Case::upper ||
+                           (mode == RenameOptions::Case::title && word_start);
+        if (mode != RenameOptions::Case::unchanged && alpha) {
+            if (upper && c >= 'a' && c <= 'z')
+                c = static_cast<char>(c - ('a' - 'A'));
+            else if (!upper && c >= 'A' && c <= 'Z')
+                c = static_cast<char>(c + ('a' - 'A'));
+        }
+        word_start = !alpha && !(c >= '0' && c <= '9') && static_cast<unsigned char>(c) < 0x80;
+    }
+}
+
+std::string stamp(std::optional<std::int64_t> seconds, bool time, std::string& error) {
+    if (seconds) {
+        const auto value = static_cast<std::time_t>(*seconds);
+        std::tm broken{};
+        char result[32]{};
+        if (gmtime_r(&value, &broken) &&
+            std::strftime(result, sizeof(result), time ? "%H-%M-%S" : "%Y-%m-%d", &broken))
+            return result;
+    }
+    error = std::string{i18n::tr("The requested date metadata is unavailable")};
+    return {};
+}
+
+std::string new_name(const RenameSource& source, const RenameOptions& options,
+                     const NamePattern* regex, std::uint64_t number, std::string& error) {
+    const auto split = [](const std::string& value, bool folder) {
+        const auto dot = value.rfind('.');
+        return !folder && dot != std::string::npos && dot != 0 ? dot : value.size();
+    };
+    const auto dot = split(source.name, source.directory);
+    std::string name = source.name.substr(0, dot);
+    std::string ext = dot < source.name.size() ? source.name.substr(dot + 1) : "";
+    std::string changed = options.target == RenameOptions::Target::whole       ? source.name
+                          : options.target == RenameOptions::Target::extension ? ext
+                                                                               : name;
     if (!options.find.empty()) {
-        std::size_t pos = 0;
-        while ((pos = name.find(options.find, pos)) != std::string::npos) {
-            name.replace(pos, options.find.size(), options.replace);
-            pos += options.replace.size();
-            if (name.size() > 255) {
-                error = std::string{i18n::tr("The replacement makes a name longer than 255 bytes")};
+        if (regex) {
+            error = regex->replace_all(changed, options.replace);
+            if (!error.empty())
                 return {};
+        } else {
+            std::size_t pos = 0;
+            while ((pos = changed.find(options.find, pos)) != std::string::npos) {
+                changed.replace(pos, options.find.size(), options.replace);
+                pos += options.replace.size();
+                if (changed.size() > 255)
+                    break;
             }
         }
     }
+    if (changed.size() > 255) {
+        error = std::string{i18n::tr("The replacement makes a name longer than 255 bytes")};
+        return {};
+    }
+    const auto offsets = boundaries(changed);
+    const auto position =
+        static_cast<std::size_t>(std::min<std::uint64_t>(options.position, offsets.size() - 1));
+    const auto count = static_cast<std::size_t>(
+        std::min<std::uint64_t>(options.remove, offsets.size() - 1 - position));
+    changed.replace(offsets[position], offsets[position + count] - offsets[position],
+                    options.insert);
+    change_case(changed, options.letter_case);
+    if (source.directory && options.target == RenameOptions::Target::extension)
+        changed.clear();
+    bool extension = dot < source.name.size();
+    if (options.target == RenameOptions::Target::whole) {
+        const auto end = split(changed, source.directory);
+        extension = end < changed.size();
+        name = changed.substr(0, end);
+        ext = end < changed.size() ? changed.substr(end + 1) : "";
+    } else if (options.target == RenameOptions::Target::extension) {
+        ext = std::move(changed);
+        extension = !ext.empty();
+    } else
+        name = std::move(changed);
+    if (extension)
+        ext.insert(ext.begin(), '.');
     std::string result;
     for (std::size_t pos = 0; pos < options.pattern.size();) {
-        if (options.pattern[pos] != '{') {
+        if (options.pattern[pos] != '{')
             result += options.pattern[pos++];
-        } else {
+        else {
             const auto end = options.pattern.find('}', pos);
             if (end == std::string::npos) {
-                error =
-                    std::string{i18n::tr("Close each template token; use {name}, {ext} and {n}")};
+                error = std::string{i18n::tr("Close each template token; see the token reference")};
                 return {};
             }
             const auto token = std::string_view{options.pattern}.substr(pos, end - pos + 1);
-            if (token == "{name}") {
+            if (token == "{name}")
                 result += name;
-            } else if (token == "{ext}") {
+            else if (token == "{ext}")
                 result += ext;
-            } else if (token == "{n}") {
+            else if (token == "{n}")
                 result += std::format("{:0{}}", number, options.padding);
-            } else {
-                error = std::string{i18n::tr("Use only {name}, {ext} and {n} in the template")};
+            else if (token == "{date}" || token == "{time}")
+                result += stamp(options.timestamp, token == "{time}", error);
+            else if (token == "{mtime}" || token == "{mtime_time}")
+                result += stamp(source.modified, token == "{mtime_time}", error);
+            else if (token == "{size}" && source.size)
+                result += std::to_string(*source.size);
+            else if (token == "{size}")
+                error = std::string{i18n::tr("The requested size metadata is unavailable")};
+            else
+                error = std::string{i18n::tr("Unknown template token; see the token reference")};
+            if (!error.empty())
                 return {};
-            }
             pos = end + 1;
         }
         if (result.size() > 255) {
@@ -90,11 +188,15 @@ RenameDirectory rename_directory(const std::filesystem::path& directory) {
             result.error = system_error();
             return result;
         }
-        result.entries.push_back({.name = it->path().filename().string(),
-                                  .regular = S_ISREG(info.st_mode),
-                                  .directory = S_ISDIR(info.st_mode),
-                                  .device = static_cast<std::uint64_t>(info.st_dev),
-                                  .inode = static_cast<std::uint64_t>(info.st_ino)});
+        result.entries.push_back(
+            {.name = it->path().filename().string(),
+             .regular = S_ISREG(info.st_mode),
+             .directory = S_ISDIR(info.st_mode),
+             .device = static_cast<std::uint64_t>(info.st_dev),
+             .inode = static_cast<std::uint64_t>(info.st_ino),
+             .size = S_ISREG(info.st_mode) ? std::optional{static_cast<std::uint64_t>(info.st_size)}
+                                           : std::nullopt,
+             .modified = static_cast<std::int64_t>(info.st_mtim.tv_sec)});
     }
     if (error) {
         result.error = error.message();
@@ -147,10 +249,18 @@ RenamePlan plan_rename(std::span<const RenameSource> directory,
                        std::span<const std::string> selection, const RenameOptions& options) {
     RenamePlan plan;
     if (options.padding > 20 || options.step == 0 || options.pattern.size() > 1024 ||
-        options.replace.size() > 255) {
+        options.replace.size() > 255 || options.find.size() > 1024 || options.insert.size() > 255) {
         plan.error = std::string{i18n::tr(
             "Use a positive step, padding from 0 to 20, and a shorter template/replacement")};
         return plan;
+    }
+    std::optional<NamePattern> regex;
+    if (options.regex && !options.find.empty()) {
+        regex.emplace("case:re:" + options.find);
+        std::string probe;
+        plan.error = regex->replace_all(probe, options.replace);
+        if (!plan.error.empty())
+            return plan;
     }
     std::map<std::string, const RenameSource*, std::less<>> entries;
     for (const auto& entry : directory) {
@@ -218,8 +328,12 @@ RenamePlan plan_rename(std::span<const RenameSource> directory,
             return plan;
         }
         const auto entry = entries.find(from);
-        const bool folder = entry != entries.end() && entry->second->directory;
-        std::string to = new_name(from, folder, options, number, plan.error);
+        if (entry == entries.end()) {
+            plan.error = i18n::trf("{} no longer exists", from);
+            return plan;
+        }
+        std::string to =
+            new_name(*entry->second, options, regex ? &*regex : nullptr, number, plan.error);
         if (!plan.error.empty()) {
             return plan;
         }
