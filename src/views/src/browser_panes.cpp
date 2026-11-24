@@ -271,6 +271,12 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
                              .children = {},
                              .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
     items.push_back(std::move(show));
+    MenuItem sidebar_options;
+    sidebar_options.id = "sidebar_options";
+    sidebar_options.label = i18n::tr("Sidebar");
+    sidebar_options.submenu = true;
+    sidebar_options.children = sidebar_menu();
+    items.push_back(std::move(sidebar_options));
     if (mode() == Mode::details)
         items.push_back(details_columns_menu());
     auto panes = pane_items();

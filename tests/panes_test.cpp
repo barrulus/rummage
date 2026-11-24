@@ -1046,3 +1046,102 @@ TEST_CASE("panes: resetting a folder leaves other visible tabs unchanged") {
     CHECK(f.browser.mode() == Browser::Mode::details);
     CHECK(f.browser.details().list_size() == 3);
 }
+
+TEST_CASE("panes: sidebar dismiss and toolbar restore preserve tree mode and width") {
+    Fixture f;
+    auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    f.browser.sidebar().set_width(250);
+    f.browser.sidebar().set_tree(true);
+    draw();
+    const auto close = f.browser.sidebar().close_bounds();
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = close.x + 10,
+                       .y = close.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = close.x + 10,
+                       .y = close.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    CHECK_FALSE(f.browser.sidebar_visible());
+    CHECK_FALSE(f.browser.sidebar().focused());
+    draw();
+    // The toolbar starts immediately below the title/breadcrumb row. Find its new toggle.
+    const auto toggle = f.browser.sidebar_toggle_bounds();
+    REQUIRE_FALSE(toggle.empty());
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = toggle.x + 10,
+                       .y = toggle.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = toggle.x + 10,
+                       .y = toggle.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    CHECK(f.browser.sidebar_visible());
+    CHECK(f.browser.sidebar().tree());
+    CHECK(f.browser.sidebar().width() == 250);
+}
+
+TEST_CASE("panes: mounted sidebar destinations preserve the requesting pane and support windows") {
+    Fixture f;
+    rummage::views::Devices::Mounted complete;
+    rummage::views::Devices devices;
+    devices.mount = [&](const std::string&, rummage::views::Devices::Mounted done) {
+        complete = std::move(done);
+    };
+    f.browser.set_devices(std::move(devices));
+    rummage::views::Remotes remotes;
+    remotes.mount = [&](const std::string&, rummage::views::Remotes::Prompts,
+                        rummage::views::Remotes::Mounted done) { complete = std::move(done); };
+    f.browser.set_remotes(std::move(remotes));
+    rummage::fs::Place place{.section = rummage::fs::Place::Section::devices,
+                             .label = "Disk",
+                             .path = {},
+                             .icon = "usb",
+                             .disk = {.volume = "disk", .mounted = false}};
+    SUBCASE("disk") {}
+    SUBCASE("remote") {
+        place.section = rummage::fs::Place::Section::bookmarks;
+        place.uri = "sftp://server/data";
+    }
+    using Destination = Browser::PlaceDestination;
+    f.browser.open_place(place, Destination::tab);
+    REQUIRE(complete);
+    f.browser.toggle_split();
+    CHECK(f.browser.active_pane() == 1);
+    f.browser.open(f.b);
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.picker_folder()->model().loading(); }));
+    complete(f.a / "sub", {});
+    REQUIRE(f.settle());
+    CHECK(f.browser.active_pane() == 1);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+    f.browser.switch_pane();
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    std::vector<fs::path> windows;
+    f.browser.set_new_window_handler([&](const fs::path& path) { windows.push_back(path); });
+    f.browser.open_place(place, Destination::window);
+    complete(f.b, {});
+    CHECK(windows == std::vector<fs::path>{f.b});
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    f.browser.open_place(place, Destination::window);
+    complete({}, "permission denied");
+    CHECK(windows.size() == 1);
+    f.browser.set_picker_mode(true);
+    complete = {};
+    f.browser.open_place(place, Destination::window);
+    f.browser.open_place(place, Destination::tab);
+    CHECK_FALSE(complete);
+}

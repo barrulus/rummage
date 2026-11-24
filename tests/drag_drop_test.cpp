@@ -766,10 +766,15 @@ TEST_CASE("sidebar bookmarks: renamed with F2, moved with Alt+arrows, pointed el
     CHECK(f.browser.sidebar().focused());
     CHECK(f.reloads == reloads);
 
-    // Alt+Up moves it above the root's; the cursor follows it; first already: nothing more.
+    // Alt+Up moves it locally above the root, preserving the shared GTK bookmark order.
     CHECK(f.browser.key(key(XKB_KEY_Up, {.alt = true}), Browser::Clock::now()));
     settle();
-    CHECK(bookmarks() == photos_line + " Pictures\n" + root_line + "\n");
+    CHECK(bookmarks() == root_line + "\n" + photos_line + " Pictures\n");
+    const auto& ordered = f.browser.sidebar().places();
+    const auto first_bookmark = std::ranges::find(ordered, rummage::fs::Place::Section::bookmarks,
+                                                  &rummage::fs::Place::section);
+    REQUIRE(first_bookmark != ordered.end());
+    CHECK(first_bookmark->path == f.photos);
     const auto cursor_path = [&f] {
         const auto& places = f.browser.sidebar().places();
         const std::optional<std::size_t> at = f.browser.sidebar().cursor();
@@ -778,7 +783,7 @@ TEST_CASE("sidebar bookmarks: renamed with F2, moved with Alt+arrows, pointed el
     CHECK(cursor_path() == f.photos);
     CHECK(f.browser.key(key(XKB_KEY_Up, {.alt = true}), Browser::Clock::now()));
     settle();
-    CHECK(bookmarks() == photos_line + " Pictures\n" + root_line + "\n");
+    CHECK(bookmarks() == root_line + "\n" + photos_line + " Pictures\n");
     CHECK(f.browser.key(key(XKB_KEY_Down, {.alt = true}), Browser::Clock::now()));
     settle();
     CHECK(bookmarks() == root_line + "\n" + photos_line + " Pictures\n");
@@ -924,7 +929,7 @@ TEST_CASE("sidebar disks: a click on the eject icon ejects; the right click offe
     CHECK(find_item("mount").enabled);
     CHECK_FALSE(find_item("unmount").enabled);
     CHECK_FALSE(find_item("properties").enabled);
-    CHECK_FALSE(find_item("open_tab").enabled);
+    CHECK(find_item("open_tab").enabled);  // mounts before opening the new tab
     f.browser.context_menu().close();
 
     // Nothing can be dropped onto a disk not mounted.

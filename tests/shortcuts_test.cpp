@@ -1029,6 +1029,10 @@ TEST_CASE("keyboard browsing: palette keeps sidebar targets and view commands su
     f.browser.sidebar().set_focused(true);
     f.browser.key(chord(XKB_KEY_End, {}), Browser::Clock::now());
     auto items = f.browser.palette_items();
+    CHECK(std::ranges::find(items, "sidebar:tree", &rummage::views::PaletteItem::id) !=
+          items.end());
+    CHECK(std::ranges::find(items, "sidebar:places", &rummage::views::PaletteItem::id) !=
+          items.end());
     auto found = std::ranges::find(items, "place:open_tab", &rummage::views::PaletteItem::id);
     REQUIRE(found != items.end());
     auto open = found->action;

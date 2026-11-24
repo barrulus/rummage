@@ -74,16 +74,283 @@ Sidebar::Sidebar(std::function<void()> redraw, std::function<void(ui::CursorShap
                  std::function<void(const fs::Place&)> open)
     : redraw_{std::move(redraw)}, set_cursor_{std::move(set_cursor)}, open_{std::move(open)} {}
 
+std::string Sidebar::place_key(const fs::Place& place) {
+    if (separator(place))
+        return place.uri;
+    if (place.section == fs::Place::Section::devices && !place.disk.identity.empty())
+        return "uuid:" + place.disk.identity;
+    if (place.section == fs::Place::Section::devices)
+        return place.disk.volume.empty() ? "mount:" + place.path.string()
+                                         : "device:" + place.disk.volume;
+    if (place.section == fs::Place::Section::places && !place.icon_key.empty())
+        return "place:" + std::string{place.icon_key};
+    return place.uri.empty() ? "path:" + place.path.string() : "uri:" + place.uri;
+}
+
+void Sidebar::set_organization(std::vector<std::string> order, std::vector<std::string> hidden,
+                               std::vector<std::string> collapsed) {
+    order_ = std::move(order);
+    hidden_ = std::move(hidden);
+    collapsed_ = std::move(collapsed);
+    rebuild();
+}
+
+void Sidebar::hide_place(const fs::Place& place) {
+    const auto key = place_key(place);
+    if (std::ranges::find(hidden_, key) == hidden_.end() && hidden_.size() < 512)
+        hidden_.push_back(key);
+    rebuild();
+}
+
+void Sidebar::restore_places() {
+    hidden_.clear();
+    collapsed_.clear();
+    rebuild();
+}
+
+void Sidebar::move_place(const fs::Place& place, int direction) {
+    if (tree_ || (direction != -1 && direction != 1))
+        return;
+    // Seed unspecified keys without discarding unavailable devices or hidden rows.
+    for (const auto& p : sources_) {
+        auto key = place_key(p);
+        if (std::ranges::find(order_, key) == order_.end() && order_.size() < 512)
+            order_.push_back(key);
+    }
+    std::vector<std::string> visible;
+    for (const auto& p : places_)
+        if (p.section == place.section)
+            visible.push_back(place_key(p));
+    const auto at = std::ranges::find(visible, place_key(place));
+    if (at == visible.end() || (direction < 0 && at == visible.begin()) ||
+        (direction > 0 && std::next(at) == visible.end()))
+        return;
+    auto a = std::ranges::find(order_, *at), b = std::ranges::find(order_, *(at + direction));
+    if (a != order_.end() && b != order_.end())
+        std::iter_swap(a, b);
+    rebuild();
+}
+
+void Sidebar::add_separator(const fs::Place& before) {
+    if (tree_ || order_.size() >= 511)
+        return;
+    for (const auto& p : sources_) {
+        auto key = place_key(p);
+        if (std::ranges::find(order_, key) == order_.end() && order_.size() < 511)
+            order_.push_back(key);
+    }
+    const auto prefix = "separator:" + std::to_string(static_cast<int>(before.section)) + ":";
+    std::size_t id = 0;
+    while (std::ranges::find(order_, prefix + std::to_string(id)) != order_.end())
+        ++id;
+    order_.insert(std::ranges::find(order_, place_key(before)), prefix + std::to_string(id));
+    rebuild();
+}
+
+void Sidebar::remove_separator(const fs::Place& place) {
+    std::erase(order_, place_key(place));
+    rebuild();
+}
+
+void Sidebar::toggle_section(fs::Place::Section section) {
+    const auto key = std::to_string(static_cast<int>(section));
+    if (std::erase(collapsed_, key) == 0)
+        collapsed_.push_back(key);
+    rebuild();
+}
+
+void Sidebar::enable_tree(core::EventLoop& loop, core::WorkerPool& pool,
+                          fs::DirectoryWatcher& watcher,
+                          std::shared_ptr<const fs::MimeDatabase> mime) {
+    make_model_ = [&loop, &pool, &watcher, mime] {
+        return std::make_unique<fs::DirectoryModel>(loop, pool, watcher, mime);
+    };
+}
+
+void Sidebar::set_tree(bool enabled) {
+    if (tree_ == enabled)
+        return;
+    confirm_rename();
+    tree_ = enabled;
+    reveal_pending_ = enabled;
+    models_.clear();
+    cursor_.reset();
+    scroller_.jump_to(0);
+    if (tree_)
+        expand_folder("/");
+    rebuild();
+    follow_tree();
+}
+
+bool Sidebar::loading() const {
+    return std::ranges::any_of(models_, [](const auto& entry) { return entry.second->loading(); });
+}
+
+void Sidebar::expand_folder(const std::filesystem::path& path) {
+    if (!make_model_ || models_.contains(path))
+        return;
+    auto model = make_model_();
+    model->set_filter(tree_hidden_, {});
+    model->set_predicate([](const fs::Entry& entry) { return entry.is_directory(); });
+    auto* ptr = model.get();
+    models_.emplace(path, std::move(model));
+    ptr->set_change_handler([this, path](const fs::ModelChange& change) {
+        const auto parent = models_.find(path);
+        if (parent != models_.end() && !parent->second->loading() && !change.reset) {
+            const auto& entries = parent->second->listing().entries();
+            // Do not destroy the model notifying us. Detached descendants release their watches.
+            std::erase_if(models_, [&](const auto& item) {
+                if (item.first == path || !inside(item.first, path))
+                    return false;
+                const auto relative = item.first.lexically_relative(path);
+                const auto name = relative.begin()->string();
+                const auto child = std::ranges::find(entries, name, &fs::Entry::name);
+                return child == entries.end() || child->is_link || !child->is_directory();
+            });
+        }
+        follow_tree();
+        rebuild();
+    });
+    ptr->open(path);
+}
+
+void Sidebar::toggle_folder(const std::filesystem::path& path) {
+    if (!tree_)
+        return;
+    reveal_pending_ = false;
+    const auto at = std::ranges::find(places_, path, &fs::Place::path);
+    if (at == places_.end() || links_[static_cast<std::size_t>(at - places_.begin())])
+        return;
+    if (models_.contains(path)) {
+        std::erase_if(models_, [&](const auto& item) { return inside(item.first, path); });
+    } else
+        expand_folder(path);
+    rebuild();
+}
+
+void Sidebar::sync_tree(const std::filesystem::path& path, bool hidden) {
+    const bool changed = tree_current_ != path;
+    tree_current_ = path;
+    if (tree_hidden_ != hidden) {
+        tree_hidden_ = hidden;
+        // set_filter notifies synchronously; do not grow models while iterating.
+        const bool previous = std::exchange(following_, true);
+        for (auto& [key, model] : models_)
+            model->set_filter(hidden, {});
+        following_ = previous;
+        rebuild();
+    }
+    if (tree_ && changed) {
+        reveal_pending_ = true;
+        follow_tree();
+        rebuild();
+    }
+}
+
+void Sidebar::follow_tree() {
+    if (!tree_ || following_ || !reveal_pending_ || !tree_current_.is_absolute())
+        return;
+    following_ = true;
+    std::filesystem::path path = "/";
+    expand_folder(path);
+    std::size_t depth = 0;
+    for (const auto& part : tree_current_.relative_path()) {
+        if (++depth > 64 || part == "..")
+            break;
+        const auto parent = models_.find(path);
+        if (parent == models_.end() || parent->second->loading())
+            break;
+        const auto& entries = parent->second->listing().entries();
+        auto child = std::ranges::find(entries, part.string(), &fs::Entry::name);
+        if (child == entries.end() || child->is_link || !child->is_directory())
+            break;
+        path /= part;
+        if (path != tree_current_)
+            expand_folder(path);
+    }
+    if (path == tree_current_) {
+        reveal_pending_ = false;
+        reveal_selection_ = true;
+    }
+    following_ = false;
+}
+
+void Sidebar::append_tree(const std::filesystem::path& path, std::size_t depth, bool link) {
+    if (depth > 64)
+        return;
+    places_.push_back(
+        {.section = fs::Place::Section::places,
+         .label = path == "/" ? std::string{i18n::tr("File System")} : path.filename().string(),
+         .path = path,
+         .icon = link ? "folder-symlink" : "folder"});
+    depths_.push_back(depth);
+    links_.push_back(link);
+    const auto found = models_.find(path);
+    if (found == models_.end() || link)
+        return;
+    for (const auto& child : found->second->listing().entries()) {
+        if (child.is_directory())
+            append_tree(path / child.name, depth + 1, child.is_link);
+    }
+}
+
 void Sidebar::set_places(std::vector<fs::Place> places) {
+    sources_ = std::move(places);
+    rebuild();
+}
+
+void Sidebar::rebuild() {
+    if (rebuilding_)
+        return;
+    rebuilding_ = true;
+    std::vector<fs::Place> places;
+    if (!tree_) {
+        for (const auto section : {fs::Place::Section::places, fs::Place::Section::bookmarks,
+                                   fs::Place::Section::devices}) {
+            if (std::ranges::find(collapsed_, std::to_string(static_cast<int>(section))) !=
+                collapsed_.end())
+                continue;
+            std::vector<fs::Place> group;
+            for (const auto& place : sources_) {
+                if (place.section == section &&
+                    std::ranges::find(hidden_, place_key(place)) == hidden_.end())
+                    group.push_back(place);
+            }
+            const auto prefix = "separator:" + std::to_string(static_cast<int>(section)) + ":";
+            for (const auto& key : order_) {
+                if (key.starts_with(prefix)) {
+                    places.push_back({.section = section,
+                                      .label = std::string{i18n::tr("Separator")},
+                                      .path = {},
+                                      .icon = "minus",
+                                      .icon_key = "sidebar_separator",
+                                      .uri = key});
+                } else {
+                    auto it = std::ranges::find_if(
+                        group, [&](const auto& p) { return place_key(p) == key; });
+                    if (it != group.end()) {
+                        places.push_back(*it);
+                        group.erase(it);
+                    }
+                }
+            }
+            places.insert(places.end(), group.begin(), group.end());
+        }
+    }
     // The cursor stays on its place when that is still listed.
-    std::optional<std::filesystem::path> at;
+    std::optional<std::string> at;
     if (cursor_ && *cursor_ < places_.size()) {
-        at = places_[*cursor_].path;
+        at = place_key(places_[*cursor_]);
     }
     places_ = std::move(places);
+    depths_.clear();
+    links_.clear();
+    if (tree_)
+        append_tree("/", 0);
     cursor_.reset();
     if (at) {
-        const auto it = std::ranges::find(places_, *at, &fs::Place::path);
+        const auto it =
+            std::ranges::find_if(places_, [&](const auto& p) { return place_key(p) == *at; });
         if (it != places_.end()) {
             cursor_ = static_cast<std::size_t>(it - places_.begin());
         }
@@ -97,8 +364,22 @@ void Sidebar::set_places(std::vector<fs::Place> places) {
         renaming_.reset();  // gone meanwhile (another program changed the bookmarks)
     }
     hovered_.reset();
+    eject_rects_.clear();
     current_.reset();
     layout();
+    if (tree_ && reveal_selection_) {
+        set_cursor_to(tree_current_);
+        scroller_.set_extent(content_height_, bounds_.height);
+        for (const auto& row : rows_)
+            if (row.place && row.place == cursor_) {
+                if (row.top < scroller_.offset() + 38 ||
+                    row.top + kRowHeight * scale() > scroller_.offset() + bounds_.height)
+                    scroller_.jump_to(
+                        std::max(0.0F, row.top - std::max(38.0F, bounds_.height / 2)));
+            }
+        reveal_selection_ = false;
+    }
+    rebuilding_ = false;
     redraw_();
 }
 
@@ -118,19 +399,25 @@ std::optional<ui::Rect> Sidebar::place_icon_rect(const std::filesystem::path& pa
 
 void Sidebar::layout() {
     rows_.clear();
-    float y = (kTop * scale());
-    for (std::size_t i = 0; i < places_.size(); ++i) {
-        if (i == 0 || places_[i].section != places_[i - 1].section) {
-            if (i > 0) {
-                y += (kSectionGap * scale());
-            }
-            rows_.push_back({.top = y, .place = std::nullopt, .section = places_[i].section});
-            y += (kSectionHeight * scale());
+    float y = 38.0F + (kTop * scale());
+    for (const auto section :
+         {fs::Place::Section::places, fs::Place::Section::bookmarks, fs::Place::Section::devices}) {
+        if (tree_ && section != fs::Place::Section::places)
+            continue;
+        if (!tree_ && std::ranges::none_of(
+                          sources_, [section](const auto& p) { return p.section == section; }))
+            continue;
+        rows_.push_back({.top = y, .place = std::nullopt, .section = section});
+        y += kSectionHeight * scale();
+        for (std::size_t i = 0; i < places_.size(); ++i) {
+            if (places_[i].section != section)
+                continue;
+            rows_.push_back({.top = y, .place = i, .section = section});
+            y += kRowHeight * scale();
         }
-        rows_.push_back({.top = y, .place = i, .section = places_[i].section});
-        y += (kRowHeight * scale());
+        y += kSectionGap * scale();
     }
-    content_height_ = y + (kTop * scale());
+    content_height_ = y + kTop * scale();
 }
 
 float Sidebar::width_in(float window_width) const {
@@ -186,7 +473,7 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     scroller_.advance(now);
     const float offset = scroller_.offset();
 
-    renderer.push_clip(bounds);
+    renderer.push_clip({bounds.x, bounds.y + 38, bounds.width, std::max(0.0F, bounds.height - 38)});
     eject_rects_.assign(places_.size(), ui::Rect{});
     for (const Row& row : rows_) {
         const float y = bounds.y + row.top - offset;
@@ -194,13 +481,28 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
             continue;
         }
         if (!row.place) {
-            renderer.draw_text(title_of(row.section), bounds.x + (kIconLeft * scale()),
-                               y + 14.0F * scale(), (kSectionSize * scale()),
-                               palette.on_surface_variant);
+            const bool collapsed =
+                std::ranges::find(collapsed_, std::to_string(static_cast<int>(row.section))) !=
+                collapsed_.end();
+            icons.draw(renderer, collapsed && !tree_ ? "chevron-right" : "chevron-down",
+                       bounds.x + 6, y + 10 * scale(), 12, palette.on_surface_variant);
+            renderer.draw_text(tree_ ? i18n::tr("FOLDERS") : title_of(row.section),
+                               bounds.x + 24 * scale(), y + 14.0F * scale(),
+                               (kSectionSize * scale()), palette.on_surface_variant);
             continue;
         }
         const std::size_t i = *row.place;
         const fs::Place& place = places_[i];
+        const float indent = tree_ ? std::min(static_cast<float>(depths_[i]) * 14.0F,
+                                              std::max(0.0F, bounds.width - 100.0F)) +
+                                         14.0F
+                                   : 0.0F;
+        if (separator(place)) {
+            renderer.fill_rect(
+                {bounds.x + kInset, y + kRowHeight * scale() / 2, bounds.width - 2 * kInset, 1},
+                focused_ && cursor_ == i ? palette.primary : palette.outline_variant);
+            continue;
+        }
         // The label being edited: its field on a quiet row, not on the cursor's colour.
         const bool editing =
             renaming_ && place.section == fs::Place::Section::bookmarks && place.path == *renaming_;
@@ -235,10 +537,13 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                                .border_width = drop ? 1.5F : 0.0F,
                                .border = palette.primary});
         }
+        if (tree_ && !links_[i])
+            icons.draw(renderer, models_.contains(place.path) ? "chevron-down" : "chevron-right",
+                       bounds.x + indent - 8, y + 8 * scale(), 12, text);
         const auto icon_key = place.icon_key == "trash" && place.icon == "trash-filled"
                                   ? std::string_view{"trash_full"}
                                   : place.icon_key;
-        const float icon_x = bounds.x + (kIconLeft * scale());
+        const float icon_x = bounds.x + (kIconLeft * scale()) + indent;
         const float icon_y = y + (((kRowHeight * scale()) - (kIconSize * scale())) / 2.0F);
         if (place.section == fs::Place::Section::bookmarks && place.uri.empty()) {
             icons.draw_file(renderer, "inode/directory", place.icon, icon_x, icon_y,
@@ -247,7 +552,7 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
             icons.draw_place(renderer, icon_key, place.icon, icon_x, icon_y, (kIconSize * scale()),
                              icon);
         }
-        float text_room = bounds.width - (kTextLeft * scale()) - kInset - 4.0F;
+        float text_room = bounds.width - (kTextLeft * scale()) - kInset - 4.0F - indent;
         if (place.disk.ejectable) {
             const ui::Rect eject{bounds.right() - kInset - 6.0F - (kEjectSize * scale()),
                                  y + (((kRowHeight * scale()) - (kEjectSize * scale())) / 2.0F),
@@ -269,9 +574,26 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                          .caret = palette.on_surface});
             continue;
         }
-        renderer.draw_text(place.label, bounds.x + (kTextLeft * scale()), y + 8.0F * scale(),
+        std::string label = place.label;
+        if (tree_) {
+            const auto model = models_.find(place.path);
+            if (model != models_.end()) {
+                if (model->second->loading())
+                    label += " …";
+                else if (!model->second->problem().empty())
+                    label += " — " + model->second->problem();
+            }
+        }
+        renderer.draw_text(label, bounds.x + (kTextLeft * scale()) + indent, y + 8.0F * scale(),
                            (kTextSize * scale()), text, std::max(1.0F, text_room),
                            ui::Ellipsis::middle);
+    }
+    if (moving_separator_ && hovered_ && places_[*hovered_].section == moving_separator_->section) {
+        for (const auto& row : rows_)
+            if (row.place == hovered_)
+                renderer.fill_rect(
+                    {bounds.x + kInset, bounds.y + row.top - offset, bounds.width - 2 * kInset, 2},
+                    palette.primary);
     }
     if (bookmark_drop_) {
         // After the last bookmark, or where the first one would go: after the places.
@@ -286,6 +608,21 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                           {.fill = palette.primary, .radius = {}});
     }
     renderer.pop_clip();
+    renderer.fill_background({bounds.x, bounds.y, bounds.width, 38}, palette.surface_container_low);
+    close_bounds_ = {bounds.right() - 30, bounds.y + 4, 26, 30};
+    const float tab_width = std::max(1.0F, (bounds.width - 38) / 2);
+    places_bounds_ = {bounds.x + 4, bounds.y + 4, tab_width, 30};
+    tree_bounds_ = {places_bounds_.right(), bounds.y + 4, tab_width, 30};
+    const auto tab = [&](const ui::Rect& rect, std::string_view label, bool selected) {
+        if (selected)
+            renderer.draw_box(rect, {.fill = palette.primary_container, .radius = {}});
+        renderer.draw_text(label, rect.x + 6, rect.y + 8, 12,
+                           selected ? palette.on_primary_container : palette.on_surface,
+                           rect.width - 12);
+    };
+    tab(places_bounds_, i18n::tr("Places"), !tree_);
+    tab(tree_bounds_, i18n::tr("Tree"), tree_);
+    icons.draw(renderer, "x", close_bounds_.x + 5, close_bounds_.y + 7, 16, palette.on_surface);
 
     const bool grabbed = drag_ || over_edge_;
     renderer.fill_rect({bounds.right() - (grabbed ? 1.0F : 1.0F / renderer.scale()), bounds.y,
@@ -307,8 +644,8 @@ void Sidebar::set_drop_target(std::optional<std::filesystem::path> path) {
 }
 
 bool Sidebar::in_bookmark_zone(float x, float y) const {
-    if (bounds_.empty() || x < bounds_.x || x >= bounds_.right() - kEdgeGrab || y < bounds_.y ||
-        y >= bounds_.bottom()) {
+    if (tree_ || bounds_.empty() || x < bounds_.x || x >= bounds_.right() - kEdgeGrab ||
+        y < bounds_.y + 38 || y >= bounds_.bottom()) {
         return false;
     }
     const float content_y = y - bounds_.y + scroller_.offset();
@@ -337,11 +674,14 @@ std::optional<std::size_t> Sidebar::eject_at(float x, float y) const {
     return std::nullopt;
 }
 
-bool Sidebar::clickable_at(float x, float y) const { return eject_at(x, y).has_value(); }
+bool Sidebar::clickable_at(float x, float y) const {
+    return close_bounds_.contains(x, y) || places_bounds_.contains(x, y) ||
+           tree_bounds_.contains(x, y) || eject_at(x, y).has_value();
+}
 
 std::optional<std::size_t> Sidebar::place_at(float x, float y) const {
     if (bounds_.empty() || x < bounds_.x || x >= bounds_.right() || y < bounds_.y ||
-        y >= bounds_.bottom()) {
+        y >= bounds_.bottom() || y < bounds_.y + 38) {
         return std::nullopt;
     }
     const float content_y = y - bounds_.y + scroller_.offset();
@@ -359,7 +699,7 @@ bool Sidebar::on_edge(float x, float y) const {
 }
 
 bool Sidebar::claims(float x, float y) const {
-    if (drag_) {
+    if (drag_ || moving_separator_) {
         return true;
     }
     if (bounds_.empty() || y < bounds_.y || y >= bounds_.bottom()) {
@@ -393,6 +733,8 @@ void Sidebar::update_hover() {
 
 void Sidebar::choose(std::size_t place) {
     const fs::Place chosen = places_[place];  // open_ may replace the places
+    if (separator(chosen))
+        return;
     focused_ = false;
     redraw_();
     if (open_) {
@@ -456,8 +798,32 @@ void Sidebar::pointer(const ui::PointerEvent& event, Clock::time_point now) {
                     place && menu_) {
                     const fs::Place chosen = places_[*place];  // menu_ may replace the places
                     menu_(chosen, event.x, event.y);
-                }
+                } else if (background_menu_)
+                    background_menu_(event.x, event.y);
                 break;
+            }
+            if (event.button == ui::PointerButton::left && !on_edge(event.x, event.y)) {
+                if (close_bounds_.contains(event.x, event.y)) {
+                    if (close_)
+                        close_();
+                    return;
+                }
+                if (places_bounds_.contains(event.x, event.y)) {
+                    set_tree(false);
+                    return;
+                }
+                if (tree_bounds_.contains(event.x, event.y)) {
+                    set_tree(true);
+                    return;
+                }
+                const float y = event.y - bounds_.y + scroller_.offset();
+                for (const auto& row : rows_) {
+                    if (!row.place && !tree_ && event.y >= bounds_.y + 38 && y >= row.top &&
+                        y < row.top + kSectionHeight * scale()) {
+                        toggle_section(row.section);
+                        return;
+                    }
+                }
             }
             if (event.button != ui::PointerButton::left) {
                 break;
@@ -472,6 +838,22 @@ void Sidebar::pointer(const ui::PointerEvent& event, Clock::time_point now) {
                 break;
             }
             if (const std::optional<std::size_t> place = place_at(event.x, event.y)) {
+                if (separator(places_[*place])) {
+                    moving_separator_ = places_[*place];
+                    cursor_ = place;
+                    focused_ = true;
+                    redraw_();
+                    return;
+                }
+                if (tree_) {
+                    const float indent = std::min(static_cast<float>(depths_[*place]) * 14.0F,
+                                                  std::max(0.0F, bounds_.width - 100.0F)) +
+                                         14;
+                    if (event.x < bounds_.x + indent + 8) {
+                        toggle_folder(places_[*place].path);
+                        return;
+                    }
+                }
                 const bool on_eject = *place < eject_rects_.size() &&
                                       !eject_rects_[*place].empty() &&
                                       event.x >= eject_rects_[*place].x - 4.0F &&
@@ -486,6 +868,18 @@ void Sidebar::pointer(const ui::PointerEvent& event, Clock::time_point now) {
             break;
         }
         case Kind::release:
+            if (moving_separator_ && event.button == ui::PointerButton::left) {
+                const auto target = place_at(event.x, event.y);
+                if (target && places_[*target].section == moving_separator_->section &&
+                    place_key(places_[*target]) != place_key(*moving_separator_)) {
+                    const auto before = place_key(places_[*target]);
+                    const auto moved = place_key(*moving_separator_);
+                    std::erase(order_, moved);
+                    order_.insert(std::ranges::find(order_, before), moved);
+                }
+                moving_separator_.reset();
+                rebuild();
+            }
             if (drag_ && event.button == ui::PointerButton::left) {
                 drag_.reset();
                 update_hover();
@@ -591,6 +985,12 @@ bool Sidebar::edit_key(const ui::KeyEvent& event) {
     if (!focused_ || (!rename && !move)) {
         return false;
     }
+    if (move && cursor_ && *cursor_ < places_.size() && !tree_) {
+        move_place(places_[*cursor_], event.keysym == XKB_KEY_Up ? -1 : 1);
+        return true;
+    }
+    if (tree_)
+        return true;
     if (!cursor_ || *cursor_ >= places_.size() ||
         (places_[*cursor_].section != fs::Place::Section::bookmarks ||
          !places_[*cursor_].uri.empty())) {
@@ -599,8 +999,6 @@ bool Sidebar::edit_key(const ui::KeyEvent& event) {
     const std::filesystem::path folder = places_[*cursor_].path;
     if (rename) {
         start_rename(folder);
-    } else if (move_) {
-        move_(folder, event.keysym == XKB_KEY_Up ? -1 : 1);
     }
     return true;
 }
@@ -673,6 +1071,22 @@ bool Sidebar::key(const ui::KeyEvent& event) {
         case XKB_KEY_End:
             cursor_ = last;
             break;
+        case XKB_KEY_Right:
+            if (!tree_)
+                return true;
+            if (!models_.contains(places_[at].path))
+                toggle_folder(places_[at].path);
+            else if (at < last && depths_[at + 1] > depths_[at])
+                cursor_ = at + 1;
+            break;
+        case XKB_KEY_Left:
+            if (!tree_)
+                return true;
+            if (models_.contains(places_[at].path))
+                toggle_folder(places_[at].path);
+            else
+                set_cursor_to(places_[at].path.parent_path());
+            break;
         case XKB_KEY_Return:
         case XKB_KEY_KP_Enter:
             choose(at);
@@ -687,8 +1101,8 @@ bool Sidebar::key(const ui::KeyEvent& event) {
     for (const Row& row : rows_) {
         if (row.place == cursor_) {
             const float from = scroller_.destination();
-            if (row.top < from) {
-                scroller_.glide_to(row.top - (kTop * scale()), Clock::now());
+            if (row.top < from + 38) {
+                scroller_.glide_to(row.top - 38 - (kTop * scale()), Clock::now());
             } else if (row.top + (kRowHeight * scale()) > from + bounds_.height) {
                 scroller_.glide_to(
                     row.top + (kRowHeight * scale()) + (kTop * scale()) - bounds_.height,

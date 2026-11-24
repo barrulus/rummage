@@ -500,6 +500,35 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                           reader.report(value.source(),
                                         path + " must be an absolute path or ~/ path; using Home");
                   }}});
+        } else if (key.str() == "sidebar") {
+            const auto read_list = [&](const toml::node& value, const std::string& path,
+                                       std::optional<std::vector<std::string>>& out) {
+                const auto* values = value.as_array();
+                std::vector<std::string> parsed;
+                if (!values || values->size() > 512) {
+                    reader.report(value.source(), path + " must contain at most 512 strings");
+                    return;
+                }
+                for (const auto& item : *values) {
+                    const auto text = item.value<std::string>();
+                    if (!text || text->empty() || text->size() > 4096 ||
+                        text->find('\0') != std::string::npos) {
+                        reader.report(item.source(), path + " must contain nonempty strings");
+                        return;
+                    }
+                    if (std::ranges::find(parsed, *text) == parsed.end())
+                        parsed.push_back(*text);
+                }
+                out = std::move(parsed);
+            };
+            reader.read_section(node, "sidebar",
+                                {{"order",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      read_list(value, path, config.sidebar.order);
+                                  }},
+                                 {"hidden", [&](const toml::node& value, const std::string& path) {
+                                      read_list(value, path, config.sidebar.hidden);
+                                  }}});
         } else if (key.str() == "appearance") {
             reader.read_section(
                 node, "appearance",
@@ -680,6 +709,13 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "properties",
                                           "open_with",
                                           "open_tab",
+                                          "open_window",
+                                          "sidebar_move_up",
+                                          "sidebar_move_down",
+                                          "sidebar_separator",
+                                          "sidebar_remove_separator",
+                                          "sidebar_hide",
+                                          "sidebar_options",
                                           "open_terminal",
                                           "running",
                                           "copy_path",

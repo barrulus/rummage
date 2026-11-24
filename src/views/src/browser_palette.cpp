@@ -100,6 +100,16 @@ std::vector<PaletteItem> Browser::palette_items() {
             });
     };
 
+    add("sidebar:places", std::string{i18n::mark("Places")}, "", [this] {
+        sidebar_.set_tree(false);
+        set_sidebar_visible(true);
+    });
+    add("sidebar:tree", std::string{i18n::mark("Folder Tree")}, "", [this] {
+        sidebar_.set_tree(true);
+        set_sidebar_visible(true);
+    });
+    add("sidebar:restore", std::string{i18n::mark("Restore Hidden Places")}, "",
+        [this] { sidebar_.restore_places(); });
     if (sidebar_.focused()) {
         if (const auto* place = sidebar_.cursor_place()) {
             for (auto& item : place_navigation_items(*place)) {

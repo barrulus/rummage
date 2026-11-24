@@ -661,6 +661,11 @@ constexpr std::array kShortcuts{
 
     // Sidebar
     Shortcut{.group = i18n::mark("Sidebar"),
+             .keys = "←  →",
+             .action = i18n::mark("Collapse or expand a folder"),
+             .scope = scope::kSidebar,
+             .keysyms = {XKB_KEY_Left, XKB_KEY_Right}},
+    Shortcut{.group = i18n::mark("Sidebar"),
              .keys = "Escape",
              .action = i18n::mark("Back to the view"),
              .scope = scope::kSidebar,

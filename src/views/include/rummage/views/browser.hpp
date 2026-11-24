@@ -275,6 +275,14 @@ public:
     // The sidebar (shown at start; left out when the window is too narrow for it).
     void set_sidebar_visible(bool visible);
 
+    void set_sidebar_config(const core::Config::Sidebar& config) {
+        sidebar_.set_organization(config.order.value_or(sidebar_.order()),
+                                  config.hidden.value_or(sidebar_.hidden()), sidebar_.collapsed());
+    }
+
+    std::vector<MenuItem> sidebar_menu();
+    std::vector<MenuItem> sidebar_organization_items(const fs::Place& place);
+
     // The pointer's shape over a window point, as last drawn: a hand over what a click acts on
     // (buttons, the path's crumbs, an eject icon, "More details"), the text cursor over a name
     // being edited, the arrow elsewhere. The resize arrows are the views' own.
@@ -352,6 +360,8 @@ public:
     [[nodiscard]] ui::Rect insights_bounds() const { return area().insights_bounds; }
 
     bool restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown);
+
+    [[nodiscard]] ui::Rect sidebar_toggle_bounds() const { return area().sidebar_toggle_bounds; }
 
     [[nodiscard]] bool sidebar_visible() const noexcept { return sidebar_visible_; }
 
@@ -618,17 +628,25 @@ public:
 
     // A place chosen in the sidebar: opened, after mounting a disk or a network folder that is
     // not mounted.
-    void open_place(const fs::Place& place);
+    enum class PlaceDestination { current, tab, window };
+    void open_place(const fs::Place& place,
+                    PlaceDestination destination = PlaceDestination::current);
+
+    void set_new_window_handler(std::function<void(const std::filesystem::path&)> handler) {
+        new_window_ = std::move(handler);
+    }
 
     // A disk's place: mounted (then opened, when open), unmounted, or ejected (unmounted and
     // powered off, the view going home first when it shows that disk), with a message.
-    void mount_place(const fs::Place& place, bool open);
+    void mount_place(const fs::Place& place, bool open,
+                     std::function<void(const std::filesystem::path&)> ready = {});
     void unmount_place(const fs::Place& place);
     void eject_place(const fs::Place& place);
 
     // A remote bookmark's place: mounted through gvfs (asking for a password on a card when the
     // server wants one; then opened, when open), or unmounted, the view leaving it first.
-    void mount_remote(const fs::Place& place, bool open);
+    void mount_remote(const fs::Place& place, bool open,
+                      std::function<void(const std::filesystem::path&)> ready = {});
     void unmount_remote(const fs::Place& place);
 
     // Ctrl+L: the card that goes to a folder or a server, the folder shown in it to start with.
@@ -1042,6 +1060,7 @@ private:
         ui::Rect bounds{}, header{}, view_area{};
         ui::Rect back{}, forward{};
         int navigation_pressed{};
+        ui::Rect sidebar_toggle_bounds{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
         ui::Rect view_menu_bounds{}, insights_bounds{}, settings_bounds{}, sort_bounds{};
         std::filesystem::path motion_folder;
@@ -1125,6 +1144,7 @@ private:
     std::shared_ptr<Folder> other_folder() const;
     QuickLook quick_look_;
     Sidebar sidebar_;
+    std::function<void(const std::filesystem::path&)> new_window_;
     StatusBar status_bar_;
     ShortcutsOverlay shortcuts_;
     bool show_extensions_{true};

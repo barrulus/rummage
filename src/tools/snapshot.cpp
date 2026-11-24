@@ -15,8 +15,9 @@
 // clicks column titles after the keys, by column id: "size", "owner", "modified,modified" for
 // newest first; an unknown id is reported and skipped); with "space"
 // last, Quick Look opens (and --bench scrolls its text page, when it shows one). --thumbnails gives
-// the file views a thumbnail cache directory (none by default: icons only, nothing written to ~/.cache).
-// The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6" focuses it.
+// the file views a thumbnail cache directory (none by default: icons only, nothing written to
+// ~/.cache). The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6"
+// focuses it.
 // --drag NAME presses on the entry NAME of the folder shown and drags it a little (the drag image
 // drawn under the pointer); --drop-over X,Y then moves that drag (or, alone, another program's
 // drag of files) over the point X,Y, which shows where it would drop.
@@ -234,6 +235,7 @@ int main(int argc, char** argv) {
     float font_size = rummage::core::Config::Font::kUsualSize;
     bool info_expanded = false;
     bool preview_sidebar = false;
+    bool folder_tree = false;
     std::filesystem::path settings_config;
     bool memory = false;
     bool fake_disks = false;
@@ -257,6 +259,11 @@ int main(int argc, char** argv) {
         if (option == "--icon-theme" && args.size() >= 3) {
             icon_theme = args[2];
             args = args.subspan(2);
+            continue;
+        }
+        if (option == "--folder-tree") {
+            folder_tree = true;
+            args = args.subspan(1);
             continue;
         }
         if (option == "--preview-sidebar") {
@@ -519,6 +526,7 @@ int main(int argc, char** argv) {
                 }
                 columns->status_bar().set_text_size(status_text_size);
                 columns->set_preview_in_sidebar(preview_sidebar);
+                columns->sidebar().set_tree(folder_tree);
                 if (!settings_config.empty())
                     columns->set_settings_handler(settings_config, [] {}, {});
                 columns->set_places(std::move(places));
@@ -602,6 +610,8 @@ int main(int argc, char** argv) {
                     columns->focus_pane(0);
                 }
                 frame();  // lays out: keys need the viewport
+                if (folder_tree)
+                    run_until(loop, [&] { return !columns->sidebar().loading(); });
                 // Each key finds what the one before loaded (Space, then Ctrl+A on the text).
                 for (const ui::KeyEvent& event : parse_keys(keys)) {
                     if (picker) {

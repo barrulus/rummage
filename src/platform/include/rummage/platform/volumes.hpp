@@ -23,6 +23,7 @@ struct UdisksObject {
     std::uint64_t size{0};
     std::string id_usage;  // "filesystem", "crypto", "other"...
     std::string id_label;
+    std::string id_uuid{};
     bool hint_ignore{false};
     bool hint_system{false};
     std::string drive;  // the Drive's object path; "/" for none
@@ -48,6 +49,7 @@ struct Volume {
     std::string drive;     // the Drive's object path; "/" for none
     bool external{false};  // the drive can be unplugged (removable, USB, SD, FireWire)
     std::optional<std::filesystem::path> mount_point;  // the first one
+    std::string uuid{};
 };
 
 // "466 GB Volume", "1.0 TB Volume" (decimal units, as GNOME names a disk without a label).

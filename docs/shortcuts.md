@@ -15,7 +15,7 @@ a shortcut's meaning follows the focused control.
 | Ctrl+I | Toggle information pane | `toggle_info` |
 | Alt+J / Alt+K | Scroll the information pane down / up by three lines | `scroll_preview_down`, `scroll_preview_up` |
 | Alt+Page Down / Alt+Page Up | Scroll the information pane by a page | `scroll_preview_page_down`, `scroll_preview_page_up` |
-| Ctrl+B | Toggle sidebar | `toggle_sidebar` |
+| Ctrl+B | Hide/restore Places or Tree sidebar | `toggle_sidebar` |
 | F6 | Focus sidebar / return to view | `focus_sidebar` |
 | Shift+F6 | Focus the file list; leave path editing or filename filtering | `focus_files` |
 | No default | Focus Places | `focus_places` |
@@ -247,3 +247,8 @@ previews, Enter opens and Shift+Enter reveals it in its folder. Ctrl+Z/Ctrl+Shif
 undo/redo file operations from the list. Ctrl+S saves a query, Ctrl+Shift+S opens
 saved searches, F5 refreshes and Escape closes. Tab visits the query, toolbar and
 list. The query field retains its normal text-editing shortcuts.
+
+In the folder-tree sidebar, **Left/Right** collapse/expand folders or move to their
+parent/first child. **Alt+Up/Down** reorders Places entries and separators within
+their section; it does not reorder tree folders. **View → Sidebar** provides
+keyboard access to the mode, section visibility, and restore/reset controls.
