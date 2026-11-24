@@ -29,7 +29,7 @@
 
 namespace rummage::views {
 
-// The info pane: a preview of what is selected in a folder and what it is. The same in every view
+// The info pane: a preview of the focused entry in a folder and what it is. The same in every view
 // (the columns draw it after their last column, the grid and the details at their right), so one
 // object serves them all and keeps what it read.
 //
@@ -37,8 +37,8 @@ namespace rummage::views {
 // the icon), the name and type, then information (size, pixels, dates) and a media summary.
 // "More details" reveals the remaining media metadata, permissions, owner and location.
 // A fixed copy button includes all properties, even when collapsed.
-// Several entries selected: how many and how big;
-// nothing selected: the folder itself. What the directory entry says shows at once, the rest when
+// Multiple selections retain the focused entry and append aggregate counts and size.
+// No focused entry: the folder itself. What the directory entry says shows at once, the rest when
 // read on a worker. A folder's size (or a selection's with folders in it) is added up on a
 // worker too, once the cursor rests (kMeasureDelay), showing the sum as it grows; moving on
 // cancels it.
@@ -149,11 +149,15 @@ public:
     }
 
     // Stop filesystem work when hidden; end_frame also covers a pane that no longer fits.
-    void cancel_measurement() { measure({}, {}); }
+    void cancel_measurement() {
+        measure(folder_measure_, {}, {});
+        measure(selection_measure_, {}, {});
+    }
 
     void end_frame() {
         if (bounds_.empty()) {
             cancel_measurement();
+            forget_summary();
             clear_text_focus();
         }
     }
@@ -178,7 +182,7 @@ public:
 
     // What it shows is still being read (snapshots, tests).
     [[nodiscard]] bool loading() const noexcept {
-        return job_.has_value() || size_timer_ != 0 || size_job_.has_value();
+        return job_.has_value() || folder_measure_.loading() || selection_measure_.loading();
     }
 
     // Text thumbnail geometry and pane scrolling (tests).
@@ -189,12 +193,30 @@ public:
     // What was read about the entry shown last; nullptr before it arrives (tests).
     [[nodiscard]] const preview::Summary* summary() const noexcept { return summary_.get(); }
 
-    // The folder or combined selection's measured size; empty until counting starts (tests).
-    [[nodiscard]] const std::optional<fs::Tally>& folder_size() const noexcept { return size_; }
+    // The focused folder's measured size; empty until counting starts (tests).
+    [[nodiscard]] const std::optional<fs::Tally>& folder_size() const noexcept {
+        return folder_measure_.size;
+    }
 
-    [[nodiscard]] bool folder_size_done() const noexcept { return size_done_; }
+    [[nodiscard]] bool folder_size_done() const noexcept { return folder_measure_.done; }
+
+    [[nodiscard]] const std::optional<fs::Tally>& selection_size() const noexcept {
+        return selection_measure_.size;
+    }
+
+    [[nodiscard]] bool selection_size_done() const noexcept { return selection_measure_.done; }
 
 private:
+    struct Measurement {
+        std::string key;
+        core::EventLoop::SourceId timer{0};
+        std::optional<core::CancelToken> job;
+        std::optional<fs::Tally> size;
+        bool done{false};
+
+        bool loading() const { return timer != 0 || job.has_value(); }
+    };
+
     // Reads path's summary unless it is the one shown or on its way.
     // No summary (inside an archive: nothing to read from disk).
     void forget_summary();
@@ -207,8 +229,9 @@ private:
                  preview::Kind kind, std::shared_ptr<const fs::MimeDatabase> types);
 
     // No roots cancels any pending or running measurement.
-    void measure(std::vector<std::filesystem::path> roots, std::string key);
-    [[nodiscard]] std::string size_text() const;
+    void measure(Measurement& measurement, std::vector<std::filesystem::path> roots,
+                 std::string key);
+    [[nodiscard]] static std::string size_text(const Measurement& measurement);
 
     core::EventLoop& loop_;
     core::WorkerPool& pool_;
@@ -220,11 +243,7 @@ private:
     std::shared_ptr<const preview::Summary> summary_;
     std::shared_ptr<const preview::Summary> held_;  // the one before, drawn while kHold lasts
     core::EventLoop::SourceId hold_timer_{0};
-    std::string size_key_;  // what size_ is (or will be) about
-    core::EventLoop::SourceId size_timer_{0};
-    std::optional<core::CancelToken> size_job_;
-    std::optional<fs::Tally> size_;  // so far
-    bool size_done_{false};
+    Measurement folder_measure_, selection_measure_;
     bool expanded_{false};
     float width_{kWidth};
     std::function<void(const std::filesystem::path&)> insights_;

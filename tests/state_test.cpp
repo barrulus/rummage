@@ -62,6 +62,7 @@ State changed() {
     s.sidebar_width = 260.5F;
     s.sidebar_size = 4;
     s.info_visible = false;
+    s.info_auto_hide = true;
     s.info_width = 410.0F;
     s.info_expanded = true;
     s.sort_key = SortKey::modified;

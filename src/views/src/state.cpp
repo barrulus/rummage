@@ -352,6 +352,7 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     read.word("sidebar.list_size", kListSizeWords, s.sidebar_size);
     read.number("sidebar.width", kSidebarMin, kSidebarMax, s.sidebar_width);
     read.flag("info.visible", s.info_visible);
+    read.flag("info.auto_hide", s.info_auto_hide);
     read.number("info.width", kInfoMin, kInfoMax, s.info_width);
     read.flag("info.expanded", s.info_expanded);
     read.number("info.sidebar_ratio", 0.15F, 0.85F, s.sidebar_preview_ratio);
@@ -711,6 +712,7 @@ std::string format_state(const State& s) {
                "\n"
                "[info]\n"
                "visible = {}\n"
+               "auto_hide = {}\n"
                "width = {}\n"
                "expanded = {}\n"
                "sidebar_ratio = {}\n"
@@ -731,8 +733,8 @@ std::string format_state(const State& s) {
                flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
                strings(s.sidebar_order), strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
                word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
-               flag(s.info_visible), s.info_width, flag(s.info_expanded), s.sidebar_preview_ratio,
-               word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
+               flag(s.info_visible), flag(s.info_auto_hide), s.info_width, flag(s.info_expanded),
+               s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
                format_columns(s.details_widths, s.details_columns), s.window_width, s.window_height,
                flag(s.maximized), recent) +
            std::format(

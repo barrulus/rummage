@@ -266,11 +266,18 @@ public:
 
     [[nodiscard]] Mode mode() const noexcept { return pane().mode; }
 
-    // The info pane in the grid and the details, one setting for both (shown at start); the
-    // columns always show it.
+    // Preview visibility shared by all views. Explicit Show overrides automatic hiding.
     void set_info_visible(bool visible);
 
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
+
+    void set_info_auto_hide(bool enabled);
+
+    [[nodiscard]] bool info_auto_hide() const noexcept { return info_auto_hide_; }
+
+    [[nodiscard]] bool info_shown() const;
+
+    [[nodiscard]] ui::Rect selection_count_bounds() const { return area().selection_count; }
 
     // The sidebar (shown at start; left out when the window is too narrow for it).
     void set_sidebar_visible(bool visible);
@@ -1058,7 +1065,7 @@ private:
         Breadcrumb breadcrumb;
         TabBar tab_bar;
         ui::Rect bounds{}, view_area{};
-        ui::Rect back{}, forward{};
+        ui::Rect back{}, forward{}, selection_count{};
         int navigation_pressed{};
         ui::Rect sidebar_toggle_bounds{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
@@ -1191,6 +1198,7 @@ private:
     std::size_t menu_loads_{0};         // applications and templates being looked for
     std::vector<std::function<void()>> menu_loaders_;  // started once the menu is open
     bool info_visible_{true};
+    bool info_auto_hide_{false};
     bool sidebar_visible_{true};
     fs::Listing::Predicate picker_filter_;
     bool filter_focused_{false};

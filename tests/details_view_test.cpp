@@ -415,14 +415,14 @@ TEST_CASE("info pane: a folder's size, or a selection's, is added up once the cu
     // Several selected, folders among them: all of it added up.
     f.press(XKB_KEY_Down, {.shift = true});  // alpha, gamma
     draw();
-    REQUIRE(run_until(f.loop, [&] { return pane.folder_size_done(); }));
-    CHECK(pane.folder_size()->folders == 3);
-    CHECK(pane.folder_size()->bytes == 1 + 2000 + 30);
+    REQUIRE(run_until(f.loop, [&] { return pane.selection_size_done(); }));
+    CHECK(pane.selection_size()->folders == 3);
+    CHECK(pane.selection_size()->bytes == 1 + 2000 + 30);
     f.press(XKB_KEY_Down, {.shift = true});  // and a.md
     draw();
-    REQUIRE(run_until(f.loop, [&] { return pane.folder_size_done(); }));
-    CHECK(pane.folder_size()->files == 4);
-    CHECK(pane.folder_size()->bytes == 1 + 2000 + 30 + 10);
+    REQUIRE(run_until(f.loop, [&] { return pane.selection_size_done(); }));
+    CHECK(pane.selection_size()->files == 4);
+    CHECK(pane.selection_size()->bytes == 1 + 2000 + 30 + 10);
     draw();
 
     // The same selection is invalidated when an entry's listed metadata changes.
@@ -430,15 +430,15 @@ TEST_CASE("info pane: a folder's size, or a selection's, is added up once the cu
     f.browser.columns().focused_folder()->refresh_entry("a.md");
     REQUIRE(run_until(f.loop, [&] {
         draw();
-        return pane.folder_size_done() && pane.folder_size()->bytes == 1 + 2000 + 30 + 20;
+        return pane.selection_size_done() && pane.selection_size()->bytes == 1 + 2000 + 30 + 20;
     }));
 
     f.press(XKB_KEY_Down);  // b.txt alone: a file, no count
     draw();
-    CHECK_FALSE(pane.folder_size());
+    CHECK_FALSE(pane.selection_size());
     f.press(XKB_KEY_Down, {.shift = true});  // b.txt, c.txt: files only, their sizes as listed
     draw();
-    CHECK_FALSE(pane.folder_size());
+    CHECK_FALSE(pane.selection_size());
 }
 
 TEST_CASE("info pane: hiding a pane cancels its delayed folder count") {

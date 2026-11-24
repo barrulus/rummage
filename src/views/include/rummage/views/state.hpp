@@ -36,6 +36,7 @@ struct State {
     std::vector<std::string> sidebar_hidden;
     std::vector<std::string> sidebar_collapsed;
     bool info_visible{true};
+    bool info_auto_hide{false};
     float info_width{300.0F};
     float sidebar_preview_ratio{0.55F};
     bool info_expanded{false};

@@ -137,12 +137,7 @@ InfoPane::~InfoPane() {
     if (job_) {
         job_->cancel();
     }
-    if (size_job_) {
-        size_job_->cancel();
-    }
-    if (size_timer_ != 0) {
-        loop_.remove(size_timer_);
-    }
+    cancel_measurement();
     if (hold_timer_ != 0) {
         loop_.remove(hold_timer_);
     }
@@ -350,31 +345,32 @@ void InfoPane::forget_summary() {
     }
 }
 
-void InfoPane::measure(std::vector<std::filesystem::path> roots, std::string key) {
-    if (key == size_key_) {
+void InfoPane::measure(Measurement& measurement, std::vector<std::filesystem::path> roots,
+                       std::string key) {
+    if (key == measurement.key) {
         return;
     }
-    size_key_ = std::move(key);
-    size_.reset();
-    size_done_ = false;
-    if (size_timer_ != 0) {
-        loop_.remove(size_timer_);
-        size_timer_ = 0;
+    measurement.key = std::move(key);
+    measurement.size.reset();
+    measurement.done = false;
+    if (measurement.timer != 0) {
+        loop_.remove(measurement.timer);
+        measurement.timer = 0;
     }
-    if (size_job_) {
-        size_job_->cancel();
-        size_job_.reset();
+    if (measurement.job) {
+        measurement.job->cancel();
+        measurement.job.reset();
     }
     if (roots.empty()) {
         return;
     }
-    size_timer_ = loop_.add_timer(
+    measurement.timer = loop_.add_timer(
         kMeasureDelay, std::chrono::milliseconds{0},
-        [this, roots = std::move(roots), key = size_key_] {
-            size_timer_ = 0;
-            size_ = fs::Tally{};  // "Counting…"
+        [this, &measurement, roots = std::move(roots), key = measurement.key] {
+            measurement.timer = 0;
+            measurement.size = fs::Tally{};  // "Counting…"
             redraw_();
-            size_job_ = pool_.submit_streaming(
+            measurement.job = pool_.submit_streaming(
                 core::Priority::nearby,
                 [roots](const core::CancelToken& token, auto emit) {
                     // One measurer for all: a file hard-linked from two of them counts once.
@@ -385,36 +381,38 @@ void InfoPane::measure(std::vector<std::filesystem::path> roots, std::string key
                     }
                     return measurer.tally();
                 },
-                [this, alive = alive_, key](const fs::Tally& tally) {
-                    if (*alive && key == size_key_) {
-                        size_ = tally;
+                [this, &measurement, alive = alive_, key](const fs::Tally& tally) {
+                    if (*alive && key == measurement.key) {
+                        measurement.size = tally;
                         redraw_();
                     }
                 },
-                [this, alive = alive_, key](const fs::Tally& tally) {
-                    if (*alive && key == size_key_) {
-                        size_job_.reset();
-                        size_ = tally;
-                        size_done_ = true;
+                [this, &measurement, alive = alive_, key](const fs::Tally& tally) {
+                    if (*alive && key == measurement.key) {
+                        measurement.job.reset();
+                        measurement.size = tally;
+                        measurement.done = true;
                         redraw_();
                     }
                 });
         });
 }
 
-std::string InfoPane::size_text() const {
-    if (!size_) {
+std::string InfoPane::size_text(const Measurement& measurement) {
+    if (!measurement.size) {
         return {};
     }
-    if (size_->remote && size_->entries() == 0) {
+    if (measurement.size->remote && measurement.size->entries() == 0) {
         return "—";  // not walked on a network file system
     }
-    if (!size_done_) {
-        return size_->bytes == 0 ? std::string{i18n::tr("Counting…")}
-                                 : i18n::trf("Counting… {}", format_size(size_->bytes));
+    if (!measurement.done) {
+        return measurement.size->bytes == 0
+                   ? std::string{i18n::tr("Counting…")}
+                   : i18n::trf("Counting… {}", format_size(measurement.size->bytes));
     }
-    return size_->complete() ? format_size(size_->bytes)
-                             : i18n::trf("at least {}", format_size(size_->bytes));
+    return measurement.size->complete()
+               ? format_size(measurement.size->bytes)
+               : i18n::trf("at least {}", format_size(measurement.size->bytes));
 }
 
 void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
@@ -465,19 +463,16 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         out.skip(kIconSize + 18.0F);
     };
 
-    const fs::Entry* const single = folder.single_selection();
-    std::string shown_key =
-        std::format("{}\n{}\n{}", folder.path().string(), folder.selection_revision(),
-                    single == nullptr ? std::string{} : single->name);
+    const fs::Entry* const single = folder.cursor_entry();
+    std::string shown_key = std::format("{}\n{}", folder.path().string(),
+                                        single == nullptr ? std::string{} : single->name);
     if (shown_key != shown_key_) {
         shown_key_ = std::move(shown_key);
         copied_ = false;
         clear_text_focus();
         metadata_.reset();
     }
-    if (single == nullptr && folder.selected_count() > 1) {
-        // Several entries: how many, of which kind, and how big (with folders, added up on a
-        // worker as for one).
+    if (folder.selected_count() > 1) {
         const SelectionSummary& selection = folder.summary();
         if (selection.folders > 0 && !folder.is_archive()) {
             std::vector<std::filesystem::path> roots;
@@ -490,30 +485,12 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                     key += '\0' + entry.name;
                 }
             }
-            measure(std::move(roots), std::move(key));
+            measure(selection_measure_, std::move(roots), std::move(key));
         } else {
-            measure({}, {});
+            measure(selection_measure_, {}, {});
         }
-        icon("files", palette.on_surface_variant);
-        out.centered("summary", count_of(selection.folders + selection.files, "item"), 15.0F,
-                     palette.on_surface, 22.0F);
-        std::string kinds;
-        if (selection.folders > 0) {
-            kinds = count_of(selection.folders, "folder");
-        }
-        if (selection.files > 0) {
-            kinds += (kinds.empty() ? "" : ", ") + count_of(selection.files, "file");
-        }
-        out.centered("kinds", kinds, kSmallSize, palette.on_surface_variant, 20.0F);
-        if (selection.folders > 0) {
-            out.section("INFORMATION");
-            out.row("Size", size_text());
-        } else if (selection.files > 0) {
-            out.section("INFORMATION");
-            out.row("Size", format_size(selection.bytes));
-        }
-        finish();
-        return;
+    } else {
+        measure(selection_measure_, {}, {});
     }
 
     const fs::MimeDatabase& mime = folder.mime();
@@ -526,10 +503,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         kind = preview::provider_for(mime, typed.mime).kind();
     }
     if (single != nullptr && single->is_directory() && !folder.is_archive()) {
-        measure({path}, std::format("{}\n{}\n{}", path.string(), single->modified_ns,
-                                    folder.model().revision()));
+        measure(folder_measure_, {path},
+                std::format("{}\n{}\n{}", path.string(), single->modified_ns,
+                            folder.model().revision()));
     } else {
-        measure({}, {});
+        measure(folder_measure_, {}, {});
     }
     if (folder.is_archive()) {
         forget_summary();
@@ -647,11 +625,12 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                     ? std::format("{}", folder.shows_hidden() ? *info->items
                                                               : *info->items - info->hidden_items)
                     : std::string{});
-        out.row("Size", size_text());
-        if (size_done_ && size_ && !size_->remote && size_->folders > 0) {
+        out.row("Size", size_text(folder_measure_));
+        if (folder_measure_.done && folder_measure_.size && !folder_measure_.size->remote &&
+            folder_measure_.size->folders > 0) {
             // What is inside: the folder itself left out.
-            out.row("Contains", std::format("{}, {}", count_of(size_->files, "file"),
-                                            count_of(size_->folders - 1, "folder")));
+            out.row("Contains", std::format("{}, {}", count_of(folder_measure_.size->files, "file"),
+                                            count_of(folder_measure_.size->folders - 1, "folder")));
         }
     } else {
         out.row("Size", format_size(single->size));
@@ -773,6 +752,15 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             out.skip(6.0F);
             out.centered("error", info->error, kSmallSize, palette.error, 20.0F);
         }
+    }
+    if (folder.selected_count() > 1) {
+        const auto& selected = folder.summary();
+        out.section(i18n::tr("Selection"));
+        out.row("Folders", std::to_string(selected.folders));
+        out.row("Files", std::to_string(selected.files));
+        out.row(i18n::mark("Selection size"), selected.folders > 0 && !folder.is_archive()
+                                                  ? size_text(selection_measure_)
+                                                  : format_size(selected.bytes));
     }
     finish();
 }

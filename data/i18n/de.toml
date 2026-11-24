@@ -33,6 +33,10 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Selection size" = "Größe der Auswahl"
+"Hide preview when no file is focused" = "Vorschau ausblenden, wenn keine Datei fokussiert ist"
+"Selection" = "Auswahl"
+"{} selected" = "{} ausgewählt"
 "Add Separator Above" = "Trennlinie darüber hinzufügen"
 "Bookmarks" = "Lesezeichen"
 "Collapse or expand a folder" = "Ordner ein- oder ausklappen"

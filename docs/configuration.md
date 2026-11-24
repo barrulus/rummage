@@ -226,7 +226,8 @@ Definitions are managed through **Save Search…** and **Saved Searches…**, an
 rerun when opened. Results themselves are not saved.
 
 rummage remembers window size/maximization, pane layout and divider, sidebar zoom,
-info-pane settings, file-extension visibility (`view.show_extensions` in saved state),
+info-pane settings (including `info.auto_hide`, default `false`, controlled by
+**View → Show → Hide preview when no file is focused**), file-extension visibility (`view.show_extensions` in saved state),
 file previews (`view.show_thumbnails`, default `true`, toggled by **View → Show → Thumbnails**),
 the divider below Places and command-palette history. Each pane retains its tabs,
 locations, active tab, views, zoom, sorting, hidden visibility and filename filters.

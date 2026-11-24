@@ -21,6 +21,10 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Selection size" = "Tamanho da seleção"
+"Hide preview when no file is focused" = "Ocultar prévia quando nenhum arquivo estiver em foco"
+"Selection" = "Seleção"
+"{} selected" = "{} selecionados"
 "Add Separator Above" = "Adicionar separador acima"
 "Bookmarks" = "Favoritos"
 "Collapse or expand a folder" = "Recolher ou expandir uma pasta"

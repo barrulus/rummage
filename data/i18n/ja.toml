@@ -20,6 +20,10 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Selection size" = "選択項目のサイズ"
+"Hide preview when no file is focused" = "フォーカスされたファイルがない場合はプレビューを隠す"
+"Selection" = "選択"
+"{} selected" = "{} 個を選択"
 "Add Separator Above" = "上に区切りを追加"
 "Bookmarks" = "ブックマーク"
 "Collapse or expand a folder" = "フォルダーを折りたたむ／展開する"

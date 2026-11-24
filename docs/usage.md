@@ -11,9 +11,16 @@ the command palette. Both reflect configured actions and shortcuts.
 The sidebar contains places, bookmarks, Trash and devices. The breadcrumb above the
 files opens any parent in the current path. The status bar shows counts, selection,
 free space, operation progress and messages, plus view buttons. The information
-pane shows a preview and a compact metadata summary for the selected item; expand
+pane shows a preview and a compact metadata summary for the focused item; expand
 More details for extended media fields, permissions, owner/group and links.
 Copy all properties at the top includes collapsed fields.
+
+Selecting several files keeps the focused file's preview and metadata visible.
+Each pane shows its selected-item count at the upper right of its breadcrumb header,
+even when the preview is hidden. **Ctrl+arrows** moves focus without changing the
+selected set; **Ctrl+Space** toggles the focused item. A focus outline distinguishes
+the inspected item from selected items. The **Selection** section below the file's
+information retains combined file/folder counts and size.
 
 Right-click a place or bookmark to open that location, open it in a new tab or
 in the other pane, copy its path, or view Properties. Open in Terminal appears when
@@ -33,13 +40,19 @@ of the filter toolbar restores it; **View → Show → Places sidebar** also tog
 Visibility, width and zoom survive restart.
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
-**Ctrl+I** toggles the information pane. Drag its edge to
+**Ctrl+I** toggles the information pane.
+**View → Show → Hide preview when no file is focused** enables automatic hiding.
+The preview returns when an item receives focus, including folders and files with
+metadata only. Loading or failed previews do not change visibility. Explicitly
+showing the preview with Ctrl+I or the Preview menu turns automatic hiding off;
+explicitly hiding it keeps it hidden as focus moves. These choices and the pane's
+width and placement survive restart. Drag its edge to
 resize it (240–720 logical pixels). Filenames and metadata wrap in full. Drag to
 select text in the pane, double-click a word, triple-click a line, or Shift+click
 to extend. After clicking a text field or text preview, **Ctrl+A** selects its text
 and **Ctrl+C** copies it. Click the file view to return these shortcuts to files.
 
-Rest on a selected folder for 250 ms to count its recursive size on a worker. The
+Rest on a focused folder for 250 ms to count its recursive size on a worker. The
 pane shows “Counting…” with the growing size, then Size and Contains. Selections
 containing folders get a combined recursive size; files alone show their listed
 sizes immediately. Moving to another selection or hiding the pane cancels the

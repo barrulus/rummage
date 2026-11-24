@@ -29,6 +29,10 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Selection size" = "Taille de la sélection"
+"Hide preview when no file is focused" = "Masquer l’aperçu lorsqu’aucun fichier n’a le focus"
+"Selection" = "Sélection"
+"{} selected" = "{} sélectionnés"
 "Add Separator Above" = "Ajouter un séparateur au-dessus"
 "Bookmarks" = "Signets"
 "Collapse or expand a folder" = "Réduire ou développer un dossier"

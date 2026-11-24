@@ -30,6 +30,10 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Selection size" = "Tamaño de la selección"
+"Hide preview when no file is focused" = "Ocultar la vista previa cuando ningún archivo tenga el foco"
+"Selection" = "Selección"
+"{} selected" = "{} seleccionados"
 "Add Separator Above" = "Añadir separador encima"
 "Bookmarks" = "Marcadores"
 "Collapse or expand a folder" = "Contraer o expandir una carpeta"

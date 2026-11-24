@@ -3260,6 +3260,8 @@ void Browser::set_show_hidden(bool show, bool announce) {
 
 void Browser::set_info_visible(bool visible) {
     info_visible_ = visible;
+    if (visible)
+        info_auto_hide_ = false;
     if (!visible) {
         info_pane_.cancel_measurement();
         info_pane_.clear_text_focus();
@@ -3268,6 +3270,19 @@ void Browser::set_info_visible(bool visible) {
         each->grid.set_info_visible(visible);
         each->details.set_info_visible(visible);
     }
+}
+
+void Browser::set_info_auto_hide(bool enabled) {
+    info_auto_hide_ = enabled;
+    if (enabled)
+        info_visible_ = true;
+    redraw_();
+}
+
+bool Browser::info_shown() const {
+    const auto folder = current_folder();
+    // Metadata-only content is useful too. Loading or failed decodes never change visibility.
+    return info_visible_ && (!info_auto_hide_ || (folder && folder->cursor_entry()));
 }
 
 void Browser::set_sidebar_visible(bool visible) {
@@ -3312,6 +3327,7 @@ State Browser::state() {
     state.sidebar_hidden = sidebar_.hidden();
     state.sidebar_collapsed = sidebar_.collapsed();
     state.info_visible = info_visible_;
+    state.info_auto_hide = info_auto_hide_;
     state.info_width = info_pane_.width();
     state.sidebar_preview_ratio = sidebar_preview_ratio_;
     state.info_expanded = info_pane_.expanded();
@@ -3482,6 +3498,7 @@ void Browser::apply(const State& state) {
     sidebar_.set_list_size(state.sidebar_size);
     sidebar_.set_organization(state.sidebar_order, state.sidebar_hidden, state.sidebar_collapsed);
     set_info_visible(state.info_visible);
+    info_auto_hide_ = state.info_auto_hide;
     info_pane_.set_width(state.info_width);
     sidebar_preview_ratio_ = state.sidebar_preview_ratio;
     info_pane_.set_expanded(state.info_expanded);
@@ -3744,7 +3761,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     sidebar_preview_divider_ = {};
     sidebar_bounds_ = {bounds.x, bounds.y, sidebar_width, bounds.height};
     preview_below_places_ = panes_enabled_ && preview_in_sidebar_ && sidebar_drawn_ &&
-                            info_visible_ && !pane().insights.is_open() && bounds.height >= 240;
+                            info_shown() && !pane().insights.is_open() && bounds.height >= 240;
     if (!sidebar_drawn_ && sidebar_.focused())
         sidebar_.set_focused(false);
     settle_found(now);
@@ -3769,7 +3786,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         status_bar_.draw(renderer, {content.x, content.bottom() - bar, content.width, bar}, palette,
                          icons, *folder, panes_enabled_);
     content.height -= bar;
-    if (split_visible_ && info_visible_ && !preview_below_places_ && !pane().insights.is_open()) {
+    if (split_visible_ && info_shown() && !preview_below_places_ && !pane().insights.is_open()) {
         const float width =
             info_pane_.width_in(content.width - (stacked_ ? 0.0F : InfoPane::kMinContent));
         if (width > 0) {
@@ -3865,7 +3882,7 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
     ui::Rect view = bounds;
     const auto folder = current_folder();
     renderer.push_clip(bounds);
-    area().back = area().forward = {};
+    area().back = area().forward = area().selection_count = {};
     if ((split_visible_ || area().tabs.size() > 1 || pane().insights.is_open()) &&
         view.height > TabBar::kHeight + kTitleHeight) {
         area().tab_bar.draw(renderer, {view.x, view.y, view.width, TabBar::kHeight}, palette, icons,
@@ -3901,8 +3918,27 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
             renderer.fill_rect({view.x, view.y + kTitleHeight - edge, left - view.x, edge},
                                palette.outline_variant);
         }
-        area().breadcrumb.draw(renderer,
-                               {left, view.y, std::max(0.0F, view.right() - left), kTitleHeight},
+        float right = view.right();
+        if (folder->selected_count() > 0 && view.height >= kTitleHeight) {
+            const auto label = i18n::trf("{} selected", folder->selected_count());
+            const float available = std::max(0.0F, right - left);
+            const float width = std::min(
+                available * 0.5F,
+                renderer.fonts().layout(label, 12.0F, renderer.scale()).width / renderer.scale() +
+                    20.0F);
+            if (width >= 24.0F) {
+                area().selection_count = {right - width, view.y, width, kTitleHeight};
+                const auto badge = area().selection_count;
+                renderer.fill_background(badge, palette.surface_container);
+                renderer.draw_box(
+                    {badge.x + 4, badge.y + 7, badge.width - 8, badge.height - 14},
+                    {.fill = palette.secondary_container, .radius = ui::Corners::all(4)});
+                renderer.draw_text(label, badge.x + 8, badge.y + (badge.height - 16) / 2, 12,
+                                   palette.on_secondary_container, badge.width - 16);
+                right = badge.x;
+            }
+        }
+        area().breadcrumb.draw(renderer, {left, view.y, std::max(0.0F, right - left), kTitleHeight},
                                palette, icons, *location);
         if (split_visible_) {
             const ui::Rect footer{view.x, view.bottom() - bar, view.width, bar};
@@ -3920,11 +3956,11 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
                  icons);
     area().view_area = {view.x, view.y + kTitleHeight + toolbar_height, view.width,
                         std::max(0.0F, view.height - kTitleHeight - toolbar_height - bar)};
-    pane().columns.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
-    pane().grid.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
+    pane().columns.set_info_visible(!split_visible_ && info_shown() && !preview_below_places_);
+    pane().grid.set_info_visible(!split_visible_ && info_shown() && !preview_below_places_);
     if (pane().details.info_visible() !=
-        (!split_visible_ && info_visible_ && !preview_below_places_))
-        pane().details.set_info_visible(!split_visible_ && info_visible_ && !preview_below_places_);
+        (!split_visible_ && info_shown() && !preview_below_places_))
+        pane().details.set_info_visible(!split_visible_ && info_shown() && !preview_below_places_);
     draw_view_with_motion(renderer, palette, icons, now);
     if (keyboard_focus_visible_ && context_area_ == active_area_ && !sidebar_.focused() &&
         !filter_focused_ && !area().breadcrumb.editing() && !sidebar_.renaming() &&
@@ -6105,7 +6141,7 @@ void Browser::run(Command command, Clock::time_point now) {
             set_mode(Mode::details);
             break;
         case Command::toggle_info:
-            set_info_visible(!info_visible_);
+            set_info_visible(!info_shown());
             break;
         case Command::scroll_preview_up:
             info_pane_.scroll_text(InfoPane::TextScroll::line_up, now);
