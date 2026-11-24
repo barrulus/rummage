@@ -515,6 +515,7 @@ struct Renderer::MotionGl {
     int x{0};
     int y{0};
     bool capturing{false};
+    bool isolated{false};
 
     MotionGl() { glGenTextures(2, textures.data()); }
 
@@ -662,7 +663,8 @@ void Renderer::end_frame() {
     }
 }
 
-bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality quality) {
+bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality quality,
+                            bool isolated) {
     if (motion_failed_ || !std::isfinite(bounds.x) || !std::isfinite(bounds.y) ||
         !std::isfinite(bounds.width) || !std::isfinite(bounds.height) || bounds.empty())
         return false;
@@ -671,10 +673,11 @@ bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality qual
     const auto edge = [](float value, int maximum) {
         return static_cast<int>(std::round(std::clamp(value, 0.0F, static_cast<float>(maximum))));
     };
-    const int x = edge(bounds.x * scale_, buffer_width_);
-    const int y = edge(bounds.y * scale_, buffer_height_);
-    const int width = edge(bounds.right() * scale_, buffer_width_) - x;
-    const int height = edge(bounds.bottom() * scale_, buffer_height_) - y;
+    const auto capture = clips_.empty() ? bounds : bounds.intersect(clips_.back());
+    const int x = edge(capture.x * scale_, buffer_width_);
+    const int y = edge(capture.y * scale_, buffer_height_);
+    const int width = edge(capture.right() * scale_, buffer_width_) - x;
+    const int height = edge(capture.bottom() * scale_, buffer_height_) - y;
     const std::size_t pixels = static_cast<std::size_t>(std::max(0, width)) *
                                static_cast<std::size_t>(std::max(0, height));
     const std::size_t cap = quality == core::MotionConfig::Quality::high ? 4194304 : 2097152;
@@ -733,6 +736,16 @@ bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality qual
     glBindTexture(GL_TEXTURE_2D, pass.textures[0]);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, buffer_height_ - y - height, width, height);
     pass.capturing = glGetError() == GL_NO_ERROR;
+    pass.isolated = isolated;
+    if (pass.capturing && isolated) {
+        // Reuse the window's framebuffer for the temporary transparent sprite. The final
+        // pass restores the captured backdrop, including its original alpha.
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(x, buffer_height_ - y - height, width, height);
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        apply_clip();
+    }
     if (!pass.capturing)
         ++motion_stats_.fallbacks;
     return pass.capturing;
@@ -749,10 +762,13 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     glBindTexture(GL_TEXTURE_2D, pass.textures[1]);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pass.x, buffer_height_ - pass.y - pass.height,
                         pass.width, pass.height);
-    if (glGetError() != GL_NO_ERROR) {
+    const bool copy_failed = glGetError() != GL_NO_ERROR;
+    if (copy_failed) {
         ++motion_stats_.fallbacks;
-        glActiveTexture(GL_TEXTURE0);
-        return;
+        if (!pass.isolated) {
+            glActiveTexture(GL_TEXTURE0);
+            return;
+        }
     }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, pass.textures[0]);
@@ -761,9 +777,14 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     glUniform1i(glGetUniformLocation(program, "source_texture"), 0);
     glUniform1i(glGetUniformLocation(program, "target_texture"), 1);
     glUniform1i(glGetUniformLocation(program, "effect"), static_cast<int>(frame.effect));
+    glUniform1i(glGetUniformLocation(program, "isolated"), pass.isolated && !copy_failed);
+    const auto sprite = frame.geometry();
+    glUniform2f(glGetUniformLocation(program, "object_size"),
+                sprite.empty() ? static_cast<float>(pass.width) : sprite.width * scale_,
+                sprite.empty() ? static_cast<float>(pass.height) : sprite.height * scale_);
     glUniform1f(glGetUniformLocation(program, "hologram_spread"), frame.hologram_spread);
     glUniform1f(glGetUniformLocation(program, "portal_rotation"), frame.portal_rotation);
-    glUniform1f(glGetUniformLocation(program, "progress"), frame.progress);
+    glUniform1f(glGetUniformLocation(program, "progress"), copy_failed ? 0.0F : frame.progress);
     glUniform1f(glGetUniformLocation(program, "time_seconds"), frame.time_seconds);
     glUniform2f(glGetUniformLocation(program, "resolution"), static_cast<float>(pass.width),
                 static_cast<float>(pass.height));
@@ -778,7 +799,12 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     const Rect rect{static_cast<float>(pass.x), static_cast<float>(pass.y),
                     static_cast<float>(pass.width), static_cast<float>(pass.height)};
     // The shader contains the backdrop, including its alpha: replace rather than blend again.
-    glDisable(GL_BLEND);
+    if (copy_failed) {
+        // Destination already contains the sprite. Put its backdrop underneath it.
+        glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    } else {
+        glDisable(GL_BLEND);
+    }
     pass.pipeline.draw(&rect, 1, sizeof(Rect), buffer_width_, buffer_height_);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

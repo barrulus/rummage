@@ -56,12 +56,12 @@ does not change the existing wheel/touchpad scrolling physics or loading indicat
 | Effect | Appearance |
 | --- | --- |
 | `fade`, `slide`, `scale` | Simple opacity, short vertical reveal, or slight expansion |
-| `iris` | Circular reveal from the activated item's last visible bounds |
+| `iris` | Eight-leaf shutter aperture opens from the activated item's last visible bounds |
 | `ripple` | Small radial displacement across the pane |
-| `ink_bleed` | Smooth noise islands reveal the new view |
-| `disintegrate` | A travelling operation icon erodes into speckles |
-| `hologram` | Translucent icon with separated colour channels |
-| `portal` | Travelling icon contracts, rotates and reappears |
+| `ink_bleed` | Warped ink pools spread across the new view with dark wet edges |
+| `disintegrate` | An amber erosion front releases glowing fragments that drift and fade |
+| `hologram` | Blue scan lines, luminous edges and a projection ring surround the travelling copy |
+| `portal` | An icon collapses at its source and emerges at its destination inside curling blue-white plasma rings |
 | `energy_trace` | Fading outline and travelling light around the visible selected group |
 | `focus_glow` | Brief soft highlight at the focused row or cell |
 | `glitch` | Short, low-amplitude channel displacement |
@@ -73,8 +73,10 @@ The defaults distinguish pane transitions, local selection/focus feedback, overl
 reveals and travelling operation icons. Other event/effect mappings are allowed;
 some effects, especially erosion and portal contraction, make most sense on icons.
 Reveals composite current content against its backdrop, without retaining a stale
-directory listing. These are compact built-in interpretations of the motion
-concepts, not a particle physics simulation or a persistent frosted-glass surface.
+directory listing. Operation icons are captured separately from their backdrop,
+with padded space for light and fragments; their distortion leaves the directory
+behind them in place. Fragment trajectories and plasma filaments are procedural,
+and do not require a particle physics simulation or external image assets.
 
 ## Operations and lifecycle
 

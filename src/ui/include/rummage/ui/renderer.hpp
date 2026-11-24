@@ -54,7 +54,9 @@ public:
 
     // One non-nested pane/overlay pass. Capture the backdrop, draw normal content, then
     // composite it. False means draw normally. Resources are lazy, reused and capped.
-    bool begin_motion(const Rect& bounds, core::MotionConfig::Quality quality);
+    // Isolated sprites capture transparent foreground, so warps never move the backdrop.
+    bool begin_motion(const Rect& bounds, core::MotionConfig::Quality quality,
+                      bool isolated = false);
     void end_motion(const Motion::Frame& frame, float origin_x, float origin_y, Color accent);
     // Release idle capture storage, keeping the compiled shader for the next effect.
     void release_motion_textures();

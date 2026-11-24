@@ -648,7 +648,8 @@ TEST_CASE("motion: object shader parameters change intermediate pixels but prese
     ui::Renderer renderer{fonts};
     const auto draw = [&](Effect effect, float parameter, float progress) {
         renderer.begin_frame(120, 100, 1, ui::Color::rgb(0x102030));
-        REQUIRE(renderer.begin_motion({10, 10, 100, 80}, core::MotionConfig::Quality::automatic));
+        REQUIRE(
+            renderer.begin_motion({10, 10, 100, 80}, core::MotionConfig::Quality::automatic, true));
         renderer.fill_rect({30, 30, 30, 25}, ui::Color::rgb(0xFF0000));
         renderer.fill_rect({60, 30, 20, 25}, ui::Color::rgb(0x0080FF));
         renderer.end_motion({.effect = effect,
@@ -839,4 +840,89 @@ TEST_CASE("motion: move and trash retain the painted thumbnail after the source 
             CHECK(renderer.motion_stats().texture_bytes == 0);
         }
     }
+}
+
+TEST_CASE("motion: portal collapses at the source and emerges at the destination") {
+    ui::Motion motion;
+    const ui::Motion::Clock::time_point now{};
+    REQUIRE(motion.start(Channel::operation, Event::file_move, now, {10, 20, 32, 32},
+                         {200, 100, 24, 24}));
+    CHECK(motion.frame(Channel::operation, now + 100ms)->geometry().x == 10);
+    CHECK(motion.frame(Channel::operation, now + 209ms)->geometry().x == 10);
+    CHECK(motion.frame(Channel::operation, now + 210ms)->geometry().x == 200);
+    CHECK(motion.frame(Channel::operation, now + 320ms)->geometry().width == 24);
+}
+
+TEST_CASE("motion: isolated effects preserve backdrop, clips and premultiplied alpha") {
+    ui::Offscreen gl{160, 120};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    for (const auto effect : {Effect::disintegrate, Effect::hologram, Effect::portal}) {
+        CAPTURE(static_cast<int>(effect));
+        for (const float progress : {0.0F, 0.3F, 0.5F, 0.75F, 1.0F}) {
+            renderer.begin_frame(160, 120, 1, ui::Color::rgba(0x20406080));
+            renderer.fill_rect({0, 0, 10, 120}, ui::Color::rgb(0xFF0000));
+            renderer.push_clip({10, 10, 140, 100});
+            REQUIRE(renderer.begin_motion({0, 0, 160, 120}, core::MotionConfig::Quality::automatic,
+                                          true));
+            renderer.fill_rect({64, 44, 32, 32}, ui::Color::rgb(0xC08020));
+            renderer.end_motion({.effect = effect,
+                                 .progress = progress,
+                                 .from = {64, 44, 32, 32},
+                                 .to = {64, 44, 32, 32}},
+                                80, 60, ui::Color::rgb(0x40C0FF));
+            renderer.pop_clip();
+            renderer.fill_rect({150, 0, 10, 10}, ui::Color::rgb(0x00FF00));
+            renderer.end_frame();
+            CHECK(pixel(5, 60) == std::array<unsigned char, 4>{255, 0, 0, 255});
+            CHECK(pixel(155, 115)[1] == 255);
+            CHECK(pixel(12, 108) == std::array<unsigned char, 4>{16, 32, 48, 128});
+            if (progress == 0 || progress == 1) {
+                const bool erased = progress == 1 && effect == Effect::disintegrate;
+                CHECK(pixel(80, 60)[3] == (erased ? 128 : 255));
+                CHECK(pixel(80, 60)[0] == (erased ? 16 : 192));
+            }
+            if (effect == Effect::portal && progress == 0.5F)
+                CHECK(pixel(80, 60) == std::array<unsigned char, 4>{16, 32, 48, 128});
+            std::vector<unsigned char> pixels(160 * 120 * 4);
+            glReadPixels(0, 0, 160, 120, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            bool valid = true;
+            for (std::size_t i = 0; i < pixels.size(); i += 4)
+                valid = valid && pixels[i] <= pixels[i + 3] && pixels[i + 1] <= pixels[i + 3] &&
+                        pixels[i + 2] <= pixels[i + 3];
+            CHECK(valid);
+            CHECK(glGetError() == GL_NO_ERROR);
+        }
+    }
+}
+
+TEST_CASE("motion: render operation filmstrip with actual icon shaders") {
+    ui::Offscreen gl{960, 540};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    constexpr std::array effects{Effect::disintegrate, Effect::hologram, Effect::portal};
+    constexpr std::array names{"Delete", "Copy", "Move"};
+    constexpr std::array phases{0.0F, 0.2F, 0.4F, 0.6F, 0.8F, 1.0F};
+    renderer.begin_frame(960, 540, 1, ui::Color::rgb(0x0B1019));
+    for (std::size_t row = 0; row < effects.size(); ++row) {
+        for (std::size_t column = 0; column < phases.size(); ++column) {
+            const float x = static_cast<float>(column) * 160;
+            const float y = static_cast<float>(row) * 180;
+            renderer.push_clip({x, y, 160, 180});
+            renderer.draw_text(names[row], x + 12, y + 20, 13, ui::Color::rgb(0xB4C4D8));
+            const ui::Rect rect{x + 48, y + 55, 64, 64};
+            REQUIRE(renderer.begin_motion(rect.inset(-48), core::MotionConfig::Quality::automatic,
+                                          true));
+            icons.draw(renderer, "file", rect.x, rect.y, rect.width, ui::Color::rgb(0xC3DCF4));
+            renderer.end_motion(
+                {.effect = effects[row], .progress = phases[column], .from = rect, .to = rect},
+                rect.x + 32, rect.y + 32, ui::Color::rgb(0x40C0FF));
+            renderer.pop_clip();
+        }
+    }
+    renderer.end_frame();
+    CHECK(glGetError() == GL_NO_ERROR);
+    if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+        save_frame(std::filesystem::path{directory} / "operation-filmstrip.ppm", 960, 540);
 }

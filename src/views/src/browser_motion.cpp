@@ -109,14 +109,17 @@ void Browser::draw_motion_sprite(ui::Renderer& renderer, const theme::Palette& p
     const auto& source = motion_sprite_.bounds;
     const auto& clip = motion_sprite_.clip;
     const float sx = rect.width / source.width, sy = rect.height / source.height;
+    // Capture the padded backdrop before clipping the retained item. Only the
+    // foreground uses the original item clip; emitted light can extend around it.
+    const bool captured = renderer.begin_motion(rect.inset(-std::max(rect.width, rect.height)),
+                                                motion_.config().quality, true);
     renderer.push_clip({rect.x + (clip.x - source.x) * sx, rect.y + (clip.y - source.y) * sy,
                         clip.width * sx, clip.height * sy});
-    const bool captured = renderer.begin_motion(rect.inset(-6), motion_.config().quality);
     draw_item_visual(renderer, icons, palette, motion_sprite_, rect);
+    renderer.pop_clip();
     if (captured)
         renderer.end_motion(*frame, rect.x + rect.width / 2, rect.y + rect.height / 2,
                             palette.primary);
-    renderer.pop_clip();
     renderer.pop_clip();
 }
 

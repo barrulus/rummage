@@ -1986,7 +1986,8 @@ void SettingsDialog::draw_preview(ui::Renderer& renderer, const ui::Rect& bounds
             frame->to = {scene.right() - 36, scene.y + 8, 28, 28};
             icon = frame->geometry();
         }
-        const bool sprite = frame && renderer.begin_motion(icon.inset(-6), preview_config_.quality);
+        const bool sprite =
+            frame && renderer.begin_motion(icon.inset(-icon.width), preview_config_.quality, true);
         icons.draw(renderer, "file", icon.x, icon.y, icon.width, palette.primary);
         if (sprite)
             renderer.end_motion(*frame, icon.x + 14, icon.y + 14, palette.primary);
