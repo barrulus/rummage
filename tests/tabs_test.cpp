@@ -119,7 +119,9 @@ struct Fixture {
         REQUIRE(show != items.end());
         CHECK(show->label == "Show");
         CHECK(show->submenu);
-        CHECK(show->children.size() == 5);
+        CHECK(show->children.size() == 6);
+        CHECK(std::ranges::find(show->children, "auto_hide_info", &rummage::views::MenuItem::id) !=
+              show->children.end());
         for (const auto& item : show->children)
             CHECK(item.checkable);
         return show->children;
@@ -1130,18 +1132,21 @@ TEST_CASE("navigation: path-row buttons use the clicked pane history and cancel 
         draw();
     };
     draw();
-    CHECK(f.browser.cursor_at(19, 14) == CursorShape::standard);
+    // The shared toolbar sits above the pane's path row.
+    const auto pane = f.browser.pane_bounds(0);
+    const float back_x = pane.x + 19, forward_x = pane.x + 47, path_y = pane.y + 14;
+    CHECK(f.browser.cursor_at(back_x, path_y) == CursorShape::standard);
     f.browser.open(f.b);
     REQUIRE(f.settle());
     draw();
-    CHECK(f.browser.cursor_at(19, 14) == CursorShape::pointer);
-    point(PointerEvent::Kind::motion, 19, 14);
-    point(PointerEvent::Kind::press, 19, 14);
-    point(PointerEvent::Kind::release, 200, 100);
+    CHECK(f.browser.cursor_at(back_x, path_y) == CursorShape::pointer);
+    point(PointerEvent::Kind::motion, back_x, path_y);
+    point(PointerEvent::Kind::press, back_x, path_y);
+    point(PointerEvent::Kind::release, pane.x + 200, path_y + 80);
     CHECK(f.browser.picker_folder()->path() == f.b);
-    click(19, 14);
+    click(back_x, path_y);
     CHECK(f.browser.picker_folder()->path() == f.a);
-    click(47, 14);
+    click(forward_x, path_y);
     CHECK(f.browser.picker_folder()->path() == f.b);
     f.browser.toggle_split();
     f.browser.focus_pane(1);
