@@ -1,0 +1,51 @@
+baseURL = 'https://rummage-fm.com/'
+locale = 'en-GB'
+title = 'rummage'
+disableKinds = ['taxonomy', 'term', 'RSS']
+
+[params]
+description = 'A native file manager for Wayland. Browse in columns, grids or details, work across two panes, and take a closer look without opening another app.'
+repository = 'https://github.com/barrulus/rummage'
+# Public Discord invite. Leave empty to hide Discord links until it is ready.
+discordInvite = 'https://discord.gg/f8mVpE9deu'
+# Add an H.264 MP4 to static/media/ and set this to /media/your-recording.mp4.
+demoVideo = ''
+demoPoster = '/images/rummage-dark-grid.webp'
+demoCaption = 'Your artwork, a closer look, and the details that matter.'
+
+[outputs]
+home = ['HTML', 'JSON']
+
+[markup.goldmark.renderer]
+unsafe = true # Trusted repository documentation includes keyboard markup.
+[markup.highlight]
+style = 'catppuccin-mocha'
+[markup.tableOfContents]
+startLevel = 2
+endLevel = 3
+
+[[module.mounts]]
+source = 'content'
+target = 'content'
+[[module.mounts]]
+source = 'assets'
+target = 'assets'
+[[module.mounts]]
+source = '../docs'
+target = 'assets/docs'
+files = ['*.md', '! DESIGN.md', '! ROADMAP.md']
+[[module.mounts]]
+source = 'static'
+target = 'static'
+[[module.mounts]]
+source = '../docs/images'
+target = 'static/images'
+[[module.mounts]]
+source = '../docs/config.example.toml'
+target = 'static/docs/config.example.toml'
+[[module.mounts]]
+source = '../data/rummage.svg'
+target = 'static/rummage.svg'
+
+[module.hugoVersion]
+min = '0.170.1'

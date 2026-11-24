@@ -10,8 +10,8 @@
 
 namespace rummage::fs {
 
-// KDE's [Desktop Entry] Icon from a .directory file. Relative ./ paths are resolved
-// against the folder; an empty result means no override.
+// KDE's [Desktop Entry] Icon from a .directory file. Only theme names are accepted;
+// image paths are untrusted. An empty result means no override.
 [[nodiscard]] std::string parse_folder_icon(std::string_view text,
                                             const std::filesystem::path& folder);
 

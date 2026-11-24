@@ -20,6 +20,56 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  website:
+    name: Build and check website
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      HUGO_VERSION: '0.170.1'
+      HUGO_SHA256: '841a5462853aefc9942e4de1e8a5d75584b6a5181941e6ad3f1d745190e03cd8'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned Hugo
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/hugo"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_linux-amd64.tar.gz" \
+            --output "$RUNNER_TEMP/hugo.tar.gz"
+          printf '%s  %s\n' "$HUGO_SHA256" "$RUNNER_TEMP/hugo.tar.gz" | sha256sum --check -
+          tar -xzf "$RUNNER_TEMP/hugo.tar.gz" -C "$RUNNER_TEMP/hugo" hugo
+          echo "$RUNNER_TEMP/hugo" >> "$GITHUB_PATH"
+      - name: Build static site
+        run: hugo --source website --minify --panicOnWarning --printPathWarnings
+      - name: Check pages, links, assets, and downloads
+        run: python3 website/check.py website/public
+      - name: Upload Pages artifact
+        if: github.repository == 'barrulus/rummage' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: website/public
+
+  pages:
+    name: Deploy website
+    if: github.repository == 'barrulus/rummage' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [website, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
   reuse:
     name: Find manually validated branch build
     runs-on: ubuntu-24.04
@@ -38,7 +88,7 @@ jobs:
 
   tests:
     name: Tests and lint
-    needs: reuse
+    needs: [reuse, website]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

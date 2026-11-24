@@ -18,6 +18,10 @@ parameters, quality and reduced-motion controls. See
 
 ## Colours
 
+| Neutral dark appearance | Neutral light appearance |
+| --- | --- |
+| ![The same SVG artwork and preview in a neutral dark palette](images/rummage-dark-grid.webp) | ![SVG artwork and its preview in a neutral light palette](images/rummage-light-grid.webp) |
+
 rummage accepts a palette from any producer: Noctalia, Matugen or a hand-written
 file. Rendering and semantic roles remain owned by rummage; generators only write
 data and are never launched by the application. No Qt, GTK or GLib integration is
@@ -367,17 +371,22 @@ off removes rummage's generated override, or restores the installed icon for a
 user-prefix install. An unrelated user icon at that path is left alone. Docks may
 cache the previous icon until they refresh.
 
+Settings → Appearance → Icon theme offers a dropdown with System, Built-in, and
+installed themes from `~/.icons`, `$XDG_DATA_HOME/icons` (normally
+`~/.local/share/icons`), and the system XDG icon directories. Reopen Settings to
+refresh the list after installing a theme.
+
 ## Folder icons and properties
 
 With system/named themes, folder icons use `Icon=` under `[Desktop Entry]` in the
-folder's `.directory` file, shared with Dolphin. Values can be theme names,
-absolute SVG/PNG paths or `./` paths relative to that folder. Standard XDG folders
+folder's `.directory` file, shared with Dolphin. Only installed theme icon names
+are accepted; absolute and relative image paths are ignored. Standard XDG folders
 use purpose-specific icons without an override; missing icons fall back. The
 `builtin` theme retains Tabler icons. KDE's `EmptyIcon` behavior is not supported.
 Reopen the parent folder after changing its icon externally.
 
 Use **Alt+Enter** or **Properties** for a folder, then **Change Icon…**. Search the
-paged theme icon grid or enter/paste a custom icon name/path. Default removes the
+paged theme icon grid or enter/paste a theme icon name. Default removes the
 override. Choices are staged until Apply; Cancel leaves disk unchanged. Saving
 preserves other `.directory` fields and refreshes open views. Trash properties
 are read-only. Tab changes controls; arrows/Page Up/Down browse icons; Enter
@@ -416,3 +425,30 @@ Set `[font] size = 16.0`, or use Settings → Appearance → Interface text size
 and update immediately. List, grid and sidebar zoom remain independent within that scale.
 Font family changes still require a restart. The settings cog uses a bundled icon, so its
 position does not depend on the chosen text font.
+
+## Desktop examples
+
+These captures show rummage on five Wayland desktops and compositors, using
+customised palettes, icon themes, and transparency. They illustrate individual
+setups rather than the default appearance of each desktop. See
+[compatibility](compatibility.md) for protocol support and fallbacks.
+
+### niri
+
+![Column view on niri, with a selected JSON file and a translucent custom palette](images/rummage-desktop-niri.webp)
+
+### Hyprland
+
+![Details view on Hyprland, showing a mounted folder with a translucent background](images/rummage-desktop-hyprland.webp)
+
+### Umbriel
+
+![Rummage on Umbriel, showing an archive selected in column view over an owl wallpaper](images/rummage-desktop-umbriel.webp)
+
+### GNOME
+
+![Grid view on GNOME, with blue folder icons and a translucent dark background](images/rummage-desktop-gnome.webp)
+
+### KDE Plasma
+
+![Details view on KDE Plasma, with an expanded folder, image preview and the desktop panel](images/rummage-desktop-kde.webp)

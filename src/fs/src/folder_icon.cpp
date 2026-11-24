@@ -54,7 +54,7 @@ std::filesystem::path normalized(const std::filesystem::path& path) {
 
 }  // namespace
 
-std::string parse_folder_icon(std::string_view text, const std::filesystem::path& folder) {
+std::string parse_folder_icon(std::string_view text, const std::filesystem::path&) {
     bool desktop = false;
     std::string icon;
     while (!text.empty()) {
@@ -102,13 +102,9 @@ std::string parse_folder_icon(std::string_view text, const std::filesystem::path
             icon += c;
         }
     }
-    if (icon.starts_with("./")) {
-        std::error_code error;
-        const auto absolute = std::filesystem::absolute(folder / icon, error);
-        return error ? std::string{} : absolute.lexically_normal().string();
-    }
-    // Absolute file paths and theme names only; no URLs or other relative paths.
-    if (!icon.empty() && icon.front() != '/' && icon.find('/') != std::string::npos)
+    // Untrusted folder metadata may select installed theme icons, never image files:
+    // theme rendering happens in the application, outside the preview sandbox.
+    if (icon == "." || icon == ".." || icon.find('/') != std::string::npos)
         return {};
     return icon;
 }

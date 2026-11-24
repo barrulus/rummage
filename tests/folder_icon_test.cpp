@@ -21,7 +21,7 @@ TEST_CASE("folder icon settings: preserve unrelated content and escape values") 
     CHECK(after ==
           "# Dolphin settings\r\n[Desktop Entry]\r\nIcon=./my\\sicon.svg\r\nName=Projects\r\n"
           "[Settings]\r\nHiddenFilesShown=true\r\n");
-    CHECK(parse_folder_icon(after, "/work") == "/work/my icon.svg");
+    CHECK(parse_folder_icon(after, "/work").empty());
     const auto reset = rummage::fs::update_folder_icon_text(after, "");
     CHECK(reset.find("Icon=") == std::string::npos);
     CHECK(reset.find("Name=Projects") != std::string::npos);
@@ -59,17 +59,15 @@ TEST_CASE("folder icon settings: atomic save, reset and refusing unsafe metadata
     CHECK_FALSE(fs::exists(dir.path / "gone"));
 }
 
-TEST_CASE("folder icons: Desktop Entry group, escapes and local paths") {
+TEST_CASE("folder icons: Desktop Entry group and theme names only") {
     CHECK(parse_folder_icon("[Desktop Entry]\nIcon=folder-development\n", "/work") ==
           "folder-development");
     CHECK(parse_folder_icon("Icon=wrong\n[Other]\nIcon=wrong\n", "/work").empty());
     CHECK(parse_folder_icon(" # comment\r\n[Desktop Entry]\r\n Icon = folder-music \r\n"
                             "[Other]\nIcon=wrong\n",
                             "/work") == "folder-music");
-    CHECK(parse_folder_icon("[Desktop Entry]\nIcon=./my\\sicon.png\n", "/work") ==
-          "/work/my icon.png");
-    CHECK(parse_folder_icon("[Desktop Entry]\nIcon=/icons/custom.svg\n", "/work") ==
-          "/icons/custom.svg");
+    CHECK(parse_folder_icon("[Desktop Entry]\nIcon=./my\\sicon.png\n", "/work").empty());
+    CHECK(parse_folder_icon("[Desktop Entry]\nIcon=/icons/custom.svg\n", "/work").empty());
     CHECK(parse_folder_icon("[Desktop Entry]\nIcon=folder\\q\n", "/work").empty());
     CHECK(parse_folder_icon("[Desktop Entry]\nIcon=folder\\\n", "/work").empty());
     CHECK(
@@ -150,4 +148,17 @@ TEST_CASE("folder icons: directory loads and incremental reads carry icons, incl
     CHECK(updated[0]->folder_icon == "folder-blue");
     CHECK(updated[1]->folder_icon == "folder-blue");
     CHECK(updated[1]->is_link);
+}
+
+TEST_CASE("folder icons: untrusted image paths are ignored and cannot be saved") {
+    TempDir dir;
+    const FolderIcons icons{{.home = dir.path / "home", .config_home = dir.path}};
+    for (const char* value : {"./icon.svg", "/tmp/icon.png", "sub/icon.svg", "./../icon.svg",
+                              "file:///tmp/icon.svg", ".", ".."}) {
+        CAPTURE(value);
+        dir.write(".directory", std::string{"[Desktop Entry]\nIcon="} + value + "\n");
+        CHECK(icons.for_folder(dir.path).empty());
+        CHECK(rummage::fs::read_folder_icon_setting(dir.path).icon.empty());
+        CHECK_FALSE(rummage::fs::save_folder_icon(dir.path, value).empty());
+    }
 }

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <poll.h>
@@ -60,11 +61,23 @@ int open_regular(const std::filesystem::path& path) {
 }
 
 // The picture in a helper's memfd, checked against the size it said.
-std::optional<picture::Image> read_pixels(int fd, std::uint32_t width, std::uint32_t height) {
-    const std::uint64_t bytes = std::uint64_t{width} * height * 4;
+std::optional<picture::Image> read_pixels(int fd, std::uint32_t width, std::uint32_t height,
+                                          const picture::LoadRequest& request) {
+    // A zero request dimension disables raster resizing. Otherwise both returned sides
+    // must fit the requested box before we map or allocate any helper-controlled size.
+    if (width == 0 || height == 0 ||
+        (request.max_width != 0 && request.max_height != 0 &&
+         (width > request.max_width || height > request.max_height))) {
+        return std::nullopt;
+    }
+    const std::uint64_t pixels = std::uint64_t{width} * height;
+    if (pixels > std::numeric_limits<std::size_t>::max() / 4 ||
+        pixels > std::numeric_limits<std::ptrdiff_t>::max() / 4) {
+        return std::nullopt;
+    }
+    const auto bytes = static_cast<std::size_t>(pixels) * 4;
     struct stat info{};
-    if (width == 0 || height == 0 || ::fstat(fd, &info) != 0 ||
-        std::cmp_not_equal(info.st_size, bytes)) {
+    if (::fstat(fd, &info) != 0 || std::cmp_not_equal(info.st_size, bytes)) {
         return std::nullopt;
     }
     // Sealed against shrinking: the mapping cannot lose pages under us.
@@ -411,8 +424,9 @@ picture::Loaded Helpers::load(const picture::LoadRequest& request) {
                              response.detail_length);
         if (result.failure == picture::Failure::none) {
             std::optional<picture::Image> pixels =
-                reply.fds[0] >= 0 ? read_pixels(reply.fds[0], response.width, response.height)
-                                  : std::nullopt;
+                reply.fds[0] >= 0
+                    ? read_pixels(reply.fds[0], response.width, response.height, request)
+                    : std::nullopt;
             if (!pixels) {
                 why = "the preview helper's pixels are wrong";
                 return false;

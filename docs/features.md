@@ -25,7 +25,7 @@ case-insensitive, not locale collation.
 
 ## Insights
 
-[Insights](usage.md#insights) groups files by extension and maps
+[Insights](insights.md) groups files by extension and maps
 folders by file count or size. Iris shows three descendant levels as a sunburst,
 with category colours shared across charts and results. Largest-file and modification-age graphs reveal
 where space is used and how recently files changed. Optional Tokei source analysis

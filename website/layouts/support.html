@@ -1,0 +1,13 @@
+{{ define "main" }}
+<main id="main" class="support-page wrap">
+  <header class="page-heading"><p class="eyebrow">Support & community</p><h1>{{ .Title }}</h1><p class="lede">Something not behaving? Start with the guides, report a bug, or bring an idea for making rummage better.</p></header>
+  <section class="support-grid" aria-label="Ways to get help">
+    <article class="support-card"><h2>Read the guides</h2><p>Installation, previews, desktop integration, and the settings that make rummage yours.</p><a class="button secondary" href="{{ "docs/troubleshooting/" | relURL }}">Troubleshooting</a><a class="text-link" href="{{ "docs/" | relURL }}">Browse all documentation</a></article>
+    <article class="support-card"><h2>GitHub Issues</h2><p>Report a reproducible bug or suggest a feature. Search existing issues first so related reports stay together.</p><a class="button primary" href="{{ .Site.Params.repository }}/issues">Browse issues</a><a class="text-link" href="{{ .Site.Params.repository }}/issues/new/choose">Open a new issue</a></article>
+    {{ with .Site.Params.discordInvite }}
+      <article class="support-card"><h2>Discord</h2><p>Ask a question, talk through your setup, or share what you've made. For a bug that needs tracking, open a GitHub issue too.</p><a class="button secondary" href="{{ . }}">Join the Discord</a></article>
+    {{ end }}
+  </section>
+  <section class="support-report" aria-labelledby="report-heading"><div><p class="eyebrow">Make a useful bug report</p><h2 id="report-heading">Help us see<br>what you're seeing.</h2></div><div><p>Include these details in your GitHub issue:</p><ul><li>Your rummage version, source commit, and installation method. <code>rummage --about</code> helps identify the build.</li><li>Your Linux distribution and desktop or compositor.</li><li>The steps to reproduce the problem, what you expected, and what happened.</li><li>A relevant screenshot or log excerpt, with personal information removed.</li></ul><p>Development builds can share a version number, so the commit and any local changes matter.</p></div></section>
+</main>
+{{ end }}

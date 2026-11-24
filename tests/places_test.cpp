@@ -358,11 +358,16 @@ TEST_CASE(
     CHECK(browser.sidebar().places()[1].folder_icon.empty());
     CHECK(browser.sidebar().places()[1].icon == "server");
 
-    dir.write(".directory", "[Desktop Entry]\nIcon=./custom.svg\n");
-    browser.set_places(bookmarks());
-    REQUIRE(run_until(loop, [&] {
-        return browser.sidebar().places()[0].folder_icon == (dir.path / "custom.svg").string();
-    }));
+    for (const auto& path : {std::string{"./custom.svg"}, (dir.path / "custom.svg").string()}) {
+        dir.write(".directory", "[Desktop Entry]\nIcon=folder-music\n");
+        browser.set_places(browser.sidebar().places());
+        REQUIRE(run_until(
+            loop, [&] { return browser.sidebar().places()[0].folder_icon == "folder-music"; }));
+        // Untrusted folder metadata cannot turn a bookmark icon into an image-file load.
+        dir.write(".directory", "[Desktop Entry]\nIcon=" + path + "\n");
+        browser.set_places(browser.sidebar().places());
+        REQUIRE(run_until(loop, [&] { return browser.sidebar().places()[0].folder_icon.empty(); }));
+    }
     dir.write(".directory", "[Desktop Entry]\nIcon=\n");
     browser.set_places(browser.sidebar().places());
     REQUIRE(run_until(loop, [&] { return browser.sidebar().places()[0].folder_icon.empty(); }));

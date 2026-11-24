@@ -23,6 +23,8 @@ precedence over the picker's remembered folder.
 
 ## Enable on NixOS with Umbriel
 
+![rummage's file picker with Navigate in terminal, Cancel and Select controls, using a custom dark palette](images/rummage-file-picker.webp)
+
 Add rummage to your system flake's inputs (use this checkout's path while developing):
 
 ```nix

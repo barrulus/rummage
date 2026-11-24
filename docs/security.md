@@ -27,8 +27,9 @@ In normal builds the helper applies:
   earlier during idle time.
 
 The filter has architecture definitions for x86-64 and AArch64. Crashes, timeouts
-and malformed replies are treated as preview failures. The browser does not fall
-back to decoding the same unsupported input in-process.
+and malformed replies are treated as preview failures. Returned pixel dimensions
+and overflow-checked buffer sizes are validated before pixels enter the application.
+The browser does not fall back to decoding the same unsupported input in-process.
 
 SVG file previews run in the base helper using librsvg's default parsing limits,
 the helper's process memory ceiling and request deadline. The adapter reads at most 8 MiB and
@@ -39,6 +40,8 @@ private font map prepared before sandboxing:
 at most 12 generic font files, 64 faces and 64 MiB of FreeType font data (plus
 HarfBuzz's font mappings). Seccomp is synchronized across existing helper threads,
 including Pango's font matcher; it cannot open paths or create network sockets.
+Untrusted `.directory` files may select theme icon names only; custom image paths
+are ignored.
 
 Markdown parsing runs in the text helper. The browser validates a bounded presentation
 document before laying it out; HTML is not executed, and links and images do not trigger
@@ -83,7 +86,8 @@ same checks and treats the batch as one operation.
 Copying members out of a browsed archive creates files in a private staging directory,
 using `openat2` confinement to prevent traversal and symlink escapes. Publication never
 replaces an existing name. Special files and unsupported/encrypted members are refused or
-reported; supported links must remain within the extracted selection. These guarantees
+reported; absolute symlink targets and targets containing any `..` component are
+rejected, including otherwise harmless parent-relative links. These guarantees
 apply to the built-in member workflow, not to independently configured external tools.
 
 Custom actions use an argument vector, preserving path boundaries without implicit

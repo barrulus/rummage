@@ -12,6 +12,7 @@ reporting behavior in a development build.
 | --- | --- |
 | Install, build or update | [Installation](install.md) |
 | Learn views, tabs, search and selection | [Using rummage](usage.md) |
+| Understand folder contents and file sizes | [Folder Insights](insights.md) |
 | Copy, move, rename, trash or restore files | [File operations](file-operations.md) |
 | Preview pictures, raw photos, text and videos | [Previews and formats](previews.md) |
 | See supported capabilities and limits | [Feature overview](features.md) |

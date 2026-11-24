@@ -24,6 +24,8 @@ unrelated settings and custom action definitions.
 Copy Name defaults to **Ctrl+Alt+C** and can be changed with `copy_name`; it copies
 selected filenames, including extensions, with newlines between multiple names.
 
+![Settings General showing startup and file-opening preferences in a custom palette](images/rummage-settings-general.webp)
+
 **Valid changes save automatically.** Toggles and dropdowns commit immediately; text and
 number fields commit on Enter or when focus leaves them. Numeric controls also support
 plus/minus buttons and Up/Down while the field is focused. Settings stays open after saving.
