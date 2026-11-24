@@ -346,7 +346,6 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     read.flag("view.show_thumbnails", s.show_thumbnails);
     read.word("view.list_size", kListSizeWords, s.list_size);
     read.flag("sidebar.visible", s.sidebar_visible);
-    read.flag("sidebar.tree", s.sidebar_tree);
     read.strings("sidebar.order", s.sidebar_order);
     read.strings("sidebar.hidden", s.sidebar_hidden);
     read.strings("sidebar.collapsed", s.sidebar_collapsed);
@@ -705,7 +704,7 @@ std::string format_state(const State& s) {
                "grid_icon = {}\n"
                "\n"
                "[sidebar]\n"
-               "tree = {}\norder = [{}]\nhidden = [{}]\ncollapsed = [{}]\n"
+               "order = [{}]\nhidden = [{}]\ncollapsed = [{}]\n"
                "list_size = \"{}\"\n"
                "visible = {}\n"
                "width = {}\n"
@@ -730,12 +729,12 @@ std::string format_state(const State& s) {
                "recent = [{}]\n",
                word_of(kModes, s.mode), flag(s.show_hidden), flag(s.show_extensions),
                flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
-               flag(s.sidebar_tree), strings(s.sidebar_order), strings(s.sidebar_hidden),
-               strings(s.sidebar_collapsed), word_of(kListSizeWords, s.sidebar_size),
-               flag(s.sidebar_visible), s.sidebar_width, flag(s.info_visible), s.info_width,
-               flag(s.info_expanded), s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key),
-               flag(s.sort_descending), format_columns(s.details_widths, s.details_columns),
-               s.window_width, s.window_height, flag(s.maximized), recent) +
+               strings(s.sidebar_order), strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
+               word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
+               flag(s.info_visible), s.info_width, flag(s.info_expanded), s.sidebar_preview_ratio,
+               word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
+               format_columns(s.details_widths, s.details_columns), s.window_width, s.window_height,
+               flag(s.maximized), recent) +
            std::format(
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,

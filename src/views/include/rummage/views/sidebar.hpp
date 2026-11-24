@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -13,6 +14,7 @@
 
 #include "rummage/fs/directory_model.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/fs/subfolders.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
@@ -54,14 +56,13 @@ public:
 
     void enable_tree(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                      std::shared_ptr<const fs::MimeDatabase> mime);
-    void set_tree(bool enabled);
-
-    bool tree() const { return tree_; }
-
     bool loading() const;
+    bool expandable(std::size_t row) const;
 
-    void sync_tree(const std::filesystem::path& path, bool hidden);
-    void toggle_folder(const std::filesystem::path& path);
+    void set_show_hidden(bool hidden);
+    void toggle_folder(const std::filesystem::path& path, std::string_view root = {});
+
+    static bool child(const fs::Place& place) { return place.icon_key == "sidebar_child"; }
 
     const std::vector<fs::Place>& sources() const { return sources_; }
 
@@ -93,10 +94,6 @@ public:
 
     ui::Rect close_bounds() const { return close_bounds_; }
 
-    ui::Rect tree_bounds() const { return tree_bounds_; }
-
-    ui::Rect places_bounds() const { return places_bounds_; }
-
     // The eject icon of an external disk was clicked.
     void set_eject_handler(std::function<void(const fs::Place&)> eject) {
         eject_ = std::move(eject);
@@ -125,8 +122,6 @@ public:
     void not_drawn() noexcept {
         bounds_ = {};
         close_bounds_ = {};
-        places_bounds_ = {};
-        tree_bounds_ = {};
         drag_.reset();
         moving_separator_.reset();
         hovered_.reset();
@@ -247,19 +242,23 @@ private:
     }
 
     void rebuild();
-    void append_tree(const std::filesystem::path& path, std::size_t depth, bool link = false);
+    using NodeId = std::pair<std::string, std::filesystem::path>;
+    void append_tree(fs::Place place, std::size_t depth, const std::string& root,
+                     bool link = false);
+    void toggle_row(std::size_t index);
+    void release_models();
     void expand_folder(const std::filesystem::path& path);
-    void follow_tree();
     std::function<std::unique_ptr<fs::DirectoryModel>()> make_model_;
     std::map<std::filesystem::path, std::unique_ptr<fs::DirectoryModel>> models_;
+    std::unique_ptr<fs::Subfolders> subfolders_;
+    std::set<NodeId> expanded_;
+    std::vector<NodeId> node_ids_;
     std::vector<std::size_t> depths_;
     std::vector<bool> links_;
     std::vector<fs::Place> sources_;
     std::vector<std::string> order_, hidden_, collapsed_;
-    std::filesystem::path tree_current_;
-    bool tree_{false}, tree_hidden_{false}, rebuilding_{false}, following_{false},
-        reveal_pending_{false}, reveal_selection_{false};
-    ui::Rect close_bounds_{}, tree_bounds_{}, places_bounds_{};
+    bool tree_hidden_{false}, rebuilding_{false};
+    ui::Rect close_bounds_{};
     std::function<void()> close_;
     std::function<void(float, float)> background_menu_;
     void layout();

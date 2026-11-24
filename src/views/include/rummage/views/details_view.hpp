@@ -17,6 +17,7 @@
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/sort.hpp"
+#include "rummage/fs/subfolders.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
@@ -228,6 +229,7 @@ private:
     void toggle_row(std::size_t row);
     void move_row(std::ptrdiff_t delta, SelectMode mode);
     [[nodiscard]] std::optional<std::size_t> cursor_row() const;
+    [[nodiscard]] bool expandable(std::size_t row) const;
     [[nodiscard]] bool disclosure_at(std::size_t row, float x) const;
     std::shared_ptr<Folder> root_;
     std::map<std::filesystem::path, std::shared_ptr<Folder>> expanded_;
@@ -248,6 +250,7 @@ private:
     core::EventLoop& loop_;
     core::WorkerPool& pool_;
     fs::DirectoryWatcher& watcher_;
+    fs::Subfolders subfolders_;
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_;
     std::function<void()> open_;

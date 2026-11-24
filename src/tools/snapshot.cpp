@@ -5,7 +5,7 @@
 //                    [--sort FIELDS] [--info-expanded] [--info-width W] [--bench FRAMES]
 //                    [--walk FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME]
 //                    [--memory [--trim] [--default-malloc]]] [--csd STATE] [--desktop LOOK]
-//                    [--font FAMILY] [--status-text-size SIZE] <out.ppm>
+//                    [--expand-sidebar PATH] [--font FAMILY] [--status-text-size SIZE] <out.ppm>
 //                    [logical-width logical-height scale [colors.toml]]
 //
 // KEYS are pressed in the column view before the snapshot: comma-separated xkb key names with
@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
     float font_size = rummage::core::Config::Font::kUsualSize;
     bool info_expanded = false;
     bool preview_sidebar = false;
-    bool folder_tree = false;
+    std::string expand_sidebar;
     std::filesystem::path settings_config;
     bool memory = false;
     bool fake_disks = false;
@@ -261,9 +261,9 @@ int main(int argc, char** argv) {
             args = args.subspan(2);
             continue;
         }
-        if (option == "--folder-tree") {
-            folder_tree = true;
-            args = args.subspan(1);
+        if (option == "--expand-sidebar" && args.size() >= 3) {
+            expand_sidebar = args[2];
+            args = args.subspan(2);
             continue;
         }
         if (option == "--preview-sidebar") {
@@ -377,7 +377,7 @@ int main(int argc, char** argv) {
         log::error(
             "usage: rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails "
             "CACHE] [--icon-theme NAME] [--sort FIELDS] [--info-expanded] [--info-width W] "
-            "[--split DIR] [--stacked] "
+            "[--split DIR] [--stacked] [--expand-sidebar PATH] "
             "[--bench FRAMES] [--walk "
             "FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME] [--drag NAME] "
             "[--drop-over X,Y] [--band X1,Y1,X2,Y2] [--fake-disks] [--memory [--trim] "
@@ -526,7 +526,6 @@ int main(int argc, char** argv) {
                 }
                 columns->status_bar().set_text_size(status_text_size);
                 columns->set_preview_in_sidebar(preview_sidebar);
-                columns->sidebar().set_tree(folder_tree);
                 if (!settings_config.empty())
                     columns->set_settings_handler(settings_config, [] {}, {});
                 columns->set_places(std::move(places));
@@ -610,8 +609,11 @@ int main(int argc, char** argv) {
                     columns->focus_pane(0);
                 }
                 frame();  // lays out: keys need the viewport
-                if (folder_tree)
+                if (!expand_sidebar.empty()) {
+                    columns->sidebar().toggle_folder(expand_sidebar);
                     run_until(loop, [&] { return !columns->sidebar().loading(); });
+                    frame();
+                }
                 // Each key finds what the one before loaded (Space, then Ctrl+A on the text).
                 for (const ui::KeyEvent& event : parse_keys(keys)) {
                     if (picker) {

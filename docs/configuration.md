@@ -159,9 +159,9 @@ to that table until the next heading. Do not paste a binding into an action tabl
 
 ## Sidebar organization
 
-Visibility, width, Places/Tree mode, collapsed sections, hidden entries, separators
-and custom order are remembered in `state.toml`. Folder-tree expansion is rebuilt
-from the current folder each session. Use **View → Sidebar** to restore hidden
+Visibility, width, collapsed sections, hidden entries, separators and custom order
+are remembered in `state.toml`. Places and bookmarks start with their subfolders
+collapsed each session. Use **View → Sidebar** to restore hidden
 entries or reset organization.
 
 Optional `config.toml` lists override remembered order or hidden entries at startup

@@ -1233,6 +1233,13 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
         menu_.open(x, y, sidebar_organization_items(place), keyboard);
         return;
     }
+    if (Sidebar::child(place)) {
+        ++menu_generation_;
+        menu_loaders_.clear();
+        menu_.open(x, y, configured_menu(place_navigation_items(place), menu_layout_.sidebar),
+                   keyboard);
+        return;
+    }
     if (place.section == fs::Place::Section::devices) {
         ++menu_generation_;
         menu_loaders_.clear();
@@ -3302,7 +3309,6 @@ State Browser::state() {
     state.sidebar_visible = sidebar_visible_;
     state.sidebar_width = sidebar_.width();
     state.sidebar_size = sidebar_.list_size();
-    state.sidebar_tree = sidebar_.tree();
     state.sidebar_order = sidebar_.order();
     state.sidebar_hidden = sidebar_.hidden();
     state.sidebar_collapsed = sidebar_.collapsed();
@@ -3476,7 +3482,6 @@ void Browser::apply(const State& state) {
     sidebar_.set_width(state.sidebar_width);
     sidebar_.set_list_size(state.sidebar_size);
     sidebar_.set_organization(state.sidebar_order, state.sidebar_hidden, state.sidebar_collapsed);
-    sidebar_.set_tree(state.sidebar_tree);
     set_info_visible(state.info_visible);
     info_pane_.set_width(state.info_width);
     sidebar_preview_ratio_ = state.sidebar_preview_ratio;
@@ -3700,8 +3705,8 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
     note_location();
-    if (const auto folder = current_folder())
-        sidebar_.sync_tree(folder->path(), shows_hidden());
+    if (current_folder())
+        sidebar_.set_show_hidden(shows_hidden());
     const float sidebar_width = sidebar_visible_ ? sidebar_.width_in(bounds.width) : 0.0F;
     sidebar_drawn_ = sidebar_width > 0.0F;
     info_pane_.forget_layout();
@@ -5928,7 +5933,7 @@ void Browser::run(Command command, Clock::time_point now) {
         if (!id.empty()) {
             if (const auto* place = sidebar_.cursor_place()) {
                 if (command == Command::properties &&
-                    place->section == fs::Place::Section::devices) {
+                    place->section == fs::Place::Section::devices && !Sidebar::child(*place)) {
                     if (place->disk.mounted && !place->path.empty())
                         properties_.open_drive(place->path, place->label);
                 } else {

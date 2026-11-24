@@ -1019,8 +1019,10 @@ TEST_CASE("details tree: disclosure clicks, child opening and dragging use the c
         return;
     }
     f.show(f.root, Browser::Mode::details);
+    fs::create_directory(f.photos / "subfolder");
     f.browser.details().folder()->select_name("photos");
     f.draw();
+    REQUIRE(f.settle());
     const auto parent = f.point_of(f.root, "photos");
     // The disclosure is the gap in the hit area before this folder's icon.
     std::optional<std::pair<float, float>> arrow;

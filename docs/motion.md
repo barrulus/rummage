@@ -59,7 +59,7 @@ does not change the existing wheel/touchpad scrolling physics or loading indicat
 | `iris` | Eight-leaf shutter aperture opens from the activated item's last visible bounds |
 | `ripple` | Small radial displacement across the pane |
 | `ink_bleed` | Warped ink pools spread across the new view with dark wet edges |
-| `disintegrate` | An amber erosion front releases glowing fragments that drift and fade |
+| `disintegrate` | File icons erode into glowing fragments; opening a folder or overlay assembles its contents from fragments |
 | `hologram` | Blue scan lines, luminous edges and a projection ring surround the travelling copy |
 | `portal` | An icon collapses at its source and emerges at its destination inside curling blue-white plasma rings |
 | `energy_trace` | Fading outline and travelling light around the visible selected group |
@@ -89,8 +89,9 @@ generic icon. Operations without a visible captured item keep ordinary status
 feedback. Destinations stay inside Rummage: the other pane, the visible Trash
 place, or a status-area receipt for an offscreen destination.
 
-Directory effects wait for the model to finish loading and check its error. Initial
-startup does not animate the listing. Tab changes cancel pending surface effects;
+Directory effects reveal the first visible batch as it arrives, or the empty/error
+state when loading finishes. Completing a streamed listing does not restart the
+effect. Initial startup does not animate the listing. Tab changes cancel pending surface effects;
 resizing cancels active effects. Closing an overlay cancels its reveal. No effect
 changes selection, focus, operation completion or undo history.
 

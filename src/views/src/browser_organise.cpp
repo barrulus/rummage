@@ -142,14 +142,6 @@ std::vector<MenuItem> Browser::sidebar_menu() {
     };
     add("sidebar_visible", i18n::mark("Show Sidebar"), sidebar_visible_,
         [this] { set_sidebar_visible(!sidebar_visible_); });
-    add("sidebar_places", i18n::mark("Places"), !sidebar_.tree(), [this] {
-        sidebar_.set_tree(false);
-        set_sidebar_visible(true);
-    });
-    add("sidebar_tree", i18n::mark("Folder Tree"), sidebar_.tree(), [this] {
-        sidebar_.set_tree(true);
-        set_sidebar_visible(true);
-    });
     for (const auto& [section, label] :
          {std::pair{fs::Place::Section::places, i18n::mark("Places")},
           std::pair{fs::Place::Section::bookmarks, i18n::mark("Bookmarks")},
@@ -157,10 +149,7 @@ std::vector<MenuItem> Browser::sidebar_menu() {
         const auto key = std::to_string(static_cast<int>(section));
         add("sidebar_section_" + key, label,
             std::ranges::find(sidebar_.collapsed(), key) == sidebar_.collapsed().end(),
-            [this, section] {
-                sidebar_.set_tree(false);
-                sidebar_.toggle_section(section);
-            });
+            [this, section] { sidebar_.toggle_section(section); });
         if (section == fs::Place::Section::places)
             items.back().separator = true;
     }
@@ -180,7 +169,7 @@ std::vector<MenuItem> Browser::sidebar_menu() {
 
 std::vector<MenuItem> Browser::sidebar_organization_items(const fs::Place& place) {
     std::vector<MenuItem> items;
-    if (sidebar_.tree())
+    if (Sidebar::child(place))
         return items;
     const auto add = [&](std::string id, std::string_view label, std::function<void()> action) {
         MenuItem item;
@@ -195,7 +184,10 @@ std::vector<MenuItem> Browser::sidebar_organization_items(const fs::Place& place
         [this, place] { sidebar_.move_place(place, -1); });
     add(bookmark ? "move_bookmark_down" : "sidebar_move_down", i18n::mark("Move Down"),
         [this, place] { sidebar_.move_place(place, 1); });
-    const auto& shown = sidebar_.places();
+    std::vector<fs::Place> shown;
+    for (const auto& root : sidebar_.places())
+        if (!Sidebar::child(root))
+            shown.push_back(root);
     const auto at = std::ranges::find_if(
         shown, [&](const auto& p) { return Sidebar::place_key(p) == Sidebar::place_key(place); });
     items[0].enabled =
@@ -293,7 +285,7 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
             "copy_path", i18n::mark("Copy Path"),
             [this, place] { copy_text(place.uri.empty() ? place.path.string() : place.uri); },
             mounted || !place.uri.empty());
-        if (place.section != fs::Place::Section::devices)
+        if (place.section != fs::Place::Section::devices || Sidebar::child(place))
             add(
                 "properties", i18n::mark("Properties…"),
                 [this, path = place.path] {

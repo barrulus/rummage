@@ -21,6 +21,7 @@ add_library(rummage_fs
     src/mime.cpp
     src/operations.cpp
     src/places.cpp
+    src/subfolders.cpp
     src/sort.cpp
     src/transfer.cpp
     src/transfer_queue.cpp

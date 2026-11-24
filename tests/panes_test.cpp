@@ -1047,7 +1047,7 @@ TEST_CASE("panes: resetting a folder leaves other visible tabs unchanged") {
     CHECK(f.browser.details().list_size() == 3);
 }
 
-TEST_CASE("panes: sidebar dismiss and toolbar restore preserve tree mode and width") {
+TEST_CASE("panes: sidebar dismiss and toolbar restore preserve organization and width") {
     Fixture f;
     auto gl = offscreen();
     REQUIRE(gl);
@@ -1060,7 +1060,8 @@ TEST_CASE("panes: sidebar dismiss and toolbar restore preserve tree mode and wid
         renderer.end_frame();
     };
     f.browser.sidebar().set_width(250);
-    f.browser.sidebar().set_tree(true);
+    f.browser.sidebar().toggle_section(rummage::fs::Place::Section::bookmarks);
+    const auto collapsed = f.browser.sidebar().collapsed();
     draw();
     const auto close = f.browser.sidebar().close_bounds();
     f.browser.pointer({.kind = PointerEvent::Kind::press,
@@ -1090,7 +1091,7 @@ TEST_CASE("panes: sidebar dismiss and toolbar restore preserve tree mode and wid
                        .button = PointerButton::left},
                       Browser::Clock::now());
     CHECK(f.browser.sidebar_visible());
-    CHECK(f.browser.sidebar().tree());
+    CHECK(f.browser.sidebar().collapsed() == collapsed);
     CHECK(f.browser.sidebar().width() == 250);
 }
 

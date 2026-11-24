@@ -30,7 +30,7 @@ movement, focus, opening and hierarchy commands.
 
 The **×** button in the sidebar header hides it. The sidebar button at the left
 of the filter toolbar restores it; **View → Show → Places sidebar** also toggles it.
-Visibility, width, zoom and the selected Places/Tree mode survive restart.
+Visibility, width and zoom survive restart.
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
 **Ctrl+I** toggles the information pane. Drag its edge to
@@ -516,21 +516,21 @@ Up to 64 definitions are kept in the normal saved state across restarts. Match
 lists, selections and previews are not persisted. Search results are not offered
 inside the file picker.
 
-## Folder-tree sidebar
+## Expandable sidebar
 
-Choose **Tree** in the sidebar header, or **View → Sidebar → Folder Tree**.
-The main file view keeps its current mode. Click a folder to open it in the active
-pane; use the chevrons to expand and collapse it without navigating. **F6** focuses
-the sidebar, Up/Down moves through visible folders, Right expands or enters a
-branch, Left collapses or moves to its parent, and Enter opens the folder.
+Expand local folders in Places or Bookmarks using the arrow beside the icon.
+Arrows appear only when a folder has visible subfolders, and update as its
+contents change. The file list uses the same rule.
+Mounted devices can also expand. Click the label to open the folder in the active
+pane; expanding or collapsing a folder keeps the main file view in place.
+**F6** focuses the sidebar, Up/Down moves through visible folders, Right expands
+or enters a branch, Left collapses or moves to its parent, and Enter opens it.
 
-The tree follows the active pane and its hidden-file setting. Only expanded
-folders are loaded and watched; changes inside them appear automatically. Folder
-symlinks can be opened but are leaves in the tree, preventing recursive loops.
-Loading and access errors appear beside the folder. Expansion is session-only:
-on restart the current folder's ancestors are revealed again. **Places** returns
-to bookmarks and devices. The preview's existing visibility and placement rules
-also apply when Tree is selected.
+Only expanded folders are loaded and watched; changes inside them appear
+automatically. The sidebar follows the active pane's hidden-file setting.
+Folder symlinks inside a branch can be opened but do not expand, preventing
+recursive loops. Loading and access errors appear beside the folder. Each place
+and bookmark expands independently, and folders start collapsed on restart.
 
 ## Places, bookmarks and devices
 
