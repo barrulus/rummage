@@ -45,6 +45,21 @@ class PreflightTest(unittest.TestCase):
     def run_preflight(self, *targets):
         return preflight.main([*targets, "--output", str(self.output)])
 
+    def test_tests_target_builds_only_the_test_result(self):
+        self.assertEqual(self.run_preflight("tests"), 0)
+        self.assertEqual(self.calls.read_text().splitlines(), [
+            "build --no-link --print-build-logs .#checks.x86_64-linux.tests"])
+        report = json.loads((self.output / "summary.json").read_text())
+        self.assertEqual(report["results"], {"tests": "passed"})
+
+    def test_failed_test_gate_stops_before_requested_packaging(self):
+        os.environ["PREFLIGHT_TEST_EXIT"] = "23"
+        self.assertEqual(self.run_preflight("tests", "nix"), 1)
+        self.assertEqual(self.calls.read_text().splitlines(), [
+            "build --no-link --print-build-logs .#checks.x86_64-linux.tests"])
+        report = json.loads((self.output / "summary.json").read_text())
+        self.assertEqual(report["results"], {"tests": "failed (23)"})
+
     def test_nix_failure_stops_before_package_build_and_records_failure(self):
         os.environ["PREFLIGHT_TEST_EXIT"] = "23"
         self.assertEqual(self.run_preflight("nix"), 1)

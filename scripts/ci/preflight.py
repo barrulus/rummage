@@ -10,7 +10,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGETS = ("lint", "nix", "void", "deb", "rpm", "arch", "tumbleweed")
+TARGETS = ("lint", "tests", "nix", "void", "deb", "rpm", "arch", "tumbleweed")
+NIX_TESTS = ".#checks.x86_64-linux.tests"
 NIX_PACKAGES = [".#rummage", ".#rummage-with-media", ".#rummage-with-pdf", ".#rummage-with-previews"]
 
 
@@ -19,6 +20,8 @@ def commands(target, output):
         return [["nix", "shell", "--inputs-from", ".", "nixpkgs#actionlint",
                  "nixpkgs#shellcheck", "nixpkgs#python3", "--command",
                  "bash", "scripts/ci/lint.sh"]]
+    if target == "tests":
+        return [["nix", "build", "--no-link", "--print-build-logs", NIX_TESTS]]
     if target == "nix":
         return [["nix", "flake", "check", "--print-build-logs"],
                 ["nix", "build", "--no-link", "--print-build-logs",
@@ -31,7 +34,7 @@ def commands(target, output):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("targets", nargs="*", metavar="TARGET",
-                        help="lint, nix, void, deb, rpm, arch, tumbleweed, or all (default)")
+                        help="lint, tests, nix, void, deb, rpm, arch, tumbleweed, or all (default)")
     parser.add_argument("--output", type=Path,
                         help="new or empty directory outside the checkout for logs/packages")
     args = parser.parse_args(argv)
@@ -46,8 +49,8 @@ def main(argv=None):
     if dirty and targets != ["lint"]:
         parser.error("commit all intended changes first: build checks must test the reported commit; "
                      "use 'lint' while editing")
-    required = {"nix"} if any(t in ("lint", "nix") for t in targets) else set()
-    containers = any(t not in ("lint", "nix") for t in targets)
+    required = {"nix"} if any(t in ("lint", "tests", "nix") for t in targets) else set()
+    containers = any(t not in ("lint", "tests", "nix") for t in targets)
     if containers:
         required.update(("nix", "docker", "bash", "python3", "tar", "gzip", "realpath"))
     for tool in sorted(required):

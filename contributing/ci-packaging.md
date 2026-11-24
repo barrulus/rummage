@@ -2,11 +2,25 @@
 
 [Documentation](../docs/README.md) · [Installation](../docs/install.md) · [Development](development.md)
 
-The fork's [workflow](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`,
-and manual dispatch. It currently validates **x86_64 Linux with glibc**. The flake still
+The fork's [workflow](../.github/workflows/ci.yml) runs automatically only on pushes
+to `main`, including merges into `main`. Opening or updating a pull request does not
+start CI. To validate a branch before merging, use **Actions → Build, test and package
+→ Run workflow** and select the branch, or run `gh workflow run ci.yml --ref BRANCH`.
+Manual dispatch is available for every branch. It currently validates **x86_64 Linux with glibc**. The flake still
 exposes aarch64 packages, but this workflow does not claim to build or run them. Debian 13,
 Fedora 45, Arch Linux and openSUSE Tumbleweed are also built as native packages. Void musl, older Debian/Ubuntu
 releases, other RPM distributions and signed/stable releases are outside the validated scope.
+
+All package jobs wait for the **Tests and lint** job to pass. This includes manual
+Tumbleweed-only runs. A test or lint failure skips Nix, Void and every native package
+build. After the gate passes, package jobs run in parallel and retain their separate
+installation and smoke checks.
+
+Successful runs can take longer because tests no longer overlap packaging. The
+additional wall time depends on caching and which package job was previously slowest;
+it is bounded by the test stage plus job/artifact overhead. Failed tests avoid the
+packaging work entirely. The Nix package job imports the successful test result from
+the gate instead of compiling and running the suite again.
 
 ## Local preflight
 
@@ -15,8 +29,10 @@ Use the shared runner instead of reconstructing a subset of CI commands:
 ```sh
 # Fast workflow/script lint, CI tooling tests and documentation checks; allows edits.
 python3 scripts/ci/preflight.py lint
-# Commit intended files first, then test that exact revision.
-python3 scripts/ci/preflight.py lint nix
+# Commit intended files first, then run the test gate without packaging.
+python3 scripts/ci/preflight.py lint tests
+# Tests first, then Nix package and installed checks.
+python3 scripts/ci/preflight.py lint tests nix
 # All six build environments, including fresh native-package installation.
 python3 scripts/ci/preflight.py all
 # Reproduce one native job, or select several explicitly.
@@ -63,7 +79,13 @@ this is not a snapshot pin, and origin outages can still fail the job.
 
 ## Nix
 
-The `Nix build, tests and installed package` job runs:
+The **Tests and lint** job runs the workflow/script/documentation checks and then
+builds only `checks.x86_64-linux.tests`. That derivation compiles the application and
+helpers needed by the complete test suite, including media and PDF, but replaces
+installation with a success marker. It produces no installable rummage packages.
+Dependencies such as the PDF renderer may still need to compile on a cold cache.
+
+The **Nix packages and installed checks** job runs after the gate succeeds:
 
 ```sh
 nix flake check --print-build-logs
@@ -86,25 +108,30 @@ Checks include:
   portal backends, and invalid configurations.
 
 The ordinary package remains a release build without test executables. The separate
-`checks.<system>.tests` derivation enables tests; it does not skip them in exchange for a
-successful package build. Tests that probe optional kernel capabilities retain their
+`checks.<system>.tests` derivation enables tests and exports only their success marker.
+The gate uploads that result as a small binary-cache artifact; the Nix package job
+imports the expected output evaluated from the same checkout before running flake
+checks. This also avoids repeating the suite on fork runs without Cachix upload access. Tests that probe optional kernel capabilities retain their
 existing capability checks.
 
-All runs read the public `rummage-fm` Cachix cache. Main runs and PRs whose branches
-belong to `barrulus/rummage` upload completed derivations as they finish, using the
+All runs read the public `rummage-fm` Cachix cache. Runs in `barrulus/rummage`
+upload completed derivations as they finish, using the
 cache-specific `CACHIX_AUTH_TOKEN` and Cachix-managed signing. A later test failure
 does not discard successful dependency builds. Failed derivations are not cached.
 Being in the cache does not mean a revision passed the complete release matrix;
 use the `development` tag for a validated snapshot.
 
-Fork PRs receive no Cachix token. They restore and save the Nix store using GitHub's
-PR-scoped cache, including after a test failure, so updates to that PR can reuse
+Runs in other forks receive no Cachix token from this repository. They restore and
+save the Nix store using GitHub's branch-scoped cache, including after a test failure,
+so later manual runs on that branch can reuse
 completed work. Cache keys group matching architecture, `flake.lock` and Nix recipes;
 Nix still rebuilds outputs whose inputs changed. GitHub cache eviction can cause a
 cold build. Cancelling a run may interrupt cache saving.
 
-Successful PRs also retain all outputs of the four installable variants and three
-checks as a binary-cache artifact for 14 days. On an identical-tree merge, main
+Successful manual branch runs retain the test result separately and all outputs of the four
+installable variants and three checks as binary-cache artifacts for 14 days.
+The test gate restores only the small test-result artifact on an identical-tree
+merge; it does not download the full package closure. On an identical-tree merge, main
 imports roots evaluated from its own flake, runs the usual Nix preflight (which can
 reuse those successful derivations), and explicitly publishes imported outputs to
 Cachix. The media/PDF helper outputs and custom PDFium runtime closure are included.
@@ -136,7 +163,7 @@ closure; copying only the executable omits its `/nix/store` dependencies.
 ## Void Linux
 
 The `Void glibc package and clean install` job uses Docker and Void's `xbps-src`. It packages
-**the exact committed checkout**, including the PR merge commit when GitHub checks one out.
+**the exact committed checkout**, either the main push or manually selected branch head.
 It does not fetch upstream's v0.5.0 and mistake that build for a test of this fork.
 
 From a clean, committed checkout, with Nix, Docker, Git, Bash, Python 3, tar/gzip tools and
@@ -163,7 +190,7 @@ The script:
 4. Builds the `.xbps`, then starts a **fresh container** and installs that package through
    XBPS. The build container's compiler and development dependencies cannot hide missing
    package dependencies. The Void recipe's unit tests remain disabled; the complete suite
-   is exercised by the Nix job.
+   is exercised by the Tests and lint gate.
 5. Checks package integrity and linked libraries, validates installed resources and config,
    then installs the compositor/test fixtures and performs the headless Wayland launch.
 
@@ -219,7 +246,7 @@ explicit dependencies. Both packages include bundled third-party license notices
 The build runs in a disposable container, followed by installation through apt or dnf in a
 fresh container. Package integrity and shared libraries are checked before installing any
 test fixtures. The common installed-resource checks and headless Weston render check then
-run against `/usr/bin/rummage`. Unit tests run in the separate Nix job; these two jobs test
+run against `/usr/bin/rummage`. Unit tests run in the Tests and lint gate; these two jobs test
 the native build and installed package. No privileged container is needed.
 
 The artifacts contain binary packages (plus Debian build metadata or Fedora source/debug
@@ -291,7 +318,7 @@ version. The checked-in PKGBUILD is a checkout-build template, not an AUR submis
 A second, fresh container installs the resulting package with pacman or zypper. CI checks
 package integrity, shared-library dependencies, installed assets and a rendered window under
 headless Weston. Test fixtures are installed after the runtime dependency checks. The complete
-unit suite continues to run in Nix. Both jobs must pass before any development downloads are
+unit suite runs in the Tests and lint gate. Both jobs must pass before any development downloads are
 published, and the release preparer requires all five native package identities to match.
 
 The README provides stable links; [installation](../docs/install.md#development-downloads)
@@ -308,7 +335,7 @@ same source commit and checksum. It selects only the main installable packages, 
 with its repository index, and adds the source archive, `source.json` and `SHA256SUMS`.
 Release download links and the installation-guide link are copied from the marked README
 section, so they stay in sync. Keep both development-downloads marker comments intact.
-Preparation runs on PRs too; the prepared bundle is available as a workflow artifact.
+Preparation runs on manually selected branches too; the prepared bundle is available as a workflow artifact.
 
 On trusted `main` runs, the publication job creates or updates **Latest development build**.
 It replaces the assets, moves the `development` tag to the validated main commit, and updates the
@@ -317,7 +344,7 @@ latest stable release. Nix uses the same moving tag as its source reference; the
 job uploads binary closures separately to Cachix. No README commits are needed for subsequent builds.
 
 Main runs are serialized without automatic cancellation, preventing overlapping publication.
-PR runs still cancel superseded checks. Rerunning an older successful main workflow cannot
+Non-main manual runs cancel superseded runs on the same branch. Rerunning an older successful main workflow cannot
 roll downloads back to an ancestor of the already-published commit; divergent history fails
 for maintainer review. Failed build/check/preparation jobs leave the existing
 downloads untouched. Asset replacement uses separate GitHub API calls, not an atomic swap:
@@ -331,20 +358,21 @@ an official distribution repository, or packages for untested distributions such
 
 ### Reuse at merge
 
-A push to `main` first looks for a successful PR run of this workflow whose tested
-checkout has the **same complete Git tree** as main. Commit IDs may differ because
-GitHub's PR checkout is a temporary merge commit. The lookup verifies that this
-commit belongs to the run's PR head, all six build jobs and download preparation
-passed, and both the prepared downloads and Nix closure artifacts remain available.
-It searches the latest 30 successful PR runs. Lookup errors, expired/missing artifacts
-or a different tree fall back to the normal build matrix.
+A push to `main` first looks for a successful manual branch run of this workflow
+whose tested checkout has the **same complete Git tree** as main. Commit IDs may
+differ after a merge or squash. The lookup verifies that the tested commit is the
+manual run's head, the test gate, all six package jobs and download preparation
+passed, and the test-result, prepared-download and Nix-closure artifacts remain
+available. It searches the latest 30 successful manual runs, excluding main runs.
+Lookup errors, expired/missing artifacts or a different tree fall back to the
+normal build matrix.
 
 When a match exists, native build jobs are skipped and their already validated
 packages are promoted. The Nix job imports the matching closure and resolves the
 usual checks/packages without recompiling matching derivations. Download checksums
 and tree equality are verified again before promotion. A corrupt or disappearing
-artifact fails promotion rather than publishing unchecked files. No PR artifact
-scripts are executed, and fork PRs never receive release or Cachix write credentials.
+artifact fails promotion rather than publishing unchecked files. No artifact scripts are executed, and runs in forks never receive this repository’s
+release or Cachix write credentials.
 
 Package bytes, embedded versions, source archives and their original timestamps stay
 unchanged. `source.json` retains the original tested `commit` and adds `published_commit`
@@ -352,7 +380,6 @@ for the main/tag target plus the common `tree`. Release notes retain the origina
 successful build link and explain the promotion. This records what was actually built
 instead of relabelling binaries as a new compilation.
 
-PR runs always validate normally, reusing cached Nix derivations where possible.
 Manual dispatch deliberately bypasses artifact promotion for a fresh matrix run
 (ordinary Nix substitution still applies). Changes to workflow files or any other
 tracked source prevent reuse unless that exact tree has passed. Runs created before
@@ -367,10 +394,11 @@ runs `scripts/ci/noctalia-template.py`, which compares that template with the ro
 in [palette.hpp](../src/theme/include/rummage/theme/palette.hpp) and the mapping in
 [data/noctalia/rummage](../data/noctalia/rummage): missing, extra or remapped roles, the `mode` line and
 the output path. It also validates the explicit community colour file as TOML, rejecting malformed
-tables and duplicate keys. It runs daily, on demand and on pull requests touching those files. A pull request that
-adds or renames a palette role therefore fails it until the community template is updated as well.
+tables and duplicate keys. It runs on demand and on pushes to `main` touching those
+files. It has no scheduled or pull-request trigger. A changed palette role fails the
+check until the community template is updated as well.
 
-While the scheduled run finds differences, it keeps one issue, "Noctalia community template for
+When a run on `main` finds differences, it keeps one issue, "Noctalia community template for
 rummage is out of sync", open and comments when the differences change; it closes the issue once both
 agree again. If both upstream files are absent, the workflow passes with a notice and leaves any
 existing drift issue open: no comparison was possible. The script returns 0 for a successful match,
@@ -385,17 +413,19 @@ python3 scripts/ci/noctalia-template.py --dir ../community-templates
 ## GitHub setup and scope
 
 GitHub Actions must be enabled on the fork. Build and preparation jobs use read-only repository
-permissions, pinned action commits, and `pull_request`, not `pull_request_target`. Only the
+permissions, pinned action commits, and only `push` (restricted to `main`) and
+`workflow_dispatch` triggers. Only the
 publication job has `contents: write`, using the built-in GitHub token; no extra secret is
 needed for GitHub release publication. Cachix uploads separately require `CACHIX_AUTH_TOKEN`
 as described above. The publication job runs exclusively on pushes to `main` or manual runs targeting `main`, after all
-six checks and download preparation pass, either in this run or in the verified
-identical-tree PR run. It never commits to a branch. `actions: read` permits lookup
+test gate, six package jobs and download preparation pass, either in this run or in the verified
+identical-tree manual branch run. It never commits to a branch. `actions: read` permits lookup
 and download of that run's artifacts.
 
 After a successful run, configure a branch ruleset for `main` requiring these checks:
 
-- `Nix build, tests and installed package`
+- `Tests and lint`
+- `Nix packages and installed checks`
 - `Void glibc package and clean install`
 - `Debian 13 package and clean install`
 - `Fedora 45 package and clean install`

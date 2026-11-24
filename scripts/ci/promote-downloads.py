@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote identical-tree PR packages while retaining their original source identity."""
+"""Promote identical-tree manually tested branch packages while retaining their original source identity."""
 import argparse
 import hashlib
 import json
@@ -38,7 +38,7 @@ def promote(directory, tested_commit, commit, tree, tested_tree):
     notes = directory / 'release-notes.md'
     notes.write_text(
         f'Promoted without rebuilding to main commit `{commit}`. '
-        f'The complete source tree matches the tested PR checkout (`{tree}`). '
+        f'The complete source tree matches the tested branch checkout (`{tree}`). '
         'Package versions and source archives retain the original tested commit.\n\n' + notes.read_text())
 
 

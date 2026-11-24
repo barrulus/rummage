@@ -42,10 +42,20 @@
       });
 
       checks = forEachSystem (system: {
-        tests = self.packages.${system}.rummage.override {
+        tests = (self.packages.${system}.rummage.override {
           withTests = true;
           withMedia = true;
           withPdf = true;
+        }).overrideAttrs {
+          pname = "rummage-tests";
+          outputs = [ "out" ];
+          # Compile and test the app/helpers, but produce no installable packages.
+          installPhase = ''
+            mkdir -p "$out"
+            touch "$out/passed"
+          '';
+          postInstall = "";
+          dontFixup = true;
         };
         nixos-module = import ./nix/module-check.nix { inherit self nixpkgs system; };
         smoke = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {

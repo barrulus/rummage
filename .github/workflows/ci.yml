@@ -1,7 +1,6 @@
 name: Build, test and package
 
 on:
-  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
@@ -22,7 +21,7 @@ concurrency:
 
 jobs:
   reuse:
-    name: Find validated PR build
+    name: Find manually validated branch build
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -37,9 +36,63 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/ci/reuse-build.py
 
-  nix:
-    name: Nix build, tests and installed package
+  tests:
+    name: Tests and lint
     needs: reuse
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+      - name: Restore previous fork builds
+        if: github.repository != 'barrulus/rummage'
+        uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-tests-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'nix/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-prefixes-first-match: nix-tests-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'nix/**') }}-
+      - name: Cache completed builds as they finish
+        uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: rummage-fm
+          authToken: ${{ github.repository == 'barrulus/rummage' && secrets.CACHIX_AUTH_TOKEN || '' }}
+          skipPush: ${{ github.repository != 'barrulus/rummage' }}
+      - name: Download the validated branch test result
+        if: needs.reuse.outputs.run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: test-result-${{ needs.reuse.outputs.commit }}
+          run-id: ${{ needs.reuse.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/test-cache
+      - name: Restore the identical-tree test result
+        if: needs.reuse.outputs.run_id != ''
+        run: python3 scripts/ci/nix-cache.py restore "$RUNNER_TEMP/test-cache" --tests-only
+      - name: Lint workflow, scripts and documentation; test CI tooling
+        run: python3 scripts/ci/preflight.py lint
+      - name: Run the full C++ and integration test suite before packaging
+        run: python3 scripts/ci/preflight.py tests
+      - name: Export the successful test result
+        run: python3 scripts/ci/nix-cache.py export "$RUNNER_TEMP/test-cache" --tests-only
+      - name: Retain the test result for the package job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-result-${{ github.sha }}
+          path: ${{ runner.temp }}/test-cache/
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Save completed fork builds even if a later test failed
+        if: >-
+          !cancelled() && github.repository != 'barrulus/rummage'
+        uses: nix-community/cache-nix-action/save@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-tests-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'nix/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  nix:
+    name: Nix packages and installed checks
+    needs: [reuse, tests]
     if: inputs.tumbleweed_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -48,8 +101,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
-      - name: Restore previous fork PR builds
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+      - name: Restore previous fork builds
+        if: github.repository != 'barrulus/rummage'
         uses: nix-community/cache-nix-action/restore@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
           primary-key: nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'nix/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -58,9 +111,9 @@ jobs:
         uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: rummage-fm
-          authToken: ${{ github.repository == 'barrulus/rummage' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.CACHIX_AUTH_TOKEN || '' }}
-          skipPush: ${{ github.repository != 'barrulus/rummage' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
-      - name: Download the validated PR Nix closure
+          authToken: ${{ github.repository == 'barrulus/rummage' && secrets.CACHIX_AUTH_TOKEN || '' }}
+          skipPush: ${{ github.repository != 'barrulus/rummage' }}
+      - name: Download the validated branch Nix closure
         if: needs.reuse.outputs.run_id != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -71,15 +124,20 @@ jobs:
       - name: Restore the identical-tree Nix build
         if: needs.reuse.outputs.run_id != ''
         run: python3 scripts/ci/nix-cache.py restore "$RUNNER_TEMP/nix-cache"
-      - name: Lint workflow, scripts and documentation; test CI tooling
-        run: python3 scripts/ci/preflight.py lint
-      - name: Run all x86_64-linux flake checks and build all package variants
+      - name: Download this run's successful test result
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: test-result-${{ github.sha }}
+          path: ${{ runner.temp }}/test-cache
+      - name: Restore the test result without rebuilding or rerunning the suite
+        run: python3 scripts/ci/nix-cache.py restore "$RUNNER_TEMP/test-cache" --tests-only
+      - name: Check installed packages and build all Nix variants
         run: python3 scripts/ci/preflight.py nix
       - name: Export validated Nix outputs for merge
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         run: python3 scripts/ci/nix-cache.py export "$RUNNER_TEMP/nix-cache"
       - name: Retain validated Nix outputs
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nix-store-${{ github.sha }}
@@ -96,17 +154,16 @@ jobs:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
         # Imported paths don't invoke the post-build hook; publish them explicitly.
         run: python3 scripts/ci/nix-cache.py push
-      - name: Save completed fork PR builds even if a later test failed
+      - name: Save completed fork builds even if a later test failed
         if: >-
-          !cancelled() && github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name != github.repository
+          !cancelled() && github.repository != 'barrulus/rummage'
         uses: nix-community/cache-nix-action/save@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
           primary-key: nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'nix/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   void:
     name: Void glibc package and clean install
-    needs: reuse
+    needs: [reuse, tests]
     if: needs.reuse.outputs.run_id == '' && inputs.tumbleweed_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -137,7 +194,7 @@ jobs:
 
   native:
     name: ${{ matrix.distro }} package and clean install
-    needs: reuse
+    needs: [reuse, tests]
     if: needs.reuse.outputs.run_id == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -175,9 +232,10 @@ jobs:
 
   downloads:
     name: Prepare development downloads
-    needs: [reuse, nix, void, native]
+    needs: [reuse, tests, nix, void, native]
     if: >-
-      !cancelled() && inputs.tumbleweed_only != true && needs.nix.result == 'success' &&
+      !cancelled() && inputs.tumbleweed_only != true && needs.tests.result == 'success' &&
+      needs.nix.result == 'success' &&
       ((needs.reuse.outputs.run_id != '' && needs.void.result == 'skipped' && needs.native.result == 'skipped') ||
        (needs.reuse.outputs.run_id == '' && needs.void.result == 'success' && needs.native.result == 'success'))
     runs-on: ubuntu-24.04
@@ -196,7 +254,7 @@ jobs:
         run: |
           python3 scripts/ci/prepare-downloads.py "$RUNNER_TEMP/package-artifacts" "$RUNNER_TEMP/downloads" \
             --commit "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID"
-      - name: Download already validated PR packages
+      - name: Download already validated branch packages
         if: needs.reuse.outputs.run_id != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
