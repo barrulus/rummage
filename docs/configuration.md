@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
-Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or the
+Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
 - **General:** startup/session behavior, executable opening, double-click timing and terminal.
@@ -156,6 +156,36 @@ custom layouts to keep future actions visible.
 TOML table placement matters: use one `[keybindings]` table, one `[context_menu]`
 table, and one `[[actions]]` table per action. A field below a table heading belongs
 to that table until the next heading. Do not paste a binding into an action table.
+
+## Sidebar organization
+
+Visibility, width, collapsed sections, hidden entries, separators and custom order
+are remembered in `state.toml`. Places and bookmarks start with their subfolders
+collapsed each session. Use **View → Sidebar** to restore hidden
+entries or reset organization.
+
+Optional `config.toml` lists override remembered order or hidden entries at startup
+and when these configuration lists change. Omit them to use the interactive saved
+state; an explicit empty list clears that list. Interactive changes still work
+until the next startup or configuration-list change.
+
+```toml
+[sidebar]
+order = ["place:home", "separator:0:0", "place:downloads"]
+hidden = ["place:music"]
+```
+
+Built-in keys use `place:` followed by the place's icon key, such as `home`,
+`downloads`, `filesystem` or `trash`. Local bookmarks use `path:/absolute/path`;
+remote bookmarks use `uri:` followed by their saved URI. Devices prefer
+`uuid:FILESYSTEM_UUID`, then `device:UDISKS_OBJECT_PATH`, then `mount:/mount/path`
+when no device service is available. Unknown or unavailable keys are retained.
+Each list supports up to 512 unique nonempty strings, at most 4096 bytes each.
+
+`separator:SECTION:ID` inserts a separator in the order list: sections are `0`
+(Places), `1` (Bookmarks), or `2` (Devices), and IDs distinguish separators.
+Entries remain within their sections; unlisted entries follow the configured ones
+in their original order. Hide/reorder changes do not rewrite GTK bookmarks.
 
 ## Validation and live reload
 

@@ -66,9 +66,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       mime_{mime},
       quick_look_{pool, mime, std::move(thumbnails), redraw},
       sidebar_{redraw, resize_cursor(), [this](const fs::Place& place) { open_place(place); }},
-      status_bar_{loop, pool, redraw,
-                  [this](std::size_t view) { set_mode(static_cast<Mode>(view)); },
-                  [this] { shortcuts_.open(); }},
+      status_bar_{loop, pool, redraw, [this] { open_settings(); }, [this] { shortcuts_.open(); }},
       shortcuts_{redraw},
       editor_{redraw,
               [this](const std::shared_ptr<Folder>& folder, const std::string& from,
@@ -123,6 +121,10 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
             core::give_back_free_memory();
         }
     });
+    sidebar_.enable_tree(loop_, pool_, watcher_, mime_);
+    sidebar_.set_close_handler([this] { set_sidebar_visible(false); });
+    sidebar_.set_background_menu(
+        [this](float x, float y) { menu_.open(x, y, sidebar_menu(), false); });
     sidebar_.set_eject_handler([this](const fs::Place& place) { eject_place(place); });
     status_bar_.set_cancel_handler([this] { cancel_transfer(); });
     sidebar_.set_menu_handler(
@@ -131,8 +133,6 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
         [this](const std::filesystem::path& folder, const std::string& label) {
             rename_bookmark(folder, label);
         });
-    sidebar_.set_move_handler(
-        [this](const std::filesystem::path& folder, int step) { move_bookmark(folder, step); });
     home_trash_ = fs::home_trash();
     trash_model_.set_change_handler([this](const fs::ModelChange& /*change*/) {
         const bool full = !trash_model_.listing().entries().empty();
@@ -1227,6 +1227,17 @@ void Browser::submit_erase() {
 }
 
 void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard) {
+    if (Sidebar::separator(place)) {
+        menu_.open(x, y, sidebar_organization_items(place), keyboard);
+        return;
+    }
+    if (Sidebar::child(place)) {
+        ++menu_generation_;
+        menu_loaders_.clear();
+        menu_.open(x, y, configured_menu(place_navigation_items(place), menu_layout_.sidebar),
+                   keyboard);
+        return;
+    }
     if (place.section == fs::Place::Section::devices) {
         ++menu_generation_;
         menu_loaders_.clear();
@@ -1269,16 +1280,6 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
         menu_loaders_.clear();
         std::vector<MenuItem> items = place_navigation_items(place);
         if (place.uri.empty()) {
-            // Where it stands among the bookmarks shown: the first is not moved up, the last not
-            // down.
-            std::vector<std::filesystem::path> shown;
-            for (const fs::Place& other : places_) {
-                if (other.section == fs::Place::Section::bookmarks && other.uri.empty()) {
-                    shown.push_back(other.path);
-                }
-            }
-            const bool first = !shown.empty() && shown.front() == place.path;
-            const bool last = !shown.empty() && shown.back() == place.path;
             MenuItem rename;
             rename.id = "rename_bookmark";
             rename.label = std::string{i18n::tr("Rename…")};
@@ -1300,21 +1301,6 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
                 };
                 items.push_back(std::move(choose));
             }
-            MenuItem up;
-            up.id = "move_bookmark_up";
-            up.label = std::string{i18n::tr("Move Up")};
-            up.keys = "Alt+↑";
-            up.enabled = !first;
-            up.separator = true;
-            up.action = [this, path = place.path] { move_bookmark(path, -1); };
-            items.push_back(std::move(up));
-            MenuItem down;
-            down.id = "move_bookmark_down";
-            down.label = std::string{i18n::tr("Move Down")};
-            down.keys = "Alt+↓";
-            down.enabled = !last;
-            down.action = [this, path = place.path] { move_bookmark(path, 1); };
-            items.push_back(std::move(down));
         }
         MenuItem remove;
         remove.separator = !items.empty();
@@ -2160,6 +2146,7 @@ Browser::~Browser() {
     *alive_ = false;
     loop_.remove(auto_scroll_timer_);
     loop_.remove(band_timer_);
+    loop_.remove(control_hint_timer_);
 }
 
 void Browser::start_rename() {
@@ -3289,7 +3276,9 @@ void Browser::set_sidebar_visible(bool visible) {
     }
     sidebar_visible_ = visible;
     if (!visible) {
+        sidebar_.confirm_rename();
         sidebar_.set_focused(false);
+        sidebar_.not_drawn();
         if (pointer_target_ == Target::sidebar) {
             send_pointer(Target::sidebar, {.kind = ui::PointerEvent::Kind::leave}, Clock::now());
             pointer_target_ = Target::view;
@@ -3319,6 +3308,9 @@ State Browser::state() {
     state.sidebar_visible = sidebar_visible_;
     state.sidebar_width = sidebar_.width();
     state.sidebar_size = sidebar_.list_size();
+    state.sidebar_order = sidebar_.order();
+    state.sidebar_hidden = sidebar_.hidden();
+    state.sidebar_collapsed = sidebar_.collapsed();
     state.info_visible = info_visible_;
     state.info_width = info_pane_.width();
     state.sidebar_preview_ratio = sidebar_preview_ratio_;
@@ -3488,6 +3480,7 @@ void Browser::apply(const State& state) {
     set_sidebar_visible(state.sidebar_visible);
     sidebar_.set_width(state.sidebar_width);
     sidebar_.set_list_size(state.sidebar_size);
+    sidebar_.set_organization(state.sidebar_order, state.sidebar_hidden, state.sidebar_collapsed);
     set_info_visible(state.info_visible);
     info_pane_.set_width(state.info_width);
     sidebar_preview_ratio_ = state.sidebar_preview_ratio;
@@ -3547,9 +3540,9 @@ void Browser::set_mode(Mode mode) {
 void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            const theme::Palette& palette, ui::IconSet& icons) {
     area().toolbar_bounds = bounds;
+    area().sidebar_toggle_bounds = {};
     area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
-    area().view_menu_bounds = area().insights_bounds = area().settings_bounds =
-        area().sort_bounds = {};
+    area().view_menu_bounds = area().insights_bounds = area().sort_bounds = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -3558,45 +3551,29 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     renderer.fill_rect(
         {bounds.x, bounds.bottom() - separator_height, bounds.width, separator_height},
         palette.outline_variant);
-    const auto width_of = [&](std::string_view text) {
-        return renderer.fonts().layout(text, 13, renderer.scale()).width / renderer.scale();
+    constexpr float button_width = 30;
+    constexpr float gap = 4;
+    area().sidebar_toggle_bounds = {bounds.x + 6, bounds.y + 6, button_width, 32};
+    const float field_x = area().sidebar_toggle_bounds.right() + 8;
+    float field_right = bounds.right() - 6;
+    // Reserve the view selector first; lower-priority actions collapse on narrow panes.
+    const auto reserve = [&](ui::Rect& rect) {
+        if (field_right - field_x < button_width + gap + 64)
+            return;
+        rect = {field_right - button_width, bounds.y + 6, button_width, 32};
+        field_right = rect.x - gap;
     };
-    const float label_width = bounds.width >= 300 ? width_of(i18n::tr("Filter")) : -10;
-    const float button_width = std::max(104.0F, width_of(i18n::tr("New Folder")) + 20.0F);
-    const float clear_width = std::max(64.0F, width_of(i18n::tr("Clear")) + 20.0F);
-    const float field_x = bounds.x + 10 + label_width + 10;
-    float field_right = bounds.right() - 10;
-    if (panes_enabled_) {
-        area().settings_bounds = {field_right - 34, bounds.y + 6, 34, 32};
-        // As wide as its label in the interface's language ("View", "Ansicht").
-        const float view_width = std::max(60.0F, width_of(i18n::tr("View")) + 20.0F);
-        float view_right = area().settings_bounds.x - 6;
-        const auto folder = current_folder();
-        const float insights_width = width_of(i18n::tr("Insights")) + 20;
-        if (!picker_mode_ && folder && !folder->is_archive() && !folder->is_trash() &&
-            view_right - field_x >= view_width + 6 + insights_width + 8 + 48) {
-            area().insights_bounds = {view_right - insights_width, bounds.y + 6, insights_width,
-                                      32};
-            view_right = area().insights_bounds.x - 6;
-        }
-        area().view_menu_bounds = {view_right - view_width, bounds.y + 6, view_width, 32};
-        field_right = area().view_menu_bounds.x - 8;
-    }
-    const float sort_width = std::max(72.0F, width_of(i18n::tr("Sort By")) + 20.0F);
-    if (field_right - field_x >= sort_width + 8 + 48) {
-        area().sort_bounds = {field_right - sort_width, bounds.y + 6, sort_width, 32};
-        field_right = area().sort_bounds.x - 8;
-    }
-    // Keep the filter usable in a narrow pane; Ctrl+Shift+N still creates a folder.
-    if (field_right - field_x >= button_width + 8 + 48) {
-        area().new_folder_bounds = {field_right - button_width, bounds.y + 6, button_width, 32};
-        field_right = area().new_folder_bounds.x - 8;
-    }
+    reserve(area().view_menu_bounds);
+    const auto folder = current_folder();
+    if (panes_enabled_ && !picker_mode_ && folder && !folder->is_archive() && !folder->is_trash())
+        reserve(area().insights_bounds);
+    reserve(area().sort_bounds);
+    reserve(area().new_folder_bounds);
     area().filter_bounds = {field_x, bounds.y + 6, std::max(1.0F, field_right - field_x), 32};
-    if (!name_filter().empty() && area().filter_bounds.width >= clear_width + 4 + 48) {
-        area().filter_bounds.width -= clear_width + 4;
-        area().clear_filter_bounds = {area().filter_bounds.right() + 4, area().filter_bounds.y,
-                                      clear_width, 32};
+    if (!name_filter().empty() && area().filter_bounds.width >= button_width + gap + 48) {
+        area().filter_bounds.width -= button_width + gap;
+        area().clear_filter_bounds = {area().filter_bounds.right() + gap, bounds.y + 6,
+                                      button_width, 32};
     }
     const auto text_in = [&](std::string_view text, const ui::Rect& rect, ui::Color color) {
         const auto& line =
@@ -3604,9 +3581,6 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         const float height = (line.ascent + line.descent) / renderer.scale();
         renderer.draw_layout(line, rect.x, rect.y + (rect.height - height) / 2, color);
     };
-    if (label_width > 0)
-        text_in(i18n::tr("Filter"), {bounds.x + 10, area().filter_bounds.y, label_width, 32},
-                palette.on_surface);
     pane().filter_field.draw(
         renderer, area().filter_bounds, 14,
         {.background = palette.surface,
@@ -3624,34 +3598,99 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                  area().filter_bounds.width - 12, area().filter_bounds.height},
                 palette.on_surface_variant);
     }
-    const auto button = [&](const ui::Rect& rect, const char* label) {
-        renderer.draw_box(rect, {.fill = palette.surface_container_highest, .radius = {}});
-        draw_button_text(renderer, i18n::tr(label), rect, palette.on_surface);
+    const auto button = [&](const ui::Rect& rect, std::string_view icon, bool active = false) {
+        if (rect.empty())
+            return;
+        const bool hovered = pointer_inside_ && rect.contains(pointer_x_, pointer_y_);
+        renderer.draw_box(rect, {.fill = active    ? palette.primary_container
+                                         : hovered ? palette.surface_container_highest
+                                                   : palette.surface_container_high,
+                                 .radius = {}});
+        icons.draw(renderer, icon, rect.x + (rect.width - 18) / 2, rect.y + 7, 18,
+                   active ? palette.on_primary_container : palette.on_surface);
     };
-    if (!area().view_menu_bounds.empty()) {
-        button(area().view_menu_bounds, "View");
-        const auto& box = area().settings_bounds;
-        renderer.draw_box(box, {.fill = palette.surface_container_highest, .radius = {}});
-        icons.draw(renderer, "settings", box.x + (box.width - 18.0F) / 2.0F,
-                   box.y + (box.height - 18.0F) / 2.0F, 18.0F, palette.on_surface);
-    }
-    if (!area().insights_bounds.empty()) {
-        const auto& box = area().insights_bounds;
-        const bool active = pane().insights.is_open();
-        renderer.draw_box(
-            box, {.fill = active ? palette.primary_container : palette.surface_container_highest,
-                  .radius = {}});
-        const auto ink = active ? palette.on_primary_container : palette.on_surface;
-        text_in(i18n::tr("Insights"), {box.x + 10, box.y, box.width - 20, box.height}, ink);
-    }
-    if (!area().sort_bounds.empty())
-        button(area().sort_bounds, "Sort By");
-    if (!area().clear_filter_bounds.empty()) {
-        button(area().clear_filter_bounds, "Clear");
-    }
+    button(area().sidebar_toggle_bounds, "layout-columns", sidebar_visible_);
+    const auto view_icon = pane().mode == Mode::columns ? "layout-columns"
+                           : pane().mode == Mode::grid  ? "layout-grid"
+                                                        : "list-details";
+    button(area().view_menu_bounds, view_icon);
+    // A small disclosure mark distinguishes the view menu from a mode toggle.
+    if (!area().view_menu_bounds.empty())
+        icons.draw(renderer, "chevron-down", area().view_menu_bounds.right() - 9,
+                   area().view_menu_bounds.bottom() - 10, 8, palette.on_surface);
+    button(area().insights_bounds, "database", pane().insights.is_open());
+    button(area().sort_bounds, "adjustments-horizontal");
+    button(area().clear_filter_bounds, "x");
+    button(area().new_folder_bounds, "folder");
     if (!area().new_folder_bounds.empty()) {
-        button(area().new_folder_bounds, "New Folder");
+        const auto& box = area().new_folder_bounds;
+        renderer.fill_rect({box.right() - 11, box.y + 16, 8, 1.5F}, palette.on_surface);
+        renderer.fill_rect({box.right() - 7.75F, box.y + 12.75F, 1.5F, 8}, palette.on_surface);
     }
+}
+
+std::pair<ui::Rect, std::string> Browser::control_hint_at(float x, float y) const {
+    if (has_overlay() || settings_.is_open() || batch_rename_.is_open())
+        return {};
+    if (const auto index = area_at(x, y)) {
+        const auto& owner = *areas_[*index];
+        for (const auto& [rect, label] :
+             {std::pair{owner.sidebar_toggle_bounds, i18n::mark("Places sidebar")},
+              {owner.new_folder_bounds, i18n::mark("New Folder")},
+              {owner.sort_bounds, i18n::mark("Sort By")},
+              {owner.view_menu_bounds, i18n::mark("View")},
+              {owner.insights_bounds, i18n::mark("Insights")},
+              {owner.clear_filter_bounds, i18n::mark("Clear")}}) {
+            if (rect.contains(x, y))
+                return {rect, std::string{i18n::tr(label)}};
+        }
+    }
+    for (const auto& [rect, label] :
+         {std::pair{status_bar_.settings_bounds(), i18n::mark("Settings…")},
+          {status_bar_.help_bounds(), i18n::mark("Keyboard shortcuts")},
+          {status_bar_.cancel_bounds(), i18n::mark("Stop the Transfer")}}) {
+        if (rect.contains(x, y))
+            return {rect, std::string{i18n::tr(label)}};
+    }
+    return {};
+}
+
+void Browser::clear_control_hint() {
+    loop_.remove(control_hint_timer_);
+    control_hint_timer_ = 0;
+    control_hint_ready_ = false;
+    if (!control_hint_text_.empty()) {
+        control_hint_text_.clear();
+        redraw_();
+    }
+}
+
+void Browser::draw_control_hint(ui::Renderer& renderer, const ui::Rect& bounds,
+                                const theme::Palette& palette) {
+    if (!control_hint_ready_ || control_hint_text_.empty() || !pointer_inside_)
+        return;
+    const auto [anchor, text] = control_hint_at(pointer_x_, pointer_y_);
+    if (text != control_hint_text_ || anchor.x != control_hint_anchor_.x ||
+        anchor.y != control_hint_anchor_.y) {
+        clear_control_hint();
+        return;
+    }
+    const auto& line =
+        renderer.fonts().layout(text, 12, renderer.scale(), std::max(1.0F, bounds.width - 32));
+    const float width = line.width / renderer.scale() + 16;
+    const float height = (line.ascent + line.descent) / renderer.scale() + 12;
+    const float below = anchor.bottom() + 6;
+    const ui::Rect box{
+        std::clamp(anchor.x + (anchor.width - width) / 2, bounds.x + 4,
+                   std::max(bounds.x + 4, bounds.right() - width - 4)),
+        std::clamp(below + height <= bounds.bottom() - 4 ? below : anchor.y - height - 6,
+                   bounds.y + 4, std::max(bounds.y + 4, bounds.bottom() - height - 4)),
+        width, height};
+    renderer.draw_box(box, {.fill = palette.surface_container_highest,
+                            .radius = {},
+                            .border_width = 1,
+                            .border = palette.outline_variant});
+    renderer.draw_layout(line, box.x + 8, box.y + 6, palette.on_surface);
 }
 
 void Browser::toolbar_pointer(const ui::PointerEvent& event) {
@@ -3664,7 +3703,9 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     if (event.kind != ui::PointerEvent::Kind::press || event.button != ui::PointerButton::left) {
         return;
     }
-    if (area().view_menu_bounds.contains(event.x, event.y)) {
+    if (area().sidebar_toggle_bounds.contains(event.x, event.y)) {
+        set_sidebar_visible(!sidebar_visible_);
+    } else if (area().view_menu_bounds.contains(event.x, event.y)) {
         open_view_menu(area().view_menu_bounds.x, area().view_menu_bounds.bottom());
     } else if (area().sort_bounds.contains(event.x, event.y)) {
         filter_focused_ = false;
@@ -3672,8 +3713,6 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     } else if (area().insights_bounds.contains(event.x, event.y)) {
         if (!pane().insights.is_open())
             show_insights();
-    } else if (area().settings_bounds.contains(event.x, event.y)) {
-        open_settings();
     } else if (area().filter_bounds.contains(event.x, event.y)) {
         filter_focused_ = true;
         pane().filter_field.pointer(event);
@@ -3696,6 +3735,8 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
     note_location();
+    if (current_folder())
+        sidebar_.set_show_hidden(shows_hidden());
     const float sidebar_width = sidebar_visible_ ? sidebar_.width_in(bounds.width) : 0.0F;
     sidebar_drawn_ = sidebar_width > 0.0F;
     info_pane_.forget_layout();
@@ -3726,7 +3767,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     const float bar = std::min(status_bar_.height(renderer), std::max(0.0F, content.height));
     if (folder)
         status_bar_.draw(renderer, {content.x, content.bottom() - bar, content.width, bar}, palette,
-                         icons, *folder, static_cast<std::size_t>(pane().mode));
+                         icons, *folder, panes_enabled_);
     content.height -= bar;
     if (split_visible_ && info_visible_ && !preview_below_places_ && !pane().insights.is_open()) {
         const float width =
@@ -3789,6 +3830,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                            palette.outline_variant);
     }
     draw_drive_tooltip(renderer, palette, bounds);
+    draw_control_hint(renderer, bounds, palette);
     draw_band(renderer, palette);
     editor_.draw(renderer, palette);
     if (searching_results())
@@ -3823,27 +3865,7 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
     ui::Rect view = bounds;
     const auto folder = current_folder();
     renderer.push_clip(bounds);
-    area().header = {};
     area().back = area().forward = {};
-    if (split_visible_) {
-        const float height = std::min(26.0F, view.height);
-        area().header = {view.x, view.y, view.width, height};
-        const bool active = context_area_ == active_area_;
-        renderer.fill_background(area().header, palette.surface_container);
-        if (active)
-            renderer.fill_background({view.x, view.y, 3, height}, palette.primary);
-        const char* position = stacked_ ? (context_area_ == 0 ? "Top" : "Bottom")
-                                        : (context_area_ == 0 ? "Left" : "Right");
-        renderer.draw_text(
-            std::format("{}{}", i18n::tr(position),
-                        active ? i18n::tr(" · Active") : std::string_view{}),
-            view.x + 8, view.y + 6, 12,
-            active ? theme::readable_foreground(palette.primary, palette.surface_container)
-                   : palette.on_surface_variant,
-            view.width - 16);
-        view.y += height;
-        view.height -= height;
-    }
     if ((split_visible_ || area().tabs.size() > 1 || pane().insights.is_open()) &&
         view.height > TabBar::kHeight + kTitleHeight) {
         area().tab_bar.draw(renderer, {view.x, view.y, view.width, TabBar::kHeight}, palette, icons,
@@ -3918,6 +3940,11 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.fill_rect({focus_bounds.right() - edge, focus_bounds.y, edge, focus_bounds.height},
                            palette.primary);
     }
+    if (split_visible_ && context_area_ == active_area_)
+        renderer.draw_box(bounds, {.fill = palette.surface.with_alpha(0),
+                                   .radius = {},
+                                   .border_width = 1.0F / renderer.scale(),
+                                   .border = palette.primary.with_alpha(0.65F)});
     renderer.pop_clip();
 }
 
@@ -3999,6 +4026,26 @@ void Browser::pointer(const ui::PointerEvent& event, Clock::time_point now) {
         note_location();  // the cursor of the folder the click may leave
     }
     take_pointer(event, now);
+    if (event.kind == ui::PointerEvent::Kind::motion && !button_held_) {
+        const auto [anchor, text] = control_hint_at(event.x, event.y);
+        if (text != control_hint_text_ || anchor.x != control_hint_anchor_.x ||
+            anchor.y != control_hint_anchor_.y) {
+            clear_control_hint();
+            control_hint_text_ = text;
+            control_hint_anchor_ = anchor;
+            redraw_();
+            if (!text.empty())
+                control_hint_timer_ = loop_.add_timer(std::chrono::milliseconds{450},
+                                                      std::chrono::milliseconds{0}, [this] {
+                                                          control_hint_timer_ = 0;
+                                                          control_hint_ready_ = true;
+                                                          redraw_();
+                                                      });
+        }
+    } else {
+        clear_control_hint();
+    }
+
     if (button) {
         note_location();
     }
@@ -4089,7 +4136,7 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
             return Shape::text;
         if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
             owner.view_menu_bounds.contains(x, y) || owner.sort_bounds.contains(x, y) ||
-            owner.insights_bounds.contains(x, y) || owner.settings_bounds.contains(x, y))
+            owner.sidebar_toggle_bounds.contains(x, y) || owner.insights_bounds.contains(x, y))
             return Shape::pointer;
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
@@ -4346,14 +4393,6 @@ void Browser::dispatch_pointer(const ui::PointerEvent& event, Clock::time_point 
         focus_pane(index);
     pointer_area_ = index;
     AreaContext addressed{context_area_, index};
-    if (!button_held_ && area().header.contains(event.x, event.y)) {
-        if (event.kind == Kind::press) {
-            filter_focused_ = false;
-            sidebar_.set_focused(false);
-            redraw_();
-        }
-        return;
-    }
     if (event.kind == Kind::press && !area().breadcrumb.claims(event.x, event.y))
         area().breadcrumb.cancel_edit();
     dispatch_area_pointer(event, now);
@@ -5091,6 +5130,7 @@ void Browser::next_bookmark_change() {
         std::string edited;  // what a rename or a new folder did, for the message
         bool changed{false};
         std::optional<std::filesystem::path> follow;  // where the sidebar's cursor goes now
+        std::optional<std::filesystem::path> repoint_from;
     };
 
     pool_.submit(
@@ -5172,6 +5212,7 @@ void Browser::next_bookmark_change() {
                     outcome.edited = i18n::trf("The bookmark now opens “{}”",
                                                to.lexically_normal().filename().string());
                     outcome.follow = to.lexically_normal();
+                    outcome.repoint_from = from;
                 }
             }
             if (change.move) {
@@ -5215,6 +5256,17 @@ void Browser::next_bookmark_change() {
             } else if (outcome.not_folders > 0) {
                 show_message(std::string{i18n::tr("Only folders go in the sidebar")}, false);
             }
+            if (outcome.changed && outcome.error.empty() && outcome.repoint_from &&
+                outcome.follow) {
+                const auto old_key = "path:" + outcome.repoint_from->string();
+                const auto new_key = "path:" + outcome.follow->string();
+                const auto replace = [&](std::vector<std::string> values) {
+                    std::replace(values.begin(), values.end(), old_key, new_key);
+                    return values;
+                };
+                sidebar_.set_organization(replace(sidebar_.order()), replace(sidebar_.hidden()),
+                                          sidebar_.collapsed());
+            }
             if (outcome.changed && outcome.error.empty() && places_reload_) {
                 places_reload_();
                 if (outcome.follow) {
@@ -5225,30 +5277,67 @@ void Browser::next_bookmark_change() {
         });
 }
 
-void Browser::open_place(const fs::Place& place) {
+void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
+    if (Sidebar::separator(place))
+        return;
     if (place.uri == "rummage:saved-searches") {
-        open_saved_searches();
+        if (destination == PlaceDestination::current)
+            open_saved_searches();
         return;
     }
-    if (!place.uri.empty() && !place.disk.mounted) {
-        mount_remote(place, true);
+    if (destination != PlaceDestination::current && picker_mode_)
         return;
-    }
+    if (destination == PlaceDestination::tab && !panes_enabled_)
+        return;
+    if (destination == PlaceDestination::window && !new_window_)
+        return;
+    auto* origin = &area();
+    const auto ready = [this, destination, origin](const std::filesystem::path& path) {
+        if (path.empty()) {
+            show_message(std::string{i18n::tr("Location is unavailable")}, true);
+            return;
+        }
+        if (destination == PlaceDestination::window) {
+            if (new_window_)
+                new_window_(path);
+            return;
+        }
+        if (destination == PlaceDestination::tab) {
+            for (std::size_t side = 0; side < areas_.size(); ++side) {
+                if (areas_[side].get() != origin)
+                    continue;
+                AreaContext addressed{context_area_, side};
+                open_tab(path, side == active_area_);
+                return;
+            }
+            return;
+        }
+        open(path);
+    };
     if (!place.disk.mounted) {
-        mount_place(place, true);
-        return;
-    }
-    open(place.path);
+        if (!place.uri.empty())
+            mount_remote(place, destination == PlaceDestination::current,
+                         destination == PlaceDestination::current
+                             ? std::function<void(const std::filesystem::path&)>{}
+                             : ready);
+        else
+            mount_place(place, destination == PlaceDestination::current,
+                        destination == PlaceDestination::current
+                            ? std::function<void(const std::filesystem::path&)>{}
+                            : ready);
+    } else
+        ready(place.path);
 }
 
-void Browser::mount_place(const fs::Place& place, bool open) {
+void Browser::mount_place(const fs::Place& place, bool open,
+                          std::function<void(const std::filesystem::path&)> ready) {
     if (!devices_.mount || place.disk.volume.empty()) {
         return;
     }
     show_message(i18n::trf("Mounting “{}”…", place.label), false);
     ++operations_;
     devices_.mount(place.disk.volume, [this, alive = alive_, name = place.label, open,
-                                       origin = current_folder()](
+                                       ready = std::move(ready), origin = current_folder()](
                                           const std::filesystem::path& where,
                                           const std::string& error) {
         if (!*alive) {
@@ -5259,6 +5348,8 @@ void Browser::mount_place(const fs::Place& place, bool open) {
             show_message(i18n::trf("“{}” could not be mounted: {}", name, i18n::tr(error)), true);
             return;
         }
+        if (ready)
+            ready(where);
         if (open) {
             // A slow mount belongs to the tab that requested it, even after focus changes.
             for (std::size_t side = 0; side < areas_.size(); ++side) {
@@ -5295,7 +5386,8 @@ void Browser::mount_place(const fs::Place& place, bool open) {
     });
 }
 
-void Browser::mount_remote(const fs::Place& place, bool open) {
+void Browser::mount_remote(const fs::Place& place, bool open,
+                           std::function<void(const std::filesystem::path&)> ready) {
     if (place.uri.empty()) {
         return;
     }
@@ -5341,29 +5433,40 @@ void Browser::mount_remote(const fs::Place& place, bool open) {
                 }
             },
     };
-    remotes_.mount(place.uri, std::move(prompts),
-                   [this, alive = alive_, name = place.label, open](
-                       const std::filesystem::path& where, const std::string& error) {
-                       if (!*alive) {
-                           return;
-                       }
-                       --operations_;
-                       mount_password_.close();
-                       if (error == "cancelled") {
-                           show_message(i18n::trf("Not connected to “{}”", name), false);
-                           return;
-                       }
-                       if (!error.empty()) {
-                           show_message(
-                               i18n::trf("“{}” could not be mounted: {}", name, i18n::tr(error)),
-                               true);
-                           return;
-                       }
-                       if (open) {
-                           this->open(where);
-                       }
-                       show_message(i18n::trf("“{}” mounted", name), false);
-                   });
+    remotes_.mount(
+        place.uri, std::move(prompts),
+        [this, alive = alive_, name = place.label, open, ready = std::move(ready),
+         origin = current_folder()](const std::filesystem::path& where, const std::string& error) {
+            if (!*alive) {
+                return;
+            }
+            --operations_;
+            mount_password_.close();
+            if (error == "cancelled") {
+                show_message(i18n::trf("Not connected to “{}”", name), false);
+                return;
+            }
+            if (!error.empty()) {
+                show_message(i18n::trf("“{}” could not be mounted: {}", name, i18n::tr(error)),
+                             true);
+                return;
+            }
+            if (ready)
+                ready(where);
+            if (open) {
+                for (std::size_t side = 0; side < areas_.size(); ++side) {
+                    if (!areas_[side])
+                        continue;
+                    AreaContext addressed{context_area_, side};
+                    for (std::size_t i = 0; i < area().tabs.size(); ++i) {
+                        AreaContext tab_context{area().active, i};
+                        if (current_folder() == origin)
+                            this->open(where);
+                    }
+                }
+            }
+            show_message(i18n::trf("“{}” mounted", name), false);
+        });
 }
 
 void Browser::open_location() {
@@ -5519,6 +5622,7 @@ void Browser::view_pointer(const ui::PointerEvent& event, Clock::time_point now)
 std::shared_ptr<Folder> Browser::current_folder() const { return folder_of(pane()); }
 
 bool Browser::key(const ui::KeyEvent& event, Clock::time_point now) {
+    clear_control_hint();
     keyboard_focus_visible_ = true;
     redraw_();
     if (batch_rename_preparing_ && event.keysym == XKB_KEY_Escape) {
@@ -5857,7 +5961,7 @@ void Browser::run(Command command, Clock::time_point now) {
         if (!id.empty()) {
             if (const auto* place = sidebar_.cursor_place()) {
                 if (command == Command::properties &&
-                    place->section == fs::Place::Section::devices) {
+                    place->section == fs::Place::Section::devices && !Sidebar::child(*place)) {
                     if (place->disk.mounted && !place->path.empty())
                         properties_.open_drive(place->path, place->label);
                 } else {

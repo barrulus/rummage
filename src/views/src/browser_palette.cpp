@@ -100,6 +100,8 @@ std::vector<PaletteItem> Browser::palette_items() {
             });
     };
 
+    add("sidebar:restore", std::string{i18n::mark("Restore Hidden Places")}, "",
+        [this] { sidebar_.restore_places(); });
     if (sidebar_.focused()) {
         if (const auto* place = sidebar_.cursor_place()) {
             for (auto& item : place_navigation_items(*place)) {

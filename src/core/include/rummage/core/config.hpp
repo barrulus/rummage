@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -63,6 +64,13 @@ struct Config {
         std::string preview_position{"right"};  // right or sidebar
     };
 
+    struct Sidebar {
+        // Explicit lists override remembered organization at startup or on config reload.
+        std::optional<std::vector<std::string>> order;
+        std::optional<std::vector<std::string>> hidden;
+        bool operator==(const Sidebar&) const = default;
+    };
+
     struct StatusBar {
         float text_size{12.0F};  // logical pixels, independent of file-list zoom
     };
@@ -72,6 +80,7 @@ struct Config {
     MenuLayout context_menu;
 
     Appearance appearance;
+    Sidebar sidebar;
     MotionConfig animations;
     Startup startup;
     StatusBar status_bar;

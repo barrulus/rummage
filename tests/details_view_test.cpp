@@ -597,3 +597,41 @@ TEST_CASE("details: any header resizes its left column and horizontal wheel pres
     CHECK(f.details.horizontal_scroller().offset() == 0);
     CHECK(f.details.horizontal_scrollbar_thumb().empty());
 }
+
+TEST_CASE("details: leaf folders have no disclosure and gain one when subfolders appear") {
+    Fixture f;
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    rummage::ui::Offscreen gl{900, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(900, 600, 1, {});
+        f.browser.draw(renderer, {0, 0, 900, 600}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    REQUIRE(f.settle());
+    draw();
+    const float arrow_x = f.details.column_left(Field::name) + 12;
+    float alpha_y = -1;
+    for (float y = 0; y < 600; ++y) {
+        const auto hit = f.details.hit(arrow_x + 28, y);
+        if (hit && hit->entry && hit->folder->entries()[*hit->entry].name == "alpha") {
+            alpha_y = y + 8;
+            break;
+        }
+    }
+    REQUIRE(alpha_y >= 0);
+    CHECK(f.details.hit(arrow_x, alpha_y));  // Contains a file, but no subfolders.
+    fs::create_directory(f.root / "alpha" / "nested");
+    REQUIRE(run_until(f.loop, [&] { return !f.details.hit(arrow_x, alpha_y); }));
+    fs::remove(f.root / "alpha" / "nested");
+    REQUIRE(run_until(f.loop, [&] { return f.details.hit(arrow_x, alpha_y).has_value(); }));
+    fs::create_directory(f.root / "alpha" / ".hidden");
+    REQUIRE(run_until(f.loop, [&] { return !f.details.loading(); }));
+    CHECK(f.details.hit(arrow_x, alpha_y));
+    f.details.set_show_hidden(true);
+    REQUIRE(run_until(f.loop, [&] { return !f.details.hit(arrow_x, alpha_y); }));
+}

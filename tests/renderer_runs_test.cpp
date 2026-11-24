@@ -321,7 +321,7 @@ TEST_CASE("folder icons: rendered override, missing or broken artwork, and built
 }
 
 TEST_CASE("bookmark icons: sidebar uses theme folders, custom artwork and builtin fallback") {
-    const auto gl = offscreen(200, 100);
+    const auto gl = offscreen(200, 140);
     REQUIRE(gl);
     rummage::test::TempDir dir;
 
@@ -364,15 +364,15 @@ TEST_CASE("bookmark icons: sidebar uses theme folders, custom artwork and builti
                              .path = "/projects",
                              .icon = "bookmark",
                              .folder_icon = std::move(preferred)}});
-        renderer.begin_frame(200, 100, 1, ui::Color::rgb(0x000000));
-        sidebar.draw(renderer, {0, 0, 200, 100}, {}, icons, {},
+        renderer.begin_frame(200, 140, 1, ui::Color::rgb(0x000000));
+        sidebar.draw(renderer, {0, 0, 200, 140}, {}, icons, {},
                      rummage::views::Sidebar::Clock::now());
         renderer.end_frame();
         const auto rect = sidebar.place_icon_rect("/projects");
         REQUIRE(rect);
         std::array<std::uint8_t, 4> pixel{};
         glReadPixels(static_cast<int>(rect->x + rect->width / 2),
-                     99 - static_cast<int>(rect->y + rect->height / 2), 1, 1, GL_RGBA,
+                     139 - static_cast<int>(rect->y + rect->height / 2), 1, 1, GL_RGBA,
                      GL_UNSIGNED_BYTE, pixel.data());
         return pixel;
     };

@@ -71,6 +71,28 @@ public:
         }
     }
 
+    void strings(std::string_view key, std::vector<std::string>& out) {
+        const auto* node = find(key);
+        if (!node)
+            return;
+        const auto* values = node->as_array();
+        std::vector<std::string> parsed;
+        if (values && values->size() <= 512) {
+            for (const auto& item : *values) {
+                const auto value = item.value<std::string>();
+                if (!value || value->empty() || value->size() > 4096 ||
+                    value->find('\0') != std::string::npos) {
+                    bad(*node, key, "up to 512 nonempty strings");
+                    return;
+                }
+                if (std::ranges::find(parsed, *value) == parsed.end())
+                    parsed.push_back(*value);
+            }
+            out = std::move(parsed);
+        } else
+            bad(*node, key, "up to 512 nonempty strings");
+    }
+
     void number(std::string_view key, float min, float max, float& out) {
         if (const toml::node* node = find(key)) {
             const auto value = node->value<double>();
@@ -324,6 +346,9 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     read.flag("view.show_thumbnails", s.show_thumbnails);
     read.word("view.list_size", kListSizeWords, s.list_size);
     read.flag("sidebar.visible", s.sidebar_visible);
+    read.strings("sidebar.order", s.sidebar_order);
+    read.strings("sidebar.hidden", s.sidebar_hidden);
+    read.strings("sidebar.collapsed", s.sidebar_collapsed);
     read.word("sidebar.list_size", kListSizeWords, s.sidebar_size);
     read.number("sidebar.width", kSidebarMin, kSidebarMax, s.sidebar_width);
     read.flag("info.visible", s.info_visible);
@@ -658,6 +683,15 @@ std::string format_state(const State& s) {
             word_of(kListSizeWords, settings.list_size), settings.grid_icon,
             format_columns(settings.details_widths, settings.details_columns));
     }
+    const auto strings = [](const std::vector<std::string>& values) {
+        std::string result;
+        for (const auto& value : values) {
+            if (!result.empty())
+                result += ", ";
+            result += toml_string(value);
+        }
+        return result;
+    };
     return std::format(
                "# How rummage was left, read at start. Written by rummage: no need to edit it.\n"
                "\n"
@@ -670,6 +704,7 @@ std::string format_state(const State& s) {
                "grid_icon = {}\n"
                "\n"
                "[sidebar]\n"
+               "order = [{}]\nhidden = [{}]\ncollapsed = [{}]\n"
                "list_size = \"{}\"\n"
                "visible = {}\n"
                "width = {}\n"
@@ -694,6 +729,7 @@ std::string format_state(const State& s) {
                "recent = [{}]\n",
                word_of(kModes, s.mode), flag(s.show_hidden), flag(s.show_extensions),
                flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
+               strings(s.sidebar_order), strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
                word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
                flag(s.info_visible), s.info_width, flag(s.info_expanded), s.sidebar_preview_ratio,
                word_of(kSortKeys, s.sort_key), flag(s.sort_descending),

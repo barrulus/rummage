@@ -68,7 +68,9 @@ void Browser::observe_motion(Clock::time_point now) {
         observed.motion_pending = true;
         motion_.cancel(ui::pane_motion_channel(context_area_));
     }
-    if (observed.motion_pending && !folder->model().loading()) {
+    // A streamed listing can already be painted before its final completion. Reveal its
+    // first visible batch, never paint the destination unanimated and restart it later.
+    if (observed.motion_pending && (!folder->entries().empty() || !folder->model().loading())) {
         observed.motion_pending = false;
         if (!folder->model().error())
             motion_.start(ui::pane_motion_channel(context_area_),

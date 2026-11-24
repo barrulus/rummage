@@ -162,7 +162,8 @@ void main() {
     vec4 old = source(uv), fresh = target(uv);
     // Exact endpoints avoid a final-frame seam, including translucent windows.
     if (p >= 1.0) {
-        color = effect == motion_disintegrate ? old : (isolated ? over(fresh, old) : fresh);
+        color = isolated && effect == motion_disintegrate ? old
+                : (isolated ? over(fresh, old) : fresh);
         return;
     }
     if (p <= 0.0) {
@@ -220,9 +221,11 @@ void main() {
             old = mix(old, accent, dust * 0.5);
         }
     } else if (effect == motion_disintegrate) {
-        // This is an overlay sprite: restore the captured background as it erodes.
-        mask = 1.0 - smoothstep(noise(local / 4.0) - 0.08,
-                                noise(local / 4.0) + 0.08, p * 1.16 - 0.08);
+        // Navigation and opening overlays assemble the destination. Erasing a file uses
+        // the isolated object_effect path above; applying that direction to a directory
+        // would show the new folder, dissolve it, then flash it back at completion.
+        mask = smoothstep(noise(local / 4.0) - 0.08,
+                          noise(local / 4.0) + 0.08, p * 1.16 - 0.08);
         float dust = pow(hash(floor((local + vec2(p * 20.0, p * 12.0)) / 3.0)), 18.0) * pulse;
         fresh = mix(fresh, accent, dust * 0.6);
     } else if (effect == motion_hologram || effect == motion_glitch) {

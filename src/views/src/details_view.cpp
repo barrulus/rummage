@@ -50,6 +50,7 @@ DetailsView::DetailsView(core::EventLoop& loop, core::WorkerPool& pool,
     : loop_{loop},
       pool_{pool},
       watcher_{watcher},
+      subfolders_{pool, watcher, redraw},
       mime_{std::move(mime)},
       redraw_{std::move(redraw)},
       set_cursor_{std::move(set_cursor)},
@@ -67,6 +68,7 @@ void DetailsView::show(std::shared_ptr<Folder> folder) {
         folder->set_entry_filter(entry_filter_);
     }
     expanded_.clear();
+    subfolders_.retain({});
     tree_rows_.clear();
     root_ = folder;
     folder_ = std::move(folder);
@@ -182,12 +184,31 @@ void DetailsView::toggle_row(std::size_t row) {
     redraw_();
 }
 
+bool DetailsView::expandable(std::size_t row) const {
+    const auto& target = tree_rows_[row];
+    const auto& entry = target.folder->entries()[target.entry];
+    if (!entry.is_directory() || target.folder->is_trash() || target.depth >= 64)
+        return false;
+    const auto path = target.folder->path_of(entry);
+    if (expanded_.contains(path))
+        return true;  // Keep the collapse control for an open branch.
+    const auto& model = target.folder->model();
+    if (model.is_archive()) {
+        const auto& inner = model.archive_location().inner;
+        const auto* children =
+            model.archive_tree()->folder(inner.empty() ? entry.name : inner + "/" + entry.name);
+        return children && std::ranges::any_of(*children, [&](const auto& child) {
+                   return child.is_directory() && (show_hidden_ || !child.hidden());
+               });
+    }
+    return subfolders_.contains(path, show_hidden_).value_or(false);
+}
+
 bool DetailsView::disclosure_at(std::size_t row, float x) const {
     const auto& target = tree_rows_[row];
-    const float left =
-        layout_.left[0] + kCellPadding + static_cast<float>(target.depth) * size_.icon;
-    return target.folder->entries()[target.entry].is_directory() && !target.folder->is_trash() &&
-           target.depth < 64 && x >= left && x < left + size_.icon &&
+    const float left = layout_.left[0] + kCellPadding +
+                       static_cast<float>(target.depth) * (size_.icon * 0.5F + 4.0F);
+    return expandable(row) && x >= left && x < left + size_.icon * 0.5F + 4.0F &&
            x < layout_.left[0] + layout_.width[0];
 }
 
@@ -264,6 +285,8 @@ void DetailsView::set_show_hidden(bool show) {
 }
 
 bool DetailsView::loading() const {
+    if (subfolders_.loading())
+        return true;
     if (root_ && (root_->model().loading() || root_->cursor_pending()))
         return true;
     for (const auto& [path, child] : expanded_) {
@@ -540,6 +563,14 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float offset = scroller_.offset();
     const RowRange range = visible_rows(entries.size(), size_.row, offset, rows_.height);
 
+    std::vector<std::filesystem::path> visible;
+    for (std::size_t i = range.first; i < range.last; ++i) {
+        const auto& row = tree_rows_[i];
+        const auto& entry = row.folder->entries()[row.entry];
+        if (entry.is_directory() && !row.folder->model().is_archive() && !row.folder->is_trash())
+            visible.push_back(row.folder->path_of(entry));
+    }
+    subfolders_.retain(visible);
     renderer.push_clip(rows_);
     const std::optional<std::size_t> cursor = cursor_row();
     const bool cursor_ring = folder_->single_selection() == nullptr;
@@ -578,17 +609,18 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         fs::Entry typed = entry;
         typed.mime = owner->mime_of(entry);
 
-        const float arrow_left =
-            layout_.left[0] + kCellPadding + static_cast<float>(row.depth) * size_.icon;
+        const float arrow_left = layout_.left[0] + kCellPadding +
+                                 static_cast<float>(row.depth) * (size_.icon * 0.5F + 4.0F);
         renderer.push_clip({layout_.left[0], y, layout_.width[0], size_.row});
-        if (entry.is_directory() && !owner->is_trash() && row.depth < 64) {
+        if (expandable(i)) {
             const auto child = expanded_.find(owner->path_of(entry));
             icons.draw(renderer, child != expanded_.end() ? "chevron-down" : "chevron-right",
-                       arrow_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon,
+                       arrow_left + 2.0F, y + ((size_.row - size_.icon * 0.5F) / 2.0F),
+                       size_.icon * 0.5F,
                        child != expanded_.end() && child->second->model().error() ? palette.error
-                                                                                  : style.icon);
+                                                                                  : detail);
         }
-        const float name_left = arrow_left + size_.icon;
+        const float name_left = arrow_left + size_.icon * 0.5F + 4.0F;
         if (name_left + size_.icon > rows_.x && name_left < rows_.right() &&
             name_left < layout_.left[0] + layout_.width[0])
             draw_entry_icon(

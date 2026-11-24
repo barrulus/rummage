@@ -420,3 +420,19 @@ TEST_CASE("volumes: a drive not powered off says why, not that it is in use") {
           "device /dev/sr0 is mounted");
     CHECK(power_off_refusal("") == "in use");
 }
+
+TEST_CASE("devices: sidebar identities follow filesystem UUID across device changes") {
+    auto objects = machine();
+    for (auto& object : objects)
+        if (object.block)
+            object.id_uuid = "uuid-" + object.id_label;
+    auto volumes = rummage::platform::volumes_from(objects);
+    const auto places = rummage::platform::with_volumes({}, volumes);
+    REQUIRE_FALSE(places.empty());
+    CHECK_FALSE(places.front().disk.identity.empty());
+    auto changed = places.front();
+    changed.disk.volume = "/org/freedesktop/UDisks2/block_devices/sdz1";
+    changed.path = "/media/changed";
+    CHECK(rummage::views::Sidebar::place_key(changed) ==
+          rummage::views::Sidebar::place_key(places.front()));
+}

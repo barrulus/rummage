@@ -271,6 +271,12 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
                              .children = {},
                              .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
     items.push_back(std::move(show));
+    MenuItem sidebar_options;
+    sidebar_options.id = "sidebar_options";
+    sidebar_options.label = i18n::tr("Sidebar");
+    sidebar_options.submenu = true;
+    sidebar_options.children = sidebar_menu();
+    items.push_back(std::move(sidebar_options));
     if (mode() == Mode::details)
         items.push_back(details_columns_menu());
     auto panes = pane_items();
@@ -279,13 +285,14 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         items.insert(items.end(), std::make_move_iterator(panes.begin()),
                      std::make_move_iterator(panes.end()));
     }
-    items.push_back({.id = "settings",
-                     .label = std::string{i18n::tr("Settings…")},
-                     .keys = keys_for(Command::show_settings),
-                     .separator = true,
-                     .empty_text = {},
-                     .children = {},
-                     .action = [this] { open_settings(); }});
+    if (panes_enabled_)
+        items.push_back({.id = "settings",
+                         .label = std::string{i18n::tr("Settings…")},
+                         .keys = keys_for(Command::show_settings),
+                         .separator = true,
+                         .empty_text = {},
+                         .children = {},
+                         .action = [this] { open_settings(); }});
     menu_.open(x, y, std::move(items), keyboard);
 }
 

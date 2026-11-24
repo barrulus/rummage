@@ -576,16 +576,13 @@ TEST_CASE("panes: split toolbars and status bar respect configured font metrics"
                 const auto pane = f.browser.pane_bounds(index);
                 const auto field = f.browser.filter_bounds();
                 const auto button = f.browser.new_folder_bounds();
-                if (pane.width >= 300)
-                    CHECK(field.x >=
-                          pane.x + 10 + fonts.layout("Filter", 13, scale).width / scale + 9);
-                else
-                    CHECK(field.x >= pane.x + 10);
+                CHECK(field.x >= pane.x + 40);
                 CHECK(field.width >= 48);
-                CHECK(field.right() <= pane.right() - 10);
+                CHECK(field.right() <= pane.right() - 6);
                 if (!button.empty()) {
-                    CHECK(field.right() + 8 <= button.x);
-                    CHECK(button.right() <= pane.right() - 10);
+                    CHECK(field.right() + 4 <= button.x);
+                    CHECK(button.width == 30);
+                    CHECK(button.right() <= pane.right() - 6);
                 }
                 const float height = status.height(renderer);
                 CHECK(status.claims(20, bottom - height + 1));
@@ -936,6 +933,102 @@ TEST_CASE("panes: compact View menu and Settings remain accessible without the c
     CHECK_FALSE(f.browser.settings_dialog().is_open());
 }
 
+TEST_CASE("panes: compact controls share bottom Settings and choose the clicked pane's view") {
+    Fixture f;
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    f.browser.set_settings_handler(f.dir.path / "config.toml", [] {}, {});
+    f.browser.set_sidebar_visible(false);
+    f.browser.set_info_visible(false);
+    f.browser.toggle_split();
+    REQUIRE(f.settle());
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+    const auto click = [&](rummage::ui::Rect box) {
+        REQUIRE_FALSE(box.empty());
+        for (const auto kind : {PointerEvent::Kind::press, PointerEvent::Kind::release})
+            f.browser.pointer({.kind = kind,
+                               .x = box.x + box.width / 2,
+                               .y = box.y + box.height / 2,
+                               .button = PointerButton::left},
+                              Browser::Clock::now());
+    };
+    for (const bool stacked : {false, true}) {
+        f.browser.set_stacked(stacked);
+        draw();
+        const auto settings = f.browser.settings_bounds();
+        CHECK(f.browser.status_bar().claims(settings.x + 1, settings.y + 1));
+        for (const std::size_t index : {0U, 1U}) {
+            f.browser.focus_pane(index);
+            draw();
+            CHECK(f.browser.settings_bounds().x == settings.x);
+            CHECK(f.browser.settings_bounds().y == settings.y);
+            const auto pane = f.browser.pane_bounds(index);
+            const auto field = f.browser.filter_bounds();
+            CHECK(field.width > pane.width / 2);
+            CHECK(f.browser.tab_bar().claims(pane.x + 10, pane.y + 10));
+            CHECK(f.browser.view_menu_bounds().y == field.y);
+            CHECK(f.browser.sort_bounds().y == field.y);
+            CHECK(f.browser.insights_bounds().y == field.y);
+        }
+        // A click on the inactive pane's selector changes that pane, preserving the other.
+        f.browser.focus_pane(0);
+        f.browser.set_mode(Browser::Mode::columns);
+        draw();
+        const auto left_view = f.browser.view_menu_bounds();
+        // Hover tips appear after the delay, leave focus alone, and disappear on exit.
+        REQUIRE(f.settle());
+        const auto pixels_below_toolbar = [&] {
+            std::vector<std::uint8_t> pixels(64 * 26 * 4);
+            glReadPixels(static_cast<int>(left_view.x) - 24,
+                         kHeight - static_cast<int>(left_view.bottom()) - 32, 64, 26, GL_RGBA,
+                         GL_UNSIGNED_BYTE, pixels.data());
+            return pixels;
+        };
+        draw();
+        const auto before_hover = pixels_below_toolbar();
+        f.browser.pointer(
+            {.kind = PointerEvent::Kind::motion, .x = left_view.x + 15, .y = left_view.y + 16},
+            Browser::Clock::now());
+        draw();
+        CHECK((pixels_below_toolbar() == before_hover));
+        const auto deadline = Browser::Clock::now() + 500ms;
+        REQUIRE(run_until(f.loop, [&] { return Browser::Clock::now() >= deadline; }));
+        draw();
+        CHECK((pixels_below_toolbar() != before_hover));
+        CHECK(f.browser.active_pane() == 0);
+        f.browser.pointer({.kind = PointerEvent::Kind::leave}, Browser::Clock::now());
+        draw();
+        CHECK((pixels_below_toolbar() == before_hover));
+        f.browser.focus_pane(1);
+        f.browser.set_mode(Browser::Mode::details);
+        draw();
+        click(left_view);
+        REQUIRE(f.browser.context_menu().is_open());
+        CHECK(f.browser.active_pane() == 0);
+        const auto items = f.browser.context_menu().items();
+        REQUIRE(items.size() >= 3);
+        CHECK(items[0].checked);
+        items[1].action();
+        f.browser.context_menu().close();
+        CHECK(f.browser.mode() == Browser::Mode::grid);
+        f.browser.focus_pane(1);
+        CHECK(f.browser.mode() == Browser::Mode::details);
+        draw();
+        click(settings);
+        CHECK(f.browser.settings_dialog().is_open());
+        CHECK(f.press(key(XKB_KEY_Escape)));
+        CHECK_FALSE(f.browser.settings_dialog().is_open());
+    }
+}
+
 TEST_CASE("panes: column focus preserves the view and a child's saved mode") {
     const auto surface = offscreen();
     REQUIRE(surface);
@@ -1045,4 +1138,104 @@ TEST_CASE("panes: resetting a folder leaves other visible tabs unchanged") {
     f.browser.focus_pane(0);
     CHECK(f.browser.mode() == Browser::Mode::details);
     CHECK(f.browser.details().list_size() == 3);
+}
+
+TEST_CASE("panes: sidebar dismiss and toolbar restore preserve organization and width") {
+    Fixture f;
+    auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    f.browser.sidebar().set_width(250);
+    f.browser.sidebar().toggle_section(rummage::fs::Place::Section::bookmarks);
+    const auto collapsed = f.browser.sidebar().collapsed();
+    draw();
+    const auto close = f.browser.sidebar().close_bounds();
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = close.x + 10,
+                       .y = close.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = close.x + 10,
+                       .y = close.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    CHECK_FALSE(f.browser.sidebar_visible());
+    CHECK_FALSE(f.browser.sidebar().focused());
+    draw();
+    // The toolbar starts immediately below the title/breadcrumb row. Find its new toggle.
+    const auto toggle = f.browser.sidebar_toggle_bounds();
+    REQUIRE_FALSE(toggle.empty());
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = toggle.x + 10,
+                       .y = toggle.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = toggle.x + 10,
+                       .y = toggle.y + 10,
+                       .button = PointerButton::left},
+                      Browser::Clock::now());
+    CHECK(f.browser.sidebar_visible());
+    CHECK(f.browser.sidebar().collapsed() == collapsed);
+    CHECK(f.browser.sidebar().width() == 250);
+}
+
+TEST_CASE("panes: mounted sidebar destinations preserve the requesting pane and support windows") {
+    Fixture f;
+    rummage::views::Devices::Mounted complete;
+    rummage::views::Devices devices;
+    devices.mount = [&](const std::string&, rummage::views::Devices::Mounted done) {
+        complete = std::move(done);
+    };
+    f.browser.set_devices(std::move(devices));
+    rummage::views::Remotes remotes;
+    remotes.mount = [&](const std::string&, rummage::views::Remotes::Prompts,
+                        rummage::views::Remotes::Mounted done) { complete = std::move(done); };
+    f.browser.set_remotes(std::move(remotes));
+    rummage::fs::Place place{.section = rummage::fs::Place::Section::devices,
+                             .label = "Disk",
+                             .path = {},
+                             .icon = "usb",
+                             .disk = {.volume = "disk", .mounted = false}};
+    SUBCASE("disk") {}
+    SUBCASE("remote") {
+        place.section = rummage::fs::Place::Section::bookmarks;
+        place.uri = "sftp://server/data";
+    }
+    using Destination = Browser::PlaceDestination;
+    f.browser.open_place(place, Destination::tab);
+    REQUIRE(complete);
+    f.browser.toggle_split();
+    CHECK(f.browser.active_pane() == 1);
+    f.browser.open(f.b);
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.picker_folder()->model().loading(); }));
+    complete(f.a / "sub", {});
+    REQUIRE(f.settle());
+    CHECK(f.browser.active_pane() == 1);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+    f.browser.switch_pane();
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    std::vector<fs::path> windows;
+    f.browser.set_new_window_handler([&](const fs::path& path) { windows.push_back(path); });
+    f.browser.open_place(place, Destination::window);
+    complete(f.b, {});
+    CHECK(windows == std::vector<fs::path>{f.b});
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    f.browser.open_place(place, Destination::window);
+    complete({}, "permission denied");
+    CHECK(windows.size() == 1);
+    f.browser.set_picker_mode(true);
+    complete = {};
+    f.browser.open_place(place, Destination::window);
+    f.browser.open_place(place, Destination::tab);
+    CHECK_FALSE(complete);
 }

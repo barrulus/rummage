@@ -1,5 +1,6 @@
 #include "rummage/fs/places.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/trash.hpp"
 #include "rummage/ui/icons.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/sidebar.hpp"
@@ -35,7 +37,8 @@ namespace fs = std::filesystem;
 
 namespace {
 
-bool run_until(EventLoop& loop, const std::function<bool()>& done) {
+bool run_until(EventLoop& loop, const std::function<bool()>& done,
+               std::chrono::milliseconds limit = 5s) {
     bool ok = false;
     const auto poll = loop.add_timer(1ms, 1ms, [&] {
         if (done()) {
@@ -43,7 +46,7 @@ bool run_until(EventLoop& loop, const std::function<bool()>& done) {
             loop.quit(0);
         }
     });
-    const auto watchdog = loop.add_timer(5s, 0ms, [&loop] { loop.quit(1); });
+    const auto watchdog = loop.add_timer(limit, 0ms, [&loop] { loop.quit(1); });
     loop.run();
     loop.remove(poll);
     loop.remove(watchdog);
@@ -453,4 +456,281 @@ TEST_CASE("places: sidebar zoom handles fractional wheels, limits and reset with
     wheel.wheel_y = -1.0F;
     sidebar.pointer(wheel, now);
     CHECK(sidebar.list_size() == 1);
+}
+
+TEST_CASE("sidebar: organization survives missing devices and does not alter source bookmarks") {
+    rummage::views::Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {}, [](const Place&) {}};
+    const Place home{.section = Place::Section::places,
+                     .label = "Home",
+                     .path = "/home/test",
+                     .icon = "home",
+                     .icon_key = "home"};
+    const Place docs{.section = Place::Section::places,
+                     .label = "Documents",
+                     .path = "/home/test/Documents",
+                     .icon = "folder",
+                     .icon_key = "documents"};
+    const Place disk{.section = Place::Section::devices,
+                     .label = "Disk",
+                     .path = "/mnt/disk",
+                     .icon = "device-sd-card",
+                     .disk = {.volume = "stable-volume"}};
+    sidebar.set_places({home, docs, disk});
+    sidebar.move_place(docs, -1);
+    CHECK(sidebar.places().front().path == docs.path);
+    sidebar.add_separator(home);
+    REQUIRE(sidebar.places().size() == 4);
+    const auto divider = sidebar.places()[1];
+    REQUIRE(sidebar.separator(divider));
+    sidebar.move_place(divider, 1);
+    CHECK(sidebar.separator(sidebar.places()[2]));
+    sidebar.hide_place(disk);
+    sidebar.set_places({home, docs});
+    auto remounted = disk;
+    remounted.path = "/media/new-mount";
+    sidebar.set_places({home, docs, remounted});
+    CHECK(sidebar.places().size() == 3);
+    CHECK(sidebar.sources().size() == 3);
+    sidebar.toggle_section(Place::Section::places);
+    CHECK(sidebar.places().empty());
+    rummage::views::State state;
+    state.sidebar_order = sidebar.order();
+    state.sidebar_hidden = sidebar.hidden();
+    state.sidebar_collapsed = sidebar.collapsed();
+    const auto parsed =
+        rummage::views::parse_state(rummage::views::format_state(state), "sidebar.toml");
+    REQUIRE(parsed.problems.empty());
+    CHECK(parsed.state == state);
+    sidebar.restore_places();
+    CHECK(sidebar.places().size() == 4);
+    sidebar.remove_separator(divider);
+    CHECK(sidebar.places().size() == 3);
+    CHECK(labels(sidebar.sources()) == std::vector<std::string>{"Home", "Documents", "Disk"});
+}
+
+TEST_CASE("sidebar: tree loads only expanded folders and watches changes without following links") {
+    TempDir dir;
+    fs::create_directories(dir.path / "branch" / "nested");
+    fs::create_directories(dir.path / ".hidden");
+    fs::create_directory_symlink(dir.path, dir.path / "loop");
+    std::ofstream{dir.path / "file.txt"} << "file";
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    rummage::views::Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {}, [](const Place&) {}};
+    sidebar.enable_tree(loop, pool, watcher, rummage::fs::MimeDatabase::load());
+    const auto has = [&](const fs::path& path) {
+        return std::ranges::any_of(sidebar.places(),
+                                   [&](const Place& p) { return p.path == path; });
+    };
+    sidebar.set_places({{.label = "Root", .path = dir.path, .icon = "folder"}});
+    CHECK_FALSE(has(dir.path / "branch"));
+    sidebar.toggle_folder(dir.path);
+    REQUIRE(run_until(loop, [&] { return has(dir.path / "branch"); }, 30s));
+    CHECK_FALSE(has(dir.path / "branch" / "nested"));
+    CHECK_FALSE(has(dir.path / "file.txt"));
+    CHECK_FALSE(has(dir.path / ".hidden"));
+    REQUIRE(has(dir.path / "loop"));
+    sidebar.toggle_folder(dir.path / "loop");
+    CHECK_FALSE(has(dir.path / "loop" / "branch"));
+    sidebar.toggle_folder(dir.path / "branch");
+    REQUIRE(run_until(loop, [&] { return has(dir.path / "branch" / "nested"); }));
+    fs::create_directory(dir.path / "branch" / "created");
+    REQUIRE(run_until(loop, [&] { return has(dir.path / "branch" / "created"); }));
+    fs::remove(dir.path / "branch" / "created");
+    REQUIRE(run_until(loop, [&] { return !has(dir.path / "branch" / "created"); }));
+    sidebar.set_show_hidden(true);
+    REQUIRE(run_until(loop, [&] { return has(dir.path / ".hidden"); }));
+    sidebar.set_focused(true);
+    sidebar.set_cursor_to(dir.path / "branch");
+    CHECK(sidebar.key(key(XKB_KEY_Left)));
+    CHECK_FALSE(has(dir.path / "branch" / "nested"));
+    CHECK(sidebar.key(key(XKB_KEY_Right)));
+    REQUIRE(run_until(loop, [&] { return has(dir.path / "branch" / "nested"); }));
+    fs::remove_all(dir.path / "branch");
+    REQUIRE(run_until(loop, [&] { return !has(dir.path / "branch"); }));
+    fs::create_directories(dir.path / "branch" / "replacement");
+    REQUIRE(run_until(loop, [&] { return has(dir.path / "branch"); }));
+    sidebar.toggle_folder(dir.path / "branch");
+    REQUIRE(run_until(loop, [&] { return has(dir.path / "branch" / "replacement"); }));
+    CHECK_FALSE(has(dir.path / "branch" / "nested"));
+    sidebar.set_places({});
+    CHECK(sidebar.places().empty());
+}
+
+TEST_CASE("sidebar: separators drag within their section and headers collapse without opening") {
+    rummage::ui::Offscreen gl{220, 350};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    std::size_t opened = 0;
+    rummage::views::Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {},
+                                    [&](const Place&) { ++opened; }};
+    const Place a{.label = "A", .path = "/a", .icon = "folder"};
+    const Place b{.label = "B", .path = "/b", .icon = "folder"};
+    const Place c{.label = "C", .path = "/c", .icon = "folder"};
+    sidebar.set_places({a, b, c});
+    sidebar.add_separator(b);
+    const auto separator = sidebar.places()[1];
+    const auto draw = [&] {
+        renderer.begin_frame(220, 350, 1, {});
+        sidebar.draw(renderer, {0, 0, 220, 350}, {}, icons, {},
+                     rummage::views::Sidebar::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    const auto y_of = [&](const Place& target) {
+        for (float y = 38; y < 350; y += 1) {
+            const auto* p = sidebar.place_under(50, y);
+            if (p && sidebar.place_key(*p) == sidebar.place_key(target))
+                return y + 5;
+        }
+        return -1.0F;
+    };
+    const auto from = y_of(separator), to = y_of(c);
+    REQUIRE(from > 0);
+    REQUIRE(to > 0);
+    using Event = rummage::ui::PointerEvent;
+    const auto pointer = [&](Event::Kind kind, float y) {
+        sidebar.pointer({.kind = kind, .x = 50, .y = y, .button = rummage::ui::PointerButton::left},
+                        rummage::views::Sidebar::Clock::now());
+    };
+    pointer(Event::Kind::press, from);
+    pointer(Event::Kind::motion, to);
+    draw();
+    pointer(Event::Kind::release, to);
+    CHECK(labels(sidebar.places()) == std::vector<std::string>{"A", "B", "Separator", "C"});
+    CHECK(opened == 0);
+    draw();
+    pointer(Event::Kind::press, 20);
+    CHECK(sidebar.places().empty());
+    CHECK(opened == 0);
+    draw();
+    pointer(Event::Kind::press, 20);
+    CHECK(sidebar.places().size() == 4);
+}
+
+TEST_CASE("sidebar: places and bookmarks expand independently and children stay ordinary folders") {
+    TempDir dir;
+    fs::create_directories(dir.path / ".branch" / "nested");
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop,    pool,
+                    watcher, rummage::fs::MimeDatabase::load(),
+                    [] {},   [](rummage::ui::CursorShape) {}};
+    auto& sidebar = browser.sidebar();
+    const Place home{.label = "Home", .path = dir.path, .icon = "home", .icon_key = "home"};
+    const Place bookmark{.section = Place::Section::bookmarks,
+                         .label = "Branch",
+                         .path = dir.path / ".branch",
+                         .icon = "bookmark"};
+    browser.set_places({home, bookmark});
+    browser.open(dir.path);
+    REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
+    const auto count = [&](const fs::path& path) {
+        return std::ranges::count(sidebar.places(), path, &Place::path);
+    };
+    sidebar.set_show_hidden(true);
+    sidebar.toggle_folder(home.path);
+    REQUIRE(run_until(loop, [&] { return count(bookmark.path) == 2; }));
+    sidebar.toggle_folder(bookmark.path, sidebar.place_key(home));
+    REQUIRE(run_until(loop, [&] { return count(bookmark.path / "nested") == 1; }));
+    sidebar.toggle_folder(bookmark.path, sidebar.place_key(bookmark));
+    REQUIRE(run_until(loop, [&] { return count(bookmark.path / "nested") == 2; }));
+    sidebar.set_show_hidden(false);
+    CHECK(count(bookmark.path / "nested") == 1);
+    sidebar.set_show_hidden(true);
+    CHECK(count(bookmark.path / "nested") == 1);
+    sidebar.toggle_folder(home.path);
+    CHECK(count(bookmark.path / "nested") == 1);
+    // Collapsing one root keeps the other root's watcher and expansion alive.
+    fs::create_directory(bookmark.path / "created");
+    REQUIRE(run_until(loop, [&] { return count(bookmark.path / "created") == 1; }));
+    sidebar.set_focused(true);
+    sidebar.set_cursor_to(bookmark.path / "nested");
+    const auto child = *sidebar.cursor_place();
+    REQUIRE(sidebar.child(child));
+    CHECK(sidebar.edit_key(key(XKB_KEY_F2)));
+    CHECK_FALSE(sidebar.renaming());
+    sidebar.hide_place(child);
+    sidebar.add_separator(child);
+    CHECK(sidebar.hidden().empty());
+    CHECK(sidebar.order().empty());
+    browser.key(key(XKB_KEY_Menu), Browser::Clock::now());
+    REQUIRE(browser.context_menu().is_open());
+    const auto& items = browser.context_menu().items();
+    const auto has = [&](std::string_view id) {
+        return std::ranges::find(items, id, &rummage::views::MenuItem::id) != items.end();
+    };
+    CHECK(has("open"));
+    CHECK(has("properties"));
+    CHECK_FALSE(has("rename_bookmark"));
+    CHECK_FALSE(has("remove_bookmark"));
+    CHECK_FALSE(has("sidebar_hide"));
+    browser.context_menu().close();
+    browser.key(key(XKB_KEY_Return), Browser::Clock::now());
+    REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.picker_folder()->path() == bookmark.path / "nested");
+    CHECK(sidebar.sources().size() == 2);
+}
+
+TEST_CASE("sidebar: disclosures follow visible subfolders and update when a leaf gains children") {
+    TempDir dir;
+    fs::create_directories(dir.path / "empty");
+    fs::create_directories(dir.path / "files");
+    fs::create_directories(dir.path / "hidden" / ".child");
+    fs::create_directories(dir.path / "branch" / "leaf");
+    std::ofstream{dir.path / "files" / "file.txt"} << "file";
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    std::size_t opened = 0;
+    rummage::views::Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {},
+                                    [&](const Place&) { ++opened; }};
+    sidebar.enable_tree(loop, pool, watcher, rummage::fs::MimeDatabase::load());
+    sidebar.set_places({{.label = "Empty", .path = dir.path / "empty", .icon = "folder"},
+                        {.label = "Files", .path = dir.path / "files", .icon = "folder"},
+                        {.label = "Hidden", .path = dir.path / "hidden", .icon = "folder"},
+                        {.label = "Branch", .path = dir.path / "branch", .icon = "folder"}});
+    rummage::ui::Offscreen gl{220, 350};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(220, 350, 1, {});
+        sidebar.draw(renderer, {0, 0, 220, 350}, {}, icons, {}, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    REQUIRE(run_until(loop, [&] { return !sidebar.loading(); }));
+    CHECK_FALSE(sidebar.expandable(0));
+    CHECK_FALSE(sidebar.expandable(1));
+    CHECK_FALSE(sidebar.expandable(2));
+    CHECK(sidebar.expandable(3));
+    sidebar.set_show_hidden(true);
+    CHECK(sidebar.expandable(2));
+    sidebar.set_show_hidden(false);
+    draw();
+    const auto click = [&](std::size_t row) {
+        const auto rect = sidebar.place_icon_rect(sidebar.places()[row].path);
+        REQUIRE(rect);
+        sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                         .x = 12,
+                         .y = rect->y + 12,
+                         .button = rummage::ui::PointerButton::left},
+                        Browser::Clock::now());
+    };
+    click(0);  // No invisible expansion target on a leaf: the click opens it normally.
+    CHECK(opened == 1);
+    click(3);
+    CHECK(opened == 1);
+    REQUIRE(run_until(loop, [&] { return sidebar.places().size() == 5; }));
+    draw();
+    REQUIRE(run_until(loop, [&] { return !sidebar.loading(); }));
+    CHECK_FALSE(sidebar.expandable(4));
+    fs::create_directory(dir.path / "branch" / "leaf" / "new");
+    REQUIRE(run_until(loop, [&] { return sidebar.expandable(4); }));
+    fs::remove(dir.path / "branch" / "leaf" / "new");
+    REQUIRE(run_until(loop, [&] { return !sidebar.expandable(4); }));
 }

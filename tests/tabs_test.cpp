@@ -1151,9 +1151,9 @@ TEST_CASE("navigation: path-row buttons use the clicked pane history and cancel 
     REQUIRE(f.settle());
     f.browser.focus_pane(0);
     draw();
-    // Split panes add a 26px header and the tab row before the path.
+    // Split panes start with the tab row, immediately followed by the path.
     const auto right = f.browser.pane_bounds(1);
-    click(right.x + 19, right.y + 26 + rummage::views::TabBar::kHeight + 14);
+    click(right.x + 19, right.y + rummage::views::TabBar::kHeight + 14);
     CHECK(f.browser.active_pane() == 1);
     CHECK(f.browser.picker_folder()->path() == f.a / "sub");
     f.browser.focus_pane(0);

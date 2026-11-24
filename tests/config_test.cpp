@@ -636,3 +636,20 @@ TEST_CASE("palette source: defaults preserve automatic precedence and values are
         CHECK(result.config.appearance.palette_source == "auto");
     }
 }
+
+TEST_CASE("sidebar configuration validates bounded identity lists") {
+    const auto parsed = rummage::core::parse_config(R"(
+[sidebar]
+order = ["place:home", "separator:0:0", "place:downloads"]
+hidden = ["uuid:example", "place:music"]
+)",
+                                                    "sidebar.toml");
+    REQUIRE(parsed.problems.empty());
+    REQUIRE(parsed.config.sidebar.order);
+    CHECK(parsed.config.sidebar.order->size() == 3);
+    REQUIRE(parsed.config.sidebar.hidden);
+    CHECK(parsed.config.sidebar.hidden->size() == 2);
+    const auto invalid = rummage::core::parse_config("[sidebar]\nhidden = [42]\n", "bad.toml");
+    CHECK_FALSE(invalid.problems.empty());
+    CHECK_FALSE(invalid.config.sidebar.hidden);
+}

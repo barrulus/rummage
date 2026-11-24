@@ -59,6 +59,7 @@ UdisksObject object_from(const sdbus::ObjectPath& path, const Interfaces& interf
         object.size = property<std::uint64_t>(p, "Size");
         object.id_usage = property<std::string>(p, "IdUsage");
         object.id_label = property<std::string>(p, "IdLabel");
+        object.id_uuid = property<std::string>(p, "IdUUID");
         object.hint_ignore = property<bool>(p, "HintIgnore");
         object.hint_system = property<bool>(p, "HintSystem");
         object.drive = property<sdbus::ObjectPath>(p, "Drive", sdbus::ObjectPath{"/"});

@@ -28,6 +28,9 @@ opens it in the other pane. **Alt+D** edits the breadcrumb path directly.
 See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard) for remapping
 movement, focus, opening and hierarchy commands.
 
+The **×** button in the sidebar header hides it. The sidebar button at the left
+of the filter toolbar restores it; **View → Show → Places sidebar** also toggles it.
+Visibility, width and zoom survive restart.
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
 **Ctrl+I** toggles the information pane. Drag its edge to
@@ -328,10 +331,12 @@ visibility are unchanged. This action is unavailable in file pickers.
 
 ## Settings and preview placement
 
-The existing filter toolbar contains **View** and a **cog** for Settings; pane
-controls no longer occupy a separate row. View includes display modes, pane
-commands, preview/sidebar visibility and Settings. Pane commands also remain in
-the right-click menu and command palette, with configurable shortcuts.
+The filter toolbar gives the filename field the available width. Places, New Folder,
+Sort By, Insights and View use compact icons with hover tips. The **View** icon reflects
+the current mode and opens a dropdown for Columns, Grid and Details, alongside pane
+commands and preview/sidebar visibility. One shared **Settings** cog sits at the bottom
+right beside shortcut help; Settings also remains in the View menu. Pane commands also
+remain in the right-click menu and command palette, with configurable shortcuts.
 
 In **Settings → Appearance**, set **Preview placement** to **Below Places** to
 share the sidebar with the active pane's preview. Drag the horizontal divider to
@@ -346,9 +351,10 @@ existing layout.
 - **F3** or **View → Show Two Panes** splits the browser. On first use, the second pane starts at the current
   location and receives focus. Each pane has its own tabs, breadcrumb, selections, history,
   scrolling, view modes, zoom, sort order, hidden-file setting and filename filters.
-- **Tab** switches panes while browsing. Clicking a pane's header focuses it without disturbing
-  its selection. Hovering or scrolling the other pane does not move keyboard focus. The active
-  header has an accent and an “Active” label; inactive selections remain visible in subdued colors.
+- **Tab** switches panes while browsing. Clicking a pane's current tab or empty toolbar space
+  focuses it without disturbing its selection. Hovering or scrolling the other pane does not
+  move keyboard focus. A subtle border marks the active pane; inactive selections remain
+  visible in subdued colors.
 - **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab**, **Ctrl+Shift+Tab** and **Alt+1…9** operate in the active
   pane. The last tab in each pane stays open. New tabs inherit view, zoom, sorting and hidden-file
   visibility, and start with an empty filename filter.
@@ -513,7 +519,42 @@ Up to 64 definitions are kept in the normal saved state across restarts. Match
 lists, selections and previews are not persisted. Search results are not offered
 inside the file picker.
 
+## Expandable sidebar
+
+Expand local folders in Places or Bookmarks using the arrow beside the icon.
+Arrows appear only when a folder has visible subfolders, and update as its
+contents change. The file list uses the same rule.
+Mounted devices can also expand. Click the label to open the folder in the active
+pane; expanding or collapsing a folder keeps the main file view in place.
+**F6** focuses the sidebar, Up/Down moves through visible folders, Right expands
+or enters a branch, Left collapses or moves to its parent, and Enter opens it.
+
+Only expanded folders are loaded and watched; changes inside them appear
+automatically. The sidebar follows the active pane's hidden-file setting.
+Folder symlinks inside a branch can be opened but do not expand, preventing
+recursive loops. Loading and access errors appear beside the folder. Each place
+and bookmark expands independently, and folders start collapsed on restart.
+
 ## Places, bookmarks and devices
+
+Click the **PLACES**, **BOOKMARKS** or **DEVICES** heading to collapse that section.
+**View → Sidebar** offers the same controls from the keyboard. Right-click an
+entry for **Hide from Sidebar**, **Move Up/Down**, or **Add Separator Above**.
+Separators can be dragged onto another row in the same section to move before it;
+a highlighted line shows the destination. Their menu also offers move/remove
+commands. **Alt+Up/Down** moves the focused entry or separator within its section.
+
+**View → Sidebar → Restore Hidden Places** reveals hidden entries and collapsed
+sections; **Reset Sidebar Organization** also clears custom ordering and separators.
+These choices are saved in Rummage's state, without changing system user directories
+or the shared GTK bookmarks order. Unavailable devices keep their saved positions.
+Optional configuration overrides are described in [configuration](configuration.md#sidebar-organization).
+
+Right-click a location for **Open in New Tab** or **Open in New Window**. An
+unmounted disk or network bookmark mounts first; failures leave the current
+folder intact. A delayed new-tab request stays in its original pane and does not
+steal focus from the other pane. New windows run as independent processes. These
+actions are unavailable in file pickers.
 
 Home folders follow XDG user-directory settings. **Ctrl+D** bookmarks the current
 folder; Add to Sidebar in the context menu bookmarks selected folders. Dragging
@@ -577,9 +618,10 @@ sidecars and undo, or [actions](actions.md) to add external commands.
 
 Right-click a local bookmark for **Rename**, **Choose Folder**, **Move Up** and **Move Down**.
 Rename changes its label; Choose Folder replaces its destination while keeping its label
-and position. With keyboard focus in Places, F2 edits the label and Alt+Up/Down moves it.
-Enter or a click outside saves the label; Escape cancels. Changes are written to the shared
-GTK bookmarks file, preserving unrelated lines and network bookmarks.
+and shared bookmark position. Sidebar ordering is local to Rummage. With keyboard focus in Places, F2 edits the label and Alt+Up/Down moves it.
+Enter or a click outside saves the label; Escape cancels. Label and destination changes are written to the shared
+GTK bookmarks file, preserving unrelated lines and network bookmarks. Moving an entry
+changes only Rummage's saved sidebar order.
 
 **Copy Path** (Ctrl+Shift+C) copies the active pane's current folder, regardless of selection.
 It is also available from the background menu and command palette. **Copy Location** continues

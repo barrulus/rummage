@@ -128,7 +128,93 @@ void Browser::drop_actions(const std::filesystem::path& folder,
     menu_.open(drop_x_, drop_y_, std::move(items), false);
 }
 
+std::vector<MenuItem> Browser::sidebar_menu() {
+    std::vector<MenuItem> items;
+    const auto add = [&](std::string id, std::string_view label, bool checked,
+                         std::function<void()> action) {
+        MenuItem item;
+        item.id = std::move(id);
+        item.label = i18n::tr(label);
+        item.checkable = true;
+        item.checked = checked;
+        item.action = std::move(action);
+        items.push_back(std::move(item));
+    };
+    add("sidebar_visible", i18n::mark("Show Sidebar"), sidebar_visible_,
+        [this] { set_sidebar_visible(!sidebar_visible_); });
+    for (const auto& [section, label] :
+         {std::pair{fs::Place::Section::places, i18n::mark("Places")},
+          std::pair{fs::Place::Section::bookmarks, i18n::mark("Bookmarks")},
+          std::pair{fs::Place::Section::devices, i18n::mark("Devices")}}) {
+        const auto key = std::to_string(static_cast<int>(section));
+        add("sidebar_section_" + key, label,
+            std::ranges::find(sidebar_.collapsed(), key) == sidebar_.collapsed().end(),
+            [this, section] { sidebar_.toggle_section(section); });
+        if (section == fs::Place::Section::places)
+            items.back().separator = true;
+    }
+    MenuItem restore;
+    restore.id = "sidebar_restore";
+    restore.label = i18n::tr("Restore Hidden Places");
+    restore.separator = true;
+    restore.action = [this] { sidebar_.restore_places(); };
+    items.push_back(std::move(restore));
+    MenuItem reset;
+    reset.id = "sidebar_reset";
+    reset.label = i18n::tr("Reset Sidebar Organization");
+    reset.action = [this] { sidebar_.set_organization({}, {}, {}); };
+    items.push_back(std::move(reset));
+    return items;
+}
+
+std::vector<MenuItem> Browser::sidebar_organization_items(const fs::Place& place) {
+    std::vector<MenuItem> items;
+    if (Sidebar::child(place))
+        return items;
+    const auto add = [&](std::string id, std::string_view label, std::function<void()> action) {
+        MenuItem item;
+        item.id = std::move(id);
+        item.label = i18n::tr(label);
+        item.action = std::move(action);
+        item.separator = items.empty();
+        items.push_back(std::move(item));
+    };
+    const bool bookmark = place.section == fs::Place::Section::bookmarks && place.uri.empty();
+    add(bookmark ? "move_bookmark_up" : "sidebar_move_up", i18n::mark("Move Up"),
+        [this, place] { sidebar_.move_place(place, -1); });
+    add(bookmark ? "move_bookmark_down" : "sidebar_move_down", i18n::mark("Move Down"),
+        [this, place] { sidebar_.move_place(place, 1); });
+    std::vector<fs::Place> shown;
+    for (const auto& root : sidebar_.places())
+        if (!Sidebar::child(root))
+            shown.push_back(root);
+    const auto at = std::ranges::find_if(
+        shown, [&](const auto& p) { return Sidebar::place_key(p) == Sidebar::place_key(place); });
+    items[0].enabled =
+        at != shown.end() && at != shown.begin() && std::prev(at)->section == place.section;
+    items[1].enabled = at != shown.end() && std::next(at) != shown.end() &&
+                       std::next(at)->section == place.section;
+    if (Sidebar::separator(place)) {
+        add("sidebar_remove_separator", i18n::mark("Remove Separator"),
+            [this, place] { sidebar_.remove_separator(place); });
+    } else {
+        add("sidebar_separator", i18n::mark("Add Separator Above"),
+            [this, place] { sidebar_.add_separator(place); });
+        add("sidebar_hide", i18n::mark("Hide from Sidebar"),
+            [this, place] { sidebar_.hide_place(place); });
+    }
+    MenuItem options;
+    options.id = "sidebar_options";
+    options.label = i18n::tr("Sidebar");
+    options.submenu = true;
+    options.children = sidebar_menu();
+    items.push_back(std::move(options));
+    return items;
+}
+
 std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
+    if (Sidebar::separator(place))
+        return sidebar_organization_items(place);
     std::vector<MenuItem> items;
     if (place.uri == "rummage:saved-searches") {
         MenuItem item;
@@ -171,11 +257,16 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
     if (panes_enabled_ && !picker_mode_) {
         add(
             "open_tab", i18n::mark("Open in New Tab"),
-            [this, path = place.path] {
+            [this, place] {
                 sidebar_.set_focused(false);
-                open_tab(path, true);
+                open_place(place, PlaceDestination::tab);
             },
-            mounted);
+            mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
+        if (new_window_)
+            add(
+                "open_window", i18n::mark("Open in New Window"),
+                [this, place] { open_place(place, PlaceDestination::window); },
+                mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
         if (!trash)
             add(
                 "open_other_pane", i18n::mark("Open in Other Pane"),
@@ -194,7 +285,7 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
             "copy_path", i18n::mark("Copy Path"),
             [this, place] { copy_text(place.uri.empty() ? place.path.string() : place.uri); },
             mounted || !place.uri.empty());
-        if (place.section != fs::Place::Section::devices)
+        if (place.section != fs::Place::Section::devices || Sidebar::child(place))
             add(
                 "properties", i18n::mark("Properties…"),
                 [this, path = place.path] {
@@ -205,6 +296,8 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
                 },
                 mounted);
     }
+    auto organization = sidebar_organization_items(place);
+    items.insert(items.end(), organization.begin(), organization.end());
     return items;
 }
 }  // namespace rummage::views

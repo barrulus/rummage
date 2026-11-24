@@ -10,6 +10,16 @@
 # View → Show thumbnail and file-extension visibility are saved in state.toml,
 # as view.show_thumbnails and view.show_extensions (both default to true).
 
+# Optional sidebar organization overrides. Omit lists to use remembered UI choices.
+# Lists apply at startup and when changed; [] explicitly clears that list.
+# Built-ins: place:home, place:downloads, place:music, place:filesystem, place:trash.
+# Devices: uuid:UUID, device:UDISKS_OBJECT_PATH, or mount:/mount/path as fallback.
+# Bookmarks: path:/absolute/path or uri:sftp://server/path.
+# Separators: separator:SECTION:ID (0 Places, 1 Bookmarks, 2 Devices).
+[sidebar]
+# order = ["place:home", "separator:0:0", "place:downloads"]
+# hidden = ["place:music"]
+
 [appearance]
 # Background only (0-1); text, icons and thumbnails retain their original opacity.
 # Transparency is disabled by default (1.0). Keep compositor window opacity at 1.0.

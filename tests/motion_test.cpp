@@ -214,8 +214,8 @@ TEST_CASE("motion: every GLES effect renders, preserves alpha and restores rende
             CHECK(pixel(5, 235)[1] == 255);    // drawing after the pass still works
             CHECK(pixel(310, 120)[3] == 128);  // outside clip untouched
             if (progress == 1) {
-                CHECK(pixel(150, 190)[3] == (effect.id == Effect::disintegrate ? 128 : 255));
-                CHECK(pixel(150, 190)[0] == (effect.id == Effect::disintegrate ? 16 : 128));
+                CHECK(pixel(150, 190)[3] == 255);
+                CHECK(pixel(150, 190)[0] == 128);
             }
             if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES");
                 directory && progress == 0.45F)
@@ -925,4 +925,136 @@ TEST_CASE("motion: render operation filmstrip with actual icon shaders") {
     CHECK(glGetError() == GL_NO_ERROR);
     if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
         save_frame(std::filesystem::path{directory} / "operation-filmstrip.ppm", 960, 540);
+}
+
+TEST_CASE("motion: streamed folder contents are animated on their first painted batch") {
+    rummage::test::TempDir dir;
+    std::filesystem::create_directory(dir.path / "child");
+    for (int i = 0; i < 300; ++i)
+        std::ofstream{dir.path / "child" / (std::to_string(i) + ".txt")} << "file";
+    core::EventLoop loop;
+    core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    std::function<void()> changed;
+    rummage::views::Browser browser{loop,
+                                    pool,
+                                    watcher,
+                                    rummage::fs::MimeDatabase::load(),
+                                    [&] {
+                                        if (changed)
+                                            changed();
+                                    },
+                                    [](ui::CursorShape) {}};
+    core::MotionConfig config;
+    config.events[static_cast<std::size_t>(Event::directory_open)] = Effect::disintegrate;
+    config.duration_scale = 4;
+    browser.set_motion_config(config);
+    ui::Offscreen gl{900, 600};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    auto now = ui::Motion::Clock::now();
+    const auto draw = [&] {
+        renderer.begin_frame(900, 600, 1, {});
+        browser.draw(renderer, {0, 0, 900, 600}, {}, icons, now);
+        renderer.end_frame();
+    };
+    const auto settle = [&] {
+        bool done = false;
+        const auto poll = loop.add_timer(1ms, 1ms, [&] {
+            if (!browser.loading()) {
+                done = true;
+                loop.quit(0);
+            }
+        });
+        const auto limit = loop.add_timer(5s, 0ms, [&] { loop.quit(1); });
+        loop.run();
+        loop.remove(poll);
+        loop.remove(limit);
+        REQUIRE(done);
+    };
+    browser.open(dir.path);
+    browser.set_mode(rummage::views::Browser::Mode::grid);
+    settle();
+    draw();
+    bool drawing = false, saw_batch = false;
+    auto started = now;
+    changed = [&] {
+        const auto folder = browser.picker_folder();
+        if (drawing || !folder || folder->path() != dir.path / "child" ||
+            !folder->model().loading() || folder->entries().empty())
+            return;
+        drawing = true;
+        draw();
+        const auto frame = browser.motion().frame(Channel::first_pane, now);
+        REQUIRE(frame);
+        CHECK(frame->effect ==
+              browser.motion().config().events[static_cast<std::size_t>(Event::directory_open)]);
+        if (!saw_batch) {
+            CHECK(frame->progress == 0);
+            started = now;
+            if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+                save_frame(std::filesystem::path{directory} / "folder-reveal-000.ppm", 900, 600);
+        }
+        saw_batch = true;
+        now += 10ms;
+        drawing = false;
+    };
+    browser.open(dir.path / "child");
+    settle();
+    changed = {};
+    REQUIRE(saw_batch);
+    now += 50ms;
+    draw();
+    const auto frame = browser.motion().frame(Channel::first_pane, now);
+    REQUIRE(frame);
+    CHECK(frame->progress > 0);  // Finishing the listing must not restart the reveal.
+    if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES")) {
+        for (const int elapsed : {40, 220, 440, 660, 879}) {
+            now = started + std::chrono::milliseconds{elapsed};
+            draw();
+            save_frame(std::filesystem::path{directory} /
+                           ("folder-reveal-" + std::to_string(elapsed) + ".ppm"),
+                       900, 600);
+        }
+    }
+    now += 3s;
+    draw();
+    CHECK_FALSE(browser.motion().active());
+}
+
+TEST_CASE(
+    "motion: directory disintegration reveals the target instead of erasing and flashing it") {
+    ui::Offscreen gl{160, 120};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    std::size_t previous = 0;
+    for (const float progress : {0.0F, 0.02F, 0.2F, 0.5F, 0.8F, 0.98F, 1.0F}) {
+        CAPTURE(progress);
+        renderer.begin_frame(160, 120, 1, ui::Color::rgba(0x10203080));
+        REQUIRE(renderer.begin_motion({0, 0, 160, 120}, core::MotionConfig::Quality::automatic));
+        renderer.fill_rect({0, 0, 160, 120}, ui::Color::rgb(0xFF2020));
+        renderer.end_motion({.effect = Effect::disintegrate,
+                             .progress = progress,
+                             .time_seconds = progress * 0.88F},
+                            80, 60, ui::Color::rgb(0x20A0FF));
+        renderer.end_frame();
+        std::vector<unsigned char> pixels(160 * 120 * 4);
+        glReadPixels(0, 0, 160, 120, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        std::size_t revealed = 0;
+        for (std::size_t i = 0; i < pixels.size(); i += 4)
+            if (pixels[i] > 160)
+                ++revealed;
+        CHECK(revealed >= previous);
+        if (progress <= 0.02F)
+            CHECK(revealed < 160 * 120 / 20);
+        if (progress >= 0.98F)
+            CHECK(revealed > 160 * 120 * 19 / 20);
+        previous = revealed;
+        if (const auto* directory = std::getenv("RUMMAGE_MOTION_FRAMES"))
+            save_frame(std::filesystem::path{directory} /
+                           ("directory-reveal-" + std::to_string(static_cast<int>(progress * 100)) +
+                            ".ppm"),
+                       160, 120);
+    }
 }

@@ -5,7 +5,7 @@
 //                    [--sort FIELDS] [--info-expanded] [--info-width W] [--bench FRAMES]
 //                    [--walk FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME]
 //                    [--memory [--trim] [--default-malloc]]] [--csd STATE] [--desktop LOOK]
-//                    [--font FAMILY] [--status-text-size SIZE] <out.ppm>
+//                    [--expand-sidebar PATH] [--font FAMILY] [--status-text-size SIZE] <out.ppm>
 //                    [logical-width logical-height scale [colors.toml]]
 //
 // KEYS are pressed in the column view before the snapshot: comma-separated xkb key names with
@@ -15,8 +15,9 @@
 // clicks column titles after the keys, by column id: "size", "owner", "modified,modified" for
 // newest first; an unknown id is reported and skipped); with "space"
 // last, Quick Look opens (and --bench scrolls its text page, when it shows one). --thumbnails gives
-// the file views a thumbnail cache directory (none by default: icons only, nothing written to ~/.cache).
-// The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6" focuses it.
+// the file views a thumbnail cache directory (none by default: icons only, nothing written to
+// ~/.cache). The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6"
+// focuses it.
 // --drag NAME presses on the entry NAME of the folder shown and drags it a little (the drag image
 // drawn under the pointer); --drop-over X,Y then moves that drag (or, alone, another program's
 // drag of files) over the point X,Y, which shows where it would drop.
@@ -234,6 +235,7 @@ int main(int argc, char** argv) {
     float font_size = rummage::core::Config::Font::kUsualSize;
     bool info_expanded = false;
     bool preview_sidebar = false;
+    std::string expand_sidebar;
     std::filesystem::path settings_config;
     bool memory = false;
     bool fake_disks = false;
@@ -256,6 +258,11 @@ int main(int argc, char** argv) {
         const std::string_view option{args[1]};
         if (option == "--icon-theme" && args.size() >= 3) {
             icon_theme = args[2];
+            args = args.subspan(2);
+            continue;
+        }
+        if (option == "--expand-sidebar" && args.size() >= 3) {
+            expand_sidebar = args[2];
             args = args.subspan(2);
             continue;
         }
@@ -370,7 +377,7 @@ int main(int argc, char** argv) {
         log::error(
             "usage: rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails "
             "CACHE] [--icon-theme NAME] [--sort FIELDS] [--info-expanded] [--info-width W] "
-            "[--split DIR] [--stacked] "
+            "[--split DIR] [--stacked] [--expand-sidebar PATH] "
             "[--bench FRAMES] [--walk "
             "FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME] [--drag NAME] "
             "[--drop-over X,Y] [--band X1,Y1,X2,Y2] [--fake-disks] [--memory [--trim] "
@@ -602,6 +609,11 @@ int main(int argc, char** argv) {
                     columns->focus_pane(0);
                 }
                 frame();  // lays out: keys need the viewport
+                if (!expand_sidebar.empty()) {
+                    columns->sidebar().toggle_folder(expand_sidebar);
+                    run_until(loop, [&] { return !columns->sidebar().loading(); });
+                    frame();
+                }
                 // Each key finds what the one before loaded (Space, then Ctrl+A on the text).
                 for (const ui::KeyEvent& event : parse_keys(keys)) {
                     if (picker) {

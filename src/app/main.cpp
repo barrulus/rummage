@@ -39,6 +39,7 @@
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/fs/trash.hpp"
 #include "rummage/isolate/helpers.hpp"
 #include "rummage/platform/about.hpp"
 #include "rummage/platform/action_handoff.hpp"
@@ -48,6 +49,7 @@
 #include "rummage/platform/file_manager_config.hpp"
 #include "rummage/platform/file_picker_portal.hpp"
 #include "rummage/platform/gvfs.hpp"
+#include "rummage/platform/launcher.hpp"
 #include "rummage/platform/opener.hpp"
 #include "rummage/platform/portal.hpp"
 #include "rummage/platform/program_output.hpp"
@@ -229,6 +231,8 @@ constexpr const char* kUsage =
 
 // The folder to open: DIR as given (made absolute, ".." resolved), else $HOME, else "/".
 std::filesystem::path start_folder(const std::filesystem::path& given) {
+    if (fs::is_trash(given))
+        return given;
     std::filesystem::path folder = given;
     if (folder.empty()) {
         const char* home = std::getenv("HOME");  // NOLINT(concurrency-mt-unsafe): startup
@@ -772,6 +776,7 @@ int main(int argc, char** argv) {
             return line;
         };
         auto picker_terminal = configured_terminal(config);
+        auto sidebar_config = config.sidebar;
         std::unique_ptr<core::FileWatcher> config_watcher;
         const auto apply_config = [&](const core::ConfigResult& loaded) {
             const auto& fresh = loaded.config;
@@ -781,6 +786,10 @@ int main(int argc, char** argv) {
                 columns->set_motion_config(fresh.animations);
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
                 columns->set_preview_in_sidebar(fresh.appearance.preview_position == "sidebar");
+                if (fresh.sidebar != sidebar_config) {
+                    columns->set_sidebar_config(fresh.sidebar);
+                    sidebar_config = fresh.sidebar;
+                }
             }
             if (loaded.actions_valid && loaded.context_menu_valid) {
                 const auto problems = views::configure_shortcuts(fresh.keybindings, fresh.actions);
@@ -832,6 +841,7 @@ int main(int argc, char** argv) {
             keeper.note(state);
         };
         std::unique_ptr<platform::ActionHandoff> action_handoff;
+        platform::Launcher browser_launcher{loop};
         if (!test_scene) {
             columns = std::make_unique<views::Browser>(
                 loop, pool, watcher, mime, [&] { window.request_redraw(); },
@@ -855,6 +865,28 @@ int main(int argc, char** argv) {
                     columns->ask_to_run(program, std::move(allow_and_run));
                 });
             columns->set_picker_mode(picker_request.has_value());
+            if (!picker_request)
+                columns->set_new_window_handler([&](const std::filesystem::path& path) {
+                    activation.request(
+                        display.seat(), seat.input_serial(), window.surface(),
+                        [&, path](std::string token) {
+                            std::error_code error;
+                            const auto executable =
+                                std::filesystem::read_symlink("/proc/self/exe", error);
+                            if (!error) {
+                                const std::vector<std::string> env{"XDG_ACTIVATION_TOKEN=" + token,
+                                                                   "DESKTOP_STARTUP_ID=" + token};
+                                error = browser_launcher.spawn(
+                                    {platform::file_manager_program(executable)
+                                         .value_or(executable)
+                                         .string(),
+                                     path.string()},
+                                    {}, env, [](platform::Launcher::Exit) {});
+                            }
+                            if (error)
+                                columns->show_message(error.message(), true);
+                        });
+                });
             columns->set_actions(configured_actions);
             columns->set_motion_config(config.animations);
             columns->set_reduced_motion(portal->appearance().reduced_motion);
@@ -1008,6 +1040,7 @@ int main(int argc, char** argv) {
             }
             columns->set_panes_enabled(!picker_request);
             columns->apply(remembered.state);
+            columns->set_sidebar_config(config.sidebar);
             const auto launch_location =
                 views::startup_location(config.startup, remembered.state, start_dir);
             if (picker_request) {
