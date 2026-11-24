@@ -114,7 +114,9 @@ feature-branch push does not start a second build. There is no separate Website
 workflow or generated `gh-pages` branch.
 
 Pages deployment runs only on `main` in `barrulus/rummage`, after the website
-checks and development-download publication succeed in the same workflow.
+checks succeed. It is independent of application tests and packaging within the
+same workflow, so an application failure cannot block a valid website update.
+Application releases still require their full test and packaging gates.
 Branch validation builds the site without publishing it. The Tumbleweed-only
 manual mode does not publish downloads or deploy Pages.
 

@@ -279,11 +279,19 @@ TEST_CASE("pdf security: decompression bombs stay within resource budgets") {
         const Timed run = timed_load(helpers, kAttacks / name);
         INFO(run.loaded.detail << ", " << run.seconds << " s");
         if (run.loaded.failure == picture::Failure::unavailable) {
-            // On a slower host the helper's own deadline can stop drawing or reading before
-            // the memory budget is reached. Scheduling and cleanup can take it past 7 s;
-            // require an explicit backend rejection, never a crash or the parent's timeout.
+            // PDFium can decompress a stream without returning to its read/pause callbacks.
+            // In that case the parent's hard deadline must kill and reap the helper. Keep
+            // arbitrary crashes and startup failures distinct from these bounded rejections.
+            const bool parent_timeout =
+                run.loaded.detail == "the preview helper took longer than " +
+                                         std::to_string(static_cast<int>(seconds(8.0) * 1000)) +
+                                         " ms";
             CHECK((run.loaded.detail == "pdf drawing took too long" ||
-                   run.loaded.detail == "pdf reading budget exhausted"));
+                   run.loaded.detail == "pdf reading budget exhausted" || parent_timeout));
+            if (parent_timeout) {
+                CHECK(helpers.running() == 0);
+                CHECK(run.seconds >= seconds(8.0));
+            }
             CHECK(run.loaded.image.empty());
             CHECK(run.seconds < seconds(10.0));
         } else {
