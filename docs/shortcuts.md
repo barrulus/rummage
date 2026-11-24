@@ -82,9 +82,16 @@ selection gestures are covered in [Using rummage](usage.md#navigate-and-select).
 
 ## Files
 
+The shared filter bar acts on the active pane, above its tabs and breadcrumb.
+The Insights icon opens **Types**, **Map**, **Iris**, **Largest**, **Age** and
+**Languages**, with measurement and scan options when applicable. Press the
+configured Insights shortcut again in an Insights tab to open this menu; use
+arrows and Enter to choose an item. These choices also appear in the command
+palette. **Alt+D** edits the breadcrumb path; **Alt+Up** goes to the parent.
+
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
-| Ctrl+Alt+I | Insights tab: types, space, largest files, age and languages | `folder_insights` |
+| Ctrl+Alt+I | Open Insights; in an Insights tab, open its view menu | `folder_insights` |
 | Alt+Enter | Properties / folder icon selection | `properties` |
 | F2 | Rename; Batch Rename with several entries selected | `rename` |
 | Ctrl+Shift+N | New folder | `new_folder` |

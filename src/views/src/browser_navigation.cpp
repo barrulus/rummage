@@ -17,8 +17,9 @@ void Browser::focus_files() {
 void Browser::edit_path() {
     focus_files();
     quick_look_.close();
-    const auto folder =
-        pane().mode == Mode::details ? pane().details.root_folder() : current_folder();
+    const auto folder = pane().insights.is_open()      ? pane().insights.scope_folder()
+                        : pane().mode == Mode::details ? pane().details.root_folder()
+                                                       : current_folder();
     if (folder)
         area().breadcrumb.edit(folder->path());
 }

@@ -3112,6 +3112,75 @@ MenuItem Browser::details_columns_menu() {
     return menu;
 }
 
+std::vector<MenuItem> Browser::insights_menu() {
+    using View = InsightsView::View;
+    const auto& insights = pane().insights;
+    const bool open = insights.is_open();
+    auto current = insights.view();
+    if (current == View::other_types || current == View::matches)
+        current = View::types;
+    else if (current == View::age_matches)
+        current = View::age;
+    else if (current == View::code_matches)
+        current = View::languages;
+    std::vector<MenuItem> items;
+    const auto view = [&](std::string id, std::string_view label, View target) {
+        MenuItem item;
+        item.id = std::move(id);
+        item.label = label;
+        item.radio = true;
+        item.checked = open && current == target;
+        item.action = [this, target] {
+            if (pane().insights.is_open())
+                pane().insights.set_view(target);
+            else
+                show_insights({}, target);
+        };
+        items.push_back(std::move(item));
+    };
+    view("insights_types", i18n::tr("Types"), View::types);
+    view("insights_space", i18n::tr("Map"), View::space);
+    view("insights_iris", i18n::tr("Iris"), View::iris);
+    view("insights_largest", i18n::tr("Largest"), View::largest);
+    view("insights_age", i18n::tr("Age"), View::age);
+    view("insights_languages", i18n::tr("Languages"), View::languages);
+    if (open) {
+        if (current != View::languages && current != View::largest) {
+            MenuItem measure;
+            measure.id = "insights_measure";
+            measure.label = i18n::tr("Size by:");
+            measure.submenu = true;
+            measure.separator = true;
+            for (const bool bytes : {true, false}) {
+                MenuItem item;
+                item.id = bytes ? "insights_bytes" : "insights_count";
+                item.label = bytes ? i18n::tr("Size") : i18n::tr("Count");
+                item.radio = true;
+                item.checked = insights.size_measure() == bytes;
+                item.action = [this, bytes] { pane().insights.set_size_measure(bytes); };
+                measure.children.push_back(std::move(item));
+            }
+            items.push_back(std::move(measure));
+        }
+        MenuItem recursive;
+        recursive.id = "insights_recursive";
+        recursive.label = i18n::tr("Subfolders");
+        recursive.separator = true;
+        recursive.checkable = true;
+        recursive.checked = insights.recursive();
+        recursive.action = [this] { pane().insights.set_recursive(!pane().insights.recursive()); };
+        items.push_back(std::move(recursive));
+        MenuItem hidden;
+        hidden.id = "insights_hidden";
+        hidden.label = i18n::tr("Hidden files");
+        hidden.checkable = true;
+        hidden.checked = insights.hidden();
+        hidden.action = [this] { pane().insights.set_hidden(!pane().insights.hidden()); };
+        items.push_back(std::move(hidden));
+    }
+    return items;
+}
+
 MenuItem Browser::sort_menu() {
     const fs::SortOrder& now = sort_order();
     MenuItem sort;
@@ -3556,10 +3625,10 @@ void Browser::set_mode(Mode mode) {
 
 void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            const theme::Palette& palette, ui::IconSet& icons) {
-    area().toolbar_bounds = bounds;
-    area().sidebar_toggle_bounds = {};
-    area().filter_bounds = area().clear_filter_bounds = area().new_folder_bounds = {};
-    area().view_menu_bounds = area().insights_bounds = area().sort_bounds = {};
+    toolbar_bounds_ = bounds;
+    sidebar_toggle_bounds_ = {};
+    filter_bounds_ = clear_filter_bounds_ = new_folder_bounds_ = {};
+    view_menu_bounds_ = insights_bounds_ = sort_bounds_ = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -3570,27 +3639,26 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         palette.outline_variant);
     constexpr float button_width = 30;
     constexpr float gap = 4;
-    area().sidebar_toggle_bounds = {bounds.x + 6, bounds.y + 6, button_width, 32};
-    const float field_x = area().sidebar_toggle_bounds.right() + 8;
+    sidebar_toggle_bounds_ = {bounds.x + 6, bounds.y + 6, button_width, 32};
+    const float field_x = sidebar_toggle_bounds_.right() + 8;
     float field_right = bounds.right() - 6;
-    // Reserve the view selector first; lower-priority actions collapse on narrow panes.
+    // Reserve the view selector first; lower-priority actions collapse in narrow windows.
     const auto reserve = [&](ui::Rect& rect) {
         if (field_right - field_x < button_width + gap + 64)
             return;
         rect = {field_right - button_width, bounds.y + 6, button_width, 32};
         field_right = rect.x - gap;
     };
-    reserve(area().view_menu_bounds);
+    reserve(view_menu_bounds_);
     const auto folder = current_folder();
     if (panes_enabled_ && !picker_mode_ && folder && !folder->is_archive() && !folder->is_trash())
-        reserve(area().insights_bounds);
-    reserve(area().sort_bounds);
-    reserve(area().new_folder_bounds);
-    area().filter_bounds = {field_x, bounds.y + 6, std::max(1.0F, field_right - field_x), 32};
-    if (!name_filter().empty() && area().filter_bounds.width >= button_width + gap + 48) {
-        area().filter_bounds.width -= button_width + gap;
-        area().clear_filter_bounds = {area().filter_bounds.right() + gap, bounds.y + 6,
-                                      button_width, 32};
+        reserve(insights_bounds_);
+    reserve(sort_bounds_);
+    reserve(new_folder_bounds_);
+    filter_bounds_ = {field_x, bounds.y + 6, std::max(1.0F, field_right - field_x), 32};
+    if (!name_filter().empty() && filter_bounds_.width >= button_width + gap + 48) {
+        filter_bounds_.width -= button_width + gap;
+        clear_filter_bounds_ = {filter_bounds_.right() + gap, bounds.y + 6, button_width, 32};
     }
     const auto text_in = [&](std::string_view text, const ui::Rect& rect, ui::Color color) {
         const auto& line =
@@ -3599,7 +3667,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_layout(line, rect.x, rect.y + (rect.height - height) / 2, color);
     };
     pane().filter_field.draw(
-        renderer, area().filter_bounds, 14,
+        renderer, filter_bounds_, 14,
         {.background = palette.surface,
          .border = !pane().filter_error.empty()                         ? palette.error
                    : (filter_focused_ && context_area_ == active_area_) ? palette.primary
@@ -3611,8 +3679,8 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                       : palette.primary.with_alpha(0)});
     if (name_filter().empty() && !filter_focused_) {
         text_in(i18n::tr("Filter names…"),
-                {area().filter_bounds.x + 6, area().filter_bounds.y,
-                 area().filter_bounds.width - 12, area().filter_bounds.height},
+                {filter_bounds_.x + 6, filter_bounds_.y, filter_bounds_.width - 12,
+                 filter_bounds_.height},
                 palette.on_surface_variant);
     }
     const auto button = [&](const ui::Rect& rect, std::string_view icon, bool active = false) {
@@ -3626,21 +3694,25 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         icons.draw(renderer, icon, rect.x + (rect.width - 18) / 2, rect.y + 7, 18,
                    active ? palette.on_primary_container : palette.on_surface);
     };
-    button(area().sidebar_toggle_bounds, "layout-columns", sidebar_visible_);
+    button(sidebar_toggle_bounds_, "layout-columns", sidebar_visible_);
     const auto view_icon = pane().mode == Mode::columns ? "layout-columns"
                            : pane().mode == Mode::grid  ? "layout-grid"
                                                         : "list-details";
-    button(area().view_menu_bounds, view_icon);
+    button(view_menu_bounds_, view_icon);
     // A small disclosure mark distinguishes the view menu from a mode toggle.
-    if (!area().view_menu_bounds.empty())
-        icons.draw(renderer, "chevron-down", area().view_menu_bounds.right() - 9,
-                   area().view_menu_bounds.bottom() - 10, 8, palette.on_surface);
-    button(area().insights_bounds, "database", pane().insights.is_open());
-    button(area().sort_bounds, "adjustments-horizontal");
-    button(area().clear_filter_bounds, "x");
-    button(area().new_folder_bounds, "folder");
-    if (!area().new_folder_bounds.empty()) {
-        const auto& box = area().new_folder_bounds;
+    if (!view_menu_bounds_.empty())
+        icons.draw(renderer, "chevron-down", view_menu_bounds_.right() - 9,
+                   view_menu_bounds_.bottom() - 10, 8, palette.on_surface);
+    button(insights_bounds_, "database", pane().insights.is_open());
+    if (!insights_bounds_.empty())
+        icons.draw(renderer, "chevron-down", insights_bounds_.right() - 9,
+                   insights_bounds_.bottom() - 10, 8,
+                   pane().insights.is_open() ? palette.on_primary_container : palette.on_surface);
+    button(sort_bounds_, "adjustments-horizontal");
+    button(clear_filter_bounds_, "x");
+    button(new_folder_bounds_, "folder");
+    if (!new_folder_bounds_.empty()) {
+        const auto& box = new_folder_bounds_;
         renderer.fill_rect({box.right() - 11, box.y + 16, 8, 1.5F}, palette.on_surface);
         renderer.fill_rect({box.right() - 7.75F, box.y + 12.75F, 1.5F, 8}, palette.on_surface);
     }
@@ -3649,18 +3721,15 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
 std::pair<ui::Rect, std::string> Browser::control_hint_at(float x, float y) const {
     if (has_overlay() || settings_.is_open() || batch_rename_.is_open())
         return {};
-    if (const auto index = area_at(x, y)) {
-        const auto& owner = *areas_[*index];
-        for (const auto& [rect, label] :
-             {std::pair{owner.sidebar_toggle_bounds, i18n::mark("Places sidebar")},
-              {owner.new_folder_bounds, i18n::mark("New Folder")},
-              {owner.sort_bounds, i18n::mark("Sort By")},
-              {owner.view_menu_bounds, i18n::mark("View")},
-              {owner.insights_bounds, i18n::mark("Insights")},
-              {owner.clear_filter_bounds, i18n::mark("Clear")}}) {
-            if (rect.contains(x, y))
-                return {rect, std::string{i18n::tr(label)}};
-        }
+    for (const auto& [rect, label] :
+         {std::pair{sidebar_toggle_bounds_, i18n::mark("Places sidebar")},
+          {new_folder_bounds_, i18n::mark("New Folder")},
+          {sort_bounds_, i18n::mark("Sort By")},
+          {view_menu_bounds_, i18n::mark("View")},
+          {insights_bounds_, i18n::mark("Insights")},
+          {clear_filter_bounds_, i18n::mark("Clear")}}) {
+        if (rect.contains(x, y))
+            return {rect, std::string{i18n::tr(label)}};
     }
     for (const auto& [rect, label] :
          {std::pair{status_bar_.settings_bounds(), i18n::mark("Settings…")},
@@ -3720,23 +3789,23 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     if (event.kind != ui::PointerEvent::Kind::press || event.button != ui::PointerButton::left) {
         return;
     }
-    if (area().sidebar_toggle_bounds.contains(event.x, event.y)) {
+    if (sidebar_toggle_bounds_.contains(event.x, event.y)) {
         set_sidebar_visible(!sidebar_visible_);
-    } else if (area().view_menu_bounds.contains(event.x, event.y)) {
-        open_view_menu(area().view_menu_bounds.x, area().view_menu_bounds.bottom());
-    } else if (area().sort_bounds.contains(event.x, event.y)) {
+    } else if (view_menu_bounds_.contains(event.x, event.y)) {
+        open_view_menu(view_menu_bounds_.x, view_menu_bounds_.bottom());
+    } else if (sort_bounds_.contains(event.x, event.y)) {
         filter_focused_ = false;
-        menu_.open(area().sort_bounds.x, area().sort_bounds.bottom(), sort_menu().children, false);
-    } else if (area().insights_bounds.contains(event.x, event.y)) {
-        if (!pane().insights.is_open())
-            show_insights();
-    } else if (area().filter_bounds.contains(event.x, event.y)) {
+        menu_.open(sort_bounds_.x, sort_bounds_.bottom(), sort_menu().children, false);
+    } else if (insights_bounds_.contains(event.x, event.y)) {
+        filter_focused_ = false;
+        menu_.open(insights_bounds_.x, insights_bounds_.bottom(), insights_menu(), false);
+    } else if (filter_bounds_.contains(event.x, event.y)) {
         filter_focused_ = true;
         pane().filter_field.pointer(event);
-    } else if (area().clear_filter_bounds.contains(event.x, event.y)) {
+    } else if (clear_filter_bounds_.contains(event.x, event.y)) {
         set_name_filter({});
         filter_focused_ = true;
-    } else if (area().new_folder_bounds.contains(event.x, event.y)) {
+    } else if (new_folder_bounds_.contains(event.x, event.y)) {
         new_folder();
     }
     redraw_();
@@ -3786,6 +3855,10 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         status_bar_.draw(renderer, {content.x, content.bottom() - bar, content.width, bar}, palette,
                          icons, *folder, panes_enabled_);
     content.height -= bar;
+    const float toolbar_height = std::min(44.0F, std::max(0.0F, content.height - kTitleHeight));
+    draw_toolbar(renderer, {content.x, content.y, content.width, toolbar_height}, palette, icons);
+    content.y += toolbar_height;
+    content.height -= toolbar_height;
     if (split_visible_ && info_shown() && !preview_below_places_ && !pane().insights.is_open()) {
         const float width =
             info_pane_.width_in(content.width - (stacked_ ? 0.0F : InfoPane::kMinContent));
@@ -3951,11 +4024,8 @@ void Browser::draw_area(ui::Renderer& renderer, const ui::Rect& bounds,
                                  palette.on_surface_variant);
         }
     }
-    const float toolbar_height = std::min(44.0F, std::max(0.0F, view.height - kTitleHeight - bar));
-    draw_toolbar(renderer, {view.x, view.y + kTitleHeight, view.width, toolbar_height}, palette,
-                 icons);
-    area().view_area = {view.x, view.y + kTitleHeight + toolbar_height, view.width,
-                        std::max(0.0F, view.height - kTitleHeight - toolbar_height - bar)};
+    area().view_area = {view.x, view.y + kTitleHeight, view.width,
+                        std::max(0.0F, view.height - kTitleHeight - bar)};
     pane().columns.set_info_visible(!split_visible_ && info_shown() && !preview_below_places_);
     pane().grid.set_info_visible(!split_visible_ && info_shown() && !preview_below_places_);
     if (pane().details.info_visible() !=
@@ -4161,6 +4231,12 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         std::abs(x - shared_info_bounds_.x) <= InfoPane::kEdgeGrab && y >= shared_info_bounds_.y &&
         y < shared_info_bounds_.bottom())
         return Shape::ew_resize;
+    if (filter_bounds_.contains(x, y))
+        return Shape::text;
+    if (clear_filter_bounds_.contains(x, y) || new_folder_bounds_.contains(x, y) ||
+        view_menu_bounds_.contains(x, y) || sort_bounds_.contains(x, y) ||
+        sidebar_toggle_bounds_.contains(x, y) || insights_bounds_.contains(x, y))
+        return Shape::pointer;
     if (const auto index = area_at(x, y)) {
         const auto& owner = *areas_[*index];
         const auto& tab = *owner.tabs[owner.active];
@@ -4168,12 +4244,6 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
             return hand(!tab.history.empty() && tab.here > 0);
         if (owner.forward.contains(x, y))
             return hand(tab.here + 1 < tab.history.size());
-        if (owner.filter_bounds.contains(x, y))
-            return Shape::text;
-        if (owner.clear_filter_bounds.contains(x, y) || owner.new_folder_bounds.contains(x, y) ||
-            owner.view_menu_bounds.contains(x, y) || owner.sort_bounds.contains(x, y) ||
-            owner.sidebar_toggle_bounds.contains(x, y) || owner.insights_bounds.contains(x, y))
-            return Shape::pointer;
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
         if (owner.breadcrumb.claims(x, y))
@@ -4456,7 +4526,7 @@ void Browser::dispatch_area_pointer(const ui::PointerEvent& event, Clock::time_p
             target = Target::navigation;
         } else if (area().breadcrumb.claims(event.x, event.y)) {
             target = Target::breadcrumb;
-        } else if (area().toolbar_bounds.contains(event.x, event.y)) {
+        } else if (toolbar_bounds_.contains(event.x, event.y)) {
             target = Target::toolbar;
         } else if (status_bar_.claims(event.x, event.y)) {
             target = Target::status_bar;
@@ -4720,7 +4790,7 @@ void Browser::send_pointer(Target target, const ui::PointerEvent& event, Clock::
 }
 
 void Browser::go_to(const std::filesystem::path& folder, const std::string& child) {
-    if (pane().insights.is_open() && child.empty()) {
+    if (pane().insights.is_open()) {
         pane().insights.navigate(folder);
         return;
     }
@@ -5822,8 +5892,8 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
     }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
         if (event.keysym == XKB_KEY_space && event.modifiers == ui::Modifiers{.ctrl = true}) {
-            menu_.open(area().filter_bounds.x, area().filter_bounds.bottom(),
-                       name_filter_menu().children, true);
+            menu_.open(filter_bounds_.x, filter_bounds_.bottom(), name_filter_menu().children,
+                       true);
             filter_focused_ = false;
         } else if (command_for(event) == Command::new_folder) {
             new_folder();
@@ -6219,7 +6289,11 @@ void Browser::run(Command command, Clock::time_point now) {
             open_menu_from_keyboard();
             break;
         case Command::folder_insights:
-            show_insights();
+            if (pane().insights.is_open()) {
+                filter_focused_ = false;
+                menu_.open(insights_bounds_.x, insights_bounds_.bottom(), insights_menu(), true);
+            } else
+                show_insights();
             break;
         case Command::properties:
             show_properties();

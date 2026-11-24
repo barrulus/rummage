@@ -548,7 +548,7 @@ TEST_CASE("panes: an idle split does not schedule another frame while drawing") 
     CHECK_FALSE(f.browser.animating());
 }
 
-TEST_CASE("panes: split toolbars and status bar respect configured font metrics") {
+TEST_CASE("panes: shared toolbar and status bar respect configured font metrics") {
     Fixture f;
     const auto gl = offscreen(kHeight * 2);
     if (!gl)
@@ -576,13 +576,14 @@ TEST_CASE("panes: split toolbars and status bar respect configured font metrics"
                 const auto pane = f.browser.pane_bounds(index);
                 const auto field = f.browser.filter_bounds();
                 const auto button = f.browser.new_folder_bounds();
-                CHECK(field.x >= pane.x + 40);
+                CHECK(field.x >= 40);
+                CHECK(field.bottom() <= pane.y);
                 CHECK(field.width >= 48);
-                CHECK(field.right() <= pane.right() - 6);
+                CHECK(field.right() <= 600 - 6);
                 if (!button.empty()) {
                     CHECK(field.right() + 4 <= button.x);
                     CHECK(button.width == 30);
-                    CHECK(button.right() <= pane.right() - 6);
+                    CHECK(button.right() <= 600 - 6);
                 }
                 const float height = status.height(renderer);
                 CHECK(status.claims(20, bottom - height + 1));
@@ -859,7 +860,8 @@ TEST_CASE("panes: preview below Places follows the active pane and retains its d
     CHECK(preview.width == f.browser.sidebar().width());
     CHECK(preview.height > 100);
     CHECK_FALSE(f.browser.grid().info_visible());
-    CHECK(f.browser.pane_bounds(0).y == 0);  // no dedicated pane-controls row
+    // Both pane headers sit below the shared toolbar.
+    CHECK(f.browser.pane_bounds(0).y == f.browser.filter_bounds().bottom() + 6);
     const auto divider = f.browser.sidebar_preview_divider_bounds();
     const auto now = Browser::Clock::now();
     f.browser.pointer({.kind = PointerEvent::Kind::press,
@@ -933,7 +935,7 @@ TEST_CASE("panes: compact View menu and Settings remain accessible without the c
     CHECK_FALSE(f.browser.settings_dialog().is_open());
 }
 
-TEST_CASE("panes: compact controls share bottom Settings and choose the clicked pane's view") {
+TEST_CASE("panes: shared controls sit above tabs and breadcrumbs and follow the active pane") {
     Fixture f;
     const auto gl = offscreen();
     REQUIRE(gl);
@@ -972,13 +974,15 @@ TEST_CASE("panes: compact controls share bottom Settings and choose the clicked 
             CHECK(f.browser.settings_bounds().y == settings.y);
             const auto pane = f.browser.pane_bounds(index);
             const auto field = f.browser.filter_bounds();
-            CHECK(field.width > pane.width / 2);
+            CHECK(field.width > kWidth / 2);
+            CHECK(field.bottom() <= pane.y);
             CHECK(f.browser.tab_bar().claims(pane.x + 10, pane.y + 10));
+            CHECK(f.browser.breadcrumb().claims(pane.x + 100, pane.y + 45));
             CHECK(f.browser.view_menu_bounds().y == field.y);
             CHECK(f.browser.sort_bounds().y == field.y);
             CHECK(f.browser.insights_bounds().y == field.y);
         }
-        // A click on the inactive pane's selector changes that pane, preserving the other.
+        // The same selector operates on whichever pane is active, preserving the other.
         f.browser.focus_pane(0);
         f.browser.set_mode(Browser::Mode::columns);
         draw();
@@ -1010,17 +1014,19 @@ TEST_CASE("panes: compact controls share bottom Settings and choose the clicked 
         f.browser.focus_pane(1);
         f.browser.set_mode(Browser::Mode::details);
         draw();
+        CHECK(f.browser.view_menu_bounds().x == left_view.x);
+        CHECK(f.browser.view_menu_bounds().y == left_view.y);
         click(left_view);
         REQUIRE(f.browser.context_menu().is_open());
-        CHECK(f.browser.active_pane() == 0);
+        CHECK(f.browser.active_pane() == 1);
         const auto items = f.browser.context_menu().items();
         REQUIRE(items.size() >= 3);
-        CHECK(items[0].checked);
+        CHECK(items[2].checked);
         items[1].action();
         f.browser.context_menu().close();
         CHECK(f.browser.mode() == Browser::Mode::grid);
-        f.browser.focus_pane(1);
-        CHECK(f.browser.mode() == Browser::Mode::details);
+        f.browser.focus_pane(0);
+        CHECK(f.browser.mode() == Browser::Mode::columns);
         draw();
         click(settings);
         CHECK(f.browser.settings_dialog().is_open());
@@ -1170,7 +1176,7 @@ TEST_CASE("panes: sidebar dismiss and toolbar restore preserve organization and 
     CHECK_FALSE(f.browser.sidebar_visible());
     CHECK_FALSE(f.browser.sidebar().focused());
     draw();
-    // The toolbar starts immediately below the title/breadcrumb row. Find its new toggle.
+    // The shared toolbar restores Places from above the pane headers.
     const auto toggle = f.browser.sidebar_toggle_bounds();
     REQUIRE_FALSE(toggle.empty());
     f.browser.pointer({.kind = PointerEvent::Kind::press,
@@ -1238,4 +1244,68 @@ TEST_CASE("panes: mounted sidebar destinations preserve the requesting pane and 
     f.browser.open_place(place, Destination::window);
     f.browser.open_place(place, Destination::tab);
     CHECK_FALSE(complete);
+}
+
+TEST_CASE("panes: shared filter and New Folder target only the active pane") {
+    Fixture f;
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    f.browser.set_sidebar_visible(false);
+    f.browser.set_info_visible(false);
+    f.browser.toggle_split();
+    REQUIRE(f.settle());
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.set_name_filter("two");
+    f.browser.focus_pane(0);
+    f.browser.set_name_filter("one");
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
+        renderer.end_frame();
+    };
+    const auto click = [&](rummage::ui::Rect box) {
+        REQUIRE_FALSE(box.empty());
+        for (const auto kind : {PointerEvent::Kind::press, PointerEvent::Kind::release})
+            f.browser.pointer({.kind = kind,
+                               .x = box.right() - 2,
+                               .y = box.y + box.height / 2,
+                               .button = PointerButton::left},
+                              Browser::Clock::now());
+    };
+    for (const bool stacked : {false, true}) {
+        f.browser.set_stacked(stacked);
+        f.browser.focus_pane(0);
+        draw();
+        const auto shared = f.browser.filter_bounds();
+        // This point is above the other pane in side-by-side layout.
+        click(shared);
+        CHECK(f.browser.active_pane() == 0);
+        CHECK(f.browser.filtering());
+        f.press(key(XKB_KEY_a, kCtrl));
+        f.browser.key({.keysym = XKB_KEY_s, .text = "sub"}, Browser::Clock::now());
+        REQUIRE(f.settle());
+        CHECK(f.browser.name_filter() == "sub");
+        f.press(key(XKB_KEY_Return));
+        f.browser.focus_pane(1);
+        draw();
+        CHECK(f.browser.name_filter() == "two");
+        CHECK(f.browser.filter_bounds().x == shared.x);
+        CHECK(f.browser.filter_bounds().y == shared.y);
+        f.browser.focus_pane(0);
+        draw();
+        CHECK(f.browser.name_filter() == "sub");
+    }
+    click(f.browser.new_folder_bounds());
+    REQUIRE(f.settle());
+    CHECK(fs::is_directory(f.a / "New Folder"));
+    CHECK_FALSE(fs::exists(f.b / "New Folder"));
+    CHECK(f.browser.name_filter().empty());
+    f.press(key(XKB_KEY_Escape));
+    f.browser.focus_pane(1);
+    CHECK(f.browser.name_filter() == "two");
 }

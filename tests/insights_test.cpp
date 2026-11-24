@@ -533,25 +533,71 @@ TEST_CASE("insights: native browser entry points, rendering and pane navigation"
         capture(name, width, height);
     };
     draw(1100, 820, "types");
-    const auto space = dialog.control_bounds("space");
-    REQUIRE_FALSE(space.empty());
-    browser.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                     .x = space.x + 4,
-                     .y = space.y + 4,
-                     .button = rummage::ui::PointerButton::left},
-                    rummage::views::Browser::Clock::now());
+    const auto menu_item = [&](std::string_view id) {
+        const auto icon = browser.insights_bounds();
+        for (const auto kind :
+             {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
+            browser.pointer({.kind = kind,
+                             .x = icon.x + 4,
+                             .y = icon.y + 4,
+                             .button = rummage::ui::PointerButton::left},
+                            rummage::views::Browser::Clock::now());
+        REQUIRE(browser.context_menu().is_open());
+        const auto items = browser.context_menu().items();
+        const auto found = std::ranges::find(items, id, &rummage::views::MenuItem::id);
+        REQUIRE(found != items.end());
+        auto item = *found;
+        draw(1100, 820, "insights-menu");
+        browser.context_menu().close();
+        return item;
+    };
+    CHECK(menu_item("insights_types").checked);
+    browser.key(shortcut, rummage::views::Browser::Clock::now());
+    REQUIRE(browser.context_menu().is_open());
+    browser.context_menu().close();
+    const auto palette_items = browser.palette_items();
+    const auto map = std::ranges::find(palette_items, "command:insights_space",
+                                       &rummage::views::PaletteItem::id);
+    REQUIRE(map != palette_items.end());
+    map->action();
+    CHECK(menu_item("insights_space").checked);
+    const auto measure = menu_item("insights_measure");
+    REQUIRE(measure.children.size() == 2);
+    CHECK(measure.children[0].checked);
+    measure.children[1].action();
+    CHECK_FALSE(dialog.size_measure());
+    measure.children[0].action();
+    const bool hidden = dialog.hidden();
+    CHECK(menu_item("insights_hidden").checked == hidden);
+    menu_item("insights_hidden").action();
+    CHECK(dialog.hidden() != hidden);
+    menu_item("insights_hidden").action();
+    const bool recursive = dialog.recursive();
+    CHECK(menu_item("insights_recursive").checked == recursive);
+    menu_item("insights_recursive").action();
+    CHECK(dialog.recursive() != recursive);
+    menu_item("insights_recursive").action();
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
     CHECK(dialog.view() == InsightsView::View::space);
     draw(1100, 820, "space");
     CHECK_FALSE(dialog.control_bounds("tile:0").empty());
     dialog.activate_row(row(dialog, "Research"));
     draw(1100, 820, "files");
     CHECK_FALSE(browser.has_overlay());
-    CHECK_FALSE(dialog.control_bounds("up").empty());
-    const auto up_button = dialog.control_bounds("up");
-    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                    .x = up_button.x + 5,
-                    .y = up_button.y + 5,
-                    .button = rummage::ui::PointerButton::left});
+    CHECK(dialog.control_bounds("up").empty());
+    // The shared browser breadcrumb replaces the Insights location row.
+    bool clicked = false;
+    for (float y = browser.filter_bounds().bottom(); y < 180 && !clicked; y += 2)
+        for (float x = 0; x < 1100 && !clicked; x += 2)
+            if (browser.breadcrumb().path_at(x, y) == dir.path) {
+                for (const auto kind : {rummage::ui::PointerEvent::Kind::press,
+                                        rummage::ui::PointerEvent::Kind::release})
+                    browser.pointer(
+                        {.kind = kind, .x = x, .y = y, .button = rummage::ui::PointerButton::left},
+                        rummage::views::Browser::Clock::now());
+                clicked = true;
+            }
+    REQUIRE(clicked);
     CHECK(dialog.current_path() == dir.path);
     dialog.back();
     CHECK(dialog.current_path() == dir.path / "Research");
@@ -560,7 +606,9 @@ TEST_CASE("insights: native browser entry points, rendering and pane navigation"
                 rummage::views::Browser::Clock::now());
     CHECK(dialog.current_path() == dir.path);
     draw(640, 600, "compact");
-    for (const auto id : {"location", "recursive", "hidden", "refresh"}) {
+    for (const auto id : {"location", "up", "types", "recursive", "hidden"})
+        CHECK(dialog.control_bounds(id).empty());
+    for (const auto id : {"refresh"}) {
         const auto r = dialog.control_bounds(id);
         CHECK_FALSE(r.empty());
         CHECK(r.x >= 0);
@@ -587,6 +635,29 @@ TEST_CASE("insights: native browser entry points, rendering and pane navigation"
     const auto selected = browser.picker_folder()->single_selection();
     REQUIRE(selected != nullptr);
     CHECK(selected->name == ".secret.pdf");
+    browser.toggle_split();
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    REQUIRE(browser.active_pane() == 1);
+    draw(1100, 820, "split-insights");
+    CHECK_FALSE(menu_item("insights_types").checked);
+    menu_item("insights_iris").action();
+    REQUIRE(until(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.insights_view().view() == InsightsView::View::iris);
+    CHECK(dialog.view() == InsightsView::View::matches);
+    for (const bool stacked : {false, true}) {
+        browser.set_stacked(stacked);
+        browser.focus_pane(0);
+        draw(1100, 820, stacked ? "insights-stack" : "insights-split");
+        CHECK(menu_item("insights_types").checked);
+        menu_item("insights_age").action();
+        CHECK(dialog.view() == InsightsView::View::age);
+        browser.focus_pane(1);
+        draw(1100, 820, "split-active");
+        CHECK(menu_item("insights_iris").checked);
+        CHECK(browser.insights_view().view() == InsightsView::View::iris);
+        browser.focus_pane(0);
+        dialog.set_view(InsightsView::View::types);
+    }
     dialog.close();
     browser.set_picker_mode(true);
     browser.show_insights(dir.path);
@@ -973,6 +1044,7 @@ TEST_CASE(
     browser.set_places({{.label = "First", .path = dir.path / "first", .icon = "folder"},
                         {.label = "Second", .path = dir.path / "second", .icon = "folder"}});
     browser.open(dir.path / "first");
+    browser.set_mode(Browser::Mode::details);
     REQUIRE(until(loop, [&] { return !browser.loading(); }));
     browser.picker_folder()->select_name("keep.md");
     const auto original = browser.picker_folder();
@@ -1008,6 +1080,13 @@ TEST_CASE(
     CHECK(browser.insights_bounds().right() < browser.view_menu_bounds().x);
     CHECK(browser.insights_bounds().bottom() < browser.settings_bounds().y);
     click(browser.insights_bounds());
+    REQUIRE(browser.context_menu().is_open());
+    CHECK(browser.tab_count() == 1);
+    // Choose Map from the menu using its normal keyboard navigation.
+    browser.key({.keysym = XKB_KEY_Home, .text = {}}, now);
+    browser.key({.keysym = XKB_KEY_Down, .text = {}}, now);
+    browser.key({.keysym = XKB_KEY_Return, .text = {}}, now);
+    CHECK(browser.insights_view().view() == InsightsView::View::space);
     REQUIRE(browser.tab_count() == 2);
     REQUIRE(browser.active_tab() == 1);
     auto& view = browser.insights_view();
@@ -1015,7 +1094,16 @@ TEST_CASE(
     view.set_view(InsightsView::View::largest);
     draw("qol-start");
     click(browser.insights_bounds());
-    CHECK(browser.tab_count() == 2);  // Already in insights: do not open another tab or rescan.
+    CHECK(browser.tab_count() == 2);  // Opening the menu keeps the current tab and scan.
+    REQUIRE(browser.context_menu().is_open());
+    const auto items = browser.context_menu().items();
+    const auto largest =
+        std::ranges::find(items, "insights_largest", &rummage::views::MenuItem::id);
+    REQUIRE(largest != items.end());
+    CHECK(largest->checked);
+    CHECK(std::ranges::find(items, "insights_measure", &rummage::views::MenuItem::id) ==
+          items.end());
+    browser.key({.keysym = XKB_KEY_Escape, .text = {}}, now);
 
     CHECK(browser.info_pane().copy_bounds().empty());
     CHECK(view.control_bounds("close").empty());
@@ -1072,13 +1160,12 @@ TEST_CASE(
     browser.select_tab(1);
     draw("qol-restored");
     CHECK_FALSE(view.control_bounds("row:80").empty());
-    click(view.control_bounds("location"));
-    CHECK(view.tree_open());
-    draw("qol-folder-tree");
-    browser.key({.keysym = XKB_KEY_End, .text = {}}, now);
+    browser.key({.keysym = XKB_KEY_d, .text = {}, .modifiers = {.alt = true}}, now);
+    REQUIRE(browser.breadcrumb().editing());
+    CHECK(browser.breadcrumb().text() == (dir.path / "second").string());
+    browser.breadcrumb().paste((dir.path / "second/child").string());
     browser.key({.keysym = XKB_KEY_Return, .text = {}}, now);
     REQUIRE(until(loop, [&] { return !view.loading(); }));
-    CHECK_FALSE(view.tree_open());
     CHECK(view.current_path() == dir.path / "second/child");
     browser.back();
     REQUIRE(until(loop, [&] { return !view.loading(); }));
@@ -1252,9 +1339,8 @@ TEST_CASE("insights: Iris native files, descendant rings, sorting and reduced mo
     };
     view.set_iris_motion(0);
     draw("iris-root");
-    CHECK(view.control_bounds("types").y == view.control_bounds("hidden").y + 2);
-    CHECK(view.control_bounds("space").x == doctest::Approx(view.control_bounds("types").right()));
-    CHECK(view.control_bounds("count").x == doctest::Approx(view.control_bounds("bytes").right()));
+    for (const auto id : {"types", "space", "hidden", "count", "bytes", "location", "up"})
+        CHECK(view.control_bounds(id).empty());
     CHECK_FALSE(view.animating());
     const auto snapshot = view.snapshot();
     const auto empty = row(view, "empty.txt");
