@@ -1,7 +1,6 @@
 #include "rummage/isolate/helpers.hpp"
 
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -13,6 +12,7 @@
 #include <ios>
 #include <memory>
 #include <optional>
+#include <poll.h>
 #include <span>
 #include <string>
 #include <string_view>
@@ -104,6 +104,8 @@ TEST_CASE("helpers: a photo's information from the helper") {
         CHECK(there.taken == here.taken);
         CHECK(there.software == here.software);
         CHECK(there.rating == here.rating);
+        CHECK(there.details == here.details);
+        CHECK(there.details_truncated == here.details_truncated);
     }
     const picture::PhotoInfo shot = helpers.photo_info(kData / "shot.jpg");
     CHECK(shot.camera == "OM-1");
@@ -538,24 +540,24 @@ TEST_CASE("helpers: a sequence's read is stopped mid-entry, the helper with it")
     const rummage::archive::Listing listing = helpers->list_archive(dir.path / "zeros.gz", {});
     REQUIRE(listing.format == rummage::archive::Format::gzip);
     REQUIRE(listing.entries.size() == 1);
-    std::atomic<bool> stop{false};
+    // Into a pipe nobody reads: the helper fills it and waits, so the entry cannot end before
+    // the stop, however fast zlib is. Stopped once the first bytes are there.
+    std::array<int, 2> ends{};
+    REQUIRE(::pipe2(ends.data(), O_CLOEXEC) == 0);
     const std::unique_ptr<rummage::archive::EntrySequence> sequence =
-        isolate::Helpers::open_sequence(helpers, dir.path / "zeros.gz", listing.format,
-                                        [&stop] { return stop.load(); });
-    const int sink = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
-    REQUIRE(sink >= 0);
-    std::thread stopper{[&stop] {
-        std::this_thread::sleep_for(std::chrono::milliseconds{200});
-        stop = true;
-    }};
+        isolate::Helpers::open_sequence(helpers, dir.path / "zeros.gz", listing.format, [&ends] {
+            pollfd written{.fd = ends[0], .events = POLLIN, .revents = 0};
+            return ::poll(&written, 1, 0) == 1;
+        });
     const auto started = std::chrono::steady_clock::now();
-    const rummage::archive::Read read = sequence->read(listing.entries.front(), sink, UINT64_MAX);
+    const rummage::archive::Read read =
+        sequence->read(listing.entries.front(), ends[1], UINT64_MAX);
     const auto took = std::chrono::steady_clock::now() - started;
-    stopper.join();
-    ::close(sink);
+    ::close(ends[0]);
+    ::close(ends[1]);
     CHECK(read.failure == rummage::archive::Failure::unreadable);
     CHECK(read.detail == "preview cancelled");
-    CHECK(took < std::chrono::seconds{2});  // inflating it all takes far longer
+    CHECK(took < std::chrono::seconds{2});  // seen at the next look at stopped
     CHECK(helpers->running() == 0);         // stopped: let go of, not given back
 }
 
@@ -664,4 +666,25 @@ TEST_CASE("helpers: rotated previews fit rectangular requests") {
         CHECK(loaded.image.width <= ask.max_width);
         CHECK(loaded.image.height <= ask.max_height);
     }
+}
+
+TEST_CASE("helpers: extended metadata is bounded, round trips, and rejects truncated packets") {
+    picture::PhotoInfo info;
+    info.add_detail("Custom", std::string(3000, 'x'));
+    info.add_detail("Custom", "second value");
+    const auto bytes = isolate::protocol::encode_info(info);
+    const auto back = isolate::protocol::decode_info(bytes);
+    REQUIRE(back);
+    CHECK(back->details == info.details);
+    CHECK_FALSE(back->details_truncated);
+    for (std::size_t size = 0; size < bytes.size(); ++size)
+        CHECK_FALSE(isolate::protocol::decode_info(std::span{bytes}.first(size)));
+    for (unsigned i = 0; i < 300; ++i)
+        info.add_detail("Field " + std::to_string(i), std::string(4096, 'v'));
+    const auto large = isolate::protocol::encode_info(info);
+    CHECK(large.size() <= isolate::protocol::kMaxPacket);
+    const auto bounded = isolate::protocol::decode_info(large);
+    REQUIRE(bounded);
+    CHECK(bounded->details_truncated);
+    CHECK_FALSE(bounded->details.empty());
 }

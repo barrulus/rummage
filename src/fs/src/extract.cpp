@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "rummage/archive/archive.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/archive_folder.hpp"
 
 namespace rummage::fs {
@@ -339,7 +340,7 @@ private:
             Conflict question;
             question.name = archive.filename().string();
             question.destination = request_.destination;
-            question.question = std::format(
+            question.question = i18n::trf(
                 "It unpacks to {} from {}: {} times its size.", human_size(progress_.bytes_total),
                 human_size(packed), progress_.bytes_total / std::max<std::uint64_t>(packed, 1));
             if (!callbacks_.resolve || callbacks_.resolve(question) != Resolution::replace) {

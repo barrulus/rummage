@@ -127,6 +127,23 @@ struct Tree {
     }
 };
 
+// A folder on /dev/shm, removed with everything in it.
+struct Removed {
+    fs::path path;
+
+    explicit Removed(fs::path made) : path{std::move(made)} {}
+
+    Removed(const Removed&) = delete;
+    Removed& operator=(const Removed&) = delete;
+    Removed(Removed&&) = delete;
+    Removed& operator=(Removed&&) = delete;
+
+    ~Removed() {
+        std::error_code ignored;
+        fs::remove_all(path, ignored);
+    }
+};
+
 }  // namespace
 
 TEST_CASE("transfer: a copy keeps contents, dates, permissions, links; sidecars come along") {
@@ -195,22 +212,6 @@ TEST_CASE("transfer: between two file systems the bytes go through read and writ
         MESSAGE("no /dev/shm: skipped");
         return;
     }
-
-    struct Removed {
-        fs::path path;
-
-        explicit Removed(fs::path made) : path{std::move(made)} {}
-
-        Removed(const Removed&) = delete;
-        Removed& operator=(const Removed&) = delete;
-        Removed(Removed&&) = delete;
-        Removed& operator=(Removed&&) = delete;
-
-        ~Removed() {
-            std::error_code ignored;
-            fs::remove_all(path, ignored);
-        }
-    };
 
     const Removed other_disk{fs::path{pattern}};
     Tree t;
@@ -418,6 +419,67 @@ TEST_CASE("transfer: a copy into its own folder keeps both by itself") {
     CHECK(result.placed == Names{"P1 2.ORF", "Trip 2"});
     CHECK(fs::exists(t.from / "P1 2.ORF.xmp"));
     CHECK(fs::exists(t.from / "Trip 2" / "deep" / "b.jpg"));
+}
+
+TEST_CASE(
+    "transfer: a folder reached through a link is followed, the links copied into it are not") {
+    Tree t;
+    const fs::path pictures = t.dir.path / "Pictures";  // a ~/Pictures on another disk
+    fs::create_directory_symlink(t.to, pictures);
+    const auto into = [&t](TransferKind kind, Names names, const fs::path& destination) {
+        return rummage::fs::run_transfer(
+            {.kind = kind, .source = t.from, .names = std::move(names), .destination = destination},
+            {}, {});
+    };
+    TransferResult result = into(TransferKind::copy, {"P1.ORF", "link"}, pictures);
+    CHECK(result.refused.empty());
+    CHECK(result.placed == Names{"P1.ORF", "link"});
+    CHECK(listing(t.to) == Names{"P1.ORF", "P1.ORF.xmp", "P1_01.ORF.xmp", "link"});
+    CHECK(fs::read_symlink(t.to / "link") == "notes.txt");
+    CHECK(fs::is_symlink(pictures));
+
+    result = into(TransferKind::move, {"notes.txt"}, pictures);
+    CHECK(result.refused.empty());
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    CHECK_FALSE(fs::exists(t.from / "notes.txt"));
+
+    // Through a link, a folder inside the one copied is still inside it.
+    fs::create_directory_symlink(t.from / "Trip" / "deep", t.dir.path / "Deep");
+    result = into(TransferKind::copy, {"Trip"}, t.dir.path / "Deep");
+    CHECK(result.refused == "Cannot copy Trip into itself");
+
+    // A link that leads nowhere is not a folder.
+    fs::create_symlink(t.dir.path / "gone", t.dir.path / "Gone");
+    result = into(TransferKind::copy, {"P1.ORF"}, t.dir.path / "Gone");
+    CHECK(result.refused == std::format("{} is not a folder", (t.dir.path / "Gone").string()));
+}
+
+TEST_CASE("transfer: a move out of a folder reached through a link is a rename on its disk") {
+    std::string pattern = "/dev/shm/rummage-test-XXXXXX";
+    if (mkdtemp(pattern.data()) == nullptr) {
+        MESSAGE("no /dev/shm: skipped");
+        return;
+    }
+    const Removed other_disk{fs::path{pattern}};
+    const TempDir here;
+    if (stat_of(other_disk.path).st_dev == stat_of(here.path).st_dev) {
+        MESSAGE("/dev/shm on the same file system as the temporary folder: skipped");
+        return;
+    }
+    fs::create_directories(other_disk.path / "from");
+    fs::create_directories(other_disk.path / "to");
+    std::ofstream{other_disk.path / "from" / "P1.ORF"} << "P1.ORF";
+    const ino_t inode = stat_of(other_disk.path / "from" / "P1.ORF").st_ino;
+    fs::create_directory_symlink(other_disk.path / "from", here.path / "Camera");
+
+    const TransferResult result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                             .source = here.path / "Camera",
+                                                             .names = {"P1.ORF"},
+                                                             .destination = other_disk.path / "to"},
+                                                            {}, {});
+    CHECK(result.refused.empty());
+    CHECK(result.errors.empty());
+    CHECK(stat_of(other_disk.path / "to" / "P1.ORF").st_ino == inode);  // renamed, not copied
 }
 
 TEST_CASE("transfer: refused before anything moves") {
@@ -858,5 +920,327 @@ TEST_CASE("transfer queue: progress, a question answered later, the result") {
     REQUIRE(run_until(loop, [&] { return answer.has_value(); }));
     second.reset();
     answer.value_or(std::function<void(Resolution)>{})(Resolution::replace);  // too late
+    CHECK(read_file(t.to / "notes.txt") == "old");
+}
+
+TEST_CASE("transfer: verification rereads files, nested contents and sidecars") {
+    Tree t;
+    std::ofstream{t.from / "empty"};
+    TransferProgress last;
+    bool verifying = false;
+    const auto result =
+        rummage::fs::run_transfer({.source = t.from,
+                                   .names = {"P1.ORF", "notes.txt", "Trip", "link", "empty"},
+                                   .destination = t.to,
+                                   .verify = true},
+                                  {},
+                                  {.progress =
+                                       [&](const TransferProgress& p) {
+                                           last = p;
+                                           verifying = verifying || p.verifying;
+                                       },
+                                   .resolve = nullptr});
+    REQUIRE(result.errors.empty());
+    REQUIRE(result.refused.empty());
+    CHECK_FALSE(result.cancelled);
+    CHECK(verifying);
+    CHECK(result.files_verified == 7);
+    CHECK(last.files_verified == 7);
+    CHECK(last.bytes_verified == last.bytes_done);
+    CHECK(read_file(t.to / "Trip/deep/b.jpg") == "Trip/deep/b.jpg");
+    CHECK(read_file(t.to / "P1.ORF.xmp") == "P1.ORF.xmp");
+    CHECK(fs::read_symlink(t.to / "link") == "notes.txt");
+}
+
+TEST_CASE("transfer: verified cross-filesystem move deletes only after comparison") {
+    Tree t;
+    bool source_during_verification = false;
+    const auto result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                   .source = t.from,
+                                                   .names = {"notes.txt"},
+                                                   .destination = t.to,
+                                                   .force_copy = true,
+                                                   .verify = true},
+                                                  {},
+                                                  {.progress =
+                                                       [&](const TransferProgress& p) {
+                                                           if (p.verifying && p.files_verified == 0)
+                                                               source_during_verification =
+                                                                   fs::exists(t.from / "notes.txt");
+                                                       },
+                                                   .resolve = nullptr});
+    REQUIRE(result.errors.empty());
+    CHECK(source_during_verification);
+    CHECK(result.files_verified == 1);
+    CHECK_FALSE(fs::exists(t.from / "notes.txt"));
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+}
+
+TEST_CASE("transfer: verification failure preserves source and an existing destination") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old destination";
+    bool injected = false;
+    bool truncate = false;
+    SUBCASE("different copied bytes") {}
+    SUBCASE("verification read reaches an unexpected EOF") { truncate = true; }
+    const auto result = rummage::fs::run_transfer(
+        {.kind = TransferKind::move,
+         .source = t.from,
+         .names = {"notes.txt"},
+         .destination = t.to,
+         .force_copy = true,
+         .verify = true},
+        {},
+        {.progress =
+             [&](const TransferProgress& p) {
+                 if (!p.verifying || injected)
+                     return;
+                 for (const auto& entry : fs::directory_iterator{t.to}) {
+                     if (entry.path().filename().string().starts_with(".rummage-part-")) {
+                         std::ofstream out{entry.path(), std::ios::binary | std::ios::trunc};
+                         if (!truncate)
+                             out << "corrupted";
+                         injected = true;
+                     }
+                 }
+             },
+         .resolve = [](const Conflict&) { return Resolution::replace; }});
+    REQUIRE(injected);
+    REQUIRE_FALSE(result.errors.empty());
+    CHECK(result.errors.front().find(truncate ? "Verification read failed"
+                                              : "copied contents differ") != std::string::npos);
+    CHECK(result.placed.empty());
+    CHECK(result.files_verified == 0);
+    CHECK(read_file(t.from / "notes.txt") == "notes.txt");
+    CHECK(read_file(t.to / "notes.txt") == "old destination");
+    CHECK(listing(t.to) == Names{"notes.txt"});
+}
+
+TEST_CASE("transfer: source changes and cancellation during verification cannot succeed") {
+    Tree t;
+    CancelToken stop;
+    bool cancel = false;
+    SUBCASE("source changes after its bytes have been compared") {}
+    SUBCASE("cancel during comparison") { cancel = true; }
+    bool changed = false;
+    const auto result =
+        rummage::fs::run_transfer({.kind = TransferKind::move,
+                                   .source = t.from,
+                                   .names = {"notes.txt"},
+                                   .destination = t.to,
+                                   .force_copy = true,
+                                   .verify = true},
+                                  stop,
+                                  {.progress =
+                                       [&](const TransferProgress& p) {
+                                           if (!p.verifying || p.bytes_verified == 0 || changed)
+                                               return;
+                                           changed = true;
+                                           if (cancel)
+                                               stop.cancel();
+                                           else
+                                               std::ofstream{t.from / "notes.txt"} << "new notes";
+                                       },
+                                   .resolve = nullptr});
+    REQUIRE(changed);
+    CHECK(result.placed.empty());
+    CHECK(result.files_verified == 0);
+    CHECK(fs::exists(t.from / "notes.txt"));
+    CHECK(listing(t.to).empty());
+    if (cancel)
+        CHECK(result.cancelled);
+    else {
+        REQUIRE_FALSE(result.errors.empty());
+        CHECK(result.errors.front().find("File changed during verification") != std::string::npos);
+    }
+}
+
+TEST_CASE("transfer: verification leaves same-filesystem renames fast and refuses archives") {
+    Tree t;
+    const auto result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                   .source = t.from,
+                                                   .names = {"notes.txt"},
+                                                   .destination = t.to,
+                                                   .verify = true},
+                                                  {}, {});
+    CHECK(result.errors.empty());
+    CHECK(result.files_verified == 0);
+    CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    EventLoop loop;
+    std::optional<TransferResult> done;
+    TransferQueue queue{loop, nullptr, nullptr, [&](const auto&, const auto& r) { done = r; }};
+    queue.submit({.source = t.from,
+                  .names = {"Trip"},
+                  .destination = t.to,
+                  .from_archive = true,
+                  .verify = true});
+    REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+    CHECK(done->refused == "Copy verification is unavailable for archive extraction");
+    CHECK_FALSE(fs::exists(t.to / "Trip"));
+}
+
+TEST_CASE("transfer queue: a link request runs and reports like the others") {
+    Tree t;
+    EventLoop loop;
+    std::optional<TransferResult> done;
+    TransferQueue queue{loop, nullptr, nullptr,
+                        [&](const TransferRequest& request, const TransferResult& result) {
+                            CHECK(request.kind == TransferKind::link);
+                            done = result;
+                        }};
+    queue.submit(
+        {.kind = TransferKind::link, .source = t.from, .names = {"P1.ORF"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+    CHECK(done.value_or(TransferResult{}).placed == Names{"P1.ORF"});
+    CHECK(fs::read_symlink(t.to / "P1.ORF") == "../from/P1.ORF");
+    CHECK(listing(t.to) == Names{"P1.ORF"});  // the sidecars stay with the photo
+}
+
+TEST_CASE("transfer tasks: cancelling a queued ID leaves the active question intact") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::vector<std::uint64_t> completed;
+    TransferQueue queue{loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+                        [&](const auto& request, const auto& result) {
+                            completed.push_back(request.id);
+                            if (result.cancelled)
+                                CHECK(result.cancelled_before_start);
+                        }};
+    const auto first =
+        queue.submit({.source = t.from, .names = {"notes.txt"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    const auto second = queue.submit({.source = t.from, .names = {"Trip"}, .destination = t.to});
+    CHECK(second > first);
+    REQUIRE(queue.cancel(second));
+    CHECK_FALSE(queue.cancel(second));
+    REQUIRE(run_until(loop, [&] { return completed.size() == 1; }));
+    CHECK(completed.front() == second);
+    CHECK(queue.pending() == 1);
+    CHECK(queue.tasks().front().state == rummage::fs::TransferState::waiting);
+    CHECK_FALSE(fs::exists(t.to / "Trip"));
+    answer(Resolution::keep_both);
+    REQUIRE(run_until(loop, [&] { return queue.pending() == 0; }));
+    CHECK(completed.back() == first);
+    CHECK(read_file(t.to / "notes 2.txt") == "notes.txt");
+    CHECK(queue.tasks()[1].state == rummage::fs::TransferState::cancelled);
+    CHECK_FALSE(queue.pause(first, true));
+    queue.clear_finished();
+    CHECK(queue.tasks().empty());
+}
+
+TEST_CASE("transfer tasks: pause holds an answered conflict until resume or cancel") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::optional<TransferResult> done;
+    auto queue = std::make_unique<TransferQueue>(
+        loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+        [&](const auto&, const auto& result) { done = result; });
+    const auto id = queue->submit(
+        {.source = t.from, .names = {"notes.txt"}, .destination = t.to, .verify = true});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    REQUIRE(queue->pause(id, true));
+    answer(Resolution::replace);
+    bool elapsed = false;
+    const auto timer = loop.add_timer(40ms, 0ms, [&] { elapsed = true; });
+    REQUIRE(run_until(loop, [&] { return elapsed; }));
+    loop.remove(timer);
+    CHECK_FALSE(done.has_value());
+    CHECK(read_file(t.to / "notes.txt") == "old");
+    CHECK(queue->tasks().front().state == rummage::fs::TransferState::paused);
+    SUBCASE("resume completes verification") {
+        REQUIRE(queue->pause(id, false));
+        REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+        CHECK(done->files_verified == 1);
+        CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    }
+    SUBCASE("cancel wakes the paused worker") {
+        REQUIRE(queue->cancel(id));
+        REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+        CHECK(done->cancelled);
+        CHECK_FALSE(done->cancelled_before_start);
+        CHECK(read_file(t.to / "notes.txt") == "old");
+        answer(Resolution::replace);  // a stale reply must not restart anything
+    }
+    SUBCASE("destruction wakes and joins the paused worker") {
+        queue.reset();
+        answer(Resolution::replace);
+        CHECK(read_file(t.to / "notes.txt") == "old");
+    }
+}
+
+TEST_CASE("transfer tasks: a paused queued head preserves FIFO and can be cancelled") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::vector<std::uint64_t> done;
+    TransferQueue queue{loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+                        [&](const auto& request, const auto&) { done.push_back(request.id); }};
+    const auto first =
+        queue.submit({.source = t.from, .names = {"notes.txt"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    const auto held = queue.submit({.source = t.from, .names = {"Trip"}, .destination = t.to});
+    const auto last = queue.submit({.source = t.from, .names = {"P1.ORF"}, .destination = t.to});
+    REQUIRE(queue.pause(held, true));
+    answer(Resolution::skip);
+    REQUIRE(run_until(loop, [&] { return !done.empty(); }));
+    CHECK(done.front() == first);
+    queue.clear_finished();
+    REQUIRE(queue.tasks().size() == 2);
+    CHECK(queue.tasks().front().id == held);
+    CHECK_FALSE(queue.tasks().front().started);
+    CHECK_FALSE(fs::exists(t.to / "P1.ORF"));
+    REQUIRE(queue.cancel(held));
+    REQUIRE(run_until(loop, [&] { return queue.pending() == 0; }));
+    CHECK(done.back() == last);
+    CHECK_FALSE(fs::exists(t.to / "Trip"));
+    CHECK(fs::exists(t.to / "P1.ORF"));
+}
+
+TEST_CASE("transfer tasks: unsupported pause, failed history and retention") {
+    Tree t;
+    EventLoop loop;
+    TransferQueue queue{loop, nullptr, nullptr, nullptr};
+    for (std::size_t i = 0; i < TransferQueue::kHistoryLimit + 5; ++i) {
+        const auto id = queue.submit({.source = t.from,
+                                      .names = {"missing"},
+                                      .destination = t.to,
+                                      .from_archive = true,
+                                      .verify = true});
+        CHECK_FALSE(queue.pause(id, true));
+        REQUIRE(run_until(loop, [&] { return queue.pending() == 0; }));
+    }
+    const auto tasks = queue.tasks();
+    REQUIRE(tasks.size() == TransferQueue::kHistoryLimit);
+    CHECK(tasks.front().id == 6);
+    CHECK(tasks.back().state == rummage::fs::TransferState::failed);
+    CHECK(tasks.back().error_count == 1);
+    REQUIRE(tasks.back().errors.size() == 1);
+    CHECK(tasks.back().errors.front() == "Copy verification is unavailable for archive extraction");
+    CHECK_FALSE(queue.cancel(tasks.back().id));
+    CHECK_FALSE(queue.cancel(1));
+    CHECK_FALSE(queue.pause(1, true));
+    queue.clear_finished();
+    CHECK(queue.tasks().empty());
+}
+
+TEST_CASE("transfer tasks: cancelling a conflict also wakes a paused transfer") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "old";
+    EventLoop loop;
+    std::function<void(Resolution)> answer;
+    std::optional<TransferResult> done;
+    TransferQueue queue{loop, nullptr, [&](const auto&, auto reply) { answer = std::move(reply); },
+                        [&](const auto&, const auto& result) { done = result; }};
+    const auto id = queue.submit({.source = t.from, .names = {"notes.txt"}, .destination = t.to});
+    REQUIRE(run_until(loop, [&] { return bool(answer); }));
+    REQUIRE(queue.pause(id, true));
+    answer(Resolution::cancel);
+    REQUIRE(run_until(loop, [&] { return done.has_value(); }));
+    CHECK(done->cancelled);
     CHECK(read_file(t.to / "notes.txt") == "old");
 }

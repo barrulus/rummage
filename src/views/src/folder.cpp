@@ -2,11 +2,14 @@
 
 #include <algorithm>
 #include <array>
+#include <format>
 #include <iterator>
 #include <string_view>
 #include <sys/stat.h>
 #include <utility>
 #include <vector>
+
+#include "rummage/fs/name_pattern.hpp"
 
 namespace rummage::views {
 namespace {
@@ -314,6 +317,79 @@ void Folder::select_all() {
         cursor_name_ = list.front().name;
         anchor_ = cursor_name_;
     }
+    selection_changed();
+}
+
+void Folder::invert_selection() {
+    const std::vector<fs::Entry>& list = entries();
+    if (list.empty()) {
+        return;
+    }
+    // Names selected but not listed yet (pasted, on their way) count as selected, so they drop out.
+    std::unordered_set<std::string> inverted;
+    for (const fs::Entry& entry : list) {
+        if (!selected_.contains(entry.name)) {
+            inverted.insert(entry.name);
+        }
+    }
+    selected_ = std::move(inverted);
+    press_pending_ = false;
+    if (!cursor_index_) {
+        const auto first = std::ranges::find_if(
+            list, [this](const fs::Entry& entry) { return selected_.contains(entry.name); });
+        if (first != list.end()) {
+            cursor_index_ = static_cast<std::size_t>(first - list.begin());
+            cursor_name_ = first->name;
+            cursor_expected_ = false;
+            anchor_ = cursor_name_;
+        }
+    }
+    selection_changed();
+}
+
+std::vector<std::size_t> Folder::matching(const std::string& glob) const {
+    std::vector<std::size_t> rows;
+    if (glob.empty()) {
+        return rows;
+    }
+    const std::vector<fs::Entry>& list = entries();
+    const fs::NamePattern pattern{glob};
+    for (std::size_t i = 0; i < list.size(); ++i) {
+        if (pattern.matches(list[i].name)) {
+            rows.push_back(i);
+        }
+    }
+    return rows;
+}
+
+void Folder::select_rows(std::span<const std::size_t> rows, bool add) {
+    const std::vector<fs::Entry>& list = entries();
+    std::unordered_set<std::string> chosen;
+    if (add) {
+        chosen = selected_;
+    }
+    std::optional<std::size_t> first;
+    bool cursor_in = false;
+    for (const std::size_t row : rows) {
+        if (row >= list.size()) {
+            continue;
+        }
+        chosen.insert(list[row].name);
+        first = first.value_or(row);
+        cursor_in = cursor_in || row == cursor_index_;
+    }
+    if (!first) {
+        return;  // nothing matched: the selection stays
+    }
+    press_pending_ = false;
+    selected_ = std::move(chosen);
+    if (!cursor_in) {
+        cursor_expected_ = false;
+        cursor_index_ = first;
+        cursor_name_ = list[*first].name;
+        reveal_ = Reveal::jump;
+    }
+    anchor_ = cursor_name_;
     selection_changed();
 }
 

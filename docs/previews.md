@@ -2,7 +2,14 @@
 
 [Documentation](README.md) · [Security model](security.md) · [Troubleshooting](troubleshooting.md)
 
-The grid and information pane show thumbnails/previews. **Space** opens Quick Look
+Grid, Details and Columns show thumbnails in place of file icons wherever supported.
+**View → Show → Thumbnails** switches all file views between thumbnails (on by default)
+and file-type icons, and remembers the choice between sessions. Previews fit inside
+the existing icon space and grow with the view's zoom. Unsupported files and previews
+still loading keep their normal icons. The information pane and Quick Look remain
+available when file previews are off.
+
+**Space** opens Quick Look
 for the current file; arrows move through the folder, and Space/Escape closes it.
 Unsupported files get an information card or a reason why a preview is unavailable.
 Opening a file with Enter uses its desktop application, independent of preview support.
@@ -13,14 +20,29 @@ frames and embedded raw previews can fill more of the window, up to the original
 Older cached thumbnails without dimensions still fill the preview area until the sharp
 image arrives.
 
-**Alt+Enter** opens Properties with a compact metadata card and an image or video
+The information pane starts with file information, dimensions and a short media
+summary (container, duration and video codec when available). **More details**
+reveals the remaining media metadata and filesystem details. **Copy all properties**
+stays at the top of the pane and includes collapsed fields in the copied text.
+
+**Alt+Enter** opens Properties with a scrollable metadata card and an image or video
 thumbnail beside the filename when available. Unsupported files use their file-type
 icon. Its width follows the filename and metadata instead of reserving an empty
-right-hand column; long values are ellipsized within the window. The dialog grows
-for folder-icon controls, link targets and errors; in short
-windows, its contents scroll while the action buttons remain visible.
+right-hand column; long labels and values wrap within the window and can be selected
+and copied. File information, dimensions, container, duration and video codec appear
+immediately; expand **Media details** for the remaining media metadata. The copy icon
+at the top copies all properties, including collapsed details, as labeled plain text.
+The dialog grows for folder-icon controls, link targets and errors; in short windows,
+its contents scroll while the header and action buttons remain visible.
+Use the wider scrollbar to drag through long metadata, or click its track to jump.
+Wheel scrolling moves several lines per notch; touchpad scrolling follows the
+reported pixel movement.
 
 ## Format support in this source tree
+
+| Quick Look over the dark browser | Quick Look over the light browser |
+| --- | --- |
+| ![The same illustration in Quick Look over the dimmed dark browser](images/rummage-dark-quicklook.webp) | ![Colourful character illustration in Quick Look over the dimmed light browser](images/rummage-light-quicklook.webp) |
 
 | Family | Supported path | Limits |
 | --- | --- | --- |
@@ -34,7 +56,7 @@ windows, its contents scroll while the action buttons remain visible.
 | Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
 | Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
 | PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
-| SVG files | rummage's SVG renderer in the preview helper | Static previews and thumbnails; supported subset described below |
+| SVG files | librsvg in the preview helper | Static previews and thumbnails; limits described below |
 | ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
 | Other formats | File information and external application opening | No built-in audio player or font preview |
 
@@ -49,20 +71,27 @@ For archive browsing, copying members out and creating archives, see
 ### SVG
 
 SVG files show as pictures in Quick Look, the information pane and thumbnails,
-using the same renderer as theme icons. File previews run inside `rummage-preview`'s
-sandbox; theme icons continue to render in-process.
+using librsvg through its C API inside `rummage-preview`'s sandbox. Theme icons
+use the same rendering adapter in the application process.
 
-The renderer supports paths and shapes, strokes, gradients, basic CSS, groups,
-clipping, masks, colour matrices, Gaussian blur, patterns and embedded PNG/JPEG.
+The renderer supports paths and shapes, strokes, gradients, CSS selectors, groups,
+clipping, masks, SVG filters, patterns, embedded images and text.
 It preserves transparency and aspect ratio. Input is capped at 8 MiB and the
 rendered preview at 1024 pixels per side; larger display requests use that bounded
 preview. The preview's pixel dimensions are not reported as intrinsic document
 dimensions.
 
-This is a static SVG subset: text, animation, scripts, external images/styles and
-other external resources are not rendered or fetched. Unsupported filter
-primitives leave the element unfiltered. Compressed SVG (`.svgz`) is not supported.
-Malformed documents and exhausted rendering limits produce a preview error.
+Before sandboxing, the helper prepares the system's generic sans-serif, serif and
+monospace faces in regular/bold and upright/italic styles. Text uses that bounded
+set; other families fall back, and scripts absent from those fonts may have missing
+glyphs. Font data stays in memory, with no font-file access during rendering.
+
+Animation and scripts are not executed. External images, stylesheets and other
+resources are not fetched: documents have no base URI. Data URIs and internal
+references remain available. Compressed SVG (`.svgz`) is not supported. Compatibility
+depends on the installed librsvg version; full CSS custom-property resolution is
+not guaranteed. Malformed documents and exhausted helper limits produce a preview
+error. Complex SVGs can exceed the base helper's three-second request deadline.
 See the [security model](security.md) for preview isolation and its boundaries.
 
 ### TIFF
@@ -151,28 +180,31 @@ fetches external resources. Reference links, deeply nested formatting and advanc
 extensions may remain literal. Parsing runs in the text preview helper; truncated files or
 presentation limits show **Preview truncated**. The information pane keeps highlighted source.
 
+The information pane follows the focused file during multi-selection. Selection
+totals appear beneath its metadata; each browsing pane keeps its selection count
+in its upper-right header. Automatic visibility is available under **View → Show**;
+it hides only when no item is focused, not when an image decoder is unavailable.
+
 ## Text in the information pane
 
-The information pane shows a text file as a page of up to 30 lines, shrinking to fit
-shorter windows. It is coloured as in Quick Look and scrolls through everything
-Quick Look would read (the same bounded read, and a large `.log` opens at its newest
-lines). The wheel or touchpad over the page scrolls the page; anywhere else on the
-pane it scrolls the pane. **Alt+J** and
-**Alt+K** scroll three lines down and up, **Alt+Page Down** and **Alt+Page Up** a page.
-Drag to select text, double-click a word, triple-click a line, or Shift+click to
-extend. Clicking the page gives it text focus: **Ctrl+A** selects the loaded text
-and **Ctrl+C** copies the selection. Home/End and Page Up/Down scroll the focused
-page. Shift+wheel or horizontal touchpad scrolling reveals long lines. Dragging
-beyond the page scrolls the selection.
+The information pane shows a thumbnail of the first 12 lines, shrinking to fit
+shorter windows. It reads at most 16 KiB and clips long lines. Logs also start at
+the beginning here. Press **Space** to open Quick Look for reading, scrolling and
+copying text. The thumbnail itself does not scroll or select text.
+
+The wheel or touchpad scrolls the information pane as a whole. **Alt+J** and
+**Alt+K** scroll down and up; **Alt+Page Down** and **Alt+Page Up** move a page.
 
 The filename and metadata are also selectable, including values under **More
 details**. Long names and values wrap in full; copying keeps the original text
 without the visual line breaks. Click a field, then use **Ctrl+A** to select that
 field and **Ctrl+C** to copy it. Clicking the file view returns these shortcuts to
-file selection and file copying. Changing the selected file or hiding the pane
+file selection and file copying. Changing the focused file or hiding the pane
 clears text focus and selection. All preview and metadata text remains read-only.
 
 ## Optional video previews and caching
+
+![Video thumbnails with filmstrip borders and a selected recording's still preview and metadata](images/rummage-dark-video-grid.webp)
 
 Install the matching `rummage-media` package for video thumbnails and still previews
 in the information pane and Quick Look. The grid decorates video thumbnails with
@@ -253,3 +285,31 @@ upright resolution, video codec, frame rate, bitrate, pixel format, rotation, au
 channel count, sample rate and embedded title/artist/recording-time/encoder tags. These values
 also appear in the information pane. Missing fields are omitted; missing media support leaves
 basic file information available. Video parsing stays inside the sandboxed helper.
+
+
+### Extended file metadata
+
+Properties, the information pane and Quick Look Details expose the same available media
+fields. Image details include aspect ratio and source format information such as bit depth,
+color model, compression and interlacing when the reader can determine them. These describe
+the source, rather than the preview's converted RGBA pixels.
+
+PNG text fields (including compressed and international text), color/profile information,
+pixel density, timestamps and animation headers are included. JPEG comments and XMP, and
+TIFF/EXIF directories including GPS and otherwise unrecognized tags, are also exposed.
+Unknown TIFF tags retain their numeric identifiers; binary blocks and oversized arrays show
+summaries rather than decoded contents. WebP, GIF, JPEG XL and HEIF expose technical header
+information; HEIF also exposes its embedded metadata blocks. Availability varies by format:
+this is not a complete interpretation of proprietary maker notes, IPTC, ICC profiles or XMP.
+
+Video details include container tags, each stream's tags and codec information, color fields,
+audio channel layouts and chapter metadata. With the PDF helper installed, document details
+include version, page count, standard document information and the first page's size in points.
+Text details include language, encoding, line endings and loaded line count; archive details
+include contents, unpacked size and reading/encryption limitations. Missing values are omitted.
+
+Metadata reads remain bounded inside the preview helpers. Extended details are limited to
+256 fields, 4096 bytes per label/value, and a 64 KiB helper response; format readers also limit
+bytes and directory/chunk traversal. Truncated metadata is identified, and binary summaries
+explicitly mark omitted data. Text preview line counts are labeled as preview counts when the
+file was not read in full. No sidecar files are read for these details.

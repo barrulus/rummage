@@ -10,6 +10,13 @@
 
 namespace rummage::views {
 
+std::string_view display_name(std::string_view name, bool directory, bool extensions) {
+    const auto dot = name.rfind('.');
+    return !extensions && !directory && dot != std::string_view::npos && dot > 0
+               ? name.substr(0, dot)
+               : name;
+}
+
 std::string format_size(std::uint64_t bytes) {
     constexpr std::uint64_t step = 1000;
     if (bytes < step) {

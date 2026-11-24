@@ -11,6 +11,7 @@ namespace rummage::theme {
 struct Desktop {
     bool dark{false};
     std::optional<Color> accent;  // opaque; none: the desktop has no accent colour
+    bool high_contrast{false};
 
     bool operator==(const Desktop&) const = default;
 };
@@ -20,6 +21,7 @@ inline constexpr Color kDefaultAccent = Color::rgb(0x3584E4);
 
 // Neutral surfaces with a trace of the accent's hue, the accent for the primary roles, its
 // lightness moved where text and icons stay readable on those surfaces (OKLCH tones).
+// Higher contrast targets 7:1 for text and 3:1 for borders against the generated surfaces.
 [[nodiscard]] Palette desktop_palette(const Desktop& desktop);
 
 // WCAG 2 contrast ratio of two opaque colours, 1 to 21.

@@ -56,15 +56,18 @@ State changed() {
     State s;
     s.mode = State::Mode::details;
     s.show_hidden = true;
+    s.show_extensions = false;
+    s.show_thumbnails = false;
     s.sidebar_visible = false;
     s.sidebar_width = 260.5F;
     s.sidebar_size = 4;
     s.info_visible = false;
+    s.info_auto_hide = true;
     s.info_width = 410.0F;
     s.info_expanded = true;
     s.sort_key = SortKey::modified;
     s.sort_descending = true;
-    s.details_widths = {80.0F, 170.0F, 240.0F, 150, 150, 110, 110, 130, 220, 220};
+    s.details_widths = {80.0F, 170.0F, 240.0F, 150, 150, 110, 110, 130, 220, 220, 950};
     s.list_size = 3;
     s.grid_icon = 192;
     s.window_width = 1400;
@@ -171,7 +174,7 @@ TEST_CASE("state: the browser gives back what it was given") {
 
     // Narrower than a column's minimum: the view keeps its minimum.
     State narrow = wanted;
-    narrow.details_widths = {10.0F, 10.0F, 10.0F, 150, 150, 110, 110, 130, 220, 220};
+    narrow.details_widths = {10.0F, 10.0F, 10.0F, 150, 150, 110, 110, 130, 220, 220, 10};
     browser.apply(narrow);
     for (const float width : browser.state().details_widths) {
         CHECK(width >= 64.0F);
@@ -551,4 +554,53 @@ TEST_CASE("state: old column layouts keep defaults and malformed choices are rej
     }
     CHECK(parse("[details]\ncolumns = ['name']").state.details_columns ==
           std::vector{SortKey::name});
+}
+
+TEST_CASE("state: saved searches retain definitions and reject invalid scopes or duplicates") {
+    rummage::views::State state;
+    state.saved_searches.push_back(
+        {"Text files", "/home/test/Documents", "content:\"two words\" ext:txt hidden:no", true});
+    const auto restored = rummage::views::parse_state(rummage::views::format_state(state), "state");
+    CHECK(restored.problems.empty());
+    CHECK(restored.state.saved_searches == state.saved_searches);
+    const auto invalid = rummage::views::parse_state(R"(
+[[search]]
+name = "relative"
+root = "Documents"
+query = "x"
+[[search]]
+name = "good"
+root = "/home/test"
+query = "ext:txt"
+hidden = true
+[[search]]
+name = "good"
+root = "/different"
+query = "different"
+)",
+                                                     "state");
+    REQUIRE(invalid.state.saved_searches.size() == 1);
+    CHECK(invalid.state.saved_searches.front().root == "/home/test");
+    CHECK(invalid.problems.size() == 2);
+    for (std::size_t i = 0; i < rummage::views::State::kMaxSavedSearches + 5; ++i)
+        state.saved_searches.push_back({std::to_string(i), "/tmp", "", false});
+    const auto bounded = rummage::views::parse_state(rummage::views::format_state(state), "state");
+    CHECK(bounded.state.saved_searches.size() == rummage::views::State::kMaxSavedSearches);
+}
+
+TEST_CASE("state: saved searches reject embedded control names and NUL paths") {
+    for (const auto field : {"name", "root", "query"}) {
+        auto state = State{};
+        auto& search = state.saved_searches.emplace_back("Good", "/tmp", "name:good", false);
+        const auto invalid = std::string{"bad\0value", 9};
+        if (std::string_view{field} == "name")
+            search.name = invalid;
+        if (std::string_view{field} == "root")
+            search.root = std::string{"/"} + invalid;
+        if (std::string_view{field} == "query")
+            search.query = invalid;
+        CHECK(parse(format_state(state)).state.saved_searches.empty());
+    }
+    CHECK(parse("[[search]]\nname = \"bad\\nname\"\nroot = \"/tmp\"\nquery = \"\"")
+              .state.saved_searches.empty());
 }

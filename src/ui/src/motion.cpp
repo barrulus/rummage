@@ -12,6 +12,10 @@ float Motion::ease(float progress) noexcept {
 }
 
 Rect Motion::Frame::geometry() const noexcept {
+    // The portal closes on the source and opens at the destination. Its shader is
+    // fully transparent at the handoff, so no travelling/shrunken icon jumps panes.
+    if (effect == core::MotionEffect::portal)
+        return progress < 0.5F ? from : to;
     return {std::lerp(from.x, to.x, eased), std::lerp(from.y, to.y, eased),
             std::lerp(from.width, to.width, eased), std::lerp(from.height, to.height, eased)};
 }
@@ -35,6 +39,12 @@ bool Motion::reduced() const noexcept {
            (config_.reduce_motion == core::MotionConfig::Reduce::system && system_reduced_);
 }
 
+bool Motion::ambient_enabled() const noexcept {
+    return config_.enabled && !reduced() && config_.duration_scale > 0 &&
+           config_.ambient.intensity > 0 &&
+           (config_.ambient.background || config_.ambient.selection_glow);
+}
+
 bool Motion::start(MotionChannel channel, core::MotionEvent event, Clock::time_point now, Rect from,
                    Rect to) {
     const auto index = static_cast<std::size_t>(event);
@@ -53,7 +63,11 @@ bool Motion::start(MotionChannel channel, core::MotionEvent event, Clock::time_p
     const float seconds = std::clamp(
         static_cast<float>(config_.durations_ms[index]) * config_.duration_scale / 1000.0F, 0.001F,
         2.0F);
-    running_[slot] = Running{.frame = {.effect = effect, .from = from, .to = to},
+    running_[slot] = Running{.frame = {.effect = effect,
+                                       .from = from,
+                                       .to = to,
+                                       .hologram_spread = config_.hologram_spread,
+                                       .portal_rotation = config_.portal_rotation},
                              .start = now,
                              .duration = std::chrono::duration<float>{seconds}};
     return true;

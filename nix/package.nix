@@ -14,6 +14,8 @@
   freetype,
   fontconfig,
   tomlplusplus,
+  nlohmann_json,
+  tokei,
   libwebp,
   ffmpeg,
   callPackage,
@@ -21,7 +23,10 @@
   libheif,
   libde265,
   lcms2,
+  librsvg,
+  pango,
   zlib,
+  re2,
   sdbus-cpp_2,
   shared-mime-info,
   hicolor-icon-theme,
@@ -41,7 +46,7 @@
 
 stdenv.mkDerivation {
   pname = "rummage";
-  version = "0.6.0";
+  version = "0.6.1";
   outputs = [ "out" ] ++ lib.optional withMedia "media" ++ lib.optional withPdf "pdf";
 
   src = lib.fileset.toSource {
@@ -70,6 +75,7 @@ stdenv.mkDerivation {
     pkg-config
     makeWrapper
     wayland-scanner
+    tokei
   ]
   ++ lib.optionals withTests [
     doctest
@@ -87,6 +93,7 @@ stdenv.mkDerivation {
     freetype
     fontconfig
     tomlplusplus
+    nlohmann_json
     libwebp
     libjxl
     # nixpkgs includes the built-in libde265 HEVC decoder in libheif.
@@ -94,7 +101,10 @@ stdenv.mkDerivation {
     libheif
     libde265
     lcms2
+    librsvg
+    pango
     zlib
+    re2
     sdbus-cpp_2
   ]
   ++ lib.optional withTests shared-mime-info

@@ -101,31 +101,3 @@ TEST_CASE("svg stage2: mask region, content units and nested masks") {
         "mask='url(#a)'/></mask></defs><rect width='64' height='64' fill='red' mask='url(#b)'/>");
     CHECK(pixel(nested, 10, 10) == std::array<unsigned, 4>{255, 0, 0, 64});
 }
-
-TEST_CASE("svg stage2: reference cycles and offscreen layer limits fail cleanly") {
-    CHECK(svg("<defs><clipPath id='a' clip-path='url(#a)'><rect width='64' "
-              "height='64'/></clipPath></defs><rect width='64' height='64' clip-path='url(#a)'/>")
-              .empty());
-    CHECK(svg("<defs><mask id='a'><rect width='64' height='64' mask='url(#a)'/></mask></defs><rect "
-              "width='64' height='64' mask='url(#a)'/>")
-              .empty());
-    std::string deep;
-    for (int i = 0; i < 17; ++i)
-        deep += "<g opacity='.5'>";
-    deep += "<rect width='64' height='64'/>";
-    for (int i = 0; i < 17; ++i)
-        deep += "</g>";
-    CHECK(svg(deep).empty());
-}
-
-TEST_CASE("svg stage2: bounds of a referenced SVG apply its viewport once") {
-    const auto image = svg(
-        "<defs><svg id='v' viewBox='0 0 16 16' width='16' height='16'><rect width='16' "
-        "height='16'/></svg><clipPath id='c' clipPathUnits='objectBoundingBox'><rect width='.5' "
-        "height='1'/></clipPath></defs><use href='#v' x='16' y='16' width='32' height='32' "
-        "clip-path='url(#c)'/>");
-    CHECK(pixel(image, 15, 16)[3] == 0);
-    CHECK(pixel(image, 16, 16)[3] == 255);
-    CHECK(pixel(image, 31, 47)[3] == 255);
-    CHECK(pixel(image, 32, 16)[3] == 0);
-}

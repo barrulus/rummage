@@ -31,6 +31,8 @@ struct Place {
         bool mounted{true};     // false: listed by udisks2, not mounted (path empty)
         bool ejectable{false};  // an external drive, which can be powered off
 
+        std::string identity{};  // filesystem UUID, stable across device-node and mount changes
+
         bool operator==(const Disk&) const = default;
     };
 

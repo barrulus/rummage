@@ -5,8 +5,7 @@
 #include <string>
 #include <vector>
 
-// Letting a file run as a program, or not: the one permission Rummage changes (issue #17). Not a
-// permissions editor. Blocking: call it from a worker.
+// Permission changes use the current user credentials. Blocking: call from a worker.
 namespace rummage::fs {
 
 // A file's permission bits before and after a change (undone by setting before again).
@@ -20,6 +19,12 @@ struct ModeResult {
     std::vector<ModeChange> changed;  // the files whose bits changed, in the order given
     std::vector<std::string> errors;  // "app.AppImage: Read-only file system"
 };
+
+// Changes only rwx bits of an owned regular file or directory, refusing links, replacements,
+// and modes changed since Properties loaded. Uses a pinned descriptor, never privilege elevation.
+[[nodiscard]] std::string set_permissions(const std::filesystem::path& path, std::uint64_t device,
+                                          std::uint64_t inode, std::uint16_t before,
+                                          std::uint16_t permissions);
 
 // The bits a regular file gets: allow adds the owner's execute bit only (u+x); otherwise every
 // execute bit goes (a-x). Other bits are kept.

@@ -12,7 +12,7 @@ in the linked guides. The fork develops beyond upstream Nordend 0.5.0; see [rele
 - Two persistent panes with their own tabs, locations, views, sorting, hidden settings and filters.
 - Live filename filtering alongside recursive search; independent sidebar zoom.
 - Sorting by name, size, modified date or type; hidden-file toggle; live directory updates.
-- Keyboard and mouse selection, rubber bands, smooth scrolling and adjustable zoom.
+- Keyboard and mouse selection, filename-pattern selection, rubber bands, smooth scrolling and adjustable zoom.
 - Breadcrumb, history, places, GTK bookmarks and removable-device integration.
 - Network bookmarks (smb, sftp, ftp, WebDAV) mounted through gvfs; Ctrl+L to go to a folder or server.
 - Fuzzy command palette and recursive filename/path search with cancellation.
@@ -23,14 +23,32 @@ unlocking are not implemented. Local bookmarks can be renamed, repointed and
 reordered. Name sorting is natural and ASCII
 case-insensitive, not locale collation.
 
+## Insights
+
+[Insights](insights.md) groups files by extension and maps
+folders by file count or size. Iris shows three descendant levels as a sunburst,
+with category colours shared across charts and results. Largest-file and modification-age graphs reveal
+where space is used and how recently files changed. Optional Tokei source analysis
+shows language, code, comment and blank-line statistics, including embedded code.
+Explore these views in a dedicated tab with full-width graphs, a folder dropdown
+and scrollable file results. Select matching files, preview or open them and use
+the normal file context menu in place, with
+explicit partial results when scans reach their limits.
+
 ## Files and external applications
 
 - Copy/move with progress, cancellation and conflict choices; rename and create from templates.
+- Create symbolic links beside selected files and folders, with undo/redo.
 - Batch rename with a live preview, literal replacement, templates and numbering in view order;
   darktable sidecars follow, and the batch has one Undo/Redo step.
 - Freedesktop Trash across filesystems, restore, confirmed permanent deletion and undo/redo.
 - Clipboard exchange and drag/drop with desktop applications.
+- Path completion in the breadcrumb editor, including archive paths and file selection.
+- Move a selection into a new folder with Undo/Redo; Alt-drop offers destination actions
+  and archive extraction into a named folder.
+- Places and bookmarks offer navigation context menus, including Open in New Tab.
 - Mounting internal partitions and removable disks through udisks2, with authorization when required.
+- Mounted-drive filesystem properties and available-space tooltips.
 - Properties and a folder-icon picker, sharing `.directory` metadata with Dolphin.
 - Default applications and Open With from desktop MIME associations; terminal launching.
 - darktable sidecars follow supported photo operations.
@@ -48,7 +66,7 @@ Archive contents are read-only; extract files before changing them.
 
 - Isolated image and text decoding through `rummage-preview`.
 - PNG, JPEG, GIF, WebP, JPEG XL, HEIC/HEIF (HEVC), TIFF/BigTIFF and binary PGM/PPM previews.
-- Static SVG previews and thumbnails using the built-in renderer in the helper.
+- Static SVG previews and thumbnails using librsvg in the helper.
 - Camera raw embedded previews and development of supported DNG data when needed.
 - Photo metadata, orientation/crop handling and shared freedesktop thumbnail caching.
 - Quick Look for pictures and text, with file-to-file navigation.
@@ -66,7 +84,7 @@ use the same renderer in-process; SVG file previews use the sandboxed helper.
 ## Desktop integration and customization
 
 - Folder-jump shortcuts, configurable startup locations, and per-folder view/sort/zoom
-  preferences for up to 512 recent folders.
+  preferences for up to 512 recent folders, with a reset to defaults for the active folder.
 
 - Wayland input, clipboard, drag/drop, activation and fractional scaling where protocols exist.
 - Server-side decorations or rummage's title bar; cursor-shape or Xcursor fallback.

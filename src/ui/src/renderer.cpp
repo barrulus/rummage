@@ -3,13 +3,18 @@
 #include <GLES3/gl3.h>
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cmath>
 #include <cstddef>
+#include <fcntl.h>
 #include <format>
 #include <iterator>
+#include <numbers>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <unordered_map>
 
 #include "motion_shaders.hpp"
@@ -41,7 +46,11 @@ flat out vec2 v_params;
 
 void main() {
     float pad = a_params.y > 0.0 ? 3.0 * a_params.y : 1.0;
-    vec2 pos = a_rect.xy - pad + a_corner * (a_rect.zw + 2.0 * pad);
+    // Sectors carry a tight drawing rectangle in the otherwise unused border attribute.
+    // Keep v_rect as the full circle for the distance calculation, avoiding full-circle
+    // overdraw for every small segment and thin context ring.
+    vec4 bounds = a_params.y < 0.0 ? a_border_color : a_rect;
+    vec2 pos = bounds.xy - pad + a_corner * (bounds.zw + 2.0 * pad);
     v_pos = pos;
     v_rect = a_rect;
     v_radii = a_radii;
@@ -84,6 +93,20 @@ float erf_approx(float x) {
 void main() {
     vec2 half_size = v_rect.zw * 0.5;
     vec2 p = v_pos - (v_rect.xy + half_size);
+    // Negative sigma selects an annular sector. This uses the same instanced quad and
+    // batching as boxes; radii carry inner radius, start angle and sweep instead.
+    if (v_params.y < 0.0) {
+        float radius = length(p);
+        float d = max(v_radii.x - radius, radius - half_size.x);
+        if (v_radii.z < 6.2831853) {
+            float mid = v_radii.y + v_radii.z * 0.5;
+            float angle = mod(atan(p.y, p.x) - mid + 3.14159265, 6.2831853) - 3.14159265;
+            float edge = abs(angle) - v_radii.z * 0.5;
+            d = max(d, radius * sin(clamp(edge, -1.5707963, 1.5707963)));
+        }
+        o_color = v_fill * clamp(0.5 - d, 0.0, 1.0);
+        return;
+    }
     float d = rounded_box_distance(p, half_size, v_radii);
 
     float sigma = v_params.y;
@@ -492,10 +515,98 @@ struct Renderer::MotionGl {
     int x{0};
     int y{0};
     bool capturing{false};
+    bool isolated{false};
 
     MotionGl() { glGenTextures(2, textures.data()); }
 
     ~MotionGl() { glDeleteTextures(2, textures.data()); }
+};
+
+struct Renderer::AmbientGl {
+    static constexpr std::array<Attribute, 1> kAttributes{{{1, 4, 0}}};
+    Pipeline background{kMotionVertexShader, ambient_fragment_shader(kAmbientBackground).c_str(),
+                        kAttributes, sizeof(Rect)};
+    Pipeline selection{kMotionVertexShader, ambient_fragment_shader(kAmbientSelection).c_str(),
+                       kAttributes, sizeof(Rect)};
+    std::unique_ptr<Pipeline> custom;
+    std::string path, attempted, error;
+    std::chrono::steady_clock::time_point checked{};
+
+    void reload(const std::string& requested) {
+        if (requested.empty()) {
+            custom.reset();
+            path.clear();
+            attempted.clear();
+            error.clear();
+            return;
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (path == requested && now - checked < std::chrono::milliseconds{500})
+            return;
+        const bool changed_path = path != requested;
+        path = requested;
+        checked = now;
+        const auto report = [&](std::string message) {
+            if (message != error)
+                log::warn("ambient shader: {}", message);
+            error = std::move(message);
+        };
+        // Never open a FIFO/device as shader input. Limit reads even if a regular file grows.
+        const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+        if (fd < 0) {
+            report("Cannot open " + path);
+            return;
+        }
+        struct stat info{};
+        constexpr std::size_t limit = 65536;
+        if (::fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0 ||
+            info.st_size > static_cast<off_t>(limit)) {
+            ::close(fd);
+            report("Shader must be a regular file of at most 64 KiB: " + path);
+            return;
+        }
+        std::string body(limit + 1, '\0');
+        std::size_t size = 0;
+        bool failed = false;
+        while (size < body.size()) {
+            const auto count = ::read(fd, body.data() + size, body.size() - size);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count < 0) {
+                failed = true;
+                break;
+            }
+            if (count == 0)
+                break;
+            size += static_cast<std::size_t>(count);
+        }
+        ::close(fd);
+        body.resize(size);
+        if (failed || size > limit || body.find('\0') != std::string::npos) {
+            report("Cannot read a valid shader body from " + path);
+            return;
+        }
+        if (!changed_path && body == attempted) {
+            // Keep compile diagnostics until the source changes, but clear transient I/O errors
+            // when the working source returns.
+            if (custom && body == working)
+                error.clear();
+            return;
+        }
+        attempted = body;
+        try {
+            auto replacement = std::make_unique<Pipeline>(kMotionVertexShader,
+                                                          ambient_fragment_shader(body).c_str(),
+                                                          kAttributes, sizeof(Rect));
+            custom = std::move(replacement);
+            working = body;
+            error.clear();
+        } catch (const std::runtime_error& failure) {
+            report(failure.what());
+        }
+    }
+
+    std::string working;
 };
 
 Renderer::Renderer(FontSystem& fonts) : gl_{std::make_unique<Gl>()}, fonts_{fonts} {
@@ -552,7 +663,8 @@ void Renderer::end_frame() {
     }
 }
 
-bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality quality) {
+bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality quality,
+                            bool isolated) {
     if (motion_failed_ || !std::isfinite(bounds.x) || !std::isfinite(bounds.y) ||
         !std::isfinite(bounds.width) || !std::isfinite(bounds.height) || bounds.empty())
         return false;
@@ -561,10 +673,11 @@ bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality qual
     const auto edge = [](float value, int maximum) {
         return static_cast<int>(std::round(std::clamp(value, 0.0F, static_cast<float>(maximum))));
     };
-    const int x = edge(bounds.x * scale_, buffer_width_);
-    const int y = edge(bounds.y * scale_, buffer_height_);
-    const int width = edge(bounds.right() * scale_, buffer_width_) - x;
-    const int height = edge(bounds.bottom() * scale_, buffer_height_) - y;
+    const auto capture = clips_.empty() ? bounds : bounds.intersect(clips_.back());
+    const int x = edge(capture.x * scale_, buffer_width_);
+    const int y = edge(capture.y * scale_, buffer_height_);
+    const int width = edge(capture.right() * scale_, buffer_width_) - x;
+    const int height = edge(capture.bottom() * scale_, buffer_height_) - y;
     const std::size_t pixels = static_cast<std::size_t>(std::max(0, width)) *
                                static_cast<std::size_t>(std::max(0, height));
     const std::size_t cap = quality == core::MotionConfig::Quality::high ? 4194304 : 2097152;
@@ -623,6 +736,16 @@ bool Renderer::begin_motion(const Rect& bounds, core::MotionConfig::Quality qual
     glBindTexture(GL_TEXTURE_2D, pass.textures[0]);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, x, buffer_height_ - y - height, width, height);
     pass.capturing = glGetError() == GL_NO_ERROR;
+    pass.isolated = isolated;
+    if (pass.capturing && isolated) {
+        // Reuse the window's framebuffer for the temporary transparent sprite. The final
+        // pass restores the captured backdrop, including its original alpha.
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(x, buffer_height_ - y - height, width, height);
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        apply_clip();
+    }
     if (!pass.capturing)
         ++motion_stats_.fallbacks;
     return pass.capturing;
@@ -639,10 +762,13 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     glBindTexture(GL_TEXTURE_2D, pass.textures[1]);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pass.x, buffer_height_ - pass.y - pass.height,
                         pass.width, pass.height);
-    if (glGetError() != GL_NO_ERROR) {
+    const bool copy_failed = glGetError() != GL_NO_ERROR;
+    if (copy_failed) {
         ++motion_stats_.fallbacks;
-        glActiveTexture(GL_TEXTURE0);
-        return;
+        if (!pass.isolated) {
+            glActiveTexture(GL_TEXTURE0);
+            return;
+        }
     }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, pass.textures[0]);
@@ -651,7 +777,14 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     glUniform1i(glGetUniformLocation(program, "source_texture"), 0);
     glUniform1i(glGetUniformLocation(program, "target_texture"), 1);
     glUniform1i(glGetUniformLocation(program, "effect"), static_cast<int>(frame.effect));
-    glUniform1f(glGetUniformLocation(program, "progress"), frame.progress);
+    glUniform1i(glGetUniformLocation(program, "isolated"), pass.isolated && !copy_failed);
+    const auto sprite = frame.geometry();
+    glUniform2f(glGetUniformLocation(program, "object_size"),
+                sprite.empty() ? static_cast<float>(pass.width) : sprite.width * scale_,
+                sprite.empty() ? static_cast<float>(pass.height) : sprite.height * scale_);
+    glUniform1f(glGetUniformLocation(program, "hologram_spread"), frame.hologram_spread);
+    glUniform1f(glGetUniformLocation(program, "portal_rotation"), frame.portal_rotation);
+    glUniform1f(glGetUniformLocation(program, "progress"), copy_failed ? 0.0F : frame.progress);
     glUniform1f(glGetUniformLocation(program, "time_seconds"), frame.time_seconds);
     glUniform2f(glGetUniformLocation(program, "resolution"), static_cast<float>(pass.width),
                 static_cast<float>(pass.height));
@@ -666,11 +799,63 @@ void Renderer::end_motion(const Motion::Frame& frame, float origin_x, float orig
     const Rect rect{static_cast<float>(pass.x), static_cast<float>(pass.y),
                     static_cast<float>(pass.width), static_cast<float>(pass.height)};
     // The shader contains the backdrop, including its alpha: replace rather than blend again.
-    glDisable(GL_BLEND);
+    if (copy_failed) {
+        // Destination already contains the sprite. Put its backdrop underneath it.
+        glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    } else {
+        glDisable(GL_BLEND);
+    }
     pass.pipeline.draw(&rect, 1, sizeof(Rect), buffer_width_, buffer_height_);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     ++motion_stats_.passes;
+}
+
+bool Renderer::draw_ambient(const Rect& bounds, const core::MotionConfig::Ambient& config,
+                            float time_seconds, Color accent, bool selection, bool preview) {
+    if (ambient_failed_ || bounds.empty() || !std::isfinite(bounds.x) || !std::isfinite(bounds.y) ||
+        !std::isfinite(bounds.width) || !std::isfinite(bounds.height) ||
+        !std::isfinite(time_seconds) || !std::isfinite(config.intensity) || config.intensity <= 0)
+        return false;
+    flush();
+    auto& storage = preview ? preview_ambient_gl_ : ambient_gl_;
+    try {
+        if (!storage)
+            storage = std::make_unique<AmbientGl>();
+    } catch (const std::runtime_error& error) {
+        ambient_failed_ = true;
+        log::warn("ambient effects unavailable: {}", error.what());
+        return false;
+    }
+    auto& pass = *storage;
+    if (!selection)
+        pass.reload(config.shader);
+    auto& pipeline = selection ? pass.selection : pass.custom ? *pass.custom : pass.background;
+    const auto program = pipeline.program();
+    glUseProgram(program);
+    glUniform1f(glGetUniformLocation(program, "time_seconds"), time_seconds);
+    glUniform1f(glGetUniformLocation(program, "intensity"),
+                std::clamp(config.intensity, 0.0F, 1.0F));
+    glUniform2f(glGetUniformLocation(program, "resolution"), bounds.width * scale_,
+                bounds.height * scale_);
+    glUniform4f(glGetUniformLocation(program, "accent"), accent.r, accent.g, accent.b, accent.a);
+    const Rect rect{bounds.x * scale_, bounds.y * scale_, bounds.width * scale_,
+                    bounds.height * scale_};
+    // Background decoration changes colour, preserving the window's configured alpha.
+    if (!selection)
+        glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+    pipeline.draw(&rect, 1, sizeof(Rect), buffer_width_, buffer_height_);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    return true;
+}
+
+void Renderer::release_ambient(bool preview) {
+    (preview ? preview_ambient_gl_ : ambient_gl_).reset();
+}
+
+std::string_view Renderer::ambient_error(bool preview) const noexcept {
+    const auto& storage = preview ? preview_ambient_gl_ : ambient_gl_;
+    return storage ? std::string_view{storage->error} : std::string_view{};
 }
 
 void Renderer::release_motion_textures() {
@@ -712,6 +897,47 @@ void Renderer::draw_box(const Rect& rect, const BoxStyle& style) {
         .border_color = {border_color.r, border_color.g, border_color.b, border_color.a},
         .params = {border, 0.0F},
     });
+}
+
+void Renderer::draw_sector(const AnnularSector& sector, Color color) {
+    if (!std::isfinite(sector.x) || !std::isfinite(sector.y) || !std::isfinite(sector.inner) ||
+        !std::isfinite(sector.outer) || !std::isfinite(sector.start) ||
+        !std::isfinite(sector.sweep) || sector.inner < 0 || sector.outer <= sector.inner ||
+        sector.sweep <= 0)
+        return;
+    constexpr float turn = 2 * std::numbers::pi_v<float>;
+    const float start = std::remainder(sector.start, turn);
+    const float sweep = std::min(sector.sweep, turn);
+    float left = sector.x + sector.outer, top = sector.y + sector.outer;
+    float right = sector.x - sector.outer, bottom = sector.y - sector.outer;
+    const auto include = [&](float angle, float radius) {
+        const float x = sector.x + radius * std::cos(angle);
+        const float y = sector.y + radius * std::sin(angle);
+        left = std::min(left, x);
+        right = std::max(right, x);
+        top = std::min(top, y);
+        bottom = std::max(bottom, y);
+    };
+    for (const float radius : {sector.inner, sector.outer}) {
+        include(start, radius);
+        include(start + sweep, radius);
+    }
+    for (int i = 0; i < 4; ++i) {
+        const float angle = static_cast<float>(i) * turn / 4;
+        float relative = std::fmod(angle - start, turn);
+        if (relative < 0)
+            relative += turn;
+        if (relative <= sweep)
+            include(angle, sector.outer);
+    }
+    const auto fill = color.premultiplied();
+    push_box({.rect = {(sector.x - sector.outer) * scale_, (sector.y - sector.outer) * scale_,
+                       2 * sector.outer * scale_, 2 * sector.outer * scale_},
+              .radii = {sector.inner * scale_, start, sweep, 0},
+              .fill = {fill.r, fill.g, fill.b, fill.a},
+              .border_color = {left * scale_, top * scale_, (right - left) * scale_,
+                               (bottom - top) * scale_},
+              .params = {0, -1}});
 }
 
 void Renderer::draw_shadow(const Rect& rect, const Corners& radius, float blur, Color color) {

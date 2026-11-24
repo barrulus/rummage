@@ -42,12 +42,14 @@
 #include "rummage/views/file_finder.hpp"
 #include "rummage/views/grid_view.hpp"
 #include "rummage/views/info_pane.hpp"
+#include "rummage/views/insights_view.hpp"
 #include "rummage/views/location_dialog.hpp"
 #include "rummage/views/name_editor.hpp"
 #include "rummage/views/pane.hpp"
 #include "rummage/views/password_dialog.hpp"
 #include "rummage/views/properties_dialog.hpp"
 #include "rummage/views/quick_look.hpp"
+#include "rummage/views/search_results.hpp"
 #include "rummage/views/settings_dialog.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "rummage/views/shortcuts_overlay.hpp"
@@ -155,7 +157,7 @@ public:
 
     using Mode = ViewMode;
 
-    // thumbnails: the cache the grid takes its thumbnails from; nullptr shows icons only.
+    // thumbnails: the cache all file views take their thumbnails from; nullptr shows icons only.
     Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
             std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
             std::function<void(ui::CursorShape)> set_cursor,
@@ -203,6 +205,21 @@ public:
     // they leave the selection, so nothing acts on what is not seen, and the cursor moves off them;
     // the hidden folders on the way to the one shown stay.
     void set_show_hidden(bool show, bool announce = true);
+
+    void set_show_extensions(bool show) {
+        show_extensions_ = show;
+        redraw_();
+    }
+
+    [[nodiscard]] bool shows_extensions() const { return show_extensions_; }
+
+    void set_show_thumbnails(bool show) {
+        show_thumbnails_ = show;
+        redraw_();
+    }
+
+    [[nodiscard]] bool shows_thumbnails() const { return show_thumbnails_; }
+
     void set_entry_filter(fs::Listing::Predicate filter);
     // Live filename substring filter, combined with the picker's type restrictions.
     void set_name_filter(std::string text);
@@ -216,15 +233,15 @@ public:
         redraw_();
     }
 
-    [[nodiscard]] const ui::Rect& filter_bounds() const { return area().filter_bounds; }
+    [[nodiscard]] const ui::Rect& filter_bounds() const { return filter_bounds_; }
 
-    [[nodiscard]] const ui::Rect& new_folder_bounds() const { return area().new_folder_bounds; }
+    [[nodiscard]] const ui::Rect& new_folder_bounds() const { return new_folder_bounds_; }
 
     [[nodiscard]] bool has_overlay() const {
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open();
+               quick_look_.is_open() || properties_.is_open() || searching_results();
     }
 
     [[nodiscard]] std::shared_ptr<Folder> picker_folder() const { return current_folder(); }
@@ -249,14 +266,29 @@ public:
 
     [[nodiscard]] Mode mode() const noexcept { return pane().mode; }
 
-    // The info pane in the grid and the details, one setting for both (shown at start); the
-    // columns always show it.
+    // Preview visibility shared by all views. Explicit Show overrides automatic hiding.
     void set_info_visible(bool visible);
 
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
+    void set_info_auto_hide(bool enabled);
+
+    [[nodiscard]] bool info_auto_hide() const noexcept { return info_auto_hide_; }
+
+    [[nodiscard]] bool info_shown() const;
+
+    [[nodiscard]] ui::Rect selection_count_bounds() const { return area().selection_count; }
+
     // The sidebar (shown at start; left out when the window is too narrow for it).
     void set_sidebar_visible(bool visible);
+
+    void set_sidebar_config(const core::Config::Sidebar& config) {
+        sidebar_.set_organization(config.order.value_or(sidebar_.order()),
+                                  config.hidden.value_or(sidebar_.hidden()), sidebar_.collapsed());
+    }
+
+    std::vector<MenuItem> sidebar_menu();
+    std::vector<MenuItem> sidebar_organization_items(const fs::Place& place);
 
     // The pointer's shape over a window point, as last drawn: a hand over what a click acts on
     // (buttons, the path's crumbs, an eject icon, "More details"), the text cursor over a name
@@ -326,11 +358,17 @@ public:
         return sidebar_preview_divider_;
     }
 
-    [[nodiscard]] ui::Rect view_menu_bounds() const { return area().view_menu_bounds; }
+    [[nodiscard]] ui::Rect sort_bounds() const { return sort_bounds_; }
 
-    [[nodiscard]] ui::Rect settings_bounds() const { return area().settings_bounds; }
+    [[nodiscard]] ui::Rect view_menu_bounds() const { return view_menu_bounds_; }
+
+    [[nodiscard]] ui::Rect settings_bounds() const { return status_bar_.settings_bounds(); }
+
+    [[nodiscard]] ui::Rect insights_bounds() const { return insights_bounds_; }
 
     bool restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown);
+
+    [[nodiscard]] ui::Rect sidebar_toggle_bounds() const { return sidebar_toggle_bounds_; }
 
     [[nodiscard]] bool sidebar_visible() const noexcept { return sidebar_visible_; }
 
@@ -381,7 +419,14 @@ public:
     // allow_and_run() is called on "Allow and Run" (issue #17).
     void ask_to_run(const std::filesystem::path& program, std::function<void()> allow_and_run);
 
-    void set_picker_mode(bool picker) { picker_mode_ = picker; }
+    void set_picker_mode(bool picker) {
+        picker_mode_ = picker;
+        if (picker)
+            info_pane_.set_insights_handler({});
+        else
+            info_pane_.set_insights_handler(
+                [this](const std::filesystem::path& path) { show_insights(path); });
+    }
 
     using ActionHandoff = std::function<void(const core::Action&, const core::ActionContext&)>;
 
@@ -410,6 +455,8 @@ public:
 
     // A line in the status bar for a few seconds (what opening a file did).
     void show_message(std::string text, bool error) {
+        if (searching_results())
+            search_results_->message(text);
         if (error)
             start_motion(core::MotionEvent::invalid_operation);
         status_bar_.show_message(std::move(text), error);
@@ -422,6 +469,7 @@ public:
 
     void set_reduced_motion(bool reduced) {
         motion_.set_system_reduced(reduced);
+        settings_.set_system_reduced(reduced);
         redraw_();
     }
 
@@ -431,6 +479,14 @@ public:
               ui::IconSet& icons, Clock::time_point now);
 
     [[nodiscard]] bool animating() const;
+    // Persistent effects use a separate, capped timer; transient input motion remains frame paced.
+    [[nodiscard]] std::optional<std::chrono::milliseconds> ambient_interval() const;
+
+    void set_effects_active(bool active) {
+        if (effects_active_ != active)
+            ambient_tick_ = {};
+        effects_active_ = active;
+    }
 
     void pointer(const ui::PointerEvent& event, Clock::time_point now);
     // false when event did nothing: no shortcut (shortcuts()) where the keyboard is.
@@ -450,6 +506,9 @@ public:
     void open_tabs(const std::vector<std::filesystem::path>& folders);
     // Ctrl+W, a tab's ×, a middle click on it: the tab closes; the last one stays.
     void close_tab(std::size_t index);
+    void reopen_tab();
+    static constexpr std::size_t kMaxClosedTabs = 16;
+    [[nodiscard]] std::size_t closed_tab_count() const;
     // A click on a tab, Ctrl+Tab, Ctrl+Shift+Tab, Alt+1…9.
     void select_tab(std::size_t index);
 
@@ -576,21 +635,30 @@ public:
 
     // A place chosen in the sidebar: opened, after mounting a disk or a network folder that is
     // not mounted.
-    void open_place(const fs::Place& place);
+    enum class PlaceDestination { current, tab, window };
+    void open_place(const fs::Place& place,
+                    PlaceDestination destination = PlaceDestination::current);
+
+    void set_new_window_handler(std::function<void(const std::filesystem::path&)> handler) {
+        new_window_ = std::move(handler);
+    }
 
     // A disk's place: mounted (then opened, when open), unmounted, or ejected (unmounted and
     // powered off, the view going home first when it shows that disk), with a message.
-    void mount_place(const fs::Place& place, bool open);
+    void mount_place(const fs::Place& place, bool open,
+                     std::function<void(const std::filesystem::path&)> ready = {});
     void unmount_place(const fs::Place& place);
     void eject_place(const fs::Place& place);
 
     // A remote bookmark's place: mounted through gvfs (asking for a password on a card when the
     // server wants one; then opened, when open), or unmounted, the view leaving it first.
-    void mount_remote(const fs::Place& place, bool open);
+    void mount_remote(const fs::Place& place, bool open,
+                      std::function<void(const std::filesystem::path&)> ready = {});
     void unmount_remote(const fs::Place& place);
 
     // Ctrl+L: the card that goes to a folder or a server, the folder shown in it to start with.
     void open_location();
+    std::string navigate_path(const std::string& text);
 
     // Goes where text leads (fs::parse_location): opens a folder, or mounts and opens a server,
     // adding it to the sidebar first when add. Returns what is wrong with text; empty when it went.
@@ -630,6 +698,29 @@ public:
 
     // Ctrl+F (ROADMAP 8b): the palette finds files under the folder shown, matched by their paths.
     void open_finder();
+    void open_search_results(std::filesystem::path root = {}, std::string query = {},
+                             std::optional<bool> hidden = {});
+    void open_saved_searches(bool remove = false);
+    void search_action(SearchResults::Action action);
+
+    [[nodiscard]] SearchResults* search_results() const { return search_results_.get(); }
+
+    [[nodiscard]] bool searching_results() const {
+        return search_results_ && search_results_->is_open();
+    }
+
+    void settle_search_preview();
+    void open_pattern();
+    void create_links();
+    void move_into_new_folder();
+    void group_paths(const std::filesystem::path& destination,
+                     std::vector<std::filesystem::path> paths);
+    void extract_dropped_archive(const std::filesystem::path& archive,
+                                 const std::filesystem::path& destination);
+    void reset_folder_view();
+    [[nodiscard]] bool has_custom_folder_view() const;
+
+    void set_pattern_selection_enabled(bool enabled) { pattern_selection_enabled_ = enabled; }
 
     // While finding files: the finder (tests); nullptr otherwise.
     [[nodiscard]] FileFinder* file_finder() noexcept { return finder_.get(); }
@@ -671,6 +762,10 @@ public:
     [[nodiscard]] LocationDialog& location_dialog() noexcept { return location_; }
 
     void show_properties();
+    void show_insights(std::filesystem::path path = {},
+                       std::optional<InsightsView::View> initial = {});
+
+    [[nodiscard]] InsightsView& insights_view() noexcept { return pane().insights; }
 
     [[nodiscard]] PropertiesDialog& properties_dialog() noexcept { return properties_; }
 
@@ -695,6 +790,20 @@ public:
 
     // Stops the transfer running (the status bar's ×).
     void cancel_transfer();
+    void open_transfers();
+    void open_transfer_task(std::uint64_t id);
+    void cancel_transfer_task(std::uint64_t id);
+
+    [[nodiscard]] std::vector<fs::TransferTask> transfer_tasks() const {
+        return transfers_.tasks();
+    }
+
+    void set_verify_transfers(bool enabled) {
+        verify_transfers_ = enabled;
+        redraw_();
+    }
+
+    [[nodiscard]] bool verifies_transfers() const { return verify_transfers_; }
 
     [[nodiscard]] ConflictDialog& conflict_dialog() noexcept { return conflict_; }
 
@@ -706,6 +815,8 @@ public:
     [[nodiscard]] std::vector<std::string> memory_lines() const;
 
 private:
+    std::uint64_t path_navigation_generation_{0};
+
     // Where a drop at (x, y) goes: a folder, and how it is marked.
     struct DropTarget {
         std::filesystem::path folder;
@@ -745,7 +856,7 @@ private:
     // Drops paths into folder: own (rummage's drag: Ctrl copies, Shift moves, else the same disk
     // moves), or another program's with the action agreed.
     void drop_paths(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
-                    bool own, bool move);
+                    bool own, bool move, bool choose = false);
     // Copies or moves paths into destination as one operation.
     void transfer_paths(const std::filesystem::path& destination,
                         const std::vector<std::filesystem::path>& paths, bool move,
@@ -771,6 +882,8 @@ private:
     void trash_done(const fs::TransferResult& result);
     void restore_done(const fs::TransferResult& result);
     // Pastes files read from the system clipboard (at generation) into destination.
+    void paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
+                        std::string extension);
     void paste_files(const std::filesystem::path& destination, const ClipboardFiles& files,
                      std::uint64_t generation);
     // Why an operation runs: the user's, or an undo or redo of one.
@@ -809,12 +922,20 @@ private:
     // A change of permissions done (the user's, an undo or a redo): recorded and said.
     void modes_done(const fs::ModeResult& result, Purpose purpose);
     void report_done(const fs::TransferRequest& request, const fs::TransferResult& result);
-    // Ctrl+V in the name's field: the clipboard's text.
+    // Ctrl+C, Ctrl+X and Ctrl+V for the text field that has the keyboard, found in take_key()'s
+    // order: dialogs, the palette, a filename, a bookmark label or the path field. With
+    // nothing selected Ctrl+C and Ctrl+X do nothing but are still the field's, never the files'.
+    // false for other keys.
+    bool text_field_key(const ui::KeyEvent& event);
+    // Ctrl+V in a text field: the clipboard's text, into the field that has the keyboard.
     void paste_text();
     // "Open With…" in the palette: the palette again, with the applications for the cursor's entry.
     void open_with_palette();
     // The palette's list from the finder's results.
     void refresh_found();
+    void refresh_pattern(const std::string& typed);
+    void refresh_transfer_tasks();
+    void select_pattern(const std::string& pattern, bool add);
     void erase_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     // Opens the card for request (erase or empty_trash), adds up what it removes on a worker and
     // submits it once confirmed and added up; after runs when it is confirmed.
@@ -822,7 +943,10 @@ private:
     // The delete confirmed and added up goes to the transfer thread.
     void submit_erase();
     // The sidebar's menu on a place: the trash's has "Empty Trash".
-    void place_menu(const fs::Place& place, float x, float y);
+    std::vector<MenuItem> place_navigation_items(const fs::Place& place);
+    void drop_actions(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
+                      bool own);
+    void place_menu(const fs::Place& place, float x, float y, bool keyboard = false);
     // The sidebar's places, the trash's icon full or empty.
     void show_places();
     // Puts the cursor on the entry after the last one of going that stays (else the one before).
@@ -833,9 +957,9 @@ private:
     // Opens the selected files when the cursor is on a file (only the cursor's when it is not
     // selected); false when the cursor is on a folder or nowhere.
     [[nodiscard]] bool opens_as_folder(const fs::Entry& file) const;
-    static constexpr std::string_view kArchiveReadOnly = "Archive contents are read-only";
     void open_archive_members(const std::filesystem::path& source, std::vector<fs::Entry> files);
     void compress(bool tar_gz);
+    void links_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     void compress_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     bool open_selection();
     // F4: a terminal in the cursor's folder, else in the folder shown.
@@ -849,6 +973,10 @@ private:
     bool take_key(const ui::KeyEvent& event, Clock::time_point now);
     void take_pointer(const ui::PointerEvent& event, Clock::time_point now);
     bool view_key(const ui::KeyEvent& event, Clock::time_point now);
+    bool browse_key(const ui::KeyEvent& event, Clock::time_point now);
+    void focus_files();
+    void edit_path();
+    void open_selected_tab();
     void dispatch_area_pointer(const ui::PointerEvent& event, Clock::time_point now);
     void dispatch_pointer(const ui::PointerEvent& event, Clock::time_point now);
     // The callback the views and the sidebar set their resize arrows through.
@@ -857,8 +985,18 @@ private:
     void view_pointer(const ui::PointerEvent& event, Clock::time_point now);
 
     // Who gets the pointer: the view, the sidebar or the breadcrumb above the view.
-    enum class Target : std::uint8_t { view, sidebar, breadcrumb, status_bar, tabs, toolbar };
+    enum class Target : std::uint8_t {
+        view,
+        sidebar,
+        breadcrumb,
+        status_bar,
+        tabs,
+        toolbar,
+        navigation
+    };
 
+    void navigation_pointer(const ui::PointerEvent& event);
+    [[nodiscard]] bool can_travel(int direction) const;
     void send_pointer(Target target, const ui::PointerEvent& event, Clock::time_point now);
     void draw_view(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now);
@@ -876,6 +1014,8 @@ private:
     void invoke_action(const core::Action& action, const core::ActionContext& context);
     void run_action(std::string_view id);
     [[nodiscard]] MenuItem sort_menu();
+    [[nodiscard]] std::vector<MenuItem> insights_menu();
+    [[nodiscard]] MenuItem name_filter_menu();
     [[nodiscard]] MenuItem details_columns_menu();
     // A new tab at index at, inheriting view settings from this area's active tab.
     Pane& add_pane(std::size_t at);
@@ -909,15 +1049,25 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
 
     // Here, before the window's parts and the transfers: destroyed after them, as the views were.
+    struct ClosedTab {
+        State::Tab tab;
+        std::vector<HistoryStep> history;
+        std::size_t here{}, index{};
+    };
+
+    [[nodiscard]] static State::Tab tab_of(const Pane& pane, std::size_t side);
+    void restore_tab(const State::Tab& tab, std::size_t window_list, std::size_t window_grid);
+
     struct BrowsingArea {
         explicit BrowsingArea(Browser& browser);
         std::vector<std::unique_ptr<Pane>> tabs;
         std::size_t active{0};
+        std::vector<ClosedTab> closed_tabs;
         Breadcrumb breadcrumb;
         TabBar tab_bar;
-        ui::Rect bounds{}, header{}, view_area{};
-        ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
-        ui::Rect view_menu_bounds{}, settings_bounds{};
+        ui::Rect bounds{}, view_area{};
+        ui::Rect back{}, forward{}, selection_count{};
+        int navigation_pressed{};
         std::filesystem::path motion_folder;
         const Pane* motion_tab{nullptr};
         Mode motion_mode{Mode::columns};
@@ -929,13 +1079,25 @@ private:
         ui::Rect motion_view_bounds{};
     };
 
+    // Shared controls address the active pane; each tab retains its own filter and view state.
+    ui::Rect toolbar_bounds_{}, filter_bounds_{}, clear_filter_bounds_{}, new_folder_bounds_{};
+    ui::Rect view_menu_bounds_{}, insights_bounds_{}, sort_bounds_{}, sidebar_toggle_bounds_{};
     State::Folders folder_settings_;
+    core::CancelToken drive_hover_job_;
+    std::filesystem::path drive_hover_path_;
+    std::string drive_hover_text_;
+    void draw_drive_tooltip(ui::Renderer& renderer, const theme::Palette& palette,
+                            const ui::Rect& bounds);
     std::filesystem::path last_folder_;
     std::array<std::unique_ptr<BrowsingArea>, 2> areas_;
     std::size_t active_area_{0};
     // Rendering and pointer dispatch may address an inactive area without changing focus.
     std::size_t context_area_{0};
     ui::Motion motion_;
+    bool effects_active_{true}, ambient_drawn_{false};
+    Clock::time_point ambient_tick_{};
+    double ambient_seconds_{0};
+
     std::uint64_t motion_epoch_{0};
     ui::Rect motion_bounds_{};
     bool motion_quick_look_{false}, motion_palette_{false};
@@ -957,17 +1119,14 @@ private:
     struct OperationMotion {
         std::size_t area{0};
         std::uint64_t epoch{0};
-        ui::Rect from{};
-        std::filesystem::path path;
-        std::string icon, mime;
+        ItemVisual visual;
     };
 
     [[nodiscard]] OperationMotion capture_operation_motion(const fs::TransferRequest&) const;
     void complete_operation_motion(const OperationMotion&, const fs::TransferRequest&,
                                    const fs::TransferResult&);
     void draw_motion_sprite(ui::Renderer&, const theme::Palette&, ui::IconSet&, Clock::time_point);
-    std::string motion_sprite_icon_{"file"};
-    std::string motion_sprite_mime_;
+    ItemVisual motion_sprite_;
 
     BrowsingArea& area() { return *areas_[context_area_]; }
 
@@ -993,8 +1152,11 @@ private:
     std::shared_ptr<Folder> other_folder() const;
     QuickLook quick_look_;
     Sidebar sidebar_;
+    std::function<void(const std::filesystem::path&)> new_window_;
     StatusBar status_bar_;
     ShortcutsOverlay shortcuts_;
+    bool show_extensions_{true};
+    bool show_thumbnails_{true};
     NameEditor editor_;
     ConflictDialog conflict_;
     ConfirmDialog confirm_;
@@ -1012,8 +1174,17 @@ private:
     std::function<void()> open_config_;
     std::function<void(const core::ConfigResult&)> settings_applied_;
     ContextMenu menu_;
+    enum class PaletteUse : std::uint8_t { commands, files, pattern, transfers };
+    PaletteUse palette_use_{PaletteUse::commands};
+    std::optional<std::uint64_t> transfer_task_id_;
+    bool pattern_selection_enabled_{true};
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
+    std::unique_ptr<SearchResults> search_results_;
+    std::vector<State::SavedSearch> saved_searches_;
+    std::shared_ptr<Folder> search_preview_;
+    bool search_preview_pending_{false};
+    std::uint64_t search_generation_{0};
     std::unique_ptr<FileFinder> finder_;  // while finding files
 
     struct FoundAfter {
@@ -1028,13 +1199,22 @@ private:
     std::size_t menu_loads_{0};         // applications and templates being looked for
     std::vector<std::function<void()>> menu_loaders_;  // started once the menu is open
     bool info_visible_{true};
+    bool info_auto_hide_{false};
     bool sidebar_visible_{true};
     fs::Listing::Predicate picker_filter_;
     bool filter_focused_{false};
+    bool keyboard_focus_visible_{false};
     void apply_filters();
     void toolbar_pointer(const ui::PointerEvent& event);
     void draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                       ui::IconSet& icons);
+    [[nodiscard]] std::pair<ui::Rect, std::string> control_hint_at(float x, float y) const;
+    void clear_control_hint();
+    void draw_control_hint(ui::Renderer&, const ui::Rect&, const theme::Palette&);
+    core::EventLoop::SourceId control_hint_timer_{0};
+    std::string control_hint_text_;
+    ui::Rect control_hint_anchor_{};
+    bool control_hint_ready_{false};
     bool sidebar_drawn_{false};  // in the last draw: the window had room for it
     Target pointer_target_{Target::view};
     bool button_held_{false};  // since a press: the pointer stays with its target
@@ -1061,6 +1241,7 @@ private:
         std::filesystem::path directory;
         std::vector<std::string> names;
         bool cut{false};
+        std::vector<std::filesystem::path> paths{};
     };
 
     Clipboard clipboard_;
@@ -1125,6 +1306,7 @@ private:
     // For each transfer submitted and not done, in order (the queue's): its batch and the
     // clipboard generation to empty after it (submit()).
     struct Submitted {
+        std::uint64_t id{0};
         std::uint64_t batch{0};
         std::optional<std::uint64_t> empty_clipboard;
         OperationMotion motion;
@@ -1138,6 +1320,8 @@ private:
         std::size_t pending{0};
         std::vector<fs::PlacedItem> items;
         std::size_t undo_excluded{0};
+        fs::GroupFolder group_folder{};
+        bool grouped{false};
         bool failed{false};  // something could not be done, or it was stopped
     };
 
@@ -1178,6 +1362,7 @@ private:
     std::optional<RateStart> copy_started_;
     // Last: its thread stops first, while everything its callbacks touch is still there.
     fs::TransferQueue transfers_;
+    bool verify_transfers_{false};
 };
 
 }  // namespace rummage::views

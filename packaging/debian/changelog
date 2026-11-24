@@ -1,3 +1,10 @@
+rummage (0.6.1-1) unstable; urgency=medium
+
+  * Bump source and package versions to 0.6.1.
+  * Target Fedora 45 for CI RPM builds and development downloads.
+
+ -- rummage fork maintainers <barrulus@users.noreply.github.com>  Fri, 20 Nov 2026 17:22:44 +0000
+
 rummage (0.6.0-1) unstable; urgency=medium
 
   * Bump source and package versions to 0.6.0.

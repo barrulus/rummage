@@ -76,3 +76,39 @@ TEST_CASE("markdown: rendered layout wraps at narrow widths and copies presentat
                 out.write(reinterpret_cast<const char*>(pixels.data() + (y * 960 + x) * 4), 3);
     }
 }
+
+TEST_CASE("markdown: links remain visible on table and inline code backgrounds") {
+    using namespace rummage;
+    ui::Offscreen gl{320, 80};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    theme::Palette palette;
+    palette.primary = ui::Color::rgb(0x000000);
+    palette.surface_container = ui::Color::rgb(0xFFFFFF);
+    palette.surface_container_high = ui::Color::rgb(0x000000);
+    palette.on_surface_variant = ui::Color::rgb(0x000000);
+    for (const auto kind : {text::MarkdownKind::table_header, text::MarkdownKind::table_row,
+                            text::MarkdownKind::paragraph}) {
+        text::Markdown document;
+        const auto style = static_cast<std::uint16_t>(
+            text::md_link | (kind == text::MarkdownKind::paragraph ? text::md_code : 0));
+        document.blocks.push_back(
+            {.kind = kind, .level = 0, .marker = {}, .runs = {{"Readable link", style, 0}}});
+        views::MarkdownView view;
+        renderer.begin_frame(320, 80, 1, ui::Color::rgb(0x000000));
+        view.layout(renderer, document, 300);
+        view.draw(renderer, {10, 10, 300, 60}, 0, palette, 1);
+        renderer.end_frame();
+        std::vector<unsigned char> pixels(320 * 80 * 4);
+        glReadPixels(0, 0, 320, 80, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        // Only the adjusted link can produce visible pixels; all painted backgrounds
+        // and table separators are black. Its readable grey is around #777777,
+        // rather than white; allow antialiasing below that value. Before the fix
+        // the whole frame was black.
+        std::size_t visible = 0;
+        for (std::size_t i = 0; i < pixels.size(); i += 4)
+            if (pixels[i] > 80 && pixels[i + 1] > 80 && pixels[i + 2] > 80)
+                ++visible;
+        CHECK(visible > 20);
+    }
+}

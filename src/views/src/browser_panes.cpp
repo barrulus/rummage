@@ -34,11 +34,23 @@ Browser::BrowsingArea::BrowsingArea(Browser& browser)
                  [] {
                      const char* home = std::getenv("HOME");
                      return home ? std::filesystem::path{home} : std::filesystem::path{};
-                 }()},
+                 }(),
+                 &browser.pool_},
       tab_bar{browser.redraw_,
               {.select = [&browser](std::size_t index) { browser.select_tab(index); },
                .close = [&browser](std::size_t index) { browser.close_tab(index); },
-               .add = [&browser] { browser.new_tab(); }}} {}
+               .add = [&browser] { browser.new_tab(); }}} {
+    breadcrumb.set_submit_handler([&browser](std::string text) {
+        auto error = browser.navigate_path(text);
+        if (!error.empty())
+            browser.status_bar_.show_message(error, true);
+        return error;
+    });
+    breadcrumb.set_status_handler(
+        [&browser](std::string text, bool error) { browser.show_message(std::move(text), error); });
+    breadcrumb.set_copy_handler(
+        [&browser](std::string text) { browser.copy_text(std::move(text)); });
+}
 
 void Browser::toggle_split() {
     if (!panes_enabled_)
@@ -78,6 +90,7 @@ void Browser::toggle_split() {
 void Browser::focus_pane(std::size_t index) {
     if (!split_visible_ || index >= areas_.size() || !areas_[index] || index == active_area_)
         return;
+    ++path_navigation_generation_;
     context_area_ = active_area_;
     note_location();
     leave_pane();
@@ -186,6 +199,92 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         item.action = [this, command] { run(command, Clock::now()); };
         items.push_back(std::move(item));
     }
+    items.push_back(sort_menu());
+    items.push_back(name_filter_menu());
+    if (!picker_mode_) {
+        MenuItem results;
+        results.id = "search_results";
+        results.label = i18n::tr("Search Results…");
+        results.action = [this] { open_search_results(); };
+        items.push_back(std::move(results));
+        MenuItem saved;
+        saved.id = "saved_searches";
+        saved.label = i18n::tr("Saved Searches…");
+        saved.action = [this] { open_saved_searches(); };
+        items.push_back(std::move(saved));
+    }
+    MenuItem verification;
+    verification.id = "verify_transfers";
+    verification.label = i18n::tr("Verify copied contents");
+    verification.checkable = true;
+    verification.checked = verifies_transfers();
+    verification.action = [this] { set_verify_transfers(!verifies_transfers()); };
+    items.push_back(std::move(verification));
+    MenuItem transfers;
+    transfers.id = "transfers";
+    transfers.label = i18n::tr("Transfers…");
+    transfers.action = [this] { open_transfers(); };
+    items.push_back(std::move(transfers));
+    MenuItem show;
+    show.id = "show";
+    show.label = i18n::tr("Show");
+    show.submenu = true;
+    MenuItem previews;
+    previews.id = "show_thumbnails";
+    previews.label = i18n::tr("Thumbnails");
+    previews.keys = keys_for(Command::toggle_thumbnails);
+    previews.checkable = true;
+    previews.checked = shows_thumbnails();
+    previews.action = [this] { set_show_thumbnails(!shows_thumbnails()); };
+    show.children.push_back(std::move(previews));
+    MenuItem extensions;
+    extensions.id = "show_extensions";
+    extensions.label = i18n::tr("File extensions");
+    extensions.keys = keys_for(Command::toggle_extensions);
+    extensions.checkable = true;
+    extensions.checked = shows_extensions();
+    extensions.action = [this] { set_show_extensions(!shows_extensions()); };
+    show.children.push_back(std::move(extensions));
+    MenuItem hidden;
+    hidden.id = "show_hidden";
+    hidden.label = i18n::tr("Hidden files");
+    hidden.keys = keys_for(Command::toggle_hidden);
+    hidden.checkable = true;
+    hidden.checked = shows_hidden();
+    hidden.action = [this] { set_show_hidden(!shows_hidden()); };
+    show.children.push_back(std::move(hidden));
+    show.children.push_back({.id = "toggle_info",
+                             .label = std::string{i18n::tr("Preview")},
+                             .keys = keys_for(Command::toggle_info),
+                             .separator = true,
+                             .checkable = true,
+                             .checked = info_shown(),
+                             .empty_text = {},
+                             .children = {},
+                             .action = [this] { set_info_visible(!info_shown()); }});
+    show.children.push_back({.id = "auto_hide_info",
+                             .label = std::string{i18n::tr("Hide preview when no file is focused")},
+                             .keys = {},
+                             .checkable = true,
+                             .checked = info_auto_hide_,
+                             .empty_text = {},
+                             .children = {},
+                             .action = [this] { set_info_auto_hide(!info_auto_hide_); }});
+    show.children.push_back({.id = "toggle_sidebar",
+                             .label = std::string{i18n::tr("Places sidebar")},
+                             .keys = keys_for(Command::toggle_sidebar),
+                             .checkable = true,
+                             .checked = sidebar_visible_,
+                             .empty_text = {},
+                             .children = {},
+                             .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
+    items.push_back(std::move(show));
+    MenuItem sidebar_options;
+    sidebar_options.id = "sidebar_options";
+    sidebar_options.label = i18n::tr("Sidebar");
+    sidebar_options.submenu = true;
+    sidebar_options.children = sidebar_menu();
+    items.push_back(std::move(sidebar_options));
     if (mode() == Mode::details)
         items.push_back(details_columns_menu());
     auto panes = pane_items();
@@ -194,30 +293,14 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         items.insert(items.end(), std::make_move_iterator(panes.begin()),
                      std::make_move_iterator(panes.end()));
     }
-    items.push_back({.id = "toggle_info",
-                     .label = std::string{i18n::tr("Preview")},
-                     .keys = keys_for(Command::toggle_info),
-                     .separator = true,
-                     .checkable = true,
-                     .checked = info_visible_,
-                     .empty_text = {},
-                     .children = {},
-                     .action = [this] { set_info_visible(!info_visible_); }});
-    items.push_back({.id = "toggle_sidebar",
-                     .label = std::string{i18n::tr("Places sidebar")},
-                     .keys = keys_for(Command::toggle_sidebar),
-                     .checkable = true,
-                     .checked = sidebar_visible_,
-                     .empty_text = {},
-                     .children = {},
-                     .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
-    items.push_back({.id = "settings",
-                     .label = std::string{i18n::tr("Settings…")},
-                     .keys = keys_for(Command::show_settings),
-                     .separator = true,
-                     .empty_text = {},
-                     .children = {},
-                     .action = [this] { open_settings(); }});
+    if (panes_enabled_)
+        items.push_back({.id = "settings",
+                         .label = std::string{i18n::tr("Settings…")},
+                         .keys = keys_for(Command::show_settings),
+                         .separator = true,
+                         .empty_text = {},
+                         .children = {},
+                         .action = [this] { open_settings(); }});
     menu_.open(x, y, std::move(items), keyboard);
 }
 

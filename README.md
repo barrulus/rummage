@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme-dual-panes.png" alt="rummage with two browsing panes: video thumbnails on the left, wallpaper images on the right, and a selected image's preview and metadata" width="100%">
+  <img src="docs/images/rummage-dark-grid.webp" alt="rummage in a neutral dark appearance, showing SVG artwork thumbnails and the selected poster's preview and metadata" width="100%">
   <br>
-  <sub>Two panes with independent tabs, video and image thumbnails, and the information pane.</sub>
+  <sub>Artwork thumbnails, stock desktop icons, and a closer look in the information pane.</sub>
 </p>
 
-| Column view with a video still preview | Video thumbnails in the grid |
+| Columns with a text preview | Video thumbnails in the grid |
 | --- | --- |
-| ![Recordings in column view with a selected video's still preview and metadata](docs/images/readme-column-preview.png) | ![A grid of recordings with filmstrip thumbnails and a selected video's information pane](docs/images/readme-video-grid.png) |
+| ![Nested folders in the dark column view with a selected text file and its preview](docs/images/rummage-dark-columns.webp) | ![Video thumbnails with filmstrip borders and a selected recording's still preview and metadata](docs/images/rummage-dark-video-grid.webp) |
 
 rummage provides three views of your files, two persistent panes, tabs, recursive
 filename search, a command palette, Quick Look, and file operations with conflict handling, trash and undo. It
@@ -24,7 +24,7 @@ follows desktop colours and icon themes, with a Noctalia palette integration.
 
 rummage is a fork of [Nordend](https://github.com/pankaspe/nordend-fm), created by
 [pankaspe](https://github.com/pankaspe). It retains the upstream MIT license and
-copyright. These docs describe rummage's 0.6.0 development sources; include the
+copyright. These docs describe rummage's 0.6.1 development sources; include the
 source commit when identifying a development build. See [release history](docs/releases.md)
 and [upgrading from Nordend](docs/install.md#upgrading-from-nordend).
 
@@ -32,6 +32,7 @@ and [upgrading from Nordend](docs/install.md#upgrading-from-nordend).
 
 - [Install and build](docs/install.md): requirements, Nix, NixOS, Home Manager, Void and CMake.
 - [Use rummage](docs/usage.md): views, navigation, tabs, selection, search and places.
+- [Explore Folder Insights](docs/insights.md): file types, Iris, sizes, age and source statistics.
 - [Configure rummage](docs/configuration.md): settings, reload behavior and saved state.
 - [Use rummage as a file picker](docs/file-picker.md): Open/Save dialogs and portal setup.
 - [Troubleshoot](docs/troubleshooting.md): startup, previews, menus and desktop integration.
@@ -62,6 +63,7 @@ files, and **F1** for the active shortcuts.
 | Browse | Columns, grid, expandable details, dual panes, tabs, filters, sorting and zoom |
 | Find | Fuzzy filename/path search under the current folder; command palette with places and tabs |
 | Preview | Images including SVG and HEIC/HEIF, camera previews, DNG development and text with syntax colours; optional video thumbnails/stills |
+| Understand | Folder Insights: Types, Map, Iris, Largest, Age and Languages |
 | Manage | Copy, move, rename, create, trash, restore, permanent delete, undo/redo and darktable sidecar handling |
 | Integrate | Desktop applications, Open With, terminals, bookmarks, network shares (gvfs), removable disks, clipboard and drag and drop |
 | Customize | Fonts, icons, colours, transparency, shortcuts, external actions and nested context menus |
@@ -80,7 +82,7 @@ unsigned Linux x86_64 snapshots, updated after all checks pass on `main`.
 | Distribution | Download |
 | --- | --- |
 | Debian 13 | [DEB](https://github.com/barrulus/rummage/releases/download/development/rummage-debian13-amd64.deb) |
-| Fedora 44 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora44-x86_64.rpm) |
+| Fedora 45 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora45-x86_64.rpm) |
 | Arch Linux | [Package](https://github.com/barrulus/rummage/releases/download/development/rummage-arch-x86_64.pkg.tar.zst) |
 | openSUSE Tumbleweed | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-tumbleweed-x86_64.rpm) |
 | Void glibc | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) |

@@ -1,0 +1,50 @@
+{{ define "main" }}
+<main id="main" class="pricing-page wrap">
+  <header class="page-heading">
+    <p class="eyebrow">A file manager. Not a subscription.</p>
+    <h1>Room for your files.<br><em>Nothing on your bill.</em></h1>
+    <p class="lede">Pick the plan that sounds most like you. We spent considerably more time naming them than calculating the prices.</p>
+  </header>
+  <section class="pricing-grid" aria-label="Free rummage plans">
+    {{ $plans := slice
+      (dict "name" "The occasional rummager" "intro" "For finding that file you definitely saved somewhere." "note" "No commitment. Except remembering where you put it.")
+      (dict "name" "The power rummager" "intro" "For two panes, twelve tabs, and a shortcut for everything." "note" "Our flagship plan. It has a gold border." "featured" true)
+      (dict "name" "The entire department" "intro" "For everyone who has a folder called final-final." "note" "The price scales beautifully. Zero times anything.")
+    }}
+    {{ range $plans }}
+      <article class="pricing-card{{ if .featured }} pricing-featured{{ end }}">
+        <p class="plan-label">{{ if .featured }}Now with a gold border{{ else }}The complete rummage{{ end }}</p>
+        <h2>{{ .name }}</h2>
+        <p class="plan-intro">{{ .intro }}</p>
+        <p class="plan-price"><strong>£0</strong><span>one time, every time</span></p>
+        <ul>
+          <li>Columns, grid, and details</li>
+          <li>Dual panes and tabs</li>
+          <li>Quick Look and preview helpers</li>
+          <li>Folder Insights and Space map</li>
+          <li>Your colours, icons, and shortcuts</li>
+          <li>The source, under the MIT licence</li>
+        </ul>
+        <a class="button {{ if .featured }}primary{{ else }}secondary{{ end }}" href="{{ "downloads/" | relURL }}">Get rummage<span class="visually-hidden"> — {{ .name }}</span></a>
+        <p class="plan-note">{{ .note }}</p>
+      </article>
+    {{ end }}
+  </section>
+  <section class="pricing-faq" aria-labelledby="pricing-questions">
+    <div><p class="eyebrow">Before you reach for your wallet</p><h2 id="pricing-questions">A few entirely<br>reasonable questions.</h2><p>Same application. Same features.<br>Three opportunities to download it.</p></div>
+    <dl>
+      <dt>What changes between the plans?</dt>
+      <dd>The heading, the joke, and one border. Every button takes you to the same downloads.</dd>
+      <dt>Where is the paid upgrade?</dt>
+      <dd>There isn't one. Folder Insights, customisation, and the preview helpers are part of rummage. Some previews need an optional helper package; those are free too.</dd>
+      <dt>Can I use it at work?</dt>
+      <dd>Yes. Rummage is MIT licensed, including for commercial use. See the <a href="{{ .Site.Params.repository }}/blob/main/LICENSE">licence</a> for its terms and warranty disclaimer.</dd>
+      <dt>Does the department get a support contract?</dt>
+      <dd>No contract is included. These are development builds of an open-source project. Visit <a href="{{ "support/" | relURL }}">Support & community</a> for help and ways to report a problem.</dd>
+      <dt>How can I help?</dt>
+      <dd>Report a reproducible bug, improve a guide, help with a translation, or contribute code. The <a href="{{ .Site.Params.repository }}/blob/main/CONTRIBUTING.md">contribution guide</a> is a good place to start.</dd>
+    </dl>
+  </section>
+  <aside class="pricing-credit"><p>With thanks to our friends at <a href="https://hesiodengine.com/pricing">Hesiod</a> for inspiring this page. Good ideas are worth a rummage.</p></aside>
+</main>
+{{ end }}

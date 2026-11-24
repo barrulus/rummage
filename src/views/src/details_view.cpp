@@ -45,24 +45,30 @@ bool same_order(const fs::SortOrder& a, const fs::SortOrder& b) {
 DetailsView::DetailsView(core::EventLoop& loop, core::WorkerPool& pool,
                          fs::DirectoryWatcher& watcher,
                          std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
-                         std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane)
+                         std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane,
+                         Thumbnails* thumbnails)
     : loop_{loop},
       pool_{pool},
       watcher_{watcher},
+      subfolders_{pool, watcher, redraw},
       mime_{std::move(mime)},
       redraw_{std::move(redraw)},
       set_cursor_{std::move(set_cursor)},
-      info_pane_{info_pane} {
+      info_pane_{info_pane},
+      thumbnails_{thumbnails} {
     order_.mime = mime_.get();
-    std::copy(kDetailsWidths.begin(), kDetailsWidths.end(), widths_.begin() + 1);
+    std::copy(kDetailsWidths.begin(), kDetailsWidths.end() - 1, widths_.begin() + 1);
 }
 
 void DetailsView::show(std::shared_ptr<Folder> folder) {
     scrollbar_ = ui::Scrollbar{};
+    horizontal_bar_ = ui::Scrollbar{ui::Scrollbar::Axis::horizontal};
+    sideways_.jump_to(0);
     if (folder) {
         folder->set_entry_filter(entry_filter_);
     }
     expanded_.clear();
+    subfolders_.retain({});
     tree_rows_.clear();
     root_ = folder;
     folder_ = std::move(folder);
@@ -178,12 +184,31 @@ void DetailsView::toggle_row(std::size_t row) {
     redraw_();
 }
 
+bool DetailsView::expandable(std::size_t row) const {
+    const auto& target = tree_rows_[row];
+    const auto& entry = target.folder->entries()[target.entry];
+    if (!entry.is_directory() || target.folder->is_trash() || target.depth >= 64)
+        return false;
+    const auto path = target.folder->path_of(entry);
+    if (expanded_.contains(path))
+        return true;  // Keep the collapse control for an open branch.
+    const auto& model = target.folder->model();
+    if (model.is_archive()) {
+        const auto& inner = model.archive_location().inner;
+        const auto* children =
+            model.archive_tree()->folder(inner.empty() ? entry.name : inner + "/" + entry.name);
+        return children && std::ranges::any_of(*children, [&](const auto& child) {
+                   return child.is_directory() && (show_hidden_ || !child.hidden());
+               });
+    }
+    return subfolders_.contains(path, show_hidden_).value_or(false);
+}
+
 bool DetailsView::disclosure_at(std::size_t row, float x) const {
     const auto& target = tree_rows_[row];
-    const float left =
-        layout_.left[0] + kCellPadding + static_cast<float>(target.depth) * size_.icon;
-    return target.folder->entries()[target.entry].is_directory() && !target.folder->is_trash() &&
-           target.depth < 64 && x >= left && x < left + size_.icon &&
+    const float left = layout_.left[0] + kCellPadding +
+                       static_cast<float>(target.depth) * (size_.icon * 0.5F + 4.0F);
+    return expandable(row) && x >= left && x < left + size_.icon * 0.5F + 4.0F &&
            x < layout_.left[0] + layout_.width[0];
 }
 
@@ -192,7 +217,7 @@ void DetailsView::open(const std::filesystem::path& directory) {
 }
 
 std::optional<ViewHit> DetailsView::hit(float x, float y) const {
-    if (scrollbar_.hit(scroller_, x, y))
+    if (scrollbar_.hit(scroller_, x, y) || horizontal_bar_.hit(sideways_, x, y))
         return std::nullopt;
     if (!folder_ || x < rows_.x || x >= rows_.right() || y < rows_.y || y >= rows_.bottom()) {
         return std::nullopt;
@@ -260,6 +285,8 @@ void DetailsView::set_show_hidden(bool show) {
 }
 
 bool DetailsView::loading() const {
+    if (subfolders_.loading())
+        return true;
     if (root_ && (root_->model().loading() || root_->cursor_pending()))
         return true;
     for (const auto& [path, child] : expanded_) {
@@ -325,12 +352,15 @@ void DetailsView::zoom(std::size_t index) {
 }
 
 void DetailsView::set_widths(const DetailsWidths& widths) {
-    for (std::size_t i = 0; i < widths.size(); ++i) {
+    for (std::size_t i = 0; i + 1 < widths.size(); ++i) {
         widths_.at(i + 1) =
             std::isfinite(widths.at(i))
-                ? std::clamp(widths.at(i), kDetailsColumns.at(i + 1).minimum, 800.0F)
+                ? std::clamp(widths.at(i), kDetailsColumns.at(i + 1).minimum, kMaxDetailsWidth)
                 : kDetailsColumns.at(i + 1).width;
     }
+    widths_[0] = std::isfinite(widths.back()) && widths.back() > 0
+                     ? std::clamp(widths.back(), kDetailsColumns[0].minimum, kMaxDetailsWidth)
+                     : 0;
     redraw_();
 }
 
@@ -407,21 +437,16 @@ void DetailsView::lay_out() {
         if (field != Field::name)
             fixed += shown_width(index(field));
     }
-    const float table = rows_.width - (2.0F * kPadding);
-    // Leave out rightmost enabled columns until the name has room. Preferences stay intact.
-    for (auto it = columns_.rbegin(); it != columns_.rend() && *it != Field::name; ++it) {
-        if (table - fixed >= kDetailsColumns[0].minimum)
-            break;
-        layout_.shown.at(index(*it)) = false;
-        fixed -= shown_width(index(*it));
-    }
-    float left = rows_.x + kPadding;
+    const float table = std::max(0.0F, rows_.width - 2 * kPadding);
+    const float name = widths_[0] > 0
+                           ? shown_width(0)
+                           : std::max(kDetailsColumns[0].minimum * width_scale(), table - fixed);
+    sideways_.set_extent(name + fixed + 2 * kPadding, rows_.width);
+    float left = rows_.x + kPadding - sideways_.offset();
     for (const auto field : columns_) {
         const auto i = index(field);
         layout_.left.at(i) = left;
-        if (!layout_.shown.at(i))
-            continue;
-        layout_.width.at(i) = field == Field::name ? std::max(1.0F, table - fixed) : shown_width(i);
+        layout_.width.at(i) = field == Field::name ? name : shown_width(i);
         left += layout_.width.at(i);
     }
 }
@@ -484,9 +509,16 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     header_ = {bounds.x, top, view_width, kHeaderHeight};
     rows_ = {bounds.x, header_.bottom(), view_width,
              std::max(0.0F, bounds.bottom() - header_.bottom())};
+    table_bounds_ = rows_;
     lay_out();
+    sideways_.advance(now);
+    lay_out();
+    if (sideways_.max_offset() > 0)
+        rows_.height = std::max(0.0F, rows_.height - 20);
+    horizontal_bar_.layout(table_bounds_);
 
     // The header: titles, the sort direction, the dividers.
+    renderer.push_clip(header_);
     renderer.fill_rect({header_.x, header_.bottom() - 1.0F, header_.width, 1.0F},
                        palette.outline_variant);
     const fs::SortOrder& order = folder_->order();
@@ -512,12 +544,14 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             icons.draw(renderer, order.descending ? "chevron-down" : "chevron-up", icon_x,
                        header_.y + ((kHeaderHeight - kSortIcon) / 2.0F), kSortIcon, color);
         }
-        if (field != Field::name) {
+        {
             const bool active = drag_ && drag_->field == field;
-            renderer.fill_rect({left, header_.y + 8.0F, 1.0F, kHeaderHeight - 16.0F},
+            renderer.fill_rect({left + width, header_.y + 8.0F, 1.0F, kHeaderHeight - 16.0F},
                                active ? palette.primary : palette.outline_variant);
         }
     }
+
+    renderer.pop_clip();
 
     // The rows.
     rebuild_rows();
@@ -529,6 +563,14 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float offset = scroller_.offset();
     const RowRange range = visible_rows(entries.size(), size_.row, offset, rows_.height);
 
+    std::vector<std::filesystem::path> visible;
+    for (std::size_t i = range.first; i < range.last; ++i) {
+        const auto& row = tree_rows_[i];
+        const auto& entry = row.folder->entries()[row.entry];
+        if (entry.is_directory() && !row.folder->model().is_archive() && !row.folder->is_trash())
+            visible.push_back(row.folder->path_of(entry));
+    }
+    subfolders_.retain(visible);
     renderer.push_clip(rows_);
     const std::optional<std::size_t> cursor = cursor_row();
     const bool cursor_ring = folder_->single_selection() == nullptr;
@@ -567,38 +609,45 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         fs::Entry typed = entry;
         typed.mime = owner->mime_of(entry);
 
-        const float arrow_left =
-            layout_.left[0] + kCellPadding + static_cast<float>(row.depth) * size_.icon;
+        const float arrow_left = layout_.left[0] + kCellPadding +
+                                 static_cast<float>(row.depth) * (size_.icon * 0.5F + 4.0F);
         renderer.push_clip({layout_.left[0], y, layout_.width[0], size_.row});
-        if (entry.is_directory() && !owner->is_trash() && row.depth < 64) {
+        if (expandable(i)) {
             const auto child = expanded_.find(owner->path_of(entry));
             icons.draw(renderer, child != expanded_.end() ? "chevron-down" : "chevron-right",
-                       arrow_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon,
+                       arrow_left + 2.0F, y + ((size_.row - size_.icon * 0.5F) / 2.0F),
+                       size_.icon * 0.5F,
                        child != expanded_.end() && child->second->model().error() ? palette.error
-                                                                                  : style.icon);
+                                                                                  : detail);
         }
-        const float name_left = arrow_left + size_.icon;
-        icons.draw_file(renderer, (*mime_).name(typed.mime), fs::icon_name(*mime_, typed),
-                        name_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon, style.icon,
-                        typed.folder_icon);
-        if (owner->runs_as_program(entry)) {
-            draw_run_mark(renderer, name_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon,
-                          style.fill ? style.icon : palette.primary,
-                          style.fill.value_or(palette.surface));
-        }
+        const float name_left = arrow_left + size_.icon * 0.5F + 4.0F;
+        if (name_left + size_.icon > rows_.x && name_left < rows_.right() &&
+            name_left < layout_.left[0] + layout_.width[0])
+            draw_entry_icon(
+                renderer, icons, palette, *owner, entry, style,
+                show_thumbnails_ ? thumbnails_ : nullptr,
+                {name_left, y + ((size_.row - size_.icon) / 2.0F), size_.icon, size_.icon},
+                cut_ != nullptr && cut_->holds(owner->path(), entry),
+                cursor == i ? &motion_bounds_.visual : nullptr);
+        if (cursor == i)
+            motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(rows_).intersect(
+                {layout_.left[0], y, layout_.width[0], size_.row});
         const float name_x = name_left + size_.icon + kIconGap;
         const float name_room = layout_.left.at(index(Field::name)) +
                                 layout_.width.at(index(Field::name)) - kCellPadding - name_x;
         if (edit_ != nullptr && edit_->holds(*owner, entry)) {
-            edit_->place(
-                {name_x - ui::TextField::kPadding, y + 3.0F,
-                 std::max(1.0F, name_room) + (2.0F * ui::TextField::kPadding), size_.row - 6.0F},
-                size_.text);
+            const auto room = ui::Rect{name_x - ui::TextField::kPadding, y + 3.0F,
+                                       std::max(1.0F, name_room) + (2.0F * ui::TextField::kPadding),
+                                       size_.row - 6.0F}
+                                  .intersect(rows_);
+            if (!room.empty())
+                edit_->place(room, size_.text);
             item_right_.push_back(name_x + name_room);
         } else {
-            const float drawn = renderer.draw_text(
-                entry.name, name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
-                style.text, std::max(1.0F, name_room), ui::Ellipsis::middle);
+            const float drawn =
+                renderer.draw_text(display_name(entry.name, entry.is_directory(), show_extensions_),
+                                   name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
+                                   style.text, std::max(1.0F, name_room), ui::Ellipsis::end);
             item_right_.push_back(name_x + drawn + kItemSlack);
         }
 
@@ -671,6 +720,13 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             {.fill = kTransparent, .radius = {}, .border_width = 2.0F, .border = palette.primary});
     }
     renderer.pop_clip();
+    if (const auto thumb = horizontal_bar_.thumb(sideways_); !thumb.empty()) {
+        renderer.fill_rect({table_bounds_.x, rows_.bottom(), table_bounds_.width, 20},
+                           palette.surface_container);
+        renderer.draw_box(thumb, {.fill = palette.on_surface_variant.with_alpha(
+                                      horizontal_bar_.dragging() ? 0.75F : 0.45F),
+                                  .radius = {}});
+    }
     if (pane) {
         const float pane_top = header_.y;
         const float pane_height = bounds.bottom() - pane_top;
@@ -707,12 +763,13 @@ std::optional<std::size_t> DetailsView::row_at(float x, float y) const {
 }
 
 std::optional<Field> DetailsView::divider_at(float x, float y) const {
-    if (y < header_.y || y >= header_.bottom()) {
+    if (!header_.contains(x, y)) {
         return std::nullopt;
     }
     for (const Field field : columns_) {
-        if (field != Field::name && layout_.shown.at(index(field)) &&
-            std::abs(x - layout_.left.at(index(field))) <= kDividerGrab) {
+        if (layout_.shown.at(index(field)) &&
+            std::abs(x - (layout_.left.at(index(field)) + layout_.width.at(index(field)))) <=
+                kDividerGrab) {
             return field;
         }
     }
@@ -720,7 +777,7 @@ std::optional<Field> DetailsView::divider_at(float x, float y) const {
 }
 
 std::optional<Field> DetailsView::title_at(float x, float y) const {
-    if (y < header_.y || y >= header_.bottom()) {
+    if (!header_.contains(x, y)) {
         return std::nullopt;
     }
     for (const Field field : columns_) {
@@ -762,7 +819,8 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
         return;
     }
     rebuild_rows();
-    if (!pane_drag_ && !drag_ && scrollbar_.pointer(event, scroller_)) {
+    if (!pane_drag_ && !drag_ &&
+        (horizontal_bar_.pointer(event, sideways_) || scrollbar_.pointer(event, scroller_))) {
         pointer_inside_ = false;
         update_hover();
         redraw_();
@@ -779,22 +837,10 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
                 info_pane_->set_width(pane_drag_->start_width + (pane_drag_->start_x - event.x));
             }
             if (drag_) {
-                // The divider follows the pointer: the column on its right grows to the left.
                 const std::size_t i = index(drag_->field);
-                float others = 0.0F;
-                for (const Field field : columns_) {
-                    if (field != Field::name && field != drag_->field &&
-                        layout_.shown.at(index(field)))
-                        others += shown_width(index(field));
-                }
-                // Dragged in pixels as shown; kept as at the usual size, so a zoom scales it.
-                const float most =
-                    rows_.width - (2.0F * kPadding) - others - kDetailsColumns.at(0).minimum;
-                const float shown =
-                    std::clamp(drag_->start_width + (drag_->start_x - event.x),
-                               kDetailsColumns.at(i).minimum * width_scale(),
-                               std::max(kDetailsColumns.at(i).minimum * width_scale(), most));
-                widths_.at(i) = std::min(800.0F, shown / width_scale());
+                widths_.at(i) =
+                    std::clamp((drag_->start_width + event.x - drag_->start_x) / width_scale(),
+                               kDetailsColumns.at(i).minimum, kMaxDetailsWidth);
                 redraw_();
             }
             update_hover();
@@ -803,7 +849,7 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
             pointer_inside_ = false;
             update_hover();
             break;
-        case Kind::scroll:
+        case Kind::scroll: {
             if (event.x >= header_.right() && info_pane_ != nullptr &&
                 info_pane_->scroll(event, now)) {
                 break;
@@ -822,16 +868,22 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
                 break;
             }
 
-            if (event.wheel_y != 0.0F) {
+            const float horizontal = event.wheel_x + (event.modifiers.shift ? event.wheel_y : 0);
+            if (horizontal != 0)
+                sideways_.wheel(horizontal, now);
+            if (event.scroll_x != 0)
+                sideways_.finger(event.scroll_x, now);
+            if (!event.modifiers.shift && event.wheel_y != 0)
                 scroller_.wheel(event.wheel_y, now);
-            } else if (event.scroll_y != 0.0F) {
+            else if (event.scroll_y != 0)
                 scroller_.finger(event.scroll_y, now);
-            }
             if (event.scroll_finger && event.scroll_stop) {
+                sideways_.release(now);
                 scroller_.release(now);
             }
             redraw_();
             break;
+        }
         case Kind::press: {
             if (event.button == ui::PointerButton::right) {
                 right_click(event.x, event.y);
@@ -856,9 +908,11 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
                 break;  // the pane, not a row
             }
             if (const std::optional<Field> divider = divider_at(event.x, event.y)) {
-                drag_ = Drag{.field = *divider,
-                             .start_x = event.x,
-                             .start_width = shown_width(index(*divider))};
+                // Freeze the automatic Name width so resizing another column pushes later
+                // columns instead of stealing space from Name.
+                if (widths_[0] == 0)
+                    widths_[0] = width(Field::name) / width_scale();
+                drag_ = Drag{.field = *divider, .start_x = event.x, .start_width = width(*divider)};
                 redraw_();
                 break;
             }
@@ -1010,6 +1064,13 @@ bool DetailsView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
                 return false;
             }
             folder.select_all();
+            break;
+        case XKB_KEY_i:
+        case XKB_KEY_I:
+            if (!ctrl || !event.modifiers.shift) {
+                return false;
+            }
+            folder.invert_selection();
             break;
         case XKB_KEY_Escape:
             folder.collapse_selection();

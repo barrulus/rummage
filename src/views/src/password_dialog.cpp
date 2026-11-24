@@ -1,10 +1,12 @@
-#include "rummage/core/i18n.hpp"
 #include "rummage/views/password_dialog.hpp"
 
 #include <algorithm>
 #include <tuple>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
+
+#include "rummage/core/i18n.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 
 namespace rummage::views {
 namespace {
@@ -209,6 +211,17 @@ bool PasswordDialog::key(const ui::KeyEvent& event) {
     return true;
 }
 
+std::string PasswordDialog::copy_selection(bool cut) {
+    if (!is_open() || field(focus_) == nullptr)
+        return {};
+    auto& field = *this->field(focus_);
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        redraw_();
+    }
+    return text;
+}
+
 void PasswordDialog::paste(std::string_view text) {
     if (!is_open()) {
         return;
@@ -290,7 +303,6 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         return;
     }
     rects_ = {};
-    renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
     const bool fields = !anonymous_;
     const int rows = fields ? static_cast<int>(request_.ask_user) +
                                   static_cast<int>(request_.ask_domain) +
@@ -310,10 +322,7 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     height += 12.0F + kButtonHeight + kPadding;
     const ui::Rect card{bounds.x + ((bounds.width - width) / 2.0F),
                         bounds.y + ((bounds.height - height) / 2.0F), width, height};
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = ui::Corners::all(14.0F),
-                             .border_width = 1.0F,
-                             .border = palette.outline_variant});
+    draw_dialog_surface(renderer, bounds, card, palette);
     renderer.push_clip(card);
     const float left = card.x + kPadding;
     const float room = width - (2.0F * kPadding);
@@ -408,15 +417,9 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     for (const bool connect : {false, true}) {
         const ui::Rect& button = connect ? rects_.connect : rects_.cancel;
         const bool hover = hovered_ == (connect ? Target::connect : Target::cancel);
-        ui::Color fill = connect ? palette.primary : palette.surface_container_highest;
-        ui::Color text = connect ? palette.on_primary : palette.on_surface;
-        if (hover) {
-            fill = connect ? palette.primary_container : palette.surface_bright;
-            text = connect ? palette.on_primary_container : palette.on_surface;
-        }
-        renderer.draw_box(button, {.fill = fill, .radius = ui::Corners::all(8.0F)});
-        renderer.draw_text(connect ? i18n::tr("Connect   ↵") : i18n::tr("Cancel   Esc"),
-                           button.x + 14.0F, text_y(button), kTextSize, text, button.width - 20.0F);
+        draw_dialog_button(renderer, button, palette,
+                           connect ? i18n::tr("Connect   ↵") : i18n::tr("Cancel   Esc"), hover,
+                           connect ? DialogButton::primary : DialogButton::normal);
     }
     renderer.pop_clip();
 }

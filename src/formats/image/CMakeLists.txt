@@ -16,9 +16,11 @@ add_library(rummage_formats_image
     src/jpeg_segments.cpp
     src/jxl_decoder.cpp
     src/load.cpp
+    src/metadata.cpp
     src/photo.cpp
     src/pnm.cpp
     src/preview.cpp
+    src/svg_fonts.cpp
     src/tiff/codecs.cpp
     src/tiff/container.cpp
     src/tiff/decode.cpp
@@ -31,4 +33,5 @@ target_include_directories(rummage_formats_image PUBLIC include)
 target_link_libraries(rummage_formats_image
     PUBLIC rummage::picture
     PRIVATE PkgConfig::WEBP PkgConfig::JXL PkgConfig::HEIF PkgConfig::LCMS2
-            PkgConfig::ZLIB rummage::svg rummage::warnings)
+            PkgConfig::ZLIB rummage::svg PkgConfig::PANGOCAIRO
+            PkgConfig::FREETYPE PkgConfig::FONTCONFIG rummage::warnings)

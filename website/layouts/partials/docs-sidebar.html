@@ -1,0 +1,10 @@
+<aside class="docs-sidebar">
+  <details class="docs-menu" open>
+    <summary>Browse documentation</summary>
+    <nav aria-label="Documentation">
+      <a class="docs-overview" href="{{ "docs/" | relURL }}">Documentation overview</a>
+      {{ range hugo.Data.navigation.groups }}<div class="sidebar-group"><p>{{ .title }}</p>{{ range .items }}{{ $url := printf "docs/%s/" .slug | relURL }}<a href="{{ $url }}" {{ if eq $.RelPermalink $url }}aria-current="page"{{ end }}>{{ .label }}</a>{{ end }}</div>{{ end }}
+      <a class="config-link" href="{{ "docs/config.example.toml" | relURL }}" download>Download example config</a>
+    </nav>
+  </details>
+</aside>

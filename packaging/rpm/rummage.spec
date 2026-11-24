@@ -1,5 +1,5 @@
 Name:           rummage
-Version:        0.6.0
+Version:        0.6.1
 Release:        1%{?dist}
 Summary:        Native Wayland file manager
 License:        MIT AND (MIT OR Apache-2.0)
@@ -34,11 +34,16 @@ BuildRequires:  pkgconfig(harfbuzz)
 BuildRequires:  pkgconfig(freetype2)
 BuildRequires:  pkgconfig(fontconfig)
 BuildRequires:  pkgconfig(tomlplusplus)
+BuildRequires:  cmake(nlohmann_json)
+BuildRequires:  pkgconfig(re2)
 BuildRequires:  pkgconfig(libwebp)
 BuildRequires:  pkgconfig(libwebpdemux)
 BuildRequires:  pkgconfig(libjxl)
 BuildRequires:  pkgconfig(libheif) >= 1.23
 BuildRequires:  pkgconfig(lcms2)
+BuildRequires:  pkgconfig(librsvg-2.0) >= 2.52
+BuildRequires:  pkgconfig(pangocairo)
+BuildRequires:  pkgconfig(pangoft2)
 BuildRequires:  pkgconfig(libavformat) >= 60.16.100
 BuildRequires:  pkgconfig(libavcodec) >= 60.31.102
 BuildRequires:  pkgconfig(libavutil) >= 58.29.100
@@ -122,6 +127,10 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_datadir}/icons/hicolor/scalable/apps/rummage.svg
 %{_datadir}/xdg-desktop-portal/portals/rummage.portal
 %{_datadir}/dbus-1/services/org.freedesktop.impl.portal.desktop.rummage.service
+
+%{_datadir}/bash-completion/completions/rummage
+%{_datadir}/zsh/site-functions/_rummage
+%{_datadir}/fish/vendor_completions.d/rummage.fish
 
 %files media
 %license LICENSE

@@ -677,13 +677,17 @@ TEST_CASE("sidebar bookmarks: folders dropped below the places are added; files 
     REQUIRE(f.browser.context_menu().is_open());
     // No folder chooser set: no "Choose Folder…". The only bookmark is first and last.
     const auto& items = f.browser.context_menu().items();
-    REQUIRE(items.size() == 4);
-    CHECK(items[0].id == "rename_bookmark");
-    CHECK(items[1].id == "move_bookmark_up");
-    CHECK_FALSE(items[1].enabled);
-    CHECK(items[2].id == "move_bookmark_down");
-    CHECK_FALSE(items[2].enabled);
-    CHECK(items[3].id == "remove_bookmark");
+    const auto find_item = [&](std::string_view id) -> const rummage::views::MenuItem& {
+        const auto it = std::ranges::find(items, id, &rummage::views::MenuItem::id);
+        REQUIRE(it != items.end());
+        return *it;
+    };
+    CHECK(find_item("open").enabled);
+    CHECK(find_item("open_tab").enabled);
+    CHECK(find_item("rename_bookmark").enabled);
+    CHECK_FALSE(find_item("move_bookmark_up").enabled);
+    CHECK_FALSE(find_item("move_bookmark_down").enabled);
+    CHECK(find_item("remove_bookmark").enabled);
 
     // With a folder chooser: "Choose Folder…" starts it in the bookmark's folder, and the folder
     // chosen replaces it.
@@ -713,9 +717,10 @@ TEST_CASE("sidebar bookmarks: folders dropped below the places are added; files 
                       Browser::Clock::now());
     REQUIRE(f.browser.context_menu().is_open());
     const auto& with_chooser = f.browser.context_menu().items();
-    REQUIRE(with_chooser.size() == 5);
-    REQUIRE(with_chooser[1].id == "choose_bookmark_folder");
-    const std::function<void()> choose = with_chooser[1].action;
+    const auto choose_item =
+        std::ranges::find(with_chooser, "choose_bookmark_folder", &rummage::views::MenuItem::id);
+    REQUIRE(choose_item != with_chooser.end());
+    const std::function<void()> choose = choose_item->action;
     f.browser.context_menu().close();
     choose();
     REQUIRE(run_until(f.loop, [&f] { return !f.browser.loading(); }));
@@ -761,10 +766,15 @@ TEST_CASE("sidebar bookmarks: renamed with F2, moved with Alt+arrows, pointed el
     CHECK(f.browser.sidebar().focused());
     CHECK(f.reloads == reloads);
 
-    // Alt+Up moves it above the root's; the cursor follows it; first already: nothing more.
+    // Alt+Up moves it locally above the root, preserving the shared GTK bookmark order.
     CHECK(f.browser.key(key(XKB_KEY_Up, {.alt = true}), Browser::Clock::now()));
     settle();
-    CHECK(bookmarks() == photos_line + " Pictures\n" + root_line + "\n");
+    CHECK(bookmarks() == root_line + "\n" + photos_line + " Pictures\n");
+    const auto& ordered = f.browser.sidebar().places();
+    const auto first_bookmark = std::ranges::find(ordered, rummage::fs::Place::Section::bookmarks,
+                                                  &rummage::fs::Place::section);
+    REQUIRE(first_bookmark != ordered.end());
+    CHECK(first_bookmark->path == f.photos);
     const auto cursor_path = [&f] {
         const auto& places = f.browser.sidebar().places();
         const std::optional<std::size_t> at = f.browser.sidebar().cursor();
@@ -773,7 +783,7 @@ TEST_CASE("sidebar bookmarks: renamed with F2, moved with Alt+arrows, pointed el
     CHECK(cursor_path() == f.photos);
     CHECK(f.browser.key(key(XKB_KEY_Up, {.alt = true}), Browser::Clock::now()));
     settle();
-    CHECK(bookmarks() == photos_line + " Pictures\n" + root_line + "\n");
+    CHECK(bookmarks() == root_line + "\n" + photos_line + " Pictures\n");
     CHECK(f.browser.key(key(XKB_KEY_Down, {.alt = true}), Browser::Clock::now()));
     settle();
     CHECK(bookmarks() == root_line + "\n" + photos_line + " Pictures\n");
@@ -806,6 +816,46 @@ TEST_CASE("sidebar bookmarks: renamed with F2, moved with Alt+arrows, pointed el
     f.browser.rename_bookmark(f.album, "");
     settle();
     CHECK(bookmarks() == root_line + "\n" + rummage::core::file_uri(f.album) + "\n");
+}
+
+TEST_CASE("sidebar bookmarks: Ctrl+C and Ctrl+X in the label's field copy and cut it as text") {
+    Fixture f;
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](std::vector<rummage::views::SystemClipboard::Format> formats) {
+        offered = std::move(formats);
+    };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    f.browser.open(f.root);
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    f.browser.add_to_sidebar({f.root, f.photos});
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    const std::string before = rummage::core::read_text_file(f.bookmarks).text;
+    CHECK(f.browser.key(key(XKB_KEY_F6), Browser::Clock::now()));
+    f.browser.sidebar().set_cursor_to(f.photos);
+    CHECK(f.browser.key(key(XKB_KEY_F2), Browser::Clock::now()));
+    REQUIRE(f.browser.sidebar().renaming());
+    const rummage::ui::TextField& field = f.browser.sidebar().field();
+    const std::string label = field.text();  // all selected
+    REQUIRE_FALSE(label.empty());
+
+    CHECK(f.browser.key(key(XKB_KEY_c, {.ctrl = true}), Browser::Clock::now()));
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front() ==
+          rummage::views::SystemClipboard::Format{"text/plain;charset=utf-8", label});
+    CHECK(field.text() == label);
+    offered.clear();
+    CHECK(f.browser.key(key(XKB_KEY_x, {.ctrl = true}), Browser::Clock::now()));
+    REQUIRE_FALSE(offered.empty());
+    CHECK(offered.front().second == label);
+    CHECK(field.text().empty());
+    CHECK(f.browser.key(key(XKB_KEY_z, {.ctrl = true}), Browser::Clock::now()));
+    CHECK(field.text() == label);
+
+    CHECK(f.browser.key(key(XKB_KEY_Escape), Browser::Clock::now()));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK_FALSE(f.browser.sidebar().renaming());
+    CHECK(rummage::core::read_text_file(f.bookmarks).text == before);
 }
 
 TEST_CASE("sidebar disks: a click on the eject icon ejects; the right click offers the rest") {
@@ -871,11 +921,15 @@ TEST_CASE("sidebar disks: a click on the eject icon ejects; the right click offe
     click(40.0F, spare, PointerButton::right);
     REQUIRE(f.browser.context_menu().is_open());
     const auto& items = f.browser.context_menu().items();
-    REQUIRE(items.size() == 2);
-    CHECK(items[0].id == "mount");
-    CHECK(items[0].enabled);
-    CHECK(items[1].id == "unmount");
-    CHECK_FALSE(items[1].enabled);
+    const auto find_item = [&](std::string_view id) -> const rummage::views::MenuItem& {
+        const auto it = std::ranges::find(items, id, &rummage::views::MenuItem::id);
+        REQUIRE(it != items.end());
+        return *it;
+    };
+    CHECK(find_item("mount").enabled);
+    CHECK_FALSE(find_item("unmount").enabled);
+    CHECK_FALSE(find_item("properties").enabled);
+    CHECK(find_item("open_tab").enabled);  // mounts before opening the new tab
     f.browser.context_menu().close();
 
     // Nothing can be dropped onto a disk not mounted.
@@ -965,8 +1019,10 @@ TEST_CASE("details tree: disclosure clicks, child opening and dragging use the c
         return;
     }
     f.show(f.root, Browser::Mode::details);
+    fs::create_directory(f.photos / "subfolder");
     f.browser.details().folder()->select_name("photos");
     f.draw();
+    REQUIRE(f.settle());
     const auto parent = f.point_of(f.root, "photos");
     // The disclosure is the gap in the hit area before this folder's icon.
     std::optional<std::pair<float, float>> arrow;
@@ -1015,4 +1071,100 @@ TEST_CASE("details tree: disclosure clicks, child opening and dragging use the c
     f.draw();
     CHECK(f.browser.details().folder()->path() == f.root);
     CHECK(f.browser.details().folder()->selected_names() == Names{"photos"});
+}
+
+TEST_CASE("drop: Alt offers archive extraction into a named folder and leaves the source") {
+    Fixture f;
+    if (!f.gl)
+        return;
+    const auto archive = f.root / "basic.zip";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archive" / "basic.zip", archive);
+    f.show(f.root, Browser::Mode::details);
+    f.drag(f.root, "basic.zip");
+    f.dnd.modifiers.alt = true;
+    f.drop_at(f.point_of(f.root, "album"));
+    REQUIRE(f.browser.context_menu().is_open());
+    const auto& items = f.browser.context_menu().items();
+    const auto found = std::ranges::find(items, "drop_extract", &rummage::views::MenuItem::id);
+    REQUIRE(found != items.end());
+    auto extract = found->action;
+    f.browser.context_menu().close();
+    extract();
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    f.browser.confirm_dialog().paste("Unpacked");
+    CHECK(f.browser.key(key(XKB_KEY_Return), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.album / "Unpacked" / "a.txt"));
+    CHECK(fs::exists(archive));
+    CHECK_FALSE(fs::exists(f.album / "basic.zip"));
+    f.browser.undo();
+    REQUIRE(f.settle());
+    CHECK_FALSE(fs::exists(f.album / "Unpacked"));
+    CHECK(fs::exists(archive));
+}
+
+TEST_CASE("drop: Alt can group files in their existing folder") {
+    Fixture f;
+    if (!f.gl)
+        return;
+    f.show(f.photos, Browser::Mode::details);
+    f.drag(f.photos, "P1.ORF");
+    f.dnd.modifiers.alt = true;
+    f.drop_at(f.point_of(f.photos, ""));
+    REQUIRE(f.browser.context_menu().is_open());
+    const auto& items = f.browser.context_menu().items();
+    const auto found = std::ranges::find(items, "move_into_folder", &rummage::views::MenuItem::id);
+    REQUIRE(found != items.end());
+    auto group = found->action;
+    f.browser.context_menu().close();
+    group();
+    f.browser.confirm_dialog().paste("Selected");
+    CHECK(f.browser.key(key(XKB_KEY_Return), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.photos / "Selected" / "P1.ORF.xmp"));
+    CHECK_FALSE(fs::exists(f.photos / "P1.ORF"));
+}
+
+TEST_CASE("drop: Alt external archive negotiates copy and offers extraction without moving it") {
+    Fixture f;
+    if (!f.gl)
+        return;
+    const auto archive = f.root / "basic.zip";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archive" / "basic.zip", archive);
+    f.show(f.album, Browser::Mode::details);
+    f.dnd.types = {"text/uri-list"};
+    f.dnd.data = rummage::core::file_uri(archive) + "\r\n";
+    f.dnd.source_actions = rummage::ui::kDndCopy | rummage::ui::kDndMove;
+    f.dnd.modifiers.alt = true;
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(f.dnd.accepted_actions == rummage::ui::kDndCopy);
+    REQUIRE(f.browser.context_menu().is_open());
+    const auto& items = f.browser.context_menu().items();
+    CHECK(std::ranges::find(items, "drop_move", &rummage::views::MenuItem::id) == items.end());
+    const auto found = std::ranges::find(items, "drop_extract", &rummage::views::MenuItem::id);
+    REQUIRE(found != items.end());
+    auto extract = found->action;
+    f.browser.context_menu().close();
+    extract();
+    CHECK(f.browser.key(key(XKB_KEY_Return), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(fs::exists(f.album / "basic" / "a.txt"));
+    CHECK(fs::exists(archive));
+}
+
+TEST_CASE("drop: late Alt never reads an external offer still negotiated as a move") {
+    Fixture f;
+    if (!f.gl)
+        return;
+    f.show(f.album, Browser::Mode::details);
+    bool read = false;
+    rummage::views::DragAndDrop dnd;
+    dnd.types = [] { return std::vector<std::string>{"text/uri-list"}; };
+    dnd.action = [] { return rummage::ui::kDndMove; };
+    dnd.read = [&](auto, auto) { read = true; };
+    dnd.modifiers = [] { return Modifiers{.alt = true}; };
+    f.browser.set_drag_and_drop(std::move(dnd));
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK_FALSE(read);
+    CHECK_FALSE(f.browser.context_menu().is_open());
 }

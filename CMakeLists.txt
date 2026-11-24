@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(rummage VERSION 0.6.0 LANGUAGES C CXX)
+project(rummage VERSION 0.6.1 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings
@@ -111,11 +111,16 @@ pkg_check_modules(HARFBUZZ REQUIRED IMPORTED_TARGET harfbuzz)
 pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 pkg_check_modules(FONTCONFIG REQUIRED IMPORTED_TARGET fontconfig)
 pkg_check_modules(TOMLPLUSPLUS REQUIRED IMPORTED_TARGET tomlplusplus)
+find_package(nlohmann_json 3.11 REQUIRED)
+find_program(TOKEI_EXECUTABLE NAMES tokei)
 pkg_check_modules(WEBP REQUIRED IMPORTED_TARGET libwebp libwebpdemux)
 pkg_check_modules(JXL REQUIRED IMPORTED_TARGET libjxl)
 pkg_check_modules(HEIF REQUIRED IMPORTED_TARGET libheif>=1.23)
 pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2)
+pkg_check_modules(RSVG REQUIRED IMPORTED_TARGET librsvg-2.0>=2.52)
+pkg_check_modules(PANGOCAIRO REQUIRED IMPORTED_TARGET pangocairo>=1.44 pangoft2>=1.44)
 pkg_check_modules(ZLIB REQUIRED IMPORTED_TARGET zlib)
+pkg_check_modules(RE2 REQUIRED IMPORTED_TARGET re2)
 pkg_check_modules(SDBUSCPP REQUIRED IMPORTED_TARGET sdbus-c++)  # udisks2 (ROADMAP 7.3)
 pkg_check_modules(TURBOJPEG IMPORTED_TARGET libturbojpeg)  # optional for now: the benchmark
 
@@ -130,7 +135,7 @@ add_subdirectory(src/fs)        # directory loading and sorting
 add_subdirectory(src/engines)   # engines' manifests: who shows which type (3a)
 add_subdirectory(src/text)      # text files: the Text type, the loader (3b)
 add_subdirectory(src/picture)   # pictures: Image, turning, scaling, the cache's PNG, the loader
-add_subdirectory(src/svg)       # icon-theme SVG rendering on FreeType
+add_subdirectory(src/svg)       # shared librsvg rendering for icons and previews
 add_subdirectory(src/formats)   # the families of files read in the helper (image today)
 add_subdirectory(src/thumbs)    # freedesktop thumbnail cache
 add_subdirectory(src/preview)   # Quick Look providers: images, text, information
@@ -305,3 +310,11 @@ install(CODE "configure_file(\"${PROJECT_SOURCE_DIR}/data/org.freedesktop.impl.p
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.impl.portal.desktop.rummage.service"
         DESTINATION share/dbus-1/services)
 install(FILES data/rummage.portal DESTINATION share/xdg-desktop-portal/portals)
+
+# Shell completions follow the install prefix and DESTDIR, including Nix packages.
+option(RUMMAGE_INSTALL_COMPLETIONS "Install bash, zsh and fish completions" ON)
+if(RUMMAGE_INSTALL_COMPLETIONS)
+    install(FILES data/completions/rummage.bash DESTINATION share/bash-completion/completions RENAME rummage)
+    install(FILES data/completions/_rummage DESTINATION share/zsh/site-functions)
+    install(FILES data/completions/rummage.fish DESTINATION share/fish/vendor_completions.d)
+endif()

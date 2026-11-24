@@ -1,9 +1,11 @@
-#include "rummage/core/i18n.hpp"
 #include "rummage/views/location_dialog.hpp"
 
 #include <algorithm>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
+
+#include "draw_helpers.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
 namespace {
@@ -89,6 +91,18 @@ bool LocationDialog::key(const ui::KeyEvent& event) {
         redraw_();
     }
     return true;
+}
+
+std::string LocationDialog::copy_selection(bool cut) {
+    if (!is_open() || on_toggle_)
+        return {};
+    auto& field = field_;
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        error_.clear();
+        redraw_();
+    }
+    return text;
 }
 
 void LocationDialog::paste(std::string_view text) {
@@ -178,7 +192,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float left = card.x + kPadding;
     const float room = width - (2.0F * kPadding);
     float y = card.y + kPadding;
-    renderer.draw_text(i18n::tr("Go to Folder or Server"), left, y, kTitleSize, palette.on_surface, room);
+    renderer.draw_text(i18n::tr("Go to Folder or Server"), left, y, kTitleSize, palette.on_surface,
+                       room);
     y += 30.0F;
 
     const ui::FieldColors colors{
@@ -191,8 +206,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     y += kFieldHeight + 8.0F;
     if (error_.empty()) {
         renderer.draw_text(
-            i18n::tr("/path, ~/path, smb://server/share, sftp://user@host/path, ftp://, davs://"), left, y,
-            kTextSize, palette.on_surface_variant, room);
+            i18n::tr("/path, ~/path, smb://server/share, sftp://user@host/path, ftp://, davs://"),
+            left, y, kTextSize, palette.on_surface_variant, room);
     } else {
         renderer.draw_text(error_, left, y, kTextSize, palette.error, room);
     }
@@ -225,9 +240,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             text = go ? palette.on_primary_container : palette.on_surface;
         }
         renderer.draw_box(button, {.fill = fill, .radius = ui::Corners::all(8.0F)});
-        renderer.draw_text(go ? i18n::tr("Go   ↵") : i18n::tr("Cancel   Esc"), button.x + 14.0F,
-                           button.y + ((kButtonHeight - kTextSize) / 2.0F) - 2.0F, kTextSize, text,
-                           button.width - 20.0F);
+        draw_button_text(renderer, go ? i18n::tr("Go   ↵") : i18n::tr("Cancel   Esc"), button,
+                         text);
     }
     renderer.pop_clip();
 }

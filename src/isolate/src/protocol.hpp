@@ -29,10 +29,10 @@ inline constexpr int kSocketFd = 3;
 inline constexpr std::uint32_t kRequestMagic = 0x4E505251;   // "NPRQ"
 inline constexpr std::uint32_t kResponseMagic = 0x4E505253;  // "NPRS"
 inline constexpr std::uint32_t kGoodbyeMagic = 0x4E504259;   // "NPBY"
-inline constexpr std::uint32_t kInfoMagic = 0x4E50494E;      // "NPIN"
+inline constexpr std::uint32_t kInfoMagic = 0x4E504932;      // "NPI2"
 
 inline constexpr std::size_t kMaxDetail = 1024;
-inline constexpr std::size_t kMaxPacket = 8192;
+inline constexpr std::size_t kMaxPacket = 65536;
 inline constexpr std::size_t kMaxField = 255;  // bytes of one information field, at most
 
 // The helper's exit status when it could not build its cage: it never works without one.
@@ -223,7 +223,8 @@ struct Packet {
 [[nodiscard]] std::optional<Packet> receive_packet(int socket);
 
 // A photo's information as one packet (kInfoMagic, the numbers, then each text field, cut at
-// kMaxField bytes), and back; nullopt when the bytes are not that.
+// kMaxField bytes, then bounded format-specific rows), and back. Oversized details are
+// explicitly marked as truncated. Invalid lengths/counts/trailing data are rejected.
 [[nodiscard]] std::vector<std::byte> encode_info(const picture::PhotoInfo& info);
 [[nodiscard]] std::optional<picture::PhotoInfo> decode_info(std::span<const std::byte> bytes);
 

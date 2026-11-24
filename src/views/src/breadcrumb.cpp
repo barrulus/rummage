@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <utility>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "draw_helpers.hpp"
-#include "rummage/fs/trash.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/path_completion.hpp"
+#include "rummage/fs/trash.hpp"
 
 namespace rummage::views {
 namespace {
@@ -49,12 +51,27 @@ std::vector<Crumb> crumbs_of(const std::filesystem::path& folder,
     return crumbs;
 }
 
-Breadcrumb::Breadcrumb(std::function<void()> redraw, Go go, std::filesystem::path home)
-    : redraw_{std::move(redraw)}, go_{std::move(go)}, home_{std::move(home)} {}
+Breadcrumb::Breadcrumb(std::function<void()> redraw, Go go, std::filesystem::path home,
+                       core::WorkerPool* pool)
+    : pool_{pool}, redraw_{std::move(redraw)}, go_{std::move(go)}, home_{std::move(home)} {}
 
 void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                       ui::IconSet& icons, const Folder& folder) {
     bounds_ = bounds;
+    if (path_ != folder.path()) {
+        path_ = folder.path();
+        cancel_edit();
+        error_.clear();
+    }
+    if (editing_) {
+        field_.draw(
+            renderer,
+            {bounds.x + 8, bounds.y + 5, std::max(1.0F, bounds.width - 16), bounds.height - 10},
+            kTextSize,
+            {palette.surface, error_.empty() ? palette.primary : palette.error, palette.on_surface,
+             palette.primary_container, palette.primary});
+        return;
+    }
     std::vector<Crumb> crumbs = crumbs_of(folder.path(), home_);
     if (crumbs != crumbs_) {
         crumbs_ = std::move(crumbs);
@@ -132,7 +149,10 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
         }
         if (crumb.label.empty()) {
             icons.draw(renderer, crumb.icon, x + kInset, top + ((kBoxHeight - kIconSize) / 2.0F),
-                       kIconSize, last ? palette.primary : color);
+                       kIconSize,
+                       last && !drop
+                           ? theme::readable_foreground(palette.primary, palette.surface_container)
+                           : color);
         } else {
             renderer.draw_text(crumb.label, x + kInset, bounds.y + 12.0F, kTextSize, color,
                                width - (2.0F * kInset), ui::Ellipsis::middle);
@@ -147,6 +167,8 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
 }
 
 std::optional<std::filesystem::path> Breadcrumb::path_at(float x, float y) const {
+    if (editing_)
+        return std::nullopt;
     const std::optional<std::size_t> crumb = crumb_at(x, y);
     return crumb ? std::optional{crumbs_[*crumb].path} : std::nullopt;
 }
@@ -170,7 +192,7 @@ std::optional<std::size_t> Breadcrumb::crumb_at(float x, float y) const {
 
 bool Breadcrumb::clickable_at(float x, float y) const {
     const std::optional<std::size_t> crumb = crumb_at(x, y);
-    return crumb && *crumb + 1 < crumbs_.size();
+    return claims(x, y) && (submit_ || (crumb && *crumb + 1 < crumbs_.size()));
 }
 
 bool Breadcrumb::claims(float x, float y) const {
@@ -180,6 +202,21 @@ bool Breadcrumb::claims(float x, float y) const {
 
 void Breadcrumb::pointer(const ui::PointerEvent& event) {
     using Kind = ui::PointerEvent::Kind;
+    if (editing_) {
+        if (field_.pointer(event)) {
+            invalidate_completion();
+            redraw_();
+        }
+        return;
+    }
+    if (submit_ && event.kind == Kind::press && event.button == ui::PointerButton::left &&
+        claims(event.x, event.y)) {
+        const auto crumb = crumb_at(event.x, event.y);
+        if (!crumb || *crumb + 1 == crumbs_.size()) {
+            edit(path_);
+            return;
+        }
+    }
     std::optional<std::size_t> over;
     if (event.kind != Kind::leave) {
         over = crumb_at(event.x, event.y);
@@ -197,6 +234,133 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
     if (go_) {
         go_(path, child);
     }
+}
+
+void Breadcrumb::edit(const std::filesystem::path& path) {
+    if (!submit_)
+        return;
+    invalidate_completion();
+    path_ = path;
+    field_.set_text(path.string());
+    field_.select_all();
+    error_.clear();
+    editing_ = true;
+    redraw_();
+}
+
+bool Breadcrumb::key(const ui::KeyEvent& event) {
+    if (!editing_)
+        return false;
+    if (event.keysym == XKB_KEY_Escape) {
+        cancel_edit();
+    } else if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
+        invalidate_completion();
+        error_ = submit_ ? submit_(field_.text()) : std::string{};
+        if (error_.empty() && !submitting_)
+            editing_ = false;
+        redraw_();
+    } else if ((event.keysym == XKB_KEY_Tab || event.keysym == XKB_KEY_ISO_Left_Tab) &&
+               !event.modifiers.ctrl && !event.modifiers.alt) {
+        complete(event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab);
+    } else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C ||
+                                        event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X)) {
+        invalidate_completion();
+        const auto [first, last] = field_.selection();
+        if (copy_ && first != last)
+            copy_(field_.text().substr(first, last - first));
+        if (event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X)
+            field_.insert({});
+        redraw_();
+    } else if (field_.key(event)) {
+        invalidate_completion();
+        error_.clear();
+        redraw_();
+    }
+    return true;
+}
+
+std::string Breadcrumb::copy_selection(bool cut) {
+    if (!editing_)
+        return {};
+    auto& field = field_;
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        invalidate_completion();
+        error_.clear();
+        redraw_();
+    }
+    return text;
+}
+
+void Breadcrumb::paste(std::string_view text) {
+    if (!editing_)
+        return;
+    invalidate_completion();
+    field_.insert(text.substr(0, text.find_first_of("\r\n")));
+    error_.clear();
+    redraw_();
+}
+
+void Breadcrumb::invalidate_completion() {
+    ++edit_generation_;
+    submitting_ = false;
+    completion_job_.cancel();
+    completing_ = false;
+    completions_.clear();
+    completed_text_.clear();
+}
+
+void Breadcrumb::choose_completion() {
+    if (completions_.empty())
+        return;
+    const auto count = static_cast<std::ptrdiff_t>(completions_.size());
+    completion_index_ = (completion_index_ % count + count) % count;
+    completed_text_ = completions_[static_cast<std::size_t>(completion_index_)];
+    field_.select_all();
+    field_.insert(completed_text_);
+    error_.clear();
+    if (status_)
+        status_(i18n::trf("{} matching paths · Tab / Shift+Tab to cycle", completions_.size()),
+                false);
+    redraw_();
+}
+
+void Breadcrumb::complete(bool reverse) {
+    if (!pool_)
+        return;
+    if (completing_) {
+        completion_index_ += reverse ? -1 : 1;
+        return;
+    }
+    if (completions_.size() > 1 && completed_text_ == field_.text()) {
+        completion_index_ += reverse ? -1 : 1;
+        choose_completion();
+        return;
+    }
+    invalidate_completion();
+    completing_ = true;
+    completion_index_ = reverse ? -1 : 0;
+    const auto text = field_.text();
+    const auto generation = edit_generation_;
+    completion_job_ = pool_->submit(
+        core::Priority::visible,
+        [text, path = path_, home = home_](const core::CancelToken& token) {
+            return fs::complete_path(text, path, home, token);
+        },
+        [this, text, generation](fs::PathMatches result) {
+            completing_ = false;
+            if (!editing_ || generation != edit_generation_ || text != field_.text())
+                return;
+            completions_ = std::move(result.paths);
+            if (completions_.empty()) {
+                error_ = result.error.empty() ? std::string{i18n::tr("No matching paths")}
+                                              : result.error;
+                if (status_)
+                    status_(error_, true);
+                redraw_();
+            } else
+                choose_completion();
+        });
 }
 
 std::vector<std::string> Breadcrumb::shown() const {

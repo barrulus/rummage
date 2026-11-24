@@ -1,15 +1,15 @@
 # Build from the checksum-verified checkout archive supplied by scripts/ci/native.sh.
 pkgname=('rummage' 'rummage-media' 'rummage-pdf' 'rummage-previews')
-pkgver=0.6.0
+pkgver=0.6.1
 pkgrel=1
 pkgdesc='Native Wayland file manager'
 arch=('x86_64')
 url='https://github.com/barrulus/rummage'
 license=('MIT' 'Apache-2.0')
 depends=('glibc' 'gcc-libs' 'wayland' 'libglvnd' 'libxkbcommon' 'harfbuzz'
-         'freetype2' 'fontconfig' 'tomlplusplus' 'libwebp' 'libjxl' 'libheif>=1.23' 'lcms2' 'zlib'
-         'sdbus-cpp>=2' 'shared-mime-info' 'hicolor-icon-theme')
-makedepends=('ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
+         'freetype2' 'fontconfig' 'tomlplusplus' 'libwebp' 'libjxl' 'libheif>=1.23' 'lcms2' 'zlib' 're2'
+         'librsvg>=2.52' 'pango' 'cairo' 'sdbus-cpp>=2' 'shared-mime-info' 'hicolor-icon-theme')
+makedepends=('nlohmann-json' 'ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
 source=('rummage-source.tar.gz')
 # The checkout builder sets this to the verified source SHA-256, never SKIP.
 sha256sums=('CHECKOUT_SHA256')
@@ -22,7 +22,8 @@ build() {
 }
 
 package_rummage() {
-    optdepends=('rummage-media: video thumbnails and still previews'
+    optdepends=('tokei: source language and line statistics'
+                'rummage-media: video thumbnails and still previews'
                 'rummage-pdf: PDF thumbnails and first-page previews'
                 'rummage-previews: all optional preview engines')
     DESTDIR="$pkgdir" cmake --install build --component Unspecified

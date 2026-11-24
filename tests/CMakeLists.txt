@@ -1,3 +1,5 @@
+add_executable(rummage-code-fixture code_stats_fixture.cpp)
+target_link_libraries(rummage-code-fixture PRIVATE rummage::warnings)
 add_executable(rummage-program-fixture program_fixture.cpp)
 target_link_libraries(rummage-program-fixture PRIVATE rummage::warnings)
 
@@ -30,8 +32,10 @@ add_executable(rummage-tests
     config_test.cpp
     content_map_test.cpp
     settings_test.cpp
+    settings_editors_test.cpp
     desktop_palette_test.cpp
     context_menu_test.cpp
+    menu_editor_test.cpp
     details_view_test.cpp
     devices_test.cpp
     engines_test.cpp
@@ -57,12 +61,20 @@ add_executable(rummage-tests
     tiff_test.cpp
     image_test.cpp
     heif_test.cpp
+    filesystem_test.cpp
+    links_test.cpp
+    group_test.cpp
+    path_completion_test.cpp
     load_test.cpp
+    insights_test.cpp
+    code_stats_test.cpp
+    code_report_test.cpp
     measure_test.cpp
     memory_test.cpp
     mime_test.cpp
     navigation_test.cpp
     palette_test.cpp
+    kde_palette_test.cpp
     paste_test.cpp
     places_test.cpp
     remote_test.cpp
@@ -142,7 +154,7 @@ add_executable(rummage-sandbox-probe sandbox_probe.cpp
                                      ${PROJECT_SOURCE_DIR}/src/isolate/src/sandbox.cpp)
 target_include_directories(rummage-sandbox-probe PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src)
 target_link_libraries(rummage-sandbox-probe PRIVATE rummage::warnings)
-add_dependencies(rummage-tests rummage rummage-program-fixture rummage-preview rummage-fake-preview rummage-sandbox-probe)
+add_dependencies(rummage-tests rummage-code-fixture rummage rummage-program-fixture rummage-preview rummage-fake-preview rummage-sandbox-probe)
 # The MIME database the tests read: shared-mime-info as pkg-config finds it at build time, not
 # whatever $XDG_DATA_DIRS says when they run (NixOS keeps it outside /usr/share, Flatpak adds
 # its own). tests/main.cpp points $XDG_DATA_DIRS at it.
@@ -154,7 +166,8 @@ if(NOT RUMMAGE_MIME_PREFIX OR NOT EXISTS "${RUMMAGE_MIME_PREFIX}/share/mime/glob
 endif()
 # The shipped example config must parse clean and match the built-in defaults.
 target_compile_definitions(rummage-tests
-    PRIVATE RUMMAGE_EXECUTABLE="$<TARGET_FILE:rummage>"
+    PRIVATE RUMMAGE_CODE_FIXTURE="$<TARGET_FILE:rummage-code-fixture>"
+            RUMMAGE_EXECUTABLE="$<TARGET_FILE:rummage>"
             RUMMAGE_TEST_PROGRAM="$<TARGET_FILE:rummage-program-fixture>"
             RUMMAGE_EXAMPLE_CONFIG="${PROJECT_SOURCE_DIR}/docs/config.example.toml"
             RUMMAGE_TEST_DATA="${PROJECT_SOURCE_DIR}/tests/data"
@@ -174,6 +187,8 @@ add_test(NAME memory-tests COMMAND rummage-tests "--source-file=*memory_test.cpp
 
 add_executable(rummage-portal-tests file_picker_portal_test.cpp)
 target_link_libraries(rummage-portal-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
+add_executable(rummage-desktop-portal-tests desktop_portal_test.cpp)
+target_link_libraries(rummage-desktop-portal-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
 add_executable(rummage-notification-tests notifications_test.cpp)
 target_include_directories(rummage-notification-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/platform/src)
 target_link_libraries(rummage-notification-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
@@ -195,6 +210,8 @@ if(DBUS_RUN_SESSION AND DBUS_SEND)
     set_tests_properties(file-manager-activation PROPERTIES TIMEOUT 40)
 endif()
 if(DBUS_RUN_SESSION)
+    add_test(NAME desktop-portal COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-desktop-portal-tests>)
+    set_tests_properties(desktop-portal PROPERTIES TIMEOUT 30)
     add_test(NAME file-manager COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-file-manager-tests>)
     set_tests_properties(file-manager PROPERTIES TIMEOUT 15)
     add_test(NAME file-picker-portal COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-portal-tests>)
@@ -233,4 +250,8 @@ if(RUMMAGE_PDF)
     # Alone: one case keeps a helper busy until its 8 s timeout, which would slow the timing-
     # sensitive view tests running beside it.
     set_tests_properties(pdf-tests PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
+endif()
+
+if(TOKEI_EXECUTABLE)
+    target_compile_definitions(rummage-tests PRIVATE RUMMAGE_TEST_TOKEI="${TOKEI_EXECUTABLE}")
 endif()

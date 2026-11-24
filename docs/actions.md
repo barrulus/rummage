@@ -101,7 +101,7 @@ exits early cannot report when that delegated work finishes.
 ## Default menu groups
 
 File and folder menus put opening commands first, followed by Cut/Copy/Paste and Rename,
-then Copy Name/Location, archive operations, and applicable extra actions. Trash and
+then Create Link, Copy Name/Location, archive operations, and applicable extra actions. Trash and
 permanent deletion have their own group. Sort By and Panes stay together near the bottom,
 and Properties is last. Separators appear only between groups that contain commands.
 
@@ -116,6 +116,21 @@ Left or Escape returns to its parent. An outside click dismisses without activat
 content behind it.
 
 ## Arrange and nest menus
+
+Open **Settings → Menus** to edit the common layout or the Files and folders,
+Folder background, Trash and Sidebar overrides. **Add command**, **Separator** and
+**Remaining commands** append entries. Select an entry to move it up/down, wrap it in
+**Group**, or change its label. **Nest** moves it into the preceding custom group;
+**Unnest** moves it out one level. On the selected tree row, Alt+Up/Down reorders,
+Alt+Right/Left nests/unnests, and Delete removes it. All controls scroll into view in
+small windows.
+
+Valid changes save automatically. Duplicate commands or a second Remaining commands
+entry are rejected. **Reset layout** removes only the current context override; it
+restores the common layout, or the built-in layout when there is no common override.
+Removing every entry creates an explicitly hidden menu. **Preview** shows a representative
+structure; the running menu filters commands by selection and fills dynamic application
+and template submenus at use time. Menu edits never execute a command.
 
 Actions default to the **Actions** submenu. `placement = "menu"` puts an action directly
 above that submenu. A `[context_menu]` layout can instead arrange built-in commands and
@@ -154,7 +169,7 @@ menu customization does not change command-palette or shortcut availability.
 | `entry` | Files or folders targeted in an ordinary folder |
 | `background` | Empty space in an ordinary folder, without a target |
 | `trash` | Trash entries or empty space in Trash |
-| `sidebar` | Devices, bookmarks, and the Trash sidebar item |
+| `sidebar` | Places, devices, bookmarks, and the Trash sidebar item |
 
 Specific arrays override `items`. Without either, rummage uses that context's built-in menu;
 an empty array hides its menu. The [example config](config.example.toml) includes the
@@ -162,6 +177,12 @@ an empty array hides its menu. The [example config](config.example.toml) include
 as well as the available IDs and additional custom-action examples. Default reference arrays
 and the custom `items` example are alternatives: keep only the overrides you intend to use
 and only one `[context_menu]` table.
+
+For upgrade compatibility, sidebar arrays that exactly match either older shipped
+default are treated as if they start with `{ remaining = true }`. This restores new
+Places and bookmark actions without rewriting the config. Changed ordering,
+labels, separators, groups or item lists remain custom layouts; empty arrays still
+hide the menu. Include `remaining` in your own layout to retain new actions too.
 
 Copy Name, Copy Location, Extract Here, and Extract To are built-in actions.
 Copy Name (**Ctrl+Alt+C**) copies each selected filename, including its extension, as
@@ -253,3 +274,32 @@ Preset overrides retain omitted preset fields. Copy Name and Copy Location canno
 See the [annotated reference](config.example.toml) for all default context layouts
 and menu IDs. See [troubleshooting](troubleshooting.md#actions-or-menus-are-missing)
 when an action does not appear.
+
+### Editing actions in Settings
+
+Settings → Actions lists custom actions separately from their editing form. Choose an action or
+**Add action**, then enter a stable ID, a menu label and a program. Each argument has its own text
+field and remove button. Values are literal: spaces, quotes and shell-looking text are passed to
+the program unchanged. Editing never runs the program.
+
+Use an entire argument for `{file}`, `{files}`, `{directory}` or `{destination}`. The form explains
+these placeholders and lets you cycle selection requirements and the destination picker. A
+`{destination}` argument requires a file or folder picker; `{file}` requires one selected item and
+`{files}` requires one or more selected items. Invalid combinations remain visible with their
+validation message and are not saved.
+
+Valid edits save when leaving a field or pressing Enter. A new action remains a draft until its
+required fields and rules are valid. Existing IDs stay fixed so menu references and shortcuts
+remain intact. Settings preserves advanced action properties and unrelated configuration keys.
+Use **Record shortcut** in the action form to assign a shortcut directly. Read-only configurations
+allow inspecting and copying values; change their declared configuration to edit them.
+
+The `create_link` menu ID creates symbolic links for the selected entries.
+`reset_folder_view` is the reset action inside Sort By; both can be placed in a
+custom menu layout.
+
+The `move_into_folder` menu ID moves the selection into a newly named folder.
+Sidebar layouts can include `open`, `open_tab`, `open_other_pane`, `open_terminal`,
+`copy_path` and `properties`, alongside bookmark and device actions. These actions
+use the location that was right-clicked. Availability depends on the location and
+whether it is mounted.

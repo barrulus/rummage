@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace rummage::ui {
 
@@ -43,6 +45,24 @@ struct Rect {
     // Shrinks (positive amount) or grows (negative) the rectangle on every side.
     [[nodiscard]] constexpr Rect inset(float amount) const noexcept {
         return {x + amount, y + amount, width - (2.0F * amount), height - (2.0F * amount)};
+    }
+};
+
+// Clockwise annular sector in logical pixels, angles in radians from the right.
+// The hit shape matches Renderer::draw_sector, including the hole and wrap at 2*pi.
+struct AnnularSector {
+    float x{0}, y{0}, inner{0}, outer{0}, start{0}, sweep{0};
+
+    [[nodiscard]] bool contains(float px, float py) const noexcept {
+        const float dx = px - x, dy = py - y;
+        const float radius = std::hypot(dx, dy);
+        if (radius < inner || radius >= outer || sweep <= 0)
+            return false;
+        constexpr float turn = 2 * std::numbers::pi_v<float>;
+        float angle = std::fmod(std::atan2(dy, dx) - start, turn);
+        if (angle < 0)
+            angle += turn;
+        return angle < sweep;
     }
 };
 

@@ -1,0 +1,24 @@
+{{- $target := .Destination -}}
+{{- if eq .Page.Section "docs" -}}
+  {{- $url := urls.Parse $target -}}
+  {{- if and (not $url.IsAbs) (not (strings.HasPrefix $target "//")) $url.Path -}}
+    {{- $path := $url.Path -}}
+    {{- $suffix := "" -}}
+    {{- with $url.RawQuery }}{{ $suffix = printf "?%s" . }}{{ end -}}
+    {{- with $url.Fragment }}{{ $suffix = printf "%s#%s" $suffix . }}{{ end -}}
+    {{- if eq $path "../README.md" -}}
+      {{- $target = printf "%s%s" ("" | relURL) $suffix -}}
+    {{- else if strings.HasPrefix $path "../" -}}
+      {{- $target = printf "%s/blob/main/%s%s" site.Params.repository (strings.TrimPrefix "../" $path) $suffix -}}
+    {{- else if eq $path "README.md" -}}
+      {{- $target = printf "%s%s" ("docs/" | relURL) $suffix -}}
+    {{- else if strings.HasSuffix $path ".md" -}}
+      {{- $target = printf "%s%s" (printf "docs/%s/" (strings.TrimSuffix ".md" $path) | relURL) $suffix -}}
+    {{- else if strings.HasPrefix $path "images/" -}}
+      {{- $target = printf "%s%s" ($path | relURL) $suffix -}}
+    {{- else if not (strings.HasPrefix $path "/") -}}
+      {{- $target = printf "%s%s" (printf "docs/%s" $path | relURL) $suffix -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+<a href="{{ $target | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>

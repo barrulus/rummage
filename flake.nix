@@ -3,6 +3,13 @@
 
   inputs.nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
 
+  nixConfig = {
+    extra-substituters = [ "https://rummage-fm.cachix.org" ];
+    extra-trusted-public-keys = [
+      "rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA="
+    ];
+  };
+
   outputs =
     { self, nixpkgs }:
     let
@@ -35,10 +42,20 @@
       });
 
       checks = forEachSystem (system: {
-        tests = self.packages.${system}.rummage.override {
+        tests = (self.packages.${system}.rummage.override {
           withTests = true;
           withMedia = true;
           withPdf = true;
+        }).overrideAttrs {
+          pname = "rummage-tests";
+          outputs = [ "out" ];
+          # Compile and test the app/helpers, but produce no installable packages.
+          installPhase = ''
+            mkdir -p "$out"
+            touch "$out/passed"
+          '';
+          postInstall = "";
+          dontFixup = true;
         };
         nixos-module = import ./nix/module-check.nix { inherit self nixpkgs system; };
         smoke = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {
@@ -57,6 +74,7 @@
             packages = with pkgs; [
               clang-tools
               doctest
+              tokei
               gdb
               git
               ffmpeg

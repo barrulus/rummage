@@ -115,6 +115,21 @@ TEST_CASE("is_elf_program: executables and PIEs run; libraries, objects and the 
     CHECK_FALSE(is_program(elf(true, true, 4)));     // ET_CORE
     CHECK_FALSE(is_program(Bytes{'#', '!', '/', 'b', 'i', 'n', '/', 's', 'h', '\n'}));
 
+    // An AppImage (issue #23): its runtime is a static PIE, ET_DYN with no PT_INTERP, and the
+    // AppImage magic "AI" and its type at byte 8.
+    const auto appimage = [](Bytes bytes, unsigned char kind) {
+        bytes[8] = 'A';
+        bytes[9] = 'I';
+        bytes[10] = kind;
+        return bytes;
+    };
+    CHECK(is_program(appimage(elf(true, true, 3, 4), 2)));        // type 2
+    CHECK(is_program(appimage(elf(true, true, 3, 4), 1)));        // the old type 1
+    CHECK(is_program(appimage(elf(false, true, 3, 3), 2)));       // 32-bit
+    CHECK_FALSE(is_program(appimage(elf(true, true, 3, 4), 3)));  // no such type
+    CHECK_FALSE(is_program(appimage(elf(true, true, 1), 2)));     // the magic on an object file
+    CHECK_FALSE(is_program(appimage(elf(true, true, 4), 2)));     // or a core dump
+
     Bytes truncated = elf(true, true, 3, 4, 3);
     truncated.resize(64 + 56);  // the PT_INTERP header is past the end
     CHECK_FALSE(is_program(truncated));

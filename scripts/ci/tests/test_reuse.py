@@ -28,9 +28,10 @@ TESTED, HEAD, MERGED, TREE = (letter * 40 for letter in 'abcd')
 
 class ReuseTest(unittest.TestCase):
     def setUp(self):
-        self.run = {'id': 42, 'event': 'pull_request', 'conclusion': 'success', 'head_sha': HEAD}
+        self.run = {'id': 42, 'event': 'workflow_dispatch', 'conclusion': 'success',
+                    'head_sha': TESTED, 'head_branch': 'feature'}
         self.artifacts = [{'name': f'{prefix}-{TESTED}', 'expired': False}
-                          for prefix in ('development-downloads', 'nix-store')]
+                          for prefix in ('development-downloads', 'nix-store', 'test-result')]
         self.source = {'tree': {'sha': TREE}, 'parents': [{'sha': 'e' * 40}, {'sha': HEAD}]}
         self.jobs = [{'name': name, 'conclusion': 'success'} for name in reuse.REQUIRED_JOBS]
         self.requests = []
@@ -59,11 +60,11 @@ class ReuseTest(unittest.TestCase):
         self.assertEqual(self.find(), ('', ''))
 
     def test_unrelated_artifact_commit_is_rejected(self):
-        self.source['parents'][1]['sha'] = MERGED
+        self.run['head_sha'] = HEAD
         self.assertEqual(self.find(), ('', ''))
 
     def test_missing_or_expired_artifacts_require_rebuild(self):
-        for index in (0, 1):
+        for index in range(len(self.artifacts)):
             with self.subTest(index=index), patch.dict(self.artifacts[index], expired=True):
                 self.assertEqual(self.find(), ('', ''))
         self.artifacts.pop()
@@ -78,8 +79,13 @@ class ReuseTest(unittest.TestCase):
         self.jobs.pop()
         self.assertEqual(self.find(), ('', ''))
 
-    def test_failed_or_non_pr_run_cannot_be_promoted(self):
-        for change in ({'conclusion': 'failure'}, {'event': 'push'}):
+    def test_build_without_successful_test_gate_cannot_be_reused(self):
+        self.jobs = [job for job in self.jobs if job['name'] != 'Tests and lint']
+        self.assertEqual(self.find(), ('', ''))
+
+    def test_failed_or_non_manual_branch_run_cannot_be_promoted(self):
+        for change in ({'conclusion': 'failure'}, {'event': 'push'},
+                       {'event': 'pull_request'}, {'head_branch': 'main'}):
             with self.subTest(change=change), patch.dict(self.run, change):
                 self.assertEqual(self.find(), ('', ''))
 
@@ -93,8 +99,9 @@ class ReuseTest(unittest.TestCase):
                 reuse.main()
             self.assertEqual(output.read_text(), 'run_id=\ncommit=\n')
 
-    def test_pr_and_manual_run_always_validate_normally(self):
-        for event, ref in [('pull_request', 'refs/pull/1/merge'), ('workflow_dispatch', 'refs/heads/main')]:
+    def test_manual_runs_always_validate_normally(self):
+        for event, ref in [('workflow_dispatch', 'refs/heads/feature'),
+                           ('workflow_dispatch', 'refs/heads/main')]:
             with self.subTest(event=event), tempfile.TemporaryDirectory() as temporary:
                 output = Path(temporary) / 'output'
                 with patch.dict(os.environ, GITHUB_REF=ref, GITHUB_EVENT_NAME=event,
@@ -117,7 +124,7 @@ class PromotionTest(unittest.TestCase):
         self.manifest = self.root / 'SHA256SUMS'
         self.manifest.write_text(''.join(
             f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in sorted(self.root.iterdir())))
-        (self.root / 'release-notes.md').write_text('Original successful PR build link.\n')
+        (self.root / 'release-notes.md').write_text('Original successful branch build link.\n')
 
     def promote(self, tree=TREE, tested_tree=TREE, commit=TESTED):
         promote.promote(self.root, commit, MERGED, tree, tested_tree)
@@ -131,7 +138,7 @@ class PromotionTest(unittest.TestCase):
         for line in self.manifest.read_text().splitlines():
             digest, name = line.split('  ')
             self.assertEqual(hashlib.sha256((self.root / name).read_bytes()).hexdigest(), digest)
-        self.assertIn('Original successful PR build link', (self.root / 'release-notes.md').read_text())
+        self.assertIn('Original successful branch build link', (self.root / 'release-notes.md').read_text())
 
     def test_changed_tree_and_wrong_commit_are_rejected_before_mutation(self):
         before = (self.root / 'source.json').read_bytes()
@@ -162,6 +169,21 @@ class NixTransferTest(unittest.TestCase):
             paths = nix_cache.roots()
         self.assertEqual(len(paths), 14)
         self.assertTrue(any('checks.x86_64-linux.smoke' in path for path in paths))
+
+    def test_test_result_transfer_does_not_evaluate_or_copy_packages(self):
+        for mode in ('export', 'restore'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                calls = []
+                with patch.object(nix_cache.subprocess, 'check_output',
+                                  return_value=json.dumps(['/nix/store/test-result'])) as evaluate:
+                    directory = Path(temporary) / 'cache'
+                    nix_cache.transfer(mode, directory, tests_only=True,
+                                       run=lambda cmd, **kw: calls.append(cmd))
+                evaluate.assert_called_once()
+                self.assertEqual(evaluate.call_args.args[0][3], nix_cache.NIX_TESTS)
+                self.assertEqual(calls, [[
+                    'nix', 'copy', '--to' if mode == 'export' else '--from', directory.as_uri(),
+                    *([] if mode == 'export' else ['--no-check-sigs']), '/nix/store/test-result']])
 
     def test_restore_uses_locally_evaluated_roots(self):
         paths = ['/nix/store/expected-out', '/nix/store/expected-media']

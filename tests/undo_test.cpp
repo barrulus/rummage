@@ -455,3 +455,128 @@ TEST_CASE("undo: a preexisting destination sidecar keeps its photo group out of 
     std::ifstream sidecar{f.album / "P2.ORF.xmp"};
     CHECK(std::string{std::istreambuf_iterator<char>{sidecar}, {}} == "destination's sidecar");
 }
+
+TEST_CASE("undo: new links go to the trash, what they lead to stays; redo brings them back") {
+    Fixture f;
+    std::ofstream{f.album / "kept.txt"} << "kept";
+    const std::shared_ptr<Folder> shown = f.show(f.root, "album");
+    f.browser.create_links();
+    REQUIRE(f.settle());
+    REQUIRE(listing(f.root) == Names{"Link to album", "album", "photos"});
+    CHECK(fs::read_symlink(f.root / "Link to album") == f.album);
+    CHECK(f.message() == "Made 1 link");
+    REQUIRE(run_until(f.loop, [&] { return shown->selected_names() == Names{"Link to album"}; }));
+
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.root) == Names{"album", "photos"});
+    CHECK(listing(f.trash / "files") == Names{"Link to album"});
+    CHECK(fs::is_symlink(f.trash / "files" / "Link to album"));
+    CHECK(listing(f.album) == Names{"kept.txt"});  // what the link led to stays
+    CHECK(f.message() == "Undone: “Link to album” moved to the trash");
+
+    f.run(key(XKB_KEY_Z, kCtrlShift));
+    CHECK(listing(f.root) == Names{"Link to album", "album", "photos"});
+    CHECK(fs::read_symlink(f.root / "Link to album") == f.album);
+    CHECK(f.message() == "Redone: “Link to album” restored");
+
+    // Several at once, one operation.
+    const std::shared_ptr<Folder> photos = f.show(f.photos, "");
+    for (const char* name : {"P1.ORF", "P2.ORF"}) {
+        const auto& entries = photos->entries();
+        const auto it = std::ranges::find(entries, name, &rummage::fs::Entry::name);
+        REQUIRE(it != entries.end());
+        photos->set_cursor(static_cast<std::size_t>(it - entries.begin()),
+                           rummage::views::SelectMode::toggle);
+    }
+    REQUIRE(photos->selected_names() == Names{"P1.ORF", "P2.ORF"});
+    f.browser.create_links();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos) ==
+          Names{"Link to P1.ORF", "Link to P2.ORF", "P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    CHECK(f.message() == "Made 2 links");
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+}
+
+TEST_CASE("undo: move into a new folder is one operation with sidecars and redo") {
+    Fixture f;
+    auto shown = f.show(f.photos, "P1.ORF");
+    f.browser.move_into_new_folder();
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    f.browser.confirm_dialog().paste("Selected");
+    f.run(key(XKB_KEY_Return));
+    CHECK(listing(f.photos) == Names{"P2.ORF", "Selected"});
+    CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp"});
+    f.browser.undo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    f.browser.redo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp"});
+    std::ofstream{f.photos / "Selected" / "added.txt"} << "keep";
+    f.browser.undo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos / "Selected") == Names{"added.txt"});
+    CHECK(fs::exists(f.photos / "P1.ORF.xmp"));
+    f.browser.redo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.photos / "Selected") == Names{"P1.ORF", "P1.ORF.xmp", "added.txt"});
+}
+
+TEST_CASE("transfer tasks: queued cancellation preserves another job's conflict and undo") {
+    Fixture f;
+    std::ofstream{f.album / "P1.ORF"} << "old";
+    f.show(f.photos, "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    f.browser.paste();
+    REQUIRE(run_until(f.loop, [&] { return f.browser.conflict_dialog().is_open(); }));
+    f.browser.paste();
+    const auto tasks = f.browser.transfer_tasks();
+    REQUIRE(tasks.size() == 2);
+    f.browser.cancel_transfer_task(tasks.back().id);
+    REQUIRE(run_until(f.loop, [&] { return f.browser.transfer_tasks().back().finished(); }));
+    CHECK(f.browser.conflict_dialog().is_open());
+    CHECK(f.browser.conflict_dialog().conflict().name == "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_Return)));  // keep both
+    REQUIRE(f.settle());
+    REQUIRE(fs::exists(f.album / "P1 2.ORF"));
+    f.run(key(XKB_KEY_z, kCtrl));
+    CHECK_FALSE(fs::exists(f.album / "P1 2.ORF"));
+    CHECK(fs::exists(f.album / "P1.ORF"));
+}
+
+TEST_CASE("transfer tasks: palette filters tasks and exposes completed details and clear") {
+    Fixture f;
+    f.show(f.photos, "P1.ORF");
+    CHECK(f.press(key(XKB_KEY_c, kCtrl)));
+    f.show(f.album, "");
+    f.run(key(XKB_KEY_v, kCtrl));
+    f.browser.open_transfers();
+    auto& palette = f.browser.command_palette();
+    REQUIRE(palette.external());
+    palette.set_query("P1.ORF");
+    REQUIRE(palette.items().size() == 1);
+    CHECK(palette.items().front().label.find("Completed") != std::string::npos);
+    palette.choose_highlighted();
+    REQUIRE(palette.external());
+    CHECK(palette.status().find("Completed") != std::string::npos);
+    CHECK(std::ranges::none_of(palette.items(), [](const auto& item) {
+        return item.id == "task:cancel" || item.id == "task:pause";
+    }));
+    palette.set_query("Source:");
+    REQUIRE(palette.items().size() == 1);
+    CHECK(palette.items().front().label.find(f.photos.string()) != std::string::npos);
+    palette.choose_highlighted();  // informational rows keep the panel open
+    CHECK(palette.external());
+    f.browser.open_transfers();
+    palette.set_query("Clear Finished Tasks");
+    REQUIRE(palette.items().size() == 1);
+    palette.choose_highlighted();
+    CHECK(palette.external());
+    CHECK(palette.status() == "No transfers yet");
+    CHECK(f.browser.transfer_tasks().empty());
+    palette.close();
+    f.run(key(XKB_KEY_z, kCtrl));  // clearing visible history does not clear undo
+    CHECK(listing(f.album).empty());
+}

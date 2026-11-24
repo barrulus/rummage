@@ -114,6 +114,16 @@ public:
         out = value->get();
     }
 
+    void read_float(const toml::node& node, const std::string& path, double minimum, double maximum,
+                    float& out) {
+        const auto number = node.value<double>();
+        if (number && std::isfinite(*number) && *number >= minimum && *number <= maximum)
+            out = static_cast<float>(*number);
+        else
+            report(node.source(),
+                   std::format("{} must be a finite number from {} to {}", path, minimum, maximum));
+    }
+
     // A list of strings; anything else keeps out.
     void read_strings(const toml::node& node, const std::string& path,
                       std::vector<std::string>& out) {
@@ -248,6 +258,7 @@ bool read_actions(const toml::node& node, Reader& reader, std::vector<Action>& a
                     action.id = *text;
                 } else if (name == "label") {
                     action.label = *text;
+                    action.translate_label = false;
                 } else if (name == "destination_name") {
                     action.destination_name = *text;
                 } else if (name == "destination") {
@@ -376,6 +387,50 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                       else
                           reader.report(value.source(), path + " must be auto, low or high");
                   }},
+                 {"hologram_spread",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_float(value, path, 0, 12, motion.hologram_spread);
+                  }},
+                 {"portal_rotation",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_float(value, path, 0, 12, motion.portal_rotation);
+                  }},
+                 {"ambient",
+                  [&](const toml::node& value, const std::string& path) {
+                      auto& ambient = motion.ambient;
+                      reader.read_section(
+                          value, path,
+                          {{"background",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_bool(v, p, ambient.background);
+                            }},
+                           {"selection_glow",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_bool(v, p, ambient.selection_glow);
+                            }},
+                           {"speed",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_float(v, p, 0, 4, ambient.speed);
+                            }},
+                           {"intensity",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_float(v, p, 0, 1, ambient.intensity);
+                            }},
+                           {"fps",
+                            [&](const toml::node& v, const std::string& p) {
+                                reader.read_int(v, p, 1, 60, ambient.fps);
+                            }},
+                           {"shader", [&](const toml::node& v, const std::string& p) {
+                                const auto text = v.value<std::string>();
+                                if (text &&
+                                    (text->empty() || (std::filesystem::path{*text}.is_absolute() &&
+                                                       text->find('\0') == std::string::npos)))
+                                    ambient.shader = *text;
+                                else
+                                    reader.report(v.source(),
+                                                  p + " must be empty or an absolute file path");
+                            }}});
+                  }},
                  {"events",
                   [&](const toml::node& value, const std::string& path) {
                       const auto* table = value.as_table();
@@ -445,6 +500,35 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                           reader.report(value.source(),
                                         path + " must be an absolute path or ~/ path; using Home");
                   }}});
+        } else if (key.str() == "sidebar") {
+            const auto read_list = [&](const toml::node& value, const std::string& path,
+                                       std::optional<std::vector<std::string>>& out) {
+                const auto* values = value.as_array();
+                std::vector<std::string> parsed;
+                if (!values || values->size() > 512) {
+                    reader.report(value.source(), path + " must contain at most 512 strings");
+                    return;
+                }
+                for (const auto& item : *values) {
+                    const auto text = item.value<std::string>();
+                    if (!text || text->empty() || text->size() > 4096 ||
+                        text->find('\0') != std::string::npos) {
+                        reader.report(item.source(), path + " must contain nonempty strings");
+                        return;
+                    }
+                    if (std::ranges::find(parsed, *text) == parsed.end())
+                        parsed.push_back(*text);
+                }
+                out = std::move(parsed);
+            };
+            reader.read_section(node, "sidebar",
+                                {{"order",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      read_list(value, path, config.sidebar.order);
+                                  }},
+                                 {"hidden", [&](const toml::node& value, const std::string& path) {
+                                      read_list(value, path, config.sidebar.hidden);
+                                  }}});
         } else if (key.str() == "appearance") {
             reader.read_section(
                 node, "appearance",
@@ -455,12 +539,13 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                  {"palette_source",
                   [&](const toml::node& value, const std::string& path) {
                       const auto selection = value.value<std::string>();
-                      if (selection && (*selection == "auto" || *selection == "desktop" ||
-                                        *selection == "file" || *selection == "builtin"))
+                      if (selection &&
+                          (*selection == "auto" || *selection == "desktop" ||
+                           *selection == "file" || *selection == "builtin" || *selection == "kde"))
                           config.appearance.palette_source = *selection;
                       else
                           reader.report(value.source(),
-                                        path + " must be auto, desktop, file, or builtin");
+                                        path + " must be auto, desktop, file, builtin, or kde");
                   }},
                  {"color_scheme",
                   [&](const toml::node& value, const std::string& path) {
@@ -581,6 +666,33 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
     }
 }
 
+bool legacy_sidebar_menu(const std::vector<MenuNode>& nodes) {
+    // Only migrate the two layouts shipped in older example configs. Explicitly
+    // customised menus (including empty menus) must keep their filtering behavior.
+    const auto matches = [&](std::initializer_list<std::pair<std::string_view, bool>> expected) {
+        return nodes.size() == expected.size() &&
+               std::equal(nodes.begin(), nodes.end(), expected.begin(),
+                          [](const MenuNode& node, const auto& old) {
+                              return node.id == old.first && node.separator == old.second &&
+                                     node.label.empty() && node.items.empty() && !node.remaining;
+                          });
+    };
+    return matches({{"mount", false},
+                    {"unmount", false},
+                    {"eject", true},
+                    {"remove_bookmark", false},
+                    {"empty_trash", false}}) ||
+           matches({{"rename_bookmark", false},
+                    {"choose_bookmark_folder", false},
+                    {"move_bookmark_up", true},
+                    {"move_bookmark_down", false},
+                    {"mount", false},
+                    {"unmount", false},
+                    {"eject", true},
+                    {"remove_bookmark", true},
+                    {"empty_trash", false}});
+}
+
 bool read_menu_layout(const toml::node& source, Reader& reader, const std::vector<Action>& actions,
                       MenuLayout& layout) {
     bool valid = true;
@@ -597,6 +709,13 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "properties",
                                           "open_with",
                                           "open_tab",
+                                          "open_window",
+                                          "sidebar_move_up",
+                                          "sidebar_move_down",
+                                          "sidebar_separator",
+                                          "sidebar_remove_separator",
+                                          "sidebar_hide",
+                                          "sidebar_options",
                                           "open_terminal",
                                           "running",
                                           "copy_path",
@@ -607,6 +726,9 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "cut",
                                           "paste",
                                           "rename",
+                                          "create_link",
+                                          "move_into_folder",
+                                          "reset_folder_view",
                                           "trash",
                                           "erase",
                                           "restore",
@@ -731,6 +853,10 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
         };
         output->emplace();
         read(read, value, **output);
+    }
+    if (valid && layout.sidebar && legacy_sidebar_menu(*layout.sidebar)) {
+        // Upgrade on load rather than rewriting personal or declaratively managed files.
+        layout.sidebar->insert(layout.sidebar->begin(), MenuNode{.remaining = true});
     }
     if (!valid)
         layout = {};

@@ -107,6 +107,7 @@ constexpr std::array kAllowed{
     __NR_ftruncate,
     // what the C and C++ libraries use underneath
     __NR_futex,
+    __NR_sched_yield,  // the prestarted filter worker yields while waiting for work
     __NR_getrandom,
     __NR_clock_gettime,
     __NR_rt_sigreturn,
@@ -118,11 +119,11 @@ constexpr std::array kAllowed{
 // Sanitizer builds (tests only): their runtimes need a few more (ASan checks whether memory is
 // readable through a pipe: pipe2 and ioctl, seen in a snapshot with RUMMAGE_SANDBOX_REPORT=1).
 constexpr std::array kAllowedSanitized{
-    __NR_sigaltstack,       __NR_gettid,    __NR_getpid,
-    __NR_sched_yield,       __NR_prctl,     __NR_rt_sigaction,
-    __NR_sched_getaffinity, __NR_tgkill,    __NR_nanosleep,
-    __NR_clock_nanosleep,   __NR_getrlimit, __NR_prlimit64,
-    __NR_readlinkat,        __NR_pipe2,     __NR_ioctl,
+    __NR_sigaltstack, __NR_gettid,       __NR_getpid,
+    __NR_prctl,       __NR_rt_sigaction, __NR_sched_getaffinity,
+    __NR_tgkill,      __NR_nanosleep,    __NR_clock_nanosleep,
+    __NR_getrlimit,   __NR_prlimit64,    __NR_readlinkat,
+    __NR_pipe2,       __NR_ioctl,
 #ifdef __NR_readlink
     __NR_readlink,
 #endif
@@ -285,7 +286,9 @@ SandboxStatus enter_sandbox(Unexpected unexpected) {
     Program program = filter(unexpected);
     const sock_fprog fprog{.len = static_cast<unsigned short>(program.size()),
                            .filter = program.data()};
-    if (::syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER, 0, &fprog) != 0) {
+    // Pango's font matcher may already have a worker: every thread must share
+    // the same restrictions, including the denial of opening paths.
+    if (::syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC, &fprog) != 0) {
         status.error = "seccomp: " + std::error_code{errno, std::generic_category()}.message();
         return status;
     }

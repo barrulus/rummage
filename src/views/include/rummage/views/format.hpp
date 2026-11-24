@@ -3,9 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace rummage::views {
+
+// Hide only a regular file's final extension; leading dots and directory names stay intact.
+[[nodiscard]] std::string_view display_name(std::string_view name, bool directory, bool extensions);
 
 // "1 byte", "512 bytes", "1.2 kB", "45.0 MB", "1.3 GB": decimal (SI) units, as GNOME shows sizes.
 [[nodiscard]] std::string format_size(std::uint64_t bytes);

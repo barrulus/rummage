@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdlib>
@@ -7,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <zlib.h>
 
 #include <doctest/doctest.h>
 
@@ -17,6 +19,7 @@
 #include "rummage/picture/load.hpp"
 #include "rummage/picture/png.hpp"
 #include "rummage/picture/scale.hpp"
+#include "temp_dir.hpp"
 
 namespace image = rummage::formats::image;
 namespace picture = rummage::picture;
@@ -480,4 +483,113 @@ TEST_CASE("image: Panasonic GX8 crop" *
     CHECK(square.width == 1440);
     CHECK(square.height == 1440);
     CHECK_FALSE(preview("RAW_PANASONIC_GX8_43.RW2", 1024).crop);
+}
+
+TEST_CASE(
+    "image metadata: PNG technical fields and all embedded text survive without pixel decoding") {
+    rummage::test::TempDir dir;
+    const auto png = picture::encode_png(numbered(32, 18), {{"Author", "Gohma"},
+                                                            {"Custom key", "value one"},
+                                                            {"Custom key", "value two"},
+                                                            {"Long", std::string(5000, 'x')}});
+    const auto path =
+        dir.write("details.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    const auto info = image::read_photo_info(path);
+    CHECK(info.width == 32);
+    CHECK(info.height == 18);
+    const auto value = [&](const std::string& key) {
+        const auto found =
+            std::ranges::find_if(info.details, [&](const auto& row) { return row.first == key; });
+        return found == info.details.end() ? std::string{} : found->second;
+    };
+    CHECK(value("Format") == "PNG");
+    CHECK(value("Color model") == "RGBA");
+    CHECK(value("Bit depth") == "8 bits");
+    CHECK(value("Compression mode") == "Lossless");
+    CHECK(value("PNG · Author") == "Gohma");
+    CHECK(value("PNG · Custom key") == "value one");
+    CHECK(value("PNG · Custom key (2)") == "value two");
+    CHECK(value("PNG · Long").ends_with("…"));
+    CHECK(info.details_truncated);
+    auto damaged = png;
+    damaged[29] ^= 1;  // IHDR checksum
+    const auto bad =
+        dir.write("bad.png", {reinterpret_cast<const char*>(damaged.data()), damaged.size()});
+    const auto rejected = image::read_photo_info(bad);
+    REQUIRE(rejected.details.size() == 1);
+    CHECK(rejected.details.front().first == "Metadata error");
+    for (std::size_t size = 0; size < 40; ++size) {
+        const auto short_file =
+            dir.write("short.png", {reinterpret_cast<const char*>(png.data()), size});
+        CHECK(image::read_photo_info(short_file).details.size() <= info.details.size());
+    }
+}
+
+TEST_CASE("image metadata: ordinary formats expose source details and EXIF keeps uncurated tags") {
+    for (const auto* name :
+         {"blocks.png", "blocks.jpg", "blocks.webp", "blocks.jxl", "blocks.heic", "shot.jpg"}) {
+        INFO(name);
+        const auto info = image::read_photo_info(kData / name);
+        CHECK(info.width > 0);
+        CHECK(info.height > 0);
+        CHECK_FALSE(info.details.empty());
+    }
+    const auto shot = image::read_photo_info(kData / "shot.jpg");
+    CHECK(std::ranges::any_of(shot.details,
+                              [](const auto& row) { return row.first.starts_with("IFD0 · "); }));
+    CHECK(std::ranges::any_of(shot.details,
+                              [](const auto& row) { return row.first.starts_with("EXIF · "); }));
+}
+
+TEST_CASE("image metadata: compressed PNG tags after pixel data are read with bounded inflation") {
+    rummage::test::TempDir dir;
+    auto png = picture::encode_png(numbered(2, 1));
+    REQUIRE(png.size() > 12);
+    const auto end = std::vector<std::uint8_t>{png.end() - 12, png.end()};
+    png.resize(png.size() - 12);
+    const auto integer = [&](std::uint32_t value) {
+        for (int shift : {24, 16, 8, 0})
+            png.push_back(static_cast<std::uint8_t>(value >> shift));
+    };
+    const auto chunk = [&](std::string_view type, const std::vector<std::uint8_t>& data) {
+        integer(static_cast<std::uint32_t>(data.size()));
+        const auto at = png.size();
+        png.insert(png.end(), type.begin(), type.end());
+        png.insert(png.end(), data.begin(), data.end());
+        integer(static_cast<std::uint32_t>(
+            crc32(0, png.data() + at, static_cast<uInt>(data.size() + 4))));
+    };
+    const auto compressed = [](std::string_view text) {
+        uLongf length = compressBound(text.size());
+        std::vector<std::uint8_t> bytes(length);
+        REQUIRE(compress(bytes.data(), &length, reinterpret_cast<const Bytef*>(text.data()),
+                         text.size()) == Z_OK);
+        bytes.resize(length);
+        return bytes;
+    };
+    std::vector<std::uint8_t> latin{'N', 'o', 't', 'e', 0, 0};
+    const auto body = compressed("after image data");
+    latin.insert(latin.end(), body.begin(), body.end());
+    chunk("zTXt", latin);
+    std::vector<std::uint8_t> international{'T', 'i', 't', 'l', 'e', 0, 1, 0, 0, 0};
+    const auto utf8 = compressed("résumé 世界");
+    international.insert(international.end(), utf8.begin(), utf8.end());
+    chunk("iTXt", international);
+    std::vector<std::uint8_t> bomb{'B', 'i', 'g', 0, 0};
+    const auto expanded = compressed(std::string(100000, 'a'));
+    bomb.insert(bomb.end(), expanded.begin(), expanded.end());
+    chunk("zTXt", bomb);
+    png.insert(png.end(), end.begin(), end.end());
+    const auto path =
+        dir.write("compressed.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    const auto info = image::read_photo_info(path);
+    CHECK(std::ranges::any_of(info.details, [](const auto& row) {
+        return row.first == "PNG · Note" && row.second == "after image data";
+    }));
+    CHECK(std::ranges::any_of(info.details, [](const auto& row) {
+        return row.first == "PNG · Title" && row.second == "résumé 世界";
+    }));
+    CHECK(info.details_truncated);
+    for (const auto& row : info.details)
+        CHECK(row.second.size() <= picture::PhotoInfo::max_detail_bytes);
 }

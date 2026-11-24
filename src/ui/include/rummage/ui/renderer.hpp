@@ -54,11 +54,21 @@ public:
 
     // One non-nested pane/overlay pass. Capture the backdrop, draw normal content, then
     // composite it. False means draw normally. Resources are lazy, reused and capped.
-    bool begin_motion(const Rect& bounds, core::MotionConfig::Quality quality);
+    // Isolated sprites capture transparent foreground, so warps never move the backdrop.
+    bool begin_motion(const Rect& bounds, core::MotionConfig::Quality quality,
+                      bool isolated = false);
     void end_motion(const Motion::Frame& frame, float origin_x, float origin_y, Color accent);
     // Release idle capture storage, keeping the compiled shader for the next effect.
     void release_motion_textures();
     void release_motion();  // call while the context is current, e.g. after disabling effects
+
+    // Procedural effects draw directly, without capture textures. Custom background bodies
+    // implement vec4 effect(vec2 uv); the wrapper owns alpha, intensity and colour conversion.
+    bool draw_ambient(const Rect& bounds, const core::MotionConfig::Ambient& config,
+                      float time_seconds, Color accent, bool selection = false,
+                      bool preview = false);
+    void release_ambient(bool preview = false);
+    [[nodiscard]] std::string_view ambient_error(bool preview = false) const noexcept;
 
     struct MotionStats {
         std::size_t texture_bytes{0};
@@ -82,6 +92,9 @@ public:
     [[nodiscard]] static std::size_t atlas_bytes() noexcept;
 
     void draw_box(const Rect& rect, const BoxStyle& style);
+
+    // Antialiased annular sector, batched with boxes; sweep is clamped to one turn.
+    void draw_sector(const AnnularSector& sector, Color color);
 
     void fill_rect(const Rect& rect, Color color) { draw_box(rect, {.fill = color}); }
 
@@ -123,6 +136,7 @@ public:
 private:
     struct Gl;
     struct MotionGl;
+    struct AmbientGl;
     struct BoxInstance;
     struct GlyphInstance;
     struct GlyphEntry;
@@ -135,8 +149,11 @@ private:
 
     std::unique_ptr<Gl> gl_;
     std::unique_ptr<MotionGl> motion_gl_;
+    std::unique_ptr<AmbientGl> ambient_gl_;
+    std::unique_ptr<AmbientGl> preview_ambient_gl_;
     MotionStats motion_stats_;
     bool motion_failed_{false};
+    bool ambient_failed_{false};
     std::chrono::steady_clock::time_point frame_started_;
     FontSystem& fonts_;
     std::vector<BoxInstance> boxes_;  // pending, at most one of the two lists is non-empty

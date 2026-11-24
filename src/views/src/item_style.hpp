@@ -56,6 +56,9 @@ inline ItemStyle item_style(const theme::Palette& palette, const fs::Entry& entr
     } else if (item.hovered) {
         style.fill = palette.surface_container_high;
     }
+    if (entry.is_directory() && !(item.selected && item.focused))
+        style.icon =
+            theme::readable_foreground(palette.primary, style.fill.value_or(palette.surface));
     if (item.cursor && item.ring && item.focused) {
         style.ring = item.selected ? palette.on_primary : palette.primary;
     }

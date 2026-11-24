@@ -6,6 +6,7 @@
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
 
 namespace rummage::views {
@@ -16,8 +17,9 @@ constexpr float kLineHeight = 20;
 bool continuation(char c) { return (static_cast<unsigned char>(c) & 0xc0U) == 0x80U; }
 }  // namespace
 
-ErrorDialog::ErrorDialog(std::function<void()> redraw, std::function<void(std::string)> copy)
-    : redraw_{std::move(redraw)}, copy_{std::move(copy)} {}
+ErrorDialog::ErrorDialog(std::function<void()> redraw, std::function<void(std::string)> copy,
+                         std::string title)
+    : redraw_{std::move(redraw)}, copy_{std::move(copy)}, title_{std::move(title)} {}
 
 void ErrorDialog::push(std::string detail) {
     messages_.push_back(std::move(detail));
@@ -152,9 +154,10 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                              .radius = {},
                              .border_width = 1,
                              .border = palette.outline_variant});
-    const auto title = pending() == 1 ? std::string{i18n::tr("Action failed")}
-                                      : i18n::trn("Action failed · {} report",
-                                                  "Action failed · {} reports", pending());
+    const auto title =
+        pending() == 1 || title_ != "Action failed"
+            ? std::string{i18n::tr(title_)}
+            : i18n::trn("Action failed · {} report", "Action failed · {} reports", pending());
     renderer.draw_text(title, card.x + 20, card.y + 18, 16, palette.on_surface, width - 40);
     const ui::Rect content{card.x + 20, card.y + 50, width - 40, height - 124};
     wrap(renderer, content.width);
@@ -181,9 +184,8 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_box(
             button,
             {.fill = copy ? palette.surface_container_highest : palette.primary, .radius = {}});
-        renderer.draw_text(i18n::tr(copy ? "Copy Details" : "Close   ↵"), button.x + 12,
-                           button.y + 6, 13, copy ? palette.on_surface : palette.on_primary,
-                           button.width - 24);
+        draw_button_text(renderer, i18n::tr(copy ? "Copy Details" : "Close   ↵"), button,
+                         copy ? palette.on_surface : palette.on_primary);
     }
 }
 

@@ -81,6 +81,17 @@ void NameEditor::paste(std::string_view text) {
     redraw_();
 }
 
+std::string NameEditor::cut() {
+    if (!active() || busy_) {
+        return {};
+    }
+    std::string text = field_.cut();
+    if (!text.empty()) {
+        redraw_();
+    }
+    return text;
+}
+
 void NameEditor::confirm() {
     if (!active() || busy_) {
         return;

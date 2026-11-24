@@ -1,17 +1,23 @@
 #include "rummage/views/properties_dialog.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <format>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "content_details.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/directory.hpp"
 #include "rummage/fs/folder_icon.hpp"
 #include "rummage/fs/icon.hpp"
+#include "rummage/fs/permissions.hpp"
+#include "rummage/views/dialog_chrome.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/views/media_details.hpp"
 #include "rummage/views/thumbnails.hpp"
 
 namespace rummage::views {
@@ -35,11 +41,13 @@ PropertiesDialog::~PropertiesDialog() {
 }
 
 void PropertiesDialog::open(std::filesystem::path path, std::function<void()> changed,
-                            bool editable) {
+                            bool editable, bool drive, std::string label) {
     if (saving_)
         return;
     ++generation_;
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
+    details_expanded_ = copy_hovered_ = copied_ = false;
     text_.reset();
     load_job_.cancel();
     path_ = std::move(path);
@@ -48,8 +56,11 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     changed_ = std::move(changed);
     open_ = loading_ = true;
     picking_ = false;
-    editable_ = editable;
+    editable_ = editable && !drive;
+    drive_ = drive;
+    drive_label_ = std::move(label);
     data_ = {};
+    permissions_ = 0;
     draft_.clear();
     original_.clear();
     error_.clear();
@@ -57,8 +68,15 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     focus_ = "close";
     load_job_ = pool_.submit(
         core::Priority::visible,
-        [path = path_, mime = mime_](const core::CancelToken& token) {
+        [path = path_, mime = mime_, drive](const core::CancelToken& token) {
             Data result;
+            if (drive) {
+                result.entry.kind = fs::EntryKind::directory;
+                result.filesystem = fs::filesystem_facts(path);
+                if (result.filesystem.error)
+                    result.info.error = result.filesystem.error.message();
+                return result;
+            }
             const auto parent = path == path.root_path() ? path : path.parent_path();
             const auto name = path == path.root_path() ? "." : path.filename().string();
             const auto entries = fs::read_entries(parent, {name}, {.mime = mime});
@@ -66,7 +84,10 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
                 result.entry = *entries[0];
             if (result.entry.kind == fs::EntryKind::file && result.entry.mime == fs::kUnknownMime)
                 result.entry.mime = mime->detect(parent, result.entry);
-            result.info = preview::read_info(path, token);
+            result.summary = preview::summarize(
+                path, mime->name(result.entry.mime),
+                preview::provider_for(*mime, result.entry.mime).kind(), token, mime);
+            result.info = result.summary.info;
             if (result.entry.is_directory()) {
                 const auto setting = fs::read_folder_icon_setting(path);
                 result.icon = setting.icon;
@@ -77,12 +98,16 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
             if (::stat(path.c_str(), &info) == 0) {
                 result.device = info.st_dev;
                 result.inode = info.st_ino;
+                result.mode = static_cast<std::uint16_t>(info.st_mode & 07777);
+                result.owned = info.st_uid == ::geteuid() && !result.entry.is_link &&
+                               (S_ISREG(info.st_mode) || S_ISDIR(info.st_mode));
             }
             return result;
         },
         [this](Data data) {
             data_ = std::move(data);
             original_ = draft_ = data_.icon;
+            permissions_ = data_.mode & 0777;
             error_ = data_.info.error;
             loading_ = false;
             focus_ = can_edit_icon() ? "change" : "close";
@@ -106,12 +131,25 @@ bool PropertiesDialog::can_edit_icon() const {
            data_.info.error.empty() && data_.icon_error.empty();
 }
 
+bool PropertiesDialog::can_edit_permissions() const {
+    return open_ && !loading_ && !saving_ && editable_ && data_.owned;
+}
+
+void PropertiesDialog::set_permissions(std::uint16_t permissions) {
+    if (!can_edit_permissions())
+        return;
+    permissions_ = permissions & 0777;
+    error_.clear();
+    redraw_();
+}
+
 void PropertiesDialog::choose_icon(std::string icon) {
     if (!can_edit_icon())
         return;
     draft_ = std::move(icon);
     picking_ = false;
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
     error_.clear();
     focus_ = "apply";
     redraw_();
@@ -122,7 +160,8 @@ void PropertiesDialog::pick_icon() {
         return;
     picking_ = true;
     text_.reset();
-    scroll_ = 0;
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
     search_.set_text({});
     custom_.set_text(draft_);
     focus_ = "search";
@@ -132,30 +171,70 @@ void PropertiesDialog::pick_icon() {
 }
 
 void PropertiesDialog::apply() {
-    if (!can_edit_icon() || !dirty())
+    if ((!can_edit_icon() && !can_edit_permissions()) || !dirty())
         return;
+
+    struct Saved {
+        std::string error;
+        bool mode{false};
+        bool icon{false};
+    };
+
     saving_ = true;
     error_.clear();
     save_job_ = pool_.submit(
         core::Priority::visible,
-        [path = path_, icon = draft_, device = data_.device,
-         inode = data_.inode](const core::CancelToken&) {
-            struct stat info{};
-            if (::stat(path.c_str(), &info) != 0 || info.st_dev != device || info.st_ino != inode)
-                return std::string{"The folder was removed or replaced. Reopen Properties."};
-            return fs::save_folder_icon(path, icon);
+        [path = path_, icon = draft_, device = data_.device, inode = data_.inode,
+         before = data_.mode, permissions = permissions_,
+         icon_changed = draft_ != original_](const core::CancelToken&) {
+            Saved saved;
+            const auto save = [&]() -> std::string {
+                struct stat info{};
+                if (::stat(path.c_str(), &info) != 0 || info.st_dev != device ||
+                    info.st_ino != inode)
+                    return std::string{"The folder was removed or replaced. Reopen Properties."};
+                // Save the icon before a new mode can remove directory write access.
+                if (icon_changed) {
+                    const auto error = fs::save_folder_icon(path, icon);
+                    if (!error.empty())
+                        return error;
+                    saved.icon = true;
+                }
+                if (permissions != (before & 0777)) {
+                    const auto error =
+                        fs::set_permissions(path, device, inode, before, permissions);
+                    if (!error.empty())
+                        return error;
+                    saved.mode = true;
+                }
+                return {};
+            };
+            saved.error = save();
+            return saved;
         },
-        [this](std::string error) {
+        [this](Saved result) {
             saving_ = false;
-            error_ = std::move(error);
+            error_ = std::move(result.error);
+            if (result.icon)
+                original_ = draft_;
+            if (result.mode) {
+                data_.mode = static_cast<std::uint16_t>((data_.mode & 07000) | permissions_);
+                data_.info.permissions = preview::permissions_text(
+                    static_cast<std::uint32_t>(data_.mode) |
+                    static_cast<std::uint32_t>(data_.entry.is_directory() ? S_IFDIR : S_IFREG));
+            }
             if (error_.empty()) {
                 original_ = draft_;
                 auto changed = changed_;
                 close();
                 if (changed)
                     changed();
-            } else
+            } else {
+                // An icon save may have succeeded before a permission change failed.
+                if (changed_)
+                    changed_();
                 redraw_();
+            }
         });
     redraw_();
 }
@@ -201,9 +280,23 @@ void PropertiesDialog::filter() {
 std::vector<std::string> PropertiesDialog::focus_order() const {
     if (picking_)
         return {"search", "grid", "custom", "back", "use"};
-    if (can_edit_icon())
-        return {"change", "default", "close", "apply"};
-    return {"close"};
+    std::vector<std::string> order;
+    if (!loading_ && data_.summary.photo &&
+        !media_details(*data_.summary.photo, MediaDetails::additional).empty())
+        order.push_back("details");
+    if (can_edit_icon()) {
+        order.push_back("change");
+        order.push_back("default");
+    }
+    if (can_edit_permissions())
+        for (int bit = 8; bit >= 0; --bit)
+            order.push_back("permission:" + std::to_string(bit));
+    if (!loading_ && copy_)
+        order.push_back("copy");
+    order.push_back("close");
+    if (can_edit_icon() || can_edit_permissions())
+        order.push_back("apply");
+    return order;
 }
 
 void PropertiesDialog::accept_custom() {
@@ -212,7 +305,31 @@ void PropertiesDialog::accept_custom() {
 }
 
 void PropertiesDialog::activate(std::string_view id) {
-    if (id == "close")
+    if (id.starts_with("permission:") && id.size() == 12 && id.back() >= '0' && id.back() <= '8') {
+        set_permissions(static_cast<std::uint16_t>(permissions_ ^ (1U << (id.back() - '0'))));
+    } else if (id == "details") {
+        details_expanded_ = !details_expanded_;
+        text_.reset();
+        redraw_();
+    } else if (id == "copy" && copy_ && !loading_) {
+        auto rows = property_rows();
+        if (data_.summary.photo) {
+            const auto details = media_details(*data_.summary.photo, MediaDetails::additional);
+            rows.insert(rows.end(), details.begin(), details.end());
+        }
+        if (data_.entry.is_directory())
+            rows.emplace_back(
+                "Icon", draft_.empty() ? std::string{i18n::tr("Default folder icon")} : draft_);
+        std::string text =
+            std::format("{}: {}\n{}: {}\n", i18n::tr("Name"),
+                        path_.filename().empty() ? path_.string() : path_.filename().string(),
+                        i18n::tr("Type"), mime_->name(data_.entry.mime));
+        for (const auto& [label, value] : rows)
+            text += std::format("{}: {}\n", i18n::tr(label), value);
+        copy_(std::move(text));
+        copied_ = true;
+        redraw_();
+    } else if (id == "close")
         close();
     else if (id == "apply")
         apply();
@@ -222,7 +339,8 @@ void PropertiesDialog::activate(std::string_view id) {
         choose_icon({});
     else if (id == "back") {
         picking_ = false;
-        scroll_ = 0;
+        scroller_.jump_to(0);
+        scrollbar_ = ui::Scrollbar{};
         focus_ = "change";
         error_.clear();
         redraw_();
@@ -256,13 +374,20 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
         redraw_();
         return true;
     }
-    if (picking_ && event.modifiers.ctrl &&
-        (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C) &&
+    if (picking_ && event.modifiers == ui::Modifiers{.ctrl = true} &&
+        (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C || event.keysym == XKB_KEY_x ||
+         event.keysym == XKB_KEY_X) &&
         (focus_ == "search" || focus_ == "custom")) {
-        const auto& field = focus_ == "search" ? search_ : custom_;
-        const auto [first, last] = field.selection();
-        if (copy_ && first != last)
-            copy_(field.text().substr(first, last - first));
+        auto& field = focus_ == "search" ? search_ : custom_;
+        const bool cut = event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X;
+        const auto text = cut ? field.cut() : field.selected_text();
+        if (copy_ && !text.empty())
+            copy_(text);
+        if (cut && !text.empty()) {
+            if (focus_ == "search")
+                filter();
+            redraw_();
+        }
         return true;
     }
     if (event.keysym == XKB_KEY_Tab || event.keysym == XKB_KEY_ISO_Left_Tab) {
@@ -288,11 +413,11 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
                 if (control.id == focus_)
                     rect = control.rect;
         if (focus_ == "change" || focus_ == "default" || focus_ == "search" || focus_ == "custom" ||
-            focus_ == "grid") {
+            focus_ == "grid" || focus_ == "details" || focus_.starts_with("permission:")) {
             if (rect.y < content_.y)
-                scroll_ = std::max(0.0F, scroll_ + rect.y - content_.y);
+                scroller_.jump_to(scroller_.offset() + rect.y - content_.y);
             else if (rect.bottom() > content_.bottom())
-                scroll_ = std::min(max_scroll_, scroll_ + rect.bottom() - content_.bottom());
+                scroller_.jump_to(scroller_.offset() + rect.bottom() - content_.bottom());
         }
         redraw_();
         return true;
@@ -366,14 +491,29 @@ void PropertiesDialog::paste(std::string_view text) {
 void PropertiesDialog::pointer(const ui::PointerEvent& event) {
     if (!open_ || saving_)
         return;
+    const bool copy_hovered = event.kind != ui::PointerEvent::Kind::leave && !picking_ &&
+                              std::ranges::any_of(controls_, [&](const auto& control) {
+                                  return control.id == "copy" && control.enabled &&
+                                         control.rect.contains(event.x, event.y);
+                              });
+    if (copy_hovered_ != copy_hovered) {
+        copy_hovered_ = copy_hovered;
+        redraw_();
+    }
     if (event.kind != ui::PointerEvent::Kind::press && picking_ &&
         (search_.pointer(event) || custom_.pointer(event))) {
         redraw_();
         return;
     }
-    if (event.kind == ui::PointerEvent::Kind::scroll && max_scroll_ > 0 &&
+    if (scrollbar_.pointer(event, scroller_)) {
+        redraw_();
+        return;
+    }
+    if (event.kind == ui::PointerEvent::Kind::scroll && scroller_.max_offset() > 0 &&
         content_.contains(event.x, event.y)) {
-        scroll_ = std::clamp(scroll_ + event.wheel_y, 0.0F, max_scroll_);
+        const float delta =
+            event.wheel_y != 0.0F ? event.wheel_y * ui::Scroller::kWheelStep : event.scroll_y;
+        scroller_.jump_to(scroller_.offset() + delta);
         redraw_();
         return;
     }
@@ -404,9 +544,9 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
         return;
     }
     for (const auto& control : controls_) {
-        const bool footer = control.id == "close" || control.id == "apply" ||
-                            control.id == "back" || control.id == "use";
-        if (!footer && !content_.contains(event.x, event.y))
+        const bool fixed = control.id == "close" || control.id == "apply" || control.id == "back" ||
+                           control.id == "use" || control.id == "copy";
+        if (!fixed && !content_.contains(event.x, event.y))
             continue;
         if (control.enabled && control.rect.contains(event.x, event.y)) {
             const auto id = control.id;
@@ -420,20 +560,84 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
 ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
     if (saving_)
         return ui::CursorShape::standard;
+    if (scrollbar_.dragging() || scrollbar_.hit(scroller_, x, y))
+        return ui::CursorShape::pointer;
     if (picking_ && content_.contains(x, y) &&
         (search_.bounds().contains(x, y) || custom_.bounds().contains(x, y)))
         return ui::CursorShape::text;
     if (!picking_ && text_.cursor_at(x, y) == ui::CursorShape::text)
         return ui::CursorShape::text;
     for (const auto& control : controls_) {
-        const bool footer = control.id == "close" || control.id == "apply" ||
-                            control.id == "back" || control.id == "use";
-        if (!footer && !content_.contains(x, y))
+        const bool fixed = control.id == "close" || control.id == "apply" || control.id == "back" ||
+                           control.id == "use" || control.id == "copy";
+        if (!fixed && !content_.contains(x, y))
             continue;
         if (control.enabled && control.rect.contains(x, y))
             return ui::CursorShape::pointer;
     }
     return ui::CursorShape::standard;
+}
+
+std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows() const {
+    if (drive_) {
+        const auto& facts = data_.filesystem;
+        const auto value = [this, &facts](std::uint64_t size) {
+            return loading_      ? std::string{"…"}
+                   : facts.error ? std::string{i18n::tr("Unavailable")}
+                                 : format_size(size);
+        };
+        return {{std::string{i18n::mark("Mount point")}, loading_ ? "…"
+                                                         : facts.mount_point.empty()
+                                                             ? path_.string()
+                                                             : facts.mount_point.string()},
+                {std::string{i18n::mark("File system")}, loading_ ? "…"
+                                                         : facts.type.empty()
+                                                             ? std::string{i18n::tr("Unavailable")}
+                                                             : facts.type},
+                {std::string{i18n::mark("Device")}, loading_ ? "…"
+                                                    : facts.device.empty()
+                                                        ? std::string{i18n::tr("Unavailable")}
+                                                        : facts.device},
+                {std::string{i18n::mark("Capacity")}, value(facts.capacity)},
+                {std::string{i18n::mark("Used")}, value(facts.capacity - facts.free)},
+                {std::string{i18n::mark("Available")}, value(facts.available)},
+                {std::string{i18n::mark("Access")},
+                 loading_ ? "…"
+                 : facts.error
+                     ? std::string{i18n::tr("Unavailable")}
+                     : std::string{i18n::tr(facts.read_only ? i18n::mark("Read only")
+                                                            : i18n::mark("Read and write"))}}};
+    }
+    std::vector<std::pair<std::string, std::string>> rows{
+        {"Location", path_.parent_path().string()},
+        {data_.entry.is_directory() ? "Contents" : "Size",
+         loading_ ? "…"
+         : data_.entry.is_directory()
+             ? (data_.info.items ? i18n::trf("{} ({} hidden)",
+                                             i18n::trn("{} item", "{} items", *data_.info.items),
+                                             data_.info.hidden_items)
+                                 : std::string{i18n::tr("Unavailable")})
+             : i18n::trf("{} ({})", format_size(data_.entry.size),
+                         i18n::trn("{} byte", "{} bytes", data_.entry.size))},
+        {"Modified", loading_ ? "…" : format_time(data_.entry.modified_ns)},
+        {"Created", data_.info.created_ns ? format_time(*data_.info.created_ns)
+                                          : std::string{i18n::tr("Unavailable")}},
+        {"Owner", data_.info.owner},
+        {"Group", data_.info.group},
+        {"Permissions", data_.info.permissions},
+    };
+    if (data_.summary.photo) {
+        if (data_.summary.photo->width && data_.summary.photo->height)
+            rows.emplace_back("Dimensions", std::format("{} × {}", data_.summary.photo->width,
+                                                        data_.summary.photo->height));
+        const auto details = media_details(*data_.summary.photo, MediaDetails::summary);
+        rows.insert(rows.end(), details.begin(), details.end());
+    }
+    const auto content = content_details(data_.summary);
+    rows.insert(rows.end(), content.begin(), content.end());
+    if (!data_.info.link_target.empty())
+        rows.emplace_back("Link target", data_.info.link_target);
+    return rows;
 }
 
 void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
@@ -442,35 +646,25 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (!open_)
         return;
     controls_.clear();
-    renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
     const bool preview =
         !loading_ && thumbnails && !data_.entry.is_directory() &&
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
     const float row_height = 26.0F;
+    const bool permission_controls = editable_ && data_.owned;
     const bool folder_controls = data_.entry.is_directory() && editable_;
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
-    const std::string name = path_.filename().empty() ? path_.string() : path_.filename().string();
-    const std::string type = loading_ ? "Loading…" : std::string{mime_->name(data_.entry.mime)};
-    std::vector<std::pair<std::string, std::string>> rows{
-        {"Location", path_.parent_path().string()},
-        {data_.entry.is_directory() ? "Contents" : "Size",
-         loading_ ? "…"
-         : data_.entry.is_directory()
-             ? (data_.info.items ? std::format("{} {} ({} hidden)", *data_.info.items,
-                                               *data_.info.items == 1 ? "item" : "items",
-                                               data_.info.hidden_items)
-                                 : "Unavailable")
-             : std::format("{} ({} bytes)", format_size(data_.entry.size), data_.entry.size)},
-        {"Modified", loading_ ? "…" : format_time(data_.entry.modified_ns)},
-        {"Created", data_.info.created_ns ? format_time(*data_.info.created_ns) : "Unavailable"},
-        {"Owner", data_.info.owner},
-        {"Group", data_.info.group},
-        {"Permissions", data_.info.permissions},
-    };
-    if (!data_.info.link_target.empty())
-        rows.emplace_back("Link target", data_.info.link_target);
+    const std::string name = drive_ && !drive_label_.empty() ? drive_label_
+                             : path_.filename().empty()      ? path_.string()
+                                                             : path_.filename().string();
+    const std::string type = loading_ ? std::string{i18n::tr("Loading…")}
+                             : drive_ ? std::string{i18n::tr("Drive")}
+                                      : std::string{mime_->name(data_.entry.mime)};
+    const auto rows = property_rows();
+    const auto details = data_.summary.photo
+                             ? media_details(*data_.summary.photo, MediaDetails::additional)
+                             : std::vector<std::pair<std::string, std::string>>{};
     const auto measure = [&](std::string_view value, float size) {
         return renderer.fonts().layout(value, size, renderer.scale()).width / renderer.scale();
     };
@@ -480,10 +674,18 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         label_width = std::max(label_width, measure(i18n::tr(label), 12));
         value_width = std::max(value_width, measure(value, 12));
     }
+    for (const auto& [label, value] : details) {
+        label_width = std::max(label_width, measure(i18n::tr(label), 12));
+        value_width = std::max(value_width, measure(value, 12));
+    }
+    label_width =
+        std::min(label_width, std::max(60.0F, std::min(160.0F, (bounds.width - 88) * 0.35F)));
     const float value_offset = label_width + 16;
     float natural_width = 48 + std::max(value_offset + value_width,
                                         (preview ? 144.0F : 56.0F) + 20 +
                                             std::max(measure(name, 16), measure(type, 12)));
+    if (permission_controls)
+        natural_width = std::max(natural_width, 460.0F);
     if (folder_controls)
         natural_width = std::max(
             natural_width,
@@ -512,9 +714,19 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const auto value_height = [&](std::string_view value) {
         return SelectableText::height(renderer, value, std::max(1.0F, room - value_offset), 12);
     };
+    const auto label_height = [&](std::string_view label) {
+        return SelectableText::height(renderer, i18n::tr(label), label_width, 12);
+    };
     float rows_height = 0;
     for (const auto& [label, value] : rows)
-        rows_height += std::max(row_height, value_height(value) + 8);
+        rows_height += std::max({row_height, value_height(value) + 8, label_height(label) + 8});
+    if (!details.empty()) {
+        rows_height += 40;
+        if (details_expanded_)
+            for (const auto& [label, value] : details)
+                rows_height +=
+                    std::max({row_height, value_height(value) + 8, label_height(label) + 8});
+    }
     const std::string icon_label =
         draft_.empty() ? std::string{i18n::tr("Default folder icon")} : draft_;
     const float icon_height = SelectableText::height(renderer, icon_label, room, 12);
@@ -523,23 +735,22 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                             : "Changing this icon affects the linked folder.");
     const float hint_height = SelectableText::height(renderer, hint, room, 12);
     const float message_height = SelectableText::height(renderer, i18n::tr(message), room, 12);
-    const float natural_height = picking_ ? 550.0F
-                                          : rows_top + rows_height +
-                                                (folder_controls ? 40 + icon_height + 8 : 0) +
-                                                (folder_hint ? hint_height + 8 : 0) +
-                                                (message.empty() ? 0 : message_height + 8) + 70;
+    const float natural_height = picking_
+                                     ? 550.0F
+                                     : rows_top + rows_height + (permission_controls ? 132 : 0) +
+                                           (folder_controls ? 40 + icon_height + 8 : 0) +
+                                           (folder_hint ? hint_height + 8 : 0) +
+                                           (message.empty() ? 0 : message_height + 8) + 70;
     const float height = std::min(natural_height, bounds.height - 24.0F);
     const ui::Rect card{bounds.x + (bounds.width - width) / 2,
                         bounds.y + (bounds.height - height) / 2, width, height};
     card_ = card;
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = {},
-                             .border_width = 1,
-                             .border = palette.outline_variant});
-    content_ = {card.x, card.y, card.width, card.height - 70};
-    max_scroll_ = std::max(0.0F, natural_height - height);
-    scroll_ = std::clamp(scroll_, 0.0F, max_scroll_);
-    const float top = card.y - scroll_;
+    draw_dialog_surface(renderer, bounds, card, palette);
+    const float fixed_header = picking_ ? 0.0F : 60.0F;
+    content_ = {card.x, card.y + fixed_header, card.width, card.height - 70 - fixed_header};
+    scroller_.set_extent(natural_height - 70 - fixed_header, content_.height);
+    scrollbar_.layout(content_);
+    const float top = card.y - scroller_.offset();
     renderer.push_clip(content_);
     const float left = card.x + 24;
     text_.begin_frame(content_);
@@ -550,20 +761,15 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     };
     const auto button = [&](std::string id, std::string label, ui::Rect rect, bool enabled = true,
                             bool primary = false) {
-        const auto fill = primary && enabled ? palette.primary : palette.surface_container_highest;
-        renderer.draw_box(rect, {.fill = fill,
-                                 .radius = {},
-                                 .border_width = focus_ == id ? 2.0F : 0.0F,
-                                 .border = palette.primary});
-        renderer.draw_text(i18n::tr(label), rect.x + 12, rect.y + 7, 13,
-                           (primary && enabled ? palette.on_primary : palette.on_surface)
-                               .with_alpha(enabled ? 1.0F : 0.4F),
-                           rect.width - 20);
+        draw_dialog_button(renderer, rect, palette, i18n::tr(label), focus_ == id,
+                           primary && enabled ? DialogButton::primary : DialogButton::normal);
+        if (!enabled)
+            renderer.fill_rect(rect, palette.surface_container_high.with_alpha(0.55F));
         controls_.push_back({std::move(id), rect, enabled});
     };
     const float bottom = top + natural_height - 56;
-    text(i18n::tr(picking_ ? "Choose Folder Icon" : "Properties"), left, top + 20, 18, room);
     if (picking_) {
+        text(i18n::tr("Choose Folder Icon"), left, top + 20, 18, room);
         load_catalogue(icons.selected_theme());
         if (!preview_icons_)
             preview_icons_ = std::make_unique<ui::IconSet>(renderer.fonts());
@@ -639,11 +845,17 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                 {preview_box.x + (preview_box.width - w) / 2,
                                  preview_box.y + (preview_box.height - h) / 2, w, h},
                                 {});
+        } else if (drive_) {
+            icons.draw(renderer, "server", preview_box.x + (preview_box.width - 56) / 2,
+                       preview_box.y + (preview_box.height - 56) / 2, 56,
+                       theme::readable_foreground(palette.primary, palette.surface_container_high));
         } else {
             icons.draw_file(
                 renderer, mime_->name(data_.entry.mime), fs::icon_name(*mime_, data_.entry),
                 preview_box.x + (preview_box.width - 56) / 2,
-                preview_box.y + (preview_box.height - 56) / 2, 56, palette.primary, preferred);
+                preview_box.y + (preview_box.height - 56) / 2, 56,
+                theme::readable_foreground(palette.primary, palette.surface_container_high),
+                preferred);
         }
         const float name_left = left + preview_width + 20;
         const float name_top = top + 60 + (header_height - name_height - 5 - type_height) / 2;
@@ -661,10 +873,44 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                        true);
             selectable(std::string{label}, value, left + value_offset, y, 12,
                        std::max(1.0F, room - value_offset));
-            y += std::max(row_height, value_height(value) + 8);
+            y += std::max({row_height, value_height(value) + 8, label_height(label) + 8});
         };
         for (const auto& [label, value] : rows)
             row(label, value);
+        if (!details.empty()) {
+            const ui::Rect disclosure{left, y, room, 32};
+            draw_dialog_button(renderer, disclosure, palette, {}, focus_ == "details");
+            icons.draw(renderer, details_expanded_ ? "chevron-down" : "chevron-right", left + 6,
+                       y + 6, 20, palette.on_surface);
+            text(i18n::tr("Media details"), left + 34, y + 7, 13, room - 44);
+            controls_.push_back({"details", disclosure, true});
+            y += 40;
+            if (details_expanded_)
+                for (const auto& [label, value] : details)
+                    row(label, value);
+        }
+        if (permission_controls) {
+            const float label_space = std::min(90.0F, room * 0.28F);
+            const float cell = (room - label_space) / 3;
+            const std::array<std::string_view, 3> labels{"Read", "Write", "Execute"};
+            const std::array<std::string_view, 3> owners{"Owner", "Group", "Others"};
+            for (std::size_t col = 0; col < 3; ++col)
+                text(i18n::tr(labels[col]), left + label_space + static_cast<float>(col) * cell, y,
+                     12, cell, true);
+            y += 24;
+            for (std::size_t row_index = 0; row_index < 3; ++row_index) {
+                text(i18n::tr(owners[row_index]), left, y + 6, 12, label_space, true);
+                for (std::size_t col = 0; col < 3; ++col) {
+                    const auto bit = 8 - (row_index * 3 + col);
+                    const bool checked = (permissions_ & (1U << bit)) != 0;
+                    button("permission:" + std::to_string(bit), checked ? "✓" : "−",
+                           {left + label_space + static_cast<float>(col) * cell, y, cell - 6, 28},
+                           can_edit_permissions(), checked);
+                }
+                y += 34;
+            }
+            y += 6;
+        }
         if (folder_controls) {
             button("change", "Change Icon…", {left, y, 144, 32}, can_edit_icon());
             button("default", "Default", {left + 152, y, 92, 32},
@@ -683,12 +929,28 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     }
     text_.end_frame();
     renderer.pop_clip();
-    if (max_scroll_ > 0) {
-        const float track = content_.height - 24;
-        const float thumb = track * content_.height / (natural_height - 70);
-        renderer.draw_box(
-            {card.right() - 7, card.y + 12 + (track - thumb) * scroll_ / max_scroll_, 3, thumb},
-            {.fill = palette.outline, .radius = {}});
+    if (const auto thumb = scrollbar_.thumb(scroller_); !thumb.empty())
+        renderer.draw_box(thumb, {.fill = palette.outline, .radius = {}});
+    if (!picking_) {
+        text(i18n::tr("Properties"), left, card.y + 20, 18, room - 44);
+        const ui::Rect copy_button{card.right() - 58, card.y + 12, 34, 34};
+        const bool can_copy = !loading_ && !saving_ && static_cast<bool>(copy_);
+        draw_dialog_button(renderer, copy_button, palette, {}, focus_ == "copy");
+        if (copied_)
+            text("✓", copy_button.x + 9, copy_button.y + 6, 18, 24);
+        else
+            icons.draw(renderer, "files", copy_button.x + 7, copy_button.y + 7, 20,
+                       palette.on_surface.with_alpha(can_copy ? 1.0F : 0.4F));
+        controls_.push_back({"copy", copy_button, can_copy});
+        if (copy_hovered_ || focus_ == "copy") {
+            const auto label = copied_ ? i18n::tr("Copied") : i18n::tr("Copy all properties");
+            const float tooltip_width = std::min(room, measure(label, 12) + 16);
+            renderer.draw_box(
+                {copy_button.right() - tooltip_width, copy_button.bottom() + 4, tooltip_width, 28},
+                {.fill = palette.surface_container_highest});
+            text(label, copy_button.right() - tooltip_width + 8, copy_button.bottom() + 10, 12,
+                 tooltip_width - 16);
+        }
     }
     const float footer = card.bottom() - 56;
     if (picking_) {
@@ -696,13 +958,13 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         button("use", "Use Custom", {card.right() - 144, footer, 120, 34}, !custom_.text().empty(),
                true);
     } else {
-        button(
-            "close", dirty() ? "Cancel" : "Close",
-            {card.right() - (data_.entry.is_directory() && editable_ ? 232 : 124), footer, 100, 34},
-            !saving_);
-        if (data_.entry.is_directory() && editable_)
+        button("close", dirty() ? "Cancel" : "Close",
+               {card.right() - ((folder_controls || permission_controls) ? 232 : 124), footer, 100,
+                34},
+               !saving_);
+        if (folder_controls || permission_controls)
             button("apply", saving_ ? "Saving…" : "Apply", {card.right() - 124, footer, 100, 34},
-                   can_edit_icon() && dirty(), true);
+                   (can_edit_icon() || can_edit_permissions()) && dirty(), true);
     }
 }
 

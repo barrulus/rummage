@@ -1,0 +1,13 @@
+{{ define "main" }}
+<main id="main" class="docs-layout wrap">
+  {{ partial "docs-sidebar.html" . }}
+  <div class="doc-main">
+    <div class="breadcrumb"><a href="{{ "docs/" | relURL }}">Docs</a><span>/</span><span>{{ .Params.group }}</span></div>
+    <article class="prose"><h1>{{ .Title }}</h1><p class="doc-description">{{ .Description }}</p><p class="version-note">These guides follow development sources. Check your build’s source commit when comparing behaviour.</p>
+    <details class="mobile-toc"><summary>On this page</summary>{{ replace .TableOfContents `id="TableOfContents"` `id="MobileTableOfContents"` | safeHTML }}</details>
+    {{ .Content }}</article>
+    <div class="doc-bottom"><a href="{{ .Site.Params.repository }}/blob/main/{{ .Params.source }}">View this page on GitHub</a><a href="{{ "docs/" | relURL }}">All documentation</a></div>
+  </div>
+  <aside class="page-toc" aria-label="On this page"><p>On this page</p>{{ .TableOfContents }}</aside>
+</main>
+{{ end }}

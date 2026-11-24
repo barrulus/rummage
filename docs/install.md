@@ -53,7 +53,7 @@ validated for Leap or RHEL**, and the DEB is not validated for Ubuntu or older D
 | System | Download | Install after downloading |
 |---|---|---|
 | Debian 13 (trixie), amd64 | [DEB](https://github.com/barrulus/rummage/releases/download/development/rummage-debian13-amd64.deb) | `sudo apt install ./rummage-debian13-amd64.deb` |
-| Fedora 44, x86_64 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora44-x86_64.rpm) | `sudo dnf install ./rummage-fedora44-x86_64.rpm` |
+| Fedora 45, x86_64 | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-fedora45-x86_64.rpm) | `sudo dnf install ./rummage-fedora45-x86_64.rpm` |
 | Arch Linux, x86_64 | [Arch package](https://github.com/barrulus/rummage/releases/download/development/rummage-arch-x86_64.pkg.tar.zst) | `sudo pacman -Syu`, then `sudo pacman -U ./rummage-arch-x86_64.pkg.tar.zst` |
 | openSUSE Tumbleweed, x86_64 | [Tumbleweed RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-tumbleweed-x86_64.rpm) | `sudo zypper dup`, then `sudo zypper install --allow-unsigned-rpm ./rummage-tumbleweed-x86_64.rpm` |
 | Void glibc, x86_64 | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) | See the two commands below. |
@@ -80,7 +80,7 @@ and [source identity](https://github.com/barrulus/rummage/releases/download/deve
 are provided with every build. To verify a download, save `SHA256SUMS` beside it and run
 `sha256sum --check --ignore-missing SHA256SUMS`. Downloads are replaced as builds pass;
 use the full commit from `source.json` instead of `development` in the Nix reference to
-pin a version. When identical-tree PR packages are promoted after merging, `commit`
+pin a version. When identical-tree manually tested branch packages are promoted after merging, `commit`
 identifies the original tested checkout and `published_commit` identifies the main
 commit used by the moving tag. Package bytes and source archives remain unchanged.
 These downloads are individual packages, not an automatic-update repository.
@@ -200,7 +200,9 @@ nix flake check
 
 `nix build` produces `result/bin/rummage` plus the preview helper, manifests and
 desktop integration files. The ordinary package omits tests.
-`nix flake check` builds a separate test derivation (including media and PDF), runs installed
+CI runs the full test suite before starting any package job. The test derivation
+(including media and PDF) produces only a success marker, which the Nix package job
+reuses without rerunning the suite. `nix flake check` also runs installed
 package smoke checks and checks the NixOS module. Packages and development shells are
 defined for `x86_64-linux` and `aarch64-linux`; checking one host is not evidence of
 runtime testing on both architectures.
@@ -211,14 +213,19 @@ graphics drivers. A successful package build alone does not establish that setup
 ### Binary cache
 
 The public [rummage-fm cache](https://rummage-fm.cachix.org) provides **x86_64-linux**
-builds from main and trusted repository PRs. It includes the default package,
+builds from main and manually tested repository branches. It includes the default package,
 media-only, PDF-only and combined preview variants, including their helper outputs
 and runtime dependencies. The cache starts filling after the first successful CI
 upload; older revisions and aarch64 builds may require local compilation. Completed
 dependencies are uploaded even if a later application check fails. Use `development`
 to select a revision whose complete release checks passed.
 
-With Cachix installed, enable it once:
+The flake advertises this cache and its public signing key through `nixConfig`.
+When running commands such as `nix run`, Nix prompts to accept these settings
+unless you have already configured whether to trust them. They extend your existing
+cache settings. Accept them to use cached builds when available.
+
+To configure the cache independently of the flake, enable it once with Cachix installed:
 
 ```sh
 cachix use rummage-fm
@@ -330,6 +337,10 @@ manages Home Manager. Installing the package does not select it as a portal back
 
 ## Build dependencies
 
+Source statistics use `nlohmann_json >= 3.11` (required to build) and Tokei (optional at runtime
+on native packages, included by Nix). Install `tokei` and make it available on
+`PATH` to enable the Languages view.
+
 [CMakeLists.txt](../CMakeLists.txt) is the authoritative list for this checkout.
 Use a C++20 compiler and standard library with `std::format`, CMake 3.20 or newer,
 Ninja (for the examples), and pkg-config. Required library/module names are:
@@ -340,10 +351,17 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Protocol generation | `wayland-scanner`, `wayland-protocols` including xdg-dialog-v1 and stable tablet-v2 XML |
 | Text | `harfbuzz`, `freetype2`, `fontconfig` |
 | Configuration | `tomlplusplus` |
+| Source statistics JSON | `nlohmann_json >= 3.11` |
+| Filename regular expressions | `re2` |
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
+| SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |
 | Optional media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; enable `RUMMAGE_MEDIA` |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
+
+librsvg is implemented partly in Rust, but rummage links its packaged C API;
+building rummage against installed libraries requires no Rust compiler or Cargo.
+Building librsvg itself from source does require its own Rust toolchain.
 
 HEIC decoding requires libheif's **libde265** decoder at runtime (built in or
 installed as a codec plugin) and Little CMS 2. The Nix development shell/package
@@ -429,3 +447,12 @@ the same prefix. For a flake input, update its lock entry in your configuration 
 rebuild. Personal `config.toml` files are never rewritten to add new options; compare
 with the current reference. Record `rummage --about` when diagnosing differences
 between installed and development builds.
+
+## Shell completions
+
+Packages install completions for bash, zsh and fish. Bash uses bash-completion;
+zsh uses `compinit`; fish loads its vendor completions automatically. The options
+follow the selected mode: picker options appear after `--pick`, `--pick-directory`
+or `--save-file`. Folder arguments complete directories; `--reveal` and
+`--properties` also complete files. Source builds can omit these files with
+`-DRUMMAGE_INSTALL_COMPLETIONS=OFF`.

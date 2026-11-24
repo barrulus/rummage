@@ -2,19 +2,29 @@
 
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
-Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or the
+Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
 - **General:** startup/session behavior, executable opening, double-click timing and terminal.
-- **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement and motion.
-- **Keyboard shortcuts:** replace a default with a chord (for example `Ctrl+J`), type
-  `Default` to reset it, or clear a field to disable it. **New shortcut** adds a binding
-  for an action (`action:ID`) or folder (`go:/path` or `go:~/path`).
-- **Actions:** add commands and edit their labels, argument arrays and enabled state.
-  Advanced options remain available through **Open config**.
+- **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement.
+- **Keyboard shortcuts:** search commands, record a chord, reset a binding to its default,
+  or disable it. Conflicting chords are rejected before saving. Folder shortcuts accept
+  a directory path; custom actions appear after their valid definition is saved.
+- **Actions:** search or add commands, then edit the program and individual arguments,
+  selection rules, destination prompt and enabled state. Placeholder help is shown in the form.
+- **Menus:** choose the common layout or a context override, arrange commands, separators
+  and groups, and preview the structure. Reset removes that override and restores inheritance.
+- **Effects:** select an event or persistent slot, preview it, and adjust its effect and timing live.
+
+Search above the categories matches setting names and descriptions, commands, actions and
+menu contexts. Selecting a result opens its control. Individual reset buttons and **Reset
+category** remove recognized overrides and restore the built-in defaults; they retain
+unrelated settings and custom action definitions.
 
 Copy Name defaults to **Ctrl+Alt+C** and can be changed with `copy_name`; it copies
 selected filenames, including extensions, with newlines between multiple names.
+
+![Settings General showing startup and file-opening preferences in a custom palette](images/rummage-settings-general.webp)
 
 **Valid changes save automatically.** Toggles and dropdowns commit immediately; text and
 number fields commit on Enter or when focus leaves them. Numeric controls also support
@@ -31,7 +41,7 @@ commands in Actions before assigning their shortcuts.
 saved, Settings stays open: correct them, use **Retry** for a write failure, or explicitly
 choose **Discard unsaved**. Discarding does not undo changes already saved.
 
-Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4 to switch categories, and
+Use Tab/Shift+Tab to move between controls, Alt+1/2/3/4/5/6 to switch categories, and
 Ctrl+S to commit pending fields or retry a save. Scroll within a category with the wheel
 or scrollbar. Choice fields open with Enter/Space; arrow keys move through options,
 Enter/Space selects, Escape dismisses, and Tab dismisses and moves focus.
@@ -41,6 +51,13 @@ successive changes are retained. If another editor changes the file while Settin
 saving stops without overwriting that edit. Keep a copy of any unsaved values, discard those
 edits and reopen Settings to load the external version. Invalid files and write failures
 have readable error details. Settings uses the active `--config` file when specified.
+
+When the resolved configuration destination cannot be replaced, Settings shows a **read-only**
+state and disables editing and resets. For declarative configurations such as Nix-store files,
+change the configuration declaration and rebuild it. **Open config** and copying values remain
+available. A symlink to a writable destination still works: saves replace its target atomically
+and preserve the symlink. Changes are applied only after a successful save; there is no separate
+session-only settings mode.
 
 rummage stores settings in TOML. Every configuration key is optional. The first
 normal launch creates the complete reference when no config exists. First-run setup
@@ -86,22 +103,35 @@ theme = "system"
 rename = "Ctrl+r"
 ```
 
+Navigation, movement and focus commands are configurable too. Movement chords
+reserve Ctrl and Shift for selection gestures; conflict checks cover those derived
+chords. See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard)
+for the command IDs and a J/K movement example.
+
 ## Settings reference
 
 | Key | Default | Accepted value / behavior |
 | --- | --- | --- |
 | `startup.mode` | `"session"` | `"home"`, `"folder"`, `"last"`, or `"session"`; next launch |
 | `startup.folder` | `"~"` | Absolute path or `~/` path, used with mode `"folder"` |
-| `appearance.palette_source` | `"auto"` | `"auto"` (file → desktop → built-in), `"desktop"`, `"file"`, or `"builtin"`; unavailable explicit sources fall back to built-in; live |
+| `appearance.palette_source` | `"auto"` | `"auto"` (file → desktop → built-in), `"desktop"`, `"file"`, `"builtin"`, or `"kde"` (active kdeglobals colours); unavailable explicit sources fall back to built-in; live |
 | `appearance.color_scheme` | `"system"` | `"system"` (follow selected source), `"light"`, or `"dark"`; independent of source; live |
 | `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |
 | `appearance.background_opacity` | `1.0` | Number from 0 to 1; background only |
-| `animations.enabled` | `true` | Enable built-in motion effects; live |
+| `animations.enabled` | `true` | Enable transitions and persistent effects; live |
 | `animations.duration_scale` | `1.0` | Finite number 0–4; 0 is immediate; final duration capped at 2 seconds |
 | `animations.reduce_motion` | `"system"` | `system`, `always`, `never`; follows desktop reduced motion by default |
 | `animations.quality` | `"auto"` | `auto`, `low` (fades), `high`; bounded capture storage |
 | `animations.events.EVENT` | Per event | Built-in effect or `none`; see [motion effects](motion.md) |
 | `animations.durations.EVENT` | Per event | Integer milliseconds 0–2000 before duration scaling |
+| `animations.hologram_spread` | `2.0` | Colour separation in physical pixels, 0–12 |
+| `animations.portal_rotation` | `2.5` | Maximum rotation in radians, 0–12 |
+| `animations.ambient.background` | `false` | Animated accent background behind file views |
+| `animations.ambient.selection_glow` | `false` | Breathing outline around visible selection bounds |
+| `animations.ambient.speed` | `1.0` | Speed multiplier, 0–4; 0 freezes the effect |
+| `animations.ambient.intensity` | `0.15` | Strength, 0–1; 0 disables persistent effects |
+| `animations.ambient.fps` | `30` | Maximum idle animation rate, 1–60; compositor pacing also applies |
+| `animations.ambient.shader` | `""` | Optional absolute path to a background fragment-shader body; empty uses the built-in effect |
 | `status_bar.text_size` | `12.0` | Number from 8 to 32 logical pixels; applies live |
 | `font.family` | `"sans-serif"` | Fontconfig pattern for interface text |
 | `font.monospace` | `"monospace"` | Fontconfig pattern for text previews |
@@ -119,9 +149,45 @@ for binding names, and [actions](actions.md) for action fields and menu layouts.
 The [example file](config.example.toml) supplies commented recipes and full default
 menus. Its commented recipes are opt-in, not enabled defaults.
 
+On upgrade, the two unchanged sidebar menu layouts from older example configs
+automatically gain new actions when loaded. The file itself is not rewritten, so
+this also works with read-only or Nix-managed configs. Modified layouts and
+explicitly empty menus retain their filtering. Include `{ remaining = true }` in
+custom layouts to keep future actions visible.
+
 TOML table placement matters: use one `[keybindings]` table, one `[context_menu]`
 table, and one `[[actions]]` table per action. A field below a table heading belongs
 to that table until the next heading. Do not paste a binding into an action table.
+
+## Sidebar organization
+
+Visibility, width, collapsed sections, hidden entries, separators and custom order
+are remembered in `state.toml`. Places and bookmarks start with their subfolders
+collapsed each session. Use **View → Sidebar** to restore hidden
+entries or reset organization.
+
+Optional `config.toml` lists override remembered order or hidden entries at startup
+and when these configuration lists change. Omit them to use the interactive saved
+state; an explicit empty list clears that list. Interactive changes still work
+until the next startup or configuration-list change.
+
+```toml
+[sidebar]
+order = ["place:home", "separator:0:0", "place:downloads"]
+hidden = ["place:music"]
+```
+
+Built-in keys use `place:` followed by the place's icon key, such as `home`,
+`downloads`, `filesystem` or `trash`. Local bookmarks use `path:/absolute/path`;
+remote bookmarks use `uri:` followed by their saved URI. Devices prefer
+`uuid:FILESYSTEM_UUID`, then `device:UDISKS_OBJECT_PATH`, then `mount:/mount/path`
+when no device service is available. Unknown or unavailable keys are retained.
+Each list supports up to 512 unique nonempty strings, at most 4096 bytes each.
+
+`separator:SECTION:ID` inserts a separator in the order list: sections are `0`
+(Places), `1` (Bookmarks), or `2` (Devices), and IDs distinguish separators.
+Entries remain within their sections; unlisted entries follow the configured ones
+in their original order. Hide/reorder changes do not rewrite GTK bookmarks.
 
 ## Validation and live reload
 
@@ -141,7 +207,7 @@ uses defaults, so verify the printed path if a check unexpectedly succeeds.
 | Startup folder/mode | Next application start |
 | Interface and monospace font | Next application start |
 | `colors.toml` palette | Live |
-| Desktop icon-theme discovery | At startup; explicit `icon.theme` edits reload live |
+| Desktop icon-theme discovery | Live while `icon.theme = "system"`; named/built-in themes ignore desktop changes |
 
 At startup, invalid scalar values use defaults and unknown keys are reported.
 A TOML syntax error discards the file. Invalid bindings fall back to the default
@@ -155,19 +221,36 @@ copy are not automatically synchronized by updates.
 
 ## Saved state
 
+Named searches are stored as `[[search]]` definitions in `state.toml`, with `name`,
+`root`, `query` and `hidden` fields. Up to 64 definitions are retained; names are
+limited to 128 bytes and queries to 16,384 bytes. Roots must be absolute paths.
+Definitions are managed through **Save Search…** and **Saved Searches…**, and are
+rerun when opened. Results themselves are not saved.
+
 rummage remembers window size/maximization, pane layout and divider, sidebar zoom,
-info-pane settings, the divider below Places and command-palette history. Each pane retains its tabs,
+info-pane settings (including `info.auto_hide`, default `false`, controlled by
+**View → Show → Hide preview when no file is focused**), file-extension visibility (`view.show_extensions` in saved state),
+file previews (`view.show_thumbnails`, default `true`, toggled by **View → Show → Thumbnails**),
+the divider below Places and command-palette history. Each pane retains its tabs,
 locations, active tab, views, zoom, sorting, hidden visibility and filename filters.
 Back/forward history and details-tree expansion are not saved across restarts.
 
 View mode, sort key/direction, row size, grid icon size and details-column choices, order and widths
-are remembered per folder. Opening a folder restores them. Moving focus between
+are remembered per folder. Name-column width is also saved; a saved
+`name_width = 0` means it automatically fills spare space until resized.
+Opening a folder restores these settings. Moving focus between
 Miller columns keeps column view without replacing the folder’s saved view mode;
 choosing a view mode explicitly updates that preference. A folder without
 saved settings initially inherits the current view. Sorting one tab does not
 change other tabs. Existing tabs retain their own view and zoom until navigation;
 when the same folder is used in several tabs, the last-used settings are saved
 for future visits.
+
+**Use Default View for This Folder** in Sort By or the command palette restores
+Columns view, name sorting in ascending order, the default row/icon sizes and
+details columns. It saves an explicit default for this folder, so arriving from
+a differently configured folder does not override the reset. `reset_folder_view`
+is available for a custom shortcut and has no default binding.
 
 The folder history is capped at **512 entries**, with the least recently used
 removed first. It stores paths and small settings records, never directory listings

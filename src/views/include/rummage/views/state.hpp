@@ -27,10 +27,16 @@ struct State {
 
     Mode mode{Mode::columns};
     bool show_hidden{false};
+    bool show_extensions{true};
+    bool show_thumbnails{true};
     bool sidebar_visible{true};
     float sidebar_width{200.0F};
     std::size_t sidebar_size{1};  // independent sidebar zoom, usual by default
+    std::vector<std::string> sidebar_order;
+    std::vector<std::string> sidebar_hidden;
+    std::vector<std::string> sidebar_collapsed;
     bool info_visible{true};
+    bool info_auto_hide{false};
     float info_width{300.0F};
     float sidebar_preview_ratio{0.55F};
     bool info_expanded{false};
@@ -75,6 +81,17 @@ struct State {
     private:
         std::shared_ptr<const Entries> entries_{std::make_shared<const Entries>()};
     };
+
+    struct SavedSearch {
+        std::string name;
+        std::filesystem::path root;
+        std::string query;
+        bool hidden{false};
+        bool operator==(const SavedSearch&) const = default;
+    };
+
+    static constexpr std::size_t kMaxSavedSearches = 64;
+    std::vector<SavedSearch> saved_searches;
 
     Folders folders;
     std::filesystem::path last_folder;

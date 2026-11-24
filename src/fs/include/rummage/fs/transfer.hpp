@@ -19,8 +19,15 @@ enum class TransferKind : std::uint8_t {
     trash,        // run_trash (trash.hpp): destination is the home trash
     restore,      // run_restore (trash.hpp): names are paths in a trash's files/
     erase,        // run_erase (erase.hpp): deleted for good; destination unused
+    group,        // move into a new folder, or undo that grouping
+    link,         // create symbolic links without following the source items
     compress,     // write one ZIP or tar.gz archive
     empty_trash,  // run_erase: names are trashes, everything in them goes
+};
+
+struct GroupFolder {
+    std::filesystem::path path;
+    std::uint64_t device{0}, inode{0};
 };
 
 struct TransferRequest {
@@ -44,6 +51,12 @@ struct TransferRequest {
     bool tar_gz{false};
     // Optional destination names parallel to names (undo restores a Keep Both item's old name).
     std::vector<std::string> destination_names{};
+    GroupFolder group_folder{};
+    bool ungroup{false};
+    // Reread and compare regular-file data before publication. Same-disk renames and
+    // symlinks do not copy file contents. Archive extraction does not support this option.
+    bool verify{false};
+    std::uint64_t id{0};  // assigned by TransferQueue; never reused within that queue
 };
 
 // What to do with an item whose name is taken in the destination.
@@ -69,7 +82,10 @@ struct TransferProgress {
     std::uint64_t bytes_total{0};  // 0 for a move on one disk: nothing is copied
     std::size_t files_done{0};
     std::size_t files_total{0};
-    std::string current;  // the item being transferred
+    std::string current;    // the item being transferred
+    bool verifying{false};  // most recent activity; parallel files may still be copying
+    std::uint64_t bytes_verified{0};
+    std::size_t files_verified{0};
 };
 
 // An item a transfer placed: where it was and where it is now (undo needs both).
@@ -96,12 +112,18 @@ struct TransferResult {
     std::uint64_t bytes_done{0};
     std::vector<std::string> errors;  // "Trip/P1.ORF: Permission denied"
     bool cancelled{false};
+    GroupFolder group_folder{};
+    std::size_t files_verified{0};
+    bool cancelled_before_start{false};  // queue cancellation; no operation-specific state began
 };
 
 struct TransferCallbacks {
     std::function<void(const TransferProgress&)> progress;  // often: throttle it
     // Asked for every taken name, on the transfer's thread; it may block until the user answers.
     std::function<Resolution(const Conflict&)> resolve;
+    // Optional cooperative pause gate. Called without engine locks at bounded copy/read
+    // checkpoints and between items. It must also unblock on cancellation/shutdown.
+    std::function<void()> checkpoint{};
 };
 
 // Copies or moves request.names from request.source into request.destination.

@@ -2,12 +2,48 @@
 
 [Documentation](README.md) · [Current features](features.md) · [Installation](install.md)
 
-rummage is a fork of Nordend. The current source version is 0.6.0; the source
+rummage is a fork of Nordend. The current source version is 0.6.1; the source
 commit identifies development builds more precisely than that number.
 The development download tag is a moving snapshot, not a new upstream release.
 See [installation](install.md#development-downloads) for package/source identity.
 
-## 0.6.0 — in development
+## 0.6.1 — in development
+
+The information pane now shows a compact media summary, with extended metadata
+under More details and a fixed Copy all properties button that includes collapsed
+fields. Properties has a draggable scrollbar with a wider hit area, normal wheel
+scroll speed and pixel-based touchpad scrolling.
+
+Older unchanged sidebar menu configurations now pick up new Places and bookmark
+actions automatically on load. Customised layouts remain intact, and no config
+file rewrite is required.
+
+Keyboard browsing now includes Alt+D for breadcrumb editing, Shift+F6 to focus
+files, Ctrl+Enter for opening a folder in a new tab, and Ctrl+Alt+Enter for the
+other pane. Places supports keyboard context menus and actions on its focused row.
+Movement, hierarchy and explicit focus commands can be remapped; Shift/Ctrl
+selection gestures follow movement bindings. A visible outline marks file-view
+keyboard focus, and the new commands appear in Settings and the command palette.
+
+The breadcrumb path editor completes local and archive paths with Tab/Shift+Tab;
+Enter also reveals typed files. **Move into New Folder…** groups a selection with
+Undo/Redo. Alt-drop offers destination actions and extraction of an archive into
+a named subfolder. Places and bookmarks now have navigation context menus,
+including **Open in New Tab** and **Open in Other Pane**.
+
+Create symbolic links beside selected files and folders, with Undo/Redo.
+**Ctrl+S** selects visible entries by filename fragment or wildcard pattern.
+Mounted drives offer filesystem and space information in Properties and on hover.
+**Use Default View for This Folder** resets and remembers a folder’s view defaults.
+
+Fedora RPM builds and clean-install checks now target Fedora 45. Development
+RPM download names and installation instructions use Fedora 45 consistently.
+
+Settings translate the built-in action shortcuts and the menu editor's Remove button
+in all bundled languages. Menu editor button rows use fewer columns when translated
+labels need more room, including the Japanese Unnest button.
+
+## 0.6.0
 
 File pickers offer **Navigate in terminal…** for Bash, Zsh and Fish. Navigate in your
 configured terminal, then exit the shell to return its folder to the picker.

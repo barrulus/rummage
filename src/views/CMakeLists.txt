@@ -13,6 +13,11 @@ add_library(rummage_views
     src/breadcrumb.cpp
     src/browser_actions.cpp
     src/browser_panes.cpp
+    src/browser_drives.cpp
+    src/browser_folder_settings.cpp
+    src/browser_links.cpp
+    src/browser_navigation.cpp
+    src/browser_organise.cpp
     src/browser_archive.cpp
     src/archive_text.cpp
     src/browser.cpp
@@ -26,6 +31,7 @@ add_library(rummage_views
     src/conflict_dialog.cpp
     src/context_menu.cpp
     src/menu_layout.cpp
+    src/menu_editor.cpp
     src/details_view.cpp
     src/file_clipboard.cpp
     src/draw_helpers.cpp
@@ -33,10 +39,15 @@ add_library(rummage_views
     src/folder.cpp
     src/format.cpp
     src/file_finder.cpp
+    src/search_results.cpp
+    src/browser_search.cpp
     src/file_picker.cpp
     src/fuzzy.cpp
     src/grid_view.cpp
     src/info_pane.cpp
+    src/insights_view.cpp
+    src/insights_iris.cpp
+    src/insights_charts.cpp
     src/location_dialog.cpp
     src/markdown_view.cpp
     src/name_editor.cpp
@@ -44,6 +55,7 @@ add_library(rummage_views
     src/password_dialog.cpp
     src/properties_dialog.cpp
     src/settings_dialog.cpp
+    src/settings_editors.cpp
     src/shortcuts.cpp
     src/shortcuts_overlay.cpp
     src/sidebar.cpp
@@ -59,5 +71,5 @@ add_library(rummage::views ALIAS rummage_views)
 
 target_include_directories(rummage_views PUBLIC include)
 target_link_libraries(rummage_views
-    PUBLIC rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
+    PUBLIC rummage::platform rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
     PRIVATE rummage::warnings PkgConfig::TOMLPLUSPLUS rummage_fzy)

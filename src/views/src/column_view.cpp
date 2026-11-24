@@ -23,14 +23,16 @@ constexpr float kDividerGrab = 4.0F;  // either side of a column edge
 
 ColumnView::ColumnView(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                        std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw,
-                       std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane)
+                       std::function<void(ui::CursorShape)> set_cursor, InfoPane* info_pane,
+                       Thumbnails* thumbnails)
     : loop_{loop},
       pool_{pool},
       watcher_{watcher},
       mime_{std::move(mime)},
       redraw_{std::move(redraw)},
       set_cursor_{std::move(set_cursor)},
-      info_pane_{info_pane} {
+      info_pane_{info_pane},
+      thumbnails_{thumbnails} {
     order_.mime = mime_.get();
 }
 
@@ -49,12 +51,26 @@ std::unique_ptr<Column> ColumnView::make_column(const std::filesystem::path& dir
 
 void ColumnView::set_entry_filter(fs::Listing::Predicate filter) {
     entry_filter_ = std::move(filter);
-    // Filtering can remove the selection and synchronously truncate later columns through
-    // on_cursor_changed(). Recheck the size instead of retaining invalidated iterators.
-    for (std::size_t i = 0; i < columns_.size(); ++i) {
-        columns_[i].column->folder().set_entry_filter(entry_filter_);
-    }
+    refresh_filters(true);
     redraw_();
+}
+
+void ColumnView::refresh_filters(bool force) {
+    if (filtering_)
+        return;
+    filtering_ = true;
+    for (std::size_t i = 0; i < columns_.size(); ++i) {
+        auto& slot = columns_[i];
+        // While revealing a path, its ancestors must remain available even when their
+        // names do not match the eventual leaf column's filter.
+        const bool filtered = i + 1 == columns_.size() && reveal_.empty();
+        if (force || filtered != slot.filtered) {
+            slot.filtered = filtered;
+            slot.column->folder().set_entry_filter(filtered ? entry_filter_
+                                                            : fs::Listing::Predicate{});
+        }
+    }
+    filtering_ = false;
 }
 
 void ColumnView::set_show_hidden(bool show) {
@@ -92,7 +108,7 @@ void ColumnView::zoom(std::size_t index) {
 }
 
 std::unique_ptr<Column> ColumnView::make_column(std::shared_ptr<Folder> folder) {
-    folder->set_entry_filter(entry_filter_);
+    folder->set_entry_filter({});
     folder->set_order(order_);
     // The folder reports its cursor changes with its own address.
     folder->set_changed_handler([this, self = folder.get()] { on_cursor_changed(self); });
@@ -112,6 +128,7 @@ void ColumnView::open(const std::filesystem::path& directory) {
     gesture_axis_ = Axis::none;
     scroller_.jump_to(0.0F);
     columns_.push_back({.column = make_column(directory)});
+    refresh_filters();
     redraw_();
 }
 
@@ -122,6 +139,7 @@ void ColumnView::reveal(const std::filesystem::path& root, const std::filesystem
         return;  // not inside root
     }
     reveal_ = target;
+    refresh_filters();
     columns_.front().column->folder().select_name(relative.begin()->string());
 }
 
@@ -174,6 +192,7 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
         if (parent == target || target.filename().empty()) {
             open(target);  // the root: nothing leads to it
             columns_.front() = Slot{.column = make_column(std::move(folder))};
+            refresh_filters();
             return;
         }
         open(parent);
@@ -183,6 +202,7 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
     focus_on(*base);
     reveal_ = target;
     adopt_ = std::move(folder);
+    refresh_filters();
     columns_[*base].column->folder().select_name(
         target.lexically_relative(columns_[*base].column->path()).begin()->string());
 }
@@ -200,7 +220,7 @@ bool ColumnView::animating() const noexcept {
 }
 
 void ColumnView::on_cursor_changed(const Folder* folder) {
-    if (suspended_) {
+    if (suspended_ || filtering_) {
         return;  // show() catches up
     }
     const auto it = std::ranges::find_if(
@@ -216,6 +236,11 @@ void ColumnView::on_cursor_changed(const Folder* folder) {
 // nothing (no column after it: the info pane shows the file, or sums up a larger selection).
 // NOLINTNEXTLINE(misc-no-recursion): one level, for the column show() hands over
 void ColumnView::sync_after(std::size_t index) {
+    sync_columns(index);
+    refresh_filters();
+}
+
+void ColumnView::sync_columns(std::size_t index) {
     const Folder& folder = columns_.at(index).column->folder();
     if (folder.cursor_pending()) {
         return;  // keep what is there until the cursor lands
@@ -313,6 +338,7 @@ void ColumnView::go_left() {
     }
     columns_.front().column->folder().set_cursor(std::nullopt);
     columns_.insert(columns_.begin(), Slot{.column = make_column(parent)});
+    refresh_filters();
     if (resizing_) {
         ++*resizing_;
     }
@@ -339,9 +365,7 @@ bool ColumnView::shows_info() const {
     if (!info_visible_ || columns_.empty()) {
         return false;
     }
-    const Folder& last = columns_.back().column->folder();
-    const fs::Entry* const entry = last.single_selection();
-    return entry != nullptr ? !entry->is_directory() : last.selected_count() > 1;
+    return columns_[focus_].column->folder().cursor_entry() != nullptr;
 }
 
 float ColumnView::content_width() const {
@@ -487,7 +511,8 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
             continue;
         }
         slot.column->draw(renderer, {left, area_.y, slot.width, area_.height}, palette, icons,
-                          i == focus_, now, edit_, cut_, drop_);
+                          i == focus_, now, edit_, cut_, drop_, show_extensions_,
+                          show_thumbnails_ ? thumbnails_ : nullptr);
         const bool grabbed =
             resizing_ == i || (over_divider_ && divider_at(pointer_x_, pointer_y_) == i);
         const float line = grabbed ? 2.0F : 1.0F / renderer.scale();
@@ -498,7 +523,7 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     if (shows_info() && info_pane_ != nullptr) {
         const float left = area_.x + content_width() - kInfoWidth - offset;
         info_area_ = {left, area_.y, std::max(kInfoWidth, area_.right() - left), area_.height};
-        info_pane_->draw(renderer, info_area_, palette, icons, columns_.back().column->folder(),
+        info_pane_->draw(renderer, info_area_, palette, icons, columns_[focus_].column->folder(),
                          now);
     }
     scrollbar_.layout(area_);
@@ -771,6 +796,13 @@ bool ColumnView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
                 return false;
             }
             folder.select_all();
+            break;
+        case XKB_KEY_i:
+        case XKB_KEY_I:
+            if (!ctrl || !event.modifiers.shift) {
+                return false;
+            }
+            folder.invert_selection();
             break;
         case XKB_KEY_Escape:
             folder.collapse_selection();

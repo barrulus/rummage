@@ -2,11 +2,13 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <doctest/doctest.h>
 
@@ -14,6 +16,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
@@ -169,4 +172,157 @@ TEST_CASE("breadcrumb: going up in the columns") {
     REQUIRE(f.settled());
     CHECK(columns.column(0).folder().path() == f.root);
     CHECK(cursor_name(columns.column(0).folder()) == "a");
+}
+
+TEST_CASE("breadcrumb: inline path supports selection, clipboard, navigation and cancellation") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settled());
+    rummage::ui::Offscreen surface{1200, 800};
+    FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(1200, 800, 1, {});
+        f.browser.draw(renderer, {0, 0, 1200, 800}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    auto& crumb = f.browser.breadcrumb();
+    std::string copied;
+    std::function<void(const std::optional<std::string>&)> deliver;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { copied = formats.front().second; };
+    clipboard.types = [] { return std::vector<std::string>{"text/plain;charset=utf-8"}; };
+    clipboard.read = [&](auto, auto callback) { deliver = std::move(callback); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    const auto press = [&](xkb_keysym_t sym, rummage::ui::Modifiers modifiers = {}) {
+        f.browser.key({.keysym = sym, .text = {}, .modifiers = modifiers}, Browser::Clock::now());
+    };
+    const auto edit = [&] {
+        draw();
+        bool clicked = false;
+        for (float y = 0; y < 160; y += 1) {
+            if (crumb.claims(1100, y)) {
+                crumb.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                               .x = 1100,
+                               .y = y,
+                               .button = rummage::ui::PointerButton::left});
+                clicked = true;
+                break;
+            }
+        }
+        REQUIRE(clicked);
+        REQUIRE(crumb.editing());
+    };
+    edit();
+    CHECK(crumb.text() == f.root.string());
+    press(XKB_KEY_c, {.ctrl = true});
+    CHECK(copied == f.root.string());
+    press(XKB_KEY_v, {.ctrl = true});
+    REQUIRE(deliver);
+    deliver((f.root / "a").string());
+    press(XKB_KEY_Return);
+    REQUIRE(f.settled());
+    CHECK_FALSE(crumb.editing());
+    CHECK(f.browser.picker_folder()->path() == f.root / "a");
+    edit();
+    crumb.paste((f.root / "missing").string());
+    press(XKB_KEY_Return);
+    REQUIRE(f.settled());
+    CHECK(crumb.editing());
+    CHECK_FALSE(crumb.error().empty());
+    CHECK(f.browser.picker_folder()->path() == f.root / "a");
+    press(XKB_KEY_Escape);
+    CHECK_FALSE(crumb.editing());
+    edit();
+    CHECK(crumb.text() == (f.root / "a").string());
+    press(XKB_KEY_v, {.ctrl = true});
+    press(XKB_KEY_Escape);
+    edit();
+    deliver((f.root / "b").string());
+    CHECK(crumb.text() == (f.root / "a").string());  // stale paste cannot enter a new edit
+    f.browser.key({.keysym = XKB_KEY_slash, .text = f.root.string(), .modifiers = {}},
+                  Browser::Clock::now());
+    press(XKB_KEY_Return);
+    REQUIRE(f.settled());
+    CHECK(f.browser.picker_folder()->path() == f.root);
+}
+
+TEST_CASE("breadcrumb: completion cycles Unicode paths and ignores stale results") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settled());
+    rummage::ui::Offscreen surface{1200, 800};
+    FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(1200, 800, 1, {});
+        f.browser.draw(renderer, {0, 0, 1200, 800}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    auto& crumb = f.browser.breadcrumb();
+    std::string copied;
+    std::function<void(const std::optional<std::string>&)> deliver;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { copied = formats.front().second; };
+    clipboard.types = [] { return std::vector<std::string>{"text/plain;charset=utf-8"}; };
+    clipboard.read = [&](auto, auto callback) { deliver = std::move(callback); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    const auto press = [&](xkb_keysym_t sym, rummage::ui::Modifiers modifiers = {}) {
+        f.browser.key({.keysym = sym, .text = {}, .modifiers = modifiers}, Browser::Clock::now());
+    };
+    const auto edit = [&] {
+        draw();
+        bool clicked = false;
+        for (float y = 0; y < 160; y += 1) {
+            if (crumb.claims(1100, y)) {
+                crumb.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                               .x = 1100,
+                               .y = y,
+                               .button = rummage::ui::PointerButton::left});
+                clicked = true;
+                break;
+            }
+        }
+        REQUIRE(clicked);
+        REQUIRE(crumb.editing());
+    };
+    fs::create_directory(f.root / "École");
+    fs::create_directory(f.root / "Été");
+    std::ofstream{f.root / "notes.txt"} << "text";
+    edit();
+    crumb.paste((f.root / "É").string());
+    press(XKB_KEY_Tab);
+    REQUIRE(run_until(f.loop, [&] { return !crumb.completing(); }));
+    CHECK(crumb.text() == (f.root / "École").string() + "/");
+    press(XKB_KEY_Tab);
+    CHECK(crumb.text() == (f.root / "Été").string() + "/");
+    press(XKB_KEY_Tab, {.shift = true});
+    CHECK(crumb.text() == (f.root / "École").string() + "/");
+    press(XKB_KEY_a, {.ctrl = true});
+    crumb.paste((f.root / "É").string());
+    press(XKB_KEY_Tab);
+    press(XKB_KEY_a, {.ctrl = true});
+    crumb.paste((f.root / "notes.txt").string());
+    REQUIRE(f.settled());
+    CHECK(crumb.text() == (f.root / "notes.txt").string());
+    press(XKB_KEY_Return);
+    REQUIRE(f.settled());
+    CHECK_FALSE(crumb.editing());
+    REQUIRE(f.browser.picker_folder()->cursor_entry());
+    CHECK(f.browser.picker_folder()->cursor_entry()->name == "notes.txt");
+    edit();
+    crumb.paste((f.root / "a").string());
+    press(XKB_KEY_Return);
+    // Navigation is pending; a newer edit supersedes it before the worker returns.
+    press(XKB_KEY_a, {.ctrl = true});
+    crumb.paste((f.root / "Été").string());
+    REQUIRE(f.settled());
+    CHECK(f.browser.picker_folder()->path() == f.root);
+    CHECK(crumb.editing());
+    CHECK(crumb.text() == (f.root / "Été").string());
+    press(XKB_KEY_Return);
+    REQUIRE(f.settled());
+    CHECK(f.browser.picker_folder()->path() == f.root / "Été");
 }

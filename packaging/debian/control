@@ -5,10 +5,11 @@ Maintainer: rummage fork maintainers <barrulus@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, python3, patch,
  libglib2.0-dev, libjpeg-dev, libpng-dev, libtiff-dev,
  libwayland-dev, wayland-protocols, libegl-dev, libgles-dev, libxkbcommon-dev,
- libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev,
+ libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev, nlohmann-json3-dev,
  libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
  libwebp-dev, libjxl-dev, libheif-dev (>= 1.23), liblcms2-dev,
- zlib1g-dev, libsdbus-c++-dev (>= 2)
+ librsvg2-dev (>= 2.52), libpango1.0-dev,
+ zlib1g-dev, libre2-dev, libsdbus-c++-dev (>= 2)
 Standards-Version: 4.7.2
 Rules-Requires-Root: no
 Homepage: https://github.com/barrulus/rummage
@@ -17,7 +18,7 @@ Package: rummage
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, shared-mime-info, hicolor-icon-theme,
  libheif1 (>= 1.23), libheif-plugin-libde265 (>= 1.23)
-Suggests: rummage-previews, rummage-media, rummage-pdf
+Suggests: rummage-previews, rummage-media, rummage-pdf, tokei
 Description: Native Wayland file manager
  A file manager with column and grid views, isolated previews, configurable
  custom actions and an optional desktop file chooser portal.

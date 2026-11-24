@@ -27,6 +27,19 @@ configuration keys and options literally.
 | Code | Language | File |
 | --- | --- | --- |
 | `de` | Deutsch | [`data/i18n/de.toml`](../data/i18n/de.toml) |
+| `es` | Español | [`data/i18n/es.toml`](../data/i18n/es.toml) |
+| `fr` | Français | [`data/i18n/fr.toml`](../data/i18n/fr.toml) |
+| `ja` | 日本語 | [`data/i18n/ja.toml`](../data/i18n/ja.toml) |
+| `pt_BR` | Português (Brasil) | [`data/i18n/pt_BR.toml`](../data/i18n/pt_BR.toml) |
+| `ru` | Русский | [`data/i18n/ru.toml`](../data/i18n/ru.toml) |
+| `zh_CN` | 简体中文 | [`data/i18n/zh_CN.toml`](../data/i18n/zh_CN.toml) |
+
+Use `LANGUAGE=pt_BR` for Brazilian Portuguese or `LANGUAGE=zh_CN` for Simplified
+Chinese. These are region-specific catalogs: `pt` and `zh` alone do not select
+them, nor do other regions such as `pt_PT` or `zh_TW`. Spanish, French, Russian
+and Japanese also accept regional locales such as `es_MX.UTF-8` and `fr_CA.UTF-8`.
+Chinese and Japanese need fonts covering their characters; rummage uses the
+system's font fallback to find them.
 
 ## Adding a language
 
@@ -167,3 +180,10 @@ the context variants when meanings differ. After adding interface text, run
 `scripts/i18n-check.py --unwrapped`: it also lists string literals in interface code
 that look visible but are not translated. It is a heuristic and lists identifiers,
 D-Bus names and log text too, so read the list before acting on it.
+
+For English labels stored in `constexpr` tables (such as shortcut descriptions and
+Details columns), use `i18n::mark("Label")`. It leaves the string unchanged until
+`tr()` translates it for display, and makes it a required message in the strict
+catalog check. Do not mark filenames, configured paths, custom action names or
+keybinding identifiers. The `--unwrapped` audit scans interface headers as well as
+implementation files.

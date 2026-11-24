@@ -1,13 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 
 #include "rummage/ui/color.hpp"
 #include "rummage/ui/icon_theme.hpp"
@@ -27,11 +27,19 @@ namespace rummage::ui {
 class IconSet {
 public:
     explicit IconSet(FontSystem& fonts);
+    IconSet(const IconSet&) = delete;
+    IconSet& operator=(const IconSet&) = delete;
+    IconSet(IconSet&&) = delete;
+    IconSet& operator=(IconSet&&) = delete;
 
     // "system" reads desktop settings, "builtin" uses Tabler, otherwise an installed theme.
     // Applied at the next draw, when a GL context is current.
     void set_theme(std::string theme);
     void set_place_icons(std::map<std::string, std::string> icons);
+
+    // Follow desktop changes while "system" is selected. The loop must outlive this set;
+    // redraw requests a frame, with texture replacement deferred until drawing begins.
+    void watch_system_theme(core::EventLoop& loop, std::function<void()> redraw);
 
     [[nodiscard]] const std::string& selected_theme() const noexcept { return selected_theme_; }
 
@@ -75,7 +83,10 @@ private:
     std::unique_ptr<IconTheme> theme_;
     std::unordered_map<std::string, std::unique_ptr<Texture>> themed_;
     std::size_t theme_bytes_{0};
-    std::unordered_set<std::string> svg_warnings_;
+    bool system_theme_{false};
+    core::EventLoop* theme_loop_{nullptr};
+    std::function<void()> theme_redraw_;
+    std::unique_ptr<DesktopIconThemeWatcher> theme_watcher_;
 };
 
 }  // namespace rummage::ui

@@ -4,18 +4,23 @@
 
 ## Quick settings
 
-Open the toolbar cog or press **Ctrl+,** for **Settings → Appearance**. Choose
-a palette source (Automatic, Desktop, Palette file or Built-in) and a separate
+Open the bottom-right cog or press **Ctrl+,** for **Settings → Appearance**. Choose
+a palette source (Automatic, Desktop, Palette file, Built-in or KDE) and a separate
 colour mode (Follow source, light or dark); an icon theme; opacity; fonts; and
 preview placement. The active-palette line reports the applied source, including
 fallback and any light/dark override. Changes save automatically when valid; the
 status reports the applied palette after saving completes. Font family changes
 apply at the next start; text sizes and other appearance changes apply immediately.
 
-The same panel controls motion effects, speed, quality and reduced motion. See
+The separate **Settings → Effects** section contains a slot selector, live preview,
+parameters, quality and reduced-motion controls. See
 [motion effects](motion.md) for per-event mappings, durations and resource limits.
 
 ## Colours
+
+| Neutral dark appearance | Neutral light appearance |
+| --- | --- |
+| ![The same SVG artwork and preview in a neutral dark palette](images/rummage-dark-grid.webp) | ![SVG artwork and its preview in a neutral light palette](images/rummage-light-grid.webp) |
 
 rummage accepts a palette from any producer: Noctalia, Matugen or a hand-written
 file. Rendering and semantic roles remain owned by rummage; generators only write
@@ -43,7 +48,8 @@ not the palette path.
 | Automatic | `"auto"` | File, then desktop, then built-in; preserves existing precedence |
 | Desktop | `"desktop"` | Desktop light/dark/accent preferences; ignores the palette file |
 | Palette file | `"file"` | `colors.toml`; ignores desktop colours |
-| Built-in | `"builtin"` | Built-in dark palette; ignores both external colour sources |
+| Built-in | `"builtin"` | Built-in dark palette; ignores external colour sources |
+| KDE | `"kde"` | Imports the active colours from `$XDG_CONFIG_HOME/kdeglobals` |
 
 An unavailable explicit source falls back to Built-in, and Appearance explains
 which source is unavailable. The saved preference stays selected, so a palette
@@ -69,8 +75,78 @@ selection continue independently.
 Choosing light or dark in Settings generates a palette from the active source's
 accent (or the default blue when it supplies none). It does not select a
 corresponding variant of an imported palette. Select Follow source
-(`color_scheme = "system"`) to use the chosen source's exact colours and mode.
+(`color_scheme = "system"`) to use the chosen source's colours and mode (with the KDE readability adaptation below).
 Source selection and colour mode are independent and both reload live.
+
+### Higher contrast
+
+Rummage follows the Settings portal's
+[`org.freedesktop.appearance/contrast`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)
+preference at startup and while running. Higher contrast strengthens generated
+text, accent colours and borders in both light and dark modes. Generated text
+pairs target at least 7:1 contrast, and borders target 3:1 against the generated
+surfaces. These ratios describe opaque palette colours; window transparency,
+disabled controls and compositor effects can reduce the displayed contrast.
+
+| Palette choice | Effect of higher contrast |
+| --- | --- |
+| Desktop, or Automatic using the desktop | Generates a higher-contrast palette from the desktop mode and accent |
+| Any source with an explicit Light or Dark colour mode | Generates a higher-contrast palette from the selected source's accent |
+| Palette file, or Automatic using a file, with Follow source | Keeps the file's colours exactly, including partial palettes and Matugen/Noctalia output; use a higher-contrast palette from its producer or choose Light/Dark |
+| KDE with Follow source | Keeps the adapted KDE palette; choose a higher-contrast KDE scheme or Light/Dark |
+| Built-in, including an unavailable source's fallback, with Follow source | Keeps the built-in palette; choose Desktop or Light/Dark to use generated higher contrast |
+
+Missing, malformed or unknown contrast values mean normal contrast, as does a
+portal backend that does not expose this setting. Returning to normal contrast
+restores the normal generated palette. Contrast does not change source precedence,
+the selected colour mode, or the palette file on disk.
+
+### KDE colours
+
+Choose **Settings → Appearance → Palette source → KDE** and **Follow source**, or set:
+
+```toml
+[appearance]
+palette_source = "kde"
+color_scheme = "system"
+```
+
+Apply a colour scheme in KDE's System Settings first. Rummage reads its active
+colours from `$XDG_CONFIG_HOME/kdeglobals` (normally `~/.config/kdeglobals`),
+including accent changes already written there by KDE. It does not need Qt or a
+running KDE session. Automatic keeps its existing precedence; KDE is opt-in.
+`--config` does not change this path. Neither KDE's file nor `colors.toml` is modified.
+
+The adapter uses these active groups:
+
+| KDE role | Rummage use |
+| --- | --- |
+| View background and alternate background | File content and alternate surfaces |
+| Window background | Panes, popups and dialogs |
+| Button background | Raised controls |
+| View foreground, inactive, link and negative text | Normal, subdued, secondary and error text |
+| Selection background and foreground | Selection, accent controls, drop targets and highlighted menu rows |
+
+View, Window, Button and Selection must each contain `BackgroundNormal` and
+`ForegroundNormal`. Optional roles fall back to readable derived colours. Values
+must be opaque `R,G,B` or `R,G,B,255` with channels from 0 to 255. Rummage preserves
+these backgrounds and the selection colour, but adapts foregrounds to target at
+least 4.5:1 on opaque backgrounds. Window and button text share Rummage's normal
+text role: View text is preferred, adjusted if needed. Schemes whose backgrounds
+cannot use a common readable text colour are rejected. This is a palette adapter,
+not a reproduction of Qt widget styling. Other semantic roles are generated from
+the inferred light/dark mode and selection accent.
+
+Only the materialized active groups are imported. Scheme-name lookup, KConfig
+inheritance, colour effects and inactive-window groups are not applied. Immutable
+`[$i]` markers are accepted; expansion/deletion modifiers on imported values are
+rejected. Malformed, duplicate, incomplete, translucent or oversized (over 1 MiB)
+input is rejected, with diagnostics in Appearance → Details.
+
+Writes and atomic replacements reload live. An invalid update retains the last
+valid KDE palette; a missing file falls back to Built-in. Creating it again resumes
+KDE colours. Keep the containing configuration directory in place; when using a
+symlink, replace the link or restart after changing its target elsewhere.
 
 ### Palette file interface
 
@@ -87,20 +163,28 @@ primary = "#6750a4"
 The `[colors]` section is required but may be empty. Missing roles use a complete
 baseline generated from that mode and the supplied `primary` accent (or the
 built-in blue accent `#3584e4`). Supplied roles then override the baseline exactly.
+When a supplied background omits its paired `on_*` foreground, that foreground
+is adjusted for readability against the final background. Omitted `hover` follows
+`primary`, and omitted `on_hover` is derived against the final `hover`.
 The file's baseline does not depend on desktop preferences. A complete Noctalia
 palette therefore retains all its colours, while a partial light file gets light
 surfaces and dark text rather than missing roles from the built-in dark palette.
 
 Every supported colour is a quoted `"#RRGGBB"` or `"#RRGGBBAA"` hexadecimal value;
 letter case is immaterial and omitted alpha means opaque. Prefer opaque palettes
-and use `appearance.background_opacity` for window transparency. Supplied colours
-are not adjusted for contrast: when overriding backgrounds, provide readable
-foregrounds too, especially `primary`/`on_primary` and `hover`/`on_hover`.
+and use `appearance.background_opacity` for window transparency. Explicitly supplied roles
+are never adjusted for contrast; provide readable pairs when supplying both roles.
+Accent text and icons use a readable variant of `primary` on their actual surface,
+while selection and button fills retain the exact supplied colour. Surface ladder
+roles remain independent: overriding `surface` does not regenerate the other
+surfaces. Since several surfaces share `on_surface`, keep those backgrounds
+compatible with the same foreground when providing a custom ladder. Contrast
+derivation assumes opaque colours; translucent roles depend on the backdrop.
 
 | Roles | Purpose |
 | --- | --- |
-| `primary`, `on_primary` | Accent controls and their foreground |
-| `primary_container`, `on_primary_container` | Selections and their foreground |
+| `primary`, `on_primary` | Focused selections, accent controls and their foreground |
+| `primary_container`, `on_primary_container` | Drop targets and their foreground |
 | `secondary`, `on_secondary`, `secondary_container`, `on_secondary_container` | Secondary semantic accents and foregrounds |
 | `tertiary`, `on_tertiary`, `tertiary_container`, `on_tertiary_container` | Additional semantic accents and foregrounds |
 | `error`, `on_error`, `error_container`, `on_error_container` | Errors and destructive actions |
@@ -118,6 +202,8 @@ are valid and do not produce warnings. Invalid TOML, invalid `mode`, a missing o
 non-table `[colors]`, or an invalid value for any supported role rejects the whole
 file and logs its location. At startup this falls back to the desktop or built-in
 palette; during reload it preserves the last usable palette, including its accent.
+Settings retains the file diagnostics, distinguishing a missing file from an invalid
+one and explaining when the last valid palette is still active.
 
 ### Live updates
 
@@ -231,15 +317,25 @@ theme = "candy-icons"
 follow_accent = true
 ```
 
-`theme = "system"` discovers the desktop theme from GTK/KDE/qt6ct settings at
-startup. An installed name selects it explicitly; `"builtin"` uses the bundled
+`theme = "system"` follows the desktop theme from GTK/KDE/qt6ct settings at
+startup and while running. An installed name selects it explicitly; `"builtin"` uses the bundled
 Tabler icons. Theme icons may be SVG or PNG. Inherited themes and built-in icons
-provide fallbacks. Editing this setting reloads live; desktop theme changes require
-a restart for discovery.
+provide fallbacks. Editing this setting reloads live.
 
-SVG theme icons use rummage's in-process FreeType-based SVG renderer. This is a
-supported subset, not full SVG document/browser support; see
-[SVG support and limits](previews.md#svg).
+System discovery reads `gtk-3.0/settings.ini`, `gtk-4.0/settings.ini`, `kdeglobals`
+and `qt6ct/qt6ct.conf` under `$XDG_CONFIG_HOME` (normally `~/.config`). On KDE,
+`kdeglobals` takes precedence; elsewhere GTK 3, GTK 4, KDE and qt6ct are tried in
+that order. Missing or invalid theme names fall through to the next source, then
+`hicolor` and the bundled icons. Rummage follows writes, atomic file replacements
+and configuration directories created after launch without creating those
+directories itself. Only changes to the resolved theme refresh the window;
+explicitly named and built-in themes ignore desktop changes. Returning to System
+uses the latest desktop choice. Changes to icon assets within an unchanged theme
+still require a restart.
+
+SVG theme icons use librsvg through the same adapter as file previews, running
+in-process. Input and output sizes are bounded; the preview helper's process
+limits do not apply to icons. See [SVG support and limits](previews.md#svg).
 
 ### Places icons
 
@@ -329,3 +425,30 @@ Set `[font] size = 16.0`, or use Settings → Appearance → Interface text size
 and update immediately. List, grid and sidebar zoom remain independent within that scale.
 Font family changes still require a restart. The settings cog uses a bundled icon, so its
 position does not depend on the chosen text font.
+
+## Desktop examples
+
+These captures show rummage on five Wayland desktops and compositors, using
+customised palettes, icon themes, and transparency. They illustrate individual
+setups rather than the default appearance of each desktop. See
+[compatibility](compatibility.md) for protocol support and fallbacks.
+
+### niri
+
+![Column view on niri, with a selected JSON file and a translucent custom palette](images/rummage-desktop-niri.webp)
+
+### Hyprland
+
+![Details view on Hyprland, showing a mounted folder with a translucent background](images/rummage-desktop-hyprland.webp)
+
+### Umbriel
+
+![Rummage on Umbriel, showing an archive selected in column view over an owl wallpaper](images/rummage-desktop-umbriel.webp)
+
+### GNOME
+
+![Grid view on GNOME, with blue folder icons and a translucent dark background](images/rummage-desktop-gnome.webp)
+
+### KDE Plasma
+
+![Details view on KDE Plasma, with an expanded folder, image preview and the desktop panel](images/rummage-desktop-kde.webp)

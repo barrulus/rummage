@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/sort.hpp"
 
 namespace rummage::views {
@@ -17,19 +18,23 @@ struct DetailsColumn {
 };
 
 inline constexpr std::array kDetailsColumns{
-    DetailsColumn{fs::SortKey::name, "name", "Name", 0.0F, 160.0F},
-    DetailsColumn{fs::SortKey::size, "size", "Size", 96.0F, 64.0F},
-    DetailsColumn{fs::SortKey::modified, "modified", "Modified", 150.0F, 96.0F},
-    DetailsColumn{fs::SortKey::type, "type", "Type", 220.0F, 80.0F},
-    DetailsColumn{fs::SortKey::created, "created", "Created", 150.0F, 96.0F},
-    DetailsColumn{fs::SortKey::accessed, "accessed", "Accessed", 150.0F, 96.0F},
-    DetailsColumn{fs::SortKey::owner, "owner", "Owner", 110.0F, 80.0F},
-    DetailsColumn{fs::SortKey::group, "group", "Group", 110.0F, 80.0F},
-    DetailsColumn{fs::SortKey::permissions, "permissions", "Permissions", 130.0F, 110.0F},
-    DetailsColumn{fs::SortKey::location, "location", "Location", 220.0F, 100.0F},
-    DetailsColumn{fs::SortKey::link_target, "link_target", "Link target", 220.0F, 100.0F}};
+    DetailsColumn{fs::SortKey::name, "name", i18n::mark("Name"), 0.0F, 160.0F},
+    DetailsColumn{fs::SortKey::size, "size", i18n::mark("Size"), 96.0F, 64.0F},
+    DetailsColumn{fs::SortKey::modified, "modified", i18n::mark("Modified"), 150.0F, 96.0F},
+    DetailsColumn{fs::SortKey::type, "type", i18n::mark("Type"), 220.0F, 80.0F},
+    DetailsColumn{fs::SortKey::created, "created", i18n::mark("Created"), 150.0F, 96.0F},
+    DetailsColumn{fs::SortKey::accessed, "accessed", i18n::mark("Accessed"), 150.0F, 96.0F},
+    DetailsColumn{fs::SortKey::owner, "owner", i18n::mark("Owner"), 110.0F, 80.0F},
+    DetailsColumn{fs::SortKey::group, "group", i18n::mark("Group"), 110.0F, 80.0F},
+    DetailsColumn{fs::SortKey::permissions, "permissions", i18n::mark("Permissions"), 130.0F,
+                  110.0F},
+    DetailsColumn{fs::SortKey::location, "location", i18n::mark("Location"), 220.0F, 100.0F},
+    DetailsColumn{fs::SortKey::link_target, "link_target", i18n::mark("Link target"), 220.0F,
+                  100.0F}};
 inline constexpr std::size_t kDetailsColumnCount = kDetailsColumns.size();
-using DetailsWidths = std::array<float, kDetailsColumnCount - 1>;
+// Existing property widths keep their indices; the last slot is Name (0 = automatic).
+using DetailsWidths = std::array<float, kDetailsColumnCount>;
+inline constexpr float kMaxDetailsWidth = 4096.0F;
 inline constexpr DetailsWidths kDetailsWidths = [] {
     DetailsWidths widths{};
     for (std::size_t i = 1; i < kDetailsColumns.size(); ++i)

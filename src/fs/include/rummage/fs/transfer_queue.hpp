@@ -5,59 +5,72 @@
 #include <functional>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/fs/transfer.hpp"
 
 namespace rummage::fs {
 
-// Runs transfers one at a time, in order, on a thread of its own (a long copy does not hold a
-// worker that thumbnails need). What happens reaches the loop thread: progress at most every
-// kProgressInterval, each conflict as a question (the transfer waits for the answer), and the
-// result.
-//
-// Callbacks run on the loop thread. Destroying the queue cancels the transfer running (a question
-// waiting is answered "cancel"), drops the others and joins the thread.
+enum class TransferState { queued, running, paused, waiting, completed, failed, cancelled };
+
+struct TransferTask {
+    std::uint64_t id{0};
+    TransferRequest request;
+    TransferProgress progress;
+    TransferState state{TransferState::queued};
+    bool started{false};
+    bool pausable{false};
+    std::vector<std::string> errors;
+    std::size_t error_count{0};
+
+    [[nodiscard]] bool finished() const {
+        return state == TransferState::completed || state == TransferState::failed ||
+               state == TransferState::cancelled;
+    }
+};
+
+// FIFO queue on a dedicated thread. IDs stay stable through progress, cancellation and
+// completion. All public methods and callbacks run on the event-loop thread. Workers poll
+// cooperative pause checkpoints only for ordinary filesystem copy/move jobs.
 class TransferQueue {
 public:
     static constexpr std::chrono::milliseconds kProgressInterval{100};
-
-    using Progress =
-        std::function<void(const TransferRequest& request, const TransferProgress& progress)>;
-    // answer(resolution) may be called later, once; until then the transfer waits.
-    using Ask =
-        std::function<void(const Conflict& conflict, std::function<void(Resolution)> answer)>;
-    using Done = std::function<void(const TransferRequest& request, const TransferResult& result)>;
-
-    TransferQueue(core::EventLoop& loop, Progress progress, Ask ask, Done done);
+    static constexpr std::size_t kHistoryLimit = 100;
+    using Progress = std::function<void(const TransferRequest&, const TransferProgress&)>;
+    using Ask = std::function<void(const Conflict&, std::function<void(Resolution)>)>;
+    using Done = std::function<void(const TransferRequest&, const TransferResult&)>;
+    TransferQueue(core::EventLoop&, Progress, Ask, Done, std::function<void()> changed = {});
     ~TransferQueue();
-
     TransferQueue(const TransferQueue&) = delete;
     TransferQueue& operator=(const TransferQueue&) = delete;
     TransferQueue(TransferQueue&&) = delete;
     TransferQueue& operator=(TransferQueue&&) = delete;
 
-    void submit(TransferRequest request);
-
-    // Stops the transfer running (what is done stays done); the queued ones go on.
+    std::uint64_t submit(TransferRequest request);
     void cancel();
+    bool cancel(std::uint64_t id);
+    bool pause(std::uint64_t id, bool paused);
+    void clear_finished();
+    [[nodiscard]] std::vector<TransferTask> tasks() const;
 
-    // Transfers submitted and not done yet, the one running included (loop thread).
     [[nodiscard]] std::size_t pending() const noexcept { return pending_; }
 
 private:
+    struct Job;
     struct Shared;
-
     void work();
-
+    void complete(const std::shared_ptr<Job>&, TransferResult);
+    void changed();
     core::EventLoop& loop_;
     Progress progress_;
     Ask ask_;
     Done done_;
+    std::function<void()> changed_;
     std::size_t pending_{0};
-    std::shared_ptr<Shared> shared_;  // what the thread and the loop both touch
+    std::uint64_t next_id_{0};
+    std::shared_ptr<Shared> shared_;
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
-    std::thread thread_;  // last: started once everything else is ready
+    std::thread thread_;
 };
-
 }  // namespace rummage::fs

@@ -1,0 +1,67 @@
+name: Noctalia community template
+
+# Noctalia's community template for rummage lives in noctalia-dev/community-templates. This
+# compares it with rummage's palette roles on relevant main pushes or manual dispatch,
+# and keeps one issue open while the two differ.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - src/theme/include/rummage/theme/palette.hpp
+      - data/noctalia/**
+      - scripts/ci/noctalia-template.py
+      - scripts/ci/tests/test_noctalia_template.py
+      - .github/workflows/noctalia-template.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Compare with Noctalia's community template
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - id: compare
+        run: |
+          set +e
+          python3 scripts/ci/noctalia-template.py --report "$RUNNER_TEMP/report.md"
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ -f "$RUNNER_TEMP/report.md" ]; then cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Report in an issue
+        if: github.ref == 'refs/heads/main' && (steps.compare.outputs.status == '0' || steps.compare.outputs.status == '1')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.compare.outputs.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='Noctalia community template for rummage is out of sync'
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ "$STATUS" = 1 ]; then
+            body="$RUNNER_TEMP/body.md"
+            { cat "$RUNNER_TEMP/report.md"; printf '\nLast checked: %s\n' "$RUN_URL"; } > "$body"
+            if [ -z "$number" ]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$body"
+            else
+              old=$(gh issue view "$number" --repo "$GITHUB_REPOSITORY" --json body --jq .body | sed '/^Last checked: /d')
+              if [ "$old" != "$(sed '/^Last checked: /d' "$body")" ]; then
+                gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/report.md"
+              fi
+              gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+            fi
+          elif [ "$STATUS" = 0 ] && [ -n "$number" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "In sync again: $RUN_URL"
+          fi
+      - name: Fail on drift or fetch error
+        if: steps.compare.outputs.status != '0' && steps.compare.outputs.status != '3'
+        run: exit 1

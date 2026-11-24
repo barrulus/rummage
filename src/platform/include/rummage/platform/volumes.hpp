@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "rummage/fs/places.hpp"
@@ -22,6 +23,7 @@ struct UdisksObject {
     std::uint64_t size{0};
     std::string id_usage;  // "filesystem", "crypto", "other"...
     std::string id_label;
+    std::string id_uuid{};
     bool hint_ignore{false};
     bool hint_system{false};
     std::string drive;  // the Drive's object path; "/" for none
@@ -47,6 +49,7 @@ struct Volume {
     std::string drive;     // the Drive's object path; "/" for none
     bool external{false};  // the drive can be unplugged (removable, USB, SD, FireWire)
     std::optional<std::filesystem::path> mount_point;  // the first one
+    std::string uuid{};
 };
 
 // "466 GB Volume", "1.0 TB Volume" (decimal units, as GNOME names a disk without a label).
@@ -67,5 +70,9 @@ struct Volume {
 // volume on the same drive (volume itself alone when it has none).
 [[nodiscard]] std::vector<const Volume*> on_same_drive(const std::vector<Volume>& volumes,
                                                        const std::string& volume);
+
+// Why udisks2 would not power a drive off, from its DeviceBusy message: the part after the last
+// ": " ("encrypted device /dev/sdb2 is unlocked"), or "in use" when there is none.
+[[nodiscard]] std::string power_off_refusal(std::string_view message);
 
 }  // namespace rummage::platform

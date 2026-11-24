@@ -48,8 +48,8 @@ void ConfirmDialog::open_password(std::string name, bool retry,
                                   std::function<void(std::optional<std::string>)> answer) {
     open(
         i18n::trf("Password for “{}”", name),
-        std::string{i18n::tr(retry ? "Password rejected or archive damaged. Try again."
-                                   : "Enter the archive password.")},
+        std::string{retry ? i18n::tr("Password rejected or archive damaged. Try again.")
+                          : i18n::tr("Enter the archive password.")},
         std::string{i18n::tr("Extract")},
         [this, answer = std::move(answer)](bool confirmed) {
             std::optional<std::string> password;
@@ -64,8 +64,11 @@ void ConfirmDialog::open_password(std::string name, bool retry,
 }
 
 void ConfirmDialog::open_name(std::string title, std::string detail, std::string initial,
-                              std::function<std::string(const std::string&)> accept) {
-    open(std::move(title), std::move(detail), "Compress", [](bool) {}, "");
+                              std::function<std::string(const std::string&)> accept,
+                              std::string label) {
+    open(
+        std::move(title), std::move(detail),
+        label.empty() ? std::string{i18n::tr("Compress")} : std::move(label), [](bool) {}, "");
     password_mode_ = true;
     focused_ = -1;
     field_masked_ = false;
@@ -73,6 +76,17 @@ void ConfirmDialog::open_name(std::string title, std::string detail, std::string
     password_field_.set_text(std::move(initial));
     password_field_.select_all();
     name_accept_ = std::move(accept);
+}
+
+std::string ConfirmDialog::copy_selection(bool cut) {
+    if (!is_open() || !name_accept_)
+        return {};
+    auto& field = password_field_;
+    auto text = cut ? field.cut() : field.selected_text();
+    if (cut && !text.empty()) {
+        redraw_();
+    }
+    return text;
 }
 
 void ConfirmDialog::paste(std::string_view text) {

@@ -13,6 +13,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "archive_text.hpp"
+#include "content_details.hpp"
 #include "draw_helpers.hpp"
 #include "rummage/archive/archive.hpp"
 #include "rummage/core/i18n.hpp"
@@ -59,9 +60,9 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
         }
         info.permissions = preview::permissions_text(mode);
         if (source.entry && source.entry->unreadable == archive::Unreadable::encrypted) {
-            info.error = "it is encrypted";
+            info.error = std::string{i18n::tr("it is encrypted")};
         } else if (source.entry && source.entry->unreadable == archive::Unreadable::method) {
-            info.error = "its compression is not read yet";
+            info.error = std::string{i18n::tr("its compression is not read yet")};
         }
         return info;
     }
@@ -74,7 +75,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
                              .items = std::nullopt,
                              .hidden_items = 0,
                              .created_ns = std::nullopt,
-                             .error = "out of memory"};
+                             .error = std::string{i18n::tr("out of memory")}};
     }
     const int input = ::open(source.archive.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
     const std::filesystem::path pinned = "/proc/self/fd/" + std::to_string(input);
@@ -83,7 +84,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
             ::close(input);
         ::close(fd);
         preview::Info info;
-        info.error = "Archive changed; reopen it to preview";
+        info.error = std::string{i18n::tr("Archive changed; reopen it to preview")};
         return info;
     }
     auto sequence = archive::open_entry_sequence(pinned, source.format,
@@ -91,7 +92,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
     archive::Read read = sequence->read(*source.entry, fd, kMaxArchiveEntryBytes);
     if (!source.tree->unchanged(pinned)) {
         read.failure = archive::Failure::unreadable;
-        read.detail = "Archive changed while reading";
+        read.detail = std::string{i18n::tr("Archive changed while reading")};
     }
     sequence.reset();
     ::close(input);
@@ -99,7 +100,7 @@ preview::Content load_from_archive(const preview::Provider& provider, preview::R
         ::close(fd);
         preview::Info info;
         info.error = read.failure == archive::Failure::too_large
-                         ? "too large to show from inside the archive"
+                         ? std::string{i18n::tr("too large to show from inside the archive")}
                          : read.detail;
         return info;
     }
@@ -167,16 +168,30 @@ void draw_row(ui::Renderer& renderer, const ui::Rect& card, float y, std::string
                        palette.on_surface.with_alpha(fade), room, ui::Ellipsis::middle, typeface);
 }
 
+void draw_name(ui::Renderer& renderer, const ui::Rect& card, float y, std::string_view name,
+               ui::Color color) {
+    const float width = std::min(text_width(renderer, name, 15), card.width - 24);
+    SelectableText text;
+    text.begin_frame(card);
+    text.draw(renderer, "name", name, {card.x + (card.width - width) / 2, y, width, 0}, 15, color,
+              color);
+    text.end_frame();
+}
+
 // A caption in a pill under area.
 void draw_caption(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
                   const std::string& caption, float fade) {
     const float text_width_px = std::min(text_width(renderer, caption, 13.0F), area.width - 32.0F);
+    const float height = SelectableText::height(renderer, caption, text_width_px, 13.0F) + 10;
     const ui::Rect pill{area.x + ((area.width - text_width_px) / 2.0F) - 14.0F,
-                        area.bottom() + 12.0F, text_width_px + 28.0F, 26.0F};
+                        area.bottom() + 38.0F - height, text_width_px + 28.0F, height};
     renderer.draw_box(
         pill, {.fill = palette.surface_container_high.with_alpha(0.92F * fade), .radius = {}});
-    renderer.draw_text(caption, pill.x + 14.0F, pill.y + 5.0F, 13.0F,
-                       palette.on_surface.with_alpha(fade), text_width_px, ui::Ellipsis::middle);
+    SelectableText text;
+    text.begin_frame(pill);
+    text.draw(renderer, "caption", caption, {pill.x + 14, pill.y + 5, text_width_px, 0}, 13,
+              palette.on_surface.with_alpha(fade), palette.secondary_container);
+    text.end_frame();
 }
 
 }  // namespace
@@ -788,6 +803,8 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
             for (const auto& [label, text] : media_details(photo))
                 row(label, text);
         }
+        for (const auto& [label, text] : content_details(*value))
+            row(label, text);
         if (value->info.created_ns)
             row("Created", format_time(*value->info.created_ns));
         row("Permissions", value->info.permissions);
@@ -932,11 +949,12 @@ void QuickLook::draw_markdown(ui::Renderer& renderer, const ui::Rect& area,
         renderer.fill_rect({page.right() - 8, y, 4, thumb},
                            palette.on_surface_variant.with_alpha(0.45F * fade));
     }
-    draw_caption(
-        renderer, area, palette,
-        entry.name + "   Markdown" +
-            (text.markdown.truncated || markdown_.truncated() ? "   Preview truncated" : ""),
-        fade);
+    draw_caption(renderer, area, palette,
+                 entry.name + "   Markdown" +
+                     (text.markdown.truncated || markdown_.truncated()
+                          ? "   " + std::string{i18n::tr("Preview truncated")}
+                          : ""),
+                 fade);
 }
 
 void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,
@@ -1143,7 +1161,9 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
         rows.push_back({.label = "Link to", .value = info->link_target});
     }
     const bool error = info != nullptr && !info->error.empty();
-    const float height = 32.0F + kCardIcon + 20.0F + 24.0F + 20.0F + 4.0F +
+    const float name_height =
+        std::max(24.0F, SelectableText::height(renderer, entry.name, kCardWidth - 24, 15) + 4);
+    const float height = 32.0F + kCardIcon + 20.0F + name_height + 20.0F + 4.0F +
                          (static_cast<float>(rows.size() + (error ? 1 : 0)) * kRowHeight) + 20.0F;
     const ui::Rect card{area.x + ((area.width - kCardWidth) / 2.0F),
                         area.y + ((area.height - height) / 2.0F), kCardWidth, height};
@@ -1151,13 +1171,15 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
     renderer.draw_box(card,
                       {.fill = palette.surface_container_high.with_alpha(fade), .radius = {}});
     float y = card.y + 32.0F;
-    icons.draw(
-        renderer, fs::icon_name(*mime_, typed), card.x + ((kCardWidth - kCardIcon) / 2.0F), y,
-        kCardIcon,
-        (entry.is_directory() ? palette.primary : palette.on_surface_variant).with_alpha(fade));
+    icons.draw(renderer, fs::icon_name(*mime_, typed), card.x + ((kCardWidth - kCardIcon) / 2.0F),
+               y, kCardIcon,
+               (entry.is_directory()
+                    ? theme::readable_foreground(palette.primary, palette.surface_container_high)
+                    : palette.on_surface_variant)
+                   .with_alpha(fade));
     y += kCardIcon + 20.0F;
-    draw_centered(renderer, entry.name, card, y, 15.0F, palette.on_surface.with_alpha(fade));
-    y += 24.0F;
+    draw_name(renderer, card, y, entry.name, palette.on_surface.with_alpha(fade));
+    y += name_height;
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
     for (const Row& row : rows) {
@@ -1195,7 +1217,9 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
 
     // Its first entries, as many as there is room for, then how many more.
     const float width = std::min(kArchiveCardWidth, area.width);
-    const float head = 28.0F + kArchiveIcon + 16.0F + 24.0F + 20.0F + 4.0F +
+    const float name_height =
+        std::max(24.0F, SelectableText::height(renderer, entry.name, width - 24, 15) + 4);
+    const float head = 28.0F + kArchiveIcon + 16.0F + name_height + 20.0F + 4.0F +
                        (static_cast<float>(rows.size()) * kRowHeight) +
                        (problem.empty() ? 0.0F : kRowHeight) + 20.0F;
     const float list_top = archive.top.empty() ? 0.0F : 4.0F + 1.0F + 12.0F;
@@ -1218,8 +1242,8 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
     icons.draw(renderer, fs::icon_name(*mime_, typed), card.x + ((width - kArchiveIcon) / 2.0F), y,
                kArchiveIcon, palette.on_surface_variant.with_alpha(fade));
     y += kArchiveIcon + 16.0F;
-    draw_centered(renderer, entry.name, card, y, 15.0F, palette.on_surface.with_alpha(fade));
-    y += 24.0F;
+    draw_name(renderer, card, y, entry.name, palette.on_surface.with_alpha(fade));
+    y += name_height;
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
     for (const auto& [label, value] : rows) {
@@ -1240,10 +1264,12 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
     const float name_left = card.x + 20.0F + kEntryIcon + 10.0F;
     for (std::size_t i = 0; i < shown; ++i) {
         const fs::Entry& item = archive.top[i];
-        icons.draw(
-            renderer, fs::icon_name(*mime_, item), card.x + 20.0F,
-            y + ((kEntryHeight - kEntryIcon) / 2.0F) - 3.0F, kEntryIcon,
-            (item.is_directory() ? palette.primary : palette.on_surface_variant).with_alpha(fade));
+        icons.draw(renderer, fs::icon_name(*mime_, item), card.x + 20.0F,
+                   y + ((kEntryHeight - kEntryIcon) / 2.0F) - 3.0F, kEntryIcon,
+                   (item.is_directory() ? theme::readable_foreground(palette.primary,
+                                                                     palette.surface_container_high)
+                                        : palette.on_surface_variant)
+                       .with_alpha(fade));
         float name_room = card.right() - 20.0F - name_left;
         if (!item.is_directory() && !item.is_link) {
             const std::string size = format_size(item.size);

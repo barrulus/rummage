@@ -11,18 +11,48 @@ the command palette. Both reflect configured actions and shortcuts.
 The sidebar contains places, bookmarks, Trash and devices. The breadcrumb above the
 files opens any parent in the current path. The status bar shows counts, selection,
 free space, operation progress and messages, plus view buttons. The information
-pane shows a preview and metadata for the selected item; expand More details for
-permissions, owner/group, links and folder counts.
+pane shows a preview and a compact metadata summary for the focused item; expand
+More details for extended media fields, permissions, owner/group and links.
+Copy all properties at the top includes collapsed fields.
 
+Selecting several files keeps the focused file's preview and metadata visible.
+Each pane shows its selected-item count at the upper right of its breadcrumb header,
+even when the preview is hidden. **Ctrl+arrows** moves focus without changing the
+selected set; **Ctrl+Space** toggles the focused item. A focus outline distinguishes
+the inspected item from selected items. The **Selection** section below the file's
+information retains combined file/folder counts and size.
+
+Right-click a place or bookmark to open that location, open it in a new tab or
+in the other pane, copy its path, or view Properties. Open in Terminal appears when
+a terminal is configured. Bookmark rename, reorder and removal commands remain in
+the same menu. Unmounted devices offer mounting first; path actions become available
+after mounting.
+
+Keyboard browsing highlights the focused Places row or outlines the active file
+area. **Shift+F6** returns to the file list. In Places, **Menu / Shift+F10** opens
+the focused row’s menu, **Ctrl+Enter** opens it in a new tab, and **Ctrl+Alt+Enter**
+opens it in the other pane. **Alt+D** edits the breadcrumb path directly.
+See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard) for remapping
+movement, focus, opening and hierarchy commands.
+
+The **×** button in the sidebar header hides it. The sidebar button at the left
+of the filter toolbar restores it; **View → Show → Places sidebar** also toggles it.
+Visibility, width and zoom survive restart.
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
-**Ctrl+I** toggles the information pane. Drag its edge to
+**Ctrl+I** toggles the information pane.
+**View → Show → Hide preview when no file is focused** enables automatic hiding.
+The preview returns when an item receives focus, including folders and files with
+metadata only. Loading or failed previews do not change visibility. Explicitly
+showing the preview with Ctrl+I or the Preview menu turns automatic hiding off;
+explicitly hiding it keeps it hidden as focus moves. These choices and the pane's
+width and placement survive restart. Drag its edge to
 resize it (240–720 logical pixels). Filenames and metadata wrap in full. Drag to
 select text in the pane, double-click a word, triple-click a line, or Shift+click
 to extend. After clicking a text field or text preview, **Ctrl+A** selects its text
 and **Ctrl+C** copies it. Click the file view to return these shortcuts to files.
 
-Rest on a selected folder for 250 ms to count its recursive size on a worker. The
+Rest on a focused folder for 250 ms to count its recursive size on a worker. The
 pane shows “Counting…” with the growing size, then Size and Contains. Selections
 containing folders get a combined recursive size; files alone show their listed
 sizes immediately. Moving to another selection or hiding the pane cancels the
@@ -36,7 +66,19 @@ FUSE folders are skipped (“—” when nothing could be counted); local fusebl
 such as NTFS and exFAT are counted. Sizes reflect the tree when it was measured;
 changes deep inside it may require selecting it again to recount.
 
+## Insights
+
+Use the **Insights** icon in the shared filter bar or press **Ctrl+Alt+I** to open
+folder analysis in its own tab. Choose Types, Map, Iris, Largest, Age or Languages.
+
+See the [Folder Insights guide](insights.md) for the views, navigation, scan
+controls, source statistics and limits.
+
 ## Choose a view
+
+| Columns in a dark appearance | Grid in a dark appearance |
+| --- | --- |
+| ![Nested folders and a selected text file in dark column view](images/rummage-dark-columns.webp) | ![SVG poster thumbnails and the selected artwork's information pane in dark grid view](images/rummage-dark-grid.webp) |
 
 | View | Shortcut | Behavior |
 | --- | --- | --- |
@@ -48,15 +90,17 @@ Switching views keeps the current location and selection. Columns can be resized
 by dragging their edges; double-click an edge to reset its width. In details,
 drag header dividers to resize columns and click a header to sort by it; click
 again to reverse. Right-click a header or use **View → Show columns** to toggle
-columns, including Type. Name always stays visible. The header menu also moves
+columns, including Type. Name always stays first. The header menu also moves
 an optional column left or right and resets the columns and widths.
 
 Available columns are Name, Size, Modified, Type (MIME), Created, Accessed, Owner,
 Group, Permissions, Location and Link target. Creation time shows a dash when
 unavailable; permissions use `ls -l` notation. Links show their target's metadata,
 or their own when dangling. Location is the row's parent folder, useful in an
-expanded tree; sorting it orders siblings by name. The rightmost enabled columns
-are temporarily left out when the pane is too narrow and return when widened.
+expanded tree; sorting it orders siblings by name. Drag a header’s right edge to
+resize that column; the columns to its right move with it. Wider tables scroll
+horizontally beneath the fixed preview pane. Use the scrollbar at the bottom of
+the file list, Shift+wheel, or a horizontal touchpad gesture to reach offscreen columns.
 Column choices, order and widths are remembered per folder and tab. The command
 palette also offers **Show/Hide … column** commands in Details view.
 
@@ -65,10 +109,27 @@ selection. Each column, grid and details pane has its own vertical scrollbar;
 columns also have a horizontal scrollbar when they extend beyond the pane. Click
 the scrollbar track to jump to that position, then keep dragging to adjust.
 
-In every view, right-click and use **Sort By** for any of these properties and
-ascending/descending order. Sort order belongs to the current tab and is saved. Folders
+In every view, use the toolbar’s **Sort By** button for any of these properties and
+ascending/descending order. It is also available in **View → Sort By** and the
+right-click menu. Sort order belongs to the current tab and is saved. Folders
 are kept together; size sorting keeps folder names ordered, and unknown types
 sort after known types in ascending type order.
+
+**View → Show → Thumbnails** replaces file-type icons with thumbnails where supported in
+Grid, Details and Columns. Turn it off for icons only. The choice applies to every
+pane and tab and is remembered between sessions.
+
+**View → Show → Hidden files** shows or hides dotfiles using the same setting as **Ctrl+H**.
+
+**View → Show → File extensions** shows or hides the final extension of file labels in
+all panes and tabs; the choice is remembered between sessions. Folder names and
+leading-dot names such as `.profile` stay intact. Files on disk keep their names.
+Long labels end in an ellipsis. Selecting a single file shows its complete name,
+including its extension, in the status bar even when the preview is hidden.
+Labels stay on one line and truncate to fit in every view. The status bar gives
+the filename priority over disk space; names wider than the bar are ellipsized.
+The preview and Quick Look also show the complete name. Rename always edits the
+real filename, with only its base name initially selected.
 
 Use **Ctrl+plus**, **Ctrl+minus**, or **Ctrl+wheel** to zoom, and **Ctrl+0** to reset.
 Grid sizes range from 48 to 512 px, constrained by available width. Columns and
@@ -90,7 +151,15 @@ resets on navigation or switching views and is not saved across restarts.
 
 Enter or a double-click opens a folder, or opens a file in its default application.
 Backspace or Alt+Up goes to the parent. Alt+Left/Right and mouse side buttons go
-back/forward through location history. Clicking the breadcrumb also navigates.
+back/forward through location history. Click an ancestor breadcrumb to navigate. Click the current folder segment or empty
+space in the breadcrumb to edit its path inline. The current path starts selected:
+copy it with Ctrl+C or paste a new path with Ctrl+V. Enter navigates; Escape cancels.
+Tab completes a path; press Tab again to cycle forward, or Shift+Tab to cycle
+backward. Completion includes files, folders and paths inside supported archives.
+Type a leading dot to include hidden names. Absolute paths, paths relative to the
+current folder, `~/` and local `file://` URIs are supported. A completed URI becomes
+a decoded local path. Enter opens a folder or reveals a file in its parent folder.
+An invalid path keeps the field open and shows an error in the status bar.
 
 Arrow keys move the cursor; Page Up/Down moves by a screen and Home/End reaches
 the first/last item. Grid Left/Right moves between cells; columns and details use
@@ -110,10 +179,33 @@ A drag beginning on an icon or name starts a file drag instead. Rubber-band
 selection scrolls when you move beyond the view's top or bottom. Selection and
 cursor track entries through live directory updates.
 
+**Ctrl+S** opens **Select by Pattern…**. Enter a filename fragment or a wildcard
+pattern such as `*.ORF`, `IMG_??.jpg` or `[ab]*`; matching ignores case. Choose
+**Select** to replace the selection, or **Add to the Selection** to extend it.
+Only visible entries in the current selection scope participate, including any
+active filename/type filter. An empty pattern selects nothing. Spaces can be
+typed normally; Escape leaves the selection unchanged. This is also available
+in Open file pickers, but not Save pickers.
+
 **Ctrl+H** toggles hidden files in the current tab. Hidden entries are dimmed when shown;
 when hidden, they are excluded from Select All and operations on that selection.
 
+The back and forward buttons before each pane’s path navigate that pane’s history.
+They remain visible when the compositor provides the title bar.
+
 ## Tabs and persistence
+
+**Ctrl+Shift+T** or **Reopen Closed Tab** in the command palette restores the last
+closed tab in the active pane, at its previous position, with its view, zoom,
+history, filter, hidden-file setting and details columns. Each pane keeps its last
+16 closed tabs until the window closes; this history is not saved across restarts.
+A missing or inaccessible folder reopens at its saved path with the usual folder
+error. Column view starts at the restored folder, and expanded details rows are
+not reconstructed. Hiding or swapping panes keeps their closed-tab histories
+with them. Closed-tab recovery is separate from file-operation Undo.
+
+**Ctrl+Shift+I** inverts selection among visible entries. Hidden files and entries
+excluded by the filename or picker filter stay unselected.
 
 **Ctrl+T** opens a tab, **Ctrl+W** closes the current tab (except the last), and
 **Ctrl+Tab / Ctrl+Shift+Tab** cycles tabs. **Alt+1…9** selects a numbered tab.
@@ -130,12 +222,24 @@ window. New tabs initially inherit view/zoom/sort/hidden settings and start with
 filter. Saved folder preferences take precedence when navigating: view mode, sort,
 zoom and details-column choices, order and widths are remembered for up to 512 recent locations. Pane/tab restoration is described in [saved state](configuration.md#saved-state).
 
+The **Sort By** menu marks a **Custom folder view** when the active folder differs
+from the built-in view defaults. Choose **Use Default View for This Folder** there
+or in the command palette to reset view mode, sorting, zoom and details columns
+for that folder. The reset is remembered on later visits and restarts; other
+visible tabs and panes keep their current appearance. Filters and hidden-file
+visibility are unchanged. This action is unavailable in file pickers.
+
 ## Settings and preview placement
 
-The existing filter toolbar contains **View** and a **cog** for Settings; pane
-controls no longer occupy a separate row. View includes display modes, pane
-commands, preview/sidebar visibility and Settings. Pane commands also remain in
-the right-click menu and command palette, with configurable shortcuts.
+One shared filter toolbar spans the browsing panes above their tabs and breadcrumbs:
+**filter toolbar → tabs → breadcrumb → files**. Its filter text, view selector, sort
+controls and actions follow the active pane; switching panes preserves each pane’s
+filter and view settings. The filename field takes the available width. Places, New Folder,
+Sort By, Insights and View use compact icons with hover tips. The **View** icon reflects
+the current mode and opens a dropdown for Columns, Grid and Details, alongside pane
+commands and preview/sidebar visibility. One shared **Settings** cog sits at the bottom
+right beside shortcut help; Settings also remains in the View menu. Pane commands also
+remain in the right-click menu and command palette, with configurable shortcuts.
 
 In **Settings → Appearance**, set **Preview placement** to **Below Places** to
 share the sidebar with the active pane's preview. Drag the horizontal divider to
@@ -150,9 +254,10 @@ existing layout.
 - **F3** or **View → Show Two Panes** splits the browser. On first use, the second pane starts at the current
   location and receives focus. Each pane has its own tabs, breadcrumb, selections, history,
   scrolling, view modes, zoom, sort order, hidden-file setting and filename filters.
-- **Tab** switches panes while browsing. Clicking a pane's header focuses it without disturbing
-  its selection. Hovering or scrolling the other pane does not move keyboard focus. The active
-  header has an accent and an “Active” label; inactive selections remain visible in subdued colors.
+- **Tab** switches panes while browsing. Clicking a pane's current tab
+  focuses it without disturbing its selection. Hovering or scrolling the other pane does not
+  move keyboard focus. A subtle border marks the active pane; inactive selections remain
+  visible in subdued colors.
 - **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab**, **Ctrl+Shift+Tab** and **Alt+1…9** operate in the active
   pane. The last tab in each pane stays open. New tabs inherit view, zoom, sorting and hidden-file
   visibility, and start with an empty filename filter.
@@ -178,7 +283,41 @@ existing layout.
 ## Filter the current view
 
 The toolbar's Filter field matches filename substrings, ignoring ASCII case, in
-columns, grid and details. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
+columns, grid and details. It always checks the full filename, even when extensions
+are hidden: `svg` finds names containing `svg`, including `.svg` extensions.
+
+Queries containing `*`, `?` or `[` use shell-style wildcard matching against the
+whole filename, ignoring case: `*.svg` matches SVG files, `icon?.svg` matches a
+single character after `icon`, and `icon[0-9].svg` matches a digit. Use `*svg*` to
+match anywhere with wildcards. Backslash escapes wildcard characters, such as
+`*\[draft\]*` for names containing `[draft]`. These are wildcard patterns, not
+regular expressions. Unprefixed queries retain this automatic behavior.
+
+Choose **View → Name matching**, or press **Ctrl+Space** while editing the filter,
+to choose **Plain text**, **Glob**, **Regular expression**, or **Case sensitive**.
+The choice is visible as a prefix in the field, and works in **Select by Pattern** too:
+
+| Query | Matches |
+| --- | --- |
+| `text:[draft]` | Literal `[draft]` anywhere in a name |
+| `glob:*.jpg` | Whole filenames ending in `.jpg`, ignoring case |
+| `re:^IMG_[0-9]+\\.jpg$` | Numbered image names, ignoring case |
+| `case:text:Photo` | Literal `Photo`, with matching case |
+| `text:re:notes` | A literal filename fragment beginning with `re:` |
+
+Regex uses [RE2 syntax](https://github.com/google/re2/wiki/Syntax): matches may occur
+anywhere unless anchored with `^` or `$`. Lookaround and pattern backreferences are
+unsupported. Patterns are limited to 1024 bytes, with bounded regex compilation
+memory and no backtracking. Text matching folds ASCII case; glob and regex matching use
+Unicode simple case folding without Unicode
+normalization. Use case-sensitive text to match arbitrary filename bytes exactly.
+Invalid patterns show an error and retain the last valid filter, including when
+the folder changes. Only the last valid filter is saved with the tab. Invalid
+selection patterns leave the selection unchanged. Selection applies to the active
+folder's visible entries; expanded details descendants are not selected implicitly.
+
+In Miller columns the filter affects only the last column;
+ancestor columns remain visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
 returns focus to files. Escape or Clear removes it. It persists when switching
 views/folders and combines with picker type restrictions. New Folder clears the
 filter before starting a rename. Use Ctrl+F for recursive search instead.
@@ -192,15 +331,135 @@ Only applicable commands appear. Use arrows or Page Up/Down, Enter to run, and
 Escape or Ctrl+K to close. Open With opens an application list within the palette.
 
 **Ctrl+F** searches filenames and paths recursively under the current folder.
-This is fuzzy path search, not file-content search. A match in a filename ranks
-above one spanning its parent directories. Enter reveals a result in the browser,
-Space previews it, and Shift+Enter opens it in its default application.
+Names rank by exact match, prefix, substring, then scattered letters, ahead of
+matches requiring parent folders. Within each group, shallower paths come first.
+Spaces separate terms that must all match, in any order, in both file search and
+the command palette. Long result labels keep their highlighted match visible.
+Enter reveals a result; Shift+Enter opens its default application. Space inserts a
+space while typing. After Up/Down or Page Up/Down moves into the results, Space
+opens Quick Look; Shift+Space always inserts a space.
+
+Choose **Find File Contents…** in Ctrl+K, or begin the search with `content:`, to
+find literal text inside files. Each matching file appears once, with the first
+matching line number and a short excerpt. Content matching is case-sensitive;
+`case:fold` ignores ASCII letter case. Filename matching remains fuzzy.
+
+These filters work in either mode; quote values containing spaces:
+
+| Filter | Meaning |
+| --- | --- |
+| `type:file`, `type:folder`, `type:link` | Regular files, directories or symbolic links |
+| `ext:txt` | Final filename extension, ignoring ASCII case; an optional leading dot is accepted |
+| `after:2026-01-01` | Modified on or after this UTC date |
+| `before:2026-02-01` | Modified before this UTC date (exclusive) |
+| `hidden:yes`, `hidden:no` | Override the current hidden-file setting |
+| `exclude:node_modules` | Skip directories with this basename, anywhere under the scope |
+| `exclude:build/cache` | Skip this directory relative to the search root |
+
+For example, `content:"release notes" ext:md after:2026-01-01 exclude:.git`
+finds that phrase in Markdown files. `name:` selects filename/path mode. Quote a
+whole token, such as `"content:notes"`, to search for a filename containing a
+filter-like prefix. Inside quotes, `\\` and `\"` represent a backslash and quote.
+Invalid filters display an error rather than silently widening the search.
+
+Content search reads UTF-8/ASCII regular files only. It skips binary/control-filled
+files, invalid UTF-8, symlinks, files larger than 8 MiB and files changed during
+reading. PDF, office documents and archives are not decoded for content search;
+UTF-16 and legacy encodings are not converted. No external tool or persistent
+content index is required. Each query reads at most 512 MiB across all workers;
+the status reports that limit and counts unreadable, changed, non-text and oversized
+files. Results can arrive while matching continues. Press Escape to close and
+cancel pending scanning and reads. Filesystem calls already in progress may finish
+before cancellation takes effect.
 
 Search excludes hidden entries unless shown, does not follow symlink directories
-or cross into other mounted filesystems, and stops at 300,000 entries with a
-message. Closing the search releases its index.
+or cross into filesystems on another device. It stops at 300,000 entries and does
+not enter directories at depth 64; the status reports these limits. The best 200
+matches are retained, with an explicit shown/total count when more match. Narrow
+the query or scope to see omitted results. Unreadable folders are reported.
+Closing the search releases its in-memory path index. Optional persistent indexing
+is separate future work; current searches operate directly on the filesystem.
+
+### Managing and saving search results
+
+Press **Ctrl+Enter** from Ctrl+F to open the current query in **Search Results**.
+You can also choose **View → Search Results…** or find that command in Ctrl+K.
+The view shows each result's name and parent folder, plus the matching line and
+excerpt for content searches. The query uses the same filters described above.
+
+Click a result to select it, Ctrl-click to toggle it, and Shift-click to select a
+range. Down moves from the query into the list; there, Ctrl+A selects all displayed
+results, arrows and Page Up/Down navigate, Enter opens one result, Shift+Enter
+reveals it in its folder, and Space opens Quick Look without closing the search.
+Tab visits the query, toolbar and list. In the query field, the usual text editing
+and clipboard shortcuts apply. In the list:
+
+- **Ctrl+C / Copy** and **Ctrl+X / Cut** collect selected paths across all their parent
+  folders. Close the view, navigate to a destination, then paste with Ctrl+V.
+- **Delete / Move to Trash** trashes the selection across folders. These operations
+  use the normal conflict, darktable-sidecar and Undo behavior as one operation.
+- **F2 / Rename…** renames one selected result. Rename is unavailable for multiple
+  effective targets; other operations do not silently narrow a mixed-folder selection.
+- **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo supported file operations while the list
+  has focus. A selected directory includes its children, so descendants selected
+  with it are not processed twice.
+
+Results remain interactive while scanning and matching. Selection follows paths
+when rows reorder. **Stop** keeps results already delivered; **Refresh / F5** reruns
+the search. Completed file operations refresh the list. External changes are picked
+up by Refresh; a file removed or moved meanwhile may fail an action and is reported,
+with completed parts of a multi-file operation still eligible for Undo. The shown/
+total count makes the 200-result cap explicit. **Copy Search Details** copies the
+full scope, query and status, including any limits or errors shortened on screen.
+Escape or **Close** cancels work and releases the in-memory index.
+
+**Save Search… / Ctrl+S** stores a unique name, root folder, query and filters,
+including the hidden-file default used for that search. **Saved Searches…** is
+available from View, Ctrl+K, the results toolbar (Ctrl+Shift+S), and the sidebar
+once a search has been saved. Choosing a saved search reruns it against the current
+filesystem. Its remove command deletes only the definition, never files.
+Up to 64 definitions are kept in the normal saved state across restarts. Match
+lists, selections and previews are not persisted. Search results are not offered
+inside the file picker.
+
+## Expandable sidebar
+
+Expand local folders in Places or Bookmarks using the arrow beside the icon.
+Arrows appear only when a folder has visible subfolders, and update as its
+contents change. The file list uses the same rule.
+Mounted devices can also expand. Click the label to open the folder in the active
+pane; expanding or collapsing a folder keeps the main file view in place.
+**F6** focuses the sidebar, Up/Down moves through visible folders, Right expands
+or enters a branch, Left collapses or moves to its parent, and Enter opens it.
+
+Only expanded folders are loaded and watched; changes inside them appear
+automatically. The sidebar follows the active pane's hidden-file setting.
+Folder symlinks inside a branch can be opened but do not expand, preventing
+recursive loops. Loading and access errors appear beside the folder. Each place
+and bookmark expands independently, and folders start collapsed on restart.
 
 ## Places, bookmarks and devices
+
+![The dark sidebar showing Places, bookmarks and a mounted removable device](images/rummage-dark-sidebar.webp)
+
+Click the **PLACES**, **BOOKMARKS** or **DEVICES** heading to collapse that section.
+**View → Sidebar** offers the same controls from the keyboard. Right-click an
+entry for **Hide from Sidebar**, **Move Up/Down**, or **Add Separator Above**.
+Separators can be dragged onto another row in the same section to move before it;
+a highlighted line shows the destination. Their menu also offers move/remove
+commands. **Alt+Up/Down** moves the focused entry or separator within its section.
+
+**View → Sidebar → Restore Hidden Places** reveals hidden entries and collapsed
+sections; **Reset Sidebar Organization** also clears custom ordering and separators.
+These choices are saved in Rummage's state, without changing system user directories
+or the shared GTK bookmarks order. Unavailable devices keep their saved positions.
+Optional configuration overrides are described in [configuration](configuration.md#sidebar-organization).
+
+Right-click a location for **Open in New Tab** or **Open in New Window**. An
+unmounted disk or network bookmark mounts first; failures leave the current
+folder intact. A delayed new-tab request stays in its original pane and does not
+steal focus from the other pane. New windows run as independent processes. These
+actions are unavailable in file pickers.
 
 Home folders follow XDG user-directory settings. **Ctrl+D** bookmarks the current
 folder; Add to Sidebar in the context menu bookmarks selected folders. Dragging
@@ -217,6 +476,13 @@ authorization requested when required; use the context menu to mount, unmount or
 disk unmounts its partitions and powers it off when supported. Busy or read-only
 devices report errors in the status bar. Encrypted-device unlocking is not
 implemented. Already mounted volumes can still appear without udisks2.
+
+Hover a mounted drive to see its available and total space. Right-click it and
+choose **Properties…** for mount point, filesystem, device, capacity, used and
+available space, and whether the filesystem is mounted read-only. Values are
+read in the background when opened; no directory tree scan is needed. Available
+space can be smaller than capacity minus used space because of filesystem
+reservations. Unmounted drives must be mounted before these details are available.
 
 ## Network folders
 
@@ -257,9 +523,10 @@ sidecars and undo, or [actions](actions.md) to add external commands.
 
 Right-click a local bookmark for **Rename**, **Choose Folder**, **Move Up** and **Move Down**.
 Rename changes its label; Choose Folder replaces its destination while keeping its label
-and position. With keyboard focus in Places, F2 edits the label and Alt+Up/Down moves it.
-Enter or a click outside saves the label; Escape cancels. Changes are written to the shared
-GTK bookmarks file, preserving unrelated lines and network bookmarks.
+and shared bookmark position. Sidebar ordering is local to Rummage. With keyboard focus in Places, F2 edits the label and Alt+Up/Down moves it.
+Enter or a click outside saves the label; Escape cancels. Label and destination changes are written to the shared
+GTK bookmarks file, preserving unrelated lines and network bookmarks. Moving an entry
+changes only Rummage's saved sidebar order.
 
 **Copy Path** (Ctrl+Shift+C) copies the active pane's current folder, regardless of selection.
 It is also available from the background menu and command palette. **Copy Location** continues

@@ -1,15 +1,29 @@
 #include "rummage/ui/icon_theme.hpp"
 
+#include <algorithm>
+#include <chrono>
+
 #include <doctest/doctest.h>
 
+#include "rummage/formats/image/load.hpp"
 #include "rummage/picture/png.hpp"
+#include "rummage/svg/svg.hpp"
+#include "scoped_env.hpp"
 #include "temp_dir.hpp"
 
+using rummage::test::ScopedEnv;
 using rummage::test::TempDir;
 using rummage::ui::IconTheme;
 namespace fs = std::filesystem;
 
 namespace {
+
+using namespace std::chrono_literals;
+
+void settle(rummage::core::EventLoop& loop, std::chrono::milliseconds time = 150ms) {
+    loop.add_timer(time, 0ms, [&] { loop.quit(); });
+    loop.run();
+}
 
 void write(const fs::path& root, const std::string& name, std::string_view text) {
     fs::create_directories((root / name).parent_path());
@@ -20,6 +34,150 @@ constexpr std::string_view kSvg =
     R"(<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#ff0000" opacity="0.5"/></svg>)";
 
 }  // namespace
+
+TEST_CASE("icon theme: desktop discovery preserves source precedence and fallbacks") {
+    const TempDir dir;
+    const ScopedEnv config{"XDG_CONFIG_HOME", dir.path.string()};
+    write(dir.path, "gtk-3.0/settings.ini", "[Settings]\ngtk-icon-theme-name=gtk3\n");
+    write(dir.path, "gtk-4.0/settings.ini", "[Settings]\ngtk-icon-theme-name=gtk4\n");
+    write(dir.path, "kdeglobals", "[Icons]\nTheme=kde\n");
+    write(dir.path, "qt6ct/qt6ct.conf", "[Appearance]\nicon_theme=qt\n");
+    {
+        const ScopedEnv desktop{"XDG_CURRENT_DESKTOP", "KDE"};
+        CHECK(rummage::ui::desktop_icon_theme() == "kde");
+    }
+    const ScopedEnv desktop{"XDG_CURRENT_DESKTOP", "GNOME"};
+    CHECK(rummage::ui::desktop_icon_theme() == "gtk3");
+    write(dir.path, "gtk-3.0/settings.ini", "[Settings]\ngtk-icon-theme-name=../invalid\n");
+    CHECK(rummage::ui::desktop_icon_theme() == "gtk4");
+    fs::remove(dir.path / "gtk-4.0/settings.ini");
+    CHECK(rummage::ui::desktop_icon_theme() == "kde");
+    fs::remove(dir.path / "kdeglobals");
+    CHECK(rummage::ui::desktop_icon_theme() == "qt");
+    fs::remove(dir.path / "qt6ct/qt6ct.conf");
+    CHECK(rummage::ui::desktop_icon_theme() == "hicolor");
+}
+
+TEST_CASE("icon theme watcher: missing sources, writes, replacements and source removal") {
+    const TempDir dir;
+    const auto root = dir.path / "config";
+    const ScopedEnv config{"XDG_CONFIG_HOME", root.string()};
+    const ScopedEnv desktop{"XDG_CURRENT_DESKTOP", "GNOME"};
+    rummage::core::EventLoop loop;
+    std::vector<std::string> changes;
+    const rummage::ui::DesktopIconThemeWatcher watcher{
+        loop, [&](const std::string& name) { changes.push_back(name); }};
+    CHECK(watcher.theme() == "hicolor");
+    CHECK_FALSE(fs::exists(root));
+    write(root, "qt6ct/qt6ct.conf", "[Appearance]\nicon_theme=qt\n");
+    settle(loop);
+    REQUIRE(changes == std::vector<std::string>{"qt"});
+    write(root, "gtk-3.0/settings.ini", "[Settings]\ngtk-icon-theme-name=first\n");
+    settle(loop);
+    REQUIRE(watcher.theme() == "first");
+    write(root, "gtk-3.0/new.ini", "[Settings]\ngtk-icon-theme-name=second\n");
+    fs::rename(root / "gtk-3.0/new.ini", root / "gtk-3.0/settings.ini");
+    settle(loop);
+    REQUIRE(watcher.theme() == "second");
+    const auto count = changes.size();
+    write(root, "gtk-3.0/settings.ini", "[Settings]\ngtk-icon-theme-name=second\nother=value\n");
+    write(root, "gtk-3.0/irrelevant.ini", "unrelated");
+    write(root, "qt6ct/qt6ct.conf", "[Appearance]\nicon_theme=lower-priority\n");
+    settle(loop);
+    CHECK(changes.size() == count);
+    fs::remove(root / "gtk-3.0/settings.ini");
+    settle(loop);
+    CHECK(watcher.theme() == "lower-priority");
+    fs::remove(root / "qt6ct/qt6ct.conf");
+    settle(loop);
+    CHECK(watcher.theme() == "hicolor");
+    CHECK(changes ==
+          std::vector<std::string>{"qt", "first", "second", "lower-priority", "hicolor"});
+}
+
+TEST_CASE("icon theme watcher: replaced directories, symlinks and coalesced changes") {
+    const TempDir dir;
+    const auto root = dir.path / "config";
+    const ScopedEnv config{"XDG_CONFIG_HOME", root.string()};
+    const ScopedEnv desktop{"XDG_CURRENT_DESKTOP", "KDE"};
+    write(root, "kdeglobals", "[Icons]\nTheme=initial\n");
+    rummage::core::EventLoop loop;
+    std::vector<std::string> changes;
+    const rummage::ui::DesktopIconThemeWatcher watcher{
+        loop, [&](const std::string& name) { changes.push_back(name); }};
+    fs::rename(root, dir.path / "old-config");
+    write(root, "kdeglobals", "[Icons]\nTheme=replaced\n");
+    settle(loop);
+    CHECK(watcher.theme() == "replaced");
+    // Switching a config symlink and editing its external target both refresh discovery.
+    const auto target = dir.write("target.ini", "[Icons]\nTheme=linked\n");
+    fs::create_symlink(target, root / "kdeglobals.new");
+    fs::rename(root / "kdeglobals.new", root / "kdeglobals");
+    settle(loop);
+    CHECK(watcher.theme() == "linked");
+    dir.write("target.ini", "[Icons]\nTheme=edited-target\n");
+    settle(loop);
+    CHECK(watcher.theme() == "edited-target");
+    const auto replacement = dir.write("replacement.ini", "[Icons]\nTheme=replaced-target\n");
+    fs::rename(replacement, target);
+    settle(loop);
+    CHECK(watcher.theme() == "replaced-target");
+    const auto count = changes.size();
+    for (const auto name : {"intermediate", "latest"})
+        dir.write("target.ini", std::string{"[Icons]\nTheme="} + name + '\n');
+    settle(loop);
+    CHECK(watcher.theme() == "latest");
+    CHECK(changes.size() == count + 1);
+    fs::remove(target);
+    settle(loop);
+    CHECK(watcher.theme() == "hicolor");
+    dir.write("target.ini", "[Icons]\nTheme=recreated-target\n");
+    settle(loop);
+    CHECK(watcher.theme() == "recreated-target");
+    fs::remove_all(root);
+    settle(loop);
+    CHECK(watcher.theme() == "hicolor");
+    write(root, "kdeglobals", "[Icons]\nTheme=recreated\n");
+    settle(loop);
+    CHECK(watcher.theme() == "recreated");
+}
+
+TEST_CASE("icon theme watcher: missing symlink directories can appear after launch") {
+    const TempDir dir;
+    const auto root = dir.path / "config";
+    const auto target = dir.path / "external";
+    fs::create_directories(root);
+    fs::create_directory_symlink(target, root / "gtk-4.0");
+    const ScopedEnv config{"XDG_CONFIG_HOME", root.string()};
+    const ScopedEnv desktop{"XDG_CURRENT_DESKTOP", "GNOME"};
+    rummage::core::EventLoop loop;
+    const rummage::ui::DesktopIconThemeWatcher watcher{loop, {}};
+    CHECK(watcher.theme() == "hicolor");
+    CHECK_FALSE(fs::exists(target));
+    write(target, "settings.ini", "[Settings]\ngtk-icon-theme-name=linked-directory\n");
+    settle(loop);
+    CHECK(watcher.theme() == "linked-directory");
+    fs::rename(target, dir.path / "old-external");
+    settle(loop);
+    CHECK(watcher.theme() == "hicolor");
+    write(target, "settings.ini", "[Settings]\ngtk-icon-theme-name=new-directory\n");
+    settle(loop);
+    CHECK(watcher.theme() == "new-directory");
+}
+
+TEST_CASE("icon theme watcher: destruction cancels a pending change") {
+    const TempDir dir;
+    const ScopedEnv config{"XDG_CONFIG_HOME", dir.path.string()};
+    rummage::core::EventLoop loop;
+    int changes = 0;
+    {
+        const rummage::ui::DesktopIconThemeWatcher watcher{loop, [&](const auto&) { ++changes; }};
+        write(dir.path, "gtk-3.0/settings.ini", "[Settings]\ngtk-icon-theme-name=late\n");
+        settle(loop, 10ms);
+    }
+    settle(loop);
+    CHECK(changes == 0);
+}
 
 TEST_CASE("icon theme: sizes, inherited themes, split roots and missing names") {
     TempDir dir;
@@ -139,20 +297,77 @@ TEST_CASE("icon theme: folder catalogue deduplicates sizes and excludes broken i
           std::vector<std::string>{"folder-music", "folder-red", "user-home"});
 }
 
-TEST_CASE("icon theme: unsupported SVG filters report fallback without losing the image") {
-    TempDir dir;
+TEST_CASE("icon theme: CSS and filters share the file preview renderer") {
+    const TempDir dir;
     const auto file =
-        dir.write("unsupported.svg",
-                  "<svg width='8' height='8'><defs><filter id='f'><feOffset/></filter></defs><rect "
-                  "width='8' height='8' fill='red' filter='url(#f)'/></svg>");
-    bool unsupported = false;
-    const auto image = IconTheme::render(file, 8, &unsupported);
+        dir.write("filtered.svg",
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='16'>"
+                  "<style>g > rect.paint { fill: #00ff00; }</style>"
+                  "<defs><filter id='offset' x='0' y='0' width='200%' height='100%'>"
+                  "<feOffset dx='8'/></filter></defs>"
+                  "<g><rect class='paint' width='8' height='16' filter='url(#offset)'/></g></svg>");
+    for (const int size : {16, 48, 128}) {
+        const auto icon = IconTheme::render(file, size);
+        const auto preview =
+            rummage::formats::image::load({.path = file,
+                                           .max_width = static_cast<std::uint32_t>(size),
+                                           .max_height = static_cast<std::uint32_t>(size)});
+        REQUIRE_FALSE(icon.empty());
+        REQUIRE(preview.failure == rummage::picture::Failure::none);
+        CHECK(icon.width == preview.image.width);
+        CHECK(icon.height == preview.image.height);
+        CHECK(static_cast<bool>(icon.rgba == preview.image.rgba));
+        // feOffset used to be dropped entirely by the theme renderer.
+        CHECK(icon.rgba[3] == 0);
+        const auto at = static_cast<std::size_t>(size / 3) * 4;
+        CHECK(icon.rgba[at] == 0);
+        CHECK(icon.rgba[at + 1] == 255);
+        CHECK(icon.rgba[at + 3] == 255);
+    }
+}
+
+TEST_CASE("icon theme: external images are ignored and input is bounded") {
+    const TempDir dir;
+    const auto external = dir.path / "external.png";
+    const auto png =
+        rummage::picture::encode_png({.width = 1, .height = 1, .rgba = {255, 0, 0, 255}});
+    {
+        std::ofstream output{external, std::ios::binary};
+        output.write(reinterpret_cast<const char*>(png.data()),
+                     static_cast<std::streamsize>(png.size()));
+    }
+    const auto file =
+        dir.write("external.svg",
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='16'>"
+                  "<image width='16' height='16' href='file://" +
+                      external.string() +
+                      "'/>"
+                      "<image x='16' width='16' height='16' href='external.png'/></svg>");
+    const auto image = IconTheme::render(file, 32);
     REQUIRE_FALSE(image.empty());
-    CHECK(unsupported);
-    CHECK(image.rgba[0] == 255);
-    CHECK(image.rgba[3] == 255);
-    CHECK_FALSE(IconTheme::render(dir.write("supported.svg", kSvg), 8, &unsupported).empty());
-    CHECK_FALSE(unsupported);
+    CHECK(std::ranges::all_of(image.rgba, [](auto v) { return v == 0; }));
+    std::filesystem::resize_file(file, rummage::svg::kMaxInputBytes + 1);
+    CHECK(IconTheme::render(file, 32).empty());
+}
+
+TEST_CASE("icon theme: SVG text renders without preview font preparation") {
+    const TempDir dir;
+    const auto file = dir.write("text.svg",
+                                "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='32'>"
+                                "<text x='2' y='24' font-size='20' fill='red'>SVG</text></svg>");
+    const auto image = IconTheme::render(file, 64);
+    REQUIRE(image.width == 64);
+    REQUIRE(image.height == 32);
+    unsigned painted = 0;
+    for (std::size_t i = 0; i < image.rgba.size(); i += 4) {
+        if (image.rgba[i + 3] != 0) {
+            CHECK(image.rgba[i] == 255);
+            CHECK(image.rgba[i + 1] == 0);
+            CHECK(image.rgba[i + 2] == 0);
+            ++painted;
+        }
+    }
+    CHECK(painted > 20);
 }
 
 TEST_CASE("icon theme: installed choices combine roots and exclude non-icon themes") {

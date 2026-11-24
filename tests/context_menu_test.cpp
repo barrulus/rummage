@@ -25,6 +25,7 @@
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/picture/png.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
@@ -290,6 +291,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
+                                               "create_link",
+                                               "move_into_folder",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -305,7 +308,9 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "|",
                                                "properties"});
     CHECK(f.menu().items()[3].keys == "Ctrl+C");  // from the shortcuts table
-    CHECK(f.menu().items()[10].keys == "Delete");
+    const auto trash = std::ranges::find(f.menu().items(), "trash", &MenuItem::id);
+    REQUIRE(trash != f.menu().items().end());
+    CHECK(trash->keys == "Delete");
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.menu().is_open());
 
@@ -319,6 +324,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
+                                               "create_link",
+                                               "move_into_folder",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -345,6 +352,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
+                                               "create_link",
+                                               "move_into_folder",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
@@ -360,7 +369,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "sort",
                                                "panes",
                                                "|",
-                                               "properties"});
+                                               "properties",
+                                               "folder_insights"});
 
     // Copy from the menu; then Paste can be chosen, here and on empty space.
     f.choose("copy");
@@ -368,9 +378,10 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     CHECK(f.browser.status_bar().message() == "Ctrl+V copies “sub” where you want them");
     f.select({});
     CHECK(f.press(key(XKB_KEY_Menu)));
-    CHECK(ids(f.menu().items(), true) ==
-          Names{"new_folder", "new_file", "|", "paste", "action:copy_location", "|",
-                "open_terminal", "add_bookmark", "|", "sort", "panes", "|", "properties"});
+    CHECK(ids(f.menu().items(), true) == Names{"new_folder", "new_file", "|", "paste",
+                                               "action:copy_location", "|", "open_terminal",
+                                               "add_bookmark", "|", "sort", "panes", "|",
+                                               "properties", "folder_insights"});
     REQUIRE(f.settle());  // the templates looked for: none
     CHECK(ids(f.menu().items()[1].children) == Names{"empty_file"});
 }
@@ -410,11 +421,11 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
     CHECK(ids(sort.children) == Names{"sort:name", "sort:size", "sort:modified", "sort:type",
                                       "sort:created", "sort:accessed", "sort:owner", "sort:group",
                                       "sort:permissions", "sort:location", "sort:link_target",
-                                      "sort:ascending", "sort:descending"});
+                                      "sort:ascending", "sort:descending", "reset_folder_view"});
     const auto checked = [](const MenuItem& submenu) {
         Names out;
         for (const MenuItem& item : submenu.children) {
-            CHECK(item.radio);
+            CHECK(item.radio == (item.id != "reset_folder_view"));
             if (item.checked) {
                 out.push_back(item.id);
             }
@@ -436,7 +447,9 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
     const auto sorted = std::ranges::find(f.menu().items(), "sort", &MenuItem::id);
     REQUIRE(sorted != f.menu().items().end());
     CHECK(checked(*sorted) == Names{"sort:size", "sort:ascending"});
-    sorted->children.back().action();  // Descending
+    const auto descending = std::ranges::find(sorted->children, "sort:descending", &MenuItem::id);
+    REQUIRE(descending != sorted->children.end());
+    descending->action();
     f.menu().close();
     CHECK(names(*f.browser.grid().folder()) ==
           Names{"sub", "a.txt", "P1.ORF", "P1.ORF.xmp", "b.txt"});
@@ -1295,10 +1308,10 @@ TEST_CASE("properties: thumbnails replace the icon without moving the compact di
     // Nix nests temporary files under a longer nix-shell directory. Allow that
     // location to widen the card, while short metadata should remain compact.
     if (fonts.layout(f.photos.string(), 12, renderer.scale()).width / renderer.scale() < 250)
-        CHECK(card.width < 440);
+        CHECK(card.width <= 460);
     CHECK(card.width <= 560);
     CHECK(card.width >= 320);
-    CHECK(properties.cursor_at(card.right() - 74, card.bottom() - 39) ==
+    CHECK(properties.cursor_at(card.right() - 182, card.bottom() - 39) ==
           rummage::ui::CursorShape::pointer);
 
     // Short windows retain a visible Close button while the content scrolls above it.
@@ -1308,7 +1321,7 @@ TEST_CASE("properties: thumbnails replace the icon without moving the compact di
     properties.pointer(
         {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 400, .y = 150, .wheel_y = 500});
     properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                        .x = properties.card_bounds().right() - 74,
+                        .x = properties.card_bounds().right() - 182,
                         .y = properties.card_bounds().bottom() - 39,
                         .button = rummage::ui::PointerButton::left});
     CHECK_FALSE(properties.is_open());
@@ -1333,7 +1346,7 @@ TEST_CASE("properties: long filenames are bounded by the dialog and window") {
         CHECK(card.width == std::min(560.0F, width - 24));
         CHECK(card.x >= 12);
         CHECK(card.right() <= width - 12);
-        CHECK(properties.cursor_at(card.right() - 74, card.bottom() - 39) ==
+        CHECK(properties.cursor_at(card.right() - 182, card.bottom() - 39) ==
               rummage::ui::CursorShape::pointer);
     }
 }
@@ -1833,4 +1846,454 @@ TEST_CASE("context menu: scrolling a parent closes its child and restores keyboa
     menu.key(key(XKB_KEY_Right));
     draw();
     CHECK(menu.submenu_open());
+}
+
+TEST_CASE("properties: embedded image metadata wraps, scrolls and copies in a narrow dialog") {
+    rummage::ui::Offscreen gl{800, 640};
+    Fixture f;
+    const std::string value = "Author-supplied metadata " + std::string(350, 'x');
+    const auto png = rummage::picture::encode_png(
+        {.width = 1, .height = 1, .rgba = {10, 20, 30, 255}}, {{"Last custom tag", value}});
+    const auto file =
+        f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    auto& properties = f.browser.properties_dialog();
+    properties.open(file, [] {});
+    REQUIRE(run_until(f.loop, [&] { return !properties.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 640, 1, rummage::ui::Color::rgb(0));
+        properties.draw(renderer, {0, 0, 360, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    draw();
+    const auto disclosure = properties.control_bounds("details");
+    REQUIRE_FALSE(disclosure.empty());
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = disclosure.x + 8,
+                        .y = disclosure.y + 8,
+                        .button = rummage::ui::PointerButton::left});
+    draw();
+    properties.pointer(
+        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 10000});
+    draw();
+    const auto rect = properties.text_bounds("PNG · Last custom tag");
+    REQUIRE_FALSE(rect.empty());
+    CHECK(rect.height > 26);
+    CHECK(rect.x >= properties.card_bounds().x);
+    CHECK(rect.right() <= properties.card_bounds().right());
+    std::string copied;
+    properties.set_copy_handler([&](std::string text) { copied = std::move(text); });
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = rect.x + 2,
+                        .y = std::max(rect.y + 2, 100.0F),
+                        .button = rummage::ui::PointerButton::left});
+    properties.key(key(XKB_KEY_a, {.ctrl = true}));
+    properties.key(key(XKB_KEY_c, {.ctrl = true}));
+    CHECK(copied == value);
+}
+
+TEST_CASE("properties: permissions are staged, cancellable and applied to files and directories") {
+    Fixture f;
+    for (const auto name : {"a.txt", "sub"}) {
+        const auto path = f.photos / name;
+        REQUIRE(::chmod(path.c_str(), 0755) == 0);
+        f.select({name});
+        f.browser.show_properties();
+        REQUIRE(f.settle());
+        auto& dialog = f.browser.properties_dialog();
+        REQUIRE(dialog.can_edit_permissions());
+        CHECK(dialog.permissions() == 0755);
+        dialog.set_permissions(0700);
+        CHECK(dialog.dirty());
+        struct stat info{};
+        REQUIRE(::stat(path.c_str(), &info) == 0);
+        CHECK((info.st_mode & 0777) == 0755);
+        dialog.close();
+        f.browser.show_properties();
+        REQUIRE(f.settle());
+        CHECK(dialog.permissions() == 0755);
+        CHECK_FALSE(dialog.dirty());
+        dialog.set_permissions(0750);
+        dialog.apply();
+        REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+        CHECK_FALSE(dialog.is_open());
+        REQUIRE(::stat(path.c_str(), &info) == 0);
+        CHECK((info.st_mode & 0777) == 0750);
+    }
+}
+
+TEST_CASE("properties: permission errors stay visible and read-only contexts cannot edit") {
+    Fixture f;
+    const auto path = f.photos / "a.txt";
+    REQUIRE(::chmod(path.c_str(), 0644) == 0);
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(path, [] {});
+    REQUIRE(f.settle());
+    dialog.set_permissions(0755);
+    REQUIRE(::chmod(path.c_str(), 0600) == 0);
+    dialog.apply();
+    REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+    CHECK(dialog.is_open());
+    CHECK_FALSE(dialog.error().empty());
+    dialog.close();
+    dialog.open(path, [] {}, false);
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.can_edit_permissions());
+    dialog.set_permissions(0777);
+    CHECK_FALSE(dialog.dirty());
+    fs::create_symlink(path, f.photos / "link");
+    dialog.open(f.photos / "link", [] {});
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.can_edit_permissions());
+}
+
+TEST_CASE("properties: every rwx permission toggle is keyboard accessible") {
+    Fixture f;
+    const auto path = f.photos / "a.txt";
+    REQUIRE(::chmod(path.c_str(), 0644) == 0);
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(path, [] {});
+    REQUIRE(f.settle());
+    std::uint16_t mode = 0644;
+    // Close initially has focus. Skip Copy, then visit Others/execute through Owner/read.
+    dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+    for (unsigned bit = 0; bit < 9; ++bit) {
+        dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+        dialog.key(key(XKB_KEY_space));
+        mode = static_cast<std::uint16_t>(mode ^ (1U << bit));
+        CHECK(dialog.permissions() == mode);
+    }
+    dialog.close();
+    struct stat info{};
+    REQUIRE(::stat(path.c_str(), &info) == 0);
+    CHECK((info.st_mode & 0777) == 0644);
+}
+
+TEST_CASE("properties: applying an icon before removing directory write access") {
+    Fixture f;
+    const auto path = f.photos / "sub";
+    REQUIRE(::chmod(path.c_str(), 0755) == 0);
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(path, [] {});
+    REQUIRE(f.settle());
+    dialog.choose_icon("folder-music");
+    dialog.set_permissions(0500);
+    dialog.apply();
+    REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+    CHECK_FALSE(dialog.is_open());
+    struct stat info{};
+    REQUIRE(::stat(path.c_str(), &info) == 0);
+    CHECK((info.st_mode & 0777) == 0500);
+    CHECK(read_file(path / ".directory").find("folder-music") != std::string::npos);
+    REQUIRE(::chmod(path.c_str(), 0755) == 0);  // allow temporary-directory cleanup
+}
+
+TEST_CASE("properties: wheel, touchpad and a draggable scrollbar navigate long metadata") {
+    rummage::ui::Offscreen gl{800, 640};
+    Fixture f;
+    const auto png =
+        rummage::picture::encode_png({.width = 1, .height = 1, .rgba = {10, 20, 30, 255}},
+                                     {{"Long tag", std::string(1200, 'x')}});
+    const auto file =
+        f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    auto& dialog = f.browser.properties_dialog();
+    dialog.open(file, [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 640, 1, {});
+        dialog.draw(renderer, {0, 0, 360, 640}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    draw();
+    const auto details = dialog.control_bounds("details");
+    REQUIRE_FALSE(details.empty());
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = details.x + 4,
+                    .y = details.y + 4,
+                    .button = rummage::ui::PointerButton::left});
+    draw();
+    REQUIRE(dialog.scroll_offset() == 0);
+    SUBCASE("wheel notches move rows and touchpad pixels remain precise") {
+        dialog.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 1});
+        CHECK(dialog.scroll_offset() == doctest::Approx(48));
+        dialog.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 0.5F});
+        CHECK(dialog.scroll_offset() == doctest::Approx(72));
+        dialog.pointer(
+            {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .scroll_y = 18});
+        CHECK(dialog.scroll_offset() == doctest::Approx(90));
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::scroll,
+                        .x = 180,
+                        .y = 300,
+                        .wheel_y = -1000});
+        CHECK(dialog.scroll_offset() == 0);
+    }
+    SUBCASE("wide hit area supports dragging outside the dialog and releases capture") {
+        const auto thumb = dialog.scrollbar_bounds();
+        REQUIRE(thumb.width >= 6);
+        REQUIRE(thumb.height >= 24);
+        const float x = thumb.x - 2;  // within the hit strip, outside the visible thumb
+        CHECK(dialog.cursor_at(x, thumb.y + 5) == rummage::ui::CursorShape::pointer);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = x,
+                        .y = thumb.y + 5,
+                        .button = rummage::ui::PointerButton::left});
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 790, .y = 630});
+        CHECK(dialog.scroll_offset() > 200);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                        .x = 790,
+                        .y = 630,
+                        .button = rummage::ui::PointerButton::left});
+        const auto at_end = dialog.scroll_offset();
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = x, .y = thumb.y});
+        CHECK(dialog.scroll_offset() == at_end);
+    }
+    SUBCASE("track clicks jump through the document") {
+        const auto thumb = dialog.scrollbar_bounds();
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = thumb.x + 2,
+                        .y = dialog.card_bounds().bottom() - 90,
+                        .button = rummage::ui::PointerButton::left});
+        CHECK(dialog.scroll_offset() > 200);
+    }
+}
+
+TEST_CASE("properties: media disclosure and top copy include hidden metadata") {
+    rummage::ui::Offscreen gl{800, 900};
+    Fixture f;
+    const std::string value = "Full embedded value " + std::string(400, 'x');
+    const auto png = rummage::picture::encode_png(
+        {.width = 1, .height = 1, .rgba = {10, 20, 30, 255}}, {{"Custom tag", value}});
+    const auto file =
+        f.dir.write("metadata.png", {reinterpret_cast<const char*>(png.data()), png.size()});
+    auto& dialog = f.browser.properties_dialog();
+    std::string copied;
+    dialog.set_copy_handler([&](std::string text) { copied = std::move(text); });
+    dialog.open(file, [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 900, 1, {});
+        dialog.draw(renderer, {0, 0, 420, 900}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    const auto click = [&](std::string_view id) {
+        const auto rect = dialog.control_bounds(id);
+        REQUIRE_FALSE(rect.empty());
+        CHECK(dialog.cursor_at(rect.x + 4, rect.y + 4) == rummage::ui::CursorShape::pointer);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = rect.x + 4,
+                        .y = rect.y + 4,
+                        .button = rummage::ui::PointerButton::left});
+        draw();
+    };
+    draw();
+    CHECK_FALSE(dialog.text_bounds("Dimensions").empty());
+    CHECK(dialog.text_bounds("Aspect ratio").empty());
+    CHECK(dialog.text_bounds("PNG · Custom tag").empty());
+    CHECK(dialog.control_bounds("copy").y < dialog.text_bounds("name").y);
+    const float collapsed_height = dialog.card_bounds().height;
+    click("copy");
+    CHECK(copied.find("Name: metadata.png\n") != std::string::npos);
+    CHECK(copied.find("Type: image/png\n") != std::string::npos);
+    CHECK(copied.find("Location: " + file.parent_path().string()) != std::string::npos);
+    CHECK(copied.find("Dimensions: 1 × 1\n") != std::string::npos);
+    CHECK(copied.find("Aspect ratio: 1:1\n") != std::string::npos);
+    CHECK(copied.find("PNG · Custom tag: " + value + "\n") != std::string::npos);
+    const auto all = copied;
+    click("details");
+    CHECK_FALSE(dialog.text_bounds("Aspect ratio").empty());
+    CHECK_FALSE(dialog.text_bounds("PNG · Custom tag").empty());
+    CHECK(dialog.card_bounds().height > collapsed_height);
+    dialog.pointer(
+        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 210, .y = 450, .wheel_y = 10000});
+    draw();
+    CHECK(dialog.control_bounds("copy").y == dialog.card_bounds().y + 12);
+    click("copy");
+    CHECK(copied == all);
+    // Reverse Tab from Copy reaches the disclosure and scrolls it into view.
+    dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+    draw();
+    dialog.key(key(XKB_KEY_space));
+    draw();
+    CHECK(dialog.text_bounds("PNG · Custom tag").empty());
+    CHECK(dialog.card_bounds().height == collapsed_height);
+    dialog.key(key(XKB_KEY_Return));
+    draw();
+    CHECK_FALSE(dialog.text_bounds("PNG · Custom tag").empty());
+    dialog.open(file, [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    draw();
+    CHECK(dialog.text_bounds("PNG · Custom tag").empty());
+    dialog.open(f.photos / "a.txt", [] {}, false);
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    draw();
+    CHECK(dialog.control_bounds("details").empty());
+    click("copy");
+    CHECK(copied.find("Name: a.txt\n") != std::string::npos);
+    CHECK(copied.find("Custom tag") == std::string::npos);
+}
+
+TEST_CASE("context menu: Create Link makes a link next to each item, and selects them") {
+    Fixture f;
+    f.select({"a.txt", "sub"});
+    CHECK(f.press(key(XKB_KEY_Menu)));
+    f.choose("create_link");
+    REQUIRE(f.settle());
+    CHECK(fs::read_symlink(f.photos / "Link to a.txt") == f.photos / "a.txt");
+    CHECK(fs::read_symlink(f.photos / "Link to sub") == f.photos / "sub");
+    REQUIRE(run_until(f.loop, [&] {
+        Names selected = f.folder()->selected_names();
+        std::ranges::sort(selected);
+        return selected == Names{"Link to a.txt", "Link to sub"};
+    }));
+}
+
+TEST_CASE("properties: drive facts load without directory totals and appear in copy-all") {
+    Fixture f;
+    rummage::ui::Offscreen gl{800, 900};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& dialog = f.browser.properties_dialog();
+    std::string copied;
+    dialog.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    dialog.open_drive(f.photos, "Test drive");
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    REQUIRE_FALSE(dialog.filesystem().error);
+    CHECK(dialog.filesystem().capacity > 0);
+    CHECK_FALSE(dialog.can_edit_icon());
+    CHECK_FALSE(dialog.can_edit_permissions());
+    renderer.begin_frame(800, 900, 1, {});
+    dialog.draw(renderer, {0, 0, 800, 900}, {}, icons);
+    renderer.end_frame();
+    CHECK_FALSE(dialog.text_bounds("Capacity").empty());
+    CHECK_FALSE(dialog.text_bounds("Available").empty());
+    CHECK(dialog.text_bounds("Contents").empty());
+    const auto copy = dialog.control_bounds("copy");
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = copy.x + 2,
+                    .y = copy.y + 2,
+                    .button = rummage::ui::PointerButton::left});
+    CHECK(copied.find("Capacity") != std::string::npos);
+    CHECK(copied.find("Mount point") != std::string::npos);
+    dialog.open_drive(f.photos / "missing", "Missing");
+    REQUIRE(run_until(f.loop, [&] { return !dialog.loading(); }));
+    CHECK_FALSE(dialog.error().empty());
+    dialog.open_drive(f.photos, "Test drive");
+    dialog.close();
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.is_open());
+    dialog.open(f.photos / "a.txt", [] {});
+    REQUIRE(f.settle());
+    CHECK_FALSE(dialog.can_edit_icon());
+    CHECK(dialog.filesystem().capacity == 0);
+}
+
+TEST_CASE("context menu: mounted drives offer properties even without udisks") {
+    Fixture f;
+    rummage::ui::Offscreen gl{800, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& sidebar = f.browser.sidebar();
+    for (const bool mounted : {true, false}) {
+        sidebar.set_places({{.section = rummage::fs::Place::Section::devices,
+                             .label = "Test drive",
+                             .path = mounted ? f.photos : fs::path{},
+                             .icon = "server",
+                             .disk = {.volume = {}, .mounted = mounted}}});
+        renderer.begin_frame(800, 640, 1, {});
+        sidebar.draw(renderer, {0, 0, 200, 640}, {}, icons, f.photos, Browser::Clock::now());
+        renderer.end_frame();
+        float y = 0;
+        for (; y < 640; y += 2) {
+            sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 30, .y = y},
+                            Browser::Clock::now());
+            if (sidebar.hovered_place())
+                break;
+        }
+        REQUIRE(y < 640);
+        sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                         .x = 30,
+                         .y = y,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+        REQUIRE(f.menu().is_open());
+        const auto properties = std::ranges::find(f.menu().items(), "properties", &MenuItem::id);
+        REQUIRE(properties != f.menu().items().end());
+        CHECK(properties->enabled == mounted);
+        if (mounted) {
+            f.choose("properties");
+            REQUIRE(run_until(f.loop, [&] { return !f.browser.properties_dialog().loading(); }));
+            CHECK(f.browser.properties_dialog().filesystem().capacity > 0);
+            f.browser.properties_dialog().close();
+        } else
+            f.menu().close();
+    }
+}
+
+TEST_CASE("sidebar: places and bookmarks open the clicked folder in a new tab") {
+    Fixture f;
+    SUBCASE("built-in layout") {}
+    SUBCASE("legacy saved layout") {
+        const auto config = rummage::core::parse_config(R"(
+[context_menu]
+sidebar = [
+  { id = "mount" },
+  { id = "unmount" },
+  { id = "eject", separator = true },
+  { id = "remove_bookmark" },
+  { id = "empty_trash" },
+]
+)",
+                                                        "legacy.toml");
+        REQUIRE(config.problems.empty());
+        f.browser.set_context_menu(config.config.context_menu);
+    }
+    rummage::ui::Offscreen gl{800, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    auto& sidebar = f.browser.sidebar();
+    for (const auto section :
+         {rummage::fs::Place::Section::places, rummage::fs::Place::Section::bookmarks}) {
+        f.browser.open(f.photos);
+        REQUIRE(f.settle());
+        sidebar.set_places({{.section = section,
+                             .label = "Target",
+                             .path = f.photos / "sub",
+                             .icon = "folder",
+                             .disk = {}}});
+        renderer.begin_frame(800, 640, 1, {});
+        sidebar.draw(renderer, {0, 0, 200, 640}, {}, icons, f.photos, Browser::Clock::now());
+        renderer.end_frame();
+        float y = 0;
+        for (; y < 640; y += 2) {
+            sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 30, .y = y},
+                            Browser::Clock::now());
+            if (sidebar.hovered_place())
+                break;
+        }
+        REQUIRE(y < 640);
+        sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                         .x = 30,
+                         .y = y,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+        REQUIRE(f.menu().is_open());
+        f.choose("open_tab");
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->path() == f.photos / "sub");
+        const auto state = f.browser.state();
+        CHECK(state.tabs.size() >= 2);
+    }
 }

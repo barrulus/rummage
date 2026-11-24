@@ -42,7 +42,7 @@ constexpr float kSidebarMax = 400.0F;
 constexpr float kInfoMin = 240.0F;
 constexpr float kInfoMax = 720.0F;
 constexpr float kColumnMin = 48.0F;
-constexpr float kColumnMax = 800.0F;
+constexpr float kColumnMax = kMaxDetailsWidth;
 constexpr std::int64_t kWindowMin = 320;
 constexpr std::int64_t kWindowMax = 16384;
 
@@ -69,6 +69,28 @@ public:
                 bad(*node, key, "true or false");
             }
         }
+    }
+
+    void strings(std::string_view key, std::vector<std::string>& out) {
+        const auto* node = find(key);
+        if (!node)
+            return;
+        const auto* values = node->as_array();
+        std::vector<std::string> parsed;
+        if (values && values->size() <= 512) {
+            for (const auto& item : *values) {
+                const auto value = item.value<std::string>();
+                if (!value || value->empty() || value->size() > 4096 ||
+                    value->find('\0') != std::string::npos) {
+                    bad(*node, key, "up to 512 nonempty strings");
+                    return;
+                }
+                if (std::ranges::find(parsed, *value) == parsed.end())
+                    parsed.push_back(*value);
+            }
+            out = std::move(parsed);
+        } else
+            bad(*node, key, "up to 512 nonempty strings");
     }
 
     void number(std::string_view key, float min, float max, float& out) {
@@ -118,6 +140,7 @@ public:
             number(std::string{prefix} + std::string{kDetailsColumns[i].id} + "_width", kColumnMin,
                    kColumnMax, widths[i - 1]);
         }
+        number(std::string{prefix} + "name_width", 0.0F, kColumnMax, widths.back());
         const auto key = std::string{prefix} + "columns";
         const auto* node = find(key);
         if (!node)
@@ -237,6 +260,7 @@ std::string format_columns(const DetailsWidths& widths, const std::vector<fs::So
     for (std::size_t i = 1; i < kDetailsColumns.size(); ++i) {
         out += std::format("{}_width = {}\n", kDetailsColumns[i].id, widths[i - 1]);
     }
+    out += std::format("name_width = {}\n", widths.back());
     out += "columns = [";
     bool first = true;
     for (const auto field : columns) {
@@ -318,11 +342,17 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     Reader read{root, source};
     read.word("view.mode", kModes, s.mode);
     read.flag("view.show_hidden", s.show_hidden);
+    read.flag("view.show_extensions", s.show_extensions);
+    read.flag("view.show_thumbnails", s.show_thumbnails);
     read.word("view.list_size", kListSizeWords, s.list_size);
     read.flag("sidebar.visible", s.sidebar_visible);
+    read.strings("sidebar.order", s.sidebar_order);
+    read.strings("sidebar.hidden", s.sidebar_hidden);
+    read.strings("sidebar.collapsed", s.sidebar_collapsed);
     read.word("sidebar.list_size", kListSizeWords, s.sidebar_size);
     read.number("sidebar.width", kSidebarMin, kSidebarMax, s.sidebar_width);
     read.flag("info.visible", s.info_visible);
+    read.flag("info.auto_hide", s.info_auto_hide);
     read.number("info.width", kInfoMin, kInfoMax, s.info_width);
     read.flag("info.expanded", s.info_expanded);
     read.number("info.sidebar_ratio", 0.15F, 0.85F, s.sidebar_preview_ratio);
@@ -404,6 +434,30 @@ StateResult parse_state(std::string_view text, std::string_view source) {
         } else {
             result.problems.push_back(
                 std::format("{}: 'folder' must be an array of tables; ignored", source));
+        }
+    }
+
+    if (const auto* searches = root.get_as<toml::array>("search")) {
+        for (const auto& node : *searches) {
+            const auto* table = node.as_table();
+            if (!table || s.saved_searches.size() == State::kMaxSavedSearches)
+                continue;
+            const auto name = (*table)["name"].value<std::string>().value_or("");
+            const auto folder = (*table)["root"].value<std::string>().value_or("");
+            const auto query = (*table)["query"].value<std::string>().value_or("");
+            if (name.empty() || name.size() > 128 || query.size() > 16384 ||
+                name.find_first_of("\r\n") != std::string::npos ||
+                folder.find('\0') != std::string::npos || name.find('\0') != std::string::npos ||
+                query.find('\0') != std::string::npos ||
+                !std::filesystem::path{folder}.is_absolute() ||
+                std::ranges::find(s.saved_searches, name, &State::SavedSearch::name) !=
+                    s.saved_searches.end()) {
+                result.problems.push_back(
+                    std::format("{}: invalid or duplicate saved search; ignored", source));
+                continue;
+            }
+            s.saved_searches.push_back(
+                {name, folder, query, (*table)["hidden"].value<bool>().value_or(false)});
         }
     }
 
@@ -560,6 +614,21 @@ std::string format_state(const State& s) {
                 std::format("{}{}", recent.empty() ? "" : ", ", toml_string(s.palette_recent[i]));
         }
     }
+    std::string searches;
+    for (std::size_t i = 0; i < s.saved_searches.size() && i < State::kMaxSavedSearches; ++i) {
+        const auto& search = s.saved_searches[i];
+        if (search.name.empty() || search.name.size() > 128 || search.query.size() > 16384 ||
+            search.name.find_first_of("\r\n") != std::string::npos ||
+            search.name.find('\0') != std::string::npos ||
+            search.query.find('\0') != std::string::npos ||
+            search.root.string().find('\0') != std::string::npos || !search.root.is_absolute() ||
+            !valid_utf8(search.name) || !valid_utf8(search.root.string()) ||
+            !valid_utf8(search.query))
+            continue;
+        searches += std::format("\n[[search]]\nname = {}\nroot = {}\nquery = {}\nhidden = {}\n",
+                                toml_string(search.name), toml_string(search.root.string()),
+                                toml_string(search.query), flag(search.hidden));
+    }
     std::string tabs;
     for (std::size_t i = 0; i < s.tabs.size(); ++i) {
         const State::Tab& tab = s.tabs[i];
@@ -615,22 +684,35 @@ std::string format_state(const State& s) {
             word_of(kListSizeWords, settings.list_size), settings.grid_icon,
             format_columns(settings.details_widths, settings.details_columns));
     }
+    const auto strings = [](const std::vector<std::string>& values) {
+        std::string result;
+        for (const auto& value : values) {
+            if (!result.empty())
+                result += ", ";
+            result += toml_string(value);
+        }
+        return result;
+    };
     return std::format(
                "# How rummage was left, read at start. Written by rummage: no need to edit it.\n"
                "\n"
                "[view]\n"
                "mode = \"{}\"\n"
                "show_hidden = {}\n"
+               "show_extensions = {}\n"
+               "show_thumbnails = {}\n"
                "list_size = \"{}\"\n"
                "grid_icon = {}\n"
                "\n"
                "[sidebar]\n"
+               "order = [{}]\nhidden = [{}]\ncollapsed = [{}]\n"
                "list_size = \"{}\"\n"
                "visible = {}\n"
                "width = {}\n"
                "\n"
                "[info]\n"
                "visible = {}\n"
+               "auto_hide = {}\n"
                "width = {}\n"
                "expanded = {}\n"
                "sidebar_ratio = {}\n"
@@ -647,9 +729,11 @@ std::string format_state(const State& s) {
                "\n"
                "[palette]\n"
                "recent = [{}]\n",
-               word_of(kModes, s.mode), flag(s.show_hidden), word_of(kListSizeWords, s.list_size),
-               s.grid_icon, word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible),
-               s.sidebar_width, flag(s.info_visible), s.info_width, flag(s.info_expanded),
+               word_of(kModes, s.mode), flag(s.show_hidden), flag(s.show_extensions),
+               flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
+               strings(s.sidebar_order), strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
+               word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
+               flag(s.info_visible), flag(s.info_auto_hide), s.info_width, flag(s.info_expanded),
                s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
                format_columns(s.details_widths, s.details_columns), s.window_width, s.window_height,
                flag(s.maximized), recent) +
@@ -657,7 +741,7 @@ std::string format_state(const State& s) {
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,
                s.active_pane) +
-           tabs + folders;
+           tabs + folders + searches;
 }
 
 // Writes in generation order: one older than the last written is dropped.

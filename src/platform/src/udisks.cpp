@@ -59,6 +59,7 @@ UdisksObject object_from(const sdbus::ObjectPath& path, const Interfaces& interf
         object.size = property<std::uint64_t>(p, "Size");
         object.id_usage = property<std::string>(p, "IdUsage");
         object.id_label = property<std::string>(p, "IdLabel");
+        object.id_uuid = property<std::string>(p, "IdUUID");
         object.hint_ignore = property<bool>(p, "HintIgnore");
         object.hint_system = property<bool>(p, "HintSystem");
         object.drive = property<sdbus::ObjectPath>(p, "Drive", sdbus::ObjectPath{"/"});
@@ -290,7 +291,16 @@ void Udisks::eject(const std::string& volume, Done done) {
             .onInterface(std::string{kDrive})
             .withArguments(std::map<std::string, sdbus::Variant>{})
             .uponReplyInvoke([done](std::optional<sdbus::Error> error) {
-                done(error ? readable(*error) : std::string{});
+                if (!error) {
+                    done({});
+                } else if (error->getName().ends_with(".DeviceBusy")) {
+                    // PowerOff answers DeviceBusy while anything else on the drive is mounted or
+                    // unlocked (a file system not listed, a LUKS container, a drive of the same
+                    // device). Pass its reason on: "in use" would mean files left open.
+                    done(power_off_refusal(error->getMessage()));
+                } else {
+                    done(readable(*error));
+                }
             });
         impl_->pump();
         *next = nullptr;

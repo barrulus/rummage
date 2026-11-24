@@ -44,6 +44,11 @@ public:
                                          std::string_view mime = {},
                                          picture::Failure* failure = nullptr);
 
+    // Pin the already displayed texture for an operation; cache eviction waits for release.
+    [[nodiscard]] std::shared_ptr<const ui::Texture> get_shared(
+        const std::filesystem::path& file, std::int64_t modified_ns, thumbs::Size size,
+        std::string_view mime = {}, picture::Failure* failure = nullptr);
+
     // After each frame: cancels what this frame did not ask for, keeps to the budget.
     void end_frame();
 
@@ -68,7 +73,7 @@ private:
         std::optional<core::EventLoop::SourceId> retry;
         unsigned attempts{0};
         std::shared_ptr<picture::Image> pixels;  // made, not uploaded yet
-        std::unique_ptr<ui::Texture> texture;
+        std::shared_ptr<ui::Texture> texture;
         bool failed{false};
         picture::Failure failure{picture::Failure::none};  // why, when failed
         std::uint64_t used{0};                             // the frame that last asked for it

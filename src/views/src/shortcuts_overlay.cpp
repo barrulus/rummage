@@ -6,8 +6,9 @@
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-#include "rummage/views/shortcuts.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/views/dialog_chrome.hpp"
+#include "rummage/views/shortcuts.hpp"
 
 namespace rummage::views {
 namespace {
@@ -39,7 +40,10 @@ std::vector<std::string_view> overlay_groups() {
             "Panes",   "Sidebar", "Zoom",      "Quick Look"};
 }
 
-ShortcutsOverlay::ShortcutsOverlay(std::function<void()> redraw) : redraw_{std::move(redraw)} {}
+ShortcutsOverlay::ShortcutsOverlay(std::function<void()> redraw) : redraw_{std::move(redraw)} {
+    for (const auto name : overlay_groups())
+        groups_.push_back({.name = name});
+}
 
 void ShortcutsOverlay::open() {
     if (!open_) {
@@ -219,15 +223,11 @@ void ShortcutsOverlay::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         return;
     }
     layout(bounds);
-    renderer.fill_rect(bounds, palette.scrim.with_alpha(0.55F));
     const auto& card = card_;
-    renderer.draw_box(card, {.fill = palette.surface_container_high,
-                             .radius = {},
-                             .border_width = 1.0F,
-                             .border = palette.outline_variant});
+    draw_dialog_surface(renderer, bounds, card, palette);
     renderer.push_clip(card);
-    renderer.draw_text(i18n::tr("Keyboard shortcuts"), card.x + kPadding, card.y + kPadding, kTitleSize,
-                       palette.on_surface,
+    renderer.draw_text(i18n::tr("Keyboard shortcuts"), card.x + kPadding, card.y + kPadding,
+                       kTitleSize, palette.on_surface,
                        std::max(1.0F, close_button_.x - card.x - kPadding - 8.0F));
     renderer.draw_text("×", close_button_.x + 9.0F, close_button_.y + 4.0F, 20.0F,
                        palette.on_surface);
@@ -247,8 +247,9 @@ void ShortcutsOverlay::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                    .border = palette.primary});
         renderer.fill_rect({header.x, header.bottom() - 1.0F, header.width, 1.0F},
                            palette.outline_variant);
-        renderer.draw_text(group.expanded ? "▾" : "▸", header.x + 4.0F, header.y + 9.0F, kGroupSize,
-                           palette.primary);
+        renderer.draw_text(
+            group.expanded ? "▾" : "▸", header.x + 4.0F, header.y + 9.0F, kGroupSize,
+            theme::readable_foreground(palette.primary, palette.surface_container_high));
         renderer.draw_text(i18n::tr(group.name), header.x + 24.0F, header.y + 9.0F, kGroupSize,
                            palette.on_surface);
         if (!group.expanded) {
@@ -259,10 +260,13 @@ void ShortcutsOverlay::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             if (shortcut.group != group.name || shortcut.keys.empty()) {
                 continue;
             }
-            renderer.draw_text(i18n::keys(shortcut.keys), header.x + 24.0F, y + 5.0F, kTextSize,
-                               palette.primary, std::max(1.0F, keys_width - 36.0F));
-            renderer.draw_text(i18n::tr(shortcut.action), header.x + keys_width, y + 5.0F, kTextSize,
-                               palette.on_surface, std::max(1.0F, viewport_.width - keys_width));
+            renderer.draw_text(
+                i18n::keys(shortcut.keys), header.x + 24.0F, y + 5.0F, kTextSize,
+                theme::readable_foreground(palette.primary, palette.surface_container_high),
+                std::max(1.0F, keys_width - 36.0F));
+            renderer.draw_text(i18n::tr(shortcut.action), header.x + keys_width, y + 5.0F,
+                               kTextSize, palette.on_surface,
+                               std::max(1.0F, viewport_.width - keys_width));
             y += kRowHeight;
         }
     }

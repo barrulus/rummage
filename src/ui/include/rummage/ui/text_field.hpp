@@ -60,8 +60,15 @@ public:
     // The selection as [first, last); empty (first == last == caret) when there is none.
     [[nodiscard]] std::pair<std::size_t, std::size_t> selection() const noexcept;
 
+    // The selected text; empty when nothing is selected.
+    [[nodiscard]] std::string selected_text() const;
+
     // Replaces the selection (or inserts at the caret) with text: one edit (a paste).
     void insert(std::string_view text);
+
+    // Takes the selected text out and returns it: one edit. With nothing selected it returns an
+    // empty string and leaves no edit to undo.
+    std::string cut();
 
     // Ctrl+Z, Ctrl+Shift+Z: false when there is nothing to undo or redo.
     bool undo();

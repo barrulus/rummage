@@ -1,3 +1,4 @@
+#include <GLES3/gl3.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -20,6 +21,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/fs/trash.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -90,11 +92,18 @@ struct Fixture {
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
     rummage::fs::DirectoryWatcher watcher{loop};
-    Browser browser{loop,    pool,
-                    watcher, rummage::fs::MimeDatabase::load(),
-                    [] {},   [](CursorShape /*shape*/) {}};
+    Browser browser;
 
-    Fixture() {
+    explicit Fixture(bool thumbnails = false)
+        : browser{loop,
+                  pool,
+                  watcher,
+                  rummage::fs::MimeDatabase::load(),
+                  [] {},
+                  [](CursorShape /*shape*/) {},
+                  thumbnails
+                      ? std::make_shared<rummage::thumbs::Cache>(dir.path / "cache", "views-test")
+                      : nullptr} {
         fs::create_directories(a / "sub");
         fs::create_directories(b);
         std::ofstream{a / "one.txt"} << "1";
@@ -102,6 +111,20 @@ struct Fixture {
         browser.set_home_trash(dir.path / "Trash");
         browser.open(a);
         REQUIRE(settle());
+    }
+
+    const std::vector<rummage::views::MenuItem>& visibility_items() {
+        const auto& items = browser.context_menu().items();
+        const auto show = std::ranges::find(items, "show", &rummage::views::MenuItem::id);
+        REQUIRE(show != items.end());
+        CHECK(show->label == "Show");
+        CHECK(show->submenu);
+        CHECK(show->children.size() == 6);
+        CHECK(std::ranges::find(show->children, "auto_hide_info", &rummage::views::MenuItem::id) !=
+              show->children.end());
+        for (const auto& item : show->children)
+            CHECK(item.checkable);
+        return show->children;
     }
 
     bool settle() {
@@ -340,7 +363,7 @@ TEST_CASE("tabs: the bar with two tabs; a click shows one, its × or a middle cl
     const rummage::ui::Rect first = bar.tab_rects()[0];
     CHECK(f.browser.cursor_at(first.x + 20.0F, first.y + 10.0F) == CursorShape::pointer);
     // The path and the view moved down under the bar.
-    CHECK(f.browser.breadcrumb().claims(first.x + 20.0F, first.bottom() + 5.0F));
+    CHECK(f.browser.breadcrumb().claims(first.x + 80.0F, first.bottom() + 5.0F));
 
     click(first, PointerButton::left);
     CHECK(f.browser.active_tab() == 0);
@@ -693,4 +716,585 @@ TEST_CASE("Show in Folder: filesystem root and folder opening preserve first foc
     REQUIRE(f.settle());
     CHECK(f.browser.active_tab() == 0);
     CHECK(f.browser.tab_titles() == Names{"a", "b", "sub"});
+}
+
+TEST_CASE("Show in Folder: stale filters are cleared and selection remains visible in every view") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f;
+        f.browser.set_mode(mode);
+        f.browser.set_name_filter("no-match");
+        f.browser.show_items({f.a / "one.txt"}, false);
+        REQUIRE(f.settle());
+        CHECK(f.browser.name_filter().empty());
+        const auto folder = mode == Browser::Mode::columns ? f.browser.columns().focused_folder()
+                            : mode == Browser::Mode::grid  ? f.browser.grid().folder()
+                                                           : f.browser.details().folder();
+        REQUIRE(folder);
+        REQUIRE(folder->single_selection());
+        CHECK(folder->single_selection()->name == "one.txt");
+        CHECK(folder->take_reveal() == rummage::views::Folder::Reveal::jump);
+    }
+}
+
+TEST_CASE("views: selected labels stay within their rows and the status shows the full filename") {
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    Fixture f;
+    std::string name;
+    SUBCASE("short filename") { name = "barrulus.png"; }
+    SUBCASE("long filename") { name = std::string(170, 'a') + ".txt"; }
+    std::ofstream{f.a / name} << "text";
+    f.browser.set_info_visible(false);
+    f.browser.set_sidebar_visible(false);
+    f.browser.set_show_extensions(false);
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        f.browser.set_mode(mode);
+        f.browser.show_items({f.a / name}, false);
+        REQUIRE(f.settle());
+        rummage::theme::Palette palette;
+        palette.primary = rummage::ui::Color::rgb(0xff00ff);
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, 600, kHeight}, palette, icons, Browser::Clock::now());
+        renderer.end_frame();
+        const auto folder = mode == Browser::Mode::columns ? f.browser.columns().focused_folder()
+                            : mode == Browser::Mode::grid  ? f.browser.grid().folder()
+                                                           : f.browser.details().folder();
+        REQUIRE(folder);
+        CHECK(rummage::views::status_of(*folder) == name);
+        const auto selected =
+            mode == Browser::Mode::grid ? f.browser.grid().motion_bounds().selection
+            : mode == Browser::Mode::details
+                ? f.browser.details().motion_bounds().selection
+                : f.browser.columns().column(f.browser.columns().focus()).motion_bounds().selection;
+        REQUIRE_FALSE(selected.empty());
+        std::vector<std::uint8_t> pixels(kWidth * kHeight * 4);
+        glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        // No selected-name background may protrude above or below the regular row/cell.
+        for (const int y :
+             {static_cast<int>(selected.y) - 1, static_cast<int>(selected.bottom()) + 1}) {
+            for (int x = static_cast<int>(selected.x) + 1;
+                 x < static_cast<int>(selected.right()) - 1; ++x) {
+                const auto offset = static_cast<std::size_t>(((kHeight - 1 - y) * kWidth + x) * 4);
+                CHECK_FALSE((pixels[offset] == 255 && pixels[offset + 1] == 0 &&
+                             pixels[offset + 2] == 255));
+            }
+        }
+        if (mode != Browser::Mode::grid) {
+            const float x = selected.x + 100;
+            const float y = selected.bottom() + 6;
+            if (mode == Browser::Mode::columns) {
+                const auto& column = f.browser.columns().column(f.browser.columns().focus());
+                CHECK(column.row_at(x, y) != folder->cursor());
+            } else {
+                const auto hit = f.browser.details().hit(x, y);
+                REQUIRE(hit);
+                CHECK(hit->entry != folder->cursor());
+            }
+        }
+        const auto button = f.browser.sort_bounds();
+        REQUIRE_FALSE(button.empty());
+        PointerEvent event;
+        event.kind = PointerEvent::Kind::press;
+        event.button = PointerButton::left;
+        event.x = button.x + 5;
+        event.y = button.y + 5;
+        f.browser.pointer(event, Browser::Clock::now());
+        REQUIRE(f.browser.context_menu().is_open());
+        const auto& items = f.browser.context_menu().items();
+        const auto descending =
+            std::ranges::find(items, "sort:descending", &rummage::views::MenuItem::id);
+        REQUIRE(descending != items.end());
+        descending->action();
+        CHECK(f.browser.sort_order().descending);
+        f.browser.context_menu().close();
+    }
+    CHECK_FALSE(f.browser.state().show_extensions);
+}
+
+TEST_CASE("views: View menu toggles hidden files and tracks Ctrl+H in every view") {
+    Fixture f;
+    std::ofstream{f.a / ".hidden"} << "hidden";
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        f.browser.set_mode(mode);
+        f.browser.open_view_menu(20, 20);
+        const auto& items = f.visibility_items();
+        auto hidden = std::ranges::find(items, "show_hidden", &rummage::views::MenuItem::id);
+        REQUIRE(hidden != items.end());
+        CHECK(hidden->checkable);
+        CHECK_FALSE(hidden->checked);
+        CHECK_FALSE(hidden->keys.empty());
+        auto toggle = hidden->action;
+        f.browser.context_menu().close();
+        toggle();
+        REQUIRE(f.settle());
+        CHECK(f.browser.shows_hidden());
+        const auto folder = mode == Browser::Mode::columns ? f.browser.columns().focused_folder()
+                            : mode == Browser::Mode::grid  ? f.browser.grid().folder()
+                                                           : f.browser.details().folder();
+        CHECK(std::ranges::find(folder->entries(), ".hidden", &rummage::fs::Entry::name) !=
+              folder->entries().end());
+        f.browser.open_view_menu(20, 20);
+        hidden =
+            std::ranges::find(f.visibility_items(), "show_hidden", &rummage::views::MenuItem::id);
+        REQUIRE(hidden != f.visibility_items().end());
+        CHECK(hidden->checked);
+        f.browser.context_menu().close();
+        REQUIRE(f.press(key(XKB_KEY_h, kCtrl)));
+        CHECK_FALSE(f.browser.shows_hidden());
+        CHECK(std::ranges::find(folder->entries(), ".hidden", &rummage::fs::Entry::name) ==
+              folder->entries().end());
+    }
+}
+
+TEST_CASE("views: preview toggle replaces icons in every view and restores icons immediately") {
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f{true};
+        f.browser.set_motion_config({.enabled = false});
+        fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "image/blocks.jpg", f.a / "photo.jpg");
+        f.browser.set_info_visible(false);
+        f.browser.set_sidebar_visible(false);
+        f.browser.set_mode(mode);
+        f.browser.open(f.a);
+        REQUIRE(f.settle());
+        CHECK(f.browser.shows_thumbnails());
+        const auto toggle = [&] {
+            f.browser.open_view_menu(20, 20);
+            const auto& items = f.visibility_items();
+            const auto item =
+                std::ranges::find(items, "show_thumbnails", &rummage::views::MenuItem::id);
+            REQUIRE(item != items.end());
+            CHECK(item->label == "Thumbnails");
+            CHECK(item->checkable);
+            CHECK(item->checked == f.browser.shows_thumbnails());
+            auto action = item->action;
+            f.browser.context_menu().close();
+            action();
+        };
+        const auto draw = [&] {
+            renderer.begin_frame(kWidth, kHeight, 1, {});
+            f.browser.draw(renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, icons,
+                           Browser::Clock::now());
+            renderer.end_frame();
+            std::vector<std::uint8_t> pixels(kWidth * kHeight * 4);
+            glReadPixels(0, 0, kWidth, kHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            return pixels;
+        };
+        toggle();
+        CHECK_FALSE(f.browser.shows_thumbnails());
+        draw();
+        REQUIRE(f.settle());  // MIME sniffing is independent of thumbnails.
+        const auto icons_only = draw();
+        toggle();
+        draw();
+        REQUIRE(f.settle());
+        const auto previews = draw();
+        CHECK(previews != icons_only);
+        // Only the thumbnail's icon square changes; names, folders and unsupported files stay put.
+        std::size_t changed = 0;
+        for (std::size_t pixel = 0; pixel < previews.size(); pixel += 4)
+            if (!std::equal(previews.data() + pixel, previews.data() + pixel + 4,
+                            icons_only.data() + pixel))
+                ++changed;
+        const float icon = mode == Browser::Mode::grid
+                               ? f.browser.grid().icon_size()
+                               : rummage::views::kListSizes[rummage::views::kUsualListSize].icon;
+        CHECK(changed <= static_cast<std::size_t>((icon + 2) * (icon + 2)));
+        toggle();
+        CHECK(draw() == icons_only);
+        CHECK_FALSE(f.browser.state().show_thumbnails);
+        const auto saved = rummage::views::parse_state(
+            rummage::views::format_state(f.browser.state()), "state.toml");
+        REQUIRE(saved.problems.empty());
+        CHECK_FALSE(saved.state.show_thumbnails);
+        f.browser.set_show_thumbnails(true);
+        f.browser.apply(saved.state);
+        CHECK_FALSE(f.browser.shows_thumbnails());
+    }
+}
+
+TEST_CASE("tabs: Ctrl+Shift+T brings back the tab closed last, where it was and as it was") {
+    Fixture f;
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.open(f.a / "sub");
+    REQUIRE(f.settle());
+    f.browser.set_grid_size(1);
+    const std::size_t steps = f.browser.history().size();
+    const std::size_t here = f.browser.history_index();
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    CHECK(f.browser.tab_count() == 3);
+    f.browser.close_tab(1);  // the middle one, as its × does
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.closed_tab_count() == 1);
+
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 3);
+    CHECK(f.browser.active_tab() == 1);
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+    CHECK(f.browser.grid().folder()->path() == f.a / "sub");
+    CHECK(f.browser.grid().size_index() == 1);
+    CHECK(f.browser.history().size() == steps);
+    CHECK(f.browser.history_index() == here);
+    CHECK(f.browser.closed_tab_count() == 0);
+    f.browser.back();
+    REQUIRE(f.settle());
+    CHECK(f.browser.grid().folder()->path() == f.b);
+}
+
+TEST_CASE("tabs: closed history is bounded and is not persisted in session state") {
+    Fixture f;
+    for (std::size_t i = 0; i < Browser::kMaxClosedTabs + 2; ++i) {
+        const auto path = f.dir.path / std::to_string(i);
+        fs::create_directory(path);
+        f.browser.open_tab(path, true);
+        REQUIRE(f.settle());
+        f.browser.close_tab(1);
+    }
+    const auto saved = f.browser.state();
+    Browser again{
+        f.loop, f.pool, f.watcher, rummage::fs::MimeDatabase::load(), [] {}, [](CursorShape) {}};
+    again.apply(saved);
+    CHECK_FALSE(again.closed_tab_count());
+    for (std::size_t i = 0; i < Browser::kMaxClosedTabs; ++i) {
+        REQUIRE(f.browser.closed_tab_count());
+        f.browser.reopen_tab();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->path().filename() ==
+              std::to_string(Browser::kMaxClosedTabs + 1 - i));
+    }
+    CHECK_FALSE(f.browser.closed_tab_count());
+    CHECK(f.browser.tab_count() == Browser::kMaxClosedTabs + 1);
+}
+
+TEST_CASE("tabs: reopening a removed location retains its path and reports the folder error") {
+    Fixture f;
+    f.browser.open_tab(f.a / "sub", true);
+    REQUIRE(f.settle());
+    SUBCASE("a directly opened folder") {}
+    SUBCASE("a nested column chain") {
+        std::ofstream{f.a / "sub/item.txt"} << "item";
+        f.browser.reveal(f.dir.path, f.a / "sub/item.txt");
+        REQUIRE(f.settle());
+        REQUIRE(f.browser.picker_folder()->path() == f.a / "sub");
+        fs::remove(f.a / "sub/item.txt");
+    }
+    f.browser.close_tab(1);
+    fs::remove(f.a / "sub");
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.picker_folder());
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+    CHECK(f.browser.picker_folder()->model().error());
+    CHECK(f.browser.tab_count() == 2);
+}
+
+TEST_CASE("tabs: a tab closed by its × while another is shown keeps its last cursor") {
+    Fixture f;
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_Down)));  // sub
+    CHECK(f.press(key(XKB_KEY_Down)));  // one.txt
+    REQUIRE(f.browser.columns().focused_folder()->cursor_entry() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->cursor_entry()->name == "one.txt");
+    f.browser.select_tab(0);
+    f.browser.close_tab(1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->path() == f.a);
+    REQUIRE(f.browser.columns().focused_folder()->cursor_entry() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->cursor_entry()->name == "one.txt");
+}
+
+TEST_CASE("tabs: Ctrl+Shift+T in a name being edited is the field's") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    CHECK(f.press(key(XKB_KEY_Down)));
+    CHECK(f.press(key(XKB_KEY_F2)));
+    REQUIRE(f.browser.name_editor().active());
+    f.browser.key(key(XKB_KEY_T, kCtrlShift), Browser::Clock::now());
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.name_editor().active());
+}
+
+TEST_CASE("tabs: reopened columns start at the saved location") {
+    Fixture f;
+    fs::create_directories(f.a / "sub" / "deep");
+    CHECK(f.press(key(XKB_KEY_t, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_Down)));   // sub
+    CHECK(f.press(key(XKB_KEY_Right)));  // into sub
+    CHECK(f.press(key(XKB_KEY_Down)));   // deep
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    const fs::path shown = f.browser.columns().focused_folder()->path();
+    CHECK(f.press(key(XKB_KEY_w, kCtrl)));
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.columns().column(0).folder().path() == shown);
+    CHECK(f.browser.columns().focused_folder()->path() == shown);
+}
+
+TEST_CASE("tabs: a tab on the trash comes back to the trash") {
+    Fixture f;
+    f.browser.open_tab(rummage::fs::trash_path(), true);
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->is_trash());
+    f.browser.close_tab(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->is_trash());
+    CHECK(f.browser.status_bar().message() != "trash:/// no longer exists");
+    CHECK(f.browser.closed_tab_count() == 0);
+}
+
+TEST_CASE("tabs: a tab closed before its folder loaded comes back") {
+    Fixture f;
+    CHECK(f.browser.key(key(XKB_KEY_t, kCtrl), Browser::Clock::now()));
+    CHECK(f.browser.key(key(XKB_KEY_w, kCtrl), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(f.browser.tab_count() == 1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    CHECK(f.press(key(XKB_KEY_T, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    REQUIRE(f.browser.columns().focused_folder() != nullptr);
+    CHECK(f.browser.columns().focused_folder()->path() == f.a);
+}
+
+TEST_CASE("tabs: reopening preserves filters and details settings independently in each pane") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_sort(rummage::fs::SortKey::size, true);
+    f.browser.set_name_filter("*.txt");
+    f.browser.set_show_hidden(true, false);
+    f.browser.set_list_size(2);
+    const auto saved = f.browser.state().tabs[1];
+    f.browser.close_tab(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    f.browser.toggle_split();
+    f.browser.focus_pane(1);
+    CHECK(f.browser.closed_tab_count() == 0);
+    f.browser.reopen_tab();
+    CHECK(f.browser.tab_count() == 1);
+    f.browser.open_tab(f.a / "sub", true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    f.browser.focus_pane(0);
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.state().tabs[1] == saved);
+    f.browser.focus_pane(1);
+    CHECK(f.browser.closed_tab_count() == 1);
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+}
+
+TEST_CASE("navigation: path-row buttons use the clicked pane history and cancel outside releases") {
+    Fixture f;
+    f.browser.set_sidebar_visible(false);
+    const auto gl = offscreen();
+    REQUIRE(gl);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(kWidth, kHeight, 1, {});
+        f.browser.draw(renderer, {0, 0, kWidth, kHeight}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    const auto point = [&](PointerEvent::Kind kind, float x, float y) {
+        f.browser.pointer({.kind = kind, .x = x, .y = y, .button = PointerButton::left},
+                          Browser::Clock::now());
+    };
+    const auto click = [&](float x, float y) {
+        point(PointerEvent::Kind::motion, x, y);
+        point(PointerEvent::Kind::press, x, y);
+        point(PointerEvent::Kind::release, x, y);
+        REQUIRE(f.settle());
+        draw();
+    };
+    draw();
+    // The shared toolbar sits above the pane's path row.
+    const auto pane = f.browser.pane_bounds(0);
+    const float back_x = pane.x + 19, forward_x = pane.x + 47, path_y = pane.y + 14;
+    CHECK(f.browser.cursor_at(back_x, path_y) == CursorShape::standard);
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    draw();
+    CHECK(f.browser.cursor_at(back_x, path_y) == CursorShape::pointer);
+    point(PointerEvent::Kind::motion, back_x, path_y);
+    point(PointerEvent::Kind::press, back_x, path_y);
+    point(PointerEvent::Kind::release, pane.x + 200, path_y + 80);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+    click(back_x, path_y);
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    click(forward_x, path_y);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+    f.browser.toggle_split();
+    f.browser.focus_pane(1);
+    f.browser.open(f.a / "sub");
+    REQUIRE(f.settle());
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    f.browser.focus_pane(0);
+    draw();
+    // Split panes start with the tab row, immediately followed by the path.
+    const auto right = f.browser.pane_bounds(1);
+    click(right.x + 19, right.y + rummage::views::TabBar::kHeight + 14);
+    CHECK(f.browser.active_pane() == 1);
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+    f.browser.focus_pane(0);
+    CHECK(f.browser.picker_folder()->path() == f.b);
+}
+
+TEST_CASE("folders: reset restores built-in defaults for future visits and after restart") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_sort(rummage::fs::SortKey::size, true);
+    f.browser.set_list_size(3);
+    f.browser.set_grid_size(4);
+    f.browser.details().set_column_visible(rummage::fs::SortKey::owner, true);
+    REQUIRE(f.browser.has_custom_folder_view());
+    f.browser.reset_folder_view();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.has_custom_folder_view());
+    CHECK(f.browser.mode() == Browser::Mode::columns);
+    CHECK(f.browser.sort_order().key == rummage::fs::SortKey::name);
+    CHECK_FALSE(f.browser.sort_order().descending);
+    const auto reset = f.browser.state();
+    REQUIRE(reset.folders.find(f.a));
+    CHECK(*reset.folders.find(f.a) == rummage::views::State::FolderSettings{});
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.set_grid_size(5);
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.has_custom_folder_view());
+    const auto saved =
+        rummage::views::parse_state(rummage::views::format_state(f.browser.state()), "state.toml");
+    REQUIRE(saved.problems.empty());
+    Browser again{
+        f.loop, f.pool, f.watcher, rummage::fs::MimeDatabase::load(), [] {}, [](CursorShape) {}};
+    again.apply(saved.state);
+    again.open(f.a);
+    REQUIRE(run_until(f.loop, [&] { return !again.loading(); }));
+    CHECK_FALSE(again.has_custom_folder_view());
+    again.open(f.b);
+    REQUIRE(run_until(f.loop, [&] { return !again.loading(); }));
+    CHECK(again.mode() == Browser::Mode::grid);
+    CHECK(again.grid().size_index() == 5);
+}
+
+TEST_CASE("tabs: reopen restores settings and history over changed folder preferences") {
+    using Field = rummage::views::DetailsView::Field;
+    Fixture f;
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.close_tab(0);  // The last tab never enters closed history.
+    f.browser.reopen_tab();
+    CHECK(f.browser.tab_count() == 1);
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    f.browser.back();
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_show_hidden(true);
+    f.browser.set_sort(Field::size, true);
+    f.browser.details().set_columns({Field::name, Field::permissions, Field::size});
+    f.browser.set_name_filter("two");
+    CHECK(f.press(key(XKB_KEY_plus, kCtrl)));
+    f.browser.details().folder()->select_name("two.txt");
+    const auto before = f.browser.state().tabs.at(1);
+    const auto history_size = f.browser.history().size();
+    const auto history_index = f.browser.history_index();
+    CHECK(f.press(key(XKB_KEY_w, kCtrl)));
+    REQUIRE(f.browser.closed_tab_count());
+
+    // Another tab changes the same folder's remembered settings after the close.
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    f.browser.set_sort(Field::name, false);
+    f.browser.set_show_hidden(false);
+    CHECK(f.press(key(XKB_KEY_t, kCtrlShift)));
+    CHECK(f.browser.tab_count() == 2);
+    CHECK(f.browser.active_tab() == 1);
+    CHECK(f.browser.state().tabs.at(1) == before);
+    CHECK(f.browser.history().size() == history_size);
+    CHECK(f.browser.history_index() == history_index);
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.forward();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a);
+}
+
+TEST_CASE("tabs: closed history follows its pane through hiding and swapping") {
+    Fixture f;
+    f.browser.open_tab(f.b, true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    f.browser.toggle_split();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.open_tab(f.a / "sub", true);
+    REQUIRE(f.settle());
+    f.browser.close_tab(1);
+    f.browser.toggle_split();  // Hide the split, keeping the active area's history.
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a / "sub");
+    CHECK_FALSE(f.browser.closed_tab_count());
+    f.browser.toggle_split();
+    f.browser.swap_panes();
+    f.browser.switch_pane();
+    REQUIRE(f.browser.closed_tab_count());
+    f.browser.reopen_tab();
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.b);
+}
+
+TEST_CASE("tabs: reopen supports Trash and archive folders") {
+    Fixture f;
+    SUBCASE("Trash") {
+        f.browser.open_tab(rummage::fs::trash_path(), true);
+        REQUIRE(f.settle());
+        f.browser.close_tab(1);
+        f.browser.reopen_tab();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->is_trash());
+    }
+    SUBCASE("archive") {
+        const auto archive = f.dir.path / "example.zip";
+        fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archives/sample.zip", archive);
+        f.browser.open_tab(archive, true);
+        REQUIRE(f.settle());
+        REQUIRE(f.browser.picker_folder()->is_archive());
+        const auto count = f.browser.picker_folder()->entries().size();
+        f.browser.close_tab(1);
+        f.browser.reopen_tab();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->is_archive());
+        CHECK(f.browser.picker_folder()->path() == archive);
+        CHECK(f.browser.picker_folder()->entries().size() == count);
+    }
 }

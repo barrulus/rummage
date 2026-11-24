@@ -3,14 +3,18 @@
 #include <cstddef>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "rummage/fs/directory_model.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/fs/subfolders.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
@@ -50,6 +54,46 @@ public:
     Sidebar(std::function<void()> redraw, std::function<void(ui::CursorShape)> set_cursor,
             std::function<void(const fs::Place&)> open);
 
+    void enable_tree(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
+                     std::shared_ptr<const fs::MimeDatabase> mime);
+    bool loading() const;
+    bool expandable(std::size_t row) const;
+
+    void set_show_hidden(bool hidden);
+    void toggle_folder(const std::filesystem::path& path, std::string_view root = {});
+
+    static bool child(const fs::Place& place) { return place.icon_key == "sidebar_child"; }
+
+    const std::vector<fs::Place>& sources() const { return sources_; }
+
+    static std::string place_key(const fs::Place& place);
+
+    static bool separator(const fs::Place& place) { return place.icon_key == "sidebar_separator"; }
+
+    void set_organization(std::vector<std::string> order, std::vector<std::string> hidden,
+                          std::vector<std::string> collapsed);
+
+    const auto& order() const { return order_; }
+
+    const auto& hidden() const { return hidden_; }
+
+    const auto& collapsed() const { return collapsed_; }
+
+    void hide_place(const fs::Place& place);
+    void restore_places();
+    void move_place(const fs::Place& place, int direction);
+    void add_separator(const fs::Place& before);
+    void remove_separator(const fs::Place& place);
+    void toggle_section(fs::Place::Section section);
+
+    void set_close_handler(std::function<void()> close) { close_ = std::move(close); }
+
+    void set_background_menu(std::function<void(float, float)> menu) {
+        background_menu_ = std::move(menu);
+    }
+
+    ui::Rect close_bounds() const { return close_bounds_; }
+
     // The eject icon of an external disk was clicked.
     void set_eject_handler(std::function<void(const fs::Place&)> eject) {
         eject_ = std::move(eject);
@@ -75,7 +119,15 @@ public:
               ui::IconSet& icons, const std::filesystem::path& current, Clock::time_point now);
 
     // Left out of this frame (no room, or hidden): it takes no pointer events.
-    void not_drawn() noexcept { bounds_ = {}; }
+    void not_drawn() noexcept {
+        bounds_ = {};
+        close_bounds_ = {};
+        drag_.reset();
+        moving_separator_.reset();
+        hovered_.reset();
+        hovered_eject_.reset();
+        pointer_inside_ = false;
+    }
 
     // Its width in a window this wide: narrowed to leave the view kMinContent, 0 when even
     // kMinWidth does not fit.
@@ -108,7 +160,22 @@ public:
 
     [[nodiscard]] bool focused() const noexcept { return focused_; }
 
+    [[nodiscard]] const fs::Place* hovered_place() const {
+        return pointer_inside_ && !bounds_.empty() && hovered_ && *hovered_ < places_.size()
+                   ? &places_[*hovered_]
+                   : nullptr;
+    }
+
+    void draw_drive_tooltip(ui::Renderer& renderer, const theme::Palette& palette,
+                            const ui::Rect& window, std::string_view text) const;
+
     [[nodiscard]] std::optional<std::size_t> cursor() const noexcept { return cursor_; }
+
+    [[nodiscard]] const fs::Place* cursor_place() const {
+        return cursor_ && *cursor_ < places_.size() ? &places_[*cursor_] : nullptr;
+    }
+
+    [[nodiscard]] std::pair<float, float> cursor_anchor() const;
 
     [[nodiscard]] bool animating() const noexcept { return scroller_.animating(); }
 
@@ -125,21 +192,20 @@ public:
     // A drag over that zone: a line shows where the bookmarks would go (after the last one).
     void set_bookmark_drop(bool shown);
 
-    // Bookmarks edited from the sidebar: renamed (an empty label gives the folder's name back),
-    // moved one shown bookmark up (step -1) or down (+1).
+    // Bookmarks renamed from the sidebar (an empty label gives the folder's name back).
     using RenameHandler =
         std::function<void(const std::filesystem::path& folder, const std::string& label)>;
-    using MoveHandler = std::function<void(const std::filesystem::path& folder, int step)>;
 
     void set_rename_handler(RenameHandler rename) { rename_ = std::move(rename); }
-
-    void set_move_handler(MoveHandler move) { move_ = std::move(move); }
 
     // A text field over the label of folder's bookmark, its label selected. Enter or a press
     // elsewhere confirms, Escape cancels. Nothing when folder is not a bookmark.
     void start_rename(const std::filesystem::path& folder);
 
     [[nodiscard]] bool renaming() const noexcept { return renaming_.has_value(); }
+
+    // The label's field, while renaming.
+    [[nodiscard]] const ui::TextField& field() const noexcept { return field_; }
 
     // While renaming every key is the field's (true).
     bool rename_key(const ui::KeyEvent& event);
@@ -151,10 +217,13 @@ public:
     // Text pasted into the field (its first line, control characters left out).
     void paste(std::string_view text);
 
+    // While renaming: the selected text, taken out of the label.
+    std::string cut();
+
     void confirm_rename();
     void cancel_rename();
 
-    // F2 (rename) and Alt+Up, Alt+Down (move) on the bookmark under the cursor, while focused.
+    // F2 renames a bookmark; Alt+Up/Down moves a Places entry or separator locally.
     // True for these keys even off a bookmark: they are the sidebar's, never the view's.
     bool edit_key(const ui::KeyEvent& event);
 
@@ -172,6 +241,26 @@ private:
         return kListSizes[list_size_].row / kListSizes[kUsualListSize].row;
     }
 
+    void rebuild();
+    using NodeId = std::pair<std::string, std::filesystem::path>;
+    void append_tree(fs::Place place, std::size_t depth, const std::string& root,
+                     bool link = false);
+    void toggle_row(std::size_t index);
+    void release_models();
+    void expand_folder(const std::filesystem::path& path);
+    std::function<std::unique_ptr<fs::DirectoryModel>()> make_model_;
+    std::map<std::filesystem::path, std::unique_ptr<fs::DirectoryModel>> models_;
+    std::unique_ptr<fs::Subfolders> subfolders_;
+    std::set<NodeId> expanded_;
+    std::vector<NodeId> node_ids_;
+    std::vector<std::size_t> depths_;
+    std::vector<bool> links_;
+    std::vector<fs::Place> sources_;
+    std::vector<std::string> order_, hidden_, collapsed_;
+    bool tree_hidden_{false}, rebuilding_{false};
+    ui::Rect close_bounds_{};
+    std::function<void()> close_;
+    std::function<void(float, float)> background_menu_;
     void layout();
     [[nodiscard]] std::optional<std::size_t> place_at(float x, float y) const;
     // The place whose eject icon is at a point (a little wider than the icon).
@@ -209,8 +298,8 @@ private:
     };
 
     std::optional<Drag> drag_;
+    std::optional<fs::Place> moving_separator_;
     RenameHandler rename_;
-    MoveHandler move_;
     ui::TextField field_;                            // the label being edited
     std::optional<std::filesystem::path> renaming_;  // whose bookmark
     std::string renaming_from_;                      // its label when the edit began

@@ -11,9 +11,11 @@
 
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/entry.hpp"
+#include "rummage/fs/filesystem.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
+#include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/selectable_text.hpp"
 
@@ -27,7 +29,15 @@ public:
     PropertiesDialog(core::WorkerPool& pool, std::shared_ptr<const fs::MimeDatabase> mime,
                      std::function<void()> redraw);
     ~PropertiesDialog();
-    void open(std::filesystem::path path, std::function<void()> changed, bool editable = true);
+    void open(std::filesystem::path path, std::function<void()> changed, bool editable = true,
+              bool drive = false, std::string label = {});
+
+    void open_drive(const std::filesystem::path& path, std::string label) {
+        open(path, {}, false, true, std::move(label));
+    }
+
+    [[nodiscard]] const fs::FilesystemFacts& filesystem() const { return data_.filesystem; }
+
     void close();
 
     void set_copy_handler(std::function<void(std::string)> handler) {
@@ -37,6 +47,13 @@ public:
 
     // Drawn selectable field geometry: name, type, or a metadata row's label.
     [[nodiscard]] ui::Rect text_bounds(std::string_view id) const { return text_.bounds(id); }
+
+    [[nodiscard]] ui::Rect control_bounds(std::string_view id) const {
+        for (const auto& control : controls_)
+            if (control.id == id)
+                return control.rect;
+        return {};
+    }
 
     [[nodiscard]] bool is_open() const { return open_; }
 
@@ -56,9 +73,21 @@ public:
 
     [[nodiscard]] const ui::Rect& card_bounds() const { return card_; }
 
+    [[nodiscard]] float scroll_offset() const { return scroller_.offset(); }
+
+    [[nodiscard]] ui::Rect scrollbar_bounds() const { return scrollbar_.thumb(scroller_); }
+
     [[nodiscard]] bool can_edit_icon() const;
 
-    [[nodiscard]] bool dirty() const { return draft_ != original_; }
+    [[nodiscard]] bool can_edit_permissions() const;
+
+    [[nodiscard]] std::uint16_t permissions() const { return permissions_; }
+
+    void set_permissions(std::uint16_t permissions);
+
+    [[nodiscard]] bool dirty() const {
+        return draft_ != original_ || permissions_ != (data_.mode & 0777);
+    }
 
     // Also used by keyboard interaction/tests; choosing only changes the draft.
     void choose_icon(std::string icon);
@@ -74,11 +103,15 @@ public:
 private:
     struct Data {
         fs::Entry entry;
+        fs::FilesystemFacts filesystem;
         preview::Info info;
+        preview::Summary summary;
         std::string icon;
         std::string icon_error;
         std::string default_icon;
         std::uint64_t device{0}, inode{0};
+        std::uint16_t mode{0};
+        bool owned{false};
     };
 
     struct Control {
@@ -87,6 +120,7 @@ private:
         bool enabled{true};
     };
 
+    [[nodiscard]] std::vector<std::pair<std::string, std::string>> property_rows() const;
     void activate(std::string_view id);
     void filter();
     void load_catalogue(std::string theme);
@@ -100,8 +134,12 @@ private:
     core::CancelToken load_job_, save_job_, icons_job_;
     bool open_{false}, loading_{false}, saving_{false}, picking_{false}, editable_{true};
     bool icons_loading_{false};
+    bool drive_{false};
+    std::string drive_label_;
+    bool details_expanded_{false}, copy_hovered_{false}, copied_{false};
     std::filesystem::path path_;
     Data data_;
+    std::uint16_t permissions_{0};
     std::string original_, draft_, error_, focus_{"close"};
     std::optional<std::string> catalogue_theme_;
     std::string resolved_theme_{"hicolor"};
@@ -112,7 +150,8 @@ private:
     ui::Rect grid_{};
     ui::Rect content_{};
     ui::Rect card_{};
-    float scroll_{0}, max_scroll_{0};
+    ui::Scroller scroller_;
+    ui::Scrollbar scrollbar_;
     std::uint64_t generation_{0};
     std::unique_ptr<ui::IconSet> preview_icons_;
     static constexpr std::size_t kPageSize = 15;

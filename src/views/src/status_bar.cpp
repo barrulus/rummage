@@ -18,11 +18,10 @@ constexpr float kPadding = 16.0F;
 constexpr float kButtonWidth = 30.0F;
 constexpr float kButtonHeight = 22.0F;
 constexpr float kButtonGap = 2.0F;
-constexpr float kHelpGap = 10.0F;  // between the views' buttons and "?"
+constexpr float kHelpGap = 10.0F;  // before transfer cancellation
 constexpr float kIconSize = 16.0F;
 constexpr float kProgressHeight = 2.0F;
-constexpr std::array<std::string_view, StatusBar::kViews + 1> kIcons{
-    "layout-columns", "layout-grid", "list-details", "help"};
+constexpr std::array<std::string_view, 2> kIcons{"settings", "help"};
 
 }  // namespace
 
@@ -51,9 +50,18 @@ std::string status_of(const Folder& folder) {
     if (model.loading()) {
         return prefix + i18n::trn("{} item, loading…", "{} items, loading…", count);
     }
-    std::string status = prefix + (i18n::trn("{} item", "{} items", count));
-    if (const std::size_t hidden = folder.hidden_count(); hidden > 0) {
-        status += i18n::trf(", {} hidden", hidden);
+    std::string status = prefix;
+    if (const auto* selected = folder.single_selection()) {
+        status += selected->name;
+    } else if (folder.selected_count() == 1) {
+        // Ctrl+navigation can move the cursor away from the only selected entry.
+        const auto names = folder.selected_names();
+        if (!names.empty())
+            status += names.front();
+    } else {
+        status += i18n::trn("{} item", "{} items", count);
+        if (const std::size_t hidden = folder.hidden_count(); hidden > 0)
+            status += i18n::trf(", {} hidden", hidden);
     }
     if (const auto problem = model.problem(); !problem.empty())
         status += "  ·  " + problem;
@@ -61,11 +69,11 @@ std::string status_of(const Folder& folder) {
 }
 
 StatusBar::StatusBar(core::EventLoop& loop, core::WorkerPool& pool, std::function<void()> redraw,
-                     std::function<void(std::size_t view)> choose_view, std::function<void()> help)
+                     std::function<void()> settings, std::function<void()> help)
     : loop_{loop},
       pool_{pool},
       redraw_{std::move(redraw)},
-      choose_view_{std::move(choose_view)},
+      settings_{std::move(settings)},
       help_{std::move(help)} {}
 
 StatusBar::~StatusBar() {
@@ -139,41 +147,32 @@ float StatusBar::height(ui::Renderer& renderer) const {
 }
 
 void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-                     ui::IconSet& icons, const Folder& folder, std::size_t view) {
+                     ui::IconSet& icons, const Folder& folder, bool settings_enabled) {
     bounds_ = bounds;
     renderer.push_clip(bounds);
     update(folder);
     renderer.fill_rect({bounds.x, bounds.y, bounds.width, 1.0F / renderer.scale()},
                        palette.outline_variant);
 
-    // The buttons, from the right: "?", then the views.
+    // One shared Settings button and shortcut help, aligned to the bottom right.
     const float top = bounds.y + ((bounds.height - kButtonHeight) / 2.0F);
     float x = bounds.right() - kPadding + kButtonGap;
-    for (std::size_t i = kViews + 1; i-- > 0;) {
+    for (std::size_t i = buttons_.size(); i-- > 0;) {
+        buttons_[i] = {};
+        if (i == 0 && !settings_enabled)
+            continue;
         x -= kButtonWidth + kButtonGap;
-        if (i == kViews - 1) {
-            x -= kHelpGap;
-        }
-        buttons_.at(i) = {x, top, kButtonWidth, kButtonHeight};
-    }
-    for (std::size_t i = 0; i <= kViews; ++i) {
-        const ui::Rect& button = buttons_.at(i);
-        const bool active = i == view;
-        if (active || hovered_ == i) {
-            renderer.draw_box(button, {.fill = active ? palette.surface_container_highest
-                                                      : palette.surface_container_high,
-                                       .radius = {}});
-        }
-        ui::Color color = hovered_ == i ? palette.on_surface : palette.on_surface_variant;
-        if (active) {
-            color = palette.primary;
-        }
+        const ui::Rect button{x, top, kButtonWidth, kButtonHeight};
+        buttons_[i] = button;
+        if (hovered_ == i)
+            renderer.draw_box(button, {.fill = palette.surface_container_high, .radius = {}});
+        const auto color = hovered_ == i ? palette.on_surface : palette.on_surface_variant;
         icons.draw(renderer, kIcons.at(i), button.x + ((kButtonWidth - kIconSize) / 2.0F),
                    button.y + ((kButtonHeight - kIconSize) / 2.0F), kIconSize, color);
     }
 
-    // A transfer: its progress along the top edge, a button to stop it before the views'.
-    float text_right = buttons_.front().x - kPadding;
+    // A transfer: its progress along the top edge, a button to stop it before Settings.
+    float text_right = x - kPadding;
     if (transfer_) {
         if (transfer_->fraction >= 0.0F) {
             renderer.fill_rect(
@@ -181,8 +180,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
                  kProgressHeight},
                 palette.primary);
         }
-        cancel_button_ = {buttons_.front().x - kHelpGap - kButtonWidth, top, kButtonWidth,
-                          kButtonHeight};
+        cancel_button_ = {x - kHelpGap - kButtonWidth, top, kButtonWidth, kButtonHeight};
         if (cancel_hovered_) {
             renderer.draw_box(cancel_button_,
                               {.fill = palette.surface_container_high, .radius = {}});
@@ -205,6 +203,7 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
 
     // The message, else a transfer, else the status and the free space; cut in the middle when
     // the buttons leave too little room.
+    const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     std::string text = message_;
     ui::Color color = message_error_ ? palette.error : palette.on_surface;
     if (message_.empty() && transfer_) {
@@ -213,12 +212,17 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     } else if (message_.empty()) {
         text = status_of(folder);
         if (free_ && !folder.model().error()) {
-            text += i18n::trf("  ·  {} free of {}", format_size(free_->free),
-                              format_size(free_->total));
+            const auto with_space = text + i18n::trf("  ·  {} free of {}", format_size(free_->free),
+                                                     format_size(free_->total));
+            // Give the selected filename the full bar before truncating it for disk usage.
+            if (folder.selected_count() != 1 ||
+                renderer.fonts().layout(with_space, text_size_, renderer.scale()).width /
+                        renderer.scale() <=
+                    room)
+                text = with_space;
         }
         color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }
-    const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     const auto& line =
         renderer.fonts().layout(text, text_size_, renderer.scale(), room, ui::Ellipsis::middle);
     const float line_height = (line.ascent + line.descent) / renderer.scale();
@@ -270,12 +274,12 @@ void StatusBar::pointer(const ui::PointerEvent& event) {
     if (event.kind != Kind::press || event.button != ui::PointerButton::left || !over) {
         return;
     }
-    if (*over == kViews) {
+    if (*over == 1) {
         if (help_) {
             help_();
         }
-    } else if (choose_view_) {
-        choose_view_(*over);
+    } else if (settings_) {
+        settings_();
     }
 }
 

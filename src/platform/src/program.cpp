@@ -55,6 +55,11 @@ bool is_elf_program(
     if (type != kTypeDyn) {
         return false;  // an object file, a core dump
     }
+    // An AppImage's runtime is a static PIE: no PT_INTERP, but the AppImage magic in the ELF
+    // header's padding ("AI" and the type, 1 or 2, at byte 8), as the AppImage spec puts it.
+    if (header[8] == 'A' && header[9] == 'I' && (header[10] == 1 || header[10] == 2)) {
+        return true;
+    }
     const std::uint64_t offset =
         wide ? number(bytes.subspan(32, 8), little) : number(bytes.subspan(28, 4), little);
     const auto size = static_cast<std::uint16_t>(number(bytes.subspan(wide ? 54 : 42, 2), little));

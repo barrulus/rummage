@@ -1,5 +1,6 @@
 #include "rummage/svg/svg.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <iterator>
@@ -22,9 +23,6 @@ rummage::picture::Image render(std::string_view source, int pixels = 64) {
 TEST_CASE("svg: invalid input and dimensions fail cleanly") {
     CHECK(render("").empty());
     CHECK(render("not SVG").empty());
-    CHECK(render("<svg/>").empty());
-    CHECK(render("<svg width='nan' height='1'/>").empty());
-    CHECK(render("<svg width='1e999' height='1'/>").empty());
     CHECK(render("<svg width='64' height='64'/>", 0).empty());
     CHECK(render("<svg width='64' height='64'/>", 1000000).empty());
     CHECK(render(std::string(8U * 1024U * 1024U + 1U, ' ')).empty());
@@ -49,23 +47,6 @@ TEST_CASE("svg: rectangle retains aspect ratio and straight alpha") {
     }
 }
 
-TEST_CASE("svg: XML nesting and element limits reject before rendering") {
-    std::string source = "<svg width='1' height='1'>";
-    for (int i = 0; i < 257; ++i) {
-        source += "<g>";
-    }
-    for (int i = 0; i < 257; ++i) {
-        source += "</g>";
-    }
-    source += "</svg>";
-    CHECK(render(source).empty());
-    source = "<svg width='1' height='1'>";
-    for (int i = 0; i < 100001; ++i) {
-        source += "<g/>";
-    }
-    CHECK(render(source + "</svg>").empty());
-}
-
 TEST_CASE("svg: XML declarations, comments, namespaces and entities") {
     const auto image = render(
         "<?xml version='1.0'?><!-- icon -->"
@@ -78,15 +59,6 @@ TEST_CASE("svg: XML declarations, comments, namespaces and entities") {
     CHECK(render("<!DOCTYPE svg [<!ENTITY x SYSTEM 'file:///etc/passwd'>]>"
                  "<svg width='1' height='1'>&x;</svg>")
               .empty());
-}
-
-TEST_CASE("svg: large coordinates and raster work fail cleanly") {
-    CHECK(render("<svg width='1' height='1'><rect width='1e300' height='1'/></svg>").empty());
-    std::string source = "<svg width='64' height='64'>";
-    for (int i = 0; i < 65; ++i) {
-        source += "<rect width='64' height='64'/>";
-    }
-    CHECK(render(source + "</svg>", 1024).empty());
 }
 
 TEST_CASE("svg: solid rectangle matches its captured reference") {
@@ -120,13 +92,54 @@ TEST_CASE("svg hardening: the input cap includes otherwise ignored content") {
     CHECK(render(source + " ", 1).empty());
 }
 
-TEST_CASE("svg hardening: exceptions from warning callbacks cannot escape render") {
+TEST_CASE("svg: shared adapter bounds dimensions and reports failures") {
     const std::string source =
-        "<svg width='1' height='1'><filter id='f'><feOffset/></filter>"
-        "<rect width='1' height='1' filter='url(#f)'/></svg>";
-    CHECK(
-        rummage::svg::render({reinterpret_cast<const std::uint8_t*>(source.data()), source.size()},
-                             1, {[](void*, std::string_view) { throw 1; }, nullptr})
-            .empty());
-    CHECK_FALSE(render("<svg width='1' height='1'/>", 1).empty());
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 10'>"
+        "<rect width='20' height='10' fill='red'/></svg>";
+    const auto bytes =
+        std::span{reinterpret_cast<const std::uint8_t*>(source.data()), source.size()};
+    const auto narrow = rummage::svg::render(bytes, 30, 200);
+    REQUIRE(narrow.failure == rummage::picture::Failure::none);
+    CHECK(narrow.image.width == 30);
+    CHECK(narrow.image.height == 15);
+    CHECK(narrow.full_width == 0);
+    CHECK(narrow.full_height == 0);
+    for (const auto bound : {0U, 1024U, 4096U, UINT32_MAX}) {
+        const auto image = rummage::svg::render(bytes, bound, bound).image;
+        CHECK(image.width == 1024);
+        CHECK(image.height == 512);
+    }
+    const auto empty = rummage::svg::render({}, 64, 64);
+    CHECK(empty.failure == rummage::picture::Failure::damaged);
+    CHECK_FALSE(empty.detail.empty());
+    const std::vector<std::uint8_t> large(rummage::svg::kMaxInputBytes + 1, ' ');
+    CHECK(rummage::svg::render(large, 64, 64).failure == rummage::picture::Failure::too_large);
+    CHECK_FALSE(render(source).empty());
+}
+
+TEST_CASE("svg: missing intrinsic dimensions use the bounded default viewport") {
+    const auto image = render(
+        "<svg xmlns='http://www.w3.org/2000/svg'>"
+        "<rect width='100%' height='100%' fill='red'/></svg>",
+        32);
+    REQUIRE(image.width == 32);
+    REQUIRE(image.height == 32);
+    CHECK(image.rgba.front() == 255);
+    CHECK(image.rgba.back() == 255);
+    CHECK(render("<svg width='1' width='2' height='1'/>").empty());
+}
+
+TEST_CASE("svg: recursive references terminate and do not poison later renders") {
+    const auto image = render(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'>"
+        "<use href='#loop' id='loop'/></svg>",
+        8);
+    REQUIRE(image.width == 8);
+    REQUIRE(image.height == 8);
+    CHECK(std::ranges::all_of(image.rgba, [](auto v) { return v == 0; }));
+    const auto good =
+        render("<svg width='8' height='8'><rect width='8' height='8' fill='red'/></svg>", 8);
+    REQUIRE_FALSE(good.empty());
+    CHECK(good.rgba.front() == 255);
+    CHECK(good.rgba.back() == 255);
 }

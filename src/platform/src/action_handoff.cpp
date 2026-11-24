@@ -4,6 +4,7 @@
 #include <array>
 #include <cerrno>
 #include <climits>
+#include <cstdlib>
 #include <fcntl.h>
 #include <format>
 #include <string_view>
@@ -37,6 +38,112 @@ using SharedFd = std::shared_ptr<Descriptor>;
 SharedFd channel() {
     return std::make_shared<Descriptor>(memfd_create("rummage-action-output", MFD_CLOEXEC));
 }
+
+struct ArchiveVolumeName {
+    enum class Kind { rar, numbered_rar, split_seven_zip };
+    std::string base;
+    std::string suffix;
+    Kind kind{};
+};
+
+std::optional<ArchiveVolumeName> archive_volume_name(std::string name) {
+    using Kind = ArchiveVolumeName::Kind;
+    auto lower = name;
+    for (auto& c : lower)
+        if (c >= 'A' && c <= 'Z')
+            c = static_cast<char>(c + ('a' - 'A'));
+    const auto digits = [](std::string_view text) {
+        return !text.empty() &&
+               std::ranges::all_of(text, [](char c) { return c >= '0' && c <= '9'; });
+    };
+    const auto split = lower.rfind(".7z.");
+    if (split != std::string::npos) {
+        const auto number = std::string_view{lower}.substr(split + 4);
+        if (number.size() >= 3 && digits(number))
+            return ArchiveVolumeName{name.substr(0, split), lower.substr(split),
+                                     Kind::split_seven_zip};
+    }
+    if (lower.ends_with(".rar")) {
+        const auto part = lower.rfind(".part");
+        if (part != std::string::npos &&
+            digits(std::string_view{lower}.substr(part + 5, lower.size() - part - 9)))
+            return ArchiveVolumeName{name.substr(0, part), lower.substr(part), Kind::numbered_rar};
+        return ArchiveVolumeName{name.substr(0, name.size() - 4), ".rar", Kind::rar};
+    }
+    // Old-style volumes continue from .rar to .r00 ... .r99, .s00, and so on.
+    if (lower.size() >= 4) {
+        const auto suffix = lower.substr(lower.size() - 4);
+        if (suffix[0] == '.' && suffix[1] >= 'r' && suffix[1] <= 'z' &&
+            digits(std::string_view{suffix}.substr(2)))
+            return ArchiveVolumeName{name.substr(0, name.size() - 4), suffix, Kind::rar};
+    }
+    return std::nullopt;
+}
+
+// RAR and split 7z tools derive the next volume's filename from the input name. Give them a private
+// set of aliases with the same numbering, without interpreting wildcards in user filenames.
+// The selected file stays pinned to the inherited fd; siblings are opened by path as needed,
+// just as when opening a multipart archive directly in an archive manager.
+struct ArchiveVolumes {
+    std::filesystem::path directory;
+    std::filesystem::path input;
+    std::vector<std::filesystem::path> aliases;
+    bool in_use{};
+
+    ArchiveVolumes() = default;
+    ArchiveVolumes(const ArchiveVolumes&) = delete;
+    ArchiveVolumes& operator=(const ArchiveVolumes&) = delete;
+
+    ~ArchiveVolumes() {
+        // Launcher lets children finish when rummage closes. Leave their input aliases in
+        // the temporary directory rather than breaking an extraction still in progress.
+        if (in_use)
+            return;
+        for (const auto& alias : aliases)
+            unlink(alias.c_str());
+        if (!directory.empty())
+            rmdir(directory.c_str());
+    }
+
+    std::error_code prepare(const std::filesystem::path& source) {
+        std::error_code error;
+        const auto parent = std::filesystem::absolute(source, error).parent_path();
+        if (error)
+            return error;
+        const auto temp = std::filesystem::temp_directory_path(error);
+        if (error)
+            return error;
+        auto pattern = (temp / "rummage-volumes-XXXXXX").string();
+        if (!mkdtemp(pattern.data()))
+            return {errno, std::generic_category()};
+        directory = pattern;
+        const auto selected = archive_volume_name(source.filename().string());
+        const auto link = [&](const std::filesystem::path& target, const std::string& suffix) {
+            const auto alias = directory / ("archive" + suffix);
+            std::filesystem::create_symlink(target, alias, error);
+            if (!error)
+                aliases.push_back(alias);
+            return alias;
+        };
+        input = link("/proc/self/fd/3", selected ? selected->suffix : ".rar");
+        if (error || !selected)
+            return error;
+        std::filesystem::directory_iterator entries{parent, error};
+        const std::filesystem::directory_iterator end;
+        while (!error && entries != end) {
+            const auto& entry = *entries;
+            const auto filename = entry.path().filename();
+            const auto volume = archive_volume_name(filename.string());
+            if (filename != source.filename() && volume && volume->base == selected->base &&
+                volume->kind == selected->kind && entry.is_regular_file(error)) {
+                link(entry.path(), volume->suffix);
+            }
+            if (!error)
+                entries.increment(error);
+        }
+        return error;
+    }
+};
 
 std::string diagnostic(int fd) {
     if (fd < 0)
@@ -302,6 +409,19 @@ struct ActionHandoff::Extraction {
     SharedFd output;
     SharedFd errors;
     SharedFd password;
+    ArchiveVolumes volumes;
+    bool split_seven_zip{};
+
+    std::vector<std::string> command(const ArchiveBackend& engine, bool stream = false) const {
+        const auto input_path =
+            volumes.input.empty() ? std::filesystem::path{"/proc/self/fd/3"} : volumes.input;
+        auto args = archive_command(engine, input_path, stream, static_cast<bool>(password));
+        // Older p7zip otherwise reports encrypted split headers as an unrecognized inner
+        // archive instead of a password error, preventing the password dialog from opening.
+        if (split_seven_zip)
+            args.insert(args.begin() + 2, "-t7z.split");
+        return args;
+    }
 };
 
 bool ActionHandoff::available(const core::Action& action,
@@ -506,6 +626,18 @@ void ActionHandoff::extract(const core::ActionTarget& target, const ArchiveBacke
                         "Choose an archive file and try again.");
         return;
     }
+    const auto volume = archive_volume_name(target.path.filename().string());
+    job->split_seven_zip = backend.kind == ArchiveBackend::Kind::seven_zip && volume &&
+                           volume->kind == ArchiveVolumeName::Kind::split_seven_zip;
+    if (job->split_seven_zip || backend.kind == ArchiveBackend::Kind::unrar ||
+        target.mime == "application/vnd.rar" || target.mime == "application/x-rar" ||
+        target.mime == "application/x-rar-compressed") {
+        if (const auto error = job->volumes.prepare(target.path)) {
+            archive_problem(job, i18n::trf("Cannot read archive: {}", error.message()),
+                            "Check that the source still exists and is readable, then try again.");
+            return;
+        }
+    }
     job->errors = channel();
     if (job->errors->fd < 3) {
         archive_problem(job,
@@ -558,8 +690,7 @@ void ActionHandoff::probe_archive(std::shared_ptr<Extraction> job, bool verify) 
     }
     auto backend = job->backend;
     backend.single_file = false;
-    auto args =
-        archive_command(backend, "/proc/self/fd/3", false, static_cast<bool>(job->password));
+    auto args = job->command(backend);
     const bool rar = backend.kind == ArchiveBackend::Kind::unrar;
     args[1] = verify ? "t" : (rar ? "lt" : "l");
     if (!verify) {
@@ -584,9 +715,11 @@ void ActionHandoff::probe_archive(std::shared_ptr<Extraction> job, bool verify) 
                         "Start extraction again and re-enter the password.");
         return;
     }
+    job->volumes.in_use = true;
     const auto error = launcher_.spawn(
         args, {}, std::vector<std::string>{"LC_ALL=C.UTF-8", "RAR=", "PATH=" + environment_.path},
         [this, alive = alive_, job, output, verify, rar](const Launcher::Exit& result) {
+            job->volumes.in_use = false;
             if (!*alive)
                 return;
             const auto detail = diagnostic(job->errors->fd) + "\n" + diagnostic(output->fd);
@@ -606,10 +739,12 @@ void ActionHandoff::probe_archive(std::shared_ptr<Extraction> job, bool verify) 
             extract_step(job);
         },
         output->fd, job->errors->fd, job->password ? job->password->fd : -1, job->input->fd);
-    if (error)
+    if (error) {
+        job->volumes.in_use = false;
         archive_problem(
             job, i18n::trf("Cannot start {}: {}", job->backend.program.string(), error.message()),
             archive_install_hint({job->source, job->mime}));
+    }
 }
 
 void ActionHandoff::ask_password(std::shared_ptr<Extraction> job) {
@@ -714,10 +849,9 @@ void ActionHandoff::extract_step(std::shared_ptr<Extraction> job, bool second_pa
                         "Check destination permissions and free disk space, then retry.");
         return;
     }
-    // A regular inherited fd avoids filename wildcard expansion inside unzip and 7z, and
-    // pins the source through both process launch and extraction. No shell or command string.
-    const auto args =
-        archive_command(backend, "/proc/self/fd/3", stream, static_cast<bool>(job->password));
+    // Multipart aliases preserve volume numbering; other inputs use the inherited fd directly.
+    // Neither exposes user filenames to the extractor's wildcard expansion.
+    const auto args = job->command(backend, stream);
     if (job->password && lseek(job->password->fd, 0, SEEK_SET) < 0) {
         archive_problem(job,
                         i18n::trf("Cannot read the submitted password: {}",
@@ -732,11 +866,13 @@ void ActionHandoff::extract_step(std::shared_ptr<Extraction> job, bool second_pa
                         "Close unused applications and try again.");
         return;
     }
+    job->volumes.in_use = true;
     const auto error = launcher_.spawn(
         args, job->contents,
         std::vector<std::string>{"UNZIP=", "UNZIPOPT=", "ZIPINFO=", "ZIPINFOOPT=", "TAR_OPTIONS=",
                                  "GZIP=", "LC_ALL=C.UTF-8", "RAR=", "PATH=" + environment_.path},
         [this, alive = alive_, job, second_pass, stream](const Launcher::Exit& result) {
+            job->volumes.in_use = false;
             if (!*alive)
                 return;
             if (result.status != 0 || result.signal != 0) {
@@ -771,6 +907,7 @@ void ActionHandoff::extract_step(std::shared_ptr<Extraction> job, bool second_pa
         },
         job->output->fd, job->errors->fd, job->password ? job->password->fd : -1, job->input->fd);
     if (error) {
+        job->volumes.in_use = false;
         archive_problem(
             job, i18n::trf("Cannot start {}: {}", job->backend.program.string(), error.message()),
             archive_install_hint({job->source, job->mime}));

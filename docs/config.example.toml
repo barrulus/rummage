@@ -7,6 +7,19 @@
 # rummage reads the file again when it changes: appearance, status bar, pointer, icons and
 # keybindings, terminal and font size at once; font families at the next start.
 
+# View → Show thumbnail and file-extension visibility are saved in state.toml,
+# as view.show_thumbnails and view.show_extensions (both default to true).
+
+# Optional sidebar organization overrides. Omit lists to use remembered UI choices.
+# Lists apply at startup and when changed; [] explicitly clears that list.
+# Built-ins: place:home, place:downloads, place:music, place:filesystem, place:trash.
+# Devices: uuid:UUID, device:UDISKS_OBJECT_PATH, or mount:/mount/path as fallback.
+# Bookmarks: path:/absolute/path or uri:sftp://server/path.
+# Separators: separator:SECTION:ID (0 Places, 1 Bookmarks, 2 Devices).
+[sidebar]
+# order = ["place:home", "separator:0:0", "place:downloads"]
+# hidden = ["place:music"]
+
 [appearance]
 # Background only (0-1); text, icons and thumbnails retain their original opacity.
 # Transparency is disabled by default (1.0). Keep compositor window opacity at 1.0.
@@ -14,6 +27,7 @@
 background_opacity = 1.0
 # "auto" prefers colors.toml, then desktop preferences, then the built-in palette.
 # "desktop" ignores colors.toml; "file" uses it; "builtin" ignores both sources.
+# "kde" imports the active colours from $XDG_CONFIG_HOME/kdeglobals (normally ~/.config/kdeglobals).
 # An unavailable explicit source falls back to built-in without changing this setting.
 palette_source = "auto"
 # "system" follows the selected source's mode.
@@ -24,11 +38,22 @@ color_scheme = "system"
 preview_position = "right"
 
 [animations]
-# Built-in motion effects, applied live. System reduced motion suppresses all new effects.
+# Motion effects, applied live. System reduced motion also suppresses persistent effects.
 enabled = true
 duration_scale = 1.0  # 0-4; 0 is immediate; scaled durations are capped at 2 seconds
 reduce_motion = "system"  # system, always, never
 quality = "auto"          # auto (16 MiB cap), low (fade), high (32 MiB cap)
+hologram_spread = 2.0     # Colour separation in physical pixels, 0-12
+portal_rotation = 2.5     # Maximum rotation in radians, 0-12
+
+[animations.ambient]
+# Persistent effects are opt-in and pause when the window is inactive.
+background = false
+selection_glow = false
+speed = 1.0       # 0-4; 0 freezes the effect
+intensity = 0.15  # 0-1; 0 disables persistent effects
+fps = 30         # 1-60; maximum idle animation rate
+shader = ""      # Empty: built-in background. Otherwise an absolute .frag path; see docs/motion.md.
 
 [animations.events]
 # Every event accepts a built-in effect name or "none". See docs/motion.md.
@@ -97,7 +122,7 @@ double_click_ms = 400
 double_click_distance = 4
 
 [icon]
-# "system" follows the desktop icon theme at startup (GTK/KDE/qt6ct settings).
+# "system" follows the desktop icon theme live (GTK/KDE/qt6ct settings).
 # An installed theme name, e.g. "candy-icons", selects it explicitly; "builtin" uses Tabler.
 # SVG and PNG icons are supported, with inherited themes and built-in fallbacks.
 theme = "system"
@@ -146,9 +171,34 @@ follow_accent = true
 # scroll_preview_page_down = "Alt+Page_Down" # ... and a page down
 # toggle_sidebar = "Ctrl+b"     # Show/hide the sidebar
 # focus_sidebar = "F6"          # Move focus into/out of the sidebar
+# focus_files = "Shift+F6"       # Return to file browsing
+# focus_places = ""              # Focus Places explicitly
+# edit_path = "Alt+d"            # Edit the breadcrumb path
 # toggle_hidden = "Ctrl+h"      # Show/hide hidden files
+# toggle_thumbnails = ""        # Thumbnails/icons; unbound by default, e.g. Ctrl+Alt+t
+# toggle_extensions = ""        # File extensions; unbound by default, e.g. Ctrl+Alt+e
 # add_bookmark = "Ctrl+d"       # Add the folder to the sidebar
 # go_to = "Ctrl+l"              # Go to a folder or a server (smb://, sftp://)
+
+# Browsing: one chord replaces every default for the action.
+# open_selected = "Return"      # Also Alt+Down by default
+# parent_folder = "BackSpace"   # Also Alt+Up by default
+# open_selected_tab = "Ctrl+Return"
+# open_other_pane = "Ctrl+Alt+Return"
+# expand_folder = ""            # Explicit expand/open command
+# collapse_folder = ""          # Explicit collapse/parent command
+# focus_first_pane = ""         # Left or top, when split
+# focus_second_pane = ""        # Right or bottom, when split
+# move_up = "Up"
+# move_down = "Down"
+# move_left = "Left"            # Hierarchy in Columns/Details
+# move_right = "Right"
+# page_up = "Page_Up"
+# page_down = "Page_Down"
+# first_entry = "Home"
+# last_entry = "End"
+# Movement base chords must leave Ctrl/Shift free for selection gestures.
+# Example: move_down="j", move_up="k", command_palette="Ctrl+Shift+p".
 
 # Commands and help
 # show_settings = "Ctrl+comma" # Open Settings (Ctrl+,)
@@ -158,6 +208,7 @@ follow_accent = true
 # show_shortcuts = "F1"         # Also ? by default (Shift is ignored)
 # context_menu = "Menu"         # Also F10/Shift+F10 by default (Shift is ignored)
 # properties = "Alt+Return"     # File/folder properties and folder icon selection
+# copy_path = "Ctrl+Shift+c"   # Copy the folder's path
 # open_terminal = "F4"          # Open in a terminal
 
 # Folder history
@@ -166,6 +217,9 @@ follow_accent = true
 
 # Selection
 # select_all = "Ctrl+a"         # Select all files
+# select_pattern = "Ctrl+s"     # Select by filename pattern
+# reset_folder_view = ""        # Use default view for this folder
+# invert_selection = "Ctrl+Shift+i"
 # toggle_selection = "Ctrl+space" # Select/unselect the focused entry
 
 # Panes (Tab switches only while browsing; dialogs and text fields keep Tab)
@@ -176,11 +230,11 @@ follow_accent = true
 # These commands have no default shortcut; bind them if useful:
 # swap_panes = "Ctrl+Shift+s"
 # orient_panes = "Ctrl+Shift+F3"
-# open_other_pane = "Ctrl+Shift+o"
 # same_other_pane = "Ctrl+Shift+d"
 
 # Tabs (within the active pane)
 # new_tab = "Ctrl+t"
+# reopen_tab = "Ctrl+Shift+t"
 # close_tab = "Ctrl+w"
 # next_tab = "Ctrl+Tab"
 # previous_tab = "Ctrl+Shift+Tab"
@@ -210,13 +264,6 @@ follow_accent = true
 # Fixed shortcuts (reference only; these are not configurable action names):
 # Ctrl+q                  Quit
 # Alt+1 ... Alt+9         Select a numbered tab
-# Up/Down                Move between entries
-# Left/Right             Move in the grid; parent/open in columns;
-#                        collapse/expand in details
-# Home/End, Page_Up/Page_Down  First/last entry, previous/next page
-# Return                 Open the focused entry
-# Alt+Down               Open in grid/details
-# BackSpace, Alt+Up       Parent folder
 # Shift+movement         Select a range
 # Ctrl+movement          Move focus without changing selection
 # Escape                 Collapse selection to one entry
@@ -489,10 +536,12 @@ follow_accent = true
 #   { id = "properties", separator = true },
 # ]
 #
-# Sidebar: devices show Mount/Unmount and, when supported, Eject; bookmarks show editing,
-# reordering and removal commands; Trash shows Empty Trash. Other places have no context menu.
+# Sidebar: places support opening in a tab or pane, a terminal, path copying and Properties.
+# Devices also show Mount/Unmount/Eject; bookmarks show editing, reordering and removal;
+# Trash shows Empty Trash. Keep remaining to include new actions after upgrades.
 # Mount/Unmount are enabled according to the device's mounted state.
 # sidebar = [
+#   { remaining = true },
 #   { id = "rename_bookmark" },
 #   { id = "choose_bookmark_folder" },
 #   { id = "move_bookmark_up", separator = true },

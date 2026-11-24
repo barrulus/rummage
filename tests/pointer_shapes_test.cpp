@@ -171,9 +171,9 @@ TEST_CASE("pointer shapes: buttons use hands and selectable metadata uses text c
     // The status bar's buttons are hands; its text is not.
     CHECK(f.find(CursorShape::pointer, [&](float x, float y) { return status.claims(x, y); }));
     CHECK(f.find(CursorShape::standard, [&](float x, float y) { return status.claims(x, y); }));
-    // The crumbs that open a folder are hands; the folder shown and the bar around are not.
+    // Ancestors navigate; the current segment and empty space edit the path.
     CHECK(f.find(CursorShape::pointer, [&](float x, float y) { return path.claims(x, y); }));
-    CHECK(f.find(CursorShape::standard, [&](float x, float y) { return path.claims(x, y); }));
+    CHECK_FALSE(f.find(CursorShape::standard, [&](float x, float y) { return path.claims(x, y); }));
     // The disk's eject icon is a hand; the places themselves are arrows.
     CHECK(f.find(CursorShape::pointer, [&](float x, float y) { return sidebar.claims(x, y); }));
     CHECK(f.find(CursorShape::standard, [&](float x, float y) { return sidebar.claims(x, y); }));
@@ -371,7 +371,7 @@ TEST_CASE("toolbar: filter and New Folder buttons work in each view") {
     }
 }
 
-TEST_CASE("toolbar: font metrics keep labels and fields apart at every scale") {
+TEST_CASE("toolbar: compact icons leave usable filter fields at every scale") {
     for (const auto* family : {"sans-serif", "monospace"}) {
         Fixture f{family};
         if (!f.gl) {
@@ -392,18 +392,16 @@ TEST_CASE("toolbar: font metrics keep labels and fields apart at every scale") {
                     f.browser.draw(*f.renderer, {0, 0, width, kHeight / scale},
                                    rummage::theme::Palette{}, *f.icons, Browser::Clock::now());
                     f.renderer->end_frame();
-                    const float label_width = f.fonts->layout("Filter", 13, scale).width / scale;
                     const auto field = f.browser.filter_bounds();
-                    CHECK(field.x >= (width >= 300 ? 10 + label_width + 9 : 10));
+                    CHECK(field.x >= 40);
                     CHECK(field.width >= 48);
-                    CHECK(field.right() <= width - 10);
+                    CHECK(field.right() <= width - 6);
                     CHECK(f.browser.cursor_at(field.x + 2, field.y + 2) == CursorShape::text);
                     const auto button = f.browser.new_folder_bounds();
                     if (!button.empty()) {
-                        CHECK(field.right() + 8 <= button.x);
-                        CHECK(button.right() <= width - 10);
-                        const float label = f.fonts->layout("New Folder", 13, scale).width / scale;
-                        CHECK(button.width >= label + 20);
+                        CHECK(field.right() + 4 <= button.x);
+                        CHECK(button.right() <= width - 6);
+                        CHECK(button.width == 30);
                     }
                 }
             }

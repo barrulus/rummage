@@ -4,8 +4,8 @@
 #include "rummage/svg/svg.hpp"
 
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
-    // Keep seeds as literal SVGs and exercise both tiny and larger offscreen layers.
-    const int pixels = size % 16 == 0 ? 128 : size % 16 == 1 ? 1 : 16;
-    static_cast<void>(rummage::svg::render({data, size}, pixels));
+    const std::uint32_t width = size ? 1U + data[0] : 256U;
+    const std::uint32_t height = size > 1 ? 1U + data[1] : 256U;
+    static_cast<void>(rummage::svg::render({data, size}, width, height));
     return 0;
 }

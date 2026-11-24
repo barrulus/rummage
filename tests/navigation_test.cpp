@@ -55,6 +55,7 @@ KeyEvent key(xkb_keysym_t keysym, Modifiers modifiers = {}) {
 
 const Modifiers kAlt{.alt = true};
 const Modifiers kCtrl{.ctrl = true};
+const Modifiers kCtrlShift{.ctrl = true, .shift = true};
 
 Names names_of(const Folder& folder) {
     Names names;
@@ -265,6 +266,55 @@ TEST_CASE("hidden files: left out at first, Ctrl+H shows them in every view") {
         CHECK(f.shown()->selected_count() == 3);
         CHECK(f.shown()->selected_names() == Names{"a", "b", "c.txt"});
     }
+}
+
+TEST_CASE("selection: Ctrl+Shift+I inverts it in every view, hidden files left out") {
+    for (const Browser::Mode mode :
+         {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f;
+        f.browser.open(f.root);
+        f.browser.set_mode(mode);
+        REQUIRE(f.settle());
+        f.put_cursor("a");
+        f.press(key(XKB_KEY_I, kCtrlShift));
+        CHECK(f.shown()->selected_names() == Names{"b", "c.txt"});
+        CHECK(f.cursor() == "a");
+        f.press(key(XKB_KEY_i, kCtrlShift));  // with Caps Lock on
+        CHECK(f.shown()->selected_names() == Names{"a"});
+        CHECK(f.cursor() == "a");
+
+        // With everything selected, inverting leaves nothing selected; the cursor stays.
+        f.press(key(XKB_KEY_a, kCtrl));
+        f.press(key(XKB_KEY_I, kCtrlShift));
+        CHECK(f.shown()->selected_count() == 0);
+        CHECK(f.cursor() == "a");
+        CHECK(rummage::views::status_of(*f.shown()) == "3 items, 2 hidden");
+
+        // Shown, the hidden files are inverted too; left out again, they leave the selection.
+        f.press(key(XKB_KEY_h, kCtrl));
+        f.press(key(XKB_KEY_I, kCtrlShift));
+        CHECK(f.shown()->selected_count() == 5);
+        f.press(key(XKB_KEY_h, kCtrl));
+        CHECK(f.shown()->selected_names() == Names{"a", "b", "c.txt"});
+    }
+}
+
+TEST_CASE("selection: Ctrl+Shift+I drops a paste on its way, the cursor with it") {
+    Fixture f;
+    f.browser.open(f.root);
+    f.browser.set_mode(Browser::Mode::details);
+    REQUIRE(f.settle());
+    f.put_cursor("a");
+    f.shown()->expect_names({"new.txt"});  // the cursor waits for it
+    f.press(key(XKB_KEY_I, kCtrlShift));
+    CHECK(f.shown()->selected_names() == Names{"a", "b", "c.txt"});
+    CHECK(f.cursor() == "a");
+
+    std::ofstream{f.root / "new.txt"} << "x";
+    REQUIRE(run_until(f.loop, [&] { return f.shown()->entries().size() == 4; }));
+    CHECK(f.shown()->selected_names() == Names{"a", "b", "c.txt"});
+    CHECK(f.cursor() == "a");
 }
 
 TEST_CASE("hidden files: the cursor on one moves to the nearest entry shown") {

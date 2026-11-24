@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@ namespace rummage::views {
 
 struct FileOperation {
     enum class Kind : std::uint8_t {
+        group,         // move into/out of a directory owned by this operation
         batch_rename,  // all explicit names, including sidecars, in one transaction
         rename,        // one item: from the old name to the new (its sidecars follow)
         create,        // one item: to = the new folder or file; from = its template, or empty
@@ -25,11 +27,19 @@ struct FileOperation {
         erase,         // cannot be undone
     };
 
+    struct CreatedFile {
+        std::uintmax_t size;
+        std::filesystem::file_time_type modified;
+    };
+
     Kind kind{Kind::copy};
     std::vector<fs::PlacedItem> items;    // sidecars left out: they follow their photo
     std::vector<fs::ModeChange> modes{};  // permissions only
     // Groups that cannot be safely undone (replacements or preexisting sidecars).
     std::size_t undo_excluded{0};
+    std::optional<CreatedFile> created_file{};  // clipboard content, checked before undo
+    fs::GroupFolder group_folder{};
+    bool grouped{false};
     std::vector<fs::RenameChange> renames{};  // batch rename identities and exact sidecar set
 };
 

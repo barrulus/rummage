@@ -31,18 +31,101 @@ supports compose input, word movement, selection, clipboard paste and local
 undo/redo. Paste uses the first line of clipboard text. While editing a name,
 Ctrl+Z edits that text rather than undoing a file operation.
 
+When the clipboard contains an image or plain text, **Ctrl+V** creates a file in
+the current folder. Images retain their offered format (PNG, JPEG, WebP, GIF,
+TIFF, BMP or SVG); plain text becomes a `.txt` file. Image data takes priority
+over a text alternative. Clipboard file lists still copy or move the original
+files as usual.
+
+The new file starts as `Pasted.png`, `Pasted.txt`, or the matching extension, with
+a number added if the name is taken. Its base name is selected for immediate
+renaming: type a name and press Enter. Escape keeps the generated name. Creation
+participates in file-operation undo. Pasting while a filename or other text field
+is being edited continues to insert text into that field.
+
+## Move into a new folder
+
+Select entries and choose **Move into New Folder…** from the context menu or
+command palette. Enter a folder name to create it and move the selection into it;
+darktable sidecars follow their images. Existing folder names are refused.
+
+**Ctrl+Z** moves the entries back and removes the new folder only if it is still
+the same folder and is empty. Files added later are preserved. **Ctrl+Shift+Z**
+repeats the grouping. If the folder was replaced, the operation is refused.
+This action is unavailable in Trash, archives and file pickers.
+
+Hold **Alt** while dropping files to choose an action at the destination. A drag
+within rummage offers Copy Here, Move Here and Move into New Folder. Grouping also
+works when dropping back into the source folder. Ordinary drops retain their
+usual copy/move behavior.
+
+For a single supported archive, Alt-drop also offers **Extract into New Folder…**.
+Choose a name to extract into a subfolder of the drop destination. If that name is
+taken, a numbered name is used. The original archive stays in place. Extraction
+uses the usual progress, conflict, cancellation and Undo controls. Drops from
+another application negotiate a copy so extraction does not remove its source.
+
+## Create symbolic links
+
+Select files or folders and choose **Create Link** from their context menu or the
+command palette. rummage creates `Link to <name>` beside each source, choosing a
+numbered name when needed, and selects the new links. Links point to the original
+absolute paths, so you can move them elsewhere. Renaming or moving the originals
+can break those links. Linked folders are not copied or scanned recursively.
+
+**Ctrl+Z** trashes the new links without changing their targets; **Ctrl+Shift+Z**
+restores the links. This action is unavailable in Trash, archives and file pickers.
+
 ## Batch rename
 
 Select several entries and press **F2**, or choose **Batch Rename…** in the context
 menu or command palette. The dialog previews old and new names as you type.
-**Find** and **Replace** perform case-sensitive literal replacement in the name
-without its final extension. The template then uses `{name}` for that result,
-`{ext}` for the original extension including its dot, and `{n}` for a number.
-Folder names are kept whole and have no extension token.
+Choose **Target: Basename**, **Extension** (without its dot), or **Whole name**.
+The dialog applies Find/Replace first, then the character edit, then case conversion,
+then the template. Folder names and leading-dot names such as `.profile` have no
+extension. Extension-only edits leave directory names unchanged. Removing an
+extension also removes its delimiter dot.
+
+**Find: Literal** performs case-sensitive literal replacement. Switch to **Find: Regex**
+for [RE2 expressions](https://github.com/google/re2/wiki/Syntax). For example, find
+`^IMG_([0-9]+)$` and replace with `Photo-\1` to turn `IMG_123.JPG` into `Photo-123.JPG`.
+`\0` inserts the whole match, `\1`–`\9` insert capture groups, and `\\` inserts a
+backslash. Inline `(?i)` enables case-insensitive matching. An empty Find disables
+replacement. Invalid patterns or capture references disable Rename; lookaround and
+pattern backreferences are unsupported. Regex compilation is bounded and matching
+does not backtrack.
+
+**Position (from 0)** and **Remove characters** choose a range in the selected
+target; **Insert text** replaces that range. Position 0 inserts at the beginning;
+a position beyond the end appends. For `aé😀z.txt`, position 1, removal 2 and insertion
+`新` produces `a新z.txt`. Positions count Unicode scalar values, not bytes or grapheme
+clusters: combining marks are separate positions. Invalid UTF-8 bytes count as one
+position each and otherwise remain unchanged.
+
+The **Case** control offers unchanged, lower, upper and title case for ASCII letters.
+Non-ASCII characters are preserved, and no normalization is performed. For example,
+lowercase on the basename turns `PHOTO.JPG` into `photo.JPG`; on the whole name it
+produces `photo.jpg`. Title case capitalizes ASCII words separated by punctuation
+or spaces.
+
+| Template token | Value |
+| --- | --- |
+| `{name}` | Transformed basename |
+| `{ext}` | Transformed extension including its dot |
+| `{n}` | Sequence number with the chosen padding |
+| `{date}`, `{time}` | UTC date (`YYYY-MM-DD`) and time (`HH-MM-SS`) when the dialog opened |
+| `{mtime}`, `{mtime_time}` | File's modification date and time in the same UTC formats |
+| `{size}` | Regular file's byte size |
+
+Metadata is a snapshot taken while preparing the preview. Missing requested metadata
+disables Rename, rather than inserting an empty value; `{size}` is unavailable for
+directories and symlinks. These are filesystem metadata tokens, not EXIF, media tags
+or darktable-sidecar metadata. The date/time used for the batch stays fixed while
+editing the preview.
 For example, `bug-report_{n}{ext}` with start 1 and padding 2 produces
 `bug-report_01.png`, `bug-report_02.png`, and so on. Numbering follows the current
-view order; sort before opening the dialog. Step must be positive. Regex is not
-supported.
+view order; sort before opening the dialog. Step must be positive. Names must fit
+within 255 bytes, and replacement/insertion fields within 255 bytes each.
 
 Recognized darktable sidecars follow their photo, including duplicate sidecars.
 Selecting them together with the photo does not consume extra numbers. The
@@ -50,7 +133,9 @@ preview includes their destination names. Invalid names, duplicate targets and
 names occupied by unrelated entries disable Rename. Changes are checked again
 when applied; files replaced since the preview are refused.
 
-Tab moves through the fields, preview and buttons. Enter applies, Escape cancels,
+Tab moves through the fields, transformation controls, preview and buttons.
+Space or Enter cycles a transformation control; Left/Right cycle backwards/forwards.
+Enter elsewhere applies, Escape cancels,
 and Page Up/Down or the wheel scrolls the preview. **Ctrl+Z** undoes the entire
 batch, including its sidecars; **Ctrl+Shift+Z** redoes it. Swaps and chains use a
 private temporary directory, and no step overwrites an existing entry. A failure
@@ -61,12 +146,39 @@ unavailable in Trash, archives and file pickers.
 
 ## Copy, move and conflicts
 
+![A copy operation reporting progress in the status bar of the dark file browser](images/rummage-dark-transfer.webp)
+
 **Ctrl+C / Ctrl+X** copies/cuts the selection; **Ctrl+V** pastes into the current
 folder. Cut entries fade until pasted or cancelled with Escape. File-manager
 clipboard formats allow exchange with other desktop applications; only local
 file paths/URIs are accepted for transfers.
 
 Transfers run outside the UI thread, with progress and a stop button.
+**View → Verify copied contents**, or **Enable Copy Verification** in the command
+palette, enables verification for subsequent copies and moves in this window.
+It defaults to off, is not saved across restarts, and each queued transfer keeps
+the setting it was submitted with.
+
+For regular files, including nested files and sidecars, verification flushes the
+staged destination and rereads both files in bounded chunks for a byte-for-byte
+comparison. This compares the contents directly rather than comparing checksum
+digests. Copy and verification byte counts are shown separately; parallel files
+can be copying and verifying at the same time. Verification adds two reads of the
+data and a flush, which can be expensive on slow or network storage.
+
+A failed or cancelled comparison does not publish that file or replace an existing
+destination. Cross-filesystem moves retain unverified source files. Source identity,
+size and modification/change timestamps are checked, including before deletion;
+an externally changed source is reported instead of claiming success. As with other
+partial transfers, successfully completed files may remain at the destination.
+This is a consistency check through the operating system, not a guarantee against
+future media failure or changes made after the check.
+
+Same-filesystem moves remain renames and do not reread data. Symlinks copy their
+link target without following it; their referent contents are not verified.
+Archive extraction does not support this option and reports that limitation until
+verification is disabled. With verification off, existing transfer behavior is unchanged.
+
 **Shift+Escape** stops the active transfer from a file view or Quick Look; the
 command palette also offers **Stop the Transfer** while work is pending. The
 `stop_transfer` binding can be changed in Settings or `config.toml`.
@@ -126,6 +238,41 @@ Right-click **Restore** to return an entry to its original path, recreating miss
 parent directories and asking about name conflicts. Restore does not merge a
 conflicting directory. Supported trashed sidecars return with their photo.
 
+## Transfer tasks
+
+Open **View → Transfers…**, or search for **Transfers** in **Ctrl+K**, to see this
+window's queued, running, waiting, paused, completed, failed and cancelled file
+operations. Type to search by operation, state, name or source/destination path.
+Select a task for progress, paths, errors and controls. **Copy Task Details** copies
+the displayed details in full, including paths that are shortened on screen.
+
+**Cancel Task** stops only that job. Cancelling a queued job leaves its files
+untouched and does not dismiss another job's conflict question. Cancelling a running
+job keeps work already completed; the usual partial-result and undo rules apply.
+Answer an open conflict dialog before returning to the task list, or cancel that
+operation from its dialog.
+
+**Pause Task** and **Resume Task** apply to ordinary filesystem copies and moves,
+including copy verification. Pause takes effect at the next data-chunk or item
+checkpoint; a filesystem call already in progress may finish first. A same-filesystem
+rename may finish before pause takes effect. Archive extraction, compression,
+trash/restore, deletion, links and grouping do not support pause; their task details
+say so. A queued archive source discovered by the worker loses its pause control
+when extraction starts.
+
+Jobs run in submission order. A paused queued job holds up later jobs until it is
+resumed or cancelled. There is no reordering or automatic retry: after a failure,
+inspect the partial results and submit a fresh operation for the remaining items.
+Existing conflict choices still apply, and completed reversible work remains
+available through Undo. External commands and batch renames use their own progress
+and are not listed here.
+
+History belongs to the current window and is not saved across restarts. The latest
+100 finished tasks are retained alongside all pending tasks. Each task shows up to
+64 names and 64 error messages, with counts for omitted entries. **Clear Finished
+Tasks** removes finished records from this list without clearing Undo or affecting
+pending work.
+
 ## Permanent deletion
 
 **Shift+Delete** permanently deletes from a normal folder. **Delete** in Trash
@@ -148,6 +295,7 @@ Permanent deletion cannot be undone.
 | Trash | Restore |
 | Restore | Trash again |
 | Copy | Trash the copies |
+| Create symbolic links | Trash the links, leaving their targets untouched |
 | Create folder/file | Trash it only if still empty/unchanged as appropriate |
 | Permanent delete | Cannot undo |
 | External action or archive extraction | Not recorded in file-operation undo |
@@ -179,3 +327,13 @@ For programs and scripts, **Allow Running as Program** adds owner execute permis
 A small icon badge and “Runs as program” in the information pane indicate executable types
 with permission. Direct opening runs ELF programs/AppImages, not scripts or documents renamed
 to look like executables; a filesystem mounted `noexec` reports why running is unavailable.
+
+## File permissions
+
+Open **Properties** to change owner, group and others' read, write and execute
+permissions on a file or folder you own. For folders, execute permits traversal.
+Changes are staged until **Apply**; **Cancel** discards them. The operation affects
+only that item, not its children, and uses your current user permissions without
+elevation. Symbolic links and read-only archive items do not offer permission edits.
+Ownership and special permission bits are not editable. Filesystem errors and
+changes made externally while Properties was open leave the dialog open with an error.

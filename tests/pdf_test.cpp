@@ -359,3 +359,19 @@ TEST_CASE("pdf security: only PDF is parsed, other formats named .pdf are refuse
     }
     still_works(helpers);
 }
+
+TEST_CASE("pdf: document metadata is returned through the sandbox") {
+    isolate::Helpers helpers{{.program = RUMMAGE_PDF_HELPER, .args = {}}};
+    const auto info = helpers.photo_info(fixtures / "red.pdf");
+    const auto find = [&](const std::string& label) {
+        for (const auto& row : info.details)
+            if (row.first == label)
+                return row.second;
+        return std::string{};
+    };
+    CHECK(find("Format").starts_with("PDF "));
+    CHECK(find("Pages") == "1");
+    CHECK_FALSE(find("First page size").empty());
+    CHECK(info.width == 0);  // page points must never masquerade as image pixels
+    CHECK(helpers.photo_info(fixtures / "missing.pdf").details.empty());
+}

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <iterator>
@@ -81,6 +82,17 @@ struct Fixture {
         const auto out = dir.path / name;
         fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archives" / fixture, out);
         return out;
+    }
+
+    fs::path split_seven_zip(const std::string& fixture, const std::string& name) {
+        const auto data = read(fs::path{RUMMAGE_TEST_DATA} / "archives" / fixture);
+        constexpr std::size_t part_size = 64;
+        REQUIRE(data.size() > part_size);
+        // 7-Zip volumes are consecutive slices of the original archive byte stream.
+        for (std::size_t offset = 0; offset < data.size(); offset += part_size)
+            dir.write(name + std::format(".{:03}", offset / part_size + 1),
+                      std::string_view{data}.substr(offset, part_size));
+        return dir.path / (name + ".001");
     }
 
     bool until(const std::function<bool()>& ready) {
@@ -402,6 +414,239 @@ TEST_CASE("archives: encrypted ZIP RAR and 7z prompt and retry without File Roll
             }
             CHECK(fs::exists(archive));
             CHECK_FALSE(fs::exists(f.dir.path / "secret*[1] 'quoted' (extracting)"));
+        }
+    }
+}
+
+TEST_CASE("archives: split 7z volumes extract with and without passwords") {
+    for (const auto* fixture :
+         {"sample.7z", "encrypted-content.7z", "encrypted-headers.7z", "encrypted-unicode.7z"}) {
+        for (const bool here : {false, true}) {
+            Fixture f;
+            if (!f.install("7z"))
+                return;
+            CAPTURE(std::string{fixture});
+            CAPTURE(here);
+            const bool encrypted = std::string_view{fixture} != "sample.7z";
+            const std::string name = "release*[1]? 'quoted'";
+            const auto first = f.split_seven_zip(fixture, name + (here ? ".7z" : ".7Z"));
+            f.dir.write("release-other1x 'quoted'.7z.002", "unrelated");
+            const auto destination = here ? f.dir.path : f.destination;
+            unsigned prompts = 0;
+            ActionHandoff handoff{
+                f.loop, f.environment, f.report(), {}, [&](const auto&, auto done) {
+                    done(destination);
+                }};
+            handoff.set_password_prompt([&](const auto& path, bool retry, auto done) {
+                CHECK(path == first);
+                CHECK(retry == (prompts != 0));
+                CHECK_FALSE(fs::exists(destination / (name + " (extracting)")));
+                REQUIRE(++prompts <= 2);
+                done(prompts == 1 ? "wrong"
+                                  : (std::string_view{fixture} == "encrypted-unicode.7z"
+                                         ? "päss 🔒 archive test"
+                                         : "archive test"));
+            });
+            handoff.run(
+                registered_action(here ? "extract_here" : "extract_to"),
+                {.directory = f.dir.path, .targets = {{first, "application/x-7z-compressed"}}});
+            REQUIRE(f.wait());
+            INFO((f.errors.empty() ? "" : f.errors.front()));
+            REQUIRE(f.errors.empty());
+            CHECK(prompts == (encrypted ? 2 : 0));
+            CHECK(read(destination / name / (encrypted ? "message.txt" : "folder/message.txt")) ==
+                  "archive payload\n");
+            CHECK(fs::exists(first));
+            CHECK_FALSE(fs::exists(destination / (name + " (extracting)")));
+        }
+    }
+}
+
+TEST_CASE("archives: split 7z missing volumes and cancellation publish no output") {
+    for (const bool cancel : {false, true}) {
+        Fixture f;
+        if (!f.install("7z"))
+            return;
+        const auto first =
+            f.split_seven_zip(cancel ? "encrypted-headers.7z" : "sample.7z", "split.7z");
+        if (!cancel)
+            REQUIRE(fs::remove(f.dir.path / "split.7z.002"));
+        ActionHandoff handoff{f.loop, f.environment, f.report()};
+        unsigned prompts = 0;
+        handoff.set_password_prompt([&](const auto&, bool, auto done) {
+            CHECK(cancel);
+            ++prompts;
+            done(std::nullopt);
+        });
+        handoff.run(
+            registered_action("extract_here"),
+            {.directory = f.destination, .targets = {{first, "application/x-7z-compressed"}}});
+        REQUIRE(f.until([&] { return !f.errors.empty() || !f.messages.empty(); }));
+        CHECK(prompts == (cancel ? 1 : 0));
+        if (cancel) {
+            CHECK(f.errors.empty());
+            REQUIRE(f.messages.size() == 1);
+            CHECK(f.messages.front().starts_with("Extraction cancelled:"));
+        } else {
+            REQUIRE(f.errors.size() == 1);
+            CHECK(f.errors.front().find(first.string()) != std::string::npos);
+        }
+        CHECK(fs::is_empty(f.destination));
+        CHECK(fs::exists(first));
+    }
+}
+
+TEST_CASE("archives: unencrypted multipart RARs find neighboring volumes") {
+    for (const auto& suffixes :
+         std::vector<std::vector<std::string>>{{".part1.rar", ".part2.rar", ".part3.rar"},
+                                               {".part01.rar", ".part02.rar", ".part03.rar"},
+                                               {".PART01.RAR", ".PART02.RAR", ".PART03.RAR"},
+                                               {".rar", ".r00", ".r01"}}) {
+        Fixture f;
+        if (!f.install("unrar"))
+            return;
+        const std::string base = "episode*[1]? 'quoted'";
+        fs::path first;
+        for (std::size_t i = 0; i < suffixes.size(); ++i) {
+            const auto part =
+                f.archive("multipart.part" + std::to_string(i + 1) + ".rar", base + suffixes[i]);
+            if (i == 0)
+                first = part;
+        }
+        CAPTURE(suffixes.front());
+        // These names would match a wildcard-expanded input, but belong to another archive.
+        f.dir.write("episode-other1x 'quoted'" + suffixes.front(), "not an archive");
+        ActionHandoff handoff{f.loop, f.environment, f.report(), {}, [&](const auto&, auto done) {
+                                  done(f.destination);
+                              }};
+        handoff.set_password_prompt(
+            [](const auto&, bool, auto) { FAIL("unencrypted volumes must not prompt"); });
+        handoff.run(registered_action("extract_to"),
+                    {.directory = f.dir.path, .targets = {{first, "application/vnd.rar"}}});
+        REQUIRE(f.wait());
+        for (const auto& error : f.errors)
+            INFO(error);
+        REQUIRE(f.errors.empty());
+        const auto output = f.destination / rummage::platform::archive_output_name(first);
+        const auto contents = read(output / "LibarchiveAddingTest.html");
+        CHECK(contents.size() == 20111);
+        CHECK(contents.starts_with("<!DOCTYPE HTML PUBLIC"));
+        for (const auto& suffix : suffixes)
+            CHECK(fs::exists(f.dir.path / (base + suffix)));
+    }
+}
+
+TEST_CASE("archives: a batch of multipart RARs keeps each volume set separate") {
+    Fixture f;
+    if (!f.install("unrar"))
+        return;
+    ActionContext context{.directory = f.destination, .targets = {}};
+    for (const auto* base : {"first", "second"}) {
+        for (int part = 1; part <= 3; ++part) {
+            const auto suffix = ".part" + std::to_string(part) + ".rar";
+            const auto file = f.archive("multipart" + suffix, base + suffix);
+            if (part == 1)
+                context.targets.push_back({file, "application/vnd.rar"});
+        }
+    }
+    ActionHandoff handoff{f.loop, f.environment, f.report()};
+    handoff.run(registered_action("extract_here"), context);
+    REQUIRE(f.wait(2));
+    for (const auto& error : f.errors)
+        INFO(error);
+    REQUIRE(f.errors.empty());
+    for (const auto* base : {"first.part1", "second.part1"})
+        CHECK(read(f.destination / base / "LibarchiveAddingTest.html").size() == 20111);
+}
+
+TEST_CASE("archives: genuinely missing RAR volumes still fail without publishing output") {
+    Fixture f;
+    if (!f.install("unrar"))
+        return;
+    const auto first = f.archive("multipart.part1.rar", "episode.part1.rar");
+    f.archive("multipart.part3.rar", "episode.part3.rar");
+    ActionHandoff handoff{f.loop, f.environment, f.report()};
+    handoff.run(registered_action("extract_here"),
+                {.directory = f.destination, .targets = {{first, "application/vnd.rar"}}});
+    REQUIRE(f.wait());
+    REQUIRE(f.errors.size() == 1);
+    CHECK(f.errors.front().find("An archive part is missing") != std::string::npos);
+    CHECK(f.errors.front().find("archive.part2.rar") != std::string::npos);
+    CHECK_FALSE(fs::exists(f.destination / "episode.part1"));
+}
+
+TEST_CASE("archives: RAR volumes survive password retries and are cleaned up afterwards") {
+    for (const auto* program : {"unrar", "7z"}) {
+        for (const bool cancel : {false, true}) {
+            Fixture f;
+            CAPTURE(program);
+            CAPTURE(cancel);
+            const auto trace = f.dir.path / "trace";
+            // Simulate encrypted multipart metadata to exercise the password state machine
+            // with both backends even on systems without a RAR decoder installed.
+            f.fake(program, "printf '%s\\n' \"$1\" >> '" + trace.string() + R"('
+command=$1
+for archive do :; done
+printf '%s\n' "$archive" > ')" + (f.dir.path / "input").string() +
+                                R"('
+read -r first < "$archive" || exit 6
+read -r second < "${archive%01.rar}02.rar" || exit 6
+[ "$first" = first ] && [ "$second" = second ] || exit 6
+case "$command" in
+lt) printf 'Flags: encrypted\n'; exit 0;;
+l) printf 'Encrypted = +\n'; exit 0;;
+esac
+read -r password
+if [ "$password" != secret ]; then
+    printf 'Wrong password\n' >&2
+    exit 11
+fi
+case "$command" in
+t) exit 0;;
+x) printf 'extracted\n' > result.txt; exit 0;;
+esac
+exit 7
+)");
+            const auto first = f.dir.write("episode*?.part01.rar", "first\n");
+            f.dir.write("episode*?.part02.rar", "second\n");
+            f.dir.write("episode-other.part02.rar", "unrelated\n");
+            unsigned prompts = 0;
+            ActionHandoff handoff{f.loop, f.environment, f.report()};
+            handoff.set_password_prompt([&](const auto& path, bool retry, auto done) {
+                CHECK(path == first);
+                CHECK(retry == (prompts != 0));
+                REQUIRE(++prompts <= 2);
+                // Keep the selected file pinned even if its original name disappears.
+                if (prompts == 1)
+                    REQUIRE(fs::remove(first));
+                if (cancel)
+                    done(std::nullopt);
+                else
+                    done(prompts == 1 ? "wrong" : "secret");
+            });
+            handoff.run(registered_action("extract_here"),
+                        {.directory = f.destination, .targets = {{first, "application/vnd.rar"}}});
+            REQUIRE(f.until([&] {
+                return !f.errors.empty() ||
+                       std::ranges::any_of(f.messages, [](const auto& message) {
+                           return message.starts_with("Extracted to ") ||
+                                  message.starts_with("Extraction cancelled:");
+                       });
+            }));
+            for (const auto& error : f.errors)
+                INFO(error);
+            REQUIRE(f.errors.empty());
+            CHECK(prompts == (cancel ? 1 : 2));
+            const std::string listing = std::string_view{program} == "unrar" ? "lt\n" : "l\n";
+            CHECK(read(trace) == listing + (cancel ? "" : "t\nt\nx\n"));
+            if (cancel)
+                CHECK(fs::is_empty(f.destination));
+            else
+                CHECK(read(f.destination / "episode*?.part01/result.txt") == "extracted\n");
+            auto input = read(f.dir.path / "input");
+            REQUIRE_FALSE(input.empty());
+            input.pop_back();
+            CHECK_FALSE(fs::exists(fs::path{input}.parent_path()));
         }
     }
 }

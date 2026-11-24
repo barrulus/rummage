@@ -50,7 +50,8 @@ std::vector<Volume> volumes_from(const std::vector<UdisksObject>& objects) {
              .name = object.id_label.empty() ? size_name(object.size) : object.id_label,
              .drive = object.drive,
              .external = external,
-             .mount_point = mounted ? std::optional{object.mount_points.front()} : std::nullopt});
+             .mount_point = mounted ? std::optional{object.mount_points.front()} : std::nullopt,
+             .uuid = object.id_uuid});
     }
     std::ranges::sort(volumes, {}, &Volume::name);
     return volumes;
@@ -67,7 +68,10 @@ std::vector<fs::Place> with_volumes(std::vector<fs::Place> places,
         });
         if (volume != volumes.end()) {
             place.label = volume->name;
-            place.disk = {.volume = volume->object, .mounted = true, .ejectable = volume->external};
+            place.disk = {.volume = volume->object,
+                          .mounted = true,
+                          .ejectable = volume->external,
+                          .identity = volume->uuid};
             if (volume->external) {
                 place.icon = "usb";
             }
@@ -77,12 +81,14 @@ std::vector<fs::Place> with_volumes(std::vector<fs::Place> places,
         if (volume.mount_point) {
             continue;  // listed from the mount table, where it is mounted
         }
-        places.push_back(
-            {.section = fs::Place::Section::devices,
-             .label = volume.name,
-             .path = {},
-             .icon = volume.external ? "usb" : "database-off",
-             .disk = {.volume = volume.object, .mounted = false, .ejectable = volume.external}});
+        places.push_back({.section = fs::Place::Section::devices,
+                          .label = volume.name,
+                          .path = {},
+                          .icon = volume.external ? "usb" : "database-off",
+                          .disk = {.volume = volume.object,
+                                   .mounted = false,
+                                   .ejectable = volume.external,
+                                   .identity = volume.uuid}});
     }
     return places;
 }
@@ -101,6 +107,20 @@ std::vector<const Volume*> on_same_drive(const std::vector<Volume>& volumes,
         }
     }
     return found;
+}
+
+std::string power_off_refusal(std::string_view message) {
+    if (const std::size_t colon = message.rfind(": "); colon != std::string_view::npos) {
+        message.remove_prefix(colon + 2);
+    }
+    std::string reason{message};
+    if (reason.empty()) {
+        return "in use";
+    }
+    if (reason.front() >= 'A' && reason.front() <= 'Z') {
+        reason.front() = static_cast<char>(reason.front() - 'A' + 'a');
+    }
+    return reason;
 }
 
 }  // namespace rummage::platform

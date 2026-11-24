@@ -14,10 +14,13 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/command_palette.hpp"
 #include "rummage/views/file_clipboard.hpp"
+#include "rummage/views/format.hpp"
+#include "rummage/views/fuzzy.hpp"
 #include "rummage/views/shortcuts.hpp"
 
 namespace rummage::views {
@@ -35,6 +38,7 @@ std::string first_chord(Command command) {
 }  // namespace
 
 void Browser::open_palette() {
+    palette_use_ = PaletteUse::commands;
     menu_.close();
     shortcuts_.close();
     palette_.open(palette_items(), palette_recent_,
@@ -64,6 +68,26 @@ std::vector<PaletteItem> Browser::palette_items() {
         add(std::string{"command:"} + id, std::move(label), first_chord(which),
             [this, which] { run(which, Clock::now()); });
     };
+    if (searching_results()) {
+        using Action = SearchResults::Action;
+        const auto count = search_results_->chosen().size();
+        const auto offer = [&](const char* id, std::string_view label, Action action,
+                               bool enabled = true) {
+            if (enabled)
+                add(id, std::string{label}, "", [this, action] { search_action(action); }, false);
+        };
+        offer("search:copy", i18n::mark("Copy"), Action::copy, count > 0);
+        offer("search:cut", i18n::mark("Cut"), Action::cut, count > 0);
+        offer("search:trash", i18n::mark("Move to Trash"), Action::trash, count > 0);
+        offer("search:rename", i18n::mark("Rename…"), Action::rename, count == 1);
+        offer("search:preview", i18n::mark("Quick Look"), Action::preview, count == 1);
+        offer("search:reveal", i18n::mark("Show in Folder"), Action::reveal, count == 1);
+        offer("search:save", i18n::mark("Save Search…"), Action::save);
+        offer("search:saved", i18n::mark("Saved Searches…"), Action::saved);
+        offer("search:details", i18n::mark("Copy Search Details"), Action::details);
+        offer("search:close", i18n::mark("Close"), Action::close);
+        return items;
+    }
     // A key the view handles itself (zoom, select all, parent): the same key, sent to it.
     const auto view_command = [&](const char* id, std::string label, std::string keys,
                                   xkb_keysym_t keysym, ui::Modifiers modifiers) {
@@ -72,10 +96,31 @@ std::vector<PaletteItem> Browser::palette_items() {
                 ui::KeyEvent event;
                 event.keysym = keysym;
                 event.modifiers = modifiers;
-                view_key(event, Clock::now());
+                browse_key(event, Clock::now());
             });
     };
 
+    add("sidebar:restore", std::string{i18n::mark("Restore Hidden Places")}, "",
+        [this] { sidebar_.restore_places(); });
+    if (sidebar_.focused()) {
+        if (const auto* place = sidebar_.cursor_place()) {
+            for (auto& item : place_navigation_items(*place)) {
+                if (item.enabled && item.action)
+                    add("place:" + item.id, item.label, item.keys, std::move(item.action), false,
+                        false);
+            }
+        }
+        command(Command::edit_path, "edit_path", std::string{i18n::mark("Edit Path")});
+        command(Command::focus_files, "focus_files", std::string{i18n::mark("Focus Files")});
+        command(Command::go_to, "go_to", "Go to a folder or a server");
+        if (panes_enabled_ && split_visible_) {
+            command(Command::focus_first_pane, "focus_first_pane",
+                    std::string{i18n::mark("Focus First Pane")});
+            command(Command::focus_second_pane, "focus_second_pane",
+                    std::string{i18n::mark("Focus Second Pane")});
+        }
+        return items;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
     const bool in_trash = folder && folder->is_trash();
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
@@ -84,22 +129,50 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !folder->is_archive() && names.size() <= 1 && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
-    if (editable && !names.empty() && !picker_mode_) {
+    if (editable && !picker_mode_) {
+        command(Command::folder_insights, "folder_insights", "Insights…");
+        for (auto& item : insights_menu()) {
+            if (item.action)
+                add("command:" + item.id, std::format("{} · {}", i18n::tr("Insights"), item.label),
+                    "", std::move(item.action), true, false);
+            for (auto& child : item.children)
+                add("command:" + child.id,
+                    std::format("{} · {} {}", i18n::tr("Insights"), item.label, child.label), "",
+                    std::move(child.action), true, false);
+        }
+    }
+
+    if (editable && !names.empty()) {
+        if (!picker_mode_)
+            add("command:move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",
+                [this] { move_into_new_folder(); });
+        if (!picker_mode_)
+            add("command:create_link", std::string{i18n::mark("Create Link")}, "",
+                [this] { create_links(); });
         add("command:compress_zip", "Compress to ZIP…", "", [this] { compress(false); });
         add("command:compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
     }
-    // Opening and moving.
-    if (cursor != nullptr) {
-        add("command:open", "Open", "Enter", [this] {
-            ui::KeyEvent enter;
-            enter.keysym = XKB_KEY_Return;
-            view_key(enter, Clock::now());
-        });
+    command(Command::edit_path, "edit_path", std::string{i18n::mark("Edit Path")});
+    command(Command::focus_files, "focus_files", std::string{i18n::mark("Focus Files")});
+    command(Command::focus_places, "focus_places", std::string{i18n::mark("Focus Places")});
+    if (panes_enabled_ && split_visible_) {
+        command(Command::focus_first_pane, "focus_first_pane",
+                std::string{i18n::mark("Focus First Pane")});
+        command(Command::focus_second_pane, "focus_second_pane",
+                std::string{i18n::mark("Focus Second Pane")});
     }
+    if (folder) {
+        command(Command::expand_folder, "expand_folder", std::string{i18n::mark("Expand Folder")});
+        command(Command::collapse_folder, "collapse_folder",
+                std::string{i18n::mark("Collapse Folder")});
+    }
+    // Opening and moving.
+    if (cursor != nullptr)
+        command(Command::open_selected, "open", "Open");
     if (cursor != nullptr && editable && choices_ && open_with_) {
         add("command:open_with", "Open With…", "", [this] { open_with_palette(); });
     }
-    if (folder && !in_trash && !names.empty()) {
+    if (panes_enabled_ && !picker_mode_ && folder && !in_trash && !names.empty()) {
         std::vector<std::filesystem::path> folders;
         for (const fs::Entry& entry : folder->entries()) {
             if (entry.is_directory() && std::ranges::find(names, entry.name) != names.end()) {
@@ -108,7 +181,8 @@ std::vector<PaletteItem> Browser::palette_items() {
         }
         if (!folders.empty() && folders.size() == names.size()) {
             add("command:open_tab", folders.size() == 1 ? "Open in New Tab" : "Open in New Tabs",
-                "", [this, folders] { open_tabs(folders); });
+                keys_for(Command::open_selected_tab),
+                [this] { run(Command::open_selected_tab, Clock::now()); });
         }
     }
     if (editable && terminal_) {
@@ -119,7 +193,8 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (folder && folder->path().has_parent_path() &&
         folder->path() != folder->path().root_path()) {
-        view_command("parent", "Go to Parent Folder", "Alt+↑", XKB_KEY_Up, {.alt = true});
+        view_command("parent", "Go to Parent Folder", keys_for(Command::parent_folder), XKB_KEY_Up,
+                     {.alt = true});
     }
     if (pane().here > 0) {
         command(Command::back, "back", "Go Back");
@@ -140,7 +215,7 @@ std::vector<PaletteItem> Browser::palette_items() {
         if (!folder->is_archive())
             command(Command::cut, "cut", "Cut");
     }
-    bool can_paste = !clipboard_.names.empty();
+    bool can_paste = !clipboard_.names.empty() || !clipboard_.paths.empty();
     if (!can_paste && system_.types) {
         const std::vector<std::string> types = system_.types();
         can_paste = std::ranges::find(types, kGnomeFiles) != types.end() ||
@@ -178,12 +253,32 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (transfers_.pending() > 0) {
         command(Command::stop_transfer, "stop_transfer", "Stop the Transfer");
     }
+    add("command:transfers", std::string{i18n::mark("Transfers…")}, "",
+        [this] { open_transfers(); });
+    add("command:verify_transfers",
+        std::string{verifies_transfers() ? i18n::mark("Disable Copy Verification")
+                                         : i18n::mark("Enable Copy Verification")},
+        "", [this] { set_verify_transfers(!verifies_transfers()); });
     if (folder) {
-        view_command("select_all", "Select All", "Ctrl+A", XKB_KEY_a, {.ctrl = true});
+        view_command("select_all", "Select All", keys_for_binding("select_all"), XKB_KEY_a,
+                     {.ctrl = true});
+        add("view:invert_selection", std::string{i18n::mark("Invert Selection")},
+            keys_for_binding("invert_selection"), [this] {
+                if (const auto shown = current_folder()) {
+                    shown->invert_selection();
+                    redraw_();
+                }
+            });
     }
     if (editable) {
         command(Command::add_bookmark, "add_bookmark", "Add to Sidebar");
     }
+    if (has_custom_folder_view())
+        command(Command::reset_folder_view, "reset_folder_view",
+                "Use Default View for This Folder");
+    if (folder && pattern_selection_enabled_)
+        command(Command::select_pattern, "select_pattern",
+                std::string{i18n::mark("Select by Pattern…")});
     command(Command::go_to, "go_to", "Go to Folder or Server…");
 
     // The same registry entries and captured targets as the context menu.
@@ -228,6 +323,10 @@ std::vector<PaletteItem> Browser::palette_items() {
             sidebar_visible_ ? "Hide Sidebar" : "Show Sidebar");
     command(Command::focus_sidebar, "focus_sidebar",
             sidebar_.focused() ? "Back to the View" : "Move to the Sidebar");
+    command(Command::toggle_thumbnails, "toggle_thumbnails",
+            shows_thumbnails() ? "Hide Thumbnails" : "Show Thumbnails");
+    command(Command::toggle_extensions, "toggle_extensions",
+            shows_extensions() ? "Hide File Extensions" : "Show File Extensions");
     command(Command::toggle_hidden, "toggle_hidden",
             pane().show_hidden ? "Hide Hidden Files" : "Show Hidden Files");
     const fs::SortOrder& order = sort_order();
@@ -260,6 +359,8 @@ std::vector<PaletteItem> Browser::palette_items() {
 
     // Tabs.
     command(Command::new_tab, "new_tab", "New Tab");
+    if (!area().closed_tabs.empty())
+        command(Command::reopen_tab, "reopen_tab", std::string{i18n::mark("Reopen Closed Tab")});
     if (area().tabs.size() > 1) {
         command(Command::close_tab, "close_tab", "Close Tab");
         command(Command::next_tab, "next_tab", "Next Tab");
@@ -296,16 +397,207 @@ std::vector<PaletteItem> Browser::palette_items() {
         }
     }
 
+    if (!picker_mode_) {
+        add("command:search_results", std::string{i18n::mark("Search Results…")}, "",
+            [this] { open_search_results(); });
+        add("command:saved_searches", std::string{i18n::mark("Saved Searches…")}, "",
+            [this] { open_saved_searches(); });
+    }
     // rummage.
     if (folder && !in_trash) {
         command(Command::filter_names, "filter_names", "Filter Names…");
         command(Command::find_files, "find_files", "Find Files…");
+        add("command:find_contents", std::string{i18n::mark("Find File Contents…")}, "", [this] {
+            open_finder();
+            if (finder_)
+                palette_.set_query("content: ");
+        });
     }
     command(Command::show_shortcuts, "show_shortcuts", "Keyboard Shortcuts");
     if (quit_) {
         add("command:quit", "Quit", "Ctrl+Q", [this] { quit_(); });
     }
     return items;
+}
+
+namespace {
+
+std::string task_state(fs::TransferState state) {
+    switch (state) {
+        case fs::TransferState::queued:
+            return std::string{i18n::tr("Queued")};
+        case fs::TransferState::running:
+            return std::string{i18n::tr("Running")};
+        case fs::TransferState::paused:
+            return std::string{i18n::tr("Paused")};
+        case fs::TransferState::waiting:
+            return std::string{i18n::tr("Waiting for an answer")};
+        case fs::TransferState::completed:
+            return std::string{i18n::tr("Completed")};
+        case fs::TransferState::failed:
+            return std::string{i18n::tr("Failed")};
+        case fs::TransferState::cancelled:
+            return std::string{i18n::tr("Cancelled")};
+    }
+    return {};
+}
+
+std::string task_kind(const fs::TransferRequest& request) {
+    switch (request.kind) {
+        case fs::TransferKind::copy:
+            return std::string{request.from_archive ? i18n::tr("Extract") : i18n::tr("Copy")};
+        case fs::TransferKind::move:
+            return std::string{i18n::tr("Move")};
+        case fs::TransferKind::trash:
+            return std::string{i18n::tr("Move to Trash")};
+        case fs::TransferKind::restore:
+            return std::string{i18n::tr("Restore")};
+        case fs::TransferKind::erase:
+            return std::string{i18n::tr("Delete Permanently…")};
+        case fs::TransferKind::group:
+            return std::string{i18n::tr("Move into New Folder…")};
+        case fs::TransferKind::link:
+            return std::string{i18n::tr("Create Link")};
+        case fs::TransferKind::compress:
+            return std::string{i18n::tr("Compress")};
+        case fs::TransferKind::empty_trash:
+            return std::string{i18n::tr("Empty Trash…")};
+    }
+    return {};
+}
+
+std::string task_progress(const fs::TransferTask& task) {
+    const auto& p = task.progress;
+    if (!task.started)
+        return task_state(task.state);
+    if (p.preparing && !task.finished())
+        return std::string{i18n::tr("Adding up the size…")};
+    if (task.request.verify)
+        return i18n::trf("Copied {} of {} · verified {}", format_size(p.bytes_done),
+                         format_size(p.bytes_total), format_size(p.bytes_verified));
+    return i18n::trf("Items: {} / {} · {} / {}", p.files_done, p.files_total,
+                     format_size(p.bytes_done), format_size(p.bytes_total));
+}
+
+}  // namespace
+
+void Browser::open_transfers() {
+    palette_.close();
+    menu_.close();
+    shortcuts_.close();
+    quick_look_.close();
+    transfer_task_id_.reset();
+    palette_use_ = PaletteUse::transfers;
+    palette_.open_external(std::string{i18n::tr("Search transfers")},
+                           [this](const std::string&) { refresh_transfer_tasks(); });
+    refresh_transfer_tasks();
+}
+
+void Browser::open_transfer_task(std::uint64_t id) {
+    open_transfers();
+    transfer_task_id_ = id;
+    refresh_transfer_tasks();
+}
+
+void Browser::refresh_transfer_tasks() {
+    if (palette_use_ != PaletteUse::transfers || !palette_.external())
+        return;
+    const auto tasks = transfers_.tasks();
+    std::vector<PaletteItem> items;
+    FuzzyQuery query{palette_.query()};
+    const auto add = [&](std::string id, std::string label, std::function<void()> action = {},
+                         std::string search = {}) {
+        if (!query.score(label + " " + search))
+            return;
+        items.push_back({.id = std::move(id),
+                         .label = std::move(label),
+                         .keys = {},
+                         .remember = false,
+                         .action = std::move(action),
+                         .path = false,
+                         .quick_look = {},
+                         .open = {}});
+    };
+    if (!transfer_task_id_) {
+        for (const auto& task : tasks) {
+            const auto& r = task.request;
+            const std::string name =
+                r.names.empty() ? r.source.filename().string() : r.names.front();
+            std::string search = r.source.string() + " " + r.destination.string();
+            for (const auto& n : r.names)
+                search += " " + n;
+            add(
+                std::format("task:{}", task.id),
+                std::format("#{} · {} · {} · {} · {}", task.id, task_state(task.state),
+                            task_kind(r), name, task_progress(task)),
+                [this, id = task.id] { open_transfer_task(id); }, std::move(search));
+        }
+        if (std::ranges::any_of(tasks, &fs::TransferTask::finished)) {
+            add("tasks:clear", std::string{i18n::tr("Clear Finished Tasks")}, [this] {
+                transfers_.clear_finished();
+                open_transfers();
+            });
+        }
+        palette_.set_results(std::move(items), tasks.empty()
+                                                   ? std::string{i18n::tr("No transfers yet")}
+                                                   : i18n::trf("Tasks: {} · pending: {}",
+                                                               tasks.size(), transfers_.pending()));
+        return;
+    }
+    const auto id = *transfer_task_id_;
+    add("tasks:back", std::string{i18n::tr("Back to Transfers")}, [this] { open_transfers(); });
+    const auto found = std::ranges::find(tasks, id, &fs::TransferTask::id);
+    if (found == tasks.end()) {
+        palette_.set_results(std::move(items),
+                             std::string{i18n::tr("This task is no longer in history")});
+        return;
+    }
+    const auto& task = *found;
+    if (!task.finished()) {
+        if (task.pausable) {
+            const bool paused = task.state == fs::TransferState::paused;
+            add("task:pause",
+                std::string{paused ? i18n::tr("Resume Task") : i18n::tr("Pause Task")},
+                [this, id, paused] {
+                    transfers_.pause(id, !paused);
+                    copy_started_.reset();
+                    open_transfer_task(id);
+                });
+        } else {
+            add("task:unsupported",
+                std::string{i18n::tr("Pause is unavailable for this operation")});
+        }
+        add("task:cancel", std::string{i18n::tr("Cancel Task")}, [this, id] {
+            cancel_transfer_task(id);
+            open_transfer_task(id);
+        });
+    }
+    const std::string heading =
+        std::format("#{} · {} · {}", id, task_kind(task.request), task_state(task.state));
+    std::string details = heading + "\n" + task_progress(task);
+    const auto info = [&](std::string key, std::string text) {
+        details += "\n" + text;
+        add(std::move(key), std::move(text));
+    };
+    add("task:progress", task_progress(task));
+    info("task:source", i18n::trf("Source: {}", task.request.source.string()));
+    if (!task.request.destination.empty())
+        info("task:destination", i18n::trf("Destination: {}", task.request.destination.string()));
+    for (std::size_t i = 0; i < task.request.names.size() && i < 64; ++i)
+        info(std::format("task:name:{}", i), task.request.names[i]);
+    if (task.request.names.size() > 64)
+        info("task:more", i18n::trf("Additional items: {}", task.request.names.size() - 64));
+    for (std::size_t i = 0; i < task.errors.size(); ++i)
+        info(std::format("task:error:{}", i), task.errors[i]);
+    if (task.error_count > task.errors.size())
+        info("task:more-errors",
+             i18n::trf("Additional errors: {}", task.error_count - task.errors.size()));
+    add("task:copy-details", std::string{i18n::tr("Copy Task Details")},
+        [this, id, details = std::move(details)] {
+            copy_text(details);
+            open_transfer_task(id);
+        });
+    palette_.set_results(std::move(items), heading);
 }
 
 void Browser::open_with_palette() {
@@ -372,12 +664,13 @@ void Browser::open_finder() {
         return;
     }
     if (folder->is_archive()) {
-        show_message("Files are not looked for inside an archive", false);
+        show_message(std::string{i18n::tr("Files are not looked for inside an archive")}, false);
         return;
     }
     menu_.close();
     shortcuts_.close();
     palette_.close();
+    palette_use_ = PaletteUse::files;
     finder_ = std::make_unique<FileFinder>(pool_, [this] { refresh_found(); });
     const std::filesystem::path root = folder->path();
     std::string name = root.filename().string();
@@ -393,6 +686,81 @@ void Browser::open_finder() {
     refresh_found();
 }
 
+void Browser::open_pattern() {
+    const std::shared_ptr<Folder> folder = current_folder();
+    if (!folder) {
+        return;
+    }
+    if (!pattern_selection_enabled_) {
+        show_message(std::string{i18n::tr("Nothing is selected by name while saving")}, false);
+        return;
+    }
+    quick_look_.close();  // the cursor may move: Quick Look would no longer show it
+    menu_.close();
+    shortcuts_.close();
+    palette_.close();
+    palette_use_ = PaletteUse::pattern;
+    palette_.open_external(std::string{i18n::tr("Select by name: text:, glob:, re:, case:")},
+                           [this](const std::string& typed) { refresh_pattern(typed); });
+    refresh_pattern({});
+}
+
+void Browser::refresh_pattern(const std::string& typed) {
+    const std::shared_ptr<Folder> folder = current_folder();
+    if (!folder || palette_use_ != PaletteUse::pattern) {
+        return;
+    }
+    const std::string glob = typed;
+    if (glob.empty()) {
+        palette_.set_results(
+            {}, std::string{i18n::tr("Examples: glob:*.ORF, re:^IMG_[0-9]+, case:text:Photo")});
+        return;
+    }
+    const fs::NamePattern pattern{glob};
+    if (!pattern.error().empty()) {
+        palette_.set_results({}, pattern.error());
+        return;
+    }
+    const std::vector<std::size_t> rows = folder->matching(glob);
+    const std::size_t shown = folder->entries().size();
+    if (rows.empty()) {
+        palette_.set_results({}, i18n::trf("None of {} match", shown));
+        return;
+    }
+    std::vector<PaletteItem> items;
+    const auto row = [&](std::string id, std::string label, bool add) {
+        items.push_back({.id = std::move(id),
+                         .label = std::move(label),
+                         .keys = {},
+                         .remember = false,
+                         .action = [this, glob, add] { select_pattern(glob, add); },
+                         .path = false,
+                         .quick_look = {},
+                         .open = {}});
+    };
+    const std::size_t count = rows.size();
+    row("pattern:select", i18n::trn("Select {} Item", "Select {} Items", count), false);
+    // Adding differs from selecting only when something else is selected.
+    const auto selected_in = std::ranges::count_if(
+        rows, [&](std::size_t i) { return folder->is_selected(folder->entries()[i].name); });
+    if (folder->selected_count() > static_cast<std::size_t>(selected_in)) {
+        row("pattern:add", i18n::trf("Add {} to the Selection", count), true);
+    }
+    palette_.set_results(std::move(items), i18n::trf("{} of {} match", count, shown));
+}
+
+void Browser::select_pattern(const std::string& glob, bool add) {
+    if (const std::shared_ptr<Folder> folder = current_folder()) {
+        // Matched again: the folder may have changed since the last key.
+        const std::vector<std::size_t> rows = folder->matching(glob);
+        if (rows.empty()) {
+            show_message(std::string{i18n::tr("Nothing matches any more")}, false);
+            return;
+        }
+        folder->select_rows(rows, add);
+    }
+}
+
 void Browser::refresh_found() {
     if (!finder_ || !palette_.external()) {
         return;
@@ -404,16 +772,19 @@ void Browser::refresh_found() {
         const auto then = [this, root, path = found.path](FoundAction after) {
             return [this, root, path, after] { show_found(root, path, after); };
         };
-        items.push_back({.id = "file:" + found.path,
-                         .label = found.path,
-                         .keys = found.directory ? std::string{i18n::tr("Folder")} : std::string{},
-                         .remember = false,
-                         .action = then(FoundAction::show),
-                         .path = true,
-                         .quick_look = then(FoundAction::quick_look),
-                         .open = then(FoundAction::open)});
+        items.push_back(
+            {.id = "file:" + found.path,
+             .label = found.line ? std::format("{}:{} · {}", found.path, found.line, found.context)
+                                 : found.path,
+             .keys = found.directory ? std::string{i18n::tr("Folder")} : std::string{},
+             .remember = false,
+             .action = then(FoundAction::show),
+             .path = true,
+             .quick_look = then(FoundAction::quick_look),
+             .open = then(FoundAction::open)});
     }
-    palette_.set_results(std::move(items), finder_->status());
+    palette_.set_results(std::move(items), finder_->status() + " · " +
+                                               std::string{i18n::tr("Ctrl+Enter: manage results")});
     if (!finder_->results().empty() && !finder_->scanning() && !finder_->matching())
         start_motion(core::MotionEvent::search_results);
 }
@@ -450,6 +821,7 @@ void Browser::show_found(const std::filesystem::path& root, const std::string& r
 }
 
 void Browser::settle_found(Clock::time_point now) {
+    settle_search_preview();
     if (!found_after_) {
         return;
     }

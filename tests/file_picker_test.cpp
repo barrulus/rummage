@@ -688,3 +688,162 @@ TEST_CASE("picker: terminal button remains clickable at wide and narrow window s
     CHECK(launched == 2);
     CHECK_FALSE(f.result);
 }
+
+TEST_CASE("browser: filename filters support wildcards and hidden extensions in every view") {
+    for (const auto mode : {views::Browser::Mode::columns, views::Browser::Mode::grid,
+                            views::Browser::Mode::details}) {
+        Fixture f;
+        for (const auto name : {"icon.svg", "Logo.SVG", "icon.svg.bak", "svg-notes.txt",
+                                "art[draft].svg", "star*.txt"})
+            std::ofstream{f.temp.path / name} << "content";
+        f.browser.set_mode(mode);
+        f.browser.open(f.temp.path);
+        REQUIRE(f.settle());
+        const auto folder = f.browser.picker_folder();
+        const auto names = [&] {
+            std::vector<std::string> result;
+            for (const auto& entry : folder->entries())
+                result.push_back(entry.name);
+            std::ranges::sort(result);
+            return result;
+        };
+        for (const bool extensions : {true, false}) {
+            CAPTURE(mode);
+            CAPTURE(extensions);
+            f.browser.set_show_extensions(extensions);
+            f.browser.set_name_filter("*.svg");
+            CHECK(names() == std::vector<std::string>{"Logo.SVG", "art[draft].svg", "icon.svg"});
+            f.browser.set_name_filter("SVG");
+            CHECK(names() == std::vector<std::string>{"Logo.SVG", "art[draft].svg", "icon.svg",
+                                                      "icon.svg.bak", "svg-notes.txt"});
+            f.browser.set_name_filter("icon.?vg");
+            CHECK(names() == std::vector<std::string>{"icon.svg"});
+            f.browser.set_name_filter("[il]*.svg");
+            CHECK(names() == std::vector<std::string>{"Logo.SVG", "icon.svg"});
+            f.browser.set_name_filter("*.svg*");
+            CHECK(names() == std::vector<std::string>{"Logo.SVG", "art[draft].svg", "icon.svg",
+                                                      "icon.svg.bak"});
+            f.browser.set_name_filter(R"(*\[draft\]*)");
+            CHECK(names() == std::vector<std::string>{"art[draft].svg"});
+            f.browser.set_name_filter(R"(star\*.txt)");
+            CHECK(names() == std::vector<std::string>{"star*.txt"});
+            f.browser.set_name_filter(".txt");
+            CHECK(names() == std::vector<std::string>{"one.txt", "star*.txt", "svg-notes.txt"});
+            f.browser.set_name_filter("*");
+            CHECK(names().size() == 9);
+            f.browser.set_name_filter("");
+            CHECK(names().size() == 9);
+        }
+    }
+}
+
+TEST_CASE("browser: wildcard filters compose with picker types and watch new files") {
+    Fixture f;
+    core::PickerRequest request;
+    request.filters = {{"Text", {{0, "*.txt"}}}, {"All", {{0, "*"}}}};
+    auto picker = f.picker(request);
+    REQUIRE(f.settle());
+    f.browser.set_show_extensions(false);
+    f.browser.set_name_filter("*.svg");
+    const auto folder = f.browser.picker_folder();
+    CHECK(folder->entries().empty());
+    std::ofstream{f.temp.path / "new.svg"} << "<svg/>";
+    picker->set_filter(1);
+    REQUIRE(f.settle([&] { return folder->entries().size() == 1; }));
+    CHECK(folder->entries().front().name == "new.svg");
+    std::ofstream{f.temp.path / "another.SVG"} << "<svg/>";
+    REQUIRE(f.settle([&] { return folder->entries().size() == 2; }));
+    picker->set_filter(0);
+    CHECK(folder->entries().empty());
+}
+
+TEST_CASE("picker: a browser dialog owns clipboard keys while the save name has focus") {
+    Fixture f;
+    core::PickerRequest request;
+    request.mode = Mode::save;
+    request.name = "saved.txt";
+    auto picker = f.picker(request);
+    REQUIRE(f.settle());
+    REQUIRE(picker->editing_name());
+    f.browser.location_dialog().open("/tmp", [](const auto&, bool) { return std::string{}; });
+    CHECK_FALSE(picker->editing_name());
+    picker->key({.keysym = XKB_KEY_x, .text = {}, .modifiers = {.ctrl = true}});
+    CHECK(f.browser.location_dialog().text().empty());
+    CHECK(picker->copy_name(false) == "saved");
+    f.browser.location_dialog().close();
+    CHECK(picker->editing_name());
+}
+
+TEST_CASE("picker: pattern selection works for Open and is unavailable for both Save modes") {
+    Fixture f;
+    f.browser.set_picker_mode(true);
+    f.browser.set_panes_enabled(false);
+    core::PickerRequest request;
+    request.mode = Mode::open;
+    request.multiple = true;
+    auto open = f.picker(request);
+    REQUIRE(f.settle());
+    f.browser.picker_folder()->select_name("one.txt");
+    const auto commands = f.browser.palette_items();
+    CHECK(std::ranges::none_of(commands,
+                               [](const auto& item) { return item.id == "command:create_link"; }));
+    CHECK(std::ranges::any_of(commands,
+                              [](const auto& item) { return item.id == "command:compress_zip"; }));
+    f.browser.create_links();
+    REQUIRE(f.settle());
+    CHECK_FALSE(fs::exists(f.temp.path / "Link to one.txt"));
+    REQUIRE(open->key({.keysym = XKB_KEY_s, .text = {}, .modifiers = {.ctrl = true}}));
+    REQUIRE(f.browser.command_palette().is_open());
+    f.browser.command_palette().set_query("*.txt");
+    open->key({.keysym = XKB_KEY_Return, .text = {}});
+    CHECK(f.browser.picker_folder()->selected_names() == std::vector<std::string>{"one.txt"});
+    open.reset();
+    for (const auto mode : {Mode::save, Mode::save_files}) {
+        request.mode = mode;
+        request.name = "new.txt";
+        request.files = {"new.txt"};
+        auto save = f.picker(request);
+        const auto selection = f.browser.picker_folder()->selected_names();
+        save->key({.keysym = XKB_KEY_s, .text = {}, .modifiers = {.ctrl = true}});
+        CHECK_FALSE(f.browser.command_palette().is_open());
+        CHECK(f.browser.picker_folder()->selected_names() == selection);
+        const auto items = f.browser.palette_items();
+        CHECK(std::ranges::none_of(
+            items, [](const auto& item) { return item.id == "command:select_pattern"; }));
+        CHECK_FALSE(f.result);
+    }
+}
+
+TEST_CASE("picker: keyboard path completion and cancellation do not accept or close the picker") {
+    for (const auto mode : {Mode::open, Mode::save}) {
+        Fixture f;
+        f.browser.set_picker_mode(true);
+        f.browser.set_panes_enabled(false);
+        core::PickerRequest request;
+        request.mode = mode;
+        request.directory = mode == Mode::open;
+        request.name = "saved.txt";
+        auto picker = f.picker(request);
+        REQUIRE(f.settle());
+        CHECK(picker->key({.keysym = XKB_KEY_d, .text = {}, .modifiers = {.alt = true}}));
+        REQUIRE(f.browser.breadcrumb().editing());
+        CHECK_FALSE(picker->editing_name());
+        f.browser.breadcrumb().paste((f.temp.path / "fold").string());
+        CHECK(picker->key({.keysym = XKB_KEY_Tab, .text = {}}));
+        REQUIRE(f.settle([&] { return !f.browser.breadcrumb().completing(); }));
+        CHECK(f.browser.breadcrumb().text() == (f.temp.path / "folder").string() + "/");
+        CHECK(picker->key({.keysym = XKB_KEY_Escape, .text = {}}));
+        CHECK_FALSE(f.result);
+        CHECK_FALSE(f.browser.breadcrumb().editing());
+        CHECK(picker->key({.keysym = XKB_KEY_d, .text = {}, .modifiers = {.alt = true}}));
+        f.browser.breadcrumb().paste((f.temp.path / "folder").string());
+        CHECK(picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}}));
+        REQUIRE(f.settle());
+        CHECK_FALSE(f.result);
+        CHECK(f.browser.picker_folder()->path() == f.temp.path / "folder");
+        CHECK(picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}}));
+        REQUIRE(f.result);
+        CHECK(f.result->response == 0);
+        CHECK(f.browser.tab_count() == 1);
+    }
+}

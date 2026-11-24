@@ -86,6 +86,97 @@ argv = ["script", "{file}"]
     CHECK(layout.sidebar->empty());
 }
 
+TEST_CASE("context menu config: legacy sidebar defaults gain new actions without rewriting files") {
+    std::string entries = R"(
+  { id = "mount" },
+  { id = "unmount" },
+  { id = "eject", separator = true },
+  { id = "remove_bookmark" },
+  { id = "empty_trash" },
+)";
+    std::size_t count = 5;
+    SUBCASE("original default") {}
+    SUBCASE("default with bookmark editing") {
+        entries = R"(
+  { id = "rename_bookmark" },
+  { id = "choose_bookmark_folder" },
+  { id = "move_bookmark_up", separator = true },
+  { id = "move_bookmark_down" },
+  { id = "mount" },
+  { id = "unmount" },
+  { id = "eject", separator = true },
+  { id = "remove_bookmark", separator = true },
+  { id = "empty_trash" },
+)";
+        count = 9;
+    }
+    TempDir dir;
+    const auto target = dir.path / "managed.toml";
+    const auto path = dir.path / "config.toml";
+    const std::string text = "[context_menu]\nsidebar = [" + entries +
+                             "]\nentry = []\nbackground = [{id = 'new_folder'}]\n";
+    REQUIRE_FALSE(rummage::core::write_file_atomically(target, text));
+    std::filesystem::permissions(target, std::filesystem::perms::owner_read);
+    std::filesystem::create_symlink(target, path);
+    for (int reload = 0; reload < 2; ++reload) {
+        const auto result = load_config(path);
+        REQUIRE(result.problems.empty());
+        REQUIRE(result.context_menu_valid);
+        REQUIRE(result.config.context_menu.sidebar);
+        const auto& sidebar = *result.config.context_menu.sidebar;
+        REQUIRE(sidebar.size() == count + 1);
+        CHECK(sidebar.front().remaining);
+        CHECK(sidebar.back().id == "empty_trash");
+        REQUIRE(result.config.context_menu.entry);
+        CHECK(result.config.context_menu.entry->empty());
+        REQUIRE(result.config.context_menu.background);
+        CHECK(result.config.context_menu.background->front().id == "new_folder");
+        CHECK(std::filesystem::is_symlink(path));
+        CHECK(rummage::core::read_text_file(target).text == text);
+    }
+}
+
+TEST_CASE("context menu config: customised sidebar layouts retain their exact filtering") {
+    for (const std::string entries : {
+             "",
+             "{id='mount'}, {id='unmount'}, {id='eject',separator=true}, {id='remove_bookmark'}",
+             "{id='unmount'}, {id='mount'}, {id='eject',separator=true}, "
+             "{id='remove_bookmark'}, {id='empty_trash'}",
+             "{id='mount',label='Connect'}, {id='unmount'}, {id='eject',separator=true}, "
+             "{id='remove_bookmark'}, {id='empty_trash'}",
+             "{id='mount'}, {id='unmount'}, {id='eject'}, {id='remove_bookmark'}, "
+             "{id='empty_trash'}",
+             "{label='Devices',items=[{id='mount'},{id='unmount'}]}, "
+             "{id='eject',separator=true}, {id='remove_bookmark'}, {id='empty_trash'}",
+             "{id='mount'}, {id='unmount'}, {id='eject',separator=true}, "
+             "{id='remove_bookmark'}, {id='empty_trash'}, {id='properties'}",
+             "{remaining=true}, {id='mount'}, {id='unmount'}, {id='eject',separator=true}, "
+             "{id='remove_bookmark'}, {id='empty_trash'}",
+         }) {
+        CAPTURE(entries);
+        const auto result = parse_config("[context_menu]\nsidebar=[" + entries + "]", "menu.toml");
+        // The same tree in another context provides an unmigrated reference.
+        const auto reference = parse_config("[context_menu]\nitems=[" + entries + "]", "menu.toml");
+        REQUIRE(result.problems.empty());
+        REQUIRE(reference.problems.empty());
+        const auto equal = [](const auto& self, const auto& a, const auto& b) -> bool {
+            if (a.size() != b.size())
+                return false;
+            for (std::size_t i = 0; i < a.size(); ++i) {
+                if (a[i].id != b[i].id || a[i].label != b[i].label ||
+                    a[i].separator != b[i].separator || a[i].remaining != b[i].remaining ||
+                    !self(self, a[i].items, b[i].items))
+                    return false;
+            }
+            return true;
+        };
+        REQUIRE(result.config.context_menu.sidebar);
+        REQUIRE(reference.config.context_menu.items);
+        CHECK(equal(equal, *result.config.context_menu.sidebar,
+                    *reference.config.context_menu.items));
+    }
+}
+
 TEST_CASE("context menu config: invalid trees reject the entire layout") {
     for (const auto* invalid : {
              "context_menu = 1",
@@ -529,7 +620,7 @@ TEST_CASE("open: programs may be turned off; anything but a boolean is reported"
 
 TEST_CASE("palette source: defaults preserve automatic precedence and values are validated") {
     CHECK(parse_config("", "test").config.appearance.palette_source == "auto");
-    for (const auto value : {"auto", "desktop", "file", "builtin"}) {
+    for (const auto value : {"auto", "desktop", "file", "builtin", "kde"}) {
         const auto result = parse_config(
             std::string{"[appearance]\npalette_source = '"} + value + "'\ncolor_scheme = 'light'\n",
             "test");
@@ -544,4 +635,21 @@ TEST_CASE("palette source: defaults preserve automatic precedence and values are
         CHECK(result.problems.front().find("appearance.palette_source") != std::string::npos);
         CHECK(result.config.appearance.palette_source == "auto");
     }
+}
+
+TEST_CASE("sidebar configuration validates bounded identity lists") {
+    const auto parsed = rummage::core::parse_config(R"(
+[sidebar]
+order = ["place:home", "separator:0:0", "place:downloads"]
+hidden = ["uuid:example", "place:music"]
+)",
+                                                    "sidebar.toml");
+    REQUIRE(parsed.problems.empty());
+    REQUIRE(parsed.config.sidebar.order);
+    CHECK(parsed.config.sidebar.order->size() == 3);
+    REQUIRE(parsed.config.sidebar.hidden);
+    CHECK(parsed.config.sidebar.hidden->size() == 2);
+    const auto invalid = rummage::core::parse_config("[sidebar]\nhidden = [42]\n", "bad.toml");
+    CHECK_FALSE(invalid.problems.empty());
+    CHECK_FALSE(invalid.config.sidebar.hidden);
 }

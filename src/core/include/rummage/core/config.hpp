@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -58,9 +59,16 @@ struct Config {
 
     struct Appearance {
         float background_opacity{1.0F};         // background only; foreground content stays solid
-        std::string palette_source{"auto"};     // auto, desktop, file, builtin
+        std::string palette_source{"auto"};     // auto, desktop, file, builtin, kde
         std::string color_scheme{"system"};     // system (selected source's mode), light, dark
         std::string preview_position{"right"};  // right or sidebar
+    };
+
+    struct Sidebar {
+        // Explicit lists override remembered organization at startup or on config reload.
+        std::optional<std::vector<std::string>> order;
+        std::optional<std::vector<std::string>> hidden;
+        bool operator==(const Sidebar&) const = default;
     };
 
     struct StatusBar {
@@ -72,6 +80,7 @@ struct Config {
     MenuLayout context_menu;
 
     Appearance appearance;
+    Sidebar sidebar;
     MotionConfig animations;
     Startup startup;
     StatusBar status_bar;

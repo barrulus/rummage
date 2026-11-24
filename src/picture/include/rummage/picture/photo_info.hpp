@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace rummage::picture {
 
@@ -38,6 +41,43 @@ struct PhotoInfo {
     std::string artist;
     std::string rotation;
     std::string pixel_format;
+    // Format-specific fields, including embedded tags not covered by the friendly summary.
+    static constexpr std::size_t max_details = 256;
+    static constexpr std::size_t max_detail_bytes = 4096;
+    std::vector<std::pair<std::string, std::string>> details;
+    bool details_truncated{false};
+
+    void add_detail(std::string label, std::string value) {
+        if (value.empty())
+            return;
+        if (details.size() >= max_details) {
+            details_truncated = true;
+            return;
+        }
+        const auto bound = [this](std::string& text) {
+            if (text.size() > max_detail_bytes) {
+                text.resize(max_detail_bytes - 3);
+                // Do not end in the middle of a UTF-8 character.
+                while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80)
+                    text.pop_back();
+                if (!text.empty() && static_cast<unsigned char>(text.back()) >= 0xC0)
+                    text.pop_back();
+                text += "…";
+                details_truncated = true;
+            }
+            for (char& c : text)
+                if ((static_cast<unsigned char>(c) < 32 && c != '\n' && c != '\t') || c == 127)
+                    c = ' ';
+        };
+        bound(label);
+        bound(value);
+        const auto base = label;
+        unsigned suffix = 2;
+        while (std::ranges::any_of(details, [&](const auto& row) { return row.first == label; }))
+            label = base + " (" + std::to_string(suffix++) + ")";
+        details.emplace_back(std::move(label), std::move(value));
+    }
+
     // rummage's own rating (ROADMAP 5, not yet read: nullopt): 1-5 stars, -1 rejected. Editors'
     // sidecars (darktable's FILE.xmp) are left to a plugin (decided with the author, 2026-11-08).
     std::optional<int> rating;

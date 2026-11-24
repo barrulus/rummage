@@ -47,6 +47,8 @@ struct WalkOptions {
     std::size_t max_entries{300'000};
     std::size_t max_depth{64};  // folders deeper are not entered
     std::size_t batch{4096};    // entries handed over at a time
+    // Directory basenames or root-relative directory paths, excluded with their contents.
+    std::vector<std::string> excluded{};
 };
 
 struct WalkResult {
@@ -54,12 +56,17 @@ struct WalkResult {
     std::size_t unreadable{0};  // folders that could not be listed (permissions)
     bool truncated{false};      // max_entries reached
     bool cancelled{false};
+    bool depth_limited{false};
 };
 
 // Walks root breadth first (the nearest entries come first), handing batches to emit as they
 // fill. Symbolic links are listed but never followed; folders on another file system (a disk
 // mounted inside, /proc under /) are listed but not entered. Polls token between folders and
 // stops when it is cancelled. Blocking: call it from a worker.
+// Opens a relative path component by component, refusing symlinks and parent traversal.
+// Returns an owned descriptor, or -1 with errno set. The caller supplies open(2) flags.
+[[nodiscard]] int open_walk_path(int root, std::string_view relative, int flags);
+
 WalkResult walk(const std::filesystem::path& root, const WalkOptions& options,
                 const core::CancelToken& token, const std::function<void(PathBatch)>& emit);
 

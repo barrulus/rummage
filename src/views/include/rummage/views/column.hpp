@@ -22,6 +22,8 @@
 
 namespace rummage::views {
 
+class Thumbnails;
+
 // One folder in the column view, drawn as a virtualized, scrolling list of icon and name. Each
 // frame draws only the rows inside the viewport and asks the folder to sniff their types. The
 // folder (cursor, selection, listing) is shared: the grid can show the same one.
@@ -56,7 +58,8 @@ public:
     // being edited (edit) is left out and its place noted there; cut entries are faded.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, bool focused, Clock::time_point now, EditSlot* edit = nullptr,
-              const CutMarks* cut = nullptr, const DropMark* drop = nullptr);
+              const CutMarks* cut = nullptr, const DropMark* drop = nullptr,
+              bool show_extensions = true, Thumbnails* thumbnails = nullptr);
 
     // A scroll animation is running: the window should keep drawing frames.
     [[nodiscard]] bool animating() const noexcept { return scroller_.animating(); }
@@ -81,7 +84,7 @@ public:
     // The rows a band touches, in content points (BandLane).
     [[nodiscard]] std::vector<std::size_t> rows_in(const ui::Rect& content) const;
 
-    [[nodiscard]] ItemBounds motion_bounds() const noexcept { return motion_bounds_; }
+    [[nodiscard]] const ItemBounds& motion_bounds() const noexcept { return motion_bounds_; }
 
     // Below the cursor's row, near its left: where a menu opened from the keyboard goes; nullopt
     // when the row is not shown.

@@ -22,7 +22,8 @@ struct ProgramCheck {
 // For tests: the decision from a file's first bytes and its program headers, read through
 // read(offset, out) (false when out cannot be filled). An ELF of type EXEC is a program; one of
 // type DYN is a program when it asks for an interpreter (PT_INTERP: a position-independent
-// executable), not when it has none (a shared library).
+// executable) or carries the AppImage magic (its runtime is a static PIE, with no interpreter),
+// not otherwise (a shared library).
 [[nodiscard]] bool is_elf_program(
     const std::function<bool(std::uint64_t offset, std::span<unsigned char> out)>& read);
 

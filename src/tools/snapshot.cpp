@@ -1,21 +1,23 @@
-// rummage-snapshot: renders the test scene (or the column view, or the grid) offscreen and writes
+// rummage-snapshot: renders the test scene or a file view offscreen and writes
 // it as a binary PPM.
 //
 //   rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails CACHE]
 //                    [--sort FIELDS] [--info-expanded] [--info-width W] [--bench FRAMES]
 //                    [--walk FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME]
 //                    [--memory [--trim] [--default-malloc]]] [--csd STATE] [--desktop LOOK]
-//                    [--font FAMILY] [--status-text-size SIZE] <out.ppm>
+//                    [--expand-sidebar PATH] [--font FAMILY] [--status-text-size SIZE] <out.ppm>
 //                    [logical-width logical-height scale [colors.toml]]
 //
 // KEYS are pressed in the column view before the snapshot: comma-separated xkb key names with
 // optional Ctrl+, Shift+, Alt+ prefixes, e.g. "Down,Shift+Down,Ctrl+Down" (a single letter also
 // types itself: "F2,L,a,k,e" renames to "Lake"); "Ctrl+2" switches to
 // the grid (then --bench scrolls the grid), "Ctrl+3" the details (--bench scrolls them; --sort
-// clicks column titles after the keys: "size", "modified,modified" for newest first); with "space"
+// clicks column titles after the keys, by column id: "size", "owner", "modified,modified" for
+// newest first; an unknown id is reported and skipped); with "space"
 // last, Quick Look opens (and --bench scrolls its text page, when it shows one). --thumbnails gives
-// the grid a thumbnail cache directory (none by default: icons only, nothing written to ~/.cache).
-// The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6" focuses it.
+// the file views a thumbnail cache directory (none by default: icons only, nothing written to
+// ~/.cache). The sidebar lists the places of $HOME and $XDG_CONFIG_HOME; "Ctrl+B" hides it, "F6"
+// focuses it.
 // --drag NAME presses on the entry NAME of the folder shown and drags it a little (the drag image
 // drawn under the pointer); --drop-over X,Y then moves that drag (or, alone, another program's
 // drag of files) over the point X,Y, which shows where it would drop.
@@ -86,6 +88,7 @@
 #include "rummage/ui/seat.hpp"
 #include "rummage/ui/text.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/details_columns.hpp"
 #include "rummage/views/file_picker.hpp"
 #include "rummage/views/title_bar.hpp"
 #include "test_scene.hpp"
@@ -232,6 +235,7 @@ int main(int argc, char** argv) {
     float font_size = rummage::core::Config::Font::kUsualSize;
     bool info_expanded = false;
     bool preview_sidebar = false;
+    std::string expand_sidebar;
     std::filesystem::path settings_config;
     bool memory = false;
     bool fake_disks = false;
@@ -254,6 +258,11 @@ int main(int argc, char** argv) {
         const std::string_view option{args[1]};
         if (option == "--icon-theme" && args.size() >= 3) {
             icon_theme = args[2];
+            args = args.subspan(2);
+            continue;
+        }
+        if (option == "--expand-sidebar" && args.size() >= 3) {
+            expand_sidebar = args[2];
             args = args.subspan(2);
             continue;
         }
@@ -368,7 +377,7 @@ int main(int argc, char** argv) {
         log::error(
             "usage: rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails "
             "CACHE] [--icon-theme NAME] [--sort FIELDS] [--info-expanded] [--info-width W] "
-            "[--split DIR] [--stacked] "
+            "[--split DIR] [--stacked] [--expand-sidebar PATH] "
             "[--bench FRAMES] [--walk "
             "FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME] [--drag NAME] "
             "[--drop-over X,Y] [--band X1,Y1,X2,Y2] [--fake-disks] [--memory [--trim] "
@@ -600,6 +609,11 @@ int main(int argc, char** argv) {
                     columns->focus_pane(0);
                 }
                 frame();  // lays out: keys need the viewport
+                if (!expand_sidebar.empty()) {
+                    columns->sidebar().toggle_folder(expand_sidebar);
+                    run_until(loop, [&] { return !columns->sidebar().loading(); });
+                    frame();
+                }
                 // Each key finds what the one before loaded (Space, then Ctrl+A on the text).
                 for (const ui::KeyEvent& event : parse_keys(keys)) {
                     if (picker) {
@@ -616,15 +630,14 @@ int main(int argc, char** argv) {
                     const std::size_t comma = std::min(fields.find(','), fields.size());
                     const std::string_view field = fields.substr(0, comma);
                     fields.remove_prefix(std::min(comma + 1, fields.size()));
-                    using Field = views::DetailsView::Field;
-                    Field chosen = Field::name;
-                    if (field == "size") {
-                        chosen = Field::size;
-                    } else if (field == "modified") {
-                        chosen = Field::modified;
-                    } else if (field == "type") {
-                        chosen = Field::type;
+                    // Any details column, by its id ("owner", "link_target").
+                    const auto column =
+                        std::ranges::find(views::kDetailsColumns, field, &views::DetailsColumn::id);
+                    if (column == views::kDetailsColumns.end()) {
+                        log::warn("--sort: no column {}; ignored", field);
+                        continue;
                     }
+                    const views::DetailsView::Field chosen = column->field;
                     const auto start = std::chrono::steady_clock::now();
                     columns->details().sort_by(chosen);
                     log::info("sorted by {} in {:.2f} ms", field,
@@ -633,7 +646,7 @@ int main(int argc, char** argv) {
                                   .count());
                 }
                 run_until(loop, [&] { return !columns->loading(); });
-                // The first frame asks for the visible entries' types and, in the grid, their
+                // The first frame asks for the visible entries' types and their
                 // thumbnails, made on workers; each frame uploads the ones that arrived.
                 const auto start = std::chrono::steady_clock::now();
                 frame();

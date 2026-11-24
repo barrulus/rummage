@@ -13,8 +13,28 @@
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/renderer.hpp"
+#include "rummage/views/item_bounds.hpp"
+
+namespace rummage::fs {
+struct Entry;
+}
 
 namespace rummage::views {
+
+class Folder;
+class Thumbnails;
+struct ItemStyle;
+
+// A thumbnail fitted inside the icon square, or the file's normal icon while loading or
+// unsupported. Passing no cache opts out without requesting work. Shared by all file views.
+void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
+                     const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
+                     Thumbnails* thumbnails, ui::Rect bounds, bool cut,
+                     ItemVisual* painted = nullptr);
+
+// Repaint the saved visual at a new position/size, without loading the source file again.
+void draw_item_visual(ui::Renderer&, ui::IconSet&, const theme::Palette&, const ItemVisual&,
+                      ui::Rect bounds);
 
 // Height of the bar above the views (the breadcrumb).
 inline constexpr float kTitleHeight = 40.0F;
@@ -28,6 +48,11 @@ void draw_centered(ui::Renderer& renderer, std::string_view text, const ui::Rect
 
 void draw_right_aligned(ui::Renderer& renderer, std::string_view text, float right_x, float top_y,
                         float font_size, ui::Color color);
+
+// Center a button label with 10 px side margins. Existing translated labels may separate
+// a trailing shortcut with three spaces; keep that hint at the right and avoid overlap.
+void draw_button_text(ui::Renderer& renderer, std::string_view text, const ui::Rect& bounds,
+                      ui::Color color);
 
 // The mark of a file that may run as a program (issue #17): a dot at the bottom right of its
 // icon (the square at x, y, size wide), in dot, ringed in behind (the colour under it) so it

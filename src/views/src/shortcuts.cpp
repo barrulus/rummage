@@ -17,576 +17,706 @@ constexpr ui::Modifiers kShift{.shift = true};
 constexpr ui::Modifiers kAlt{.alt = true};
 constexpr ui::Modifiers kCtrlShift{.ctrl = true, .shift = true};
 
-// The keys that move the cursor; Left and Right move it only in the grid (in the columns and the
-// details they go up and in), but Shift and Ctrl work with all of them.
-constexpr std::array<xkb_keysym_t, 8> kMoves{XKB_KEY_Up,    XKB_KEY_Down,    XKB_KEY_Left,
-                                             XKB_KEY_Right, XKB_KEY_Page_Up, XKB_KEY_Page_Down,
-                                             XKB_KEY_Home,  XKB_KEY_End};
-
 constexpr std::array kShortcuts{
     // General
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+1",
-             .action = "Columns",
+             .action = i18n::mark("Columns"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_1, XKB_KEY_KP_1},
              .command = Command::columns_view},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+2",
-             .action = "Grid",
+             .action = i18n::mark("Grid"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_2, XKB_KEY_KP_2},
              .command = Command::grid_view},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+3",
-             .action = "Details",
+             .action = i18n::mark("Details"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_3, XKB_KEY_KP_3},
              .command = Command::details_view},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Space",
-             .action = "Quick Look",
+             .action = i18n::mark("Quick Look"),
              .scope = scope::kViews | scope::kQuickLook,
              .keysyms = {XKB_KEY_space},
              .command = Command::quick_look},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+I",
-             .action = "Info pane",
+             .action = i18n::mark("Info pane"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_i, XKB_KEY_I},
              .command = Command::toggle_info},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Alt+K",
-             .action = "Scroll the info pane's text up",
+             .action = i18n::mark("Scroll the info pane up"),
              .scope = scope::kViews,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_k, XKB_KEY_K},
              .command = Command::scroll_preview_up},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Alt+J",
-             .action = "Scroll the info pane's text down",
+             .action = i18n::mark("Scroll the info pane down"),
              .scope = scope::kViews,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_j, XKB_KEY_J},
              .command = Command::scroll_preview_down},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Alt+PgUp",
-             .action = "Scroll the info pane's text a page up",
+             .action = i18n::mark("Scroll the info pane a page up"),
              .scope = scope::kViews,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_Page_Up},
              .command = Command::scroll_preview_page_up},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Alt+PgDn",
-             .action = "Scroll the info pane's text a page down",
+             .action = i18n::mark("Scroll the info pane a page down"),
              .scope = scope::kViews,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_Page_Down},
              .command = Command::scroll_preview_page_down},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+B",
-             .action = "Sidebar",
+             .action = i18n::mark("Sidebar"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_b, XKB_KEY_B},
              .command = Command::toggle_sidebar},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+H",
-             .action = "Hidden files",
+             .action = i18n::mark("Hidden files"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_h, XKB_KEY_H},
              .command = Command::toggle_hidden},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Thumbnails"),
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::toggle_thumbnails},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("File extensions"),
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::toggle_extensions},
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+D",
-             .action = "Add the folder to the sidebar",
+             .action = i18n::mark("Add the folder to the sidebar"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_d, XKB_KEY_D},
              .command = Command::add_bookmark},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+L",
-             .action = "Go to a folder or a server",
+             .action = i18n::mark("Go to a folder or a server"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_l, XKB_KEY_L},
              .command = Command::go_to},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "F6",
-             .action = "Into the sidebar and out",
+             .action = i18n::mark("Into the sidebar and out"),
              .scope = scope::kViews | scope::kSidebar,
              .keysyms = {XKB_KEY_F6},
              .command = Command::focus_sidebar},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+K",
-             .action = "Command palette",
+             .action = i18n::mark("Command palette"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_k, XKB_KEY_K},
              .command = Command::command_palette},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+Shift+F",
-             .action = "Filter names in the view",
+             .action = i18n::mark("Filter names in the view"),
              .scope = scope::kViews | scope::kSidebar,
              .modifiers = kCtrlShift,
              .keysyms = {XKB_KEY_f, XKB_KEY_F},
              .command = Command::filter_names},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+F",
-             .action = "Find files in the folder",
+             .action = i18n::mark("Find files in the folder"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_f, XKB_KEY_F},
              .command = Command::find_files},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "F1  ?",
-             .action = "These shortcuts",
+             .action = i18n::mark("These shortcuts"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .any_shift = true,
              .keysyms = {XKB_KEY_F1, XKB_KEY_question},
              .command = Command::show_shortcuts},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Menu  Shift+F10",
-             .action = "Context menu",
-             .scope = scope::kViews,
+             .action = i18n::mark("Context menu"),
+             .scope = scope::kSidebar | scope::kViews,
              .any_shift = true,
              .keysyms = {XKB_KEY_Menu, XKB_KEY_F10},
              .command = Command::context_menu},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Alt+Enter",
-             .action = "Properties",
-             .scope = scope::kViews,
+             .action = i18n::mark("Properties"),
+             .scope = scope::kSidebar | scope::kViews,
              .modifiers = {.alt = true},
              .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
              .command = Command::properties},
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "Ctrl+Alt+I",
+             .action = i18n::mark("Open Insights or its view menu"),
+             .scope = scope::kViews,
+             .modifiers = ui::Modifiers{.ctrl = true, .alt = true},
+             .keysyms = {XKB_KEY_i, XKB_KEY_I},
+             .command = Command::folder_insights},
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+Q",
-             .action = "Quit",
+             .action = i18n::mark("Quit"),
              .scope = scope::kWindow,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_q, XKB_KEY_Q}},
 
     // Moving
-    Shortcut{.group = "Moving",
-             .keys = "↑  ↓",
-             .action = "Previous, next",
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Up",
+             .action = i18n::mark("Move up"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Up},
+             .binding_id = "move_up",
+             .view_symbol = XKB_KEY_Up,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Down",
+             .action = i18n::mark("Move down"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Down},
+             .binding_id = "move_down",
+             .view_symbol = XKB_KEY_Down,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Left",
+             .action = i18n::mark("Move left / collapse folder"),
              .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Up, XKB_KEY_Down}},
-    Shortcut{.group = "Moving",
-             .keys = "←  →",
-             .action = "Previous, next (grid)",
-             .scope = scope::kGrid,
-             .keysyms = {XKB_KEY_Left, XKB_KEY_Right}},
-    Shortcut{.group = "Moving",
-             .keys = "PgUp  PgDn",
-             .action = "A screenful",
+             .keysyms = {XKB_KEY_Left},
+             .binding_id = "move_left",
+             .view_symbol = XKB_KEY_Left,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Right",
+             .action = i18n::mark("Move right / expand folder"),
              .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Page_Up, XKB_KEY_Page_Down}},
-    Shortcut{.group = "Moving",
-             .keys = "Home  End",
-             .action = "First, last",
-             .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Home, XKB_KEY_End}},
-    Shortcut{.group = "Moving",
+             .keysyms = {XKB_KEY_Right},
+             .binding_id = "move_right",
+             .view_symbol = XKB_KEY_Right,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "PgUp",
+             .action = i18n::mark("Move up a page"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Page_Up},
+             .binding_id = "page_up",
+             .view_symbol = XKB_KEY_Page_Up,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "PgDn",
+             .action = i18n::mark("Move down a page"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Page_Down},
+             .binding_id = "page_down",
+             .view_symbol = XKB_KEY_Page_Down,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Home",
+             .action = i18n::mark("First entry"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_Home},
+             .binding_id = "first_entry",
+             .view_symbol = XKB_KEY_Home,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "End",
+             .action = i18n::mark("Last entry"),
+             .scope = scope::kViews | scope::kSidebar,
+             .keysyms = {XKB_KEY_End},
+             .binding_id = "last_entry",
+             .view_symbol = XKB_KEY_End,
+             .movement = true},
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "Enter",
-             .action = "Open (files in their app)",
-             .scope = scope::kViews,
-             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter}},
-    Shortcut{.group = "Moving",
-             .keys = "→",
-             .action = "Open (columns), expand (details)",
-             .scope = scope::kColumns | scope::kDetails,
-             .keysyms = {XKB_KEY_Right}},
-    Shortcut{.group = "Moving",
+             .action = i18n::mark("Open (files in their app)"),
+             .scope = scope::kSidebar | scope::kViews,
+             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
+             .command = Command::open_selected},
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "Alt+↓",
-             .action = "Open (grid, details)",
-             .scope = scope::kGrid | scope::kDetails,
+             .action = i18n::mark("Open (grid, details)"),
+             .scope = scope::kSidebar | scope::kGrid | scope::kDetails,
              .modifiers = kAlt,
-             .keysyms = {XKB_KEY_Down}},
-    Shortcut{.group = "Moving",
+             .keysyms = {XKB_KEY_Down},
+             .command = Command::open_selected},
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "F4",
-             .action = "Open in a terminal",
-             .scope = scope::kViews | scope::kQuickLook,
+             .action = i18n::mark("Open in a terminal"),
+             .scope = scope::kSidebar | scope::kViews | scope::kQuickLook,
              .keysyms = {XKB_KEY_F4},
              .command = Command::open_terminal},
-    Shortcut{.group = "Moving",
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "Backspace",
-             .action = "Parent folder",
+             .action = i18n::mark("Parent folder"),
              .scope = scope::kViews,
-             .keysyms = {XKB_KEY_BackSpace}},
-    Shortcut{.group = "Moving",
-             .keys = "←",
-             .action = "Parent (columns), collapse / parent (details)",
-             .scope = scope::kColumns | scope::kDetails,
-             .keysyms = {XKB_KEY_Left}},
-    Shortcut{.group = "Moving",
+             .keysyms = {XKB_KEY_BackSpace},
+             .command = Command::parent_folder},
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "Alt+↑",
-             .action = "Parent folder",
+             .action = i18n::mark("Parent folder"),
              .scope = scope::kViews,
              .modifiers = kAlt,
-             .keysyms = {XKB_KEY_Up}},
-    Shortcut{.group = "Moving",
+             .keysyms = {XKB_KEY_Up},
+             .command = Command::parent_folder},
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "Alt+←  Alt+→",
-             .action = "Back, forward (mouse too)",
+             .action = i18n::mark("Back, forward (mouse too)"),
              .scope = scope::kViews | scope::kSidebar,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_Left},
              .command = Command::back},
-    Shortcut{.group = "Moving",
+    Shortcut{.group = i18n::mark("Moving"),
              .keys = "",
-             .action = "Forward",
+             .action = i18n::mark("Forward"),
              .scope = scope::kViews | scope::kSidebar,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_Right},
              .command = Command::forward},
 
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Alt+D",
+             .action = i18n::mark("Edit Path"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kAlt,
+             .keysyms = {XKB_KEY_d, XKB_KEY_D},
+             .command = Command::edit_path},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Shift+F6",
+             .action = i18n::mark("Focus Files"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kShift,
+             .keysyms = {XKB_KEY_F6},
+             .command = Command::focus_files},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Focus Places"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::focus_places},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "Ctrl+Enter",
+             .action = i18n::mark("Open in New Tab"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
+             .command = Command::open_selected_tab},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Expand Folder"),
+             .scope = scope::kViews,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::expand_folder},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Collapse Folder"),
+             .scope = scope::kViews,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::collapse_folder},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Focus First Pane"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::focus_first_pane},
+    Shortcut{.group = i18n::mark("Moving"),
+             .keys = "",
+             .action = i18n::mark("Focus Second Pane"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = {},
+             .keysyms = {XKB_KEY_NoSymbol},
+             .command = Command::focus_second_pane},
+
     // Selecting
-    Shortcut{.group = "Selecting",
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Shift+moves",
-             .action = "Select a range",
+             .action = i18n::mark("Select a range"),
              .scope = scope::kViews,
              .modifiers = kShift,
-             .keysyms = kMoves},
-    Shortcut{.group = "Selecting",
+             .keysyms = {}},
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Ctrl+moves",
-             .action = "Move without selecting",
+             .action = i18n::mark("Move without selecting"),
              .scope = scope::kViews,
              .modifiers = kCtrl,
-             .keysyms = kMoves},
-    Shortcut{.group = "Selecting",
+             .keysyms = {}},
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Ctrl+Space",
-             .action = "Select or unselect",
+             .action = i18n::mark("Select or unselect"),
              .scope = scope::kViews,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_space}},
-    Shortcut{.group = "Selecting",
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Ctrl+A",
-             .action = "Select all",
+             .action = i18n::mark("Select all"),
              .scope = scope::kViews,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_a, XKB_KEY_A}},
-    Shortcut{.group = "Selecting",
+    Shortcut{.group = i18n::mark("Selecting"),
+             .keys = "Ctrl+Shift+I",
+             .action = i18n::mark("Invert the selection"),
+             .scope = scope::kViews,
+             .modifiers = kCtrlShift,
+             .keysyms = {XKB_KEY_i, XKB_KEY_I}},
+    Shortcut{.group = i18n::mark("Selecting"),
+             .keys = "Ctrl+S",
+             .action = i18n::mark("Select by name (*.ORF)"),
+             .scope = scope::kViews | scope::kQuickLook,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_s, XKB_KEY_S},
+             .command = Command::select_pattern},
+    Shortcut{.group = i18n::mark("Selecting"),
              .keys = "Escape",
-             .action = "Back to one entry",
+             .action = i18n::mark("Back to one entry"),
              .scope = scope::kViews,
              .keysyms = {XKB_KEY_Escape}},
 
-    Shortcut{.group = "General",
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+,",
-             .action = "Settings",
+             .action = i18n::mark("Settings"),
              .scope = scope::kViews | scope::kSidebar,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_comma},
              .command = Command::show_settings},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Use Default View for This Folder"),
+             .scope = scope::kViews,
+             .command = Command::reset_folder_view},
     // Panes
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "F3",
-             .action = "Show two panes / active pane only",
+             .action = i18n::mark("Show two panes / active pane only"),
              .scope = scope::kViews,
              .modifiers = {},
              .keysyms = {XKB_KEY_F3},
              .command = Command::toggle_split},
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "Tab",
-             .action = "Switch pane",
+             .action = i18n::mark("Switch pane"),
              .scope = scope::kViews,
              .modifiers = {},
              .keysyms = {XKB_KEY_Tab},
              .command = Command::switch_pane},
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "",
-             .action = "Swap panes",
+             .action = i18n::mark("Swap panes"),
              .scope = scope::kViews,
              .modifiers = {},
              .keysyms = {XKB_KEY_NoSymbol},
              .command = Command::swap_panes},
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "",
-             .action = "Change pane orientation",
+             .action = i18n::mark("Change pane orientation"),
              .scope = scope::kViews,
              .modifiers = {},
              .keysyms = {XKB_KEY_NoSymbol},
              .command = Command::orient_panes},
-    Shortcut{.group = "Panes",
-             .keys = "",
-             .action = "Open folder in other pane",
-             .scope = scope::kViews,
-             .modifiers = {},
-             .keysyms = {XKB_KEY_NoSymbol},
+    Shortcut{.group = i18n::mark("Panes"),
+             .keys = "Ctrl+Alt+Enter",
+             .action = i18n::mark("Open folder in other pane"),
+             .scope = scope::kSidebar | scope::kViews,
+             .modifiers = {.ctrl = true, .alt = true},
+             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter},
              .command = Command::open_other_pane},
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "",
-             .action = "Show same folder in other pane",
+             .action = i18n::mark("Show same folder in other pane"),
              .scope = scope::kViews,
              .modifiers = {},
              .keysyms = {XKB_KEY_NoSymbol},
              .command = Command::same_other_pane},
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "Ctrl+F5",
-             .action = "Copy to other pane",
+             .action = i18n::mark("Copy to other pane"),
              .scope = scope::kViews,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_F5},
              .command = Command::copy_other_pane},
-    Shortcut{.group = "Panes",
+    Shortcut{.group = i18n::mark("Panes"),
              .keys = "Ctrl+F6",
-             .action = "Move to other pane",
+             .action = i18n::mark("Move to other pane"),
              .scope = scope::kViews,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_F6},
              .command = Command::move_other_pane},
 
     // Tabs
-    Shortcut{.group = "Tabs",
+    Shortcut{.group = i18n::mark("Tabs"),
              .keys = "Ctrl+T",
-             .action = "New tab",
+             .action = i18n::mark("New tab"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_t, XKB_KEY_T},
              .command = Command::new_tab},
-    Shortcut{.group = "Tabs",
+    Shortcut{.group = i18n::mark("Tabs"),
              .keys = "Ctrl+W",
-             .action = "Close the tab",
+             .action = i18n::mark("Close the tab"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_w, XKB_KEY_W},
              .command = Command::close_tab},
-    Shortcut{.group = "Tabs",
+    Shortcut{.group = i18n::mark("Tabs"),
+             .keys = "Ctrl+Shift+T",
+             .action = i18n::mark("Reopen the closed tab"),
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = kCtrlShift,
+             .keysyms = {XKB_KEY_t, XKB_KEY_T},
+             .command = Command::reopen_tab},
+    Shortcut{.group = i18n::mark("Tabs"),
              .keys = "Ctrl+Tab  Ctrl+Shift+Tab",
-             .action = "Next tab, previous",
+             .action = i18n::mark("Next tab, previous"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_Tab},
              .command = Command::next_tab},
-    Shortcut{.group = "Tabs",
+    Shortcut{.group = i18n::mark("Tabs"),
              .keys = "",
-             .action = "Previous tab",
+             .action = i18n::mark("Previous tab"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kCtrlShift,
              .keysyms = {XKB_KEY_ISO_Left_Tab, XKB_KEY_Tab},
              .command = Command::previous_tab},
-    Shortcut{.group = "Tabs",
+    Shortcut{.group = i18n::mark("Tabs"),
              .keys = "Alt+1…9",
-             .action = "Tab 1 to 9",
+             .action = i18n::mark("Tab 1 to 9"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_1, XKB_KEY_2, XKB_KEY_3, XKB_KEY_4, XKB_KEY_5, XKB_KEY_6,
                          XKB_KEY_7, XKB_KEY_8},
              .command = Command::select_tab},
-    Shortcut{.group = "Tabs",
+    Shortcut{.group = i18n::mark("Tabs"),
              .keys = "",
-             .action = "Tab 9",
+             .action = i18n::mark("Tab 9"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_9},
              .command = Command::select_tab},
 
     // Files
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "F2",
-             .action = "Rename",
+             .action = i18n::mark("Rename"),
              .scope = scope::kViews | scope::kQuickLook,
              .keysyms = {XKB_KEY_F2},
              .command = Command::rename},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Shift+N",
-             .action = "New folder",
+             .action = i18n::mark("New folder"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = {.ctrl = true, .shift = true},
              .keysyms = {XKB_KEY_n, XKB_KEY_N},
              .command = Command::new_folder},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+C",
-             .action = "Copy",
+             .action = i18n::mark("Copy"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .command = Command::copy},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Shift+C",
-             .action = "Copy the folder's path",
-             .scope = scope::kViews | scope::kQuickLook,
+             .action = i18n::mark("Copy the folder's path"),
+             .scope = scope::kSidebar | scope::kViews | scope::kQuickLook,
              .modifiers = kCtrlShift,
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .command = Command::copy_path},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Alt+C",
-             .action = "Copy Name",
+             .action = i18n::mark("Copy Name"),
              .scope = scope::kViews,
              .modifiers = {.ctrl = true, .alt = true},
              .keysyms = {XKB_KEY_c, XKB_KEY_C},
              .action_id = "copy_name"},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+X",
-             .action = "Cut (Escape: keep them)",
+             .action = i18n::mark("Cut (Escape: keep them)"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_x, XKB_KEY_X},
              .command = Command::cut},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+V",
-             .action = "Paste: copy or move here",
+             .action = i18n::mark("Paste: copy or move here"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_v, XKB_KEY_V},
              .command = Command::paste},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Delete",
-             .action = "Move to the trash",
+             .action = i18n::mark("Move to the trash"),
              .scope = scope::kViews | scope::kQuickLook,
              .keysyms = {XKB_KEY_Delete, XKB_KEY_KP_Delete},
              .command = Command::trash},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Shift+Delete",
-             .action = "Delete permanently",
+             .action = i18n::mark("Delete permanently"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = kShift,
              .keysyms = {XKB_KEY_Delete, XKB_KEY_KP_Delete},
              .command = Command::erase},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Z",
-             .action = "Undo the last operation",
+             .action = i18n::mark("Undo the last operation"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_z, XKB_KEY_Z},
              .command = Command::undo},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Shift+Z",
-             .action = "Redo it",
+             .action = i18n::mark("Redo it"),
              .scope = scope::kViews | scope::kQuickLook,
              .modifiers = {.ctrl = true, .shift = true},
              .keysyms = {XKB_KEY_z, XKB_KEY_Z},
              .command = Command::redo},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Shift+Escape",
-             .action = "Stop the copy, move or delete",
+             .action = i18n::mark("Stop the copy, move or delete"),
              .scope = scope::kViews | scope::kQuickLook | scope::kSidebar,
              .modifiers = kShift,
              .keysyms = {XKB_KEY_Escape},
              .command = Command::stop_transfer},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Enter  Escape",
-             .action = "Renaming: keep, give up",
+             .action = i18n::mark("Renaming: keep, give up"),
              .scope = scope::kEditor,
              .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter, XKB_KEY_Escape}},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+←  Ctrl+→",
-             .action = "Renaming: by words",
+             .action = i18n::mark("Renaming: by words"),
              .scope = scope::kEditor,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_Left, XKB_KEY_Right}},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+Z",
-             .action = "Renaming: undo (Shift: redo)",
+             .action = i18n::mark("Renaming: undo (Shift: redo)"),
              .scope = scope::kEditor,
              .modifiers = kCtrl,
              .any_shift = true,  // with Shift it redoes
              .keysyms = {XKB_KEY_z, XKB_KEY_Z}},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Ctrl+V",
-             .action = "Renaming: paste text",
+             .action = i18n::mark("Renaming: paste text"),
              .scope = scope::kEditor,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_v, XKB_KEY_V}},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "R  S  Enter",
-             .action = "Name taken: replace or merge, skip, both",
+             .action = i18n::mark("Name taken: replace or merge, skip, both"),
              .scope = scope::kConflict,
              .keysyms = {XKB_KEY_r, XKB_KEY_s, XKB_KEY_Return, XKB_KEY_KP_Enter}},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "A  Escape",
-             .action = "Name taken: for the rest, stop",
+             .action = i18n::mark("Name taken: for the rest, stop"),
              .scope = scope::kConflict,
              .keysyms = {XKB_KEY_a, XKB_KEY_Escape}},
-    Shortcut{.group = "Files",
+    Shortcut{.group = i18n::mark("Files"),
              .keys = "Enter  Escape",
-             .action = "Delete permanently? Yes, no",
+             .action = i18n::mark("Delete permanently? Yes, no"),
              .scope = scope::kConfirm,
              .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter, XKB_KEY_Escape}},
 
     // Grid
-    Shortcut{.group = "Zoom",
+    Shortcut{.group = i18n::mark("Zoom"),
              .keys = "Ctrl++  Ctrl+−",
-             .action = "Larger, smaller (wheel too)",
+             .action = i18n::mark("Larger, smaller (wheel too)"),
              .scope = scope::kViews | scope::kSidebar,
              .modifiers = kCtrl,
              .any_shift = true,
              .keysyms = {XKB_KEY_plus, XKB_KEY_equal, XKB_KEY_KP_Add, XKB_KEY_minus,
                          XKB_KEY_KP_Subtract}},
-    Shortcut{.group = "Zoom",
+    Shortcut{.group = i18n::mark("Zoom"),
              .keys = "Ctrl+0",
-             .action = "Usual size",
+             .action = i18n::mark("Usual size"),
              .scope = scope::kViews | scope::kSidebar,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_0, XKB_KEY_KP_0}},
 
     // Sidebar
-    Shortcut{.group = "Sidebar",
-             .keys = "↑  ↓  Home  End",
-             .action = "Choose a place",
+    Shortcut{.group = i18n::mark("Sidebar"),
+             .keys = "←  →",
+             .action = i18n::mark("Collapse or expand a folder"),
              .scope = scope::kSidebar,
-             .keysyms = {XKB_KEY_Up, XKB_KEY_Down, XKB_KEY_Home, XKB_KEY_End}},
-    Shortcut{.group = "Sidebar",
-             .keys = "Enter",
-             .action = "Open it",
-             .scope = scope::kSidebar,
-             .keysyms = {XKB_KEY_Return, XKB_KEY_KP_Enter}},
-    Shortcut{.group = "Sidebar",
+             .keysyms = {XKB_KEY_Left, XKB_KEY_Right}},
+    Shortcut{.group = i18n::mark("Sidebar"),
              .keys = "Escape",
-             .action = "Back to the view",
+             .action = i18n::mark("Back to the view"),
              .scope = scope::kSidebar,
              .keysyms = {XKB_KEY_Escape}},
-    Shortcut{.group = "Sidebar",
+    Shortcut{.group = i18n::mark("Sidebar"),
              .keys = "F2",
-             .action = "Rename a bookmark",
+             .action = i18n::mark("Rename a bookmark"),
              .scope = scope::kSidebar,
              .keysyms = {XKB_KEY_F2}},
-    Shortcut{.group = "Sidebar",
+    Shortcut{.group = i18n::mark("Sidebar"),
              .keys = "Alt+↑  Alt+↓",
-             .action = "Move a bookmark up, down",
+             .action = i18n::mark("Move a bookmark up, down"),
              .scope = scope::kSidebar,
              .modifiers = kAlt,
              .keysyms = {XKB_KEY_Up, XKB_KEY_Down}},
 
     // Quick Look
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "M",
-             .action = "Markdown: rendered text or source",
+             .action = i18n::mark("Markdown: rendered text or source"),
              .scope = scope::kQuickLook,
              .keysyms = {XKB_KEY_m, XKB_KEY_M}},
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "Space  Escape",
-             .action = "Close",
+             .action = i18n::mark("Close"),
              .scope = scope::kQuickLook,
              .keysyms = {XKB_KEY_space, XKB_KEY_Escape}},
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "Arrows",
-             .action = "The next file, the previous",
+             .action = i18n::mark("The next file, the previous"),
              .scope = scope::kQuickLook,
              .keysyms = {XKB_KEY_Up, XKB_KEY_Down, XKB_KEY_Left, XKB_KEY_Right}},
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "Home  End",
-             .action = "A text file's top, its bottom",
+             .action = i18n::mark("A text file's top, its bottom"),
              .scope = scope::kQuickLook,
              .keysyms = {XKB_KEY_Home, XKB_KEY_End}},
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "PgUp  PgDn",
-             .action = "A page up, down (Shift+wheel: sideways)",
+             .action = i18n::mark("A page up, down (Shift+wheel: sideways)"),
              .scope = scope::kQuickLook,
              .keysyms = {XKB_KEY_Page_Up, XKB_KEY_Page_Down}},
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "Ctrl+A",
-             .action = "Select a text file's text (or drag on it)",
+             .action = i18n::mark("Select a text file's text (or drag on it)"),
              .scope = scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_a, XKB_KEY_A}},
-    Shortcut{.group = "Quick Look",
+    Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "Ctrl+C",
-             .action = "Copy the text selected",
+             .action = i18n::mark("Copy the text selected"),
              .scope = scope::kQuickLook,
              .modifiers = kCtrl,
              .keysyms = {XKB_KEY_c, XKB_KEY_C}},
@@ -601,6 +731,27 @@ Bindings active;
 
 std::optional<std::size_t> binding_index(std::string_view name) {
     Command command = Command::none;
+    if (name == "edit_path")
+        command = Command::edit_path;
+    if (name == "focus_files")
+        command = Command::focus_files;
+    if (name == "focus_places")
+        command = Command::focus_places;
+    if (name == "open_selected_tab")
+        command = Command::open_selected_tab;
+    if (name == "expand_folder")
+        command = Command::expand_folder;
+    if (name == "collapse_folder")
+        command = Command::collapse_folder;
+    if (name == "focus_first_pane")
+        command = Command::focus_first_pane;
+    if (name == "focus_second_pane")
+        command = Command::focus_second_pane;
+    if (name == "parent_folder")
+        command = Command::parent_folder;
+    if (name == "open_selected")
+        command = Command::open_selected;
+
     if (name == "move_other_pane")
         command = Command::move_other_pane;
     if (name == "copy_other_pane")
@@ -667,12 +818,18 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::stop_transfer;
     if (name == "context_menu")
         command = Command::context_menu;
+    if (name == "folder_insights")
+        command = Command::folder_insights;
     if (name == "properties")
         command = Command::properties;
     if (name == "back")
         command = Command::back;
     if (name == "forward")
         command = Command::forward;
+    if (name == "toggle_thumbnails")
+        command = Command::toggle_thumbnails;
+    if (name == "toggle_extensions")
+        command = Command::toggle_extensions;
     if (name == "toggle_hidden")
         command = Command::toggle_hidden;
     if (name == "add_bookmark")
@@ -681,6 +838,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::open_terminal;
     if (name == "new_tab")
         command = Command::new_tab;
+    if (name == "reopen_tab")
+        command = Command::reopen_tab;
     if (name == "close_tab")
         command = Command::close_tab;
     if (name == "next_tab")
@@ -691,16 +850,24 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::command_palette;
     if (name == "filter_names")
         command = Command::filter_names;
+    if (name == "reset_folder_view")
+        command = Command::reset_folder_view;
+    if (name == "select_pattern")
+        command = Command::select_pattern;
     if (name == "find_files")
         command = Command::find_files;
     if (name == "go_to")
         command = Command::go_to;
     for (std::size_t i = 0; i < kShortcuts.size(); ++i) {
         const auto& entry = kShortcuts[i];
+        if (!entry.binding_id.empty() && entry.binding_id == name)
+            return i;
         if (!entry.action_id.empty() &&
             (name == entry.action_id || name == "action:" + std::string{entry.action_id}))
             return i;
         if (command != Command::none && entry.command == command)
+            return i;
+        if (name == "invert_selection" && entry.action == "Invert the selection")
             return i;
         if (name == "select_all" && entry.action == "Select all")
             return i;
@@ -749,6 +916,10 @@ bool parse_chord(std::string_view text, Shortcut& entry) {
 
 bool Shortcut::matches(const ui::KeyEvent& event) const {
     ui::Modifiers pressed = event.modifiers;
+    if (movement) {
+        pressed.ctrl = false;
+        pressed.shift = false;
+    }
     if (any_shift) {
         pressed.shift = false;
     }
@@ -772,7 +943,7 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         const std::string_view id = next.labels.back();
         next.labels.push_back(action.label);
         Shortcut entry;
-        entry.group = "Files";
+        entry.group = i18n::mark("Files");
         entry.action = next.labels.back();
         entry.scope = scope::kViews;
         entry.action_id = id;
@@ -796,7 +967,7 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         entry.action = next.labels.back();
         next.labels.push_back(name);
         entry.action_id = next.labels.back();
-        entry.group = "Moving";
+        entry.group = i18n::mark("Moving");
         entry.scope = scope::kViews | scope::kSidebar | scope::kQuickLook;
         next.entries.push_back(entry);
     }
@@ -804,13 +975,13 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
     if (bindings.contains("back") || bindings.contains("forward")) {
         auto& back = next.entries[*binding_index("back")];
         back.keys = "Alt+Left";
-        back.action = "Back";
+        back.action = i18n::mark("Back");
         next.entries[*binding_index("forward")].keys = "Alt+Right";
     }
     if (bindings.contains("next_tab") || bindings.contains("previous_tab")) {
         auto& tab = next.entries[*binding_index("next_tab")];
         tab.keys = "Ctrl+Tab";
-        tab.action = "Next tab";
+        tab.action = i18n::mark("Next tab");
         next.entries[*binding_index("previous_tab")].keys = "Ctrl+Shift+Tab";
     }
     for (const auto& [name, chord] : bindings) {
@@ -839,22 +1010,52 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
             errors.push_back(std::format("keybindings.{}: invalid chord '{}'", name, chord));
             continue;
         }
+        if (entry.movement && (entry.modifiers.ctrl || entry.modifiers.shift)) {
+            errors.push_back(std::format(
+                "keybindings.{}: movement bindings reserve Ctrl and Shift for selection", name));
+            continue;
+        }
+        // One configured action replaces all of its default chords.
+        if (entry.command != Command::none) {
+            for (std::size_t other = 0; other < kShortcuts.size(); ++other) {
+                if (other != *index && next.entries[other].command == entry.command) {
+                    next.entries[other].keysyms = {};
+                    next.entries[other].keys = {};
+                }
+            }
+        }
         next.labels.push_back(chord);
         entry.keys = next.labels.back();
         changed.push_back(*index);
     }
-    // Preserve explicit user bindings when introducing a new default shortcut.
-    // An explicitly configured copy_path still participates in normal conflict checks.
-    if (!bindings.contains("copy_path")) {
-        auto& folder_path = next.entries[*binding_index("copy_path")];
-        for (const auto index : changed) {
-            const auto& entry = next.entries[index];
-            for (const auto symbol : entry.keysyms) {
-                if (folder_path.matches(
-                        {.keysym = symbol, .text = {}, .modifiers = entry.modifiers})) {
-                    folder_path.keysyms = {};
-                    folder_path.keys = {};
+    const auto overlaps = [](const Shortcut& entry, const Shortcut& other,
+                             const Shortcut* original) {
+        for (const auto symbol : entry.keysyms) {
+            for (unsigned variant = 0; variant < (entry.movement ? 4U : 1U); ++variant) {
+                ui::KeyEvent event;
+                event.keysym = symbol;
+                event.modifiers = entry.modifiers;
+                if (entry.movement) {
+                    event.modifiers.shift = (variant & 1U) != 0;
+                    event.modifiers.ctrl = (variant & 2U) != 0;
                 }
+                if (other.matches(event) && (!original || !original->matches(event)))
+                    return true;
+            }
+        }
+        return false;
+    };
+    // New defaults give way to existing custom chords, including selection variants.
+    for (const auto* introduced :
+         {"folder_insights", "copy_path", "invert_selection", "reopen_tab", "edit_path",
+          "focus_files", "open_selected_tab", "open_other_pane"}) {
+        if (bindings.contains(introduced))
+            continue;
+        auto& entry = next.entries[*binding_index(introduced)];
+        for (const auto index : changed) {
+            if (overlaps(next.entries[index], entry, nullptr)) {
+                entry.keysyms = {};
+                entry.keys = {};
             }
         }
     }
@@ -862,23 +1063,13 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
         const auto& entry = next.entries[index];
         for (std::size_t other = 0; other < next.entries.size(); ++other) {
             const auto& existing = next.entries[other];
-            // Editors and dialogs own their input, independently of file commands.
-            constexpr auto context =
+            constexpr std::uint16_t context =
                 scope::kViews | scope::kSidebar | scope::kQuickLook | scope::kWindow;
             if (other == index || ((entry.scope & existing.scope & context) == 0 &&
                                    (existing.scope & scope::kWindow) == 0))
                 continue;
-            bool collision = false;
-            for (const auto symbol : entry.keysyms) {
-                ui::KeyEvent event;
-                event.keysym = symbol;
-                event.modifiers = entry.modifiers;
-                collision = collision ||
-                            (existing.matches(event) &&
-                             (index >= kShortcuts.size() || !kShortcuts[index].matches(event)));
-            }
-            // Existing text-preview bindings intentionally share file copy/select-all chords.
-            if (collision)
+            // Existing text-preview bindings intentionally share copy/select-all chords.
+            if (overlaps(entry, existing, index < kShortcuts.size() ? &kShortcuts[index] : nullptr))
                 errors.push_back(std::format("keybindings: '{}' conflicts with '{}'", entry.keys,
                                              existing.action));
         }
@@ -890,7 +1081,25 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
 
 std::vector<std::pair<std::string, std::string>> binding_settings() {
     std::vector<std::pair<std::string, std::string>> result;
-    for (const auto* name : {"show_settings",
+    for (const auto* name : {"edit_path",
+                             "focus_files",
+                             "focus_places",
+                             "open_selected_tab",
+                             "expand_folder",
+                             "collapse_folder",
+                             "focus_first_pane",
+                             "focus_second_pane",
+                             "parent_folder",
+                             "open_selected",
+                             "move_up",
+                             "move_down",
+                             "move_left",
+                             "move_right",
+                             "page_up",
+                             "page_down",
+                             "first_entry",
+                             "last_entry",
+                             "show_settings",
                              "move_other_pane",
                              "copy_other_pane",
                              "same_other_pane",
@@ -925,20 +1134,27 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "stop_transfer",
                              "context_menu",
                              "properties",
+                             "folder_insights",
                              "back",
                              "forward",
                              "toggle_hidden",
+                             "toggle_thumbnails",
+                             "toggle_extensions",
                              "add_bookmark",
                              "open_terminal",
                              "new_tab",
                              "close_tab",
+                             "reopen_tab",
                              "next_tab",
                              "previous_tab",
                              "command_palette",
                              "filter_names",
                              "find_files",
+                             "select_pattern",
+                             "reset_folder_view",
                              "go_to",
                              "select_all",
+                             "invert_selection",
                              "toggle_selection"}) {
         if (const auto index = binding_index(name)) {
             const auto& entry = kShortcuts[*index];
@@ -971,9 +1187,17 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
 ui::KeyEvent view_key_event(const ui::KeyEvent& event) {
     for (std::size_t i = 0; i < kShortcuts.size(); ++i) {
         const auto& entry = active.entries[i];
+        if (entry.movement && entry.matches(event)) {
+            auto translated = event;
+            translated.keysym = entry.view_symbol;
+            translated.text.clear();
+            translated.modifiers = {.ctrl = event.modifiers.ctrl, .shift = event.modifiers.shift};
+            return translated;
+        }
         if (entry.command == Command::none && (entry.scope & scope::kViews) != 0 &&
             entry.matches(event) &&
-            (entry.action == "Select all" || entry.action == "Select or unselect")) {
+            (entry.action == "Select all" || entry.action == "Select or unselect" ||
+             entry.action == "Invert the selection")) {
             auto translated = event;
             translated.keysym = kShortcuts[i].keysyms[0];
             translated.modifiers = kShortcuts[i].modifiers;
@@ -984,6 +1208,11 @@ ui::KeyEvent view_key_event(const ui::KeyEvent& event) {
 }
 
 std::span<const Shortcut> shortcuts() { return active.entries; }
+
+std::string keys_for_binding(std::string_view id) {
+    const auto index = binding_index(id);
+    return index ? std::string{active.entries[*index].keys} : std::string{};
+}
 
 std::string keys_for(Command command) {
     const auto it = std::ranges::find(active.entries, command, &Shortcut::command);

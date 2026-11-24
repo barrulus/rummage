@@ -176,6 +176,12 @@ void Clipboard::clear(std::uint32_t serial) {
 }
 
 std::vector<std::string> Clipboard::types() const {
+    if (source_) {
+        std::vector<std::string> types;
+        for (const auto& [type, bytes] : formats_)
+            types.push_back(type);
+        return types;
+    }
     if (selection_ == nullptr) {
         return {};
     }
@@ -184,6 +190,17 @@ std::vector<std::string> Clipboard::types() const {
 }
 
 void Clipboard::read(const std::string& type, Done done) {
+    if (source_) {
+        std::optional<std::string> data;
+        for (const auto& [offered, bytes] : formats_)
+            if (offered == type) {
+                data = bytes;
+                break;
+            }
+        loop_.post(
+            [done = std::move(done), data = std::move(data)]() mutable { done(std::move(data)); });
+        return;
+    }
     read_offer(selection_, type, std::move(done));
 }
 

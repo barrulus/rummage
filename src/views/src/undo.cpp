@@ -30,6 +30,7 @@ std::string describe(const FileOperation& operation) {
             return i18n::trf("{} moved to the trash", what);
         case FileOperation::Kind::restore:
             return i18n::trf("{} restored", what);
+        case FileOperation::Kind::group:
         case FileOperation::Kind::copy:
         case FileOperation::Kind::move:
             if (count > 0) {

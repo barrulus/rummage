@@ -58,21 +58,37 @@ enum class Command : std::uint8_t {
     stop_transfer,
     context_menu,
     properties,
+    folder_insights,
     back,
     forward,
     toggle_hidden,
+    toggle_thumbnails,
+    toggle_extensions,
     add_bookmark,
     open_terminal,
     new_tab,
     close_tab,
+    reopen_tab,
     next_tab,
     previous_tab,
     select_tab,  // Alt+1…9: the digit says which
     command_palette,
     find_files,
+    select_pattern,
+    reset_folder_view,
     filter_names,
     show_settings,
+    edit_path,
+    focus_files,
+    focus_places,
+    open_selected,
+    open_selected_tab,
+    parent_folder,
+    expand_folder,
+    collapse_folder,
     toggle_split,
+    focus_first_pane,
+    focus_second_pane,
     switch_pane,
     swap_panes,
     orient_panes,
@@ -97,6 +113,11 @@ struct Shortcut {
     std::string_view folder_path{};  // go:<path> bindings; owned by active bindings
     std::string_view action_id{};    // registry actions; storage owned by the active bindings
 
+    // Browsing movement leaves Shift/Ctrl available for selection gestures.
+    std::string_view binding_id{};
+    xkb_keysym_t view_symbol{XKB_KEY_NoSymbol};
+    bool movement{false};
+
     [[nodiscard]] bool matches(const ui::KeyEvent& event) const;
 };
 
@@ -115,6 +136,7 @@ struct Shortcut {
 
 // The keys shown for command in the overlay ("Ctrl+C"); empty when it has none.
 [[nodiscard]] std::string keys_for(Command command);
+[[nodiscard]] std::string keys_for_binding(std::string_view id);
 
 // The browser's command for event; Command::none when it has none.
 [[nodiscard]] Command command_for(const ui::KeyEvent& event);

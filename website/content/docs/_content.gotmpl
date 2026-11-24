@@ -1,0 +1,17 @@
+{{/* Read the canonical docs directly; never maintain a second Markdown copy. */}}
+{{ range hugo.Data.navigation.groups }}
+  {{ $group := .title }}
+  {{ range .items }}
+    {{ $item := . }}
+    {{ $source := printf "docs/%s.md" .slug }}
+    {{ with resources.Get $source }}
+      {{ $title := replaceRE `(?s)^# ([^\n]+).*` "$1" .Content }}
+      {{ $body := replaceRE `^# [^\n]+\n+` "" .Content }}
+      {{/* The site supplies breadcrumbs in place of the GitHub navigation row. */}}
+      {{ $body = replaceRE `^\[Documentation\][^\n]+\n+` "" $body }}
+      {{ $.AddPage (dict "kind" "page" "path" $item.slug "title" $title "description" $item.description "params" (dict "group" $group "source" $source) "content" (dict "mediaType" "text/markdown" "value" $body)) }}
+    {{ else }}
+      {{ errorf "Missing canonical documentation: %s" $source }}
+    {{ end }}
+  {{ end }}
+{{ end }}

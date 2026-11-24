@@ -1,10 +1,12 @@
 #include <GLES3/gl3.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <stdexcept>
 #include <vector>
@@ -12,6 +14,7 @@
 
 #include <doctest/doctest.h>
 
+#include "../src/views/src/draw_helpers.hpp"
 #include "rummage/ui/color.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -40,6 +43,69 @@ std::unique_ptr<ui::Offscreen> offscreen(std::int32_t width = kWidth,
 }
 
 }  // namespace
+
+TEST_CASE("renderer: button labels stay centered and inside their padding at every scale") {
+    for (const float scale : {1.0F, 1.25F, 1.5F, 2.0F}) {
+        CAPTURE(scale);
+        const int width = static_cast<int>(240 * scale);
+        const int height = static_cast<int>(40 * scale);
+        const auto gl = offscreen(width, height);
+        REQUIRE(gl);
+        ui::FontSystem fonts;
+        ui::Renderer renderer{fonts};
+        const ui::Rect button{20, 4, 116, 32};
+        for (const auto text : {"View", "Cancel", "Ein sehr langer übersetzter Text"}) {
+            CAPTURE(text);
+            renderer.begin_frame(width, height, scale, ui::Color::rgb(0x000000));
+            rummage::views::draw_button_text(renderer, text, button, ui::Color::rgb(0xFFFFFF));
+            renderer.end_frame();
+            std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width * height * 4));
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            int left = width;
+            int right = -1;
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    if (pixels[static_cast<std::size_t>((y * width + x) * 4)] > 128) {
+                        left = std::min(left, x);
+                        right = std::max(right, x);
+                    }
+                }
+            }
+            REQUIRE(right >= left);
+            CHECK(left >= static_cast<int>(30 * scale));
+            CHECK(right < static_cast<int>(126 * scale));
+            // Ink bearings can differ slightly from the shaped line's advance width.
+            CHECK(std::abs(static_cast<float>(left + right + 1) / (2 * scale) - 78) < 3);
+        }
+        // Adding a shortcut must not move a short centered label; the hint belongs
+        // beyond it, at the right edge, with a visible gap.
+        std::vector<std::uint8_t> plain;
+        for (const auto text : {"M", "M   Esc"}) {
+            renderer.begin_frame(width, height, scale, ui::Color::rgb(0x000000));
+            rummage::views::draw_button_text(renderer, text, button, ui::Color::rgb(0xFFFFFF));
+            renderer.end_frame();
+            std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width * height * 4));
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            if (plain.empty()) {
+                plain = pixels;
+                continue;
+            }
+            int hint_pixels = 0;
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    const auto at = static_cast<std::size_t>((y * width + x) * 4);
+                    if (x < static_cast<int>(96 * scale)) {
+                        CHECK(pixels[at] == plain[at]);
+                    } else if (pixels[at] > 128) {
+                        ++hint_pixels;
+                        CHECK(x < static_cast<int>(126 * scale));
+                    }
+                }
+            }
+            CHECK(hint_pixels > 10);
+        }
+    }
+}
 
 TEST_CASE("renderer: a line in several colours, by the bytes each glyph comes from") {
     const std::unique_ptr<ui::Offscreen> gl = offscreen();
@@ -252,7 +318,7 @@ TEST_CASE("folder icons: untrusted image paths and missing names use the fallbac
 }
 
 TEST_CASE("bookmark icons: sidebar uses installed theme icons and ignores image paths") {
-    const auto gl = offscreen(200, 100);
+    const auto gl = offscreen(200, 140);
     REQUIRE(gl);
     rummage::test::TempDir dir;
 
@@ -295,15 +361,15 @@ TEST_CASE("bookmark icons: sidebar uses installed theme icons and ignores image 
                              .path = "/projects",
                              .icon = "bookmark",
                              .folder_icon = std::move(preferred)}});
-        renderer.begin_frame(200, 100, 1, ui::Color::rgb(0x000000));
-        sidebar.draw(renderer, {0, 0, 200, 100}, {}, icons, {},
+        renderer.begin_frame(200, 140, 1, ui::Color::rgb(0x000000));
+        sidebar.draw(renderer, {0, 0, 200, 140}, {}, icons, {},
                      rummage::views::Sidebar::Clock::now());
         renderer.end_frame();
         const auto rect = sidebar.place_icon_rect("/projects");
         REQUIRE(rect);
         std::array<std::uint8_t, 4> pixel{};
         glReadPixels(static_cast<int>(rect->x + rect->width / 2),
-                     99 - static_cast<int>(rect->y + rect->height / 2), 1, 1, GL_RGBA,
+                     139 - static_cast<int>(rect->y + rect->height / 2), 1, 1, GL_RGBA,
                      GL_UNSIGNED_BYTE, pixel.data());
         return pixel;
     };
@@ -380,4 +446,38 @@ TEST_CASE(
     CHECK(top != render());
     dialog.key({.keysym = XKB_KEY_Escape, .text = {}});
     CHECK_FALSE(dialog.is_open());
+}
+
+TEST_CASE("renderer: annular sectors keep transparent holes and wrap beyond a half turn") {
+    for (const float scale : {1.0F, 1.5F, 2.0F}) {
+        CAPTURE(scale);
+        const int size = static_cast<int>(128 * scale);
+        const auto gl = offscreen(size, size);
+        REQUIRE(gl);
+        ui::FontSystem fonts;
+        ui::Renderer renderer{fonts};
+        renderer.begin_frame(size, size, scale, ui::Color::rgb(0x000000));
+        // Three clockwise quadrants, from top through right and bottom to left.
+        renderer.draw_sector(
+            {64, 64, 20, 50, -std::numbers::pi_v<float> / 2, 3 * std::numbers::pi_v<float> / 2},
+            ui::Color::rgb(0xFF0000));
+        // An ordinary box afterwards verifies that sector parameters don't leak across draws.
+        renderer.fill_rect({1, 1, 8, 8}, ui::Color::rgb(0x00FF00));
+        renderer.end_frame();
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(size * size * 4));
+        glReadPixels(0, 0, size, size, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        const auto channel = [&](float x, float y, std::size_t c) {
+            const auto px = static_cast<int>(x * scale);
+            const auto py = size - 1 - static_cast<int>(y * scale);
+            return pixels[static_cast<std::size_t>((py * size + px) * 4) + c];
+        };
+        CHECK(channel(64, 64, 0) == 0);   // Hole.
+        CHECK(channel(120, 64, 0) == 0);  // Outside.
+        CHECK(channel(39, 39, 0) == 0);   // Missing upper-left quadrant.
+        CHECK(channel(89, 39, 0) > 250);
+        CHECK(channel(89, 89, 0) > 250);
+        CHECK(channel(39, 89, 0) > 250);
+        CHECK(channel(4, 4, 1) > 250);
+        CHECK(glGetError() == GL_NO_ERROR);
+    }
 }
