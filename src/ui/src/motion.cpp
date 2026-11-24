@@ -12,6 +12,10 @@ float Motion::ease(float progress) noexcept {
 }
 
 Rect Motion::Frame::geometry() const noexcept {
+    // The portal closes on the source and opens at the destination. Its shader is
+    // fully transparent at the handoff, so no travelling/shrunken icon jumps panes.
+    if (effect == core::MotionEffect::portal)
+        return progress < 0.5F ? from : to;
     return {std::lerp(from.x, to.x, eased), std::lerp(from.y, to.y, eased),
             std::lerp(from.width, to.width, eased), std::lerp(from.height, to.height, eased)};
 }
