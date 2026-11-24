@@ -53,8 +53,8 @@ jobs:
 
   pages:
     name: Deploy website
-    if: github.repository == 'barrulus/rummage' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [website, publish]
+    if: github.repository == 'barrulus/rummage' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && inputs.tumbleweed_only != true
+    needs: website
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
