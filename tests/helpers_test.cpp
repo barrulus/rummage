@@ -625,3 +625,43 @@ TEST_CASE("helpers: rendered Markdown crosses the sandbox boundary with its sour
     CHECK(there.text.spans == here.text.spans);
     CHECK(helpers.running() == 1);
 }
+
+TEST_CASE("helpers: reject overflow and dimensions beyond the requested preview") {
+    for (const char* mode : {"pixel-overflow", "wide", "tall", "zero-width", "zero-height"}) {
+        CAPTURE(mode);
+        isolate::Helpers helpers{fake(mode)};
+        auto ask = request(kData / "blocks.png");
+        if (std::string_view{mode} == "pixel-overflow") {
+            // Exercise the size check even when the dimensions fit the request.
+            ask.max_width = UINT32_MAX;
+            ask.max_height = UINT32_MAX;
+        }
+        const auto loaded = helpers.load(ask);
+        CHECK(loaded.failure == Failure::unavailable);
+        CHECK(loaded.image.empty());
+        CHECK(helpers.running() == 0);
+    }
+    isolate::Helpers helpers{fake("fits")};
+    auto ask = request(kData / "blocks.png");
+    ask.max_width = 64;
+    ask.max_height = 32;
+    const auto loaded = helpers.load(ask);
+    REQUIRE(loaded.failure == Failure::none);
+    CHECK(loaded.image.width == 64);
+    CHECK(loaded.image.height == 32);
+    CHECK(loaded.image.rgba.size() == 64 * 32 * 4);
+    CHECK(helpers.running() == 1);
+}
+
+TEST_CASE("helpers: rotated previews fit rectangular requests") {
+    isolate::Helpers helpers{real(1)};
+    for (const auto dimensions : {std::array{16U, 64U}, std::array{64U, 16U}}) {
+        auto ask = request(kData / "blocks-orient6.jpg");
+        ask.max_width = dimensions[0];
+        ask.max_height = dimensions[1];
+        const auto loaded = helpers.load(ask);
+        REQUIRE(loaded.failure == Failure::none);
+        CHECK(loaded.image.width <= ask.max_width);
+        CHECK(loaded.image.height <= ask.max_height);
+    }
+}

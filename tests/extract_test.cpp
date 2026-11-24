@@ -194,6 +194,30 @@ TEST_CASE("extract: tar.gz, times and modes kept, setuid dropped") {
     CHECK((info.st_mode & 0400) != 0);  // readable by its owner
 }
 
+TEST_CASE("extract: parent components cannot escape through archive symlink chains") {
+    TempDir dir;
+    const std::string a = tar_member("top/a", "", '2', ".");
+    const std::string b = tar_member("top/b", "", '2', "a/..");
+    const std::string c = tar_member("top/c", "", '2', "b/..");
+    for (const bool reverse : {false, true}) {
+        CAPTURE(reverse);
+        dir.write("chain.tar", tar_member("top/", "", '5') + (reverse ? c + b + a : a + b + c) +
+                                   tar_member("top/safe", "", '2', "./a") +
+                                   tar_member("top/dangling", "", '2', "missing") +
+                                   tar_member("top/parent", "", '2', "a//../outside") + tar_end());
+        const auto destination = dir.path / (reverse ? "reverse" : "forward");
+        fs::create_directory(destination);
+        const auto result = extract(dir.path / "chain.tar", {"top"}, destination);
+        REQUIRE(result.refused.empty());
+        CHECK(result.errors.size() == 3);
+        for (const char* name : {"a", "safe", "dangling"})
+            CHECK(fs::is_symlink(destination / "top" / name));
+        for (const char* name : {"b", "c", "parent"})
+            CHECK_FALSE(fs::exists(fs::symlink_status(destination / "top" / name)));
+        CHECK(no_staging(destination));
+    }
+}
+
 TEST_CASE("extract: links stay inside; nothing written goes through one") {
     TempDir dir;
     fs::create_directories(dir.path / "outside");

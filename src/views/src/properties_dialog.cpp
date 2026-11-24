@@ -143,21 +143,6 @@ void PropertiesDialog::apply() {
             struct stat info{};
             if (::stat(path.c_str(), &info) != 0 || info.st_dev != device || info.st_ino != inode)
                 return std::string{"The folder was removed or replaced. Reopen Properties."};
-            if (!icon.empty()) {
-                // Reject unsupported paths without ever writing a setting that cannot be read.
-                if (icon.find('\0') != std::string::npos || icon.size() > 4096)
-                    return std::string{"Invalid icon name or path"};
-                if (icon.find('/') != std::string::npos && !icon.starts_with('/') &&
-                    !icon.starts_with("./"))
-                    return std::string{"Use an absolute image path or a path beginning with ./"};
-                if (icon.find('/') != std::string::npos) {
-                    const auto file =
-                        icon.starts_with("./") ? path / icon : std::filesystem::path{icon};
-                    if ((file.extension() != ".svg" && file.extension() != ".png") ||
-                        ui::IconTheme::render(file, 48).empty())
-                        return std::string{"Choose a readable SVG or PNG image"};
-                }
-            }
             return fs::save_folder_icon(path, icon);
         },
         [this](std::string error) {
@@ -595,8 +580,9 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const float cell_width = room / 5;
         const float cell_height = grid_.height / 3;
         if (filtered_.empty())
-            text(i18n::tr(icons_loading_ ? "Loading icons…"
-                                         : "No matching icons. You can enter an image path below."),
+            text(i18n::tr(icons_loading_
+                              ? "Loading icons…"
+                              : "No matching icons. You can enter a theme icon name below."),
                  left, grid_.y + 12, 13, room, true);
         for (std::size_t index = page_ * kPageSize;
              index < std::min(filtered_.size(), (page_ + 1) * kPageSize); ++index) {
@@ -629,14 +615,11 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
              left + 108, pager + 6, 12, room - 210, true);
         button("next", "Next", {card.right() - 106, pager, 82, 30},
                (page_ + 1) * kPageSize < filtered_.size());
-        text(i18n::tr("Custom icon name or SVG/PNG path"), left, pager + 42, 12, room, true);
+        text(i18n::tr("Custom theme icon name"), left, pager + 42, 12, room, true);
         custom_.draw(renderer, {left, pager + 63, room, 30}, 13, field_colors(focus_ == "custom"));
 
     } else {
-        const auto preferred = draft_.empty() ? data_.default_icon
-                               : draft_.starts_with("./")
-                                   ? (path_ / draft_).lexically_normal().string()
-                                   : draft_;
+        const auto preferred = draft_.empty() ? data_.default_icon : draft_;
         const ui::Rect preview_box{left, top + 60, preview_width, header_height};
         const ui::Texture* thumbnail = nullptr;
         if (preview) {

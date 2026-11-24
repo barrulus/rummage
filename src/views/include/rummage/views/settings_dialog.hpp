@@ -84,7 +84,7 @@ private:
         ui::Rect bounds;
     };
 
-    void populate(const core::ConfigResult& config);
+    void populate(const core::ConfigResult& config, std::vector<std::string> icon_themes);
     void activate(std::string_view id, bool keyboard = false);
     static std::string choice_label(const Field& field, std::string_view value);
     void change_section(int section);

@@ -218,7 +218,7 @@ TEST_CASE("renderer: bitmap glyphs round the original pen position once") {
     }
 }
 
-TEST_CASE("folder icons: rendered override, missing or broken artwork, and builtin fallback") {
+TEST_CASE("folder icons: untrusted image paths and missing names use the fallback") {
     const auto gl = offscreen(32, 32);
     if (!gl)
         return;
@@ -242,10 +242,7 @@ TEST_CASE("folder icons: rendered override, missing or broken artwork, and built
     };
     const auto normal = draw({});
     const auto override = draw(custom.string());
-    CHECK(override != normal);
-    const auto middle = (16 * 32 + 16) * 4;
-    CHECK(override[middle] == 255);
-    CHECK(override[middle + 1] == 0);
+    CHECK(override == normal);
     CHECK(draw(broken.string()) == normal);
     CHECK(draw((dir.path / "missing.svg").string()) == normal);
     CHECK(draw("rummage-nonexistent-folder-icon") == normal);
@@ -254,7 +251,7 @@ TEST_CASE("folder icons: rendered override, missing or broken artwork, and built
     CHECK(draw(custom.string()) == builtin);
 }
 
-TEST_CASE("bookmark icons: sidebar uses theme folders, custom artwork and builtin fallback") {
+TEST_CASE("bookmark icons: sidebar uses installed theme icons and ignores image paths") {
     const auto gl = offscreen(200, 100);
     REQUIRE(gl);
     rummage::test::TempDir dir;
@@ -283,7 +280,7 @@ TEST_CASE("bookmark icons: sidebar uses theme folders, custom artwork and builti
     dir.write("icons/bookmark-test/32/folder.svg",
               "<svg width='32' height='32'><rect width='32' height='32' fill='lime'/></svg>");
     const auto custom =
-        dir.write("custom.svg",
+        dir.write("icons/bookmark-test/32/folder-custom.svg",
                   "<svg width='32' height='32'><rect width='32' height='32' fill='red'/></svg>");
     const auto broken = dir.write("broken.svg", "not svg");
     ui::FontSystem fonts;
@@ -313,7 +310,8 @@ TEST_CASE("bookmark icons: sidebar uses theme folders, custom artwork and builti
     const auto normal = draw({});
     CHECK(normal[0] == 0);
     CHECK(normal[1] == 255);
-    const auto override = draw(custom.string());
+    CHECK(draw(custom.string()) == normal);
+    const auto override = draw("folder-custom");
     CHECK(override[0] == 255);
     CHECK(override[1] == 0);
     CHECK(draw(broken.string()) == normal);

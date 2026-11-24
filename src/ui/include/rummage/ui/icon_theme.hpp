@@ -14,8 +14,12 @@ namespace rummage::ui {
 [[nodiscard]] std::string desktop_icon_theme();
 [[nodiscard]] std::vector<std::filesystem::path> icon_theme_roots();
 
+// Installed, visible icon themes, sorted and deduplicated. Call on a worker.
+[[nodiscard]] std::vector<std::string> installed_icon_themes(
+    const std::vector<std::filesystem::path>& roots);
+
 // Freedesktop icon themes: size selection, split roots, inheritance and hicolor fallback.
-// No GL resources. SVG/PNG rendering is for theme assets and explicit local folder icons.
+// No GL resources. SVG/PNG rendering is for theme assets and explicit Places configuration.
 class IconTheme {
 public:
     IconTheme(std::string name, std::vector<std::filesystem::path> roots);

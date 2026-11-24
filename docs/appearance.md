@@ -275,17 +275,22 @@ off removes rummage's generated override, or restores the installed icon for a
 user-prefix install. An unrelated user icon at that path is left alone. Docks may
 cache the previous icon until they refresh.
 
+Settings → Appearance → Icon theme offers a dropdown with System, Built-in, and
+installed themes from `~/.icons`, `$XDG_DATA_HOME/icons` (normally
+`~/.local/share/icons`), and the system XDG icon directories. Reopen Settings to
+refresh the list after installing a theme.
+
 ## Folder icons and properties
 
 With system/named themes, folder icons use `Icon=` under `[Desktop Entry]` in the
-folder's `.directory` file, shared with Dolphin. Values can be theme names,
-absolute SVG/PNG paths or `./` paths relative to that folder. Standard XDG folders
+folder's `.directory` file, shared with Dolphin. Only installed theme icon names
+are accepted; absolute and relative image paths are ignored. Standard XDG folders
 use purpose-specific icons without an override; missing icons fall back. The
 `builtin` theme retains Tabler icons. KDE's `EmptyIcon` behavior is not supported.
 Reopen the parent folder after changing its icon externally.
 
 Use **Alt+Enter** or **Properties** for a folder, then **Change Icon…**. Search the
-paged theme icon grid or enter/paste a custom icon name/path. Default removes the
+paged theme icon grid or enter/paste a theme icon name. Default removes the
 override. Choices are staged until Apply; Cancel leaves disk unchanged. Saving
 preserves other `.directory` fields and refreshes open views. Trash properties
 are read-only. Tab changes controls; arrows/Page Up/Down browse icons; Enter

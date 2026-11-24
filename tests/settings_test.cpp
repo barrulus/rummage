@@ -379,7 +379,7 @@ TEST_CASE("settings: keyboard choices open a list and save the selected value") 
     CHECK(core::load_config(f.path).config.appearance.color_scheme == "light");
 }
 
-TEST_CASE("settings: choice cancellation and Tab preserve values and text editing") {
+TEST_CASE("settings: choice cancellation and Tab preserve values and move between dropdowns") {
     Fixture f;
     f.open();
     f.dialog.key({.keysym = XKB_KEY_2, .text = {}, .modifiers = {.alt = true}});
@@ -392,8 +392,10 @@ TEST_CASE("settings: choice cancellation and Tab preserve values and text editin
     f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_End, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
-    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
-    f.dialog.paste("builtin");
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Home, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
     f.dialog.save();
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(f.dialog.error().empty());
@@ -454,9 +456,11 @@ TEST_CASE("settings: automatic choice saves serialize edits made during an earli
     REQUIRE(f.dialog.busy());
     // Do not run the loop yet: the first write's completion is still pending.
     f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
-    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
-    f.dialog.paste("builtin");
-    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});    // Commit the text on blur.
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Home, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});    // Move to the accent toggle.
     f.dialog.key({.keysym = XKB_KEY_space, .text = {}});  // Toggle accent while saving.
     f.dialog.close();
     CHECK(f.dialog.is_open());
@@ -587,8 +591,10 @@ TEST_CASE("settings: translated compact navigation preserves keyboard editing an
     f.dialog.key({.keysym = XKB_KEY_Escape, .text = {}});
     REQUIRE(f.dialog.is_open());
     f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
-    f.dialog.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
-    f.dialog.paste("builtin");
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Home, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(core::load_config(f.path).config.icon.theme == "builtin");

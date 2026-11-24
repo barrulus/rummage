@@ -27,14 +27,16 @@ In normal builds the helper applies:
   earlier during idle time.
 
 The filter has architecture definitions for x86-64 and AArch64. Crashes, timeouts
-and malformed replies are treated as preview failures. The browser does not fall
-back to decoding the same unsupported input in-process.
+and malformed replies are treated as preview failures. Returned pixel dimensions
+and overflow-checked buffer sizes are validated before pixels enter the application.
+The browser does not fall back to decoding the same unsupported input in-process.
 
 SVG file previews also run in the base helper, using the existing SVG renderer
 with its input, geometry and work limits. The file adapter reads at most 8 MiB and
 caps the rendered side at 1024 pixels. It reads only the supplied descriptor;
 external SVG resources are never fetched. Theme icons use the separate in-process
-path described below.
+path described below. Untrusted `.directory` files may select theme icon names
+only; custom image paths are ignored.
 
 Markdown parsing runs in the text helper. The browser validates a bounded presentation
 document before laying it out; HTML is not executed, and links and images do not trigger
@@ -79,7 +81,8 @@ same checks and treats the batch as one operation.
 Copying members out of a browsed archive creates files in a private staging directory,
 using `openat2` confinement to prevent traversal and symlink escapes. Publication never
 replaces an existing name. Special files and unsupported/encrypted members are refused or
-reported; supported links must remain within the extracted selection. These guarantees
+reported; absolute symlink targets and targets containing any `..` component are
+rejected, including otherwise harmless parent-relative links. These guarantees
 apply to the built-in member workflow, not to independently configured external tools.
 
 Custom actions use an argument vector, preserving path boundaries without implicit

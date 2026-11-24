@@ -56,8 +56,12 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
     change_section(0);
     job_ = pool_.submit(
         core::Priority::visible,
-        [path = path_](const core::CancelToken&) { return core::read_text_file(path); },
-        [this](core::TextFile file) {
+        [path = path_](const core::CancelToken&) {
+            return std::pair{core::read_text_file(path),
+                             ui::installed_icon_themes(ui::icon_theme_roots())};
+        },
+        [this](std::pair<core::TextFile, std::vector<std::string>> loaded) {
+            auto& [file, icon_themes] = loaded;
             busy_ = false;
             existed_ = file.exists;
             staged_ = original_ = std::move(file.text);
@@ -68,7 +72,7 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
                     write_error_ = parsed.problems.front();
                 else {
                     valid_ = true;
-                    populate(parsed);
+                    populate(parsed, std::move(icon_themes));
                 }
             }
             update_error();
@@ -113,7 +117,8 @@ void SettingsDialog::close() {
     maybe_close();
 }
 
-void SettingsDialog::populate(const core::ConfigResult& loaded) {
+void SettingsDialog::populate(const core::ConfigResult& loaded,
+                              std::vector<std::string> icon_themes) {
     const auto& config = loaded.config;
     const auto add = [&](int section, std::string group, std::string table, std::string key,
                          std::string label, std::string description, std::string value,
@@ -163,8 +168,12 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(1, "Theme", "appearance", "color_scheme", "Colour mode",
         "Follow the selected source or choose light or dark", config.appearance.color_scheme, false,
         {"system", "light", "dark"});
-    add(1, "Theme", "icon", "theme", "Icon theme", "system, builtin, or an installed theme name",
-        config.icon.theme);
+    icon_themes.insert(icon_themes.begin(), {"system", "builtin"});
+    // Retain a configured theme even if it is temporarily unavailable.
+    if (std::ranges::find(icon_themes, config.icon.theme) == icon_themes.end())
+        icon_themes.push_back(config.icon.theme);
+    add(1, "Theme", "icon", "theme", "Icon theme", "System, built-in, or an installed icon theme",
+        config.icon.theme, false, std::move(icon_themes));
     add(1, "Theme", "icon", "follow_accent", "Follow palette accent",
         "Use the palette accent for Rummage’s app icon",
         config.icon.follow_accent ? "true" : "false", true, {"true", "false"});
@@ -527,6 +536,13 @@ void SettingsDialog::reveal_focus() {
 }
 
 std::string SettingsDialog::choice_label(const Field& field, std::string_view value) {
+    if (field.table == "icon" && field.key == "theme") {
+        if (value == "system")
+            return std::string{i18n::tr("System")};
+        if (value == "builtin")
+            return std::string{i18n::tr("Built-in")};
+        return std::string{value};
+    }
     if (field.key == "preview_position")
         return std::string{i18n::tr(value == "right" ? "Right side" : "Below Places")};
     if (field.key == "palette_source") {
