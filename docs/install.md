@@ -80,7 +80,7 @@ and [source identity](https://github.com/barrulus/rummage/releases/download/deve
 are provided with every build. To verify a download, save `SHA256SUMS` beside it and run
 `sha256sum --check --ignore-missing SHA256SUMS`. Downloads are replaced as builds pass;
 use the full commit from `source.json` instead of `development` in the Nix reference to
-pin a version. When identical-tree PR packages are promoted after merging, `commit`
+pin a version. When identical-tree manually tested branch packages are promoted after merging, `commit`
 identifies the original tested checkout and `published_commit` identifies the main
 commit used by the moving tag. Package bytes and source archives remain unchanged.
 These downloads are individual packages, not an automatic-update repository.
@@ -213,7 +213,7 @@ graphics drivers. A successful package build alone does not establish that setup
 ### Binary cache
 
 The public [rummage-fm cache](https://rummage-fm.cachix.org) provides **x86_64-linux**
-builds from main and trusted repository PRs. It includes the default package,
+builds from main and manually tested repository branches. It includes the default package,
 media-only, PDF-only and combined preview variants, including their helper outputs
 and runtime dependencies. The cache starts filling after the first successful CI
 upload; older revisions and aarch64 builds may require local compilation. Completed

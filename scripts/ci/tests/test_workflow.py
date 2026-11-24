@@ -35,3 +35,16 @@ class WorkflowGateTest(unittest.TestCase):
     def test_download_preparation_requires_successful_tests(self):
         self.assertIn('tests', self.dependencies('downloads'))
         self.assertIn("needs.tests.result == 'success'", self.jobs['downloads'])
+
+
+class WorkflowTriggerTest(unittest.TestCase):
+    def test_all_workflows_are_manual_except_main_pushes(self):
+        for path in (ROOT / '.github/workflows').glob('*.yml'):
+            with self.subTest(workflow=path.name):
+                triggers = path.read_text().split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
+                events = set(re.findall(r'^  (\w+):', triggers, re.M))
+                self.assertEqual(events, {'push', 'workflow_dispatch'})
+                push = triggers.split('  push:\n', 1)[1]
+                push = re.split(r'^  \w+:', push, maxsplit=1, flags=re.M)[0]
+                self.assertRegex(push, r'(?m)^    branches: \[main\]$')
+                self.assertNotIn('tags:', push)

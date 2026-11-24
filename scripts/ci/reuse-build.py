@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Find a successful PR build of exactly the current main tree."""
+"""Find a successful manual branch build of exactly the current main tree."""
 import json
 import os
 import re
@@ -23,9 +23,10 @@ def api(path):
 
 def find_build(repository, tree, request=api):
     prefix = f'repos/{repository}'
-    runs = request(f'{prefix}/actions/workflows/ci.yml/runs?event=pull_request&status=success&per_page=30')
+    runs = request(f'{prefix}/actions/workflows/ci.yml/runs?event=workflow_dispatch&status=success&per_page=30')
     for run in runs['workflow_runs']:
-        if run['event'] != 'pull_request' or run['conclusion'] != 'success':
+        if (run['event'] != 'workflow_dispatch' or run['head_branch'] == 'main'
+                or run['conclusion'] != 'success'):
             continue
         artifacts = request(f'{prefix}/actions/runs/{run["id"]}/artifacts?per_page=100')['artifacts']
         names = {a['name'] for a in artifacts if not a['expired']}
@@ -40,9 +41,8 @@ def find_build(repository, tree, request=api):
             source = request(f'{prefix}/git/commits/{commit}')
             if source['tree']['sha'] != tree:
                 continue
-            # PR artifacts use the synthetic merge SHA, while run.head_sha is the PR head.
-            if commit != run['head_sha'] and (
-                    len(source['parents']) != 2 or source['parents'][1]['sha'] != run['head_sha']):
+            # Manual branch runs test the branch head itself, not a synthetic PR merge.
+            if commit != run['head_sha']:
                 continue
             jobs = request(f'{prefix}/actions/runs/{run["id"]}/jobs?per_page=100')['jobs']
             passed = {job['name'] for job in jobs if job['conclusion'] == 'success'}

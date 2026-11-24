@@ -31,7 +31,7 @@ def transfer(mode, directory, run=subprocess.run, tests_only=False):
         directory.mkdir(parents=True, exist_ok=True)
         run(['nix', 'copy', '--to', uri, *paths], check=True)
     else:
-        # Restore this run's successful test gate, or an identical-tree validated PR build.
+        # Restore this run's successful test gate, or an identical-tree validated branch build.
         # Resolve roots from this checkout, never from an artifact-provided path list.
         run(['nix', 'copy', '--from', uri, '--no-check-sigs', *paths], check=True)
 

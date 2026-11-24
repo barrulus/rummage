@@ -39,7 +39,9 @@ coverage. SVG changes follow the existing
   Dependency, CMake, packaging, helper or install-layout changes also require
   `python3 scripts/ci/preflight.py all` (Nix and Docker). A Nix pass alone does not
   verify native packages. See [preflight](contributing/ci-packaging.md#local-preflight).
-- Before merging, require the test gate and every package job to pass on the current PR revision;
+- CI runs automatically on pushes/merges to `main`; PRs do not trigger it. Before merging,
+  dispatch the workflow manually for the branch and require the test gate and every
+  package job to pass on the current PR revision;
   update/retest against current `main` when concurrent changes affect dependencies
   or packaging. Do not merge a known failing check as an unrelated failure.
 - State the problem and resulting user-visible behavior.
