@@ -11,9 +11,16 @@ the command palette. Both reflect configured actions and shortcuts.
 The sidebar contains places, bookmarks, Trash and devices. The breadcrumb above the
 files opens any parent in the current path. The status bar shows counts, selection,
 free space, operation progress and messages, plus view buttons. The information
-pane shows a preview and a compact metadata summary for the selected item; expand
+pane shows a preview and a compact metadata summary for the focused item; expand
 More details for extended media fields, permissions, owner/group and links.
 Copy all properties at the top includes collapsed fields.
+
+Selecting several files keeps the focused file's preview and metadata visible.
+Each pane shows its selected-item count at the upper right of its breadcrumb header,
+even when the preview is hidden. **Ctrl+arrows** moves focus without changing the
+selected set; **Ctrl+Space** toggles the focused item. A focus outline distinguishes
+the inspected item from selected items. The **Selection** section below the file's
+information retains combined file/folder counts and size.
 
 Right-click a place or bookmark to open that location, open it in a new tab or
 in the other pane, copy its path, or view Properties. Open in Terminal appears when
@@ -33,13 +40,19 @@ of the filter toolbar restores it; **View → Show → Places sidebar** also tog
 Visibility, width and zoom survive restart.
 **Ctrl+B** toggles the sidebar. **F6** moves keyboard focus into it and back;
 arrows choose a place, Enter opens it and Escape returns to the files.
-**Ctrl+I** toggles the information pane. Drag its edge to
+**Ctrl+I** toggles the information pane.
+**View → Show → Hide preview when no file is focused** enables automatic hiding.
+The preview returns when an item receives focus, including folders and files with
+metadata only. Loading or failed previews do not change visibility. Explicitly
+showing the preview with Ctrl+I or the Preview menu turns automatic hiding off;
+explicitly hiding it keeps it hidden as focus moves. These choices and the pane's
+width and placement survive restart. Drag its edge to
 resize it (240–720 logical pixels). Filenames and metadata wrap in full. Drag to
 select text in the pane, double-click a word, triple-click a line, or Shift+click
 to extend. After clicking a text field or text preview, **Ctrl+A** selects its text
 and **Ctrl+C** copies it. Click the file view to return these shortcuts to files.
 
-Rest on a selected folder for 250 ms to count its recursive size on a worker. The
+Rest on a focused folder for 250 ms to count its recursive size on a worker. The
 pane shows “Counting…” with the growing size, then Size and Contains. Selections
 containing folders get a combined recursive size; files alone show their listed
 sizes immediately. Moving to another selection or hiding the pane cancels the
@@ -55,7 +68,7 @@ changes deep inside it may require selecting it again to recount.
 
 ## Insights
 
-Use the text-only **Insights** button between **View** and the settings cog,
+Use the **Insights** icon in the shared filter bar and choose a view,
 press **Ctrl+Alt+I**, or choose **Insights…** from the
 command palette or a folder's context menu, or use the information-pane button. A single selected
 folder is inspected; otherwise the current folder is used. This view is available
@@ -66,10 +79,15 @@ its × or Ctrl+W. Choosing a Place or bookmark while insights is active recentre
 the graphs on that folder. The information/preview pane is hidden in insights,
 leaving the full content width for graphs and file results.
 
-The view and size selectors are segmented controls. Subfolders and Hidden files
-use visual switches. Controls share one row where space allows and wrap in narrow
-panes. Numeric columns are right-aligned with fixed-width digits. Proportional
-row fills make quantities comparable without relying on tiny underlines.
+The **Insights** icon opens a menu with **Types**, **Map**, **Iris**, **Largest**,
+**Age** and **Languages**. While Insights is active, the menu also contains
+**Size by: Size / Count** for applicable views and the **Subfolders** and
+**Hidden files** toggles. Press the Insights shortcut again while an Insights tab
+is active to open this menu with the keyboard. The choices are also searchable
+in the command palette. These settings follow the active pane. Navigate with
+the breadcrumb above the content; Insights has no separate location bar.
+Numeric columns are right-aligned with fixed-width digits. Proportional row
+fills make quantities comparable without relying on tiny underlines.
 
 Map, Iris and file-type results use a consistent category palette and legend for
 folders, documents, code, images, audio, video, archives and other files. Age uses
@@ -134,12 +152,11 @@ scrollable, with a total item count rather than page navigation.
   their parent; their lines are counted separately, while the overall file total
   counts physical source files once. Select a language to see its source files.
 - **Back**, **Backspace**, or **Alt+Left** retraces your visits, including type matches.
-  **Up** or **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an
-  ancestor using the browser breadcrumb. The folder-path dropdown above the graph
-  shows the ancestor chain and child folders; choose a folder to recentre insights.
-  **Tab**, **Shift+Tab**, arrows and **Enter** operate controls, the folder dropdown
-  and file rows. The wheel, touchpad, scrollbar and **Page Up/Down** scroll results.
-  **Escape** dismisses the folder dropdown or returns from matching files to their
+  **Alt+Up** opens the parent folder. Click a breadcrumb to jump to an ancestor,
+  or press **Alt+D** to edit the breadcrumb path and recentre Insights.
+  **Tab**, **Shift+Tab**, arrows and **Enter** operate controls and file rows.
+  The wheel, touchpad, scrollbar and **Page Up/Down** scroll results.
+  **Escape** dismisses the menu or returns from matching files to their
   previous graph; it leaves the insights tab open.
 
 Switching tabs preserves the open insight, selection, location, measurement,
@@ -331,7 +348,10 @@ visibility are unchanged. This action is unavailable in file pickers.
 
 ## Settings and preview placement
 
-The filter toolbar gives the filename field the available width. Places, New Folder,
+One shared filter toolbar spans the browsing panes above their tabs and breadcrumbs:
+**filter toolbar → tabs → breadcrumb → files**. Its filter text, view selector, sort
+controls and actions follow the active pane; switching panes preserves each pane’s
+filter and view settings. The filename field takes the available width. Places, New Folder,
 Sort By, Insights and View use compact icons with hover tips. The **View** icon reflects
 the current mode and opens a dropdown for Columns, Grid and Details, alongside pane
 commands and preview/sidebar visibility. One shared **Settings** cog sits at the bottom
@@ -351,7 +371,7 @@ existing layout.
 - **F3** or **View → Show Two Panes** splits the browser. On first use, the second pane starts at the current
   location and receives focus. Each pane has its own tabs, breadcrumb, selections, history,
   scrolling, view modes, zoom, sort order, hidden-file setting and filename filters.
-- **Tab** switches panes while browsing. Clicking a pane's current tab or empty toolbar space
+- **Tab** switches panes while browsing. Clicking a pane's current tab
   focuses it without disturbing its selection. Hovering or scrolling the other pane does not
   move keyboard focus. A subtle border marks the active pane; inactive selections remain
   visible in subdued colors.

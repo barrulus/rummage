@@ -111,6 +111,10 @@ public:
 
     [[nodiscard]] bool size_measure() const { return bytes_; }
 
+    [[nodiscard]] bool recursive() const { return options_.recursive; }
+
+    [[nodiscard]] bool hidden() const { return options_.hidden; }
+
     [[nodiscard]] std::shared_ptr<Folder> folder() const {
         return selected_folder_ ? selected_folder_ : scope_folder_;
     }
@@ -142,14 +146,12 @@ public:
     void set_iris_motion(float duration_seconds);
 
     [[nodiscard]] bool animating() const {
-        return open_ && (scroller_.animating() || tree_scroller_.animating() || iris_animating_);
+        return open_ && (scroller_.animating() || iris_animating_);
     }
 
     [[nodiscard]] ui::Rect scrollbar_thumb() const { return scrollbar_.thumb(scroller_); }
 
     [[nodiscard]] ui::Rect list_bounds() const { return list_; }
-
-    [[nodiscard]] bool tree_open() const { return tree_open_; }
 
     [[nodiscard]] bool is_open() const { return open_; }
 
@@ -205,14 +207,6 @@ private:
     void restore(Location location);
     void rebuild();
     void page(int direction);
-    void toggle_tree();
-    void draw_tree(ui::Renderer&, const theme::Palette&, ui::IconSet&,
-                   ui::Scroller::Clock::time_point);
-    bool tree_pointer(const ui::PointerEvent&, ui::Scroller::Clock::time_point);
-    void tree_key(const ui::KeyEvent&);
-    void rebuild_tree();
-    void choose_tree(std::size_t index);
-
     [[nodiscard]] bool chart_hover(std::size_t index) const;
     void draw_map(ui::Renderer&, ui::Rect, const theme::Palette&, ui::IconSet&,
                   const fs::MimeDatabase&);
@@ -250,17 +244,6 @@ private:
     float iris_duration_{0.28F};
     bool iris_dirty_{true}, iris_animating_{false};
 
-    struct TreeRow {
-        std::filesystem::path path;
-        std::size_t depth;
-    };
-
-    std::vector<TreeRow> tree_rows_;
-    std::size_t tree_cursor_{0};
-    bool tree_open_{false};
-    ui::Rect tree_bounds_{};
-    ui::Scroller tree_scroller_;
-    ui::Scrollbar tree_scrollbar_;
     ui::Scroller scroller_;
     ui::Scrollbar scrollbar_;
     std::optional<float> requested_scroll_{0.0F};

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <functional>
 #include <string_view>
 #include <vector>
@@ -59,14 +58,7 @@ private:
         ui::Rect header{};
     };
 
-    std::array<Group, 8> groups_{{{"General"},
-                                  {"Moving"},
-                                  {"Selecting"},
-                                  {"Files"},
-                                  {"Tabs"},
-                                  {"Sidebar"},
-                                  {"Zoom"},
-                                  {"Quick Look"}}};
+    std::vector<Group> groups_;
     ui::Rect bounds_;
     std::size_t focused_group_{0};
     bool keyboard_focus_{false};

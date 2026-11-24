@@ -173,7 +173,7 @@ constexpr std::array kShortcuts{
              .command = Command::properties},
     Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+Alt+I",
-             .action = i18n::mark("Insights"),
+             .action = i18n::mark("Open Insights or its view menu"),
              .scope = scope::kViews,
              .modifiers = ui::Modifiers{.ctrl = true, .alt = true},
              .keysyms = {XKB_KEY_i, XKB_KEY_I},

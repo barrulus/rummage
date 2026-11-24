@@ -550,3 +550,25 @@ TEST_CASE("clipboard: location and name dialogs copy and cut text without taking
     CHECK(f.clipboard.data(views::kText) == "archive.zip");
     CHECK(f.browser.cut_marks().names.empty());
 }
+
+TEST_CASE("clipboard: copying a selection ignores an unselected focused file") {
+    Fixture f;
+    f.show(f.root / "photos", "P1.ORF");
+    auto folder = f.browser.picker_folder();
+    REQUIRE(folder);
+    folder->select_all();
+    REQUIRE(folder->selected_count() > 1);
+    folder->set_cursor(folder->cursor(), views::SelectMode::toggle);
+    REQUIRE(folder->cursor_entry());
+    const auto focused = folder->cursor_entry()->name;
+    REQUIRE_FALSE(folder->is_selected(focused));
+    const auto selected = folder->selected_names();
+    CHECK(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    const auto offered = f.clipboard.data(views::kUriList);
+    for (const auto& name : selected)
+        CHECK(offered.find(rummage::thumbs::file_uri(folder->path() / name) + "\r\n") !=
+              std::string::npos);
+    CHECK(offered.find(rummage::thumbs::file_uri(folder->path() / focused) + "\r\n") ==
+          std::string::npos);
+    CHECK(folder->selected_names() == selected);
+}

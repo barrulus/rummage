@@ -40,7 +40,10 @@ std::vector<std::string_view> overlay_groups() {
             "Panes",   "Sidebar", "Zoom",      "Quick Look"};
 }
 
-ShortcutsOverlay::ShortcutsOverlay(std::function<void()> redraw) : redraw_{std::move(redraw)} {}
+ShortcutsOverlay::ShortcutsOverlay(std::function<void()> redraw) : redraw_{std::move(redraw)} {
+    for (const auto name : overlay_groups())
+        groups_.push_back({.name = name});
+}
 
 void ShortcutsOverlay::open() {
     if (!open_) {

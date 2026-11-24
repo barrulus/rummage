@@ -455,20 +455,13 @@ void InsightsView::open(std::filesystem::path root, bool hidden, Reveal reveal_h
     root_ = destination;
     data_.reset();
     scope_ = 0;
-    focus_ = can_back()               ? "back"
-             : source_view()          ? "languages"
-             : view_ == View::iris    ? "iris"
-             : view_ == View::space   ? "space"
-             : view_ == View::largest ? "largest"
-             : view_ == View::age     ? "age"
-                                      : "types";
+    focus_.clear();
     hover_.clear();
     open_ = true;
     refresh();
 }
 
 void InsightsView::close() {
-    tree_open_ = false;
     iris_animating_ = false;
     iris_target_.clear();
     iris_from_.clear();
@@ -917,10 +910,6 @@ std::string InsightsView::status() const {
 void InsightsView::key(const ui::KeyEvent& event) {
     if (!open_)
         return;
-    if (tree_open_) {
-        tree_key(event);
-        return;
-    }
     if (folder_factory_ && event.modifiers.ctrl &&
         (event.keysym == XKB_KEY_a || event.keysym == XKB_KEY_A ||
          ((event.keysym == XKB_KEY_i || event.keysym == XKB_KEY_I) && event.modifiers.shift))) {
@@ -1004,8 +993,6 @@ void InsightsView::key(const ui::KeyEvent& event) {
 }
 
 void InsightsView::pointer(const ui::PointerEvent& event, ui::Scroller::Clock::time_point now) {
-    if (tree_open_ && tree_pointer(event, now))
-        return;
     if (scrollbar_.pointer(event, scroller_)) {
         controls_.clear();
         redraw_();
@@ -1068,8 +1055,7 @@ void InsightsView::pointer(const ui::PointerEvent& event, ui::Scroller::Clock::t
 }
 
 ui::CursorShape InsightsView::cursor_at(float x, float y) const {
-    if (scrollbar_.hit(scroller_, x, y) ||
-        (tree_open_ && tree_scrollbar_.hit(tree_scroller_, x, y)))
+    if (scrollbar_.hit(scroller_, x, y))
         return ui::CursorShape::standard;
     return std::ranges::any_of(controls_, [&](const Control& c) { return c.contains(x, y); })
                ? ui::CursorShape::pointer
@@ -1079,155 +1065,6 @@ ui::CursorShape InsightsView::cursor_at(float x, float y) const {
 ui::Rect InsightsView::control_bounds(std::string_view id) const {
     const auto found = std::ranges::find(controls_, id, &Control::id);
     return found == controls_.end() ? ui::Rect{} : found->bounds;
-}
-
-void InsightsView::rebuild_tree() {
-    const auto current = scope_path();
-    const auto selected =
-        tree_cursor_ < tree_rows_.size() ? tree_rows_[tree_cursor_].path : current;
-    tree_rows_.clear();
-    std::vector<std::filesystem::path> ancestors;
-    for (auto path = current; !path.empty();) {
-        ancestors.push_back(path);
-        const auto parent = path.parent_path();
-        if (parent == path)
-            break;
-        path = parent;
-    }
-    std::ranges::reverse(ancestors);
-    for (std::size_t i = 0; i < ancestors.size(); ++i)
-        tree_rows_.push_back({ancestors[i], i});
-    if (scope_folder_ && scope_folder_->path() == current)
-        for (const auto& entry : scope_folder_->entries())
-            if (entry.is_directory() && !entry.is_link &&
-                (options_.hidden || !entry.name.starts_with('.')))
-                tree_rows_.push_back({scope_folder_->path_of(entry), ancestors.size()});
-    const auto children = tree_rows_.begin() + static_cast<std::ptrdiff_t>(ancestors.size());
-    std::sort(children, tree_rows_.end(),
-              [](const auto& a, const auto& b) { return a.path < b.path; });
-    const auto found = std::ranges::find(tree_rows_, selected, &TreeRow::path);
-    tree_cursor_ = found == tree_rows_.end() ? ancestors.size() - 1
-                                             : static_cast<std::size_t>(found - tree_rows_.begin());
-}
-
-void InsightsView::toggle_tree() {
-    tree_open_ = !tree_open_;
-    if (tree_open_) {
-        tree_rows_.clear();
-        rebuild_tree();
-        tree_scroller_.jump_to(0);
-    }
-    redraw_();
-}
-
-void InsightsView::choose_tree(std::size_t index) {
-    if (index >= tree_rows_.size())
-        return;
-    const auto path = tree_rows_[index].path;
-    tree_open_ = false;
-    navigate(path);
-    focus_ = "location";
-    redraw_();
-}
-
-void InsightsView::tree_key(const ui::KeyEvent& event) {
-    rebuild_tree();
-    if (event.keysym == XKB_KEY_Escape || event.keysym == XKB_KEY_Tab) {
-        tree_open_ = false;
-        focus_ = "location";
-    } else if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
-        choose_tree(tree_cursor_);
-    } else if (!tree_rows_.empty()) {
-        if (event.keysym == XKB_KEY_Up)
-            tree_cursor_ = tree_cursor_ > 0 ? tree_cursor_ - 1 : 0;
-        else if (event.keysym == XKB_KEY_Down)
-            tree_cursor_ = std::min(tree_cursor_ + 1, tree_rows_.size() - 1);
-        else if (event.keysym == XKB_KEY_Home)
-            tree_cursor_ = 0;
-        else if (event.keysym == XKB_KEY_End)
-            tree_cursor_ = tree_rows_.size() - 1;
-        const float top = static_cast<float>(tree_cursor_) * 32;
-        if (top < tree_scroller_.offset())
-            tree_scroller_.jump_to(top);
-        else if (top + 32 > tree_scroller_.offset() + tree_bounds_.height)
-            tree_scroller_.jump_to(top + 32 - tree_bounds_.height);
-    }
-    redraw_();
-}
-
-bool InsightsView::tree_pointer(const ui::PointerEvent& event,
-                                ui::Scroller::Clock::time_point now) {
-    if (tree_scrollbar_.pointer(event, tree_scroller_)) {
-        redraw_();
-        return true;
-    }
-    if (event.kind == ui::PointerEvent::Kind::press && !tree_bounds_.contains(event.x, event.y)) {
-        tree_open_ = false;
-        redraw_();
-        return true;  // Dismiss without activating a result behind the popup.
-    }
-    if (event.kind == ui::PointerEvent::Kind::leave) {
-        tree_open_ = false;
-        redraw_();
-        return false;
-    }
-    if (!tree_bounds_.contains(event.x, event.y))
-        return false;
-    if (event.kind == ui::PointerEvent::Kind::scroll) {
-        if (event.wheel_y != 0)
-            tree_scroller_.wheel(event.wheel_y, now);
-        else if (event.scroll_y != 0)
-            tree_scroller_.finger(event.scroll_y, now);
-        if (event.scroll_finger && event.scroll_stop)
-            tree_scroller_.release(now);
-        redraw_();
-    } else if (event.kind == ui::PointerEvent::Kind::press &&
-               event.button == ui::PointerButton::left) {
-        choose_tree(
-            static_cast<std::size_t>((event.y - tree_bounds_.y + tree_scroller_.offset()) / 32));
-    }
-    return true;
-}
-
-void InsightsView::draw_tree(ui::Renderer& renderer, const theme::Palette& palette,
-                             ui::IconSet& icons, ui::Scroller::Clock::time_point now) {
-    rebuild_tree();
-    const auto anchor = control_bounds("location");
-    const float height = std::min({320.0F, static_cast<float>(tree_rows_.size()) * 32,
-                                   std::max(0.0F, card_.bottom() - anchor.bottom() - 8)});
-    tree_bounds_ = {anchor.x, anchor.bottom() + 4,
-                    std::min(std::max(anchor.width, 280.0F), card_.right() - anchor.x - 8), height};
-    renderer.draw_box(tree_bounds_, {.fill = palette.surface_container,
-                                     .radius = ui::Corners::all(4),
-                                     .border_width = 1,
-                                     .border = palette.outline});
-    tree_scroller_.set_extent(static_cast<float>(tree_rows_.size()) * 32, height);
-    tree_scroller_.advance(now);
-    tree_scrollbar_.layout(tree_bounds_);
-    renderer.push_clip(tree_bounds_);
-    const auto first = static_cast<std::size_t>(tree_scroller_.offset() / 32);
-    for (auto i = first; i < tree_rows_.size(); ++i) {
-        const auto& row = tree_rows_[i];
-        const float y = tree_bounds_.y + static_cast<float>(i) * 32 - tree_scroller_.offset();
-        if (y >= tree_bounds_.bottom())
-            break;
-        const ui::Rect rect{tree_bounds_.x, y, tree_bounds_.width - 20, 32};
-        if (i == tree_cursor_)
-            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(0.18F)});
-        const float x = rect.x + 8 + static_cast<float>(std::min<std::size_t>(row.depth, 8)) * 14;
-        icons.draw(renderer, row.path == scope_path() ? "chevron-down" : "folder", x, y + 8, 16,
-                   palette.primary);
-        renderer.draw_text(
-            row.path.has_filename() ? row.path.filename().string() : row.path.string(), x + 24,
-            y + 8, 13, palette.on_surface, std::max(0.0F, rect.right() - x - 30),
-            ui::Ellipsis::middle);
-        controls_.push_back({std::format("tree:{}", i), rect.intersect(tree_bounds_),
-                             [this, i] { choose_tree(i); }});
-    }
-    if (const auto thumb = tree_scrollbar_.thumb(tree_scroller_); !thumb.empty())
-        renderer.draw_box(thumb, {.fill = palette.on_surface_variant.with_alpha(0.6F),
-                                  .radius = ui::Corners::all(3)});
-    renderer.pop_clip();
 }
 
 void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
@@ -1272,121 +1109,12 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (!glyph.empty())
             icons.draw(renderer, glyph, rect.x + 10, rect.y + 8, 16, ink);
         renderer.draw_text(label, label_x, rect.y + 8, 13, ink,
-                           std::max(0.0F, rect.right() - label_x - (id == "location" ? 32 : 8)));
+                           std::max(0.0F, rect.right() - label_x - 8));
         if (enabled && rect.bottom() <= frame.footer.bottom())
             controls_.push_back({std::move(id), rect, std::move(action)});
     };
     renderer.push_clip(frame.body);
     float x = left, y = frame.body.y + 12;
-    const auto path = scope_path();
-    const auto fit = [&](float w) {
-        if (x > left && x + w > left + width) {
-            x = left;
-            y += 38;
-        }
-    };
-
-    struct Segment {
-        std::string id;
-        std::string_view label;
-        std::function<void()> action;
-        bool active;
-    };
-
-    const auto segmented = [&](const std::vector<Segment>& segments) {
-        float total_width = 4;
-        for (const auto& segment : segments)
-            total_width += text_width(segment.label) + 20;
-        fit(std::min(width, total_width));
-        // Wrap only when the pane cannot fit the group; never truncate the selected mode.
-        float group_x = x, group_y = y;
-        const auto outline = [&](float end) {
-            renderer.draw_box({group_x, group_y, end - group_x, 32},
-                              {.fill = palette.primary.with_alpha(0.035F),
-                               .radius = ui::Corners::all(6),
-                               .border_width = 1,
-                               .border = palette.outline_variant});
-        };
-        outline(std::min(left + width, x + total_width));
-        x += 2;
-        for (const auto& segment : segments) {
-            const float w = std::min(width - 4, text_width(segment.label) + 20);
-            if (x + w + 2 > left + width && x > left + 2) {
-                x = left;
-                y += 38;
-                group_x = x;
-                group_y = y;
-                outline(std::min(left + width, x + total_width));
-                x += 2;
-            }
-            const ui::Rect rect{x, y + 2, w, 28};
-            const bool hot = hover_ == segment.id;
-            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(segment.active ? 0.20F
-                                                                        : hot          ? 0.08F
-                                                                                       : 0),
-                                     .radius = ui::Corners::all(4),
-                                     .border_width = focus_ == segment.id ? 1.0F : 0,
-                                     .border = palette.primary});
-            renderer.draw_text(segment.label, x + 10, y + 8, 13,
-                               segment.active ? palette.on_surface : muted, w - 20);
-            if (rect.bottom() <= frame.body.bottom())
-                controls_.push_back({segment.id, rect, segment.action});
-            x += w;
-        }
-        x += 12;
-    };
-    segmented({{"types", i18n::tr("Types"), [this] { set_view(View::types); },
-                view_ == View::types || view_ == View::other_types || view_ == View::matches},
-               {"space", i18n::tr("Map"), [this] { set_view(View::space); }, view_ == View::space},
-               {"iris", i18n::tr("Iris"), [this] { set_view(View::iris); }, view_ == View::iris},
-               {"largest", i18n::tr("Largest"), [this] { set_view(View::largest); },
-                view_ == View::largest},
-               {"age", i18n::tr("Age"), [this] { set_view(View::age); },
-                view_ == View::age || view_ == View::age_matches},
-               {"languages", i18n::tr("Languages"), [this] { set_view(View::languages); },
-                source_view()}});
-    if (!source_view() && view_ != View::largest) {
-        const float label_width = text_width(i18n::tr("Size by:")) + 8;
-        fit(label_width + text_width(i18n::tr("Size")) + text_width(i18n::tr("Count")) + 44);
-        renderer.draw_text(i18n::tr("Size by:"), x, y + 8, 13, muted, label_width);
-        x += label_width;
-        segmented({{"bytes", i18n::tr("Size"), [this] { set_size_measure(true); }, bytes_},
-                   {"count", i18n::tr("Count"), [this] { set_size_measure(false); }, !bytes_}});
-    }
-    const auto toggle = [&](std::string id, std::string_view label, bool checked,
-                            std::function<void()> action) {
-        const float w = std::min(width, text_width(label) + 44);
-        fit(w);
-        const ui::Rect rect{x, y, w, 32};
-        if (hover_ == id || focus_ == id)
-            renderer.draw_box(rect, {.fill = palette.primary.with_alpha(0.06F),
-                                     .radius = ui::Corners::all(5),
-                                     .border_width = focus_ == id ? 1.0F : 0,
-                                     .border = palette.primary});
-        renderer.draw_box(
-            {x + 4, y + 8, 26, 16},
-            {.fill = checked ? palette.primary : palette.outline, .radius = ui::Corners::all(8)});
-        renderer.draw_box({x + (checked ? 16 : 6), y + 10, 12, 12},
-                          {.fill = checked ? palette.on_primary : palette.surface,
-                           .radius = ui::Corners::all(6)});
-        renderer.draw_text(label, x + 36, y + 8, 13, palette.on_surface, w - 36);
-        if (rect.bottom() <= frame.body.bottom())
-            controls_.push_back({id, rect, std::move(action)});
-        x += w + 6;
-    };
-    toggle("recursive", i18n::tr("Subfolders"), options_.recursive,
-           [this] { set_recursive(!options_.recursive); });
-    toggle("hidden", i18n::tr("Hidden files"), options_.hidden,
-           [this] { set_hidden(!options_.hidden); });
-    y += 42;
-    const ui::Rect up_button{left, y, 54, 30};
-    control("up", i18n::tr("Up"), up_button, [this] { up(); }, {}, false, can_up());
-    const ui::Rect location{
-        left + 62, y, std::max(1.0F, std::min(width - 62, text_width(path.string()) + 54)), 30};
-    control("location", path.string(), location, [this] { toggle_tree(); }, {}, tree_open_);
-    icons.draw(renderer, "chevron-down", location.right() - 24, location.y + 8, 14,
-               palette.on_surface);
-    y += 38;
     const auto files = data_ ? data_->nodes[scope_].files : progress_.files;
     const auto bytes = data_ ? data_->nodes[scope_].bytes : progress_.bytes;
     const bool partial = loading_ || (data_ && data_->nodes[scope_].partial);
@@ -1714,8 +1442,6 @@ void InsightsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_text(i18n::trf("{} items · Select a row to explore", rows_.size()), x + 8,
                            frame.footer.y + 52, 11, muted, std::max(0.0F, left + width - x - 8));
     renderer.pop_clip();
-    if (tree_open_)
-        draw_tree(renderer, palette, icons, now);
 }
 
 }  // namespace rummage::views

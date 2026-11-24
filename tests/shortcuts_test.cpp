@@ -1135,4 +1135,10 @@ TEST_CASE("insights: shortcut coexists with inversion and yields to custom chord
     REQUIRE(rummage::views::configure_shortcuts({{"folder_insights", "Ctrl+Alt+f"}}).empty());
     CHECK(rummage::views::command_for(chord(XKB_KEY_F, {.ctrl = true, .alt = true})) ==
           Command::folder_insights);
+    const auto shortcuts = rummage::views::shortcuts();
+    const auto help =
+        std::ranges::find(shortcuts, Command::folder_insights, &rummage::views::Shortcut::command);
+    REQUIRE(help != shortcuts.end());
+    CHECK(help->keys == "Ctrl+Alt+f");
+    CHECK(help->action == "Open Insights or its view menu");
 }

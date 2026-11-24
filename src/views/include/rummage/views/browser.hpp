@@ -233,9 +233,9 @@ public:
         redraw_();
     }
 
-    [[nodiscard]] const ui::Rect& filter_bounds() const { return area().filter_bounds; }
+    [[nodiscard]] const ui::Rect& filter_bounds() const { return filter_bounds_; }
 
-    [[nodiscard]] const ui::Rect& new_folder_bounds() const { return area().new_folder_bounds; }
+    [[nodiscard]] const ui::Rect& new_folder_bounds() const { return new_folder_bounds_; }
 
     [[nodiscard]] bool has_overlay() const {
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
@@ -266,11 +266,18 @@ public:
 
     [[nodiscard]] Mode mode() const noexcept { return pane().mode; }
 
-    // The info pane in the grid and the details, one setting for both (shown at start); the
-    // columns always show it.
+    // Preview visibility shared by all views. Explicit Show overrides automatic hiding.
     void set_info_visible(bool visible);
 
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
+
+    void set_info_auto_hide(bool enabled);
+
+    [[nodiscard]] bool info_auto_hide() const noexcept { return info_auto_hide_; }
+
+    [[nodiscard]] bool info_shown() const;
+
+    [[nodiscard]] ui::Rect selection_count_bounds() const { return area().selection_count; }
 
     // The sidebar (shown at start; left out when the window is too narrow for it).
     void set_sidebar_visible(bool visible);
@@ -351,17 +358,17 @@ public:
         return sidebar_preview_divider_;
     }
 
-    [[nodiscard]] ui::Rect sort_bounds() const { return area().sort_bounds; }
+    [[nodiscard]] ui::Rect sort_bounds() const { return sort_bounds_; }
 
-    [[nodiscard]] ui::Rect view_menu_bounds() const { return area().view_menu_bounds; }
+    [[nodiscard]] ui::Rect view_menu_bounds() const { return view_menu_bounds_; }
 
     [[nodiscard]] ui::Rect settings_bounds() const { return status_bar_.settings_bounds(); }
 
-    [[nodiscard]] ui::Rect insights_bounds() const { return area().insights_bounds; }
+    [[nodiscard]] ui::Rect insights_bounds() const { return insights_bounds_; }
 
     bool restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown);
 
-    [[nodiscard]] ui::Rect sidebar_toggle_bounds() const { return area().sidebar_toggle_bounds; }
+    [[nodiscard]] ui::Rect sidebar_toggle_bounds() const { return sidebar_toggle_bounds_; }
 
     [[nodiscard]] bool sidebar_visible() const noexcept { return sidebar_visible_; }
 
@@ -1007,6 +1014,7 @@ private:
     void invoke_action(const core::Action& action, const core::ActionContext& context);
     void run_action(std::string_view id);
     [[nodiscard]] MenuItem sort_menu();
+    [[nodiscard]] std::vector<MenuItem> insights_menu();
     [[nodiscard]] MenuItem name_filter_menu();
     [[nodiscard]] MenuItem details_columns_menu();
     // A new tab at index at, inheriting view settings from this area's active tab.
@@ -1058,11 +1066,8 @@ private:
         Breadcrumb breadcrumb;
         TabBar tab_bar;
         ui::Rect bounds{}, view_area{};
-        ui::Rect back{}, forward{};
+        ui::Rect back{}, forward{}, selection_count{};
         int navigation_pressed{};
-        ui::Rect sidebar_toggle_bounds{};
-        ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
-        ui::Rect view_menu_bounds{}, insights_bounds{}, sort_bounds{};
         std::filesystem::path motion_folder;
         const Pane* motion_tab{nullptr};
         Mode motion_mode{Mode::columns};
@@ -1074,6 +1079,9 @@ private:
         ui::Rect motion_view_bounds{};
     };
 
+    // Shared controls address the active pane; each tab retains its own filter and view state.
+    ui::Rect toolbar_bounds_{}, filter_bounds_{}, clear_filter_bounds_{}, new_folder_bounds_{};
+    ui::Rect view_menu_bounds_{}, insights_bounds_{}, sort_bounds_{}, sidebar_toggle_bounds_{};
     State::Folders folder_settings_;
     core::CancelToken drive_hover_job_;
     std::filesystem::path drive_hover_path_;
@@ -1191,6 +1199,7 @@ private:
     std::size_t menu_loads_{0};         // applications and templates being looked for
     std::vector<std::function<void()>> menu_loaders_;  // started once the menu is open
     bool info_visible_{true};
+    bool info_auto_hide_{false};
     bool sidebar_visible_{true};
     fs::Listing::Predicate picker_filter_;
     bool filter_focused_{false};

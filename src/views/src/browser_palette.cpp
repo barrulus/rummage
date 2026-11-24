@@ -129,8 +129,18 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !folder->is_archive() && names.size() <= 1 && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
-    if (editable && !picker_mode_)
+    if (editable && !picker_mode_) {
         command(Command::folder_insights, "folder_insights", "Insights…");
+        for (auto& item : insights_menu()) {
+            if (item.action)
+                add("command:" + item.id, std::format("{} · {}", i18n::tr("Insights"), item.label),
+                    "", std::move(item.action), true, false);
+            for (auto& child : item.children)
+                add("command:" + child.id,
+                    std::format("{} · {} {}", i18n::tr("Insights"), item.label, child.label), "",
+                    std::move(child.action), true, false);
+        }
+    }
 
     if (editable && !names.empty()) {
         if (!picker_mode_)

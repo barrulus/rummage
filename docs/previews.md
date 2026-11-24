@@ -176,6 +176,11 @@ fetches external resources. Reference links, deeply nested formatting and advanc
 extensions may remain literal. Parsing runs in the text preview helper; truncated files or
 presentation limits show **Preview truncated**. The information pane keeps highlighted source.
 
+The information pane follows the focused file during multi-selection. Selection
+totals appear beneath its metadata; each browsing pane keeps its selection count
+in its upper-right header. Automatic visibility is available under **View → Show**;
+it hides only when no item is focused, not when an image decoder is unavailable.
+
 ## Text in the information pane
 
 The information pane shows a thumbnail of the first 12 lines, shrinking to fit
@@ -190,7 +195,7 @@ The filename and metadata are also selectable, including values under **More
 details**. Long names and values wrap in full; copying keeps the original text
 without the visual line breaks. Click a field, then use **Ctrl+A** to select that
 field and **Ctrl+C** to copy it. Clicking the file view returns these shortcuts to
-file selection and file copying. Changing the selected file or hiding the pane
+file selection and file copying. Changing the focused file or hiding the pane
 clears text focus and selection. All preview and metadata text remains read-only.
 
 ## Optional video previews and caching

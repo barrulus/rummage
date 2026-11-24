@@ -365,9 +365,7 @@ bool ColumnView::shows_info() const {
     if (!info_visible_ || columns_.empty()) {
         return false;
     }
-    const Folder& last = columns_.back().column->folder();
-    const fs::Entry* const entry = last.single_selection();
-    return entry != nullptr ? !entry->is_directory() : last.selected_count() > 1;
+    return columns_[focus_].column->folder().cursor_entry() != nullptr;
 }
 
 float ColumnView::content_width() const {
@@ -525,7 +523,7 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     if (shows_info() && info_pane_ != nullptr) {
         const float left = area_.x + content_width() - kInfoWidth - offset;
         info_area_ = {left, area_.y, std::max(kInfoWidth, area_.right() - left), area_.height};
-        info_pane_->draw(renderer, info_area_, palette, icons, columns_.back().column->folder(),
+        info_pane_->draw(renderer, info_area_, palette, icons, columns_[focus_].column->folder(),
                          now);
     }
     scrollbar_.layout(area_);

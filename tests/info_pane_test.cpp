@@ -505,3 +505,131 @@ TEST_CASE("info pane: source summary is scoped to its folder and opens language 
     f.click(copy.x + 4, copy.y + 4);
     CHECK(copied.find("Source files:") == std::string::npos);
 }
+
+TEST_CASE("info pane: preview follows focus independently of the selected set in every view") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    Fixture f;
+    REQUIRE(f.settle());
+    SUBCASE("columns") { f.press(XKB_KEY_1, {.ctrl = true}); }
+    SUBCASE("grid") { f.press(XKB_KEY_2, {.ctrl = true}); }
+    SUBCASE("details") { f.press(XKB_KEY_3, {.ctrl = true}); }
+    const auto folder = f.browser.picker_folder();
+    REQUIRE(folder);
+    folder->set_cursor(0);
+    REQUIRE(f.settle());
+    REQUIRE(f.pane().summary());
+    REQUIRE(f.pane().summary()->text);
+    CHECK(f.pane().summary()->text->lines.size() == 12);
+    folder->set_cursor(1, rummage::views::SelectMode::extend);
+    REQUIRE(f.settle());
+    CHECK(folder->selected_count() == 2);
+    REQUIRE(f.pane().summary()->text);
+    CHECK(f.pane().summary()->text->lines.size() == 5);
+    CHECK_FALSE(f.browser.selection_count_bounds().empty());
+    CHECK_FALSE(f.pane().property_bounds("name").empty());
+
+    // Toggle the focused file out of the selection; its preview stays visible.
+    const auto* summary = f.pane().summary();
+    folder->set_cursor(1, rummage::views::SelectMode::toggle);
+    f.draw();
+    CHECK(folder->selected_count() == 1);
+    CHECK_FALSE(folder->is_selected("short.txt"));
+    CHECK(f.pane().summary() == summary);
+    folder->move_cursor(-1, rummage::views::SelectMode::keep);
+    REQUIRE(f.settle());
+    CHECK(folder->selected_names() == std::vector<std::string>{"long.txt"});
+    CHECK(f.pane().summary()->text->lines.size() == 12);
+    folder->select_all();
+    f.draw();
+    CHECK(folder->selected_count() == 2);
+    folder->invert_selection();
+    f.draw();
+    CHECK(folder->selected_count() == 0);
+    CHECK(f.browser.selection_count_bounds().empty());
+    CHECK_FALSE(f.pane().property_bounds("name").empty());
+
+    // An explicit preview hide does not hide the count or change selection.
+    folder->select_all();
+    f.browser.set_info_visible(false);
+    f.draw();
+    CHECK_FALSE(f.browser.selection_count_bounds().empty());
+    CHECK(folder->selected_count() == 2);
+}
+
+TEST_CASE("info pane: automatic visibility follows focus and manual Show overrides it") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    Fixture f;
+    REQUIRE(f.settle());
+    SUBCASE("grid") { f.press(XKB_KEY_2, {.ctrl = true}); }
+    SUBCASE("details") { f.press(XKB_KEY_3, {.ctrl = true}); }
+    SUBCASE("split") { f.browser.toggle_split(); }
+    SUBCASE("sidebar") { f.browser.set_preview_in_sidebar(true); }
+    REQUIRE(f.settle());
+    f.browser.set_info_auto_hide(true);
+    const auto folder = f.browser.picker_folder();
+    REQUIRE(folder);
+    folder->set_cursor(std::nullopt);
+    f.draw();
+    CHECK_FALSE(f.browser.info_shown());
+    CHECK(f.pane().copy_bounds().empty());
+    folder->set_cursor(0);
+    REQUIRE(f.settle());
+    CHECK(f.browser.info_shown());
+    CHECK_FALSE(f.pane().copy_bounds().empty());
+    folder->select_all();
+    f.draw();
+    CHECK(f.browser.info_shown());
+    folder->set_cursor(std::nullopt);
+    f.draw();
+    CHECK_FALSE(f.browser.info_shown());
+    f.press(XKB_KEY_i, {.ctrl = true});
+    f.draw();
+    CHECK(f.browser.info_shown());
+    CHECK_FALSE(f.browser.info_auto_hide());
+    f.browser.set_info_auto_hide(true);
+    f.browser.set_info_visible(false);
+    folder->set_cursor(0);
+    f.draw();
+    CHECK_FALSE(f.browser.info_shown());
+    const auto state = f.browser.state();
+    CHECK(state.info_auto_hide);
+    CHECK_FALSE(state.info_visible);
+}
+
+TEST_CASE("info pane: automatic hiding handles metadata-only files deletion and picker mode") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    Fixture f;
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::grid);
+    SUBCASE("browser") {}
+    SUBCASE("picker") { f.browser.set_picker_mode(true); }
+    const auto path = f.dir.path / "unknown.binary";
+    std::ofstream(path).write("\0\1\2", 3);
+    const auto folder = f.browser.picker_folder();
+    folder->expect_name("unknown.binary");
+    REQUIRE(run_until(f.loop, [&] { return folder->cursor_entry() != nullptr; }));
+    REQUIRE(f.settle());
+    REQUIRE(folder->cursor_entry());
+    REQUIRE(folder->cursor_entry()->name == "unknown.binary");
+    f.browser.set_info_auto_hide(true);
+    REQUIRE(f.settle());
+    CHECK(f.browser.info_shown());
+    CHECK_FALSE(f.pane().property_bounds("name").empty());
+    fs::remove(path);
+    REQUIRE(run_until(f.loop, [&] {
+        const auto* entry = folder->cursor_entry();
+        return !entry || entry->name != "unknown.binary";
+    }));
+    REQUIRE(f.settle());
+    folder->set_cursor(std::nullopt);
+    f.draw();
+    CHECK_FALSE(f.browser.info_shown());
+    CHECK(f.pane().copy_bounds().empty());
+    CHECK_FALSE(f.pane().loading());
+}
