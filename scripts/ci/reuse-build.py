@@ -6,7 +6,8 @@ import re
 import subprocess
 
 REQUIRED_JOBS = {
-    'Nix build, tests and installed package',
+    'Tests and lint',
+    'Nix packages and installed checks',
     'Void glibc package and clean install',
     'Debian 13 package and clean install',
     'Fedora 45 package and clean install',
@@ -33,8 +34,8 @@ def find_build(repository, tree, request=api):
             if not match:
                 continue
             commit = match[1]
-            # Native packages and the Nix closure must come from the same tested checkout.
-            if f'nix-store-{commit}' not in names:
+            # Packages, the Nix closure and the test gate must share the tested checkout.
+            if not {f'nix-store-{commit}', f'test-result-{commit}'} <= names:
                 continue
             source = request(f'{prefix}/git/commits/{commit}')
             if source['tree']['sha'] != tree:

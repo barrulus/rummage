@@ -8,6 +8,17 @@ exposes aarch64 packages, but this workflow does not claim to build or run them.
 Fedora 45, Arch Linux and openSUSE Tumbleweed are also built as native packages. Void musl, older Debian/Ubuntu
 releases, other RPM distributions and signed/stable releases are outside the validated scope.
 
+All package jobs wait for the **Tests and lint** job to pass. This includes manual
+Tumbleweed-only runs. A test or lint failure skips Nix, Void and every native package
+build. After the gate passes, package jobs run in parallel and retain their separate
+installation and smoke checks.
+
+Successful runs can take longer because tests no longer overlap packaging. The
+additional wall time depends on caching and which package job was previously slowest;
+it is bounded by the test stage plus job/artifact overhead. Failed tests avoid the
+packaging work entirely. The Nix package job imports the successful test result from
+the gate instead of compiling and running the suite again.
+
 ## Local preflight
 
 Use the shared runner instead of reconstructing a subset of CI commands:
@@ -15,8 +26,10 @@ Use the shared runner instead of reconstructing a subset of CI commands:
 ```sh
 # Fast workflow/script lint, CI tooling tests and documentation checks; allows edits.
 python3 scripts/ci/preflight.py lint
-# Commit intended files first, then test that exact revision.
-python3 scripts/ci/preflight.py lint nix
+# Commit intended files first, then run the test gate without packaging.
+python3 scripts/ci/preflight.py lint tests
+# Tests first, then Nix package and installed checks.
+python3 scripts/ci/preflight.py lint tests nix
 # All six build environments, including fresh native-package installation.
 python3 scripts/ci/preflight.py all
 # Reproduce one native job, or select several explicitly.
@@ -63,7 +76,13 @@ this is not a snapshot pin, and origin outages can still fail the job.
 
 ## Nix
 
-The `Nix build, tests and installed package` job runs:
+The **Tests and lint** job runs the workflow/script/documentation checks and then
+builds only `checks.x86_64-linux.tests`. That derivation compiles the application and
+helpers needed by the complete test suite, including media and PDF, but replaces
+installation with a success marker. It produces no installable rummage packages.
+Dependencies such as the PDF renderer may still need to compile on a cold cache.
+
+The **Nix packages and installed checks** job runs after the gate succeeds:
 
 ```sh
 nix flake check --print-build-logs
@@ -86,8 +105,10 @@ Checks include:
   portal backends, and invalid configurations.
 
 The ordinary package remains a release build without test executables. The separate
-`checks.<system>.tests` derivation enables tests; it does not skip them in exchange for a
-successful package build. Tests that probe optional kernel capabilities retain their
+`checks.<system>.tests` derivation enables tests and exports only their success marker.
+The gate uploads that result as a small binary-cache artifact; the Nix package job
+imports the expected output evaluated from the same checkout before running flake
+checks. This also avoids repeating the suite on fork PRs without Cachix upload access. Tests that probe optional kernel capabilities retain their
 existing capability checks.
 
 All runs read the public `rummage-fm` Cachix cache. Main runs and PRs whose branches
@@ -103,8 +124,10 @@ completed work. Cache keys group matching architecture, `flake.lock` and Nix rec
 Nix still rebuilds outputs whose inputs changed. GitHub cache eviction can cause a
 cold build. Cancelling a run may interrupt cache saving.
 
-Successful PRs also retain all outputs of the four installable variants and three
-checks as a binary-cache artifact for 14 days. On an identical-tree merge, main
+Successful PRs retain the test result separately and all outputs of the four
+installable variants and three checks as binary-cache artifacts for 14 days.
+The test gate restores only the small test-result artifact on an identical-tree
+merge; it does not download the full package closure. On an identical-tree merge, main
 imports roots evaluated from its own flake, runs the usual Nix preflight (which can
 reuse those successful derivations), and explicitly publishes imported outputs to
 Cachix. The media/PDF helper outputs and custom PDFium runtime closure are included.
@@ -163,7 +186,7 @@ The script:
 4. Builds the `.xbps`, then starts a **fresh container** and installs that package through
    XBPS. The build container's compiler and development dependencies cannot hide missing
    package dependencies. The Void recipe's unit tests remain disabled; the complete suite
-   is exercised by the Nix job.
+   is exercised by the Tests and lint gate.
 5. Checks package integrity and linked libraries, validates installed resources and config,
    then installs the compositor/test fixtures and performs the headless Wayland launch.
 
@@ -219,7 +242,7 @@ explicit dependencies. Both packages include bundled third-party license notices
 The build runs in a disposable container, followed by installation through apt or dnf in a
 fresh container. Package integrity and shared libraries are checked before installing any
 test fixtures. The common installed-resource checks and headless Weston render check then
-run against `/usr/bin/rummage`. Unit tests run in the separate Nix job; these two jobs test
+run against `/usr/bin/rummage`. Unit tests run in the Tests and lint gate; these two jobs test
 the native build and installed package. No privileged container is needed.
 
 The artifacts contain binary packages (plus Debian build metadata or Fedora source/debug
@@ -291,7 +314,7 @@ version. The checked-in PKGBUILD is a checkout-build template, not an AUR submis
 A second, fresh container installs the resulting package with pacman or zypper. CI checks
 package integrity, shared-library dependencies, installed assets and a rendered window under
 headless Weston. Test fixtures are installed after the runtime dependency checks. The complete
-unit suite continues to run in Nix. Both jobs must pass before any development downloads are
+unit suite runs in the Tests and lint gate. Both jobs must pass before any development downloads are
 published, and the release preparer requires all five native package identities to match.
 
 The README provides stable links; [installation](../docs/install.md#development-downloads)
@@ -334,8 +357,8 @@ an official distribution repository, or packages for untested distributions such
 A push to `main` first looks for a successful PR run of this workflow whose tested
 checkout has the **same complete Git tree** as main. Commit IDs may differ because
 GitHub's PR checkout is a temporary merge commit. The lookup verifies that this
-commit belongs to the run's PR head, all six build jobs and download preparation
-passed, and both the prepared downloads and Nix closure artifacts remain available.
+commit belongs to the run's PR head, the test gate, all six package jobs and download preparation
+passed, and the test-result, prepared-download and Nix-closure artifacts remain available.
 It searches the latest 30 successful PR runs. Lookup errors, expired/missing artifacts
 or a different tree fall back to the normal build matrix.
 
@@ -389,13 +412,14 @@ permissions, pinned action commits, and `pull_request`, not `pull_request_target
 publication job has `contents: write`, using the built-in GitHub token; no extra secret is
 needed for GitHub release publication. Cachix uploads separately require `CACHIX_AUTH_TOKEN`
 as described above. The publication job runs exclusively on pushes to `main` or manual runs targeting `main`, after all
-six checks and download preparation pass, either in this run or in the verified
+test gate, six package jobs and download preparation pass, either in this run or in the verified
 identical-tree PR run. It never commits to a branch. `actions: read` permits lookup
 and download of that run's artifacts.
 
 After a successful run, configure a branch ruleset for `main` requiring these checks:
 
-- `Nix build, tests and installed package`
+- `Tests and lint`
+- `Nix packages and installed checks`
 - `Void glibc package and clean install`
 - `Debian 13 package and clean install`
 - `Fedora 45 package and clean install`

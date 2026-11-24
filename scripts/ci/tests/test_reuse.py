@@ -30,7 +30,7 @@ class ReuseTest(unittest.TestCase):
     def setUp(self):
         self.run = {'id': 42, 'event': 'pull_request', 'conclusion': 'success', 'head_sha': HEAD}
         self.artifacts = [{'name': f'{prefix}-{TESTED}', 'expired': False}
-                          for prefix in ('development-downloads', 'nix-store')]
+                          for prefix in ('development-downloads', 'nix-store', 'test-result')]
         self.source = {'tree': {'sha': TREE}, 'parents': [{'sha': 'e' * 40}, {'sha': HEAD}]}
         self.jobs = [{'name': name, 'conclusion': 'success'} for name in reuse.REQUIRED_JOBS]
         self.requests = []
@@ -63,7 +63,7 @@ class ReuseTest(unittest.TestCase):
         self.assertEqual(self.find(), ('', ''))
 
     def test_missing_or_expired_artifacts_require_rebuild(self):
-        for index in (0, 1):
+        for index in range(len(self.artifacts)):
             with self.subTest(index=index), patch.dict(self.artifacts[index], expired=True):
                 self.assertEqual(self.find(), ('', ''))
         self.artifacts.pop()
@@ -76,6 +76,10 @@ class ReuseTest(unittest.TestCase):
 
     def test_missing_required_job_cannot_be_promoted(self):
         self.jobs.pop()
+        self.assertEqual(self.find(), ('', ''))
+
+    def test_build_without_successful_test_gate_cannot_be_reused(self):
+        self.jobs = [job for job in self.jobs if job['name'] != 'Tests and lint']
         self.assertEqual(self.find(), ('', ''))
 
     def test_failed_or_non_pr_run_cannot_be_promoted(self):
@@ -162,6 +166,21 @@ class NixTransferTest(unittest.TestCase):
             paths = nix_cache.roots()
         self.assertEqual(len(paths), 14)
         self.assertTrue(any('checks.x86_64-linux.smoke' in path for path in paths))
+
+    def test_test_result_transfer_does_not_evaluate_or_copy_packages(self):
+        for mode in ('export', 'restore'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                calls = []
+                with patch.object(nix_cache.subprocess, 'check_output',
+                                  return_value=json.dumps(['/nix/store/test-result'])) as evaluate:
+                    directory = Path(temporary) / 'cache'
+                    nix_cache.transfer(mode, directory, tests_only=True,
+                                       run=lambda cmd, **kw: calls.append(cmd))
+                evaluate.assert_called_once()
+                self.assertEqual(evaluate.call_args.args[0][3], nix_cache.NIX_TESTS)
+                self.assertEqual(calls, [[
+                    'nix', 'copy', '--to' if mode == 'export' else '--from', directory.as_uri(),
+                    *([] if mode == 'export' else ['--no-check-sigs']), '/nix/store/test-result']])
 
     def test_restore_uses_locally_evaluated_roots(self):
         paths = ['/nix/store/expected-out', '/nix/store/expected-media']

@@ -200,7 +200,9 @@ nix flake check
 
 `nix build` produces `result/bin/rummage` plus the preview helper, manifests and
 desktop integration files. The ordinary package omits tests.
-`nix flake check` builds a separate test derivation (including media and PDF), runs installed
+CI runs the full test suite before starting any package job. The test derivation
+(including media and PDF) produces only a success marker, which the Nix package job
+reuses without rerunning the suite. `nix flake check` also runs installed
 package smoke checks and checks the NixOS module. Packages and development shells are
 defined for `x86_64-linux` and `aarch64-linux`; checking one host is not evidence of
 runtime testing on both architectures.
