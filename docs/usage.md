@@ -331,10 +331,12 @@ visibility are unchanged. This action is unavailable in file pickers.
 
 ## Settings and preview placement
 
-The existing filter toolbar contains **View** and a **cog** for Settings; pane
-controls no longer occupy a separate row. View includes display modes, pane
-commands, preview/sidebar visibility and Settings. Pane commands also remain in
-the right-click menu and command palette, with configurable shortcuts.
+The filter toolbar gives the filename field the available width. Places, New Folder,
+Sort By, Insights and View use compact icons with hover tips. The **View** icon reflects
+the current mode and opens a dropdown for Columns, Grid and Details, alongside pane
+commands and preview/sidebar visibility. One shared **Settings** cog sits at the bottom
+right beside shortcut help; Settings also remains in the View menu. Pane commands also
+remain in the right-click menu and command palette, with configurable shortcuts.
 
 In **Settings → Appearance**, set **Preview placement** to **Below Places** to
 share the sidebar with the active pane's preview. Drag the horizontal divider to
@@ -349,9 +351,10 @@ existing layout.
 - **F3** or **View → Show Two Panes** splits the browser. On first use, the second pane starts at the current
   location and receives focus. Each pane has its own tabs, breadcrumb, selections, history,
   scrolling, view modes, zoom, sort order, hidden-file setting and filename filters.
-- **Tab** switches panes while browsing. Clicking a pane's header focuses it without disturbing
-  its selection. Hovering or scrolling the other pane does not move keyboard focus. The active
-  header has an accent and an “Active” label; inactive selections remain visible in subdued colors.
+- **Tab** switches panes while browsing. Clicking a pane's current tab or empty toolbar space
+  focuses it without disturbing its selection. Hovering or scrolling the other pane does not
+  move keyboard focus. A subtle border marks the active pane; inactive selections remain
+  visible in subdued colors.
 - **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab**, **Ctrl+Shift+Tab** and **Alt+1…9** operate in the active
   pane. The last tab in each pane stays open. New tabs inherit view, zoom, sorting and hidden-file
   visibility, and start with an empty filename filter.

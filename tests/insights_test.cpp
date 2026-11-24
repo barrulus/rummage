@@ -1005,8 +1005,8 @@ TEST_CASE(
     };
     draw("qol-toolbar");
     REQUIRE_FALSE(browser.insights_bounds().empty());
-    CHECK(browser.view_menu_bounds().right() < browser.insights_bounds().x);
-    CHECK(browser.insights_bounds().right() < browser.settings_bounds().x);
+    CHECK(browser.insights_bounds().right() < browser.view_menu_bounds().x);
+    CHECK(browser.insights_bounds().bottom() < browser.settings_bounds().y);
     click(browser.insights_bounds());
     REQUIRE(browser.tab_count() == 2);
     REQUIRE(browser.active_tab() == 1);
@@ -1088,7 +1088,7 @@ TEST_CASE(
     draw("qol-light", 1280, 900, true);
     draw("qol-compact", 640, 640);
     CHECK_FALSE(browser.insights_bounds().empty());
-    CHECK(browser.insights_bounds().right() < browser.settings_bounds().x);
+    CHECK(browser.insights_bounds().bottom() < browser.settings_bounds().y);
     CHECK_FALSE(view.scrollbar_thumb().empty());
     CHECK(view.scrollbar_thumb().bottom() <= view.list_bounds().bottom());
     browser.set_preview_in_sidebar(true);

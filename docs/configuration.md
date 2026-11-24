@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
-Open **Settings** with the toolbar cog, **View → Settings**, **Ctrl+,**, or the
+Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
 - **General:** startup/session behavior, executable opening, double-click timing and terminal.

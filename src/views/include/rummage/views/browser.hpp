@@ -355,7 +355,7 @@ public:
 
     [[nodiscard]] ui::Rect view_menu_bounds() const { return area().view_menu_bounds; }
 
-    [[nodiscard]] ui::Rect settings_bounds() const { return area().settings_bounds; }
+    [[nodiscard]] ui::Rect settings_bounds() const { return status_bar_.settings_bounds(); }
 
     [[nodiscard]] ui::Rect insights_bounds() const { return area().insights_bounds; }
 
@@ -1057,12 +1057,12 @@ private:
         std::vector<ClosedTab> closed_tabs;
         Breadcrumb breadcrumb;
         TabBar tab_bar;
-        ui::Rect bounds{}, header{}, view_area{};
+        ui::Rect bounds{}, view_area{};
         ui::Rect back{}, forward{};
         int navigation_pressed{};
         ui::Rect sidebar_toggle_bounds{};
         ui::Rect toolbar_bounds{}, filter_bounds{}, clear_filter_bounds{}, new_folder_bounds{};
-        ui::Rect view_menu_bounds{}, insights_bounds{}, settings_bounds{}, sort_bounds{};
+        ui::Rect view_menu_bounds{}, insights_bounds{}, sort_bounds{};
         std::filesystem::path motion_folder;
         const Pane* motion_tab{nullptr};
         Mode motion_mode{Mode::columns};
@@ -1199,6 +1199,13 @@ private:
     void toolbar_pointer(const ui::PointerEvent& event);
     void draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                       ui::IconSet& icons);
+    [[nodiscard]] std::pair<ui::Rect, std::string> control_hint_at(float x, float y) const;
+    void clear_control_hint();
+    void draw_control_hint(ui::Renderer&, const ui::Rect&, const theme::Palette&);
+    core::EventLoop::SourceId control_hint_timer_{0};
+    std::string control_hint_text_;
+    ui::Rect control_hint_anchor_{};
+    bool control_hint_ready_{false};
     bool sidebar_drawn_{false};  // in the last draw: the window had room for it
     Target pointer_target_{Target::view};
     bool button_held_{false};  // since a press: the pointer stays with its target

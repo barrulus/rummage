@@ -44,19 +44,18 @@ struct TransferStatus {
 
 // The bar under the view: at the left the folder's status and the free space of its file system
 // (read on a worker when the folder or its listing changes, so it follows copies into it), or for
-// a few seconds a message ("Opening photo.orf with darktable…"); at the right a button for each
-// view, the one shown marked, and "?" for the shortcuts.
+// a few seconds a message ("Opening photo.orf with darktable…"); at the right buttons for
+// Settings and "?" for the shortcuts.
 //
 // Loop thread only. Must not outlive the loop or the pool.
 class StatusBar {
 public:
     static constexpr float kHeight = 30.0F;
-    static constexpr std::size_t kViews = 3;  // columns, grid, details: the browser's modes
     static constexpr std::chrono::seconds kMessageTime{4};
 
-    // choose_view(i): a view's button was clicked; help: the "?" button was.
+    // settings: the cog was clicked; help: the "?" button was.
     StatusBar(core::EventLoop& loop, core::WorkerPool& pool, std::function<void()> redraw,
-              std::function<void(std::size_t view)> choose_view, std::function<void()> help);
+              std::function<void()> settings, std::function<void()> help);
     ~StatusBar();
 
     StatusBar(const StatusBar&) = delete;
@@ -71,9 +70,8 @@ public:
 
     [[nodiscard]] float height(ui::Renderer& renderer) const;
 
-    // view: the index of the view shown.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons, const Folder& folder, std::size_t view);
+              ui::IconSet& icons, const Folder& folder, bool settings_enabled = true);
 
     // Reads the free space of folder unless it is known for its current listing (draw() does
     // this; tests call it without drawing).
@@ -81,7 +79,7 @@ public:
 
     [[nodiscard]] bool claims(float x, float y) const;
 
-    // A button is there (a view's, "?", a transfer's ×), as last drawn: the pointer is a hand.
+    // A button is there (Settings, "?", a transfer's ×), as last drawn: the pointer is a hand.
     [[nodiscard]] bool clickable_at(float x, float y) const;
 
     // Shows text in place of the status for kMessageTime; a new message replaces it. error
@@ -103,6 +101,12 @@ public:
 
     void pointer(const ui::PointerEvent& event);
 
+    [[nodiscard]] ui::Rect settings_bounds() const { return buttons_[0]; }
+
+    [[nodiscard]] ui::Rect help_bounds() const { return buttons_[1]; }
+
+    [[nodiscard]] ui::Rect cancel_bounds() const { return cancel_button_; }
+
     // The free space as last read; nullopt before it arrives or when it cannot be read.
     [[nodiscard]] const std::optional<FreeSpace>& free_space() const noexcept { return free_; }
 
@@ -110,13 +114,13 @@ public:
     [[nodiscard]] bool loading() const noexcept { return job_.has_value(); }
 
 private:
-    // A button: a view's (0 to kViews - 1) or help (kViews).
+    // Settings (0) or help (1).
     [[nodiscard]] std::optional<std::size_t> button_at(float x, float y) const;
 
     core::EventLoop& loop_;
     core::WorkerPool& pool_;
     std::function<void()> redraw_;
-    std::function<void(std::size_t)> choose_view_;
+    std::function<void()> settings_;
     std::function<void()> help_;
 
     // What free_ is about: the folder and its listing's revision.
@@ -136,7 +140,7 @@ private:
 
     ui::Rect bounds_{};
     float text_size_{12.0F};
-    std::array<ui::Rect, kViews + 1> buttons_{};  // as last drawn
+    std::array<ui::Rect, 2> buttons_{};  // as last drawn
     std::optional<std::size_t> hovered_;
     // False once destroyed: results still on their way find out here.
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};

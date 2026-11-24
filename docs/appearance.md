@@ -4,7 +4,7 @@
 
 ## Quick settings
 
-Open the toolbar cog or press **Ctrl+,** for **Settings → Appearance**. Choose
+Open the bottom-right cog or press **Ctrl+,** for **Settings → Appearance**. Choose
 a palette source (Automatic, Desktop, Palette file, Built-in or KDE) and a separate
 colour mode (Follow source, light or dark); an icon theme; opacity; fonts; and
 preview placement. The active-palette line reports the applied source, including
