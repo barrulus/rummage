@@ -18,7 +18,7 @@ _rummage() {
     elif [[ $value == text ]]; then
         return
     elif [[ -z $only_paths && $cur == -* ]]; then
-        local options='--help --config --check-config --test-scene --version --about --reveal --properties --open-folders --portal --file-manager1 --set-file-manager --unset-file-manager --pick --pick-directory --save-file --'
+        local options='--new-window --help --config --check-config --test-scene --version --about --reveal --properties --open-folders --portal --file-manager1 --set-file-manager --unset-file-manager --pick --pick-directory --save-file --'
         if [[ -n $picker ]]; then options+=' --multiple --name --title'; fi
         mapfile -t COMPREPLY < <(compgen -W "$options" -- "$cur")
     elif [[ -n $paths ]]; then

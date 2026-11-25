@@ -244,7 +244,7 @@ void Folder::release_press() {
     }
 }
 
-void Folder::move_cursor(std::ptrdiff_t delta, SelectMode mode) {
+void Folder::move_cursor(std::ptrdiff_t delta, SelectMode mode, bool wrap) {
     const std::size_t count = entries().size();
     if (count == 0) {
         return;
@@ -254,8 +254,9 @@ void Folder::move_cursor(std::ptrdiff_t delta, SelectMode mode) {
         return;
     }
     const auto last = static_cast<std::ptrdiff_t>(count) - 1;
-    const std::ptrdiff_t target =
-        std::clamp(static_cast<std::ptrdiff_t>(*cursor_index_) + delta, std::ptrdiff_t{0}, last);
+    auto target = static_cast<std::ptrdiff_t>(*cursor_index_) + delta;
+    target = wrap ? ((target % (last + 1)) + last + 1) % (last + 1)
+                  : std::clamp(target, std::ptrdiff_t{0}, last);
     set_cursor(static_cast<std::size_t>(target), mode);
 }
 

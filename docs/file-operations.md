@@ -33,9 +33,19 @@ Ctrl+Z edits that text rather than undoing a file operation.
 
 When the clipboard contains an image or plain text, **Ctrl+V** creates a file in
 the current folder. Images retain their offered format (PNG, JPEG, WebP, GIF,
-TIFF, BMP or SVG); plain text becomes a `.txt` file. Image data takes priority
+TIFF, BMP, SVG or JPEG XL); plain text becomes a `.txt` file. Image data takes priority
 over a text alternative. Clipboard file lists still copy or move the original
-files as usual.
+files as usual. Image signatures must match the offered format; this is a format
+check, not a full decode or a guarantee that the image is undamaged. SVG accepts
+a UTF-8 root element after optional XML declaration/comments within the first
+4 KiB; SVGs with a DOCTYPE or a longer preamble are not accepted from raw clipboard
+data. AVIF data is not offered as a paste format.
+
+Data is limited to 64 MiB and written on a worker to a private staging file.
+Only the completed file becomes visible under its final name. Errors or
+cancellation remove the staging file; existing files and symlinks are never
+replaced. New content files are readable/writable only by their owner and are
+not executable.
 
 The new file starts as `Pasted.png`, `Pasted.txt`, or the matching extension, with
 a number added if the name is taken. Its base name is selected for immediate
@@ -54,10 +64,20 @@ the same folder and is empty. Files added later are preserved. **Ctrl+Shift+Z**
 repeats the grouping. If the folder was replaced, the operation is refused.
 This action is unavailable in Trash, archives and file pickers.
 
-Hold **Alt** while dropping files to choose an action at the destination. A drag
-within rummage offers Copy Here, Move Here and Move into New Folder. Grouping also
-works when dropping back into the source folder. Ordinary drops retain their
-usual copy/move behavior.
+Hold **Alt** before entering the drop destination to choose **Copy Here**, **Move
+Here**, **Link Here** or **Cancel**. Within the same window, dragging an entry with
+the right mouse button opens the same menu; a right click still opens its context
+menu on release. The menu names the destination and supports arrows, Enter and
+Escape. Link Here creates absolute symbolic links, including in the source folder.
+Internal drags also offer Move into New Folder; grouping works in the source folder.
+Ordinary drops retain their usual copy/move behavior.
+
+External drops offer Move only when the source advertises it. Operation-choice
+drops negotiate a copy, then rummage performs the selected operation on the local
+paths, so Cancel and Link leave the originals intact. Hold Alt before entering the
+destination: an external drop already negotiated as a move must be retried. Wayland
+does not expose the originating mouse button from other applications, and its drag
+protocol has no link operation; use Alt and local file URIs for those link drops.
 
 For a single supported archive, Alt-drop also offers **Extract into New Folder…**.
 Choose a name to extract into a subfolder of the drop destination. If that name is
@@ -67,14 +87,33 @@ another application negotiate a copy so extraction does not remove its source.
 
 ## Create symbolic links
 
-Select files or folders and choose **Create Link** from their context menu or the
-command palette. rummage creates `Link to <name>` beside each source, choosing a
-numbered name when needed, and selects the new links. Links point to the original
-absolute paths, so you can move them elsewhere. Renaming or moving the originals
-can break those links. Linked folders are not copied or scanned recursively.
+Select files or folders and choose **Create Absolute Link**, **Create Relative
+Link** or **Create Hard Link** in their context menu or the command palette.
+Rummage creates `Link to <name>` beside each source, choosing a numbered name when
+needed, and selects the new links. To choose another destination, copy the sources,
+open that folder, and use its background menu's **Paste as Links** submenu or the
+palette's **Paste Absolute Links**, **Paste Relative Links** or **Paste Hard Links**.
+Multiple sources are supported. A cut clipboard also creates links without moving
+or clearing the sources. Destination name conflicts use the usual conflict dialog.
+
+Absolute symbolic links store the source path and can be moved independently.
+Relative symbolic links store a path from their actual destination folder, including
+when that folder is reached through another link. They can move with their shared
+parent tree; moving either end independently can break them. Links to folders are
+not copied or scanned recursively. Hard links are another name for the same file:
+editing either changes the shared data. Only regular files on the same filesystem
+are accepted; folders, symbolic links and cross-filesystem requests report an error.
+The filesystem can impose additional restrictions, which are shown as errors.
 
 **Ctrl+Z** trashes the new links without changing their targets; **Ctrl+Shift+Z**
 restores the links. This action is unavailable in Trash, archives and file pickers.
+
+For one symbolic link, **Go to Link Target** in its context menu or the command
+palette selects the target in its parent folder. This follows one link step, so a
+chained target remains selected as a link. Missing or inaccessible targets produce
+an error without changing location. Resolution runs in the background; navigating
+away cancels its pending navigation. Virtual Trash and archive entries do not offer
+this action.
 
 ## Batch rename
 
@@ -218,12 +257,38 @@ filesystems. Ctrl requests copy; Shift requests move. It uses the transfer engin
 including conflict handling, sidecars, progress and undo. Dropping into the same
 location has no effect; a folder cannot be dropped inside itself.
 
-External drops into rummage copy local files. Drops out of rummage offer file URIs
+External drops into rummage copy local files. Images and plain text can also be
+dropped into ordinary folders, using the same validation, limits, atomic creation
+and undo as paste. File offers take priority, then supported image data, one
+HTTP(S) web address, and plain text. Invalid image data is rejected without
+silently saving its text alternative. Created files use `Dropped` plus the
+appropriate extension, adding a number on conflicts. They are selected when the
+destination is still the current folder.
+
+A dropped web address becomes a non-executable `Dropped.url` Internet Shortcut.
+Its URL is stored without fetching it. Opening uses the desktop's association for
+`.url` files; if no handler is installed, use Open With or read/copy the address
+with a text editor. Other URI schemes, multiple URLs and injected control lines
+are rejected. Raw content cannot be dropped into Trash, archives or the bookmarks
+insertion area.
+
+Drops out of rummage offer file URIs
 and paths for copying; rummage does not delete its source because another program
 claims it moved it. Web URLs are not local files. Dragging near a view's edge
 scrolls; hovering does not automatically open a folder.
 
 ## Trash and restore
+
+Disk-trash metadata must name a relative path within its source volume; absolute
+paths, parent traversal (including URL-escaped `..`) and NUL bytes are rejected.
+Invalid entries are excluded from the combined Trash view and cannot be restored;
+their data stays in the volume's trash for manual recovery or Empty Trash.
+Home-trash absolute paths and valid relative paths remain supported.
+
+Before making missing destination folders, Restore checks the nearest existing
+parent's filesystem, following symlinks. A destination on another filesystem is
+refused without creating those folders, and disk-trash parent symlinks cannot
+redirect restoration outside the volume's root.
 
 **Delete** moves files to freedesktop Trash. Files on the home filesystem use the
 home trash; other filesystems use their own trash where permitted. If a trash
@@ -295,7 +360,7 @@ Permanent deletion cannot be undone.
 | Trash | Restore |
 | Restore | Trash again |
 | Copy | Trash the copies |
-| Create symbolic links | Trash the links, leaving their targets untouched |
+| Create symbolic or hard links | Trash the new names, leaving their targets untouched |
 | Create folder/file | Trash it only if still empty/unchanged as appropriate |
 | Permanent delete | Cannot undo |
 | External action or archive extraction | Not recorded in file-operation undo |

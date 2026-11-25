@@ -469,6 +469,13 @@ constexpr std::array kShortcuts{
              .command = Command::move_other_pane},
 
     // Tabs
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "Ctrl+N",
+             .action = i18n::mark("New Window"),
+             .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_n, XKB_KEY_N},
+             .command = Command::new_window},
     Shortcut{.group = i18n::mark("Tabs"),
              .keys = "Ctrl+T",
              .action = i18n::mark("New tab"),
@@ -838,6 +845,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::open_terminal;
     if (name == "new_tab")
         command = Command::new_tab;
+    if (name == "new_window")
+        command = Command::new_window;
     if (name == "reopen_tab")
         command = Command::reopen_tab;
     if (name == "close_tab")
@@ -1143,6 +1152,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "add_bookmark",
                              "open_terminal",
                              "new_tab",
+                             "new_window",
                              "close_tab",
                              "reopen_tab",
                              "next_tab",

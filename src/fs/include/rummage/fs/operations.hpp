@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include "rummage/core/worker_pool.hpp"
+
 // Changes to the file system the user asks for: new folders and renames. Blocking: run them on a
 // worker. They never replace an existing entry.
 namespace rummage::fs {
@@ -38,6 +40,13 @@ struct MadeFile {
 [[nodiscard]] MadeFile make_file(const std::filesystem::path& directory, std::string_view name,
                                  const std::filesystem::path& from = {},
                                  std::string_view contents = {});
+
+// Write bounded clipboard/drop data to a private staging file, then publish a complete file
+// under the first free name. Never replaces an entry, even on filesystems without renameat2.
+// Cancellation/errors remove staging data. Created files are private and non-executable.
+[[nodiscard]] MadeFile make_contents_file(const std::filesystem::path& directory,
+                                          std::string_view name, std::string_view contents,
+                                          const core::CancelToken& cancel);
 
 // The templates "New File" offers: the regular files in directory (links to them too), not
 // hidden nor backups ("~"), sorted by name; empty when there is no such folder.

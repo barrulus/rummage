@@ -218,6 +218,11 @@ ConfigResult parse(std::string_view text) { return parse_config(text, "test.toml
 
 void check_defaults(const Config& config) {
     const Config defaults;
+    CHECK(config.windows.reuse == defaults.windows.reuse);
+    CHECK(config.windows.separate_settings == defaults.windows.separate_settings);
+    CHECK(config.keyboard.type_to_jump == defaults.keyboard.type_to_jump);
+    CHECK(config.keyboard.vim == defaults.keyboard.vim);
+    CHECK(config.keyboard.wrap == defaults.keyboard.wrap);
     CHECK(config.status_bar.text_size == defaults.status_bar.text_size);
     CHECK(config.appearance.background_opacity == defaults.appearance.background_opacity);
     CHECK(config.appearance.palette_source == defaults.appearance.palette_source);
@@ -652,4 +657,28 @@ hidden = ["uuid:example", "place:music"]
     const auto invalid = rummage::core::parse_config("[sidebar]\nhidden = [42]\n", "bad.toml");
     CHECK_FALSE(invalid.problems.empty());
     CHECK_FALSE(invalid.config.sidebar.hidden);
+}
+
+TEST_CASE("config: keyboard navigation preferences validate independently") {
+    const auto enabled = parse("[keyboard]\ntype_to_jump = false\nvim = true\nwrap = true\n");
+    REQUIRE(enabled.problems.empty());
+    CHECK_FALSE(enabled.config.keyboard.type_to_jump);
+    CHECK(enabled.config.keyboard.vim);
+    CHECK(enabled.config.keyboard.wrap);
+    const auto invalid = parse("[keyboard]\ntype_to_jump = 1\nvim = 'yes'\nwrap = false\n");
+    CHECK(invalid.problems.size() == 2);
+    CHECK(invalid.config.keyboard.type_to_jump);
+    CHECK_FALSE(invalid.config.keyboard.vim);
+    CHECK_FALSE(invalid.config.keyboard.wrap);
+}
+
+TEST_CASE("config: window policies validate independently") {
+    const auto changed = parse("[windows]\nreuse = false\nseparate_settings = false\n");
+    CHECK(changed.problems.empty());
+    CHECK_FALSE(changed.config.windows.reuse);
+    CHECK_FALSE(changed.config.windows.separate_settings);
+    const auto invalid = parse("[windows]\nreuse = 1\nseparate_settings = 'yes'\n");
+    CHECK(invalid.problems.size() == 2);
+    CHECK(invalid.config.windows.reuse);
+    CHECK(invalid.config.windows.separate_settings);
 }

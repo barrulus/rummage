@@ -6,6 +6,35 @@ Start `rummage` in a Wayland session, or pass a directory such as
 `rummage ~/Pictures`. **F1** shows the active keyboard bindings and **Ctrl+K** opens
 the command palette. Both reflect configured actions and shortcuts.
 
+Type a filename prefix in a file view to select the first visible match; the status
+bar shows what you typed. Backspace edits the prefix, Escape clears it, and one
+second of inactivity resets it. Settings → General also offers optional H/J/K/L
+movement and navigation wrapping. See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard).
+
+## Multiple windows
+
+**Ctrl+N** or **Open in New Window** opens another browser in the same process.
+Each window has its own tabs, panes, focus, navigation, selection and undo history.
+Clipboard contents, thumbnails, mounted places and configuration are shared.
+Copy/paste and drag/drop work between browser windows; right-button drags keep
+the Copy/Move/Link choice when crossing windows. Launching rummage again normally
+adds tabs to the most recently focused browser's active pane; use `--new-window`
+to request another window. See [launch reuse](command-line.md#reusing-windows).
+
+Closing a browser waits for its file operations to finish. Other windows remain
+usable. **Ctrl+Q** closes all windows, waiting for file operations and any Settings
+save/discard decision. Closing the last window exits. Signals still cancel the
+application as before. Session state has one writer: it saves the most recently
+focused browser's panes, tabs and size. Other windows are temporary and are not
+all restored at the next start. Picker state is separate.
+
+**Properties** opens an independent window for each selected item. Browsing stays
+available, and each Properties window can remain open after its originating browser
+closes. Metadata refreshes when the containing directory changes, provided there
+are no staged edits; missing or deleted files show a read error. Applying changes
+refreshes the affected entries in all browser windows. Settings also opens in a
+separate window by default, with changes applied across the application.
+
 ## The window
 
 The sidebar contains places, bookmarks, Trash and devices. The breadcrumb above the

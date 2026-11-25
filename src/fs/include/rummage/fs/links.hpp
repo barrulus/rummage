@@ -7,7 +7,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/transfer.hpp"
 
-// Symbolic links the user asks for: "Create Link" in the menu. Blocking: TransferQueue runs them
+// Symbolic and hard links the user asks for. Blocking: TransferQueue runs them
 // on its thread, after the transfers queued before them.
 namespace rummage::fs {
 
@@ -40,10 +40,12 @@ namespace rummage::fs {
 // - Taken names go to callbacks.resolve, except in the items' own folder, where each link is
 //   "Link to X" and takes the next number free by itself. Keep both counts up until symlinkat()
 //   finds a number free in the folder opened.
-// - In the items' own folder the target is absolute: a link made next to its item usually gets
-//   moved, and a relative one would break. Elsewhere it is relative when both ends are in one
-//   tree (same_tree), else absolute.
-// - The items are never opened, and their sidecars are not linked.
+// - link_kind selects absolute, relative, hard, or automatic symbolic links. Automatic uses
+//   absolute targets in the source folder and relative targets elsewhere within same_tree.
+//   Explicit relative targets are computed from the actual source/destination directories.
+// - Hard links accept regular files on the destination filesystem only. linkat never follows
+//   a source replaced by a symlink. Conflicts use the same staging and resolution path.
+// - Source contents are never opened, and sidecars are not linked.
 //
 // The result: placed = the links' names, items = each item and its link, files_done = links made.
 [[nodiscard]] TransferResult run_link(const TransferRequest& request,

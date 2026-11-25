@@ -5,7 +5,7 @@
 ## Browser and diagnostics
 
 ```text
-rummage [--config FILE] [DIR]
+rummage [--config FILE] [--new-window] [DIR]
 rummage [--config FILE] --check-config
 rummage --version
 rummage --about
@@ -15,6 +15,7 @@ rummage --help
 | Argument | Effect |
 | --- | --- |
 | `DIR` | Open one directory; without it, follow `startup.mode` (default: Home or restored tabs/panes) |
+| `--new-window` | Open a separate browser window in the running instance |
 | `--config FILE` | Select a settings file; does not relocate state or palette |
 | `--check-config` | Validate settings, actions, menus and bindings without a window |
 | `--version` | Print the compiled project version |
@@ -30,6 +31,25 @@ not a sequential release number; identical builds retain the same ID.
 The command line accepts one positional directory. Use `--` before a path whose
 name starts with `-`, for example `rummage -- ./-downloads`.
 
+## Reusing windows
+
+With `windows.reuse = true` (the default), launching rummage again opens folders
+as new tabs in the active pane of the most recently focused browser window.
+`--new-window` opens a separate browser window in that process instead. **Ctrl+N**
+and **Open in New Window** do the same. Browser windows have independent panes,
+tabs, navigation, selection and undo histories.
+
+Reuse is scoped to the Wayland display and the absolute `--config` path. Different
+profiles or displays stay separate. If the session bus is unavailable, rummage
+starts independently; closed instances leave no socket or lock to remove. Setting
+`windows.reuse = false` makes subsequent launches independent processes. Pickers,
+the portal backend, diagnostics and the FileManager1 service itself remain separate.
+
+Launch requests accept up to 256 absolute paths, 4096 bytes per path and activation
+token, and 1 MiB total. Invalid or unanswered requests return failure instead of
+silently opening a duplicate. Filesystem checks for revealed items run on workers
+in the receiving browser. Activation still follows compositor policy.
+
 ## Show in Folder
 
 ```sh
@@ -42,7 +62,7 @@ rummage --unset-file-manager
 
 `--reveal PATH...` selects each item in its parent folder, grouping items by
 folder into tabs and focusing the first folder. Directories are selected in their
-parent too. `--properties` also opens the info pane with More details expanded.
+parent too. `--properties` opens a separate, nonmodal Properties window for each item.
 `--open-folders DIR...` opens directory tabs and keeps the first one focused.
 Paths may be relative; `--` ends option parsing. Missing items and non-directory
 folder arguments are skipped; no existing paths gives exit status 1 without a
@@ -58,8 +78,8 @@ file; its idle service exits within 30 seconds. Re-run setup after moving a loca
 build or removing the installation named in the service file.
 
 The service is activated as `rummage --file-manager1`, separately from the
-FileChooser portal. ShowFolders, ShowItems and ShowItemProperties launch a new
-window per request, forwarding the caller's activation token. Only local `file://`
+FileChooser portal. ShowFolders, ShowItems and ShowItemProperties reuse the running browser by
+default, forwarding the caller's activation token. Only local `file://`
 URIs with an empty host or `localhost` are supported. Remote URIs, malformed
 escapes, NUL bytes and query/fragment components are ignored. A valid request's
 filesystem checks happen in its child so an unavailable mount cannot block the

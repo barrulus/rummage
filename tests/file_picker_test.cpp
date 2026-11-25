@@ -256,6 +256,22 @@ TEST_CASE("picker: overwrite confirmation can be cancelled without closing picke
     CHECK(fs::file_size(f.temp.path / "one.txt") == 3);
 }
 
+TEST_CASE("keyboard browsing: picker name input stays independent of prefix and Vim") {
+    Fixture f;
+    f.browser.set_keyboard_config({.vim = true, .wrap = true});
+    core::PickerRequest request;
+    request.mode = Mode::save;
+    request.name = "Untitled.txt";
+    auto picker = f.picker(request);
+    REQUIRE(f.settle());
+    REQUIRE(picker->editing_name());
+    picker->key({.keysym = XKB_KEY_j, .text = "j"});
+    CHECK(f.browser.type_jump_prefix().empty());
+    picker->accept();
+    REQUIRE(f.result);
+    CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / "j.txt").string()});
+}
+
 TEST_CASE("picker: choosing a filename in save mode replaces the initial suggestion") {
     Fixture f;
     core::PickerRequest request;

@@ -135,7 +135,8 @@ public:
     void select_band(const std::vector<std::string>& base, std::span<const std::size_t> rows);
 
     // Moves the cursor by delta entries (to the first entry when there is none).
-    void move_cursor(std::ptrdiff_t delta, SelectMode mode = SelectMode::replace);
+    void move_cursor(std::ptrdiff_t delta, SelectMode mode = SelectMode::replace,
+                     bool wrap = false);
 
     // Puts the cursor on the entry called name and selects it, now or when it arrives.
     void select_name(std::string name);

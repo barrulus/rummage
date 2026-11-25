@@ -498,6 +498,32 @@ TEST_CASE("undo: new links go to the trash, what they lead to stays; redo brings
     CHECK(listing(f.photos) == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
 }
 
+TEST_CASE("links: paste a chosen link type into another folder and undo only the new links") {
+    for (const auto kind : {rummage::fs::LinkKind::absolute, rummage::fs::LinkKind::relative,
+                            rummage::fs::LinkKind::hard}) {
+        Fixture f;
+        f.show(f.photos, "P2.ORF");
+        f.run(key(XKB_KEY_c, kCtrl));
+        f.show(f.album, "");
+        f.browser.paste_links(kind);
+        REQUIRE(f.settle());
+        REQUIRE(fs::exists(f.album / "P2.ORF"));
+        CHECK(fs::equivalent(f.album / "P2.ORF", f.photos / "P2.ORF"));
+        if (kind == rummage::fs::LinkKind::hard)
+            CHECK_FALSE(fs::is_symlink(f.album / "P2.ORF"));
+        else
+            CHECK(fs::read_symlink(f.album / "P2.ORF").is_absolute() ==
+                  (kind == rummage::fs::LinkKind::absolute));
+        f.browser.undo();
+        REQUIRE(f.settle());
+        CHECK_FALSE(fs::exists(f.album / "P2.ORF"));
+        CHECK(fs::exists(f.photos / "P2.ORF"));
+        f.browser.redo();
+        REQUIRE(f.settle());
+        CHECK(fs::equivalent(f.album / "P2.ORF", f.photos / "P2.ORF"));
+    }
+}
+
 TEST_CASE("undo: move into a new folder is one operation with sidecars and redo") {
     Fixture f;
     auto shown = f.show(f.photos, "P1.ORF");

@@ -1,10 +1,86 @@
 #include <algorithm>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/path_completion.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/fuzzy.hpp"
 
 namespace rummage::views {
+void Browser::clear_type_jump() {
+    loop_.remove(type_jump_timer_);
+    type_jump_timer_ = 0;
+    type_jump_prefix_.clear();
+    type_jump_folder_.reset();
+    status_bar_.set_type_jump({});
+}
+
+bool Browser::match_type_jump() {
+    if (pane().mode == Mode::details)
+        return pane().details.jump_to_prefix(type_jump_prefix_);
+    const auto folder = current_folder();
+    if (!folder)
+        return false;
+    const auto& entries = folder->entries();
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        if (filename_prefix_matches(entries[i].name, type_jump_prefix_)) {
+            folder->set_cursor(i, SelectMode::replace);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Browser::type_jump(const ui::KeyEvent& event, Clock::time_point now) {
+    if (!keyboard_config_.type_to_jump || event.modifiers.ctrl || event.modifiers.alt ||
+        event.modifiers.super || pane().insights.is_open())
+        return false;
+    const auto context =
+        pane().mode == Mode::details ? pane().details.root_folder() : current_folder();
+    if (!context)
+        return false;
+    if (now >= type_jump_until_ || type_jump_folder_.lock() != context ||
+        type_jump_mode_ != pane().mode)
+        clear_type_jump();
+    if (event.keysym == XKB_KEY_Escape) {
+        if (type_jump_prefix_.empty())
+            return false;
+        clear_type_jump();
+        return true;
+    }
+    if (event.keysym == XKB_KEY_BackSpace) {
+        if (type_jump_prefix_.empty())
+            return false;
+        auto end = type_jump_prefix_.size() - 1;
+        while (end > 0 && (static_cast<unsigned char>(type_jump_prefix_[end]) & 0xc0U) == 0x80U)
+            --end;
+        type_jump_prefix_.resize(end);
+        if (type_jump_prefix_.empty()) {
+            clear_type_jump();
+            return true;
+        }
+    } else {
+        if (event.text.empty() || type_jump_prefix_.size() + event.text.size() > 256 ||
+            std::ranges::any_of(event.text, [](unsigned char c) { return c < 32 || c == 127; }) ||
+            !filename_prefix_matches(event.text, event.text))
+            return false;
+        type_jump_prefix_ += event.text;
+    }
+    type_jump_folder_ = context;
+    type_jump_mode_ = pane().mode;
+    const auto timeout = std::chrono::milliseconds{1000};
+    type_jump_until_ = now + timeout;
+    loop_.remove(type_jump_timer_);
+    type_jump_timer_ = loop_.add_timer(timeout, std::chrono::milliseconds{0}, [this] {
+        type_jump_timer_ = 0;
+        clear_type_jump();
+    });
+    info_pane_.clear_text_focus();
+    status_bar_.set_type_jump(type_jump_prefix_, match_type_jump());
+    redraw_();
+    return true;
+}
+
 void Browser::focus_files() {
     area().breadcrumb.cancel_edit();
     sidebar_.set_focused(false);

@@ -96,7 +96,7 @@ void Browser::extract_dropped_archive(const std::filesystem::path& archive,
 }
 
 void Browser::drop_actions(const std::filesystem::path& folder,
-                           std::vector<std::filesystem::path> paths, bool own) {
+                           std::vector<std::filesystem::path> paths, bool own, bool move_allowed) {
     if (paths.empty())
         return;
     std::vector<MenuItem> items;
@@ -109,14 +109,23 @@ void Browser::drop_actions(const std::filesystem::path& folder,
         item.enabled = enabled;
         items.push_back(std::move(item));
     };
+    MenuItem destination;
+    destination.id = "drop_destination";
+    destination.label = i18n::trf("Destination: {}", folder.string());
+    destination.enabled = false;
+    items.push_back(std::move(destination));
     const bool normal = refusal(folder, paths).empty();
     add(
         "drop_copy", i18n::mark("Copy Here"),
         [this, folder, paths] { transfer_paths(folder, paths, false, std::nullopt); }, normal);
-    if (own) {
+    if (own || move_allowed) {
         add(
             "drop_move", i18n::mark("Move Here"),
             [this, folder, paths] { transfer_paths(folder, paths, true, std::nullopt); }, normal);
+    }
+    add("drop_link", i18n::mark("Link Here"),
+        [this, folder, paths] { link_paths(folder, paths, fs::LinkKind::absolute); });
+    if (own) {
         add("move_into_folder", i18n::mark("Move into New Folder…"),
             [this, folder, paths] { group_paths(folder, paths); });
     }
@@ -125,7 +134,8 @@ void Browser::drop_actions(const std::filesystem::path& folder,
     if (paths.size() == 1 && opens_as_folder(entry))
         add("drop_extract", i18n::mark("Extract into New Folder…"),
             [this, archive = paths.front(), folder] { extract_dropped_archive(archive, folder); });
-    menu_.open(drop_x_, drop_y_, std::move(items), false);
+    add("drop_cancel", i18n::mark("Cancel"), [] {});
+    menu_.open(drop_x_, drop_y_, std::move(items), true);
 }
 
 std::vector<MenuItem> Browser::sidebar_menu() {
@@ -288,13 +298,7 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
         if (place.section != fs::Place::Section::devices || Sidebar::child(place))
             add(
                 "properties", i18n::mark("Properties…"),
-                [this, path = place.path] {
-                    properties_.open(path, [this] {
-                        info_pane_.refresh();
-                        set_places(places_);
-                    });
-                },
-                mounted);
+                [this, path = place.path] { open_properties(path); }, mounted);
     }
     auto organization = sidebar_organization_items(place);
     items.insert(items.end(), organization.begin(), organization.end());

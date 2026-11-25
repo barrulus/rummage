@@ -223,6 +223,11 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         }
         color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }
+    if (!type_jump_.empty()) {
+        text = type_jump_matched_ ? i18n::trf("Jump to: {}", type_jump_)
+                                  : i18n::trf("No match: {}", type_jump_);
+        color = type_jump_matched_ ? palette.on_surface : palette.error;
+    }
     const auto& line =
         renderer.fonts().layout(text, text_size_, renderer.scale(), room, ui::Ellipsis::middle);
     const float line_height = (line.ascent + line.descent) / renderer.scale();

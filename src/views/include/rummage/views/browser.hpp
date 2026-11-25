@@ -180,7 +180,8 @@ public:
     void reveal(const std::filesystem::path& root, const std::filesystem::path& target);
 
     // Show each existing item selected in its parent, grouped into tabs on the active pane.
-    // Keep the first requested folder focused. details opens the expanded info pane.
+    // Checks paths on workers. Keep the first requested folder focused. details opens
+    // independent Properties windows when a host is installed, otherwise the expanded info pane.
     void show_items(const std::vector<std::filesystem::path>& items, bool details);
 
     void set_mode(Mode mode);
@@ -281,6 +282,13 @@ public:
 
     // The sidebar (shown at start; left out when the window is too narrow for it).
     void set_sidebar_visible(bool visible);
+
+    void set_keyboard_config(const core::Config::Keyboard& config) {
+        keyboard_config_ = config;
+        clear_type_jump();
+    }
+
+    [[nodiscard]] const std::string& type_jump_prefix() const { return type_jump_prefix_; }
 
     void set_sidebar_config(const core::Config::Sidebar& config) {
         sidebar_.set_organization(config.order.value_or(sidebar_.order()),
@@ -588,6 +596,9 @@ public:
 
     void set_drag_and_drop(DragAndDrop dnd) { dnd_ = std::move(dnd); }
 
+    // Another window of this process keeps the drag's local operation choices.
+    void adopt_drag(const Browser& source) { drag_ = source.drag_; }
+
     // A drag over the window, from rummage or another program.
     void drop_event(const ui::DropEvent& event);
 
@@ -711,7 +722,26 @@ public:
 
     void settle_search_preview();
     void open_pattern();
-    void create_links();
+    void create_links(fs::LinkKind kind = fs::LinkKind::absolute);
+    void paste_links(fs::LinkKind kind);
+    void reveal_link_target();
+    using PropertiesHandler =
+        std::function<void(const std::filesystem::path&, bool, bool, const std::string&)>;
+
+    void set_auxiliary_windows(std::function<void()> settings, PropertiesHandler properties) {
+        settings_window_ = std::move(settings);
+        properties_window_ = std::move(properties);
+    }
+
+    void open_properties(const std::filesystem::path& path, bool editable = true,
+                         bool drive = false, std::string label = {});
+    void properties_changed(const std::filesystem::path& path);
+
+    [[nodiscard]] bool file_operations_pending() const {
+        return operations_ > 0 || transfers_.pending() > 0 || batch_rename_running_ ||
+               properties_.saving() || settings_.busy();
+    }
+
     void move_into_new_folder();
     void group_paths(const std::filesystem::path& destination,
                      std::vector<std::filesystem::path> paths);
@@ -861,6 +891,9 @@ private:
     void transfer_paths(const std::filesystem::path& destination,
                         const std::vector<std::filesystem::path>& paths, bool move,
                         std::optional<std::uint64_t> empty_clipboard);
+    void link_paths(const std::filesystem::path& destination,
+                    const std::vector<std::filesystem::path>& paths, fs::LinkKind kind);
+    std::vector<MenuItem> link_menu(bool paste);
     void scroll_near_edge();
     // The rubber band: where it runs in the view shown, the selection it makes, the list
     // scrolled under it (on a timer, while the pointer is beyond an edge), the band drawn.
@@ -882,8 +915,19 @@ private:
     void trash_done(const fs::TransferResult& result);
     void restore_done(const fs::TransferResult& result);
     // Pastes files read from the system clipboard (at generation) into destination.
-    void paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
-                        std::string extension);
+    void paste_contents(const std::shared_ptr<Folder>& folder, std::string type);
+    void create_contents(const std::filesystem::path& directory, std::string type,
+                         std::string bytes, bool dropped, const std::shared_ptr<Folder>& reveal);
+    void clear_type_jump();
+    bool type_jump(const ui::KeyEvent& event, Clock::time_point now);
+    bool match_type_jump();
+    core::Config::Keyboard keyboard_config_;
+    std::string type_jump_prefix_;
+    std::weak_ptr<Folder> type_jump_folder_;
+    Mode type_jump_mode_{Mode::columns};
+    Clock::time_point type_jump_until_{};
+    core::EventLoop::SourceId type_jump_timer_{0};
+
     void paste_files(const std::filesystem::path& destination, const ClipboardFiles& files,
                      std::uint64_t generation);
     // Why an operation runs: the user's, or an undo or redo of one.
@@ -945,7 +989,7 @@ private:
     // The sidebar's menu on a place: the trash's has "Empty Trash".
     std::vector<MenuItem> place_navigation_items(const fs::Place& place);
     void drop_actions(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
-                      bool own);
+                      bool own, bool move_allowed = false);
     void place_menu(const fs::Place& place, float x, float y, bool keyboard = false);
     // The sidebar's places, the trash's icon full or empty.
     void show_places();
@@ -1153,6 +1197,8 @@ private:
     QuickLook quick_look_;
     Sidebar sidebar_;
     std::function<void(const std::filesystem::path&)> new_window_;
+    std::function<void()> settings_window_;
+    PropertiesHandler properties_window_;
     StatusBar status_bar_;
     ShortcutsOverlay shortcuts_;
     bool show_extensions_{true};
@@ -1229,12 +1275,15 @@ private:
     float pointer_y_{0.0F};
     bool pointer_inside_{false};
     // False once destroyed: renames and new folders still on their way find out here.
+    std::size_t show_items_pending_{0};
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
     std::vector<core::Action> actions_{core::action_registry()};
     core::MenuLayout menu_layout_;
     ActionHandoff action_handoff_;
     std::function<bool(const core::Action&, const core::ActionContext&)> action_available_;
     std::size_t operations_{0};  // new folders and renames on workers
+    std::uint64_t content_job_id_{0};
+    std::map<std::uint64_t, core::CancelToken> content_jobs_;
 
     // What Ctrl+C or Ctrl+X took.
     struct Clipboard {
@@ -1262,6 +1311,7 @@ private:
         float x{0.0F};
         float y{0.0F};
         ViewHit hit;
+        bool choose{false};
     };
 
     std::optional<Press> press_;
@@ -1294,6 +1344,7 @@ private:
         std::vector<std::string> names;
         std::string icon;          // the first entry's
         bool folders_only{false};  // every entry is a folder
+        bool choose{false};
     };
 
     std::optional<Drag> drag_;

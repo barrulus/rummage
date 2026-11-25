@@ -30,6 +30,8 @@ struct GroupFolder {
     std::uint64_t device{0}, inode{0};
 };
 
+enum class LinkKind : std::uint8_t { automatic, absolute, relative, hard };
+
 struct TransferRequest {
     TransferKind kind{TransferKind::copy};
     std::filesystem::path source;  // the folder the items are in
@@ -56,6 +58,7 @@ struct TransferRequest {
     // Reread and compare regular-file data before publication. Same-disk renames and
     // symlinks do not copy file contents. Archive extraction does not support this option.
     bool verify{false};
+    LinkKind link_kind{LinkKind::automatic};
     std::uint64_t id{0};  // assigned by TransferQueue; never reused within that queue
 };
 

@@ -398,7 +398,11 @@ TEST_CASE("clipboard: images preserve exact binary bytes and take precedence ove
         Fixture f;
         f.show(f.root / "album", "");
         // Clipboard bytes are opaque; decoding remains the isolated previewer's job.
-        const std::string bytes{"image\0payload\xff", 14};
+        const std::string signature =
+            std::string_view{mime} == "image/png"    ? std::string{"\x89PNG\r\n\x1a\n", 8}
+            : std::string_view{mime} == "image/jpeg" ? std::string{"\xff\xd8\xff", 3}
+                                                     : std::string{"RIFF\0\0\0\0WEBP", 12};
+        const std::string bytes = signature + std::string{"image\0payload\xff", 14};
         f.clipboard.copy_from_elsewhere({{"text/plain", "image caption"}, {mime, bytes}});
         REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
         REQUIRE(f.settle());
@@ -571,4 +575,56 @@ TEST_CASE("clipboard: copying a selection ignores an unselected focused file") {
     CHECK(offered.find(rummage::thumbs::file_uri(folder->path() / focused) + "\r\n") ==
           std::string::npos);
     CHECK(folder->selected_names() == selected);
+}
+
+TEST_CASE("clipboard: mismatched image signatures do not create files or fall back to text") {
+    Fixture f;
+    f.show(f.root / "album", "");
+    for (const auto& bytes : {std::string{}, std::string{"GIF89a"}, std::string{"not an image"}}) {
+        f.clipboard.copy_from_elsewhere({{"image/png", bytes}, {"text/plain", "caption"}});
+        REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+        REQUIRE(f.settle());
+        CHECK(listing(f.root / "album").empty());
+        CHECK_FALSE(f.browser.name_editor().active());
+    }
+}
+
+TEST_CASE("clipboard content: signatures are bounded and type-specific") {
+    using namespace std::string_view_literals;
+    using views::content_extension;
+    const std::pair<std::string_view, std::string_view> images[] = {
+        {"image/png", "\x89PNG\r\n\x1a\n"sv},
+        {"image/jpeg", "\xff\xd8\xff"sv},
+        {"image/webp", "RIFF\0\0\0\0WEBP"sv},
+        {"image/gif", "GIF89a"sv},
+        {"image/tiff", "II\x2a\0"sv},
+        {"image/tiff", "MM\0\x2b"sv},
+        {"image/bmp", "BM\0\0\0\0\0\0\0\0\0\0\0\0"sv},
+        {"image/jxl", "\xff\x0a"sv},
+        {"image/jxl", "\0\0\0\x0cJXL \r\n\x87\n"sv},
+        {"image/svg+xml", "<?xml version='1.0'?> <!--ok--> <svg/>"sv}};
+    for (const auto& [type, bytes] : images) {
+        CAPTURE(type);
+        REQUIRE(content_extension(type, bytes));
+        CHECK_FALSE(content_extension(type, ""));
+        CHECK_FALSE(content_extension(type, "not an image"));
+        CHECK_FALSE(content_extension("application/octet-stream", bytes));
+    }
+    CHECK_FALSE(content_extension("image/svg+xml", "<svg-script/>"));
+    CHECK_FALSE(content_extension("image/svg+xml", "<html><svg/></html>"));
+    CHECK_FALSE(content_extension("image/svg+xml", std::string(4096, ' ') + "<svg/>"));
+    CHECK(content_extension("text/plain", "") == ".txt");
+    const std::string too_large(views::kMaxContentBytes + 1, 'x');
+    CHECK_FALSE(content_extension("text/plain", too_large));
+    CHECK_FALSE(views::dropped_web_url(too_large));
+    CHECK(views::content_offer(Names{"text/plain", "image/png"}) == "image/png");
+}
+
+TEST_CASE("clipboard content: web shortcuts accept one HTTP URL without injected fields") {
+    CHECK(views::dropped_web_url("#comment\r\nhttps://example.com/a%20b?q=1#part\r\n") ==
+          "https://example.com/a%20b?q=1#part");
+    for (const auto input : {"javascript:alert(1)", "file:///tmp/a", "https://", "https:///x",
+                             "https://example.com/\nIconFile=evil", "https://a\nhttps://b",
+                             "https://example.com/space here", "https://example.com/\rX"})
+        CHECK_FALSE(views::dropped_web_url(input));
 }

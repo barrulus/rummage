@@ -9,6 +9,8 @@
 
 #include <doctest/doctest.h>
 
+#include "../src/app/window_session.hpp"
+
 using rummage::core::EventLoop;
 using namespace std::chrono_literals;
 
@@ -46,6 +48,57 @@ struct Pipe {
 };
 
 }  // namespace
+
+TEST_CASE("windows: closing resumes its scope after the handler and only once") {
+    EventLoop loop;
+    add_watchdog(loop);
+    rummage::app::WindowLifetime lifetime;
+    std::vector<int> events;
+    const auto open = [&]() -> rummage::app::WindowSession {
+        struct Guard {
+            std::vector<int>& events;
+            ~Guard() { events.push_back(3); }
+        } guard{events};
+        events.push_back(1);
+        co_await lifetime;
+        events.push_back(2);
+    };
+    auto window = open();
+    CHECK_FALSE(window.done());
+    const auto finish = [&] {
+        CHECK(window.done());
+        events.push_back(4);
+        loop.quit();
+    };
+    lifetime.close(loop, finish);
+    lifetime.close(loop, finish);
+    CHECK(events == std::vector<int>{1});
+    CHECK(loop.run() == 0);
+    CHECK(events == std::vector<int>{1, 2, 3, 4});
+    window.rethrow();
+}
+
+TEST_CASE("windows: application shutdown cancels a queued close without resuming dead locals") {
+    EventLoop loop;
+    add_watchdog(loop);
+    rummage::app::WindowLifetime lifetime;
+    bool destroyed = false;
+    const auto open = [&]() -> rummage::app::WindowSession {
+        struct Guard {
+            bool& destroyed;
+            ~Guard() { destroyed = true; }
+        } guard{destroyed};
+        co_await lifetime;
+        FAIL_CHECK("destroyed window resumed");
+    };
+    {
+        auto window = open();
+        lifetime.close(loop, [] { FAIL_CHECK("destroyed application's callback ran"); });
+    }
+    CHECK(destroyed);
+    loop.post([&] { loop.quit(); });
+    CHECK(loop.run() == 0);
+}
 
 TEST_CASE("post from another thread runs on the loop thread, quit sets the exit code") {
     EventLoop loop;

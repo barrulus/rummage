@@ -237,6 +237,7 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    clear_type_jump();
     area().breadcrumb.cancel_edit();
     info_pane_.clear_text_focus();
     leave_motion();
@@ -624,24 +625,9 @@ void Browser::paste() {
             }
             return;
         }
-        // Prefer image bytes over a textual fallback, but keep file transfer semantics above.
-        for (const auto& [type, extension] : {std::pair{"image/png", ".png"},
-                                              {"image/jpeg", ".jpg"},
-                                              {"image/webp", ".webp"},
-                                              {"image/gif", ".gif"},
-                                              {"image/tiff", ".tiff"},
-                                              {"image/bmp", ".bmp"},
-                                              {"image/svg+xml", ".svg"}}) {
-            if (has(type)) {
-                paste_contents(folder, type, extension);
-                return;
-            }
-        }
-        for (const auto type : kTextTypes) {
-            if (has(type)) {
-                paste_contents(folder, std::string{type}, ".txt");
-                return;
-            }
+        if (const auto type = content_offer(types)) {
+            paste_contents(folder, *type);
+            return;
         }
         if (!types.empty()) {
             show_message(std::string{i18n::tr("The clipboard holds no files")}, false);
@@ -687,60 +673,84 @@ void Browser::paste() {
     redraw_();
 }
 
-void Browser::paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
-                             std::string extension) {
+void Browser::paste_contents(const std::shared_ptr<Folder>& folder, std::string type) {
     ++operations_;
-    system_.read(std::move(type), [this, alive = alive_, folder, extension = std::move(extension)](
-                                      std::optional<std::string> data) {
+    system_.read(type, [this, alive = alive_, folder, type](std::optional<std::string> data) {
         if (!*alive)
             return;
+        --operations_;
         if (!data) {
-            --operations_;
             show_message(std::string{i18n::tr("The clipboard could not be read")}, true);
             return;
         }
-        pool_.submit(
-            core::Priority::visible,
-            [directory = folder->path(), extension,
-             bytes = std::move(*data)](const core::CancelToken& /*token*/) {
-                auto made = fs::make_file(directory, "Pasted" + extension, {}, bytes);
-                std::optional<FileOperation::CreatedFile> created;
-                if (!made.error) {
-                    std::error_code error;
-                    const auto modified =
-                        std::filesystem::last_write_time(directory / made.name, error);
-                    if (!error)
-                        created = FileOperation::CreatedFile{bytes.size(), modified};
-                }
-                return std::pair{std::move(made), created};
-            },
-            [this, alive, folder](const auto& result) {
-                const auto& [made, created] = result;
-                if (!*alive)
-                    return;
-                --operations_;
-                if (made.error) {
-                    show_message(
-                        i18n::trf("Cannot make a file in {}: {}",
-                                  folder->path().filename().string(), made.error.message()),
-                        true);
-                    return;
-                }
-                record({.kind = FileOperation::Kind::create,
-                        .items = {{.from = {}, .to = folder->path() / made.name}},
-                        .modes = {},
-                        .created_file = created},
-                       Purpose::user, false);
-                if (current_folder() == folder) {
-                    filter_focused_ = false;
-                    set_name_filter({});
-                    folder->expect_name(made.name);
-                    if (!editor_.active())
-                        editor_.start(folder, made.name, false);
-                }
-                redraw_();
-            });
+        create_contents(folder->path(), type, std::move(*data), false, folder);
     });
+}
+
+void Browser::create_contents(const std::filesystem::path& directory, std::string type,
+                              std::string bytes, bool dropped,
+                              const std::shared_ptr<Folder>& reveal) {
+    if (fs::is_trash(directory))
+        return;
+    ++operations_;
+    const auto job = ++content_job_id_;
+    content_jobs_[job] = pool_.submit(
+        core::Priority::visible,
+        [directory, type = std::move(type), bytes = std::move(bytes),
+         dropped](const core::CancelToken& token) mutable {
+            auto extension = content_extension(type, bytes);
+            if (dropped &&
+                (type == kUriList || std::ranges::find(kTextTypes, type) != kTextTypes.end())) {
+                if (const auto url = dropped_web_url(bytes)) {
+                    bytes = "[InternetShortcut]\nURL=" + *url + "\n";
+                    extension = ".url";
+                }
+            }
+            fs::MadeFile made{.name = {},
+                              .error = std::make_error_code(std::errc::invalid_argument)};
+            if (bytes.size() > kMaxContentBytes)
+                made.error = std::make_error_code(std::errc::file_too_large);
+            else if (extension)
+                made = fs::make_contents_file(
+                    directory,
+                    std::string{dropped ? "Dropped" : "Pasted"} + std::string{*extension}, bytes,
+                    token);
+            std::optional<FileOperation::CreatedFile> created;
+            if (!made.error) {
+                std::error_code error;
+                const auto modified =
+                    std::filesystem::last_write_time(directory / made.name, error);
+                if (!error)
+                    created = FileOperation::CreatedFile{bytes.size(), modified};
+            }
+            return std::pair{std::move(made), created};
+        },
+        [this, alive = alive_, directory, reveal, dropped, job](const auto& result) {
+            if (!*alive)
+                return;
+            content_jobs_.erase(job);
+            --operations_;
+            const auto& [made, created] = result;
+            if (made.error) {
+                show_message(i18n::trf("Cannot make a file in {}: {}",
+                                       directory.filename().string(), made.error.message()),
+                             true);
+                return;
+            }
+            record({.kind = FileOperation::Kind::create,
+                    .items = {{.from = {}, .to = directory / made.name}},
+                    .modes = {},
+                    .created_file = created},
+                   Purpose::user, false);
+            if (reveal && current_folder() == reveal) {
+                filter_focused_ = false;
+                set_name_filter({});
+                reveal->expect_name(made.name);
+                if (!dropped && !editor_.active())
+                    editor_.start(reveal, made.name, false);
+            }
+            redraw_();
+        });
 }
 
 std::uint64_t Browser::open_batch(Purpose purpose, FileOperation::Kind kind) {
@@ -1270,7 +1280,9 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
         properties.label = i18n::tr("Properties…");
         properties.enabled = place.disk.mounted && !place.path.empty();
         properties.separator = true;
-        properties.action = [this, place] { properties_.open_drive(place.path, place.label); };
+        properties.action = [this, place] {
+            open_properties(place.path, false, true, place.label);
+        };
         items.push_back(std::move(properties));
         menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), keyboard);
         return;
@@ -2141,6 +2153,9 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 }
 
 Browser::~Browser() {
+    for (const auto& [id, token] : content_jobs_)
+        token.cancel();
+    loop_.remove(type_jump_timer_);
     drive_hover_job_.cancel();
     bookmark_icons_job_.cancel();
     *alive_ = false;
@@ -2273,7 +2288,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         properties.label = i18n::tr("Properties…");
         properties.keys = keys_for(Command::properties);
         properties.separator = true;
-        properties.enabled = names.size() == 1;
+        properties.enabled = names.size() == 1 || (properties_window_ && !names.empty());
         properties.action = [this] { show_properties(); };
         items.push_back(std::move(properties));
         for (auto& item : action_items(action_context(folder))) {
@@ -2393,11 +2408,15 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         add("move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",
             [this] { move_into_new_folder(); });
     if (!folder->is_archive() && !picker_mode_)
-        add("create_link", std::string{i18n::mark("Create Link")}, "", [this] { create_links(); });
+        for (auto& item : link_menu(false))
+            items.push_back(std::move(item));
+    if (count == 1 && cursor && cursor->is_link && !folder->is_archive())
+        add("reveal_link_target", std::string{i18n::mark("Go to Link Target")}, "",
+            [this] { reveal_link_target(); });
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
-        true, count == 1);
+        true, count == 1 || (properties_window_ && count > 1));
     if (!picker_mode_ && count == 1 && cursor && cursor->is_directory() && !folder->is_archive())
         add("folder_insights", "Insights…", keys_for(Command::folder_insights),
             [this, path = folder->path_of(*cursor)] { show_insights(path); });
@@ -2472,6 +2491,18 @@ std::vector<MenuItem> Browser::folder_menu() {
     paste_here.enabled = !clipboard_.names.empty() || (system_.types && !system_.types().empty());
     paste_here.action = [this] { paste(); };
     items.push_back(std::move(paste_here));
+
+    if (const auto folder = current_folder();
+        !picker_mode_ && folder && !folder->is_archive() && !folder->is_trash()) {
+        MenuItem links;
+        links.id = "paste_links";
+        links.label = i18n::tr("Paste as Links");
+        links.submenu = true;
+        links.children = link_menu(true);
+        links.enabled = !clipboard_.names.empty() || !clipboard_.paths.empty() ||
+                        (system_.types && !system_.types().empty());
+        items.push_back(std::move(links));
+    }
 
     if (const std::shared_ptr<Folder> shown = current_folder()) {
         MenuItem bookmark;
@@ -2560,8 +2591,22 @@ void Browser::show_properties() {
     if (!folder || properties_.saving())
         return;
     const auto names = targets(*folder);
-    if (names.size() > 1 || (names.empty() && folder->is_trash()))
+    if ((!properties_window_ && names.size() > 1) || (names.empty() && folder->is_trash()))
         return;
+    if (properties_window_ && names.size() > 1) {
+        menu_.close();
+        palette_.close();
+        quick_look_.close();
+        info_pane_.clear_text_focus();
+        filter_focused_ = false;
+        for (const auto& name : names) {
+            const auto entry = std::ranges::find(folder->entries(), name, &fs::Entry::name);
+            if (entry != folder->entries().end())
+                open_properties(folder->path_of(*entry),
+                                !folder->is_trash() && !folder->is_archive());
+        }
+        return;
+    }
     auto path = folder->path();
     if (!names.empty()) {
         const auto it = std::ranges::find(folder->entries(), names.front(), &fs::Entry::name);
@@ -2574,30 +2619,38 @@ void Browser::show_properties() {
     quick_look_.close();
     info_pane_.clear_text_focus();
     filter_focused_ = false;
+    open_properties(path, !folder->is_trash() && !folder->is_archive());
+}
+
+void Browser::open_properties(const std::filesystem::path& path, bool editable, bool drive,
+                              std::string label) {
+    if (properties_window_) {
+        properties_window_(path, editable, drive, label);
+        return;
+    }
     properties_.open(
-        path,
-        [this, folder, path] {
-            info_pane_.refresh();
-            set_places(places_);
-            const auto refresh = [&path](Folder& owner) {
-                if (owner.path() == path.parent_path())
-                    owner.refresh_entry(path.filename().string());
-            };
-            refresh(*folder);
-            for (const auto& owner : areas_) {
-                if (!owner)
-                    continue;
-                for (const auto& tab : owner->tabs) {
-                    if (tab->grid.folder())
-                        refresh(*tab->grid.folder());
-                    tab->details.refresh_entry(path);
-                    for (std::size_t i = 0; i < tab->columns.column_count(); ++i)
-                        refresh(tab->columns.column(i).folder());
-                }
-            }
-            redraw_();
-        },
-        !folder->is_trash());
+        path, [this, path] { properties_changed(path); }, editable, drive, std::move(label));
+}
+
+void Browser::properties_changed(const std::filesystem::path& path) {
+    info_pane_.refresh();
+    set_places(places_);
+    const auto refresh = [&path](Folder& owner) {
+        if (owner.path() == path.parent_path())
+            owner.refresh_entry(path.filename().string());
+    };
+    for (const auto& owner : areas_) {
+        if (!owner)
+            continue;
+        for (const auto& tab : owner->tabs) {
+            if (tab->grid.folder())
+                refresh(*tab->grid.folder());
+            tab->details.refresh_entry(path);
+            for (std::size_t i = 0; i < tab->columns.column_count(); ++i)
+                refresh(tab->columns.column(i).folder());
+        }
+    }
+    redraw_();
 }
 
 namespace {
@@ -2634,12 +2687,13 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
             items.erase(path);
         }
         group({"new_folder", "new_file"});
-        group({"paste", "action:copy_location"});
+        group({"paste", "paste_links", "action:copy_location"});
         group({"open_terminal", "add_bookmark"});
         extensions();
     } else {
-        group({"open", "open_with", "open_tab", "open_terminal"});
-        group({"cut", "copy", "paste", "rename", "create_link", "move_into_folder"});
+        group({"open", "open_with", "open_tab", "open_terminal", "reveal_link_target"});
+        group({"cut", "copy", "paste", "rename", "create_link", "create_relative_link",
+               "create_hard_link", "move_into_folder"});
         group({"action:copy_name", "action:copy_location"});
         group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
         group({"add_bookmark", "running"});
@@ -2799,6 +2853,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
+    clear_type_jump();
     if (pane().insights.is_open()) {
         ++path_navigation_generation_;
         quick_look_.close();
@@ -2888,53 +2943,80 @@ void Browser::restore_folder(const std::filesystem::path& path, bool opened) {
 }
 
 void Browser::show_items(const std::vector<std::filesystem::path>& items, bool details) {
-    std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> groups;
-    for (const auto& item : items) {
-        auto normal = item.lexically_normal();
-        if (!normal.is_absolute())
-            continue;
-        if (!normal.has_filename() && normal.has_relative_path())
-            normal = normal.parent_path();
-        std::error_code error;
-        if (!std::filesystem::exists(std::filesystem::symlink_status(normal, error)) || error)
-            continue;
-        const bool root = !normal.has_relative_path();
-        const auto folder = root ? normal : normal.parent_path();
-        if (!std::filesystem::is_directory(folder, error))
-            continue;
-        auto group =
-            std::ranges::find(groups, folder, [](const auto& entry) { return entry.first; });
-        if (group == groups.end())
-            group = groups.insert(groups.end(), {folder, {}});
-        if (!root &&
-            std::ranges::find(group->second, normal.filename().string()) == group->second.end()) {
-            group->second.push_back(normal.filename().string());
-        }
-    }
-    const auto first = area().active;
-    for (std::size_t i = 0; i < groups.size(); ++i) {
-        const auto& [folder, names] = groups[i];
-        if (i == 0)
-            open(folder);
-        else
-            open_tab(folder, true);
-        set_name_filter({});
-        filter_focused_ = false;
-        sidebar_.set_focused(false);
-        // Reveal all requested hidden items, not just the first name's filter exception.
-        if (std::ranges::any_of(names, [](const auto& name) { return name.starts_with('.'); })) {
-            set_show_hidden(true, false);
-        }
-        if (const auto shown = current_folder(); shown && !names.empty())
-            shown->expect_names(names);
-    }
-    if (groups.size() > 1)
-        select_tab(first);
-    if (details && !groups.empty()) {
-        set_info_visible(true);
-        info_pane_.set_expanded(true);
-    }
-    redraw_();
+    ++show_items_pending_;
+    const auto addressed = active_area_;
+    pool_.submit(
+        core::Priority::visible,
+        [items](const core::CancelToken& cancel) {
+            std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> groups;
+            for (const auto& item : items) {
+                if (cancel.cancelled())
+                    break;
+                auto normal = item.lexically_normal();
+                if (!normal.is_absolute())
+                    continue;
+                if (!normal.has_filename() && normal.has_relative_path())
+                    normal = normal.parent_path();
+                std::error_code error;
+                if (!std::filesystem::exists(std::filesystem::symlink_status(normal, error)) ||
+                    error)
+                    continue;
+                const bool root = !normal.has_relative_path();
+                const auto folder = root ? normal : normal.parent_path();
+                if (!std::filesystem::is_directory(folder, error))
+                    continue;
+                auto group = std::ranges::find(groups, folder,
+                                               [](const auto& entry) { return entry.first; });
+                if (group == groups.end())
+                    group = groups.insert(groups.end(), {folder, {}});
+                if (!root && std::ranges::find(group->second, normal.filename().string()) ==
+                                 group->second.end()) {
+                    group->second.push_back(normal.filename().string());
+                }
+            }
+            return groups;
+        },
+        [this, alive = alive_, addressed, details](const auto& groups) {
+            if (!*alive)
+                return;
+            --show_items_pending_;
+            if (!areas_[addressed])
+                return;
+            AreaContext context{context_area_, addressed};
+            const auto first = area().active;
+            for (std::size_t i = 0; i < groups.size(); ++i) {
+                const auto& [folder, names] = groups[i];
+                if (i == 0)
+                    open(folder);
+                else
+                    open_tab(folder, true);
+                set_name_filter({});
+                filter_focused_ = false;
+                sidebar_.set_focused(false);
+                // Reveal all requested hidden items, not just the first name's filter exception.
+                if (std::ranges::any_of(names,
+                                        [](const auto& name) { return name.starts_with('.'); })) {
+                    set_show_hidden(true, false);
+                }
+                if (const auto shown = current_folder(); shown && !names.empty())
+                    shown->expect_names(names);
+            }
+            if (groups.size() > 1)
+                select_tab(first);
+            if (details && properties_window_) {
+                for (const auto& [directory, names] : groups) {
+                    if (names.empty())
+                        open_properties(directory);
+                    else
+                        for (const auto& name : names)
+                            open_properties(directory / name);
+                }
+            } else if (details && !groups.empty()) {
+                set_info_visible(true);
+                info_pane_.set_expanded(true);
+            }
+            redraw_();
+        });
 }
 
 void Browser::note_location() {
@@ -3584,6 +3666,7 @@ void Browser::apply(const State& state) {
 }
 
 void Browser::set_mode(Mode mode) {
+    clear_type_jump();
     if (pane().insights.is_open())
         open_tab(pane().insights.current_path(), true);
     pane().retained_folder_mode.reset();
@@ -4098,6 +4181,8 @@ bool Browser::animating() const {
 }
 
 bool Browser::loading() const {
+    if (show_items_pending_ > 0)
+        return true;
     if ((searching_results() && search_results_->loading()) ||
         (search_preview_pending_ && search_preview_ && search_preview_->model().loading()))
         return true;
@@ -4121,6 +4206,8 @@ bool Browser::loading() const {
 }
 
 void Browser::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (event.kind == ui::PointerEvent::Kind::press)
+        clear_type_jump();
     if (event.kind == ui::PointerEvent::Kind::press)
         keyboard_focus_visible_ = false;
     if (event.kind == ui::PointerEvent::Kind::scroll) {
@@ -4575,6 +4662,28 @@ void Browser::dispatch_area_pointer(const ui::PointerEvent& event, Clock::time_p
         }
         return;
     }
+    if (pointer_target_ == Target::view && !picker_mode_ && dnd_.start) {
+        if (event.kind == Kind::press && event.button == ui::PointerButton::right) {
+            if (auto hit = view_hit(event.x, event.y); hit && hit->on_item && hit->entry &&
+                                                       !hit->folder->is_trash() &&
+                                                       !hit->folder->is_archive()) {
+                // Keep right click available on release; crossing the drag threshold
+                // turns the same press serial into an operation-choice drag.
+                press_ = Press{.x = event.x, .y = event.y, .hit = std::move(*hit), .choose = true};
+                return;
+            }
+        } else if (event.kind == Kind::release && event.button == ui::PointerButton::right &&
+                   press_ && press_->choose) {
+            auto press = event;
+            press.kind = Kind::press;
+            press.x = press_->x;
+            press.y = press_->y;
+            press_.reset();
+            send_pointer(Target::view, press, now);
+            send_pointer(Target::view, event, now);
+            return;
+        }
+    }
     if (event.kind == Kind::motion && press_ && dnd_.start && button_held_ &&
         pointer_target_ == Target::view &&
         std::hypot(event.x - press_->x, event.y - press_->y) >= kDragThreshold) {
@@ -4854,7 +4963,8 @@ void Browser::start_drag(Press press) {
     drag_ = Drag{.directory = folder.path(),
                  .names = std::move(names),
                  .icon = std::string{fs::icon_name(folder.mime(), typed)},
-                 .folders_only = folders_only};
+                 .folders_only = folders_only,
+                 .choose = press.choose};
     // The view lets go of the press: the drag has the pointer now.
     send_pointer(Target::view, {.kind = ui::PointerEvent::Kind::leave}, Clock::now());
     button_held_ = false;
@@ -4998,7 +5108,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
     }
     AreaContext addressed{context_area_, area_at(event.x, event.y).value_or(active_area_)};
     using Kind = ui::DropEvent::Kind;
-    const bool choose = !picker_mode_ && dnd_.modifiers && dnd_.modifiers().alt;
+    const bool choose =
+        !picker_mode_ && ((drag_ && drag_->choose) || (dnd_.modifiers && dnd_.modifiers().alt));
     drop_x_ = event.x;
     drop_y_ = event.y;
     if (event.kind == Kind::leave) {
@@ -5009,6 +5120,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
     std::optional<DropTarget> target = drop_target_at(event.x, event.y);
     const std::vector<std::string> types = dnd_.types ? dnd_.types() : std::vector<std::string>{};
     const bool files = std::ranges::find(types, kUriList) != types.end();
+    const auto content = content_offer(types);
+    const auto offered = files || drag_ ? std::optional{std::string{kUriList}} : content;
     std::vector<std::filesystem::path> own;
     if (drag_) {
         for (const std::string& name : drag_->names) {
@@ -5022,7 +5135,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
                                    }))))) {
             target.reset();  // not there: nothing would happen, or it cannot be
         }
-    } else if (!files) {
+    } else if (!offered ||
+               (target && !files && (target->bookmark || fs::is_trash(target->folder)))) {
         target.reset();
     }
     if (event.kind == Kind::drop) {
@@ -5043,6 +5157,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
             return;
         }
         const bool move = dnd_.action && dnd_.action() == ui::kDndMove;
+        const bool move_allowed =
+            dnd_.source_actions && (dnd_.source_actions() & ui::kDndMove) != 0;
         if (choose && move) {
             // Reading finishes the Wayland offer. A negotiated move could then delete the
             // source before the user chooses extraction or cancels the menu.
@@ -5051,27 +5167,59 @@ void Browser::drop_event(const ui::DropEvent& event) {
                 true);
             return;
         }
+        const auto shown = current_folder();
+        const auto reveal = shown && shown->path() == target->folder ? shown : nullptr;
         ++operations_;
-        dnd_.read(std::string{kUriList}, [this, alive = alive_, folder = target->folder,
-                                          bookmark = target->bookmark, move,
-                                          choose](const std::optional<std::string>& data) {
-            if (!*alive) {
+        dnd_.read(*offered, [this, alive = alive_, folder = target->folder,
+                             bookmark = target->bookmark, move, choose, move_allowed, files,
+                             content, type = *offered, reveal](std::optional<std::string> data) {
+            if (!*alive)
                 return;
-            }
             --operations_;
-            ClipboardFiles dropped = data ? parse_uri_list(*data) : ClipboardFiles{};
-            if (dropped.paths.empty()) {
-                show_message(std::string{dropped.refused > 0
-                                             ? i18n::tr("Only files can be dropped")
-                                             : i18n::tr("Nothing could be read from the drop")},
-                             false);
+            if (!data || data->size() > kMaxContentBytes) {
+                show_message(std::string{i18n::tr("Nothing could be read from the drop")}, true);
                 return;
             }
-            if (bookmark) {
-                add_to_sidebar(std::move(dropped.paths));
-            } else {
-                drop_paths(folder, std::move(dropped.paths), false, move, choose);
+            if (!files) {
+                create_contents(folder, type, std::move(*data), true, reveal);
+                return;
             }
+            ClipboardFiles dropped = parse_uri_list(*data);
+            if (!dropped.paths.empty()) {
+                if (bookmark)
+                    add_to_sidebar(std::move(dropped.paths));
+                else if (choose && !fs::is_trash(folder))
+                    drop_actions(folder, std::move(dropped.paths), false, move_allowed);
+                else
+                    drop_paths(folder, std::move(dropped.paths), false, move, choose);
+                return;
+            }
+            if (!bookmark && !fs::is_trash(folder) && !move) {
+                // URI lists may be web links. Local files win, then image bytes, then a URL.
+                if (content && content->starts_with("image/")) {
+                    ++operations_;
+                    dnd_.read(*content, [this, alive, folder, reveal,
+                                         type = *content](std::optional<std::string> image) {
+                        if (!*alive)
+                            return;
+                        --operations_;
+                        if (image)
+                            create_contents(folder, type, std::move(*image), true, reveal);
+                        else
+                            show_message(
+                                std::string{i18n::tr("Nothing could be read from the drop")}, true);
+                    });
+                    return;
+                }
+                if (dropped_web_url(*data)) {
+                    create_contents(folder, std::string{kUriList}, std::move(*data), true, reveal);
+                    return;
+                }
+            }
+            show_message(
+                std::string{dropped.refused > 0 ? i18n::tr("Only files can be dropped")
+                                                : i18n::tr("Nothing could be read from the drop")},
+                false);
         });
         return;
     }
@@ -5079,8 +5227,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
     if (dnd_.accept) {
         if (!target) {
             dnd_.accept(std::nullopt, 0, 0);
-        } else if (drag_ || choose) {
-            dnd_.accept(std::string{kUriList}, ui::kDndCopy, ui::kDndCopy);  // decided at the drop
+        } else if (drag_ || choose || !files) {
+            dnd_.accept(offered, ui::kDndCopy, ui::kDndCopy);  // decided at the drop
         } else {
             const std::uint32_t allowed = dnd_.source_actions ? dnd_.source_actions() : 0;
             dnd_.accept(std::string{kUriList}, ui::kDndCopy | (allowed & ui::kDndMove),
@@ -5926,6 +6074,14 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     const Command command = command_for(event);
+    if ((command == Command::none || command == Command::parent_folder) && !sidebar_.focused() &&
+        !quick_look_.is_open() && !shortcuts_.is_open() && !type_jump_prefix_.empty() &&
+        event.modifiers == ui::Modifiers{} &&
+        (event.keysym == XKB_KEY_BackSpace || event.keysym == XKB_KEY_Escape) &&
+        type_jump(event, now))
+        return true;
+    if (command != Command::none)
+        clear_type_jump();
     if (event.keysym == XKB_KEY_Escape && event.modifiers == ui::Modifiers{} &&
         !cut_marks_.names.empty() && !shortcuts_.is_open() && !quick_look_.is_open() &&
         !sidebar_.focused()) {
@@ -6069,7 +6225,7 @@ void Browser::run(Command command, Clock::time_point now) {
                 if (command == Command::properties &&
                     place->section == fs::Place::Section::devices && !Sidebar::child(*place)) {
                     if (place->disk.mounted && !place->path.empty())
-                        properties_.open_drive(place->path, place->label);
+                        open_properties(place->path, false, true, place->label);
                 } else {
                     const auto items = place_navigation_items(*place);
                     const auto item = std::ranges::find(items, id, &MenuItem::id);
@@ -6316,6 +6472,12 @@ void Browser::run(Command command, Clock::time_point now) {
         case Command::new_tab:
             new_tab();
             break;
+        case Command::new_window:
+            if (!picker_mode_ && new_window_) {
+                const auto folder = current_folder();
+                new_window_(folder ? folder->path() : home_directory());
+            }
+            break;
         case Command::close_tab:
             close_tab(area().active);
             break;
@@ -6430,7 +6592,40 @@ bool Browser::view_key(const ui::KeyEvent& event, Clock::time_point now) {
     const auto scope = pane().mode == Mode::columns ? scope::kColumns
                        : pane().mode == Mode::grid  ? scope::kGrid
                                                     : scope::kDetails;
-    return listed(event, scope) && browse_key(view_key_event(event), now);
+    if (listed(event, scope)) {
+        clear_type_jump();
+        return browse_key(view_key_event(event), now);
+    }
+    if (keyboard_config_.vim && !event.modifiers.alt && !event.modifiers.super &&
+        (event.text.empty() || event.text.size() == 1)) {
+        auto mapped = event;
+        switch (event.keysym) {
+            case XKB_KEY_h:
+            case XKB_KEY_H:
+                mapped.keysym = XKB_KEY_Left;
+                break;
+            case XKB_KEY_j:
+            case XKB_KEY_J:
+                mapped.keysym = XKB_KEY_Down;
+                break;
+            case XKB_KEY_k:
+            case XKB_KEY_K:
+                mapped.keysym = XKB_KEY_Up;
+                break;
+            case XKB_KEY_l:
+            case XKB_KEY_L:
+                mapped.keysym = XKB_KEY_Right;
+                break;
+            default:
+                mapped.keysym = XKB_KEY_NoSymbol;
+                break;
+        }
+        if (mapped.keysym != XKB_KEY_NoSymbol) {
+            clear_type_jump();
+            return browse_key(mapped, now);
+        }
+    }
+    return !quick_look_.is_open() && type_jump(event, now);
 }
 
 bool Browser::browse_key(const ui::KeyEvent& event, Clock::time_point now) {
@@ -6442,6 +6637,9 @@ bool Browser::browse_key(const ui::KeyEvent& event, Clock::time_point now) {
         event.modifiers == ui::Modifiers{} && open_selection()) {
         return true;  // a file: its application; a folder goes on to the view
     }
+    pane().columns.set_wrap_navigation(keyboard_config_.wrap);
+    pane().grid.set_wrap_navigation(keyboard_config_.wrap);
+    pane().details.set_wrap_navigation(keyboard_config_.wrap);
     // Only what the shortcuts list reaches the view.
     switch (pane().mode) {
         case Mode::columns:

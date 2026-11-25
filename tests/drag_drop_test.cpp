@@ -104,6 +104,8 @@ struct FakeDnd {
     std::optional<std::string> accepted;  // the type taken where the pointer is
     std::uint32_t accepted_actions{0};
     std::string data;  // what a read of another program's drop gives
+    std::vector<rummage::views::DragAndDrop::Format> payloads;
+    std::vector<std::string> reads;
     Modifiers modifiers;
 };
 
@@ -181,8 +183,13 @@ struct Fixture {
                     dnd.accepted_actions = actions;
                 },
             .read =
-                [this](const std::string& /*type*/, rummage::views::DragAndDrop::Done done) {
-                    loop.post([this, done = std::move(done)] { done(dnd.data); });
+                [this](const std::string& type, rummage::views::DragAndDrop::Done done) {
+                    dnd.reads.push_back(type);
+                    std::string bytes = dnd.data;
+                    for (const auto& [mime, payload] : dnd.payloads)
+                        if (mime == type)
+                            bytes = payload;
+                    loop.post([bytes = std::move(bytes), done = std::move(done)] { done(bytes); });
                 },
             .finish = [this] { ++dnd.finished; },
             .modifiers = [this] { return dnd.modifiers; },
@@ -321,6 +328,32 @@ struct Fixture {
 };
 
 }  // namespace
+
+TEST_CASE("keyboard browsing: grid wrap keeps columns and clamps an incomplete last row") {
+    Fixture f;
+    REQUIRE(f.gl);
+    for (int i = 0; i < 13; ++i)
+        std::ofstream{f.album / (std::to_string(i) + ".txt")} << "x";
+    f.show(f.album, Browser::Mode::grid);
+    f.browser.set_keyboard_config({.wrap = true});
+    auto& grid = f.browser.grid();
+    const auto folder = grid.folder();
+    const auto columns = grid.columns();
+    const auto count = folder->entries().size();
+    REQUIRE(columns > 1);
+    REQUIRE(count > columns);
+    REQUIRE(count % columns != 0);
+    folder->set_cursor(columns - 1, rummage::views::SelectMode::replace);
+    f.browser.key(key(XKB_KEY_Up), Browser::Clock::now());
+    CHECK(folder->cursor() == count - 1);
+    f.browser.key(key(XKB_KEY_Down), Browser::Clock::now());
+    CHECK(folder->cursor() == (count - 1) % columns);
+    folder->set_cursor(0, rummage::views::SelectMode::replace);
+    f.browser.key(key(XKB_KEY_Left), Browser::Clock::now());
+    CHECK(folder->cursor() == count - 1);
+    f.browser.key(key(XKB_KEY_Right), Browser::Clock::now());
+    CHECK(folder->cursor() == 0);
+}
 
 TEST_CASE("grid: large icons fit narrow views and hit testing follows the drawn cells") {
     Fixture f;
@@ -499,7 +532,7 @@ TEST_CASE("drop: not into itself, nor where they already are") {
     CHECK(listing(f.root / "sub") == Names{"inner"});
 }
 
-TEST_CASE("drop: from another program, its files are copied; web addresses are not files") {
+TEST_CASE("drop: from another program, local files take precedence over web shortcuts") {
     Fixture f;
     if (!f.gl) {
         return;
@@ -523,13 +556,14 @@ TEST_CASE("drop: from another program, its files are copied; web addresses are n
 
     f.dnd.data = "https://example.com/a.jpg\r\n";
     f.drop_at(f.point_of(f.root, "sub"));
-    CHECK(f.browser.status_bar().message() == "Only files can be dropped");
+    CHECK(rummage::core::read_text_file(f.root / "sub" / "Dropped.url").text ==
+          "[InternetShortcut]\nURL=https://example.com/a.jpg\n");
 
-    // Without files in it, a drag finds nowhere to go.
+    // Plain text is accepted as a new file.
     f.dnd.types = {"text/plain"};
     f.dnd.accepted.reset();
     f.browser.drop_event({.kind = DropEvent::Kind::enter, .x = album.first, .y = album.second});
-    CHECK_FALSE(f.dnd.accepted);
+    CHECK(f.dnd.accepted == "text/plain");
 }
 
 TEST_CASE("drop: onto a step of the breadcrumb and a place of the sidebar; the trash trashes") {
@@ -1140,7 +1174,7 @@ TEST_CASE("drop: Alt external archive negotiates copy and offers extraction with
     CHECK(f.dnd.accepted_actions == rummage::ui::kDndCopy);
     REQUIRE(f.browser.context_menu().is_open());
     const auto& items = f.browser.context_menu().items();
-    CHECK(std::ranges::find(items, "drop_move", &rummage::views::MenuItem::id) == items.end());
+    CHECK(std::ranges::find(items, "drop_move", &rummage::views::MenuItem::id) != items.end());
     const auto found = std::ranges::find(items, "drop_extract", &rummage::views::MenuItem::id);
     REQUIRE(found != items.end());
     auto extract = found->action;
@@ -1167,4 +1201,195 @@ TEST_CASE("drop: late Alt never reads an external offer still negotiated as a mo
     f.drop_at(f.point_of(f.album, ""));
     CHECK_FALSE(read);
     CHECK_FALSE(f.browser.context_menu().is_open());
+}
+
+TEST_CASE(
+    "links: right-button drag offers keyboard Link and Cancel; right click still opens menu") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        Fixture f;
+        REQUIRE(f.gl);
+        f.show(f.photos, mode);
+        const auto at = f.point_of(f.photos, "P2.ORF");
+        const auto right = [&](PointerEvent::Kind kind) {
+            f.browser.pointer({.kind = kind,
+                               .x = at.first,
+                               .y = at.second,
+                               .button = PointerButton::right,
+                               .click_count = 1},
+                              Browser::Clock::now());
+        };
+        right(PointerEvent::Kind::press);
+        CHECK_FALSE(f.browser.context_menu().is_open());
+        right(PointerEvent::Kind::release);
+        CHECK(f.browser.context_menu().is_open());
+        f.browser.context_menu().close();
+        right(PointerEvent::Kind::press);
+        f.pointer(PointerEvent::Kind::motion, {at.first + 12, at.second + 4});
+        REQUIRE(f.browser.dragging());
+        f.drop_at(f.point_of(f.photos, ""));
+        auto& menu = f.browser.context_menu();
+        REQUIRE(menu.is_open());
+        const auto found =
+            std::ranges::find(menu.items(), "drop_link", &rummage::views::MenuItem::id);
+        REQUIRE(found != menu.items().end());
+        REQUIRE(found->enabled);  // Link works in the source folder; Copy/Move do not.
+        CHECK(f.browser.key(key(XKB_KEY_Return), Browser::Clock::now()));
+        REQUIRE(f.settle());
+        CHECK(fs::is_symlink(f.photos / "Link to P2.ORF"));
+        CHECK(fs::exists(f.photos / "P2.ORF"));
+        f.browser.undo();
+        REQUIRE(f.settle());
+        CHECK_FALSE(fs::exists(f.photos / "Link to P2.ORF"));
+    }
+}
+
+TEST_CASE("links: external copy-only drops offer Link and Cancel without Move") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::details);
+    f.dnd.types = {"text/uri-list"};
+    f.dnd.source_actions = rummage::ui::kDndCopy;
+    f.dnd.data = rummage::core::file_uri(f.photos / "P2.ORF") + "\r\n";
+    f.dnd.modifiers.alt = true;
+    f.drop_at(f.point_of(f.album, ""));
+    auto& menu = f.browser.context_menu();
+    REQUIRE(menu.is_open());
+    CHECK(std::ranges::find(menu.items(), "drop_move", &rummage::views::MenuItem::id) ==
+          menu.items().end());
+    CHECK(std::ranges::find(menu.items(), "drop_cancel", &rummage::views::MenuItem::id) !=
+          menu.items().end());
+    CHECK(f.browser.key(key(XKB_KEY_Escape), Browser::Clock::now()));
+    CHECK(fs::is_empty(f.album));
+    CHECK(fs::exists(f.photos / "P2.ORF"));
+}
+
+TEST_CASE("drop: content creates complete unique files with selection and undo") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::grid);
+    std::string name;
+    std::string expected;
+    SUBCASE("text") {
+        f.dnd.types = {"text/plain"};
+        f.dnd.data = "hello, café\nsecond line";
+        name = "Dropped.txt";
+        expected = f.dnd.data;
+    }
+    SUBCASE("image before text") {
+        f.dnd.types = {"text/plain", "image/png"};
+        f.dnd.data = std::string{"\x89PNG\r\n\x1a\n\0payload", 16};
+        name = "Dropped.png";
+        expected = f.dnd.data;
+    }
+    SUBCASE("web link from text") {
+        f.dnd.types = {"text/plain"};
+        f.dnd.data = "https://example.com/hello";
+        name = "Dropped.url";
+        expected = "[InternetShortcut]\nURL=https://example.com/hello\n";
+    }
+    f.dnd.source_actions = rummage::ui::kDndCopy | rummage::ui::kDndMove;
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(f.dnd.accepted_actions == rummage::ui::kDndCopy);
+    REQUIRE(listing(f.album) == Names{name});
+    CHECK(rummage::core::read_text_file(f.album / name).text == expected);
+    REQUIRE(f.browser.picker_folder()->cursor_entry());
+    CHECK(f.browser.picker_folder()->cursor_entry()->name == name);
+    CHECK_FALSE(f.browser.name_editor().active());
+    REQUIRE(f.browser.key(key(XKB_KEY_z, {.ctrl = true}), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(listing(f.album).empty());
+    REQUIRE(f.browser.key(key(XKB_KEY_z, {.ctrl = true, .shift = true}), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(f.album / name).text == expected);
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(listing(f.album).size() == 2);
+}
+
+TEST_CASE("drop: invalid images leave no files and content cannot target trash") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::grid);
+    f.dnd.types = {"image/png", "text/plain"};
+    f.dnd.data = "not a png";
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(listing(f.album).empty());
+    f.browser.open(rummage::fs::trash_path());
+    REQUIRE(f.settle());
+    f.drop_at(f.point_of(rummage::fs::trash_path(), ""));
+    CHECK_FALSE(f.dnd.accepted);
+}
+
+TEST_CASE("drop: URI offers prefer local files then image data over web links") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::grid);
+    f.dnd.types = {"text/plain", "image/png", "text/uri-list"};
+    f.dnd.data = "https://example.com/image.png\r\n";
+    const std::string image{"\x89PNG\r\n\x1a\n", 8};
+    f.dnd.payloads = {{"image/png", image}};
+    SUBCASE("local file") {
+        f.dnd.data += rummage::views::uri_list(std::vector<fs::path>{f.photos / "P1.ORF"});
+        f.drop_at(f.point_of(f.album, ""));
+        CHECK(listing(f.album) == Names{"P1.ORF", "P1.ORF.xmp"});
+        CHECK(f.dnd.reads == Names{"text/uri-list"});
+    }
+    SUBCASE("image") {
+        f.drop_at(f.point_of(f.album, ""));
+        CHECK(listing(f.album) == Names{"Dropped.png"});
+        CHECK(rummage::core::read_text_file(f.album / "Dropped.png").text == image);
+        CHECK(f.dnd.reads == Names{"text/uri-list", "image/png"});
+    }
+}
+
+TEST_CASE("windows: a right drag carries its source and choice into another browser") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.photos, Browser::Mode::details);
+    const auto at = f.point_of(f.photos, "P2.ORF");
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = at.first,
+                       .y = at.second,
+                       .button = PointerButton::right,
+                       .click_count = 1},
+                      Browser::Clock::now());
+    f.pointer(PointerEvent::Kind::motion, {at.first + 12, at.second + 4});
+    REQUIRE(f.browser.dragging());
+    Browser target{f.loop,    f.pool,
+                   f.watcher, rummage::fs::MimeDatabase::load(),
+                   [] {},     [](rummage::ui::CursorShape) {}};
+    target.set_home_trash(f.trash);
+    target.set_sidebar_visible(false);
+    target.set_info_visible(false);
+    target.open(f.album);
+    target.set_mode(Browser::Mode::details);
+    REQUIRE(run_until(f.loop, [&] { return !target.loading(); }));
+    f.renderer->begin_frame(kWidth, kHeight, 1.0F, {});
+    target.draw(*f.renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, *f.icons,
+                Browser::Clock::now());
+    f.renderer->end_frame();
+    rummage::views::DragAndDrop drop;
+    int finished = 0;
+    drop.finish = [&] { ++finished; };
+    target.set_drag_and_drop(std::move(drop));
+    REQUIRE(target.details().hit(500, 400));
+    target.adopt_drag(f.browser);
+    target.drop_event({.kind = DropEvent::Kind::enter, .x = 500, .y = 400});
+    target.drop_event({.kind = DropEvent::Kind::drop, .x = 500, .y = 400});
+    target.drag_ended();
+    f.browser.drag_ended();
+    CHECK(finished == 1);
+    const auto& items = target.context_menu().items();
+    const auto link = std::ranges::find(items, "drop_link", &rummage::views::MenuItem::id);
+    REQUIRE(link != items.end());
+    REQUIRE(link->enabled);
+    const auto action = link->action;
+    action();
+    REQUIRE(run_until(f.loop, [&] { return !target.loading(); }));
+    CHECK(fs::is_symlink(f.album / "P2.ORF"));
+    CHECK(fs::read_symlink(f.album / "P2.ORF") == f.photos / "P2.ORF");
+    CHECK(fs::exists(f.photos / "P2.ORF"));
+    target.undo();
+    REQUIRE(run_until(f.loop, [&] { return !target.loading(); }));
+    CHECK_FALSE(fs::exists(f.album / "P2.ORF"));
+    CHECK(fs::exists(f.photos / "P2.ORF"));
 }

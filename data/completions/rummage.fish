@@ -1,4 +1,5 @@
 # fish completion for rummage.
+complete -c rummage -l new-window -d 'Open a separate browser window'
 complete -c rummage -f
 complete -c rummage -n 'not __fish_contains_opt reveal properties' -a '(__fish_complete_directories)'
 complete -c rummage -n '__fish_contains_opt reveal properties' -F

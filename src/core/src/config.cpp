@@ -596,6 +596,29 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                                  {"size", [&](const toml::node& value, const std::string& path) {
                                       reader.read_number(value, path, 8.0, 32.0, config.font.size);
                                   }}});
+        } else if (key.str() == "windows") {
+            reader.read_section(
+                node, "windows",
+                {{"reuse",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, config.windows.reuse);
+                  }},
+                 {"separate_settings", [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, config.windows.separate_settings);
+                  }}});
+        } else if (key.str() == "keyboard") {
+            reader.read_section(node, "keyboard",
+                                {{"type_to_jump",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.keyboard.type_to_jump);
+                                  }},
+                                 {"vim",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.keyboard.vim);
+                                  }},
+                                 {"wrap", [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.keyboard.wrap);
+                                  }}});
         } else if (key.str() == "pointer") {
             reader.read_section(
                 node, "pointer",
@@ -727,6 +750,13 @@ bool read_menu_layout(const toml::node& source, Reader& reader, const std::vecto
                                           "paste",
                                           "rename",
                                           "create_link",
+                                          "create_relative_link",
+                                          "create_hard_link",
+                                          "paste_links",
+                                          "paste_absolute_link",
+                                          "paste_relative_link",
+                                          "paste_hard_link",
+                                          "reveal_link_target",
                                           "move_into_folder",
                                           "reset_folder_view",
                                           "trash",

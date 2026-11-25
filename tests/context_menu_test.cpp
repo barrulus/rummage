@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -9,7 +10,10 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -292,6 +296,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "create_relative_link",
+                                               "create_hard_link",
                                                "move_into_folder",
                                                "|",
                                                "action:copy_name",
@@ -325,6 +331,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "create_relative_link",
+                                               "create_hard_link",
                                                "move_into_folder",
                                                "|",
                                                "action:copy_name",
@@ -353,6 +361,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "create_relative_link",
+                                               "create_hard_link",
                                                "move_into_folder",
                                                "|",
                                                "action:copy_name",
@@ -379,9 +389,9 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.select({});
     CHECK(f.press(key(XKB_KEY_Menu)));
     CHECK(ids(f.menu().items(), true) == Names{"new_folder", "new_file", "|", "paste",
-                                               "action:copy_location", "|", "open_terminal",
-                                               "add_bookmark", "|", "sort", "panes", "|",
-                                               "properties", "folder_insights"});
+                                               "paste_links", "action:copy_location", "|",
+                                               "open_terminal", "add_bookmark", "|", "sort",
+                                               "panes", "|", "properties", "folder_insights"});
     REQUIRE(f.settle());  // the templates looked for: none
     CHECK(ids(f.menu().items()[1].children) == Names{"empty_file"});
 }
@@ -2296,4 +2306,54 @@ sidebar = [
         const auto state = f.browser.state();
         CHECK(state.tabs.size() >= 2);
     }
+}
+
+TEST_CASE("content files: atomic publication never overwrites and cancellation leaves nothing") {
+    const TempDir dir;
+    const auto make = [&](std::string_view name, const rummage::core::CancelToken& cancel = {}) {
+        return rummage::fs::make_contents_file(dir.path, name, "complete contents", cancel);
+    };
+    std::ofstream{dir.path / "original"} << "keep";
+    fs::create_symlink("original", dir.path / "Saved.txt");
+    REQUIRE(make("Saved.txt").name == "Saved 2.txt");
+    CHECK(read_file(dir.path / "original") == "keep");
+    CHECK(read_file(dir.path / "Saved 2.txt") == "complete contents");
+    CHECK((fs::status(dir.path / "Saved 2.txt").permissions() & fs::perms::all) ==
+          (fs::perms::owner_read | fs::perms::owner_write));
+    rummage::core::CancelToken cancel;
+    cancel.cancel();
+    CHECK(make("Cancelled.txt", cancel).error == std::errc::operation_canceled);
+    CHECK(make("../escape").error == std::errc::invalid_argument);
+    std::vector<std::thread> writers;
+    for (int i = 0; i < 8; ++i)
+        writers.emplace_back([&] { CHECK_FALSE(make("Saved.txt").error); });
+    for (auto& writer : writers)
+        writer.join();
+    CHECK(std::distance(fs::directory_iterator{dir.path}, fs::directory_iterator{}) == 11);
+    for (const auto& entry : fs::directory_iterator{dir.path}) {
+        CHECK_FALSE(entry.path().filename().string().starts_with(".rummage-content-"));
+        if (!entry.is_symlink() && entry.path().filename() != "original")
+            CHECK(read_file(entry.path()) == "complete contents");
+    }
+}
+
+TEST_CASE("content files: partial write failures remove all staging output") {
+    const TempDir dir;
+    // Limit only this child: write(2) succeeds partially, then fails with EFBIG.
+    const auto child = fork();
+    REQUIRE(child >= 0);
+    if (child == 0) {
+        std::signal(SIGXFSZ, SIG_IGN);
+        const rlimit limit{1024, 1024};
+        if (setrlimit(RLIMIT_FSIZE, &limit) != 0)
+            _exit(2);
+        const auto made =
+            rummage::fs::make_contents_file(dir.path, "partial.txt", std::string(8192, 'x'), {});
+        _exit(made.error == std::errc::file_too_large ? 0 : 1);
+    }
+    int status = 0;
+    REQUIRE(waitpid(child, &status, 0) == child);
+    REQUIRE(WIFEXITED(status));
+    CHECK(WEXITSTATUS(status) == 0);
+    CHECK(fs::is_empty(dir.path));
 }

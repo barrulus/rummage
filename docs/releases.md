@@ -9,6 +9,28 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Open independent browser windows with Ctrl+N in a shared process. Subsequent
+launches reuse the last active browser's tabs by default, with `--new-window` as
+an explicit alternative. Properties and Settings have independent, nonmodal windows;
+file operations finish before their browser closes. Session restore keeps the
+last active browser's panes and tabs.
+
+Create absolute or relative symbolic links and hard links, including pasting copied
+sources as links in another folder. **Go to Link Target** reveals one symbolic-link
+step. Right-button drags within and between browser windows and Alt-drops offer Copy, Move, Link and
+Cancel, with destination feedback and Undo/Redo.
+
+Typing a filename prefix selects the first visible match in Columns, Grid and
+Details, with Unicode case matching and a temporary status hint. Optional Vim
+H/J/K/L movement and boundary wrapping are available in Settings → General.
+
+Paste and drag/drop can create image and text files through a shared atomic write
+path, with image signature checks, size limits, conflict-free naming and Undo/Redo.
+Dropped HTTP(S) links become non-executable `.url` files without fetching the URL.
+
+Restore rejects invalid disk-trash paths and checks the destination filesystem
+before creating missing folders. Failed cross-device restores leave no new folders.
+
 Insights charts stay in sync when navigating between folders, preventing a crash
 on a later redraw after the result list shrinks.
 

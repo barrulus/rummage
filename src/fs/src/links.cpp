@@ -57,11 +57,18 @@ std::filesystem::path real_path_of(int folder, const std::filesystem::path& path
 
 // A link holding contents, made in folder under name's link names from number up: the first one
 // free. Its name; empty, and error set, when none could be made.
+int make_link(int folder, const std::filesystem::path& contents, const std::string& name,
+              bool hard) {
+    return hard ? linkat(AT_FDCWD, contents.c_str(), folder, name.c_str(), 0)
+                : symlinkat(contents.c_str(), folder, name.c_str());
+}
+
 std::string make_free(int folder, const std::filesystem::path& contents, std::string_view name,
-                      bool directory, bool own_folder, int number, std::error_code& error) {
+                      bool directory, bool own_folder, int number, bool hard,
+                      std::error_code& error) {
     for (; number <= kTries; ++number) {
         std::string candidate = link_name(name, directory, own_folder, number);
-        if (symlinkat(contents.c_str(), folder, candidate.c_str()) == 0) {
+        if (make_link(folder, contents, candidate, hard) == 0) {
             return candidate;
         }
         if (errno != EEXIST) {
@@ -76,14 +83,14 @@ std::string make_free(int folder, const std::filesystem::path& contents, std::st
 // A link holding contents put in place of name in folder: made under a hidden name first, then
 // renamed over the old entry, so name is never missing. Nothing is left behind on failure.
 std::error_code replace_with_link(int folder, const std::filesystem::path& contents,
-                                  const std::string& name) {
+                                  const std::string& name, bool hard) {
     std::string temporary;
     for (int number = 1;; ++number) {
         if (number > kTries) {
             return std::make_error_code(std::errc::file_exists);
         }
         temporary = std::format("{}{}-{}", kTemporary, getpid(), number);
-        if (symlinkat(contents.c_str(), folder, temporary.c_str()) == 0) {
+        if (make_link(folder, contents, temporary, hard) == 0) {
             break;
         }
         if (errno != EEXIST) {
@@ -95,6 +102,10 @@ std::error_code replace_with_link(int folder, const std::filesystem::path& conte
         unlinkat(folder, temporary.c_str(), 0);
         return error;
     }
+    // rename is a no-op when both names already refer to the same hard-linked inode.
+    // In that case the staging name still exists; a successful replacement must remove it.
+    if (hard)
+        unlinkat(folder, temporary.c_str(), 0);
     return {};
 }
 
@@ -150,12 +161,18 @@ TransferResult run_link(const TransferRequest& request, const core::CancelToken&
     std::filesystem::path real_source;
     std::filesystem::path real_destination;
     bool relative = false;
-    if (source_found && !own_folder) {
+    if (request.link_kind == LinkKind::relative ||
+        (request.link_kind == LinkKind::automatic && source_found && !own_folder)) {
         std::error_code ignored;
         real_source = std::filesystem::canonical(request.source, ignored);
         real_destination = real_path_of(folder.get(), request.destination);
         relative = !real_source.empty() && !real_destination.empty() &&
-                   same_tree(real_destination, real_source, from.st_dev == to.st_dev);
+                   (request.link_kind == LinkKind::relative ||
+                    same_tree(real_destination, real_source, from.st_dev == to.st_dev));
+        if (request.link_kind == LinkKind::relative && !relative) {
+            result.refused = i18n::tr("Cannot resolve the folders for a relative link");
+            return result;
+        }
     }
 
     TransferProgress progress;
@@ -173,12 +190,25 @@ TransferResult run_link(const TransferRequest& request, const core::CancelToken&
             break;
         }
         progress.current = name;
+        if (const auto problem = name_problem(name)) {
+            result.errors.push_back(std::format("{}: {}", name, *problem));
+            continue;
+        }
         std::error_code ignored;
         const std::filesystem::path item =
             std::filesystem::absolute(request.source / name, ignored).lexically_normal();
         struct stat info{};
         if (lstat(item.c_str(), &info) != 0) {
             result.errors.push_back(std::format("{}: {}", name, last_error().message()));
+            continue;
+        }
+        const bool hard = request.link_kind == LinkKind::hard;
+        if (hard && !S_ISREG(info.st_mode)) {
+            result.errors.push_back(i18n::trf("{}: hard links require regular files", name));
+            continue;
+        }
+        if (hard && info.st_dev != to.st_dev) {
+            result.errors.push_back(i18n::trf("{}: hard links cannot cross filesystems", name));
             continue;
         }
         // A link to a folder is numbered as a folder is.
@@ -220,7 +250,8 @@ TransferResult run_link(const TransferRequest& request, const core::CancelToken&
                     i18n::trf("{}: a folder has its name; a link does not replace a folder", base));
                 continue;
             }
-            if (const std::error_code error = replace_with_link(folder.get(), contents, base)) {
+            if (const std::error_code error =
+                    replace_with_link(folder.get(), contents, base, hard)) {
                 result.errors.push_back(std::format("{}: {}", base, error.message()));
                 continue;
             }
@@ -231,7 +262,7 @@ TransferResult run_link(const TransferRequest& request, const core::CancelToken&
             // skipped.
             std::error_code error;
             made = make_free(folder.get(), contents, name, directory, own_folder, taken ? 2 : 1,
-                             error);
+                             hard, error);
             if (made.empty()) {
                 result.errors.push_back(std::format("{}: {}", base, error.message()));
                 continue;

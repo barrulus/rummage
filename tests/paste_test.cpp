@@ -121,6 +121,38 @@ struct Fixture {
 
 }  // namespace
 
+TEST_CASE(
+    "links: external cut clipboard creates links from several folders without moving sources") {
+    Fixture f;
+    std::ofstream{f.root / "note.txt"} << "note";
+    f.browser.set_home_trash(f.dir.path / "Trash");
+    f.show(f.root / "album", {});
+    const std::vector<fs::path> paths{f.root / "photos" / "P1.ORF", f.root / "note.txt"};
+    bool cleared = false;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.types = [] {
+        return std::vector<std::string>{std::string{rummage::views::kGnomeFiles}};
+    };
+    clipboard.clear = [&] { cleared = true; };
+    clipboard.read = [&](const auto&, auto done) {
+        f.loop.post([done, paths] { done(rummage::views::gnome_copied_files(true, paths)); });
+    };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    f.browser.paste_links(rummage::fs::LinkKind::relative);
+    REQUIRE(f.settle());
+    CHECK_FALSE(cleared);
+    CHECK(fs::read_symlink(f.root / "album" / "P1.ORF") == "../photos/P1.ORF");
+    CHECK(fs::read_symlink(f.root / "album" / "note.txt") == "../note.txt");
+    CHECK_FALSE(fs::exists(f.root / "album" / "P1.ORF.xmp"));
+    for (const auto& source : paths)
+        CHECK(fs::exists(source));
+    f.browser.undo();
+    REQUIRE(f.settle());
+    CHECK(listing(f.root / "album") == Names{"P2.ORF"});
+    for (const auto& source : paths)
+        CHECK(fs::exists(source));
+}
+
 TEST_CASE("paste: Ctrl+C then Ctrl+V copies, sidecars along, and selects what arrived") {
     Fixture f;
     f.show(f.root / "photos", {"P1.ORF"});

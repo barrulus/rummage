@@ -2,10 +2,14 @@
 
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
+Settings normally has its own window, so browsing remains available while editing.
+Changes apply across all browser windows. Disable `windows.separate_settings` to
+use the embedded dialog. Only one separate Settings window is open at a time.
+
 Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
-- **General:** startup/session behavior, executable opening, double-click timing and terminal.
+- **General:** startup/session behavior, keyboard browsing, executable opening, double-click timing and terminal.
 - **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement.
 - **Keyboard shortcuts:** search commands, record a chord, reset a binding to its default,
   or disable it. Conflicting chords are rejected before saving. Folder shortcuts accept
@@ -114,6 +118,11 @@ for the command IDs and a J/K movement example.
 | --- | --- | --- |
 | `startup.mode` | `"session"` | `"home"`, `"folder"`, `"last"`, or `"session"`; next launch |
 | `startup.folder` | `"~"` | Absolute path or `~/` path, used with mode `"folder"` |
+| `windows.reuse` | `true` | Subsequent launches open tabs in the last active browser; next launch |
+| `windows.separate_settings` | `true` | Settings opens in its own nonmodal window; next opening |
+| `keyboard.type_to_jump` | `true` | Type a filename prefix to select the first visible match; live |
+| `keyboard.vim` | `false` | H/J/K/L act as Left/Down/Up/Right in file views; explicit shortcuts take priority; live |
+| `keyboard.wrap` | `false` | Wrap single-step file navigation at list/grid boundaries; live |
 | `appearance.palette_source` | `"auto"` | `"auto"` (file → desktop → built-in), `"desktop"`, `"file"`, `"builtin"`, or `"kde"` (active kdeglobals colours); unavailable explicit sources fall back to built-in; live |
 | `appearance.color_scheme` | `"system"` | `"system"` (follow selected source), `"light"`, or `"dark"`; independent of source; live |
 | `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |

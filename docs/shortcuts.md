@@ -65,6 +65,7 @@ commands below operate in the active pane.
 
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
+| Ctrl+N | New browser window | `new_window` |
 | Ctrl+T | New tab | `new_tab` |
 | Ctrl+Enter | Open selected folder or focused sidebar location in a new tab | `open_selected_tab` |
 | Ctrl+W | Close current tab, except the last | `close_tab` |
@@ -211,6 +212,24 @@ no default shortcut. It is also available in Sort By and the command palette.
 | Alt while dropping files | Choose a copy, move, grouping or archive extraction action |
 
 ### Browse entirely with the keyboard
+
+Type a filename prefix to select its first match in visible order. Matching ignores
+case, including simple Unicode case mappings; it does not normalize accents or expand
+letters such as ß into multiple characters. The status bar shows the prefix or **No match**;
+an unmatched prefix leaves selection unchanged. After one second without typing the
+prefix clears. Backspace removes its last character, and Escape clears it. Changing
+folders, views or tabs also clears it. Hidden and filtered-out entries are excluded;
+Details includes children of expanded folders. Space keeps its Quick Look binding.
+Configured shortcuts take priority over printable typing, and editors, dialogs and
+picker name fields keep their own text input.
+
+In **Settings → General**, enable **Vim navigation** for H/J/K/L movement, or **Wrap
+navigation** to continue at the opposite edge. Both are off by default. Vim keys use
+the same hierarchy and selection behavior as arrows; existing shortcuts such as
+Ctrl+K for the command palette win. In a grid, Left/Right wrap the whole list, while
+Up/Down wrap between the first and last rows in the same column (clamped when the
+last row is incomplete). Columns and Details wrap vertically. Home/End and Page
+Up/Down retain their existing behavior. **Type to jump** can be disabled separately.
 
 Use **F6** to focus Places, choose a row with arrows or Page Up/Down, then use
 **Enter**, **Ctrl+Enter** or **Ctrl+Alt+Enter** to open it in the current tab, a new

@@ -86,6 +86,12 @@ public:
     // draws it in the error color.
     void show_message(std::string text, bool error);
 
+    void set_type_jump(std::string prefix, bool matched = true) {
+        type_jump_ = std::move(prefix);
+        type_jump_matched_ = matched;
+        redraw_();
+    }
+
     // The message shown; empty when there is none.
     [[nodiscard]] const std::string& message() const noexcept { return message_; }
 
@@ -114,6 +120,8 @@ public:
     [[nodiscard]] bool loading() const noexcept { return job_.has_value(); }
 
 private:
+    std::string type_jump_;
+    bool type_jump_matched_{true};
     // Settings (0) or help (1).
     [[nodiscard]] std::optional<std::size_t> button_at(float x, float y) const;
 

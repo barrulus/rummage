@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <climits>
 #include <cstdio>
+#include <cstdlib>
 #include <fcntl.h>
 #include <format>
 #include <sys/stat.h>
@@ -162,6 +163,59 @@ MadeFile make_file(const std::filesystem::path& directory, std::string_view name
     if (source >= 0) {
         close(source);
     }
+    return made;
+}
+
+MadeFile make_contents_file(const std::filesystem::path& directory, std::string_view name,
+                            std::string_view contents, const core::CancelToken& cancel) {
+    if (name_problem(name))
+        return {.name = {}, .error = std::make_error_code(std::errc::invalid_argument)};
+    if (cancel.cancelled())
+        return {.name = {}, .error = std::make_error_code(std::errc::operation_canceled)};
+    std::string temporary = (directory / ".rummage-content-XXXXXX").string();
+    const int fd = mkostemp(temporary.data(), O_CLOEXEC);
+    if (fd < 0)
+        return {.name = {}, .error = last_error()};
+    std::error_code error;
+    while (!contents.empty() && !error) {
+        if (cancel.cancelled()) {
+            error = std::make_error_code(std::errc::operation_canceled);
+            break;
+        }
+        const auto size = std::min(contents.size(), std::size_t{65536});
+        const auto written = write(fd, contents.data(), size);
+        if (written > 0)
+            contents.remove_prefix(static_cast<std::size_t>(written));
+        else if (written == 0)
+            error = std::make_error_code(std::errc::io_error);
+        else if (errno != EINTR)
+            error = last_error();
+    }
+    if (!error && fsync(fd) != 0)
+        error = last_error();
+    if (close(fd) != 0 && !error)
+        error = last_error();
+    MadeFile made{.name = {}, .error = error};
+    const auto [stem, extension] = split_extension(name);
+    for (int i = 1; !made.error && i <= 10'000; ++i) {
+        if (cancel.cancelled()) {
+            made.error = std::make_error_code(std::errc::operation_canceled);
+            break;
+        }
+        auto candidate = i == 1 ? std::string{name} : std::format("{} {}{}", stem, i, extension);
+        const auto target = directory / candidate;
+        int published =
+            renameat2(AT_FDCWD, temporary.c_str(), AT_FDCWD, target.c_str(), RENAME_NOREPLACE);
+        if (published != 0 && (errno == EINVAL || errno == ENOSYS || errno == EOPNOTSUPP))
+            published = link(temporary.c_str(), target.c_str());
+        if (published == 0) {
+            made.name = std::move(candidate);
+            break;
+        }
+        if (errno != EEXIST || i == 10'000)
+            made.error = last_error();
+    }
+    unlink(temporary.c_str());
     return made;
 }
 

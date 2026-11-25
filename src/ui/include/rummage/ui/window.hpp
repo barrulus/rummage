@@ -97,6 +97,9 @@ public:
     // Schedules a frame: drawn now if none is in flight, otherwise on the next frame callback.
     void request_redraw();
 
+    // Non-modal relationship to another window on this Display; nullptr detaches it.
+    void set_parent(const Window* parent);
+
     // Color the frame is cleared to before the draw handler runs; redraws.
     void set_background(Color color) {
         background_ = color;

@@ -14,6 +14,7 @@
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/views/browser.hpp"
+#include "rummage/views/fuzzy.hpp"
 #include "temp_dir.hpp"
 
 using rummage::core::EventLoop;
@@ -137,6 +138,173 @@ struct Fixture {
 };
 
 }  // namespace
+
+TEST_CASE("keyboard browsing: Unicode prefix matching rejects invalid scalar sequences") {
+    using rummage::views::filename_prefix_matches;
+    CHECK(filename_prefix_matches("Éclair.txt", "éC"));
+    CHECK(filename_prefix_matches("Αθήνα", "αθ"));
+    CHECK(filename_prefix_matches("東京.txt", "東京"));
+    CHECK_FALSE(filename_prefix_matches("éclair", "e"));
+    CHECK_FALSE(filename_prefix_matches("ab", "abc"));
+    for (const std::string invalid :
+         {"\xc0\xaf", "\xed\xa0\x80", "\xf4\x90\x80\x80", "\xe2\x82", "\x80", "\xf8\x80\x80\x80"}) {
+        CHECK_FALSE(filename_prefix_matches(invalid, invalid));
+    }
+}
+
+TEST_CASE("keyboard browsing: type prefix edits and replaces selection in every view") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f;
+        std::ofstream{f.root / "Éclair.txt"} << "x";
+        f.browser.open(f.root);
+        f.browser.set_mode(mode);
+        REQUIRE(f.settle());
+        f.put_cursor("b");
+        f.press(KeyEvent{.keysym = XKB_KEY_C, .text = "C"});
+        CHECK(f.cursor() == "c.txt");
+        CHECK(f.shown()->selected_count() == 1);
+        f.press(KeyEvent{.keysym = XKB_KEY_z, .text = "z"});
+        CHECK(f.browser.type_jump_prefix() == "Cz");
+        CHECK(f.cursor() == "c.txt");
+        f.press(key(XKB_KEY_BackSpace));
+        CHECK(f.browser.type_jump_prefix() == "C");
+        CHECK(f.where() == f.root);
+        f.press(key(XKB_KEY_Escape));
+        CHECK(f.browser.type_jump_prefix().empty());
+        f.press(KeyEvent{.keysym = XKB_KEY_eacute, .text = "é"});
+        CHECK(f.cursor() == "Éclair.txt");
+        f.press(key(XKB_KEY_BackSpace));
+        CHECK(f.browser.type_jump_prefix().empty());
+        CHECK(f.where() == f.root);
+        f.press(KeyEvent{.keysym = XKB_KEY_period, .text = "."});
+        CHECK(f.cursor() == "Éclair.txt");  // hidden entries are excluded
+        f.press(key(XKB_KEY_Escape));
+        f.browser.set_show_hidden(true);
+        f.press(KeyEvent{.keysym = XKB_KEY_period, .text = "."});
+        CHECK(f.cursor() == ".config");
+        f.browser.open(f.root / "b");
+        REQUIRE(f.settle());
+        CHECK(f.browser.type_jump_prefix().empty());
+        f.press(KeyEvent{.keysym = XKB_KEY_z, .text = "z"});
+        CHECK(f.cursor() == "z.txt");
+        REQUIRE(run_until(f.loop, [&] { return f.browser.type_jump_prefix().empty(); }));
+        f.press(KeyEvent{.keysym = XKB_KEY_z, .text = "z"});
+        CHECK(f.browser.type_jump_prefix() == "z");
+    }
+}
+
+TEST_CASE("keyboard browsing: editors and configured commands win over typing and Vim") {
+    Fixture f;
+    f.browser.open(f.root);
+    f.browser.set_keyboard_config({.vim = true});
+    REQUIRE(f.settle());
+    f.put_cursor("a");
+    f.press(KeyEvent{.keysym = XKB_KEY_j, .text = "j"});
+    CHECK(f.cursor() == "b");
+    CHECK(f.browser.type_jump_prefix().empty());
+    f.press(key(XKB_KEY_k, kCtrl));
+    CHECK(f.browser.command_palette().is_open());
+    f.press(KeyEvent{.keysym = XKB_KEY_j, .text = "j"});
+    CHECK(f.cursor() == "b");
+    f.press(key(XKB_KEY_Escape));
+    f.press(key(XKB_KEY_d, kAlt));
+    REQUIRE(f.browser.breadcrumb().editing());
+    f.press(KeyEvent{.keysym = XKB_KEY_j, .text = "j"});
+    CHECK(f.browser.breadcrumb().text() == "j");
+    CHECK(f.browser.type_jump_prefix().empty());
+    f.press(key(XKB_KEY_Escape));
+    f.put_cursor("c.txt");
+    f.press(key(XKB_KEY_F2));
+    REQUIRE(f.browser.name_editor().active());
+    f.press(KeyEvent{.keysym = XKB_KEY_j, .text = "j"});
+    CHECK(f.browser.name_editor().field().text() == "j.txt");
+    CHECK(f.browser.type_jump_prefix().empty());
+    f.press(key(XKB_KEY_Escape));
+    f.browser.set_keyboard_config({.type_to_jump = false});
+    CHECK_FALSE(f.browser.key(KeyEvent{.keysym = XKB_KEY_z, .text = "z"}, Browser::Clock::now()));
+    CHECK(f.browser.type_jump_prefix().empty());
+}
+
+TEST_CASE("keyboard browsing: wrapping is opt in and preserves selection modifiers") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f;
+        f.browser.open(f.root);
+        f.browser.set_mode(mode);
+        REQUIRE(f.settle());
+        f.put_cursor("c.txt");
+        f.press(key(XKB_KEY_Down));
+        CHECK(f.cursor() == "c.txt");
+        f.browser.set_keyboard_config({.vim = true, .wrap = true});
+        f.press(key(XKB_KEY_Page_Down));
+        CHECK(f.cursor() == "c.txt");
+        f.press(key(XKB_KEY_j, kCtrl));
+        CHECK(f.cursor() == "a");
+        CHECK(f.shown()->selected_names() == Names{"c.txt"});
+        f.press(key(XKB_KEY_k));
+        CHECK(f.cursor() == "c.txt");
+        CHECK(f.shown()->selected_names() == Names{"c.txt"});
+        f.browser.open(f.root / "b");
+        REQUIRE(f.settle());
+        f.put_cursor("z.txt");
+        f.press(key(XKB_KEY_j));
+        f.press(key(XKB_KEY_k));
+        CHECK(f.cursor() == "z.txt");
+        f.browser.open(f.root / "a" / "x");
+        REQUIRE(f.settle());
+        f.press(key(XKB_KEY_j));
+        f.press(key(XKB_KEY_k));
+        CHECK(f.cursor().empty());
+    }
+}
+
+TEST_CASE("links: reveal resolves one target step and preserves chained links in every view") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        Fixture f;
+        fs::create_symlink(f.root / "b" / "z.txt", f.root / "absolute");
+        fs::create_symlink("b/z.txt", f.root / "relative");
+        fs::create_symlink("relative", f.root / "chain");
+        fs::create_symlink("missing", f.root / "dangling");
+        fs::create_directory_symlink(f.root / "a" / "x", f.root / "via");
+        fs::create_symlink("via/../y.txt", f.root / "parent-through-link");
+        for (const std::string name :
+             {"absolute", "relative", "chain", "dangling", "parent-through-link"}) {
+            f.browser.open(f.root);
+            f.browser.set_mode(mode);
+            REQUIRE(f.settle());
+            f.put_cursor(name);
+            f.browser.reveal_link_target();
+            REQUIRE(f.settle());
+            if (name == "chain") {
+                CHECK(f.where() == f.root);
+                CHECK(f.cursor() == "relative");
+            } else if (name == "dangling") {
+                CHECK(f.cursor() == "dangling");
+                CHECK(f.browser.status_bar().message().starts_with("Cannot reveal link target:"));
+            } else if (name == "parent-through-link") {
+                CHECK(f.where() == f.root / "a");
+                CHECK(f.cursor() == "y.txt");
+            } else {
+                CHECK(f.where() == f.root / "b");
+                CHECK(f.cursor() == "z.txt");
+            }
+        }
+    }
+}
+
+TEST_CASE("links: navigating away prevents a late target reveal from replacing the new folder") {
+    Fixture f;
+    fs::create_symlink("b/z.txt", f.root / "link");
+    f.browser.open(f.root);
+    f.browser.set_mode(Browser::Mode::details);
+    REQUIRE(f.settle());
+    f.put_cursor("link");
+    f.browser.reveal_link_target();
+    f.browser.open(f.root / "a");
+    REQUIRE(f.settle());
+    CHECK(f.where() == f.root / "a");
+}
 
 TEST_CASE("navigation: back and forward, the cursor where it was, in every view") {
     for (const Browser::Mode mode :
