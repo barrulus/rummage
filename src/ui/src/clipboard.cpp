@@ -326,13 +326,13 @@ void Clipboard::on_offer_action(void* data, wl_data_offer* offer, std::uint32_t 
 }
 
 void Clipboard::on_enter(void* data, wl_data_device* /*device*/, std::uint32_t serial,
-                         wl_surface* /*surface*/, wl_fixed_t x, wl_fixed_t y,
-                         wl_data_offer* offer) {
+                         wl_surface* surface, wl_fixed_t x, wl_fixed_t y, wl_data_offer* offer) {
     auto& self = *static_cast<Clipboard*>(data);
     if (self.dragged_ != self.selection_) {
         self.forget_offer(self.dragged_);
     }
     self.dragged_ = offer;
+    self.drop_surface_ = surface;
     self.enter_serial_ = serial;
     self.drag_x_ = static_cast<float>(wl_fixed_to_double(x));
     self.drag_y_ = static_cast<float>(wl_fixed_to_double(y));
@@ -353,6 +353,7 @@ void Clipboard::on_leave(void* data, wl_data_device* /*device*/) {
     if (self.drop_handler_) {
         self.drop_handler_({.kind = DropEvent::Kind::leave, .x = self.drag_x_, .y = self.drag_y_});
     }
+    self.drop_surface_ = nullptr;
 }
 
 void Clipboard::on_motion(void* data, wl_data_device* /*device*/, std::uint32_t /*time*/,

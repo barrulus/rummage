@@ -126,7 +126,8 @@ std::vector<PaletteItem> Browser::palette_items() {
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
     const bool editable = folder && !in_trash && !folder->is_archive();
-    if (folder && !folder->is_archive() && names.size() <= 1 && (!in_trash || !names.empty()))
+    if (folder && !folder->is_archive() && (names.size() <= 1 || properties_window_) &&
+        (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
     if (editable && !picker_mode_) {
@@ -365,6 +366,8 @@ std::vector<PaletteItem> Browser::palette_items() {
 
     // Tabs.
     command(Command::new_tab, "new_tab", "New Tab");
+    if (!picker_mode_ && new_window_)
+        command(Command::new_window, "new_window", std::string{i18n::mark("New Window")});
     if (!area().closed_tabs.empty())
         command(Command::reopen_tab, "reopen_tab", std::string{i18n::mark("Reopen Closed Tab")});
     if (area().tabs.size() > 1) {

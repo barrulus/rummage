@@ -194,6 +194,12 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         false, {"session", "home", "folder", "last"});
     add(0, "Startup", "startup", "folder", "Startup folder",
         "Used when starting in a specific folder", config.startup.folder);
+    add(0, i18n::mark("Windows"), "windows", "reuse", i18n::mark("Reuse browser windows"),
+        i18n::mark("Open launch requests as tabs in the most recently used browser"),
+        config.windows.reuse ? "true" : "false", true, {"true", "false"});
+    add(0, i18n::mark("Windows"), "windows", "separate_settings",
+        i18n::mark("Separate Settings window"), i18n::mark("Keep browsing while changing settings"),
+        config.windows.separate_settings ? "true" : "false", true, {"true", "false"});
     add(0, "Opening files", "open", "programs", "Open executable programs",
         "Allow opening applications from the browser", config.open.programs ? "true" : "false",
         true, {"true", "false"});

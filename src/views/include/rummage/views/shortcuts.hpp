@@ -67,6 +67,7 @@ enum class Command : std::uint8_t {
     add_bookmark,
     open_terminal,
     new_tab,
+    new_window,
     close_tab,
     reopen_tab,
     next_tab,

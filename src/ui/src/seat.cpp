@@ -261,9 +261,12 @@ void Seat::emit_pointer(PointerEvent event) {
 }
 
 void Seat::on_pointer_enter(void* data, wl_pointer* /*pointer*/, std::uint32_t serial,
-                            wl_surface* /*surface*/, wl_fixed_t x, wl_fixed_t y) {
+                            wl_surface* surface, wl_fixed_t x, wl_fixed_t y) {
     auto& self = *static_cast<Seat*>(data);
     self.pointer_inside_ = true;
+    if (self.pointer_surface_ != surface)
+        self.last_press_ = {};
+    self.pointer_surface_ = surface;
     self.pointer_enter_serial_ = serial;
     self.pointer_x_ = static_cast<float>(wl_fixed_to_double(x));
     self.pointer_y_ = static_cast<float>(wl_fixed_to_double(y));
@@ -277,6 +280,7 @@ void Seat::on_pointer_leave(void* data, wl_pointer* /*pointer*/, std::uint32_t /
     auto& self = *static_cast<Seat*>(data);
     self.pointer_inside_ = false;
     self.emit_pointer({.kind = PointerEvent::Kind::leave});
+    self.pointer_surface_ = nullptr;
 }
 
 void Seat::on_pointer_motion(void* data, wl_pointer* /*pointer*/, std::uint32_t /*time*/,
@@ -402,18 +406,38 @@ void Seat::on_keymap(void* data, wl_keyboard* /*keyboard*/, std::uint32_t format
     }
     self.state_.reset(xkb_state_new(keymap.get()));
     self.keymap_ = std::move(keymap);
-    log::debug("keymap: layout '{}'", xkb_keymap_layout_get_name(self.keymap_.get(), 0));
+    const char* layout = xkb_keymap_layout_get_name(self.keymap_.get(), 0);
+    log::debug("keymap: layout '{}'", layout ? layout : "unnamed");
 }
 
-void Seat::on_keyboard_enter(void* /*data*/, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/,
-                             wl_surface* /*surface*/, wl_array* /*keys*/) {}
+void Seat::on_keyboard_enter(void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/,
+                             wl_surface* surface, wl_array* /*keys*/) {
+    auto& self = *static_cast<Seat*>(data);
+    self.keyboard_surface_ = surface;
+    if (self.focus_handler_)
+        self.focus_handler_(surface);
+}
 
 void Seat::on_keyboard_leave(void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/,
                              wl_surface* /*surface*/) {
     auto& self = *static_cast<Seat*>(data);
     self.disarm_repeat();
+    self.keyboard_surface_ = nullptr;
     if (self.compose_state_) {
         xkb_compose_state_reset(self.compose_state_.get());
+    }
+}
+
+void Seat::forget_surface(wl_surface* surface) {
+    if (keyboard_surface_ == surface) {
+        keyboard_surface_ = nullptr;
+        disarm_repeat();
+        if (compose_state_)
+            xkb_compose_state_reset(compose_state_.get());
+    }
+    if (pointer_surface_ == surface) {
+        pointer_surface_ = nullptr;
+        pointer_inside_ = false;
     }
 }
 

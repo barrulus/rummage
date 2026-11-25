@@ -2,6 +2,10 @@
 
 [Documentation](README.md) · [Appearance](appearance.md) · [Actions](actions.md) · [Shortcuts](shortcuts.md)
 
+Settings normally has its own window, so browsing remains available while editing.
+Changes apply across all browser windows. Disable `windows.separate_settings` to
+use the embedded dialog. Only one separate Settings window is open at a time.
+
 Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
@@ -112,6 +116,8 @@ for the command IDs and a J/K movement example.
 | --- | --- | --- |
 | `startup.mode` | `"session"` | `"home"`, `"folder"`, `"last"`, or `"session"`; next launch |
 | `startup.folder` | `"~"` | Absolute path or `~/` path, used with mode `"folder"` |
+| `windows.reuse` | `true` | Subsequent launches open tabs in the last active browser; next launch |
+| `windows.separate_settings` | `true` | Settings opens in its own nonmodal window; next opening |
 | `keyboard.type_to_jump` | `true` | Type a filename prefix to select the first visible match; live |
 | `keyboard.vim` | `false` | H/J/K/L act as Left/Down/Up/Right in file views; explicit shortcuts take priority; live |
 | `keyboard.wrap` | `false` | Wrap single-step file navigation at list/grid boundaries; live |

@@ -7,6 +7,7 @@
 #include <thread>
 
 #include "rummage/core/file.hpp"
+#include "rummage/platform/browser_instance.hpp"
 #include "rummage/platform/file_manager.hpp"
 
 namespace {
@@ -72,6 +73,76 @@ void client(const std::filesystem::path& folder) {
         "Service reused inherited activation token");
     require(!std::filesystem::exists(folder / "invalid"), "Invalid URI launched a window");
 }
+
+void browser_instances() {
+    namespace platform = rummage::platform;
+    const auto name = platform::browser_instance_name("/test/config", "test-display");
+    const platform::BrowserRequest request{platform::Show::items,
+                                           {"/missing/without/stat", "/tmp/space name"},
+                                           "activation-token",
+                                           true};
+    require(
+        platform::forward_browser_request(name, request) == platform::BrowserForward::unavailable,
+        "Absent browser endpoint did not fall back");
+    rummage::core::EventLoop loop;
+    std::vector<platform::BrowserRequest> received;
+    auto instance = std::make_unique<platform::BrowserInstance>(
+        loop, name, [&](auto value) { received.push_back(std::move(value)); });
+    bool duplicate_rejected = false;
+    try {
+        platform::BrowserInstance duplicate{loop, name, [](auto) {}};
+    } catch (const std::exception&) {
+        duplicate_rejected = true;
+    }
+    require(duplicate_rejected, "Two browser instances acquired the same profile");
+    std::exception_ptr failure;
+    std::jthread thread{[&] {
+        try {
+            require(platform::forward_browser_request(name, request) ==
+                        platform::BrowserForward::accepted,
+                    "Browser rejected a valid launch request");
+            const auto connection = sdbus::createSessionBusConnection();
+            const auto proxy = sdbus::createProxy(*connection, sdbus::ServiceName{name},
+                                                  sdbus::ObjectPath{"/org/rummage/Browser"});
+            const auto raw = [&](std::uint32_t show, const Strings& paths,
+                                 const std::string& token) {
+                bool accepted = true;
+                proxy->callMethod("Open")
+                    .onInterface("org.rummage.Browser1")
+                    .withTimeout(500ms)
+                    .withArguments(show, paths, token, false)
+                    .storeResultsTo(accepted);
+                return accepted;
+            };
+            require(!raw(256, {"/tmp"}, ""), "Wire enum wrapped to folders");
+            require(!raw(0, Strings(257, "/tmp"), ""), "Unbounded paths accepted");
+            require(!raw(0, {"relative"}, ""), "Relative IPC path accepted");
+            require(!raw(0, {"/tmp"}, std::string(4097, 'x')), "Oversized token accepted");
+            require(raw(2, {"/another/missing/item"}, ""), "Properties launch failed");
+        } catch (...) {
+            failure = std::current_exception();
+        }
+        loop.post([&] { loop.quit(); });
+    }};
+    loop.add_timer(5s, 0ms, [&] { loop.quit(2); });
+    require(loop.run() == 0, "Browser endpoint timed out");
+    thread.join();
+    if (failure)
+        std::rethrow_exception(failure);
+    require(received.size() == 2,
+            "Rejected requests reached the browser or a valid request was lost");
+    require(received[0].show == request.show && received[0].paths == request.paths &&
+                received[0].token == request.token && received[0].new_window,
+            "Forwarding changed launch context");
+    require(received[1].show == platform::Show::properties && received[1].token.empty() &&
+                !received[1].new_window,
+            "Properties reused a stale token or window policy");
+    instance.reset();
+    require(
+        platform::forward_browser_request(name, request) == platform::BrowserForward::unavailable,
+        "Closed browser left a stale endpoint");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -120,6 +191,7 @@ int main(int argc, char** argv) {
         if (failure)
             std::rethrow_exception(failure);
         require(code == 0, "FileManager1 did not exit when idle");
+        browser_instances();
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -180,6 +180,10 @@ void Browser::open_settings() {
     menu_.close();
     palette_.close();
     filter_focused_ = false;
+    if (settings_window_) {
+        settings_window_();
+        return;
+    }
     settings_.open(config_path_.empty() ? core::default_config_path() : config_path_, open_config_,
                    settings_applied_);
 }

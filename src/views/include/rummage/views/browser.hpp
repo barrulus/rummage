@@ -180,7 +180,8 @@ public:
     void reveal(const std::filesystem::path& root, const std::filesystem::path& target);
 
     // Show each existing item selected in its parent, grouped into tabs on the active pane.
-    // Keep the first requested folder focused. details opens the expanded info pane.
+    // Checks paths on workers. Keep the first requested folder focused. details opens
+    // independent Properties windows when a host is installed, otherwise the expanded info pane.
     void show_items(const std::vector<std::filesystem::path>& items, bool details);
 
     void set_mode(Mode mode);
@@ -595,6 +596,9 @@ public:
 
     void set_drag_and_drop(DragAndDrop dnd) { dnd_ = std::move(dnd); }
 
+    // Another window of this process keeps the drag's local operation choices.
+    void adopt_drag(const Browser& source) { drag_ = source.drag_; }
+
     // A drag over the window, from rummage or another program.
     void drop_event(const ui::DropEvent& event);
 
@@ -721,6 +725,23 @@ public:
     void create_links(fs::LinkKind kind = fs::LinkKind::absolute);
     void paste_links(fs::LinkKind kind);
     void reveal_link_target();
+    using PropertiesHandler =
+        std::function<void(const std::filesystem::path&, bool, bool, const std::string&)>;
+
+    void set_auxiliary_windows(std::function<void()> settings, PropertiesHandler properties) {
+        settings_window_ = std::move(settings);
+        properties_window_ = std::move(properties);
+    }
+
+    void open_properties(const std::filesystem::path& path, bool editable = true,
+                         bool drive = false, std::string label = {});
+    void properties_changed(const std::filesystem::path& path);
+
+    [[nodiscard]] bool file_operations_pending() const {
+        return operations_ > 0 || transfers_.pending() > 0 || batch_rename_running_ ||
+               properties_.saving() || settings_.busy();
+    }
+
     void move_into_new_folder();
     void group_paths(const std::filesystem::path& destination,
                      std::vector<std::filesystem::path> paths);
@@ -1176,6 +1197,8 @@ private:
     QuickLook quick_look_;
     Sidebar sidebar_;
     std::function<void(const std::filesystem::path&)> new_window_;
+    std::function<void()> settings_window_;
+    PropertiesHandler properties_window_;
     StatusBar status_bar_;
     ShortcutsOverlay shortcuts_;
     bool show_extensions_{true};
@@ -1252,6 +1275,7 @@ private:
     float pointer_y_{0.0F};
     bool pointer_inside_{false};
     // False once destroyed: renames and new folders still on their way find out here.
+    std::size_t show_items_pending_{0};
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
     std::vector<core::Action> actions_{core::action_registry()};
     core::MenuLayout menu_layout_;

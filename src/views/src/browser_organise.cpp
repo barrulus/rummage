@@ -298,13 +298,7 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
         if (place.section != fs::Place::Section::devices || Sidebar::child(place))
             add(
                 "properties", i18n::mark("Properties…"),
-                [this, path = place.path] {
-                    properties_.open(path, [this] {
-                        info_pane_.refresh();
-                        set_places(places_);
-                    });
-                },
-                mounted);
+                [this, path = place.path] { open_properties(path); }, mounted);
     }
     auto organization = sidebar_organization_items(place);
     items.insert(items.end(), organization.begin(), organization.end());

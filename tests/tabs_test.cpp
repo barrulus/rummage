@@ -1298,3 +1298,62 @@ TEST_CASE("tabs: reopen supports Trash and archive folders") {
         CHECK(f.browser.picker_folder()->entries().size() == count);
     }
 }
+
+TEST_CASE("windows: shared workers and watchers preserve independent navigation and selection") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    auto second = std::make_unique<Browser>(
+        f.loop, f.pool, f.watcher, rummage::fs::MimeDatabase::load(), [] {}, [](CursorShape) {},
+        nullptr);
+    second->open(f.b);
+    second->set_mode(Browser::Mode::details);
+    REQUIRE(run_until(f.loop, [&] { return !second->loading() && !f.browser.loading(); }));
+    second->toggle_split();
+    second->open(f.a / "sub");
+    second->set_mode(Browser::Mode::details);
+    REQUIRE(run_until(f.loop, [&] { return !second->loading(); }));
+    f.browser.show_items({f.a / "one.txt"}, false);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.split_visible());
+    CHECK(f.browser.details().folder()->selected_names() == Names{"one.txt"});
+    CHECK(second->split_visible());
+    REQUIRE(second->details().folder());
+    CHECK(second->details().folder()->path() == f.a / "sub");
+    // A late reveal and watch event from the destroyed browser must not disturb its sibling.
+    second->show_items({f.b / "two.txt"}, false);
+    second.reset();
+    std::ofstream{f.a / "new.txt"} << "new";
+    REQUIRE(run_until(f.loop, [&] { return f.browser.details().folder()->entries().size() == 3; }));
+    CHECK(f.browser.details().folder()->selected_names() == Names{"one.txt"});
+}
+
+TEST_CASE("windows: properties requests open each selected item without blocking the browser") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::details);
+    std::vector<fs::path> properties;
+    f.browser.set_auxiliary_windows(
+        {}, [&](const fs::path& path, bool editable, bool drive, const std::string&) {
+            CHECK(editable);
+            CHECK_FALSE(drive);
+            properties.push_back(path);
+        });
+    f.browser.show_items({f.a / "one.txt", f.b / "two.txt"}, true);
+    REQUIRE(f.settle());
+    CHECK(properties == std::vector<fs::path>{f.a / "one.txt", f.b / "two.txt"});
+    CHECK_FALSE(f.browser.properties_dialog().is_open());
+    f.browser.open(f.a / "sub");
+    REQUIRE(f.settle());
+    CHECK(f.browser.details().folder()->path() == f.a / "sub");
+}
+
+TEST_CASE("windows: Ctrl+N requests the current folder and stays unavailable to pickers") {
+    Fixture f;
+    std::vector<fs::path> opened;
+    f.browser.set_new_window_handler([&](const fs::path& path) { opened.push_back(path); });
+    CHECK(f.press(key(XKB_KEY_n, kCtrl)));
+    CHECK(opened == std::vector<fs::path>{f.a});
+    CHECK(f.browser.tab_count() == 1);
+    f.browser.set_picker_mode(true);
+    f.press(key(XKB_KEY_n, kCtrl));
+    CHECK(opened.size() == 1);
+}

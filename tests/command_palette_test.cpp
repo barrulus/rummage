@@ -523,8 +523,9 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         const auto it =
             std::ranges::find(commands, shortcut.command, &std::pair<Command, const char*>::first);
         if (it == commands.end()) {
-            // open_terminal: only with a terminal handler (none in the tests).
-            CHECK(shortcut.command == Command::open_terminal);
+            // These require a host-provided window/terminal handler (none in this fixture).
+            CHECK((shortcut.command == Command::open_terminal ||
+                   shortcut.command == Command::new_window));
             continue;
         }
         const std::string id = std::string{"command:"} + it->second;

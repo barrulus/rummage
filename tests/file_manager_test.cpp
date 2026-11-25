@@ -8,6 +8,7 @@
 #include <doctest/doctest.h>
 
 #include "rummage/core/file.hpp"
+#include "rummage/platform/browser_instance.hpp"
 #include "rummage/platform/exec.hpp"
 #include "rummage/platform/file_manager_config.hpp"
 #include "temp_dir.hpp"
@@ -97,4 +98,34 @@ TEST_CASE("file manager executable: preserve Nix public wrapper") {
     CHECK(platform::file_manager_program(wrapped) == launcher);
     CHECK(platform::file_manager_program(launcher) == launcher);
     CHECK_FALSE(platform::file_manager_program("relative/rummage"));
+}
+
+TEST_CASE("browser launch: bounds, absolute paths, and profile isolation") {
+    platform::BrowserRequest request{
+        platform::Show::folders, {"/unmounted/no-stat", "/tmp/a\nb"}, "token", false};
+    CHECK(platform::valid_browser_request(request));
+    request.paths = {"relative"};
+    CHECK_FALSE(platform::valid_browser_request(request));
+    request.paths = {std::string{"/nul\0suffix", 11}};
+    CHECK_FALSE(platform::valid_browser_request(request));
+    request.paths = {"/" + std::string(4096, 'x')};
+    CHECK_FALSE(platform::valid_browser_request(request));
+    request.paths.assign(257, "/tmp");
+    CHECK_FALSE(platform::valid_browser_request(request));
+    request.paths.assign(256, "/tmp");
+    CHECK(platform::valid_browser_request(request));
+    request.token = std::string(4097, 'x');
+    CHECK_FALSE(platform::valid_browser_request(request));
+    request.token.clear();
+    request.paths.clear();
+    CHECK_FALSE(platform::valid_browser_request(request));
+    request.paths = {"trash:///"};
+    CHECK(platform::valid_browser_request(request));
+    request.show = static_cast<platform::Show>(255);
+    CHECK_FALSE(platform::valid_browser_request(request));
+    const auto name = platform::browser_instance_name("/config/a", "/run/user/1000/wayland-0");
+    CHECK(name == platform::browser_instance_name("/config/a", "/run/user/1000/wayland-0"));
+    CHECK(name != platform::browser_instance_name("/config/b", "/run/user/1000/wayland-0"));
+    CHECK(name != platform::browser_instance_name("/config/a", "/run/user/1000/wayland-1"));
+    CHECK(platform::browser_instance_name("ab", "c") != platform::browser_instance_name("a", "bc"));
 }

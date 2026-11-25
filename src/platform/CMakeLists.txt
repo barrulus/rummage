@@ -6,6 +6,7 @@ add_library(rummage_platform
     src/archives.cpp
     src/about.cpp
     src/applications.cpp
+    src/browser_instance.cpp
     src/bus_loop.cpp
     src/desktop_entry.cpp
     src/exec.cpp

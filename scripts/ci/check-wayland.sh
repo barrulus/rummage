@@ -37,6 +37,8 @@ dbus-run-session -- timeout 5s env WAYLAND_DEBUG=1 \
 [[ $exit_code == 124 ]]
 grep -E 'wl_surface[^ ]*\.attach\(' "$work/rummage.log"
 
+dbus-run-session -- python3 "$(dirname "$0")/check-windows.py" "$prefix"
+
 # Close an idle picker, when no frame is in flight. Destroying the
 # picker clears its browser filter and requests a synchronous redraw: this must not call
 # handlers whose captured state has already been destroyed.

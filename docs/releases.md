@@ -9,9 +9,15 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Open independent browser windows with Ctrl+N in a shared process. Subsequent
+launches reuse the last active browser's tabs by default, with `--new-window` as
+an explicit alternative. Properties and Settings have independent, nonmodal windows;
+file operations finish before their browser closes. Session restore keeps the
+last active browser's panes and tabs.
+
 Create absolute or relative symbolic links and hard links, including pasting copied
 sources as links in another folder. **Go to Link Target** reveals one symbolic-link
-step. Right-button drags within a window and Alt-drops offer Copy, Move, Link and
+step. Right-button drags within and between browser windows and Alt-drops offer Copy, Move, Link and
 Cancel, with destination feedback and Undo/Redo.
 
 Typing a filename prefix selects the first visible match in Columns, Grid and

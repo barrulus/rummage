@@ -104,6 +104,8 @@ public:
         drop_handler_ = std::move(handler);
     }
 
+    [[nodiscard]] wl_surface* drop_surface() const { return drop_surface_; }
+
     // What the drag over the window carries: its types, the actions its source allows, and the
     // action agreed for the drop (kDndCopy, kDndMove; 0 before one is).
     [[nodiscard]] std::vector<std::string> drop_types() const;
@@ -182,8 +184,9 @@ private:
     wl_data_offer* selection_{nullptr};  // the clipboard's, one of offers_
     wl_data_offer* dragged_{nullptr};    // a drag over the window
     wl_data_offer* dropped_{nullptr};    // a drop being read
-    std::uint32_t enter_serial_{0};      // of the drag over the window
-    float drag_x_{0.0F};                 // where it is
+    wl_surface* drop_surface_{};
+    std::uint32_t enter_serial_{0};  // of the drag over the window
+    float drag_x_{0.0F};             // where it is
     float drag_y_{0.0F};
     WlPtr<wl_data_source> drag_source_;  // rummage's drag
     std::vector<Format> drag_formats_;

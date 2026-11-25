@@ -161,7 +161,9 @@ Window::~Window() {
     // GL objects must be deleted with their context current.
     eglMakeCurrent(egl_.display(), egl_surface_, egl_surface_, egl_.context());
     renderer_.reset();
-    eglMakeCurrent(egl_.display(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    // Shared font/icon textures and other windows still use this context. Keep it current
+    // without the disappearing surface, including during the remaining controls' cleanup.
+    eglMakeCurrent(egl_.display(), EGL_NO_SURFACE, EGL_NO_SURFACE, egl_.context());
     eglDestroySurface(egl_.display(), egl_surface_);
 }
 
@@ -315,6 +317,10 @@ void Window::on_toplevel_configure(void* data, xdg_toplevel* /*toplevel*/, std::
                 break;
         }
     }
+}
+
+void Window::set_parent(const Window* parent) {
+    xdg_toplevel_set_parent(toplevel_.get(), parent ? parent->toplevel_.get() : nullptr);
 }
 
 void Window::on_toplevel_close(void* data, xdg_toplevel* /*toplevel*/) {

@@ -1,6 +1,7 @@
 #compdef rummage
 local -a options picker_options
 options=(
+  '--new-window[Open a separate browser window]'
   '(-h --help)'{-h,--help}'[Show usage]'
   '--config[Read configuration from a file]:file:_files'
   '--check-config[Check configuration and exit]'

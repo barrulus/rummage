@@ -218,6 +218,8 @@ ConfigResult parse(std::string_view text) { return parse_config(text, "test.toml
 
 void check_defaults(const Config& config) {
     const Config defaults;
+    CHECK(config.windows.reuse == defaults.windows.reuse);
+    CHECK(config.windows.separate_settings == defaults.windows.separate_settings);
     CHECK(config.keyboard.type_to_jump == defaults.keyboard.type_to_jump);
     CHECK(config.keyboard.vim == defaults.keyboard.vim);
     CHECK(config.keyboard.wrap == defaults.keyboard.wrap);
@@ -668,4 +670,15 @@ TEST_CASE("config: keyboard navigation preferences validate independently") {
     CHECK(invalid.config.keyboard.type_to_jump);
     CHECK_FALSE(invalid.config.keyboard.vim);
     CHECK_FALSE(invalid.config.keyboard.wrap);
+}
+
+TEST_CASE("config: window policies validate independently") {
+    const auto changed = parse("[windows]\nreuse = false\nseparate_settings = false\n");
+    CHECK(changed.problems.empty());
+    CHECK_FALSE(changed.config.windows.reuse);
+    CHECK_FALSE(changed.config.windows.separate_settings);
+    const auto invalid = parse("[windows]\nreuse = 1\nseparate_settings = 'yes'\n");
+    CHECK(invalid.problems.size() == 2);
+    CHECK(invalid.config.windows.reuse);
+    CHECK(invalid.config.windows.separate_settings);
 }

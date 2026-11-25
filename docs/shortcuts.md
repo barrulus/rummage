@@ -63,6 +63,7 @@ commands below operate in the active pane.
 
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
+| Ctrl+N | New browser window | `new_window` |
 | Ctrl+T | New tab | `new_tab` |
 | Ctrl+Enter | Open selected folder or focused sidebar location in a new tab | `open_selected_tab` |
 | Ctrl+W | Close current tab, except the last | `close_tab` |

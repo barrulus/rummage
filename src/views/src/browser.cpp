@@ -1280,7 +1280,9 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
         properties.label = i18n::tr("Properties…");
         properties.enabled = place.disk.mounted && !place.path.empty();
         properties.separator = true;
-        properties.action = [this, place] { properties_.open_drive(place.path, place.label); };
+        properties.action = [this, place] {
+            open_properties(place.path, false, true, place.label);
+        };
         items.push_back(std::move(properties));
         menu_.open(x, y, configured_menu(std::move(items), menu_layout_.sidebar), keyboard);
         return;
@@ -2286,7 +2288,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         properties.label = i18n::tr("Properties…");
         properties.keys = keys_for(Command::properties);
         properties.separator = true;
-        properties.enabled = names.size() == 1;
+        properties.enabled = names.size() == 1 || (properties_window_ && !names.empty());
         properties.action = [this] { show_properties(); };
         items.push_back(std::move(properties));
         for (auto& item : action_items(action_context(folder))) {
@@ -2414,7 +2416,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
-        true, count == 1);
+        true, count == 1 || (properties_window_ && count > 1));
     if (!picker_mode_ && count == 1 && cursor && cursor->is_directory() && !folder->is_archive())
         add("folder_insights", "Insights…", keys_for(Command::folder_insights),
             [this, path = folder->path_of(*cursor)] { show_insights(path); });
@@ -2589,8 +2591,22 @@ void Browser::show_properties() {
     if (!folder || properties_.saving())
         return;
     const auto names = targets(*folder);
-    if (names.size() > 1 || (names.empty() && folder->is_trash()))
+    if ((!properties_window_ && names.size() > 1) || (names.empty() && folder->is_trash()))
         return;
+    if (properties_window_ && names.size() > 1) {
+        menu_.close();
+        palette_.close();
+        quick_look_.close();
+        info_pane_.clear_text_focus();
+        filter_focused_ = false;
+        for (const auto& name : names) {
+            const auto entry = std::ranges::find(folder->entries(), name, &fs::Entry::name);
+            if (entry != folder->entries().end())
+                open_properties(folder->path_of(*entry),
+                                !folder->is_trash() && !folder->is_archive());
+        }
+        return;
+    }
     auto path = folder->path();
     if (!names.empty()) {
         const auto it = std::ranges::find(folder->entries(), names.front(), &fs::Entry::name);
@@ -2603,30 +2619,38 @@ void Browser::show_properties() {
     quick_look_.close();
     info_pane_.clear_text_focus();
     filter_focused_ = false;
+    open_properties(path, !folder->is_trash() && !folder->is_archive());
+}
+
+void Browser::open_properties(const std::filesystem::path& path, bool editable, bool drive,
+                              std::string label) {
+    if (properties_window_) {
+        properties_window_(path, editable, drive, label);
+        return;
+    }
     properties_.open(
-        path,
-        [this, folder, path] {
-            info_pane_.refresh();
-            set_places(places_);
-            const auto refresh = [&path](Folder& owner) {
-                if (owner.path() == path.parent_path())
-                    owner.refresh_entry(path.filename().string());
-            };
-            refresh(*folder);
-            for (const auto& owner : areas_) {
-                if (!owner)
-                    continue;
-                for (const auto& tab : owner->tabs) {
-                    if (tab->grid.folder())
-                        refresh(*tab->grid.folder());
-                    tab->details.refresh_entry(path);
-                    for (std::size_t i = 0; i < tab->columns.column_count(); ++i)
-                        refresh(tab->columns.column(i).folder());
-                }
-            }
-            redraw_();
-        },
-        !folder->is_trash());
+        path, [this, path] { properties_changed(path); }, editable, drive, std::move(label));
+}
+
+void Browser::properties_changed(const std::filesystem::path& path) {
+    info_pane_.refresh();
+    set_places(places_);
+    const auto refresh = [&path](Folder& owner) {
+        if (owner.path() == path.parent_path())
+            owner.refresh_entry(path.filename().string());
+    };
+    for (const auto& owner : areas_) {
+        if (!owner)
+            continue;
+        for (const auto& tab : owner->tabs) {
+            if (tab->grid.folder())
+                refresh(*tab->grid.folder());
+            tab->details.refresh_entry(path);
+            for (std::size_t i = 0; i < tab->columns.column_count(); ++i)
+                refresh(tab->columns.column(i).folder());
+        }
+    }
+    redraw_();
 }
 
 namespace {
@@ -2919,53 +2943,80 @@ void Browser::restore_folder(const std::filesystem::path& path, bool opened) {
 }
 
 void Browser::show_items(const std::vector<std::filesystem::path>& items, bool details) {
-    std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> groups;
-    for (const auto& item : items) {
-        auto normal = item.lexically_normal();
-        if (!normal.is_absolute())
-            continue;
-        if (!normal.has_filename() && normal.has_relative_path())
-            normal = normal.parent_path();
-        std::error_code error;
-        if (!std::filesystem::exists(std::filesystem::symlink_status(normal, error)) || error)
-            continue;
-        const bool root = !normal.has_relative_path();
-        const auto folder = root ? normal : normal.parent_path();
-        if (!std::filesystem::is_directory(folder, error))
-            continue;
-        auto group =
-            std::ranges::find(groups, folder, [](const auto& entry) { return entry.first; });
-        if (group == groups.end())
-            group = groups.insert(groups.end(), {folder, {}});
-        if (!root &&
-            std::ranges::find(group->second, normal.filename().string()) == group->second.end()) {
-            group->second.push_back(normal.filename().string());
-        }
-    }
-    const auto first = area().active;
-    for (std::size_t i = 0; i < groups.size(); ++i) {
-        const auto& [folder, names] = groups[i];
-        if (i == 0)
-            open(folder);
-        else
-            open_tab(folder, true);
-        set_name_filter({});
-        filter_focused_ = false;
-        sidebar_.set_focused(false);
-        // Reveal all requested hidden items, not just the first name's filter exception.
-        if (std::ranges::any_of(names, [](const auto& name) { return name.starts_with('.'); })) {
-            set_show_hidden(true, false);
-        }
-        if (const auto shown = current_folder(); shown && !names.empty())
-            shown->expect_names(names);
-    }
-    if (groups.size() > 1)
-        select_tab(first);
-    if (details && !groups.empty()) {
-        set_info_visible(true);
-        info_pane_.set_expanded(true);
-    }
-    redraw_();
+    ++show_items_pending_;
+    const auto addressed = active_area_;
+    pool_.submit(
+        core::Priority::visible,
+        [items](const core::CancelToken& cancel) {
+            std::vector<std::pair<std::filesystem::path, std::vector<std::string>>> groups;
+            for (const auto& item : items) {
+                if (cancel.cancelled())
+                    break;
+                auto normal = item.lexically_normal();
+                if (!normal.is_absolute())
+                    continue;
+                if (!normal.has_filename() && normal.has_relative_path())
+                    normal = normal.parent_path();
+                std::error_code error;
+                if (!std::filesystem::exists(std::filesystem::symlink_status(normal, error)) ||
+                    error)
+                    continue;
+                const bool root = !normal.has_relative_path();
+                const auto folder = root ? normal : normal.parent_path();
+                if (!std::filesystem::is_directory(folder, error))
+                    continue;
+                auto group = std::ranges::find(groups, folder,
+                                               [](const auto& entry) { return entry.first; });
+                if (group == groups.end())
+                    group = groups.insert(groups.end(), {folder, {}});
+                if (!root && std::ranges::find(group->second, normal.filename().string()) ==
+                                 group->second.end()) {
+                    group->second.push_back(normal.filename().string());
+                }
+            }
+            return groups;
+        },
+        [this, alive = alive_, addressed, details](const auto& groups) {
+            if (!*alive)
+                return;
+            --show_items_pending_;
+            if (!areas_[addressed])
+                return;
+            AreaContext context{context_area_, addressed};
+            const auto first = area().active;
+            for (std::size_t i = 0; i < groups.size(); ++i) {
+                const auto& [folder, names] = groups[i];
+                if (i == 0)
+                    open(folder);
+                else
+                    open_tab(folder, true);
+                set_name_filter({});
+                filter_focused_ = false;
+                sidebar_.set_focused(false);
+                // Reveal all requested hidden items, not just the first name's filter exception.
+                if (std::ranges::any_of(names,
+                                        [](const auto& name) { return name.starts_with('.'); })) {
+                    set_show_hidden(true, false);
+                }
+                if (const auto shown = current_folder(); shown && !names.empty())
+                    shown->expect_names(names);
+            }
+            if (groups.size() > 1)
+                select_tab(first);
+            if (details && properties_window_) {
+                for (const auto& [directory, names] : groups) {
+                    if (names.empty())
+                        open_properties(directory);
+                    else
+                        for (const auto& name : names)
+                            open_properties(directory / name);
+                }
+            } else if (details && !groups.empty()) {
+                set_info_visible(true);
+                info_pane_.set_expanded(true);
+            }
+            redraw_();
+        });
 }
 
 void Browser::note_location() {
@@ -4130,6 +4181,8 @@ bool Browser::animating() const {
 }
 
 bool Browser::loading() const {
+    if (show_items_pending_ > 0)
+        return true;
     if ((searching_results() && search_results_->loading()) ||
         (search_preview_pending_ && search_preview_ && search_preview_->model().loading()))
         return true;
@@ -6172,7 +6225,7 @@ void Browser::run(Command command, Clock::time_point now) {
                 if (command == Command::properties &&
                     place->section == fs::Place::Section::devices && !Sidebar::child(*place)) {
                     if (place->disk.mounted && !place->path.empty())
-                        properties_.open_drive(place->path, place->label);
+                        open_properties(place->path, false, true, place->label);
                 } else {
                     const auto items = place_navigation_items(*place);
                     const auto item = std::ranges::find(items, id, &MenuItem::id);
@@ -6418,6 +6471,12 @@ void Browser::run(Command command, Clock::time_point now) {
             break;
         case Command::new_tab:
             new_tab();
+            break;
+        case Command::new_window:
+            if (!picker_mode_ && new_window_) {
+                const auto folder = current_folder();
+                new_window_(folder ? folder->path() : home_directory());
+            }
             break;
         case Command::close_tab:
             close_tab(area().active);

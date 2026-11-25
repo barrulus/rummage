@@ -113,6 +113,17 @@ public:
 
     void set_pointer_handler(PointerHandler handler) { pointer_handler_ = std::move(handler); }
 
+    [[nodiscard]] wl_surface* keyboard_surface() const { return keyboard_surface_; }
+
+    [[nodiscard]] wl_surface* pointer_surface() const { return pointer_surface_; }
+
+    void set_focus_handler(std::function<void(wl_surface*)> handler) {
+        focus_handler_ = std::move(handler);
+    }
+
+    // Detach a closing window before Wayland sends its eventual leave events.
+    void forget_surface(wl_surface* surface);
+
     // Double-click window and slop (logical pixels). Wayland does not share the desktop's
     // setting, so it comes from rummage's config.
     void set_multi_click(std::chrono::milliseconds time, float slop) {
@@ -218,6 +229,9 @@ private:
     bool pointer_inside_{false};
     std::uint32_t pointer_enter_serial_{0};
     std::uint32_t input_serial_{0};
+    wl_surface* keyboard_surface_{};
+    wl_surface* pointer_surface_{};
+    std::function<void(wl_surface*)> focus_handler_;
     CursorShape cursor_{CursorShape::standard};
     PendingScroll pending_scroll_;
     LastPress last_press_;

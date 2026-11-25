@@ -1340,3 +1340,56 @@ TEST_CASE("drop: URI offers prefer local files then image data over web links") 
         CHECK(f.dnd.reads == Names{"text/uri-list", "image/png"});
     }
 }
+
+TEST_CASE("windows: a right drag carries its source and choice into another browser") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.photos, Browser::Mode::details);
+    const auto at = f.point_of(f.photos, "P2.ORF");
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = at.first,
+                       .y = at.second,
+                       .button = PointerButton::right,
+                       .click_count = 1},
+                      Browser::Clock::now());
+    f.pointer(PointerEvent::Kind::motion, {at.first + 12, at.second + 4});
+    REQUIRE(f.browser.dragging());
+    Browser target{f.loop,    f.pool,
+                   f.watcher, rummage::fs::MimeDatabase::load(),
+                   [] {},     [](rummage::ui::CursorShape) {}};
+    target.set_home_trash(f.trash);
+    target.set_sidebar_visible(false);
+    target.set_info_visible(false);
+    target.open(f.album);
+    target.set_mode(Browser::Mode::details);
+    REQUIRE(run_until(f.loop, [&] { return !target.loading(); }));
+    f.renderer->begin_frame(kWidth, kHeight, 1.0F, {});
+    target.draw(*f.renderer, {0, 0, kWidth, kHeight}, rummage::theme::Palette{}, *f.icons,
+                Browser::Clock::now());
+    f.renderer->end_frame();
+    rummage::views::DragAndDrop drop;
+    int finished = 0;
+    drop.finish = [&] { ++finished; };
+    target.set_drag_and_drop(std::move(drop));
+    REQUIRE(target.details().hit(500, 400));
+    target.adopt_drag(f.browser);
+    target.drop_event({.kind = DropEvent::Kind::enter, .x = 500, .y = 400});
+    target.drop_event({.kind = DropEvent::Kind::drop, .x = 500, .y = 400});
+    target.drag_ended();
+    f.browser.drag_ended();
+    CHECK(finished == 1);
+    const auto& items = target.context_menu().items();
+    const auto link = std::ranges::find(items, "drop_link", &rummage::views::MenuItem::id);
+    REQUIRE(link != items.end());
+    REQUIRE(link->enabled);
+    const auto action = link->action;
+    action();
+    REQUIRE(run_until(f.loop, [&] { return !target.loading(); }));
+    CHECK(fs::is_symlink(f.album / "P2.ORF"));
+    CHECK(fs::read_symlink(f.album / "P2.ORF") == f.photos / "P2.ORF");
+    CHECK(fs::exists(f.photos / "P2.ORF"));
+    target.undo();
+    REQUIRE(run_until(f.loop, [&] { return !target.loading(); }));
+    CHECK_FALSE(fs::exists(f.album / "P2.ORF"));
+    CHECK(fs::exists(f.photos / "P2.ORF"));
+}
