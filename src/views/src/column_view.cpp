@@ -763,13 +763,13 @@ bool ColumnView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
             zoom(kUsualListSize);
             break;
         case XKB_KEY_Down:
-            folder.move_cursor(1, mode);
+            folder.move_cursor(1, mode, wrap_navigation_);
             break;
         case XKB_KEY_Up:
             if (event.modifiers.alt) {
                 go_left();
             } else {
-                folder.move_cursor(-1, mode);
+                folder.move_cursor(-1, mode, wrap_navigation_);
             }
             break;
         case XKB_KEY_Page_Down:

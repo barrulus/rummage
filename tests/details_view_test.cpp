@@ -168,6 +168,28 @@ TEST_CASE("details: sorting by a column, again reversed; the cursor stays on its
     CHECK(f.browser.columns().focused_folder()->order().key == SortKey::modified);
 }
 
+TEST_CASE("keyboard browsing: prefix and wrapping traverse expanded details children") {
+    Fixture f;
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    f.browser.set_keyboard_config({.wrap = true});
+    f.press(XKB_KEY_Down);
+    f.press(XKB_KEY_Right);
+    REQUIRE(f.settle());
+    CHECK(f.browser.key({.keysym = XKB_KEY_i, .text = "i"}, Browser::Clock::now()));
+    CHECK(f.details.folder()->path() == f.root / "alpha");
+    CHECK(cursor_name(*f.details.folder()) == "inner.txt");
+    f.press(XKB_KEY_Escape);
+    f.press(XKB_KEY_Home);
+    f.press(XKB_KEY_Up);
+    CHECK(cursor_name(*f.details.folder()) == "c.txt");
+    f.press(XKB_KEY_Down);
+    CHECK(cursor_name(*f.details.folder()) == "alpha");
+    f.press(XKB_KEY_Left);  // collapse; the child must no longer match
+    CHECK(f.browser.key({.keysym = XKB_KEY_i, .text = "i"}, Browser::Clock::now()));
+    CHECK(cursor_name(*f.details.folder()) == "alpha");
+}
+
 TEST_CASE("details: tree expansion keeps the root and selects children in their own folder") {
     Fixture f;
     REQUIRE(f.settle());

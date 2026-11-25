@@ -571,16 +571,20 @@ bool GridView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
     const bool ctrl = event.modifiers.ctrl;
     switch (event.keysym) {
         case XKB_KEY_Left:
-            folder.move_cursor(-1, mode);
+            folder.move_cursor(-1, mode, wrap_navigation_);
             break;
         case XKB_KEY_Right:
-            folder.move_cursor(1, mode);
+            folder.move_cursor(1, mode, wrap_navigation_);
             break;
         case XKB_KEY_Up:
             if (event.modifiers.alt) {
                 go_up();
             } else if (!cursor || *cursor >= columns_) {  // not past the first row
                 folder.move_cursor(-columns, mode);
+            } else if (wrap_navigation_ && !folder.entries().empty()) {
+                folder.set_cursor(std::min(folder.entries().size() - 1,
+                                           (rows() - 1) * columns_ + *cursor % columns_),
+                                  mode);
             }
             break;
         case XKB_KEY_Down:
@@ -588,6 +592,8 @@ bool GridView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
                 enter();
             } else if (!cursor || (*cursor / columns_) + 1 < rows()) {  // not past the last row
                 folder.move_cursor(columns, mode);                      // clamped to the last entry
+            } else if (wrap_navigation_ && cursor) {
+                folder.set_cursor(*cursor % columns_, mode);
             }
             break;
         case XKB_KEY_Page_Down:

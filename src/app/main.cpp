@@ -784,6 +784,7 @@ int main(int argc, char** argv) {
             window.set_zoom(fresh.font.zoom());
             if (columns) {
                 columns->set_motion_config(fresh.animations);
+                columns->set_keyboard_config(fresh.keyboard);
                 columns->status_bar().set_text_size(fresh.status_bar.text_size);
                 columns->set_preview_in_sidebar(fresh.appearance.preview_position == "sidebar");
                 if (fresh.sidebar != sidebar_config) {
@@ -889,6 +890,7 @@ int main(int argc, char** argv) {
                 });
             columns->set_actions(configured_actions);
             columns->set_motion_config(config.animations);
+            columns->set_keyboard_config(config.keyboard);
             columns->set_reduced_motion(portal->appearance().reduced_motion);
             motion_preference = [&](bool reduced) {
                 if (columns)

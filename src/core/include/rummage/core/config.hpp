@@ -43,6 +43,12 @@ struct Config {
         std::vector<std::string> args;
     };
 
+    struct Keyboard {
+        bool type_to_jump{true};
+        bool vim{false};
+        bool wrap{false};
+    };
+
     struct Pointer {
         int double_click_ms{400};      // presses closer in time count as a double click
         int double_click_distance{4};  // ... and closer than this, in logical pixels
@@ -88,6 +94,7 @@ struct Config {
     Terminal terminal;
     Open open;
     Pointer pointer;
+    Keyboard keyboard;
     Icon icon;
 };
 

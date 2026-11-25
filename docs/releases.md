@@ -9,6 +9,10 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Typing a filename prefix selects the first visible match in Columns, Grid and
+Details, with Unicode case matching and a temporary status hint. Optional Vim
+H/J/K/L movement and boundary wrapping are available in Settings → General.
+
 Paste and drag/drop can create image and text files through a shared atomic write
 path, with image signature checks, size limits, conflict-free naming and Undo/Redo.
 Dropped HTTP(S) links become non-executable `.url` files without fetching the URL.

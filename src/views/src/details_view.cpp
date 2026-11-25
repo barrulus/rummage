@@ -16,6 +16,7 @@
 #include "rummage/fs/icon.hpp"
 #include "rummage/ui/text_field.hpp"
 #include "rummage/views/format.hpp"
+#include "rummage/views/fuzzy.hpp"
 
 namespace rummage::views {
 namespace {
@@ -148,14 +149,19 @@ void DetailsView::focus_row(std::size_t row, SelectMode mode, bool press) {
         folder_->set_cursor(target.entry, mode);
 }
 
-void DetailsView::move_row(std::ptrdiff_t delta, SelectMode mode) {
+void DetailsView::move_row(std::ptrdiff_t delta, SelectMode mode, bool wrap) {
     if (tree_rows_.empty())
         return;
     const auto cursor = cursor_row();
-    const auto next =
-        cursor ? std::clamp(static_cast<std::ptrdiff_t>(*cursor) + delta, std::ptrdiff_t{0},
-                            static_cast<std::ptrdiff_t>(tree_rows_.size() - 1))
-               : 0;
+    auto next = cursor ? std::clamp(static_cast<std::ptrdiff_t>(*cursor) + delta, std::ptrdiff_t{0},
+                                    static_cast<std::ptrdiff_t>(tree_rows_.size() - 1))
+                       : 0;
+    if (wrap && cursor) {
+        if (delta < 0 && *cursor == 0)
+            next = static_cast<std::ptrdiff_t>(tree_rows_.size() - 1);
+        else if (delta > 0 && *cursor + 1 == tree_rows_.size())
+            next = 0;
+    }
     focus_row(static_cast<std::size_t>(next), mode);
 }
 
@@ -962,6 +968,19 @@ void DetailsView::pointer(const ui::PointerEvent& event, Clock::time_point now) 
     }
 }
 
+bool DetailsView::jump_to_prefix(std::string_view prefix) {
+    rebuild_rows();
+    for (std::size_t i = 0; i < tree_rows_.size(); ++i) {
+        const auto& row = tree_rows_[i];
+        if (filename_prefix_matches(row.folder->entries()[row.entry].name, prefix)) {
+            focus_row(i, SelectMode::replace);
+            redraw_();
+            return true;
+        }
+    }
+    return false;
+}
+
 bool DetailsView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
     if (!folder_) {
         return false;
@@ -1000,14 +1019,14 @@ bool DetailsView::key(const ui::KeyEvent& event, Clock::time_point /*now*/) {
             if (event.modifiers.alt) {
                 go_up();
             } else {
-                move_row(-1, mode);
+                move_row(-1, mode, wrap_navigation_);
             }
             break;
         case XKB_KEY_Down:
             if (event.modifiers.alt) {
                 enter();
             } else {
-                move_row(1, mode);
+                move_row(1, mode, wrap_navigation_);
             }
             break;
         case XKB_KEY_Left: {

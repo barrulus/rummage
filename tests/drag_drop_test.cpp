@@ -329,6 +329,32 @@ struct Fixture {
 
 }  // namespace
 
+TEST_CASE("keyboard browsing: grid wrap keeps columns and clamps an incomplete last row") {
+    Fixture f;
+    REQUIRE(f.gl);
+    for (int i = 0; i < 13; ++i)
+        std::ofstream{f.album / (std::to_string(i) + ".txt")} << "x";
+    f.show(f.album, Browser::Mode::grid);
+    f.browser.set_keyboard_config({.wrap = true});
+    auto& grid = f.browser.grid();
+    const auto folder = grid.folder();
+    const auto columns = grid.columns();
+    const auto count = folder->entries().size();
+    REQUIRE(columns > 1);
+    REQUIRE(count > columns);
+    REQUIRE(count % columns != 0);
+    folder->set_cursor(columns - 1, rummage::views::SelectMode::replace);
+    f.browser.key(key(XKB_KEY_Up), Browser::Clock::now());
+    CHECK(folder->cursor() == count - 1);
+    f.browser.key(key(XKB_KEY_Down), Browser::Clock::now());
+    CHECK(folder->cursor() == (count - 1) % columns);
+    folder->set_cursor(0, rummage::views::SelectMode::replace);
+    f.browser.key(key(XKB_KEY_Left), Browser::Clock::now());
+    CHECK(folder->cursor() == count - 1);
+    f.browser.key(key(XKB_KEY_Right), Browser::Clock::now());
+    CHECK(folder->cursor() == 0);
+}
+
 TEST_CASE("grid: large icons fit narrow views and hit testing follows the drawn cells") {
     Fixture f;
     if (!f.gl) {

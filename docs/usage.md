@@ -6,6 +6,11 @@ Start `rummage` in a Wayland session, or pass a directory such as
 `rummage ~/Pictures`. **F1** shows the active keyboard bindings and **Ctrl+K** opens
 the command palette. Both reflect configured actions and shortcuts.
 
+Type a filename prefix in a file view to select the first visible match; the status
+bar shows what you typed. Backspace edits the prefix, Escape clears it, and one
+second of inactivity resets it. Settings → General also offers optional H/J/K/L
+movement and navigation wrapping. See [keyboard browsing](shortcuts.md#browse-entirely-with-the-keyboard).
+
 ## The window
 
 The sidebar contains places, bookmarks, Trash and devices. The breadcrumb above the

@@ -16,6 +16,10 @@
 // in any order ("ga st" finds "star … Games"; "monte rosa" finds "Monte Rosa" and "MonteRosa").
 namespace rummage::views {
 
+// UTF-8 filename prefix matching with simple Unicode case folding (no normalization).
+// Malformed UTF-8 in the compared prefix never matches; no global locale is changed.
+[[nodiscard]] bool filename_prefix_matches(std::string_view name, std::string_view prefix);
+
 // fzy's limit: longer texts (or queries) never match.
 inline constexpr std::size_t kFuzzyMaxLength = 1024;
 

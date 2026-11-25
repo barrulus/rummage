@@ -9,6 +9,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <xkbcommon/xkbcommon.h>
 
 #include "fzy/src/match.h"  // NOLINT(misc-include-cleaner): has_match, match, match_positions
 
@@ -33,6 +34,37 @@ std::size_t name_start(std::string_view path) {
 }
 
 }  // namespace
+
+bool filename_prefix_matches(std::string_view name, std::string_view prefix) {
+    const auto next = [](std::string_view& text) -> std::optional<std::uint32_t> {
+        if (text.empty())
+            return std::nullopt;
+        const auto first = static_cast<unsigned char>(text.front());
+        const std::size_t length = first < 0x80 ? 1 : first < 0xe0 ? 2 : first < 0xf0 ? 3 : 4;
+        if (text.size() < length || (first >= 0x80 && first < 0xc2) || first > 0xf4)
+            return std::nullopt;
+        std::uint32_t code = first & (length == 1 ? 0x7fU : (1U << (7U - length)) - 1U);
+        for (std::size_t i = 1; i < length; ++i) {
+            const auto byte = static_cast<unsigned char>(text[i]);
+            if ((byte & 0xc0U) != 0x80U)
+                return std::nullopt;
+            code = (code << 6U) | (byte & 0x3fU);
+        }
+        if ((length == 2 && code < 0x80) || (length == 3 && code < 0x800) ||
+            (length == 4 && code < 0x10000) || code > 0x10ffff ||
+            (code >= 0xd800 && code <= 0xdfff))
+            return std::nullopt;
+        text.remove_prefix(length);
+        return xkb_keysym_to_utf32(xkb_keysym_to_lower(xkb_utf32_to_keysym(code)));
+    };
+    while (!prefix.empty()) {
+        const auto wanted = next(prefix);
+        const auto actual = next(name);
+        if (!wanted || !actual || wanted != actual)
+            return false;
+    }
+    return true;
+}
 
 bool better_rank(const PathRank& a, const PathRank& b) noexcept {
     if (a.tier != b.tier) {

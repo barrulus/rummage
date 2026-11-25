@@ -237,6 +237,7 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    clear_type_jump();
     area().breadcrumb.cancel_edit();
     info_pane_.clear_text_focus();
     leave_motion();
@@ -2152,6 +2153,7 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 Browser::~Browser() {
     for (const auto& [id, token] : content_jobs_)
         token.cancel();
+    loop_.remove(type_jump_timer_);
     drive_hover_job_.cancel();
     bookmark_icons_job_.cancel();
     *alive_ = false;
@@ -2810,6 +2812,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
 }
 
 void Browser::open(const std::filesystem::path& directory) {
+    clear_type_jump();
     if (pane().insights.is_open()) {
         ++path_navigation_generation_;
         quick_look_.close();
@@ -3595,6 +3598,7 @@ void Browser::apply(const State& state) {
 }
 
 void Browser::set_mode(Mode mode) {
+    clear_type_jump();
     if (pane().insights.is_open())
         open_tab(pane().insights.current_path(), true);
     pane().retained_folder_mode.reset();
@@ -4132,6 +4136,8 @@ bool Browser::loading() const {
 }
 
 void Browser::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (event.kind == ui::PointerEvent::Kind::press)
+        clear_type_jump();
     if (event.kind == ui::PointerEvent::Kind::press)
         keyboard_focus_visible_ = false;
     if (event.kind == ui::PointerEvent::Kind::scroll) {
@@ -5970,6 +5976,14 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     const Command command = command_for(event);
+    if ((command == Command::none || command == Command::parent_folder) && !sidebar_.focused() &&
+        !quick_look_.is_open() && !shortcuts_.is_open() && !type_jump_prefix_.empty() &&
+        event.modifiers == ui::Modifiers{} &&
+        (event.keysym == XKB_KEY_BackSpace || event.keysym == XKB_KEY_Escape) &&
+        type_jump(event, now))
+        return true;
+    if (command != Command::none)
+        clear_type_jump();
     if (event.keysym == XKB_KEY_Escape && event.modifiers == ui::Modifiers{} &&
         !cut_marks_.names.empty() && !shortcuts_.is_open() && !quick_look_.is_open() &&
         !sidebar_.focused()) {
@@ -6474,7 +6488,40 @@ bool Browser::view_key(const ui::KeyEvent& event, Clock::time_point now) {
     const auto scope = pane().mode == Mode::columns ? scope::kColumns
                        : pane().mode == Mode::grid  ? scope::kGrid
                                                     : scope::kDetails;
-    return listed(event, scope) && browse_key(view_key_event(event), now);
+    if (listed(event, scope)) {
+        clear_type_jump();
+        return browse_key(view_key_event(event), now);
+    }
+    if (keyboard_config_.vim && !event.modifiers.alt && !event.modifiers.super &&
+        (event.text.empty() || event.text.size() == 1)) {
+        auto mapped = event;
+        switch (event.keysym) {
+            case XKB_KEY_h:
+            case XKB_KEY_H:
+                mapped.keysym = XKB_KEY_Left;
+                break;
+            case XKB_KEY_j:
+            case XKB_KEY_J:
+                mapped.keysym = XKB_KEY_Down;
+                break;
+            case XKB_KEY_k:
+            case XKB_KEY_K:
+                mapped.keysym = XKB_KEY_Up;
+                break;
+            case XKB_KEY_l:
+            case XKB_KEY_L:
+                mapped.keysym = XKB_KEY_Right;
+                break;
+            default:
+                mapped.keysym = XKB_KEY_NoSymbol;
+                break;
+        }
+        if (mapped.keysym != XKB_KEY_NoSymbol) {
+            clear_type_jump();
+            return browse_key(mapped, now);
+        }
+    }
+    return !quick_look_.is_open() && type_jump(event, now);
 }
 
 bool Browser::browse_key(const ui::KeyEvent& event, Clock::time_point now) {
@@ -6486,6 +6533,9 @@ bool Browser::browse_key(const ui::KeyEvent& event, Clock::time_point now) {
         event.modifiers == ui::Modifiers{} && open_selection()) {
         return true;  // a file: its application; a folder goes on to the view
     }
+    pane().columns.set_wrap_navigation(keyboard_config_.wrap);
+    pane().grid.set_wrap_navigation(keyboard_config_.wrap);
+    pane().details.set_wrap_navigation(keyboard_config_.wrap);
     // Only what the shortcuts list reaches the view.
     switch (pane().mode) {
         case Mode::columns:

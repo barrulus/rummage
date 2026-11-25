@@ -56,6 +56,8 @@ namespace rummage::views {
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class ColumnView {
 public:
+    void set_wrap_navigation(bool wrap) { wrap_navigation_ = wrap; }
+
     void set_show_extensions(bool show) { show_extensions_ = show; }
 
     void set_show_thumbnails(bool show) { show_thumbnails_ = show; }
@@ -180,6 +182,7 @@ public:
     [[nodiscard]] float scroll_offset() const noexcept { return scroller_.offset(); }
 
 private:
+    bool wrap_navigation_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
     void zoom(std::size_t index);

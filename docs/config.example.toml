@@ -20,6 +20,14 @@
 # order = ["place:home", "separator:0:0", "place:downloads"]
 # hidden = ["place:music"]
 
+[keyboard]
+# Typing selects a filename prefix; its status-bar hint expires after one second.
+type_to_jump = true
+# Optional H/J/K/L movement, after explicit shortcuts and before type-to-jump.
+vim = false
+# Arrow/Vim movement wraps at list boundaries; Home/End and Page keys retain their behavior.
+wrap = false
+
 [appearance]
 # Background only (0-1); text, icons and thumbnails retain their original opacity.
 # Transparency is disabled by default (1.0). Keep compositor window opacity at 1.0.

@@ -282,6 +282,13 @@ public:
     // The sidebar (shown at start; left out when the window is too narrow for it).
     void set_sidebar_visible(bool visible);
 
+    void set_keyboard_config(const core::Config::Keyboard& config) {
+        keyboard_config_ = config;
+        clear_type_jump();
+    }
+
+    [[nodiscard]] const std::string& type_jump_prefix() const { return type_jump_prefix_; }
+
     void set_sidebar_config(const core::Config::Sidebar& config) {
         sidebar_.set_organization(config.order.value_or(sidebar_.order()),
                                   config.hidden.value_or(sidebar_.hidden()), sidebar_.collapsed());
@@ -885,6 +892,16 @@ private:
     void paste_contents(const std::shared_ptr<Folder>& folder, std::string type);
     void create_contents(const std::filesystem::path& directory, std::string type,
                          std::string bytes, bool dropped, const std::shared_ptr<Folder>& reveal);
+    void clear_type_jump();
+    bool type_jump(const ui::KeyEvent& event, Clock::time_point now);
+    bool match_type_jump();
+    core::Config::Keyboard keyboard_config_;
+    std::string type_jump_prefix_;
+    std::weak_ptr<Folder> type_jump_folder_;
+    Mode type_jump_mode_{Mode::columns};
+    Clock::time_point type_jump_until_{};
+    core::EventLoop::SourceId type_jump_timer_{0};
+
     void paste_files(const std::filesystem::path& destination, const ClipboardFiles& files,
                      std::uint64_t generation);
     // Why an operation runs: the user's, or an undo or redo of one.

@@ -50,6 +50,8 @@ namespace rummage::views {
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class DetailsView {
 public:
+    void set_wrap_navigation(bool wrap) { wrap_navigation_ = wrap; }
+
     void set_show_extensions(bool show) { show_extensions_ = show; }
 
     void set_show_thumbnails(bool show) { show_thumbnails_ = show; }
@@ -152,6 +154,9 @@ public:
     // false when event is not one of its keys.
     bool key(const ui::KeyEvent& event, Clock::time_point now);
 
+    // Select the first matching row in the expanded tree's visible order.
+    bool jump_to_prefix(std::string_view prefix);
+
     // Called on a double click on a file (not a folder): the browser opens the selection.
     void set_open_handler(std::function<void()> open) { open_ = std::move(open); }
 
@@ -201,6 +206,7 @@ public:
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
 private:
+    bool wrap_navigation_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
     ItemBounds motion_bounds_{};
@@ -227,7 +233,7 @@ private:
     void append_rows(const std::shared_ptr<Folder>& folder, std::size_t depth);
     void focus_row(std::size_t row, SelectMode mode, bool press = false);
     void toggle_row(std::size_t row);
-    void move_row(std::ptrdiff_t delta, SelectMode mode);
+    void move_row(std::ptrdiff_t delta, SelectMode mode, bool wrap = false);
     [[nodiscard]] std::optional<std::size_t> cursor_row() const;
     [[nodiscard]] bool expandable(std::size_t row) const;
     [[nodiscard]] bool disclosure_at(std::size_t row, float x) const;

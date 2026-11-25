@@ -203,6 +203,15 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(0, "Opening files", "pointer", "double_click_distance", "Double-click distance",
         "Logical pixels · 0–50", std::to_string(config.pointer.double_click_distance), true, {},
         Number{0, 50, 1});
+    add(0, i18n::mark("Keyboard shortcuts"), "keyboard", "type_to_jump", i18n::mark("Type to jump"),
+        i18n::mark("Select filenames by typing a prefix"),
+        config.keyboard.type_to_jump ? "true" : "false", true, {"true", "false"});
+    add(0, i18n::mark("Keyboard shortcuts"), "keyboard", "vim", i18n::mark("Vim navigation"),
+        i18n::mark("Use H/J/K/L to move through files"), config.keyboard.vim ? "true" : "false",
+        true, {"true", "false"});
+    add(0, i18n::mark("Keyboard shortcuts"), "keyboard", "wrap", i18n::mark("Wrap navigation"),
+        i18n::mark("Continue at the opposite end of the file list"),
+        config.keyboard.wrap ? "true" : "false", true, {"true", "false"});
     add(0, "Terminal", "terminal", "program", "Terminal program",
         "Leave empty for automatic discovery", config.terminal.program);
     add(0, "Terminal", "terminal", "args", "Terminal arguments",

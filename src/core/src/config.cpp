@@ -596,6 +596,19 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                                  {"size", [&](const toml::node& value, const std::string& path) {
                                       reader.read_number(value, path, 8.0, 32.0, config.font.size);
                                   }}});
+        } else if (key.str() == "keyboard") {
+            reader.read_section(node, "keyboard",
+                                {{"type_to_jump",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.keyboard.type_to_jump);
+                                  }},
+                                 {"vim",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.keyboard.vim);
+                                  }},
+                                 {"wrap", [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.keyboard.wrap);
+                                  }}});
         } else if (key.str() == "pointer") {
             reader.read_section(
                 node, "pointer",
