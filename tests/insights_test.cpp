@@ -341,6 +341,58 @@ TEST_CASE("insights: partial map keeps unknown siblings available for drilling")
     CHECK(dialog.snapshot()->limited);
 }
 
+TEST_CASE("insights: immediate folder redraws preserve map rows during navigation") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const TempDir dir;
+    fs::create_directories(dir.path / "child");
+    dir.write("child/remaining.bin", std::string(1000, 'x'));
+    for (int i = 0; i < 5; ++i)
+        dir.write(std::format("large-{}.bin", i), std::string(1000, 'x'));
+    rummage::core::EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    InsightsView dialog{loop, pool, [] {}};
+    const auto draw = [&] {
+        renderer.begin_frame(1100, 820, 1, {});
+        dialog.draw(renderer, {0, 0, 1100, 820}, {}, icons, *mime);
+        renderer.end_frame();
+    };
+    bool immediate = false;
+    int immediate_frames = 0;
+    dialog.set_browser_handlers(
+        [&](const fs::path& path) {
+            return std::make_shared<rummage::views::Folder>(
+                loop, pool, watcher, mime, path,
+                [&] {
+                    // Window::request_redraw can paint synchronously while a folder opens.
+                    if (immediate) {
+                        ++immediate_frames;
+                        draw();
+                    }
+                },
+                false);
+        },
+        {}, {}, nullptr);
+    dialog.open(dir.path, false, {}, InsightsView::View::space);
+    REQUIRE(until(loop, [&] { return !dialog.loading(); }));
+    REQUIRE(dialog.rows().size() == 6);
+    draw();
+    REQUIRE_FALSE(dialog.control_bounds("tile:5").empty());
+    immediate = true;
+    dialog.activate_row(row(dialog, "child"));
+    REQUIRE(immediate_frames > 0);
+    REQUIRE(dialog.rows().size() == 1);
+    // A later repaint (including a Trash operation's status update) must use the new rows.
+    draw();
+    CHECK_FALSE(dialog.control_bounds("tile:0").empty());
+    CHECK(dialog.control_bounds("tile:1").empty());
+    CHECK(dialog.rows()[0].label == "remaining.bin");
+}
+
 TEST_CASE("insights: reopening restores location, view and options with fresh data") {
     const TempDir dir;
     const auto library = dir.path / "Library";

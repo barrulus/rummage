@@ -9,6 +9,9 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Insights charts stay in sync when navigating between folders, preventing a crash
+on a later redraw after the result list shrinks.
+
 The information pane now shows a compact media summary, with extended metadata
 under More details and a fixed Copy all properties button that includes collapsed
 fields. Properties has a draggable scrollbar with a wider hit area, normal wheel
