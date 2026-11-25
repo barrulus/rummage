@@ -99,6 +99,8 @@ focused checks are still needed.
 
 ## Project history and credits
 
+You can also [support rummage's development on Ko-fi](https://ko-fi.com/barrulus).
+
 Contributions should be reviewable on their behavior and evidence regardless of
 the tools used. Bundled material and licenses are listed in
 [THIRD_PARTY.md](THIRD_PARTY.md).
