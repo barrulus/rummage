@@ -26,7 +26,7 @@ struct Entry {
     // one of highest weight: sorting by type uses it, so the entry sorts with its likely kind
     // whether or not its content has been sniffed. kUnknownMime otherwise.
     MimeId name_guess{kUnknownMime};
-    // Resolved on the directory worker: theme name or absolute local icon path.
+    // Resolved on the directory worker: theme icon name only, never an image path.
     std::string folder_icon{};
 
     // Collected on directory workers, never during drawing. Missing stat data stays empty.

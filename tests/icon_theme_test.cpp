@@ -369,3 +369,20 @@ TEST_CASE("icon theme: SVG text renders without preview font preparation") {
     }
     CHECK(painted > 20);
 }
+
+TEST_CASE("icon theme: installed choices combine roots and exclude non-icon themes") {
+    TempDir dir;
+    const auto user = dir.path / "user";
+    const auto system = dir.path / "system";
+    const std::string index = "[Icon Theme]\nName=Display name\nDirectories=48\n[48]\nSize=48\n";
+    write(user, "candy/index.theme", index);
+    write(system, "candy/index.theme", index);
+    write(system, "Adwaita/index.theme", index);
+    write(user, "hidden/index.theme", index + "[Icon Theme]\nHidden=true\n");
+    write(user, "cursors/index.theme", "[Icon Theme]\nName=Cursors\n");
+    write(user, "loose/folder.svg", kSvg);
+    write(user, "wrong/index.theme", "[Other]\nDirectories=48\n");
+    fs::create_directory_symlink(system / "Adwaita", user / "linked");
+    CHECK(rummage::ui::installed_icon_themes({user, system, dir.path / "missing"}) ==
+          std::vector<std::string>{"Adwaita", "candy", "linked"});
+}

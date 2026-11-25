@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{{ if not .IsHome }}{{ .Title }} · {{ end }}rummage — a file manager for Wayland</title>
+  <meta name="description" content="{{ .Description | default .Site.Params.description }}">
+  <link rel="canonical" href="{{ .Permalink }}">
+  <link rel="icon" href="{{ "rummage.svg" | relURL }}" type="image/svg+xml">
+  <meta property="og:title" content="{{ if .IsHome }}rummage — a file manager for Wayland{{ else }}{{ .Title }} · rummage{{ end }}">
+  <meta property="og:description" content="{{ .Description | default .Site.Params.description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ .Permalink }}">
+  <meta property="og:image" content="{{ .Site.Params.demoPoster | absURL }}">
+  {{ with resources.Get "site.css" | minify | fingerprint }}<link rel="stylesheet" href="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}">{{ end }}
+  {{ with resources.Get "site.js" | minify | fingerprint }}<script src="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}" defer></script>{{ end }}
+</head>
+<body class="{{ if .IsHome }}home{{ else if eq .Section "docs" }}docs{{ else }}inner{{ end }}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="{{ "" | relURL }}" aria-label="rummage home"><img src="{{ "rummage.svg" | relURL }}" width="38" height="38" alt="">rummage<span class="brand-dot">.</span></a>
+      <nav aria-label="Main navigation">
+        <a href="{{ "#explore" | relURL }}">Explore</a>
+        <a href="{{ "docs/" | relURL }}" {{ if eq .Section "docs" }}aria-current="page"{{ end }}>Docs</a>
+        <a href="{{ "pricing/" | relURL }}" {{ if eq .RelPermalink ("pricing/" | relURL) }}aria-current="page"{{ end }}>Pricing</a>
+        <a href="{{ "support/" | relURL }}" {{ if eq .RelPermalink ("support/" | relURL) }}aria-current="page"{{ end }}>Support</a>
+        <a class="nav-download" href="{{ "downloads/" | relURL }}" {{ if eq .RelPermalink ("downloads/" | relURL) }}aria-current="page"{{ end }}>Download</a>
+      </nav>
+    </div>
+  </header>
+  {{ block "main" . }}{{ end }}
+  <footer class="site-footer">
+    <div><a class="brand" href="{{ "" | relURL }}">rummage<span class="brand-dot">.</span></a><p>A little more at home in your files.</p></div>
+    <div><a href="{{ "support/" | relURL }}">Support</a>{{ with .Site.Params.discordInvite }}<a href="{{ . }}">Discord</a>{{ end }}{{ with .Site.Params.koFi }}<a href="{{ . }}">Support on Ko-fi</a>{{ end }}<a href="{{ .Site.Params.repository }}">Source on GitHub</a><a href="{{ .Site.Params.repository }}/blob/main/LICENSE">MIT licensed</a><span>Built on <a href="https://github.com/pankaspe/nordend-fm">Nordend</a> by pankaspe.</span></div>
+  </footer>
+</body>
+</html>

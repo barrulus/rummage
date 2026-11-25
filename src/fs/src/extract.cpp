@@ -157,35 +157,19 @@ std::array<timespec, 2> times_of(std::int64_t mtime) {
     return {when, when};
 }
 
-// A symbolic link's target is kept when, followed from the link's folder inside what is
-// extracted (top: the first part of the link's path), it stays there: relative, never above top.
-bool link_stays_inside(const std::string& link_path, const std::string& target) {
+// Parent components can escape through other archive symlinks even when lexical
+// normalization stays inside. Reject them in every target, regardless of entry order.
+bool link_stays_inside(const std::string& target) {
     if (target.empty() || target.starts_with('/') || target.find('\0') != std::string::npos) {
         return false;
-    }
-    std::vector<std::string_view> parts;
-    const auto [folder, name] = split(link_path);
-    std::string_view rest = folder;
-    while (!rest.empty()) {
-        const std::size_t slash = std::min(rest.find('/'), rest.size());
-        parts.push_back(rest.substr(0, slash));
-        rest = slash < rest.size() ? rest.substr(slash + 1) : std::string_view{};
     }
     std::string_view walk = target;
     while (!walk.empty()) {
         const std::size_t slash = std::min(walk.find('/'), walk.size());
         const std::string_view part = walk.substr(0, slash);
         walk = slash < walk.size() ? walk.substr(slash + 1) : std::string_view{};
-        if (part.empty() || part == ".") {
-            continue;
-        }
         if (part == "..") {
-            if (parts.size() <= 1) {
-                return false;  // above the top item
-            }
-            parts.pop_back();
-        } else {
-            parts.push_back(part);
+            return false;
         }
     }
     return true;
@@ -429,7 +413,7 @@ private:
                     }
                     break;
                 case archive::Type::symlink:
-                    if (!link_stays_inside(item.out, entry->link)) {
+                    if (!link_stays_inside(entry->link)) {
                         fail(item, "a link leading outside, left out");
                     } else if (::symlinkat(entry->link.c_str(), dir, name.c_str()) != 0) {
                         fail(item, errno_text(errno));

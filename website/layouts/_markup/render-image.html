@@ -1,0 +1,7 @@
+{{- $src := .Destination -}}
+{{- if and (eq .Page.Section "docs") (strings.HasPrefix $src "images/") -}}{{ $src = $src | relURL }}{{- end -}}
+{{- $shot := false -}}
+{{- range hugo.Data.screenshots.images -}}
+  {{- if eq $.Destination (printf "images/%s" .file) -}}{{ $shot = . }}{{- end -}}
+{{- end -}}
+{{ if $shot }}<a class="screenshot-link" href="{{ $src | safeURL }}" aria-label="Open full-size screenshot: {{ .PlainText }}">{{ end }}<img src="{{ $src | safeURL }}" alt="{{ .PlainText }}" loading="lazy"{{ with $shot }} width="{{ .width }}" height="{{ .height }}"{{ end }}{{ with .Title }} title="{{ . }}"{{ end }}>{{ if $shot }}</a>{{ end }}

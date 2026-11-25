@@ -298,6 +298,31 @@ std::vector<std::filesystem::path> icon_theme_roots() {
     return roots;
 }
 
+std::vector<std::string> installed_icon_themes(const std::vector<std::filesystem::path>& roots) {
+    std::vector<std::string> names;
+    for (const auto& root : roots) {
+        std::error_code error;
+        for (std::filesystem::directory_iterator it{root, error}, end; !error && it != end;
+             it.increment(error)) {
+            const auto name = it->path().filename().string();
+            std::error_code entry_error;
+            if (!safe_name(name) || name == "system" || name == "builtin" ||
+                !std::filesystem::is_regular_file(it->path() / "index.theme", entry_error))
+                continue;
+            auto ini = read_ini(it->path() / "index.theme");
+            const auto section = ini.find("Icon Theme");
+            if (section == ini.end() || section->second["Hidden"] == "true" ||
+                (section->second["Directories"].empty() &&
+                 section->second["ScaledDirectories"].empty()))
+                continue;
+            names.push_back(name);
+        }
+    }
+    std::ranges::sort(names);
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    return names;
+}
+
 IconTheme::IconTheme(std::string name, std::vector<std::filesystem::path> roots)
     : roots_{std::move(roots)} {
     add_theme(name);

@@ -169,6 +169,7 @@ private:
     std::uint64_t generation_{0};
     std::size_t action_count_{0}, new_actions_{0}, new_bindings_{0};
     std::vector<Field> fields_;
+    std::vector<std::string> icon_themes_;
     std::vector<Button> buttons_;
     int section_{0};
     std::string focus_{"section0"};

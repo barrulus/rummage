@@ -301,6 +301,7 @@ Loaded load(int fd, std::uint32_t max_width, std::uint32_t max_height) {
     }
     if (orientation >= 5) {
         std::swap(result.full_width, result.full_height);
+        std::swap(max_width, max_height);
     }
     result.detail.clear();
     // Scaled first, turned after: the turn then works on screen-sized pixels.

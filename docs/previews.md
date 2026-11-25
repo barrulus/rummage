@@ -40,6 +40,10 @@ reported pixel movement.
 
 ## Format support in this source tree
 
+| Quick Look over the dark browser | Quick Look over the light browser |
+| --- | --- |
+| ![The same illustration in Quick Look over the dimmed dark browser](images/rummage-dark-quicklook.webp) | ![Colourful character illustration in Quick Look over the dimmed light browser](images/rummage-light-quicklook.webp) |
+
 | Family | Supported path | Limits |
 | --- | --- | --- |
 | PNG, JPEG, GIF | wuffs decoding in the preview helper | A picture preview, not an animation player |
@@ -199,6 +203,8 @@ file selection and file copying. Changing the focused file or hiding the pane
 clears text focus and selection. All preview and metadata text remains read-only.
 
 ## Optional video previews and caching
+
+![Video thumbnails with filmstrip borders and a selected recording's still preview and metadata](images/rummage-dark-video-grid.webp)
 
 Install the matching `rummage-media` package for video thumbnails and still previews
 in the information pane and Quick Look. The grid decorates video thumbnails with

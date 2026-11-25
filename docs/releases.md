@@ -31,6 +31,9 @@ Dropped HTTP(S) links become non-executable `.url` files without fetching the UR
 Restore rejects invalid disk-trash paths and checks the destination filesystem
 before creating missing folders. Failed cross-device restores leave no new folders.
 
+Insights charts stay in sync when navigating between folders, preventing a crash
+on a later redraw after the result list shrinks.
+
 The information pane now shows a compact media summary, with extended metadata
 under More details and a fixed Copy all properties button that includes collapsed
 fields. Properties has a draggable scrollbar with a wider hit area, normal wheel

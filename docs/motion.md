@@ -105,6 +105,8 @@ attempts for that renderer. Finished transitions do not request redraws.
 
 ## Editing and previewing effects
 
+![Settings Effects with a sample preview, selected effect, Replay control and duration settings](images/rummage-effects-preview.webp)
+
 Open **Settings → Effects** and choose the **Slot** you want to edit. The selector
 contains all twelve event slots, plus **Background** and **Selection glow**.
 The preview stays above the selected slot's controls while you scroll.

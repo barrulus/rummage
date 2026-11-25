@@ -1,0 +1,13 @@
+{{ define "main" }}
+<main id="main" class="docs-layout wrap">
+  {{ partial "docs-sidebar.html" . }}
+  <div class="docs-index">
+    <p class="eyebrow">The rummage handbook</p><h1>Find your way around.</h1><p class="lede">From your first folder to your own shortcuts. Everything you need to feel at home.</p>
+    {{ partial "search.html" . }}
+    <div class="docs-start"><div><h2>New here?</h2><p>Install rummage, open a folder, and get to know the essentials.</p></div><a class="button primary" href="{{ "docs/install/" | relURL }}">Start with installation</a></div>
+    {{ range hugo.Data.navigation.groups }}
+    <section class="doc-group"><h2>{{ .title }}</h2><div class="doc-cards">{{ range .items }}<a href="{{ printf "docs/%s/" .slug | relURL }}"><h3>{{ .label }}</h3><p>{{ .description }}</p></a>{{ end }}</div></section>
+    {{ end }}
+  </div>
+</main>
+{{ end }}

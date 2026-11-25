@@ -36,6 +36,24 @@ class WorkflowGateTest(unittest.TestCase):
         self.assertIn('tests', self.dependencies('downloads'))
         self.assertIn("needs.tests.result == 'success'", self.jobs['downloads'])
 
+    def test_application_pipeline_requires_checked_website(self):
+        self.assertIn('website', self.dependencies('tests'))
+        website = self.jobs['website']
+        self.assertNotIn('    if:', website.split('    steps:', 1)[0])
+        self.assertNotIn('continue-on-error:', website)
+        self.assertIn('sha256sum --check -', website)
+        self.assertIn('run: python3 website/check.py website/public', website)
+
+    def test_pages_requires_checked_site_but_not_application_release(self):
+        self.assertEqual(self.dependencies('pages'), {'website'})
+        header = self.jobs['pages'].split('    steps:', 1)[0]
+        self.assertIn("github.repository == 'barrulus/rummage'", header)
+        self.assertIn("github.ref == 'refs/heads/main'", header)
+        self.assertIn('inputs.tumbleweed_only != true', header)
+        self.assertNotIn('always()', header)
+        self.assertNotIn('!cancelled()', header)
+        self.assertFalse((ROOT / '.github/workflows/site.yml').exists())
+
 
 class WorkflowTriggerTest(unittest.TestCase):
     def test_all_workflows_are_manual_except_main_pushes(self):

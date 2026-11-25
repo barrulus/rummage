@@ -185,6 +185,8 @@ unavailable in Trash, archives and file pickers.
 
 ## Copy, move and conflicts
 
+![A copy operation reporting progress in the status bar of the dark file browser](images/rummage-dark-transfer.webp)
+
 **Ctrl+C / Ctrl+X** copies/cuts the selection; **Ctrl+V** pastes into the current
 folder. Cut entries fade until pasted or cancelled with Escape. File-manager
 clipboard formats allow exchange with other desktop applications; only local

@@ -1,0 +1,34 @@
+[[groups]]
+title = 'Get started'
+items = [
+  { slug = 'install', label = 'Installation', description = 'Packages, Nix, and building from source.' },
+  { slug = 'usage', label = 'Using rummage', description = 'Get comfortable with views, tabs, and navigation.' },
+  { slug = 'features', label = 'Features', description = 'What rummage can do, and where its limits are.' },
+  { slug = 'troubleshooting', label = 'Troubleshooting', description = 'Get help with startup, previews, and integration.' },
+]
+[[groups]]
+title = 'Everyday use'
+items = [
+  { slug = 'insights', label = 'Folder Insights', description = 'Understand file types and sizes with Iris rings and the Space map.' },
+  { slug = 'file-operations', label = 'File operations', description = 'Copy, move, rename, trash, and undo.' },
+  { slug = 'previews', label = 'Previews & formats', description = 'Images, raw photos, text, video stills, and PDFs.' },
+  { slug = 'shortcuts', label = 'Keyboard shortcuts', description = 'Keep your hands on the keyboard.' },
+  { slug = 'file-picker', label = 'File picker', description = 'Use rummage for Open and Save dialogs.' },
+]
+[[groups]]
+title = 'Make it yours'
+items = [
+  { slug = 'configuration', label = 'Configuration', description = 'Settings, reloading, and saved state.' },
+  { slug = 'appearance', label = 'Appearance', description = 'Colours, fonts, icons, and your desktop theme.' },
+  { slug = 'motion', label = 'Motion', description = 'Animation effects and reduced motion.' },
+  { slug = 'actions', label = 'Actions & menus', description = 'Custom commands and context menus.' },
+  { slug = 'translations', label = 'Languages', description = 'Language settings and contributing translations.' },
+]
+[[groups]]
+title = 'Reference'
+items = [
+  { slug = 'command-line', label = 'Command line', description = 'Flags, environment variables, and diagnostics.' },
+  { slug = 'compatibility', label = 'Compatibility', description = 'Wayland compositors and desktop integration.' },
+  { slug = 'security', label = 'Security', description = 'Preview isolation and its boundaries.' },
+  { slug = 'releases', label = 'Release history', description = 'Development versions and upstream history.' },
+]

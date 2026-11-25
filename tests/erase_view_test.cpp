@@ -19,6 +19,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/transfer.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/shortcuts.hpp"
 #include "temp_dir.hpp"
@@ -169,6 +170,50 @@ TEST_CASE("erase: Shift+Delete asks; Escape keeps everything, Enter deletes with
     REQUIRE(run_until(f.loop, [&] { return folder->entries().size() == 2; }));
     const rummage::fs::Entry* const cursor = folder->cursor_entry();
     CHECK((cursor != nullptr && cursor->name == "P2.ORF"));
+}
+
+TEST_CASE("erase: Insights remains drawable after deleting files and emptying Trash") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    Fixture f;
+    f.show(f.photos, "");
+    f.browser->show_insights(f.photos, rummage::views::InsightsView::View::space);
+    auto& insights = f.browser->insights_view();
+    REQUIRE(run_until(f.loop, [&] { return !insights.loading(); }));
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(1100, 820, 1, {});
+        f.browser->draw(renderer, {0, 0, 1100, 820}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    const auto target =
+        std::ranges::find(insights.rows(), "P1.ORF", &rummage::views::InsightsView::Row::label);
+    REQUIRE(target != insights.rows().end());
+    insights.select_row(static_cast<std::size_t>(target - insights.rows().begin()));
+    REQUIRE(run_until(f.loop, [&] { return !insights.loading(); }));
+    CHECK(f.press(key(XKB_KEY_Delete)));
+    REQUIRE(f.settle());
+    REQUIRE_FALSE(fs::exists(f.photos / "P1.ORF"));
+    REQUIRE_FALSE(fs::exists(f.photos / "P1.ORF.xmp"));
+    REQUIRE(listing(f.sources.home / "files").size() == 2);
+    draw();
+    f.browser->empty_trash();
+    REQUIRE(f.browser->confirm_dialog().is_open());
+    CHECK(f.press(key(XKB_KEY_Return)));
+    REQUIRE(f.settle());
+    CHECK(listing(f.sources.home / "files").empty());
+    CHECK(listing(f.sources.home / "info").empty());
+    CHECK(f.browser->status_bar().message().starts_with("Emptied the trash:"));
+    draw();
+    insights.refresh();
+    REQUIRE(run_until(f.loop, [&] { return !insights.loading(); }));
+    draw();
+    CHECK(insights.is_open());
+    CHECK(insights.rows().size() == 2);
+    CHECK(fs::exists(f.photos / "P2.ORF"));
+    CHECK(fs::exists(f.photos / "a.txt"));
 }
 
 TEST_CASE("erase: every key listed for the card works on it") {

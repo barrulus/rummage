@@ -1,0 +1,287 @@
+{
+  "captured": "2026-11-24",
+  "format": "Lossless WebP, original dimensions and pixels; source PNG files retained in the supplied Screenshots directory.",
+  "images": {
+    "light-columns": {
+      "file": "rummage-light-columns.webp",
+      "source": "screenshot_20261124_191932-annotated.png",
+      "source_sha256": "fbc160586d01ba67cd893573672a0b309b9aed8911d85a37909510e62bae733d",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Column view in the light appearance, showing nested archive folders and a selected text file"
+    },
+    "dark-columns": {
+      "file": "rummage-dark-columns.webp",
+      "source": "screenshot_20261124_191954-annotated.png",
+      "source_sha256": "ce2758b44d0ddc9f512ff8e5fb81cd5eef66ab2bc6d5b9e63872ac4817bd5657",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Column view in the dark appearance, showing nested archive folders and a selected text file"
+    },
+    "dark-grid": {
+      "file": "rummage-dark-grid.webp",
+      "source": "screenshot_20261124_192053-annotated.png",
+      "source_sha256": "214e68a49260f21d5a6d1c7b571307b1d96354843883c35f519f51e55d887636",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "SVG poster thumbnails with Tideline selected and its preview and metadata in the dark appearance"
+    },
+    "light-grid": {
+      "file": "rummage-light-grid.webp",
+      "source": "screenshot_20261124_192111-annotated.png",
+      "source_sha256": "9697e83dc034983d894731f5a04ef938ab5fe3b723dcfc7c0ed2a1fc9c5342ab",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "SVG poster thumbnails with Tideline selected and its preview and metadata in the light appearance"
+    },
+    "light-details": {
+      "file": "rummage-light-details.webp",
+      "source": "screenshot_20261124_192213-annotated.png",
+      "source_sha256": "e113e6d6a3b7f94e8a1ee3f464adfadb92fbdea8db125bb4a5feb687f1523e6b",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Details view with its column visibility menu open in the light appearance"
+    },
+    "dark-details": {
+      "file": "rummage-dark-details.webp",
+      "source": "screenshot_20261124_192233-annotated.png",
+      "source_sha256": "83753f9f1b0ccb531ca90ee4555e5c0cb67bce70cbd7be8c2bd8b23cb310f00d",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Details view with its column visibility menu open in the dark appearance"
+    },
+    "dark-video-grid": {
+      "file": "rummage-dark-video-grid.webp",
+      "source": "screenshot_20261124_192534-annotated.png",
+      "source_sha256": "c7d9e70fc8a82c6f57644b34db98ed5746f85b6c38c0e2127bc283e85d7dc734",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Video thumbnails with filmstrip borders and the selected recording\u2019s still preview and metadata in the dark appearance"
+    },
+    "light-video-grid": {
+      "file": "rummage-light-video-grid.webp",
+      "source": "screenshot_20261124_192555-annotated.png",
+      "source_sha256": "2db8783bfad2a88a5a1ba17de25d8fd8fc24775ed3dcb92eaec67e3e1c591f72",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Video thumbnails with filmstrip borders and the selected recording\u2019s still preview and metadata in the light appearance"
+    },
+    "light-quicklook": {
+      "file": "rummage-light-quicklook.webp",
+      "source": "screenshot_20261124_192703-annotated.png",
+      "source_sha256": "a91d900dce74fc6b9f04ded3abef2ef713cb2b20d9ecbdd6e956aacaa7b01af2",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Quick Look displaying a colourful character illustration over the dimmed light file browser"
+    },
+    "dark-quicklook": {
+      "file": "rummage-dark-quicklook.webp",
+      "source": "screenshot_20261124_192720-annotated.png",
+      "source_sha256": "934ab608e146eeb04e3e02586ca378b912166ea2c21a328eaebef4306b3f5d34",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Quick Look displaying a colourful character illustration over the dimmed dark file browser"
+    },
+    "dark-shortcuts": {
+      "file": "rummage-dark-shortcuts.webp",
+      "source": "screenshot_20261124_192845-annotated.png",
+      "source_sha256": "d4a939cc8b8d24e9848702bdf81c6ebca274aa675df5f72c323724c96ae0943a",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Keyboard shortcuts overlay in the dark appearance"
+    },
+    "light-shortcuts": {
+      "file": "rummage-light-shortcuts.webp",
+      "source": "screenshot_20261124_192902-annotated.png",
+      "source_sha256": "9712e34ceb3e52814b8e86a6ee0ef9cf617c233c29862115fe3bf958e76b63c7",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Keyboard shortcuts overlay in the light appearance"
+    },
+    "light-sidebar": {
+      "file": "rummage-light-sidebar.webp",
+      "source": "screenshot_20261124_193047-annotated.png",
+      "source_sha256": "4eff58177ba5e37f5f6e38a0c71c7b3e6d864c3216ae295d7adbda302b7e492c",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Places, bookmarks and the mounted CASPER_NIXOS device in the light appearance"
+    },
+    "dark-sidebar": {
+      "file": "rummage-dark-sidebar.webp",
+      "source": "screenshot_20261124_193059-annotated.png",
+      "source_sha256": "5a5803fdd3ea69c83918209bda7af8de650ce8eceaea7b894c5e4f7eafa027b1",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Places, bookmarks and the mounted CASPER_NIXOS device in the dark appearance"
+    },
+    "dark-transfer": {
+      "file": "rummage-dark-transfer.webp",
+      "source": "screenshot_20261124_193151-region.png",
+      "source_sha256": "777c3c7207c491e4798b34cd09cd181e8c114f570a2208efd401c1abacddf3a5",
+      "theme": "dark",
+      "width": 1265,
+      "height": 1037,
+      "alt": "A copy operation in progress in the status bar beneath the dark file browser"
+    },
+    "light-transfer": {
+      "file": "rummage-light-transfer.webp",
+      "source": "screenshot_20261124_193242-annotated.png",
+      "source_sha256": "276884fc227c24c026d30833c0f5893c5881094c1c4fb971f80b0ecc5d7e320f",
+      "theme": "light",
+      "width": 1265,
+      "height": 1037,
+      "alt": "A copy operation in progress in the status bar beneath the light file browser"
+    },
+    "insights-types-count": {
+      "file": "rummage-insights-types-count.webp",
+      "source": "screenshot_20261124_193501-annotated.png",
+      "source_sha256": "41e654c294dcc70ee82a60eb7d0fb966aabf1b1d682062cf84f16d6afab4cd27",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Folder Insights listing file extensions ordered by file count in a custom dark palette"
+    },
+    "insights-types-size": {
+      "file": "rummage-insights-types-size.webp",
+      "source": "screenshot_20261124_193514-annotated.png",
+      "source_sha256": "57fd9fd23fc3e245f61a4d2d11f89a4df65590a09e10c6249b56f1e54573e891",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Folder Insights listing file extensions ordered by file size in a custom dark palette"
+    },
+    "insights-space-map": {
+      "file": "rummage-insights-space-map.webp",
+      "source": "screenshot_20261124_193553-annotated.png",
+      "source_sha256": "d94bd9e6a407b88316ce21d1783d0bb4a30837dce704e7390b0a83961eccfff3",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Folder Insights space map showing relative file sizes beside a file and folder list in a custom dark palette"
+    },
+    "insights-scope": {
+      "file": "rummage-insights-scope.webp",
+      "source": "screenshot_20261124_193855-annotated.png",
+      "source_sha256": "a0ac177734cf52cfcede7b59ae170ff1b119f64959949d38663af9f0a4b5eda6",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Folder Insights menu showing view, file size, count, subfolder and hidden-file options"
+    },
+    "settings-general": {
+      "file": "rummage-settings-general.webp",
+      "source": "screenshot_20261124_194007-annotated.png",
+      "source_sha256": "3735f0052026fd281dc5a2e4b8e20459fc58bddb2d154fafa979beefd632bf94",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Settings General section showing startup and file-opening preferences"
+    },
+    "settings-keybindings": {
+      "file": "rummage-settings-keybindings.webp",
+      "source": "screenshot_20261124_194607-annotated.png",
+      "source_sha256": "b8f6ddde06f66765be6b8aa1bfec42342d1658a21caf7c990d8a20def64cecb4",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Settings Keyboard shortcuts section showing configurable commands and their bindings"
+    },
+    "effects-preview": {
+      "file": "rummage-effects-preview.webp",
+      "source": "screenshot_20261124_194629-annotated.png",
+      "source_sha256": "62bc5404cc79075c42432620379b5f36686d50610c18b89b7b5899d9d96e3866",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "Settings Effects section with a selected directory-open effect, Replay control and effect parameters"
+    },
+    "file-picker": {
+      "file": "rummage-file-picker.webp",
+      "source": "screenshot_20261124_194759-annotated.png",
+      "source_sha256": "b641b30b89848005f08df9d82ad1ab93fa521b106ac58b10ed65ca6d95162d37",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1037,
+      "alt": "File picker showing the mounted CASPER_NIXOS device with Navigate in terminal, Cancel and Select controls"
+    },
+    "desktop-hyprland": {
+      "file": "rummage-desktop-hyprland.webp",
+      "source": "screenshot_20261124_195331-annotated.png",
+      "source_sha256": "588644649f3e070f0fea1f7d948521207315c7f3e29312e20058894de680dcc0",
+      "theme": "custom",
+      "desktop": "Hyprland",
+      "width": 1904,
+      "height": 996,
+      "alt": "Details view on Hyprland, showing a mounted folder with a translucent background"
+    },
+    "desktop-niri": {
+      "file": "rummage-desktop-niri.webp",
+      "source": "screenshot_20261124_200418-annotated.png",
+      "source_sha256": "d095b79479e55ebb5c6abcfc76bd807e66c0116ec97f3ac377240bd2e519078b",
+      "theme": "custom",
+      "desktop": "niri",
+      "width": 1904,
+      "height": 1003,
+      "alt": "Column view on niri, with a selected JSON file and a translucent custom palette"
+    },
+    "desktop-umbriel": {
+      "file": "rummage-desktop-umbriel.webp",
+      "source": "screenshot_20261124_200612-annotated.png",
+      "source_sha256": "fede40374e6564d61032d1a02c54437156fa211e6a6e016126d8e2f90cf1986c",
+      "theme": "custom",
+      "desktop": "Umbriel",
+      "width": 1904,
+      "height": 1003,
+      "alt": "Rummage on Umbriel, showing an archive selected in column view over an owl wallpaper"
+    },
+    "desktop-gnome": {
+      "file": "rummage-desktop-gnome.webp",
+      "source": "screenshot_20261124_201441-annotated.png",
+      "source_sha256": "c09c7259e61979bb10a0ef170fd8cfbf2cea396942c01ab353a7801835dbaa3d",
+      "theme": "custom",
+      "desktop": "GNOME",
+      "width": 1904,
+      "height": 1003,
+      "alt": "Grid view on GNOME, with blue folder icons and a translucent dark background"
+    },
+    "desktop-kde": {
+      "file": "rummage-desktop-kde.webp",
+      "source": "screenshot_20261124_201611-annotated.png",
+      "source_sha256": "02a4401a729fc1998470115912563f618a941b173bd3a19e74dbe33bb8ed0cc8",
+      "theme": "custom",
+      "desktop": "KDE Plasma",
+      "width": 1904,
+      "height": 1003,
+      "alt": "Details view on KDE Plasma, with an expanded folder, image preview and the desktop panel"
+    },
+    "insights-iris": {
+      "file": "rummage-insights-iris.webp",
+      "source": "screenshot_20261124_203851-annotated.png",
+      "source_sha256": "aaac82f079dc11b637811578d43d16596acd83b1d49ac61064f91c7f286698e2",
+      "theme": "custom",
+      "width": 1268,
+      "height": 1029,
+      "alt": "Folder Insights Iris view in a custom dark palette, showing nested folder rings, a file-size list and an explicitly partial scan"
+    }
+  },
+  "unused_sources": [
+    "screenshot_20261124_191453-annotated.png",
+    "screenshot_20261124_191552-annotated.png",
+    "screenshot_20261124_191702-annotated.png",
+    "screenshot_20261124_191822-annotated.png"
+  ]
+}

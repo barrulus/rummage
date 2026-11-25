@@ -8,6 +8,8 @@ a shortcut's meaning follows the focused control.
 
 ## Views, navigation and search
 
+![The current keyboard shortcut overlay in the dark appearance](images/rummage-dark-shortcuts.webp)
+
 | Keys | Action | Configurable ID |
 | --- | --- | --- |
 | Ctrl+, | Settings | `show_settings` |
@@ -126,6 +128,8 @@ Copy Name copies plain text, with multiple names separated by newlines. Its
 | File picker | Ctrl+Enter accepts; Tab/Shift+Tab cycles controls; Escape closes transient UI before cancelling |
 
 ## Override bindings
+
+![Settings Keyboard shortcuts showing configurable commands and their bindings in a custom palette](images/rummage-settings-keybindings.webp)
 
 Use **Settings → Keyboard shortcuts** to edit the **Thumbnails** and **File extensions**
 commands (both unbound by default), or add to one `[keybindings]` table in `config.toml`:

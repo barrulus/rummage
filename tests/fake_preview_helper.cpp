@@ -71,14 +71,28 @@ int main(int argc, char** argv) {
             continue;
         }
         // big-lie: 4 bytes of pixels for a 1000x1000 picture.
-        const int memfd = ::memfd_create("lie", MFD_CLOEXEC | MFD_ALLOW_SEALING);
-        if (memfd < 0 || ::ftruncate(memfd, 4) != 0) {
-            return 1;
-        }
-        ::fcntl(memfd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW);
         protocol::Response response;
         response.width = 1000;
         response.height = 1000;
+        off_t bytes = 4;
+        if (mode == "pixel-overflow") {
+            // width * height = 2^62 + 1: multiplying by four wraps to four bytes.
+            response.width = 2147418113U;
+            response.height = 2147549185U;
+        } else if (mode == "wide" || mode == "tall" || mode == "fits") {
+            response.width = mode == "wide" ? 129 : 64;
+            response.height = mode == "tall" ? 129 : 32;
+            bytes = static_cast<off_t>(response.width) * response.height * 4;
+        } else if (mode == "zero-width" || mode == "zero-height") {
+            response.width = mode == "zero-width" ? 0 : 1;
+            response.height = mode == "zero-height" ? 0 : 1;
+            bytes = 0;
+        }
+        const int memfd = ::memfd_create("lie", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+        if (memfd < 0 || ::ftruncate(memfd, bytes) != 0) {
+            return 1;
+        }
+        ::fcntl(memfd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW);
         const std::array<int, 1> fds{memfd};
         static_cast<void>(protocol::send_packet(protocol::kSocketFd,
                                                 std::as_bytes(std::span{&response, 1}), fds));

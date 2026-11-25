@@ -124,7 +124,9 @@ FolderIconSetting read_folder_icon_setting(const std::filesystem::path& folder) 
 
 std::string save_folder_icon(const std::filesystem::path& folder, std::string_view icon) {
     if (icon.find('\0') != std::string_view::npos || icon.size() > 4096)
-        return "Invalid icon name or path";
+        return "Invalid icon name";
+    if (icon == "." || icon == ".." || icon.find('/') != std::string_view::npos)
+        return "Choose an icon theme name; image paths are not supported";
     // Anchor the write to this open directory. A concurrent rename cannot redirect it or
     // cause write_file_atomically to recreate a folder that was deleted meanwhile.
     const int fd = ::open(folder.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);

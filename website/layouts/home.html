@@ -1,0 +1,70 @@
+{{ define "main" }}
+<main id="main">
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <p class="eyebrow">A native file manager for Wayland</p>
+      <h1>A clearer view<br>of <em>your files.</em></h1>
+      <p class="lede">Room to browse. Space to focus. Meet rummage: a file manager that fits the way you work.</p>
+      <div class="actions"><a class="button primary" href="{{ "downloads/" | relURL }}">Get rummage</a><a class="button secondary" href="{{ "docs/usage/" | relURL }}">Take a look around</a></div>
+      <p class="hero-note">Linux & Wayland <span>·</span> Free & open source</p>
+    </div>
+    <figure class="hero-media">
+      <div class="window-label"><span>rummage</span><span>ROOM TO BROWSE</span></div>
+      {{ with .Site.Params.demoVideo }}
+        <video controls playsinline preload="metadata" poster="{{ $.Site.Params.demoPoster | relURL }}" aria-label="rummage screen recording"><source src="{{ . | relURL }}" type="video/mp4"><a href="{{ . | relURL }}">Download the screen recording</a></video>
+      {{ else }}
+        {{ partial "screenshot.html" (dict "name" "dark-grid" "eager" true) }}
+      {{ end }}
+      <figcaption>{{ .Site.Params.demoCaption }}</figcaption>
+    </figure>
+  </section>
+  <div class="feature-strip wrap"><span>Columns, grid & details</span><span>Dual panes & tabs</span><span>Quick Look previews</span><span><a href="#insights">Folder Insights</a></span></div>
+  <section class="quicklook insights-showcase wrap" id="insights" aria-labelledby="insights-heading">
+    <div><p class="eyebrow">Folder Insights</p><h2 id="insights-heading">Know what's here.<br>See what takes space.</h2><p>Compare file types by count or size. Explore nested folders in the Iris rings, or use the Space map to see how their contents add up.</p><p>Select an Iris segment to explore deeper; the centre takes you back up. A file-size list keeps the numbers alongside the picture.</p><p>Open Folder Insights with <kbd>Ctrl Alt I</kbd>.</p><a class="text-link" href="{{ "docs/insights/" | relURL }}">Explore Folder Insights</a></div>
+    <figure>{{ partial "screenshot.html" (dict "name" "insights-iris") }}<figcaption>Iris: outer rings reveal deeper folders. This capture shows a partial scan; only measured files have area.</figcaption></figure>
+  </section>
+  <section class="explore-section wrap" id="explore">
+    <div class="section-heading"><div><p class="eyebrow">A view for every task</p><h2>See the bigger picture.<br>Or every little detail.</h2></div><p>Follow a folder through columns, browse images in a grid, or get down to the details. Your files, your point of view.</p></div>
+    <div class="gallery-controls" hidden>
+      <div class="view-switcher" role="group" aria-label="Screenshot views"><button type="button" data-view="columns" aria-pressed="true" aria-controls="view-columns-dark view-columns-light">Columns <kbd>Ctrl 1</kbd></button><button type="button" data-view="grid" aria-pressed="false" aria-controls="view-grid-dark view-grid-light">Grid <kbd>Ctrl 2</kbd></button><button type="button" data-view="details" aria-pressed="false" aria-controls="view-details-dark view-details-light">Details <kbd>Ctrl 3</kbd></button></div>
+      <div class="view-switcher appearance-switcher" role="group" aria-label="Screenshot appearance"><button type="button" data-appearance="dark" aria-pressed="true">Dark</button><button type="button" data-appearance="light" aria-pressed="false">Light</button></div>
+    </div>
+    <div class="view-gallery">
+      {{ range slice "columns" "grid" "details" }}
+        {{ $view := . }}
+        {{ $caption := index (dict "columns" "Follow the path. Keep parent folders in sight as you browse." "grid" "Find it by sight. Preview your artwork and inspect its details." "details" "Choose the columns that matter. Keep file information in view.") $view }}
+        {{ range slice "dark" "light" }}
+          <figure id="view-{{ $view }}-{{ . }}" data-panel="{{ $view }}" data-theme="{{ . }}">{{ partial "screenshot.html" (dict "name" (printf "%s-%s" . $view)) }}<figcaption>{{ $caption }} <span>{{ . | title }} appearance.</span></figcaption></figure>
+        {{ end }}
+      {{ end }}
+    </div>
+  </section>
+  <section class="quicklook wrap">
+    <div><p class="eyebrow">Stay in the flow</p><h2>A closer look.<br>One key away.</h2><p>Select a file and press <kbd>Space</kbd>. Quick Look brings images and text into focus without sending you to another app.</p><p>Optional helpers add video stills and PDF previews.</p><a class="text-link" href="{{ "docs/previews/" | relURL }}">Explore previews & supported formats</a></div>
+    <figure>{{ partial "screenshot.html" (dict "name" "dark-quicklook") }}<figcaption>A closer look at your artwork, without leaving the folder.</figcaption></figure>
+  </section>
+  <section class="workflow wrap">
+    <div><span class="feature-symbol" aria-hidden="true">⌘</span><h3>Less reaching. More doing.</h3><p>Jump to commands with <kbd>Ctrl K</kbd>, search with <kbd>Ctrl F</kbd>, and make shortcuts your own.</p><a href="{{ "docs/shortcuts/" | relURL }}">Meet the shortcuts</a></div>
+    <div><span class="feature-symbol" aria-hidden="true">◫</span><h3>A place for both sides.</h3><p>Independent panes and tabs keep your source and destination close. Copy, move, rename, and undo.</p><a href="{{ "docs/file-operations/" | relURL }}">Work with your files</a></div>
+    <div><span class="feature-symbol" aria-hidden="true">◐</span><h3>Part of your desktop.</h3><p>System colours, icon themes, and an optional Open/Save file picker. Settle in and make it yours.</p><a href="{{ "docs/appearance/" | relURL }}">Make yourself at home</a></div>
+  </section>
+  <section class="explore-section wrap" id="desktops" aria-labelledby="desktops-heading">
+    <div class="section-heading"><div><p class="eyebrow">On your desktop</p><h2 id="desktops-heading">Make room for<br>your own style.</h2></div><p>See rummage on niri, Hyprland, Umbriel, GNOME, and KDE Plasma. These captures show customised palettes, icon themes, and transparency.</p></div>
+    {{ $desktops := slice "niri" "hyprland" "umbriel" "gnome" "kde" }}
+    <div class="view-switcher desktop-switcher" role="group" aria-label="Desktop screenshots" hidden>
+      {{ range $desktops }}
+        {{ $shot := index hugo.Data.screenshots.images (printf "desktop-%s" .) }}
+        <button type="button" data-desktop="{{ . }}" aria-pressed="{{ eq . "niri" }}" aria-controls="desktop-{{ . }}">{{ $shot.desktop }}</button>
+      {{ end }}
+    </div>
+    <div class="view-gallery">
+      {{ range $desktops }}
+        {{ $shot := index hugo.Data.screenshots.images (printf "desktop-%s" .) }}
+        <figure id="desktop-{{ . }}" data-desktop-panel="{{ . }}">{{ partial "screenshot.html" (dict "name" (printf "desktop-%s" .)) }}<figcaption>{{ $shot.desktop }} <span>·</span> {{ $shot.alt }}.</figcaption></figure>
+      {{ end }}
+    </div>
+    <a class="text-link" href="{{ "docs/appearance/#desktop-examples" | relURL }}">Explore desktop appearance</a>
+  </section>
+  <section class="closing wrap"><img src="{{ "rummage.svg" | relURL }}" width="72" height="72" alt=""><h2>Good things are worth<br>a little rummage.</h2><p>Find a build for your Linux desktop.</p><a class="button primary" href="{{ "downloads/" | relURL }}">Download rummage</a><p class="fine-print">Currently available as development snapshots.</p></section>
+</main>
+{{ end }}

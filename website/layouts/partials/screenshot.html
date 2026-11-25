@@ -1,0 +1,4 @@
+{{- $shot := index hugo.Data.screenshots.images .name -}}
+{{- if not $shot -}}{{ errorf "Unknown screenshot: %s" .name }}{{- end -}}
+{{- $url := printf "images/%s" $shot.file | relURL -}}
+<a class="screenshot-link" href="{{ $url }}" aria-label="Open full-size screenshot: {{ $shot.alt }}"><img src="{{ $url }}" width="{{ $shot.width }}" height="{{ $shot.height }}" alt="{{ $shot.alt }}" {{ if .eager }}fetchpriority="high"{{ else }}loading="lazy"{{ end }}></a>
