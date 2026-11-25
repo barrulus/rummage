@@ -5,6 +5,7 @@
   desktop-file-utils,
   weston,
   dbus,
+  python3,
   mesa,
   makeFontsConf,
   dejavu_fonts,
@@ -16,6 +17,7 @@ runCommand "rummage-installed-smoke"
       bash
       desktop-file-utils
       weston
+      python3
       (writeShellScriptBin "dbus-run-session" ''
         exec ${dbus}/bin/dbus-run-session --dbus-daemon=${dbus}/bin/dbus-daemon --config-file=${dbus}/share/dbus-1/session.conf "$@"
       '')
@@ -25,7 +27,7 @@ runCommand "rummage-installed-smoke"
     LIBGL_DRIVERS_PATH = "${mesa}/lib/dri";
   }
   ''
-    bash ${../scripts/ci/check-installed.sh} ${package} ${package.version}
-    bash ${../scripts/ci/check-wayland.sh} ${package}
+    bash ${../scripts/ci}/check-installed.sh ${package} ${package.version}
+    bash ${../scripts/ci}/check-wayland.sh ${package}
     touch "$out"
   ''

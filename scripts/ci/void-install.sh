@@ -16,7 +16,7 @@ for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview; do
 done
 xbps-install -y desktop-file-utils
 bash /source/scripts/ci/check-installed.sh /usr "$1"
-xbps-install -y weston mesa-dri dbus dejavu-fonts-ttf
+xbps-install -y weston mesa-dri dbus dejavu-fonts-ttf python3
 bash /source/scripts/ci/check-wayland.sh /usr
 
 # Install the optional sibling after checking the base package independently.
@@ -32,5 +32,4 @@ if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 grep -F '/usr/libexec/rummage/libpdfium.so' <<< "$libraries"
 test -s /usr/share/rummage/engines/pdf.toml
 test -s /usr/share/licenses/rummage-pdf/pdfium-LICENSE
-xbps-install -y python3
 python3 /source/scripts/ci/check-pdf.py /usr/libexec/rummage/rummage-pdf /source/tests/data/pdf
