@@ -71,17 +71,12 @@ void Display::attach(core::EventLoop& loop) {
     loop.add_fd(
         fd(), POLLIN,
         [wl, lost](short revents) {
-            if ((revents & POLLIN) != 0) {
-                wl_display_read_events(wl);
-            } else {
-                wl_display_cancel_read(wl);
-            }
             if (wl_display_dispatch_pending(wl) < 0 || (revents & (POLLERR | POLLHUP)) != 0) {
                 lost();
             }
         },
         {.before_poll =
-             [wl, lost] {
+             [this, wl, lost] {
                  // Dispatch what is already queued until the read can be prepared, then flush.
                  while (wl_display_prepare_read(wl) != 0) {
                      if (wl_display_dispatch_pending(wl) < 0) {
@@ -89,7 +84,20 @@ void Display::attach(core::EventLoop& loop) {
                          return;
                      }
                  }
+                 read_prepared_ = true;
                  wl_display_flush(wl);
+             },
+         .after_poll =
+             [this, wl, lost](short revents) {
+                 if (!read_prepared_)
+                     return;
+                 read_prepared_ = false;
+                 if ((revents & POLLIN) != 0) {
+                     if (wl_display_read_events(wl) < 0)
+                         lost();
+                 } else {
+                     wl_display_cancel_read(wl);
+                 }
              },
          .notify_always = true});
 }

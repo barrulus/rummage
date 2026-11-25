@@ -26,11 +26,15 @@ class CompletionsTest(unittest.TestCase):
             self.skipTest("bash unavailable")
         result = subprocess.run(
             ["bash", "--noprofile", "--norc", "-c",
-             'source "$1"; shift; COMP_WORDS=("$@"); '
+             'type compgen complete >/dev/null 2>&1 || { '
+             'echo "Completion tests need Bash with programmable completion (nixpkgs#bashInteractive)." >&2; '
+             'exit 1; }; '
+             'source "$1" || exit; shift; COMP_WORDS=("$@"); '
              'COMP_CWORD=$((${#COMP_WORDS[@]} - 1)); _rummage; '
              'if ((${#COMPREPLY[@]})); then printf "%s\\n" "${COMPREPLY[@]}"; fi',
              "completion-test", str(COMPLETIONS / "rummage.bash"), "rummage", *words],
-            cwd=directory, check=True, text=True, capture_output=True)
+            cwd=directory, check=False, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
         return set(result.stdout.splitlines())
 
     def test_context_paths_and_option_values(self):

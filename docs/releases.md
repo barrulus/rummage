@@ -9,6 +9,9 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Fixed a Wayland deadlock that could freeze the window when opening Settings or
+redrawing after background work completes.
+
 Open independent browser windows with Ctrl+N in a shared process. Subsequent
 launches reuse the last active browser's tabs by default, with `--new-window` as
 an explicit alternative. Properties and Settings have independent, nonmodal windows;

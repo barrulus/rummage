@@ -44,7 +44,9 @@ With no targets, the runner selects `all`. Nix supplies the lint tools from the
 locked nixpkgs input. Native targets require Nix to assemble pinned renderer sources, a working Docker daemon and the host
 tools listed below. Build targets reject dirty or untracked files, because a Nix
 flake can omit untracked source and the native builders export `git archive HEAD`.
-Lint alone accepts unfinished edits and labels its report accordingly.
+Lint alone accepts unfinished edits and labels its report accordingly. Its Nix shell
+includes `bashInteractive` because the completion tests need the `compgen` and
+`complete` builtins, which minimal Bash builds can omit.
 
 Every invocation creates a new `/tmp/rummage-preflight-*` directory with per-target
 logs and `summary.json`, recording the commit, requested targets and results.

@@ -209,3 +209,95 @@ TEST_CASE("sources added from a callback work, before_poll and notify_always are
     CHECK(before >= 2);
     CHECK(notified_idle == before);
 }
+
+TEST_CASE("prepared display reads finish before worker completions can redraw") {
+    EventLoop loop;
+    add_watchdog(loop);
+    const Pipe display;
+    bool prepared = false;
+    bool completed = false;
+    loop.add_fd(display.fds[0], POLLIN,
+                [&](short revents) {
+                    CHECK(revents == 0);
+                    CHECK_FALSE(prepared);
+                },
+                {.before_poll = [&] { prepared = true; },
+                 .after_poll =
+                     [&](short revents) {
+                         CHECK(revents == 0);
+                         CHECK(prepared);
+                         prepared = false;
+                     },
+                 .notify_always = true});
+    // The eventfd for post() was registered before the display. A worker completion may
+    // draw immediately, and EGL may then read from its own queue on the same display.
+    loop.post([&] {
+        CHECK_FALSE(prepared);
+        completed = true;
+        loop.quit();
+    });
+    CHECK(loop.run() == 0);
+    CHECK(completed);
+    CHECK_FALSE(prepared);
+}
+
+TEST_CASE("poll completion hooks finish all reads before ready fd callbacks") {
+    EventLoop loop;
+    add_watchdog(loop);
+    const Pipe first;
+    const Pipe second;
+    bool first_prepared = false;
+    bool second_prepared = false;
+    int dispatched = 0;
+    const auto dispatch = [&](short revents) {
+        CHECK((revents & POLLIN) != 0);
+        CHECK_FALSE(first_prepared);
+        CHECK_FALSE(second_prepared);
+        if (++dispatched == 2)
+            loop.quit();
+    };
+    loop.add_fd(first.fds[0], POLLIN, dispatch,
+                {.before_poll = [&] { first_prepared = true; },
+                 .after_poll =
+                     [&](short revents) {
+                         CHECK((revents & POLLIN) != 0);
+                         first.read_byte();
+                         first_prepared = false;
+                     }});
+    loop.add_fd(second.fds[0], POLLIN, dispatch,
+                {.before_poll = [&] { second_prepared = true; },
+                 .after_poll =
+                     [&](short revents) {
+                         CHECK((revents & POLLIN) != 0);
+                         second.read_byte();
+                         second_prepared = false;
+                     }});
+    first.write_byte();
+    second.write_byte();
+    CHECK(loop.run() == 0);
+    CHECK(dispatched == 2);
+}
+
+TEST_CASE("quitting during poll preparation releases prepared reads") {
+    EventLoop loop;
+    const Pipe display;
+    bool prepared = false;
+    loop.add_fd(display.fds[0], POLLIN,
+                [](short) { FAIL_CHECK("must not dispatch after preparation quits"); },
+                {.before_poll =
+                     [&] {
+                         prepared = true;
+                         // Reallocating sources while a preparation callback runs is safe.
+                         for (int i = 0; i < 100; ++i)
+                             loop.add_timer(1s, 0ms, [] {});
+                         loop.quit(3);
+                     },
+                 .after_poll =
+                     [&](short revents) {
+                         CHECK(revents == 0);
+                         CHECK(prepared);
+                         prepared = false;
+                     }});
+    CHECK(loop.run() == 3);
+    CHECK_FALSE(prepared);
+}
