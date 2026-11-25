@@ -718,7 +718,9 @@ public:
 
     void settle_search_preview();
     void open_pattern();
-    void create_links();
+    void create_links(fs::LinkKind kind = fs::LinkKind::absolute);
+    void paste_links(fs::LinkKind kind);
+    void reveal_link_target();
     void move_into_new_folder();
     void group_paths(const std::filesystem::path& destination,
                      std::vector<std::filesystem::path> paths);
@@ -868,6 +870,9 @@ private:
     void transfer_paths(const std::filesystem::path& destination,
                         const std::vector<std::filesystem::path>& paths, bool move,
                         std::optional<std::uint64_t> empty_clipboard);
+    void link_paths(const std::filesystem::path& destination,
+                    const std::vector<std::filesystem::path>& paths, fs::LinkKind kind);
+    std::vector<MenuItem> link_menu(bool paste);
     void scroll_near_edge();
     // The rubber band: where it runs in the view shown, the selection it makes, the list
     // scrolled under it (on a timer, while the pointer is beyond an edge), the band drawn.
@@ -963,7 +968,7 @@ private:
     // The sidebar's menu on a place: the trash's has "Empty Trash".
     std::vector<MenuItem> place_navigation_items(const fs::Place& place);
     void drop_actions(const std::filesystem::path& folder, std::vector<std::filesystem::path> paths,
-                      bool own);
+                      bool own, bool move_allowed = false);
     void place_menu(const fs::Place& place, float x, float y, bool keyboard = false);
     // The sidebar's places, the trash's icon full or empty.
     void show_places();
@@ -1282,6 +1287,7 @@ private:
         float x{0.0F};
         float y{0.0F};
         ViewHit hit;
+        bool choose{false};
     };
 
     std::optional<Press> press_;
@@ -1314,6 +1320,7 @@ private:
         std::vector<std::string> names;
         std::string icon;          // the first entry's
         bool folders_only{false};  // every entry is a folder
+        bool choose{false};
     };
 
     std::optional<Drag> drag_;

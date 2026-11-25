@@ -259,6 +259,53 @@ TEST_CASE("keyboard browsing: wrapping is opt in and preserves selection modifie
     }
 }
 
+TEST_CASE("links: reveal resolves one target step and preserves chained links in every view") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        Fixture f;
+        fs::create_symlink(f.root / "b" / "z.txt", f.root / "absolute");
+        fs::create_symlink("b/z.txt", f.root / "relative");
+        fs::create_symlink("relative", f.root / "chain");
+        fs::create_symlink("missing", f.root / "dangling");
+        fs::create_directory_symlink(f.root / "a" / "x", f.root / "via");
+        fs::create_symlink("via/../y.txt", f.root / "parent-through-link");
+        for (const std::string name :
+             {"absolute", "relative", "chain", "dangling", "parent-through-link"}) {
+            f.browser.open(f.root);
+            f.browser.set_mode(mode);
+            REQUIRE(f.settle());
+            f.put_cursor(name);
+            f.browser.reveal_link_target();
+            REQUIRE(f.settle());
+            if (name == "chain") {
+                CHECK(f.where() == f.root);
+                CHECK(f.cursor() == "relative");
+            } else if (name == "dangling") {
+                CHECK(f.cursor() == "dangling");
+                CHECK(f.browser.status_bar().message().starts_with("Cannot reveal link target:"));
+            } else if (name == "parent-through-link") {
+                CHECK(f.where() == f.root / "a");
+                CHECK(f.cursor() == "y.txt");
+            } else {
+                CHECK(f.where() == f.root / "b");
+                CHECK(f.cursor() == "z.txt");
+            }
+        }
+    }
+}
+
+TEST_CASE("links: navigating away prevents a late target reveal from replacing the new folder") {
+    Fixture f;
+    fs::create_symlink("b/z.txt", f.root / "link");
+    f.browser.open(f.root);
+    f.browser.set_mode(Browser::Mode::details);
+    REQUIRE(f.settle());
+    f.put_cursor("link");
+    f.browser.reveal_link_target();
+    f.browser.open(f.root / "a");
+    REQUIRE(f.settle());
+    CHECK(f.where() == f.root / "a");
+}
+
 TEST_CASE("navigation: back and forward, the cursor where it was, in every view") {
     for (const Browser::Mode mode :
          {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {

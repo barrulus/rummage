@@ -104,6 +104,102 @@ TEST_CASE("links: one tree is one file system and a folder below / in common") {
     CHECK_FALSE(same_tree("home/a", "home/b", true));         // not real paths
 }
 
+TEST_CASE("links: explicit absolute and relative targets override automatic placement") {
+    Tree tree;
+    for (const auto kind : {rummage::fs::LinkKind::absolute, rummage::fs::LinkKind::relative}) {
+        const auto destination = tree.b / (kind == rummage::fs::LinkKind::absolute ? "abs" : "rel");
+        fs::create_directory(destination);
+        auto result = run_link({.kind = TransferKind::link,
+                                .source = tree.a,
+                                .names = {"notes.txt", "Days"},
+                                .destination = destination,
+                                .link_kind = kind},
+                               {}, {});
+        REQUIRE(result.errors.empty());
+        CHECK(result.placed.size() == 2);
+        CHECK(fs::read_symlink(destination / "notes.txt").is_absolute() ==
+              (kind == rummage::fs::LinkKind::absolute));
+        CHECK(fs::equivalent(destination / "notes.txt", tree.a / "notes.txt"));
+        CHECK(fs::read_symlink(destination / "Days").filename() == "Days");
+    }
+    auto result = run_link({.kind = TransferKind::link,
+                            .source = tree.a,
+                            .names = {"notes.txt"},
+                            .destination = tree.a,
+                            .link_kind = rummage::fs::LinkKind::relative},
+                           {}, {});
+    REQUIRE(result.errors.empty());
+    CHECK(fs::read_symlink(tree.a / "Link to notes.txt") == "notes.txt");
+    fs::rename(tree.a, tree.a.parent_path() / "moved");
+    CHECK(fs::exists(tree.a.parent_path() / "moved" / "Link to notes.txt"));
+}
+
+TEST_CASE("links: hard links share data and preserve conflicts without following symlinks") {
+    Tree tree;
+    using rummage::fs::LinkKind;
+    auto result = run_link({.kind = TransferKind::link,
+                            .source = tree.a,
+                            .names = {"notes.txt", "Trip", "Days"},
+                            .destination = tree.b,
+                            .link_kind = LinkKind::hard},
+                           {}, {});
+    CHECK(result.placed == Names{"notes.txt"});
+    CHECK(result.errors.size() == 2);
+    CHECK_FALSE(fs::is_symlink(tree.b / "notes.txt"));
+    CHECK(fs::equivalent(tree.b / "notes.txt", tree.a / "notes.txt"));
+    std::ofstream{tree.b / "notes.txt"} << "shared";
+    CHECK(read_file(tree.a / "notes.txt") == "shared");
+    result = run_link({.kind = TransferKind::link,
+                       .source = tree.a,
+                       .names = {"notes.txt"},
+                       .destination = tree.b,
+                       .link_kind = LinkKind::hard},
+                      {}, {});
+    CHECK(result.placed.empty());  // no resolver means Skip
+    Answer answer{.resolution = Resolution::keep_both, .asked = {}};
+    result = run_link({.kind = TransferKind::link,
+                       .source = tree.a,
+                       .names = {"notes.txt"},
+                       .destination = tree.b,
+                       .link_kind = LinkKind::hard},
+                      {}, answer.callbacks());
+    CHECK(result.placed == Names{"notes 2.txt"});
+    CHECK(fs::equivalent(tree.b / "notes 2.txt", tree.a / "notes.txt"));
+    answer.resolution = Resolution::replace;
+    result = run_link({.kind = TransferKind::link,
+                       .source = tree.a,
+                       .names = {"notes.txt"},
+                       .destination = tree.b,
+                       .link_kind = LinkKind::hard},
+                      {}, answer.callbacks());
+    CHECK(result.errors.empty());
+    CHECK(listing(tree.b) == Names{"notes 2.txt", "notes.txt"});
+    fs::remove(tree.a / "notes.txt");
+    CHECK(read_file(tree.b / "notes.txt") == "shared");
+}
+
+TEST_CASE("links: hard links report a cross-filesystem destination without creating files") {
+    Tree tree;
+    const char* shared = "/dev/shm";
+    struct stat source{}, other{};
+    REQUIRE(stat(tree.a.c_str(), &source) == 0);
+    if (stat(shared, &other) != 0 || source.st_dev == other.st_dev)
+        return;
+    const auto destination = fs::path{shared} / tree.dir.path.filename();
+    REQUIRE(fs::create_directory(destination));
+    const auto result = run_link({.kind = TransferKind::link,
+                                  .source = tree.a,
+                                  .names = {"notes.txt"},
+                                  .destination = destination,
+                                  .link_kind = rummage::fs::LinkKind::hard},
+                                 {}, {});
+    CHECK(result.placed.empty());
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors.front().find("cross filesystems") != std::string::npos);
+    CHECK(fs::is_empty(destination));
+    fs::remove(destination);
+}
+
 TEST_CASE("links: the target is relative from the real paths, else the item itself") {
     CHECK(link_contents("/home/rgl/a/P1.ORF", "/home/rgl/b") == "../a/P1.ORF");
     CHECK(link_contents("/home/rgl/a/P1.ORF", "/home/rgl/a/deep/er") == "../../P1.ORF");

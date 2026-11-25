@@ -1174,7 +1174,7 @@ TEST_CASE("drop: Alt external archive negotiates copy and offers extraction with
     CHECK(f.dnd.accepted_actions == rummage::ui::kDndCopy);
     REQUIRE(f.browser.context_menu().is_open());
     const auto& items = f.browser.context_menu().items();
-    CHECK(std::ranges::find(items, "drop_move", &rummage::views::MenuItem::id) == items.end());
+    CHECK(std::ranges::find(items, "drop_move", &rummage::views::MenuItem::id) != items.end());
     const auto found = std::ranges::find(items, "drop_extract", &rummage::views::MenuItem::id);
     REQUIRE(found != items.end());
     auto extract = found->action;
@@ -1201,6 +1201,66 @@ TEST_CASE("drop: late Alt never reads an external offer still negotiated as a mo
     f.drop_at(f.point_of(f.album, ""));
     CHECK_FALSE(read);
     CHECK_FALSE(f.browser.context_menu().is_open());
+}
+
+TEST_CASE(
+    "links: right-button drag offers keyboard Link and Cancel; right click still opens menu") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::grid, Browser::Mode::details}) {
+        Fixture f;
+        REQUIRE(f.gl);
+        f.show(f.photos, mode);
+        const auto at = f.point_of(f.photos, "P2.ORF");
+        const auto right = [&](PointerEvent::Kind kind) {
+            f.browser.pointer({.kind = kind,
+                               .x = at.first,
+                               .y = at.second,
+                               .button = PointerButton::right,
+                               .click_count = 1},
+                              Browser::Clock::now());
+        };
+        right(PointerEvent::Kind::press);
+        CHECK_FALSE(f.browser.context_menu().is_open());
+        right(PointerEvent::Kind::release);
+        CHECK(f.browser.context_menu().is_open());
+        f.browser.context_menu().close();
+        right(PointerEvent::Kind::press);
+        f.pointer(PointerEvent::Kind::motion, {at.first + 12, at.second + 4});
+        REQUIRE(f.browser.dragging());
+        f.drop_at(f.point_of(f.photos, ""));
+        auto& menu = f.browser.context_menu();
+        REQUIRE(menu.is_open());
+        const auto found =
+            std::ranges::find(menu.items(), "drop_link", &rummage::views::MenuItem::id);
+        REQUIRE(found != menu.items().end());
+        REQUIRE(found->enabled);  // Link works in the source folder; Copy/Move do not.
+        CHECK(f.browser.key(key(XKB_KEY_Return), Browser::Clock::now()));
+        REQUIRE(f.settle());
+        CHECK(fs::is_symlink(f.photos / "Link to P2.ORF"));
+        CHECK(fs::exists(f.photos / "P2.ORF"));
+        f.browser.undo();
+        REQUIRE(f.settle());
+        CHECK_FALSE(fs::exists(f.photos / "Link to P2.ORF"));
+    }
+}
+
+TEST_CASE("links: external copy-only drops offer Link and Cancel without Move") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::details);
+    f.dnd.types = {"text/uri-list"};
+    f.dnd.source_actions = rummage::ui::kDndCopy;
+    f.dnd.data = rummage::core::file_uri(f.photos / "P2.ORF") + "\r\n";
+    f.dnd.modifiers.alt = true;
+    f.drop_at(f.point_of(f.album, ""));
+    auto& menu = f.browser.context_menu();
+    REQUIRE(menu.is_open());
+    CHECK(std::ranges::find(menu.items(), "drop_move", &rummage::views::MenuItem::id) ==
+          menu.items().end());
+    CHECK(std::ranges::find(menu.items(), "drop_cancel", &rummage::views::MenuItem::id) !=
+          menu.items().end());
+    CHECK(f.browser.key(key(XKB_KEY_Escape), Browser::Clock::now()));
+    CHECK(fs::is_empty(f.album));
+    CHECK(fs::exists(f.photos / "P2.ORF"));
 }
 
 TEST_CASE("drop: content creates complete unique files with selection and undo") {

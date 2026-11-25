@@ -9,6 +9,11 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Create absolute or relative symbolic links and hard links, including pasting copied
+sources as links in another folder. **Go to Link Target** reveals one symbolic-link
+step. Right-button drags within a window and Alt-drops offer Copy, Move, Link and
+Cancel, with destination feedback and Undo/Redo.
+
 Typing a filename prefix selects the first visible match in Columns, Grid and
 Details, with Unicode case matching and a temporary status hint. Optional Vim
 H/J/K/L movement and boundary wrapping are available in Settings → General.

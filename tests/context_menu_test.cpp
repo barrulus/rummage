@@ -296,6 +296,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "create_relative_link",
+                                               "create_hard_link",
                                                "move_into_folder",
                                                "|",
                                                "action:copy_name",
@@ -329,6 +331,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "create_relative_link",
+                                               "create_hard_link",
                                                "move_into_folder",
                                                "|",
                                                "action:copy_name",
@@ -357,6 +361,8 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "-paste",
                                                "rename",
                                                "create_link",
+                                               "create_relative_link",
+                                               "create_hard_link",
                                                "move_into_folder",
                                                "|",
                                                "action:copy_name",
@@ -383,9 +389,9 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     f.select({});
     CHECK(f.press(key(XKB_KEY_Menu)));
     CHECK(ids(f.menu().items(), true) == Names{"new_folder", "new_file", "|", "paste",
-                                               "action:copy_location", "|", "open_terminal",
-                                               "add_bookmark", "|", "sort", "panes", "|",
-                                               "properties", "folder_insights"});
+                                               "paste_links", "action:copy_location", "|",
+                                               "open_terminal", "add_bookmark", "|", "sort",
+                                               "panes", "|", "properties", "folder_insights"});
     REQUIRE(f.settle());  // the templates looked for: none
     CHECK(ids(f.menu().items()[1].children) == Names{"empty_file"});
 }

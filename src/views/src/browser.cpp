@@ -2406,7 +2406,11 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         add("move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",
             [this] { move_into_new_folder(); });
     if (!folder->is_archive() && !picker_mode_)
-        add("create_link", std::string{i18n::mark("Create Link")}, "", [this] { create_links(); });
+        for (auto& item : link_menu(false))
+            items.push_back(std::move(item));
+    if (count == 1 && cursor && cursor->is_link && !folder->is_archive())
+        add("reveal_link_target", std::string{i18n::mark("Go to Link Target")}, "",
+            [this] { reveal_link_target(); });
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
@@ -2485,6 +2489,18 @@ std::vector<MenuItem> Browser::folder_menu() {
     paste_here.enabled = !clipboard_.names.empty() || (system_.types && !system_.types().empty());
     paste_here.action = [this] { paste(); };
     items.push_back(std::move(paste_here));
+
+    if (const auto folder = current_folder();
+        !picker_mode_ && folder && !folder->is_archive() && !folder->is_trash()) {
+        MenuItem links;
+        links.id = "paste_links";
+        links.label = i18n::tr("Paste as Links");
+        links.submenu = true;
+        links.children = link_menu(true);
+        links.enabled = !clipboard_.names.empty() || !clipboard_.paths.empty() ||
+                        (system_.types && !system_.types().empty());
+        items.push_back(std::move(links));
+    }
 
     if (const std::shared_ptr<Folder> shown = current_folder()) {
         MenuItem bookmark;
@@ -2647,12 +2663,13 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
             items.erase(path);
         }
         group({"new_folder", "new_file"});
-        group({"paste", "action:copy_location"});
+        group({"paste", "paste_links", "action:copy_location"});
         group({"open_terminal", "add_bookmark"});
         extensions();
     } else {
-        group({"open", "open_with", "open_tab", "open_terminal"});
-        group({"cut", "copy", "paste", "rename", "create_link", "move_into_folder"});
+        group({"open", "open_with", "open_tab", "open_terminal", "reveal_link_target"});
+        group({"cut", "copy", "paste", "rename", "create_link", "create_relative_link",
+               "create_hard_link", "move_into_folder"});
         group({"action:copy_name", "action:copy_location"});
         group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
         group({"add_bookmark", "running"});
@@ -4592,6 +4609,28 @@ void Browser::dispatch_area_pointer(const ui::PointerEvent& event, Clock::time_p
         }
         return;
     }
+    if (pointer_target_ == Target::view && !picker_mode_ && dnd_.start) {
+        if (event.kind == Kind::press && event.button == ui::PointerButton::right) {
+            if (auto hit = view_hit(event.x, event.y); hit && hit->on_item && hit->entry &&
+                                                       !hit->folder->is_trash() &&
+                                                       !hit->folder->is_archive()) {
+                // Keep right click available on release; crossing the drag threshold
+                // turns the same press serial into an operation-choice drag.
+                press_ = Press{.x = event.x, .y = event.y, .hit = std::move(*hit), .choose = true};
+                return;
+            }
+        } else if (event.kind == Kind::release && event.button == ui::PointerButton::right &&
+                   press_ && press_->choose) {
+            auto press = event;
+            press.kind = Kind::press;
+            press.x = press_->x;
+            press.y = press_->y;
+            press_.reset();
+            send_pointer(Target::view, press, now);
+            send_pointer(Target::view, event, now);
+            return;
+        }
+    }
     if (event.kind == Kind::motion && press_ && dnd_.start && button_held_ &&
         pointer_target_ == Target::view &&
         std::hypot(event.x - press_->x, event.y - press_->y) >= kDragThreshold) {
@@ -4871,7 +4910,8 @@ void Browser::start_drag(Press press) {
     drag_ = Drag{.directory = folder.path(),
                  .names = std::move(names),
                  .icon = std::string{fs::icon_name(folder.mime(), typed)},
-                 .folders_only = folders_only};
+                 .folders_only = folders_only,
+                 .choose = press.choose};
     // The view lets go of the press: the drag has the pointer now.
     send_pointer(Target::view, {.kind = ui::PointerEvent::Kind::leave}, Clock::now());
     button_held_ = false;
@@ -5015,7 +5055,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
     }
     AreaContext addressed{context_area_, area_at(event.x, event.y).value_or(active_area_)};
     using Kind = ui::DropEvent::Kind;
-    const bool choose = !picker_mode_ && dnd_.modifiers && dnd_.modifiers().alt;
+    const bool choose =
+        !picker_mode_ && ((drag_ && drag_->choose) || (dnd_.modifiers && dnd_.modifiers().alt));
     drop_x_ = event.x;
     drop_y_ = event.y;
     if (event.kind == Kind::leave) {
@@ -5063,6 +5104,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
             return;
         }
         const bool move = dnd_.action && dnd_.action() == ui::kDndMove;
+        const bool move_allowed =
+            dnd_.source_actions && (dnd_.source_actions() & ui::kDndMove) != 0;
         if (choose && move) {
             // Reading finishes the Wayland offer. A negotiated move could then delete the
             // source before the user chooses extraction or cancels the menu.
@@ -5075,8 +5118,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
         const auto reveal = shown && shown->path() == target->folder ? shown : nullptr;
         ++operations_;
         dnd_.read(*offered, [this, alive = alive_, folder = target->folder,
-                             bookmark = target->bookmark, move, choose, files, content,
-                             type = *offered, reveal](std::optional<std::string> data) {
+                             bookmark = target->bookmark, move, choose, move_allowed, files,
+                             content, type = *offered, reveal](std::optional<std::string> data) {
             if (!*alive)
                 return;
             --operations_;
@@ -5092,6 +5135,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
             if (!dropped.paths.empty()) {
                 if (bookmark)
                     add_to_sidebar(std::move(dropped.paths));
+                else if (choose && !fs::is_trash(folder))
+                    drop_actions(folder, std::move(dropped.paths), false, move_allowed);
                 else
                     drop_paths(folder, std::move(dropped.paths), false, move, choose);
                 return;

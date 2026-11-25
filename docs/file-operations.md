@@ -64,10 +64,20 @@ the same folder and is empty. Files added later are preserved. **Ctrl+Shift+Z**
 repeats the grouping. If the folder was replaced, the operation is refused.
 This action is unavailable in Trash, archives and file pickers.
 
-Hold **Alt** while dropping files to choose an action at the destination. A drag
-within rummage offers Copy Here, Move Here and Move into New Folder. Grouping also
-works when dropping back into the source folder. Ordinary drops retain their
-usual copy/move behavior.
+Hold **Alt** before entering the drop destination to choose **Copy Here**, **Move
+Here**, **Link Here** or **Cancel**. Within the same window, dragging an entry with
+the right mouse button opens the same menu; a right click still opens its context
+menu on release. The menu names the destination and supports arrows, Enter and
+Escape. Link Here creates absolute symbolic links, including in the source folder.
+Internal drags also offer Move into New Folder; grouping works in the source folder.
+Ordinary drops retain their usual copy/move behavior.
+
+External drops offer Move only when the source advertises it. Operation-choice
+drops negotiate a copy, then rummage performs the selected operation on the local
+paths, so Cancel and Link leave the originals intact. Hold Alt before entering the
+destination: an external drop already negotiated as a move must be retried. Wayland
+does not expose the originating mouse button from other applications, and its drag
+protocol has no link operation; use Alt and local file URIs for those link drops.
 
 For a single supported archive, Alt-drop also offers **Extract into New Folder…**.
 Choose a name to extract into a subfolder of the drop destination. If that name is
@@ -77,14 +87,33 @@ another application negotiate a copy so extraction does not remove its source.
 
 ## Create symbolic links
 
-Select files or folders and choose **Create Link** from their context menu or the
-command palette. rummage creates `Link to <name>` beside each source, choosing a
-numbered name when needed, and selects the new links. Links point to the original
-absolute paths, so you can move them elsewhere. Renaming or moving the originals
-can break those links. Linked folders are not copied or scanned recursively.
+Select files or folders and choose **Create Absolute Link**, **Create Relative
+Link** or **Create Hard Link** in their context menu or the command palette.
+Rummage creates `Link to <name>` beside each source, choosing a numbered name when
+needed, and selects the new links. To choose another destination, copy the sources,
+open that folder, and use its background menu's **Paste as Links** submenu or the
+palette's **Paste Absolute Links**, **Paste Relative Links** or **Paste Hard Links**.
+Multiple sources are supported. A cut clipboard also creates links without moving
+or clearing the sources. Destination name conflicts use the usual conflict dialog.
+
+Absolute symbolic links store the source path and can be moved independently.
+Relative symbolic links store a path from their actual destination folder, including
+when that folder is reached through another link. They can move with their shared
+parent tree; moving either end independently can break them. Links to folders are
+not copied or scanned recursively. Hard links are another name for the same file:
+editing either changes the shared data. Only regular files on the same filesystem
+are accepted; folders, symbolic links and cross-filesystem requests report an error.
+The filesystem can impose additional restrictions, which are shown as errors.
 
 **Ctrl+Z** trashes the new links without changing their targets; **Ctrl+Shift+Z**
 restores the links. This action is unavailable in Trash, archives and file pickers.
+
+For one symbolic link, **Go to Link Target** in its context menu or the command
+palette selects the target in its parent folder. This follows one link step, so a
+chained target remains selected as a link. Missing or inaccessible targets produce
+an error without changing location. Resolution runs in the background; navigating
+away cancels its pending navigation. Virtual Trash and archive entries do not offer
+this action.
 
 ## Batch rename
 
@@ -329,7 +358,7 @@ Permanent deletion cannot be undone.
 | Trash | Restore |
 | Restore | Trash again |
 | Copy | Trash the copies |
-| Create symbolic links | Trash the links, leaving their targets untouched |
+| Create symbolic or hard links | Trash the new names, leaving their targets untouched |
 | Create folder/file | Trash it only if still empty/unchanged as appropriate |
 | Permanent delete | Cannot undo |
 | External action or archive extraction | Not recorded in file-operation undo |

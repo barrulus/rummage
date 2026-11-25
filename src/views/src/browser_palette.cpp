@@ -147,11 +147,14 @@ std::vector<PaletteItem> Browser::palette_items() {
             add("command:move_into_folder", std::string{i18n::mark("Move into New Folder…")}, "",
                 [this] { move_into_new_folder(); });
         if (!picker_mode_)
-            add("command:create_link", std::string{i18n::mark("Create Link")}, "",
-                [this] { create_links(); });
+            for (auto& item : link_menu(false))
+                add("command:" + item.id, item.label, "", std::move(item.action), true, false);
         add("command:compress_zip", "Compress to ZIP…", "", [this] { compress(false); });
         add("command:compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
     }
+    if (editable && names.size() == 1 && cursor && cursor->is_link)
+        add("command:reveal_link_target", std::string{i18n::mark("Go to Link Target")}, "",
+            [this] { reveal_link_target(); });
     command(Command::edit_path, "edit_path", std::string{i18n::mark("Edit Path")});
     command(Command::focus_files, "focus_files", std::string{i18n::mark("Focus Files")});
     command(Command::focus_places, "focus_places", std::string{i18n::mark("Focus Places")});
@@ -223,6 +226,9 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (editable && can_paste) {
         command(Command::paste, "paste", "Paste");
+        if (!picker_mode_)
+            for (auto& item : link_menu(true))
+                add("command:" + item.id, item.label, "", std::move(item.action), true, false);
     }
     if (editable && !names.empty() && (names.size() == 1 || !picker_mode_)) {
         command(Command::rename, "rename", names.size() > 1 ? "Batch Rename…" : "Rename…");
