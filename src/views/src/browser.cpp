@@ -624,24 +624,9 @@ void Browser::paste() {
             }
             return;
         }
-        // Prefer image bytes over a textual fallback, but keep file transfer semantics above.
-        for (const auto& [type, extension] : {std::pair{"image/png", ".png"},
-                                              {"image/jpeg", ".jpg"},
-                                              {"image/webp", ".webp"},
-                                              {"image/gif", ".gif"},
-                                              {"image/tiff", ".tiff"},
-                                              {"image/bmp", ".bmp"},
-                                              {"image/svg+xml", ".svg"}}) {
-            if (has(type)) {
-                paste_contents(folder, type, extension);
-                return;
-            }
-        }
-        for (const auto type : kTextTypes) {
-            if (has(type)) {
-                paste_contents(folder, std::string{type}, ".txt");
-                return;
-            }
+        if (const auto type = content_offer(types)) {
+            paste_contents(folder, *type);
+            return;
         }
         if (!types.empty()) {
             show_message(std::string{i18n::tr("The clipboard holds no files")}, false);
@@ -687,60 +672,84 @@ void Browser::paste() {
     redraw_();
 }
 
-void Browser::paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
-                             std::string extension) {
+void Browser::paste_contents(const std::shared_ptr<Folder>& folder, std::string type) {
     ++operations_;
-    system_.read(std::move(type), [this, alive = alive_, folder, extension = std::move(extension)](
-                                      std::optional<std::string> data) {
+    system_.read(type, [this, alive = alive_, folder, type](std::optional<std::string> data) {
         if (!*alive)
             return;
+        --operations_;
         if (!data) {
-            --operations_;
             show_message(std::string{i18n::tr("The clipboard could not be read")}, true);
             return;
         }
-        pool_.submit(
-            core::Priority::visible,
-            [directory = folder->path(), extension,
-             bytes = std::move(*data)](const core::CancelToken& /*token*/) {
-                auto made = fs::make_file(directory, "Pasted" + extension, {}, bytes);
-                std::optional<FileOperation::CreatedFile> created;
-                if (!made.error) {
-                    std::error_code error;
-                    const auto modified =
-                        std::filesystem::last_write_time(directory / made.name, error);
-                    if (!error)
-                        created = FileOperation::CreatedFile{bytes.size(), modified};
-                }
-                return std::pair{std::move(made), created};
-            },
-            [this, alive, folder](const auto& result) {
-                const auto& [made, created] = result;
-                if (!*alive)
-                    return;
-                --operations_;
-                if (made.error) {
-                    show_message(
-                        i18n::trf("Cannot make a file in {}: {}",
-                                  folder->path().filename().string(), made.error.message()),
-                        true);
-                    return;
-                }
-                record({.kind = FileOperation::Kind::create,
-                        .items = {{.from = {}, .to = folder->path() / made.name}},
-                        .modes = {},
-                        .created_file = created},
-                       Purpose::user, false);
-                if (current_folder() == folder) {
-                    filter_focused_ = false;
-                    set_name_filter({});
-                    folder->expect_name(made.name);
-                    if (!editor_.active())
-                        editor_.start(folder, made.name, false);
-                }
-                redraw_();
-            });
+        create_contents(folder->path(), type, std::move(*data), false, folder);
     });
+}
+
+void Browser::create_contents(const std::filesystem::path& directory, std::string type,
+                              std::string bytes, bool dropped,
+                              const std::shared_ptr<Folder>& reveal) {
+    if (fs::is_trash(directory))
+        return;
+    ++operations_;
+    const auto job = ++content_job_id_;
+    content_jobs_[job] = pool_.submit(
+        core::Priority::visible,
+        [directory, type = std::move(type), bytes = std::move(bytes),
+         dropped](const core::CancelToken& token) mutable {
+            auto extension = content_extension(type, bytes);
+            if (dropped &&
+                (type == kUriList || std::ranges::find(kTextTypes, type) != kTextTypes.end())) {
+                if (const auto url = dropped_web_url(bytes)) {
+                    bytes = "[InternetShortcut]\nURL=" + *url + "\n";
+                    extension = ".url";
+                }
+            }
+            fs::MadeFile made{.name = {},
+                              .error = std::make_error_code(std::errc::invalid_argument)};
+            if (bytes.size() > kMaxContentBytes)
+                made.error = std::make_error_code(std::errc::file_too_large);
+            else if (extension)
+                made = fs::make_contents_file(
+                    directory,
+                    std::string{dropped ? "Dropped" : "Pasted"} + std::string{*extension}, bytes,
+                    token);
+            std::optional<FileOperation::CreatedFile> created;
+            if (!made.error) {
+                std::error_code error;
+                const auto modified =
+                    std::filesystem::last_write_time(directory / made.name, error);
+                if (!error)
+                    created = FileOperation::CreatedFile{bytes.size(), modified};
+            }
+            return std::pair{std::move(made), created};
+        },
+        [this, alive = alive_, directory, reveal, dropped, job](const auto& result) {
+            if (!*alive)
+                return;
+            content_jobs_.erase(job);
+            --operations_;
+            const auto& [made, created] = result;
+            if (made.error) {
+                show_message(i18n::trf("Cannot make a file in {}: {}",
+                                       directory.filename().string(), made.error.message()),
+                             true);
+                return;
+            }
+            record({.kind = FileOperation::Kind::create,
+                    .items = {{.from = {}, .to = directory / made.name}},
+                    .modes = {},
+                    .created_file = created},
+                   Purpose::user, false);
+            if (reveal && current_folder() == reveal) {
+                filter_focused_ = false;
+                set_name_filter({});
+                reveal->expect_name(made.name);
+                if (!dropped && !editor_.active())
+                    editor_.start(reveal, made.name, false);
+            }
+            redraw_();
+        });
 }
 
 std::uint64_t Browser::open_batch(Purpose purpose, FileOperation::Kind kind) {
@@ -2141,6 +2150,8 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 }
 
 Browser::~Browser() {
+    for (const auto& [id, token] : content_jobs_)
+        token.cancel();
     drive_hover_job_.cancel();
     bookmark_icons_job_.cancel();
     *alive_ = false;
@@ -5009,6 +5020,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
     std::optional<DropTarget> target = drop_target_at(event.x, event.y);
     const std::vector<std::string> types = dnd_.types ? dnd_.types() : std::vector<std::string>{};
     const bool files = std::ranges::find(types, kUriList) != types.end();
+    const auto content = content_offer(types);
+    const auto offered = files || drag_ ? std::optional{std::string{kUriList}} : content;
     std::vector<std::filesystem::path> own;
     if (drag_) {
         for (const std::string& name : drag_->names) {
@@ -5022,7 +5035,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
                                    }))))) {
             target.reset();  // not there: nothing would happen, or it cannot be
         }
-    } else if (!files) {
+    } else if (!offered ||
+               (target && !files && (target->bookmark || fs::is_trash(target->folder)))) {
         target.reset();
     }
     if (event.kind == Kind::drop) {
@@ -5051,27 +5065,57 @@ void Browser::drop_event(const ui::DropEvent& event) {
                 true);
             return;
         }
+        const auto shown = current_folder();
+        const auto reveal = shown && shown->path() == target->folder ? shown : nullptr;
         ++operations_;
-        dnd_.read(std::string{kUriList}, [this, alive = alive_, folder = target->folder,
-                                          bookmark = target->bookmark, move,
-                                          choose](const std::optional<std::string>& data) {
-            if (!*alive) {
+        dnd_.read(*offered, [this, alive = alive_, folder = target->folder,
+                             bookmark = target->bookmark, move, choose, files, content,
+                             type = *offered, reveal](std::optional<std::string> data) {
+            if (!*alive)
                 return;
-            }
             --operations_;
-            ClipboardFiles dropped = data ? parse_uri_list(*data) : ClipboardFiles{};
-            if (dropped.paths.empty()) {
-                show_message(std::string{dropped.refused > 0
-                                             ? i18n::tr("Only files can be dropped")
-                                             : i18n::tr("Nothing could be read from the drop")},
-                             false);
+            if (!data || data->size() > kMaxContentBytes) {
+                show_message(std::string{i18n::tr("Nothing could be read from the drop")}, true);
                 return;
             }
-            if (bookmark) {
-                add_to_sidebar(std::move(dropped.paths));
-            } else {
-                drop_paths(folder, std::move(dropped.paths), false, move, choose);
+            if (!files) {
+                create_contents(folder, type, std::move(*data), true, reveal);
+                return;
             }
+            ClipboardFiles dropped = parse_uri_list(*data);
+            if (!dropped.paths.empty()) {
+                if (bookmark)
+                    add_to_sidebar(std::move(dropped.paths));
+                else
+                    drop_paths(folder, std::move(dropped.paths), false, move, choose);
+                return;
+            }
+            if (!bookmark && !fs::is_trash(folder) && !move) {
+                // URI lists may be web links. Local files win, then image bytes, then a URL.
+                if (content && content->starts_with("image/")) {
+                    ++operations_;
+                    dnd_.read(*content, [this, alive, folder, reveal,
+                                         type = *content](std::optional<std::string> image) {
+                        if (!*alive)
+                            return;
+                        --operations_;
+                        if (image)
+                            create_contents(folder, type, std::move(*image), true, reveal);
+                        else
+                            show_message(
+                                std::string{i18n::tr("Nothing could be read from the drop")}, true);
+                    });
+                    return;
+                }
+                if (dropped_web_url(*data)) {
+                    create_contents(folder, std::string{kUriList}, std::move(*data), true, reveal);
+                    return;
+                }
+            }
+            show_message(
+                std::string{dropped.refused > 0 ? i18n::tr("Only files can be dropped")
+                                                : i18n::tr("Nothing could be read from the drop")},
+                false);
         });
         return;
     }
@@ -5079,8 +5123,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
     if (dnd_.accept) {
         if (!target) {
             dnd_.accept(std::nullopt, 0, 0);
-        } else if (drag_ || choose) {
-            dnd_.accept(std::string{kUriList}, ui::kDndCopy, ui::kDndCopy);  // decided at the drop
+        } else if (drag_ || choose || !files) {
+            dnd_.accept(offered, ui::kDndCopy, ui::kDndCopy);  // decided at the drop
         } else {
             const std::uint32_t allowed = dnd_.source_actions ? dnd_.source_actions() : 0;
             dnd_.accept(std::string{kUriList}, ui::kDndCopy | (allowed & ui::kDndMove),

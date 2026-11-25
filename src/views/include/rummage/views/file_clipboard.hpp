@@ -25,6 +25,15 @@ inline constexpr std::string_view kText = "text/plain;charset=utf-8";
 inline constexpr std::array<std::string_view, 4> kTextTypes{kText, "UTF8_STRING", "text/plain",
                                                             "TEXT"};
 
+inline constexpr std::size_t kMaxContentBytes = 64U << 20U;
+// Best non-file offer: images before plain text. URI lists are handled separately so local
+// files always win. These functions inspect signatures only, never decode images.
+[[nodiscard]] std::optional<std::string> content_offer(std::span<const std::string> types);
+[[nodiscard]] std::optional<std::string_view> content_extension(std::string_view type,
+                                                                std::string_view bytes);
+// Exactly one HTTP(S) URL (URI-list comments/blank lines allowed); no control characters.
+[[nodiscard]] std::optional<std::string> dropped_web_url(std::string_view bytes);
+
 // "file:///a/b%20c\r\n..." (RFC 2483: CRLF after each), each path as GLib writes a file URI.
 [[nodiscard]] std::string uri_list(std::span<const std::filesystem::path> paths);
 

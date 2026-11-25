@@ -104,6 +104,8 @@ struct FakeDnd {
     std::optional<std::string> accepted;  // the type taken where the pointer is
     std::uint32_t accepted_actions{0};
     std::string data;  // what a read of another program's drop gives
+    std::vector<rummage::views::DragAndDrop::Format> payloads;
+    std::vector<std::string> reads;
     Modifiers modifiers;
 };
 
@@ -181,8 +183,13 @@ struct Fixture {
                     dnd.accepted_actions = actions;
                 },
             .read =
-                [this](const std::string& /*type*/, rummage::views::DragAndDrop::Done done) {
-                    loop.post([this, done = std::move(done)] { done(dnd.data); });
+                [this](const std::string& type, rummage::views::DragAndDrop::Done done) {
+                    dnd.reads.push_back(type);
+                    std::string bytes = dnd.data;
+                    for (const auto& [mime, payload] : dnd.payloads)
+                        if (mime == type)
+                            bytes = payload;
+                    loop.post([bytes = std::move(bytes), done = std::move(done)] { done(bytes); });
                 },
             .finish = [this] { ++dnd.finished; },
             .modifiers = [this] { return dnd.modifiers; },
@@ -499,7 +506,7 @@ TEST_CASE("drop: not into itself, nor where they already are") {
     CHECK(listing(f.root / "sub") == Names{"inner"});
 }
 
-TEST_CASE("drop: from another program, its files are copied; web addresses are not files") {
+TEST_CASE("drop: from another program, local files take precedence over web shortcuts") {
     Fixture f;
     if (!f.gl) {
         return;
@@ -523,13 +530,14 @@ TEST_CASE("drop: from another program, its files are copied; web addresses are n
 
     f.dnd.data = "https://example.com/a.jpg\r\n";
     f.drop_at(f.point_of(f.root, "sub"));
-    CHECK(f.browser.status_bar().message() == "Only files can be dropped");
+    CHECK(rummage::core::read_text_file(f.root / "sub" / "Dropped.url").text ==
+          "[InternetShortcut]\nURL=https://example.com/a.jpg\n");
 
-    // Without files in it, a drag finds nowhere to go.
+    // Plain text is accepted as a new file.
     f.dnd.types = {"text/plain"};
     f.dnd.accepted.reset();
     f.browser.drop_event({.kind = DropEvent::Kind::enter, .x = album.first, .y = album.second});
-    CHECK_FALSE(f.dnd.accepted);
+    CHECK(f.dnd.accepted == "text/plain");
 }
 
 TEST_CASE("drop: onto a step of the breadcrumb and a place of the sidebar; the trash trashes") {
@@ -1167,4 +1175,82 @@ TEST_CASE("drop: late Alt never reads an external offer still negotiated as a mo
     f.drop_at(f.point_of(f.album, ""));
     CHECK_FALSE(read);
     CHECK_FALSE(f.browser.context_menu().is_open());
+}
+
+TEST_CASE("drop: content creates complete unique files with selection and undo") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::grid);
+    std::string name;
+    std::string expected;
+    SUBCASE("text") {
+        f.dnd.types = {"text/plain"};
+        f.dnd.data = "hello, café\nsecond line";
+        name = "Dropped.txt";
+        expected = f.dnd.data;
+    }
+    SUBCASE("image before text") {
+        f.dnd.types = {"text/plain", "image/png"};
+        f.dnd.data = std::string{"\x89PNG\r\n\x1a\n\0payload", 16};
+        name = "Dropped.png";
+        expected = f.dnd.data;
+    }
+    SUBCASE("web link from text") {
+        f.dnd.types = {"text/plain"};
+        f.dnd.data = "https://example.com/hello";
+        name = "Dropped.url";
+        expected = "[InternetShortcut]\nURL=https://example.com/hello\n";
+    }
+    f.dnd.source_actions = rummage::ui::kDndCopy | rummage::ui::kDndMove;
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(f.dnd.accepted_actions == rummage::ui::kDndCopy);
+    REQUIRE(listing(f.album) == Names{name});
+    CHECK(rummage::core::read_text_file(f.album / name).text == expected);
+    REQUIRE(f.browser.picker_folder()->cursor_entry());
+    CHECK(f.browser.picker_folder()->cursor_entry()->name == name);
+    CHECK_FALSE(f.browser.name_editor().active());
+    REQUIRE(f.browser.key(key(XKB_KEY_z, {.ctrl = true}), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(listing(f.album).empty());
+    REQUIRE(f.browser.key(key(XKB_KEY_z, {.ctrl = true, .shift = true}), Browser::Clock::now()));
+    REQUIRE(f.settle());
+    CHECK(rummage::core::read_text_file(f.album / name).text == expected);
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(listing(f.album).size() == 2);
+}
+
+TEST_CASE("drop: invalid images leave no files and content cannot target trash") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::grid);
+    f.dnd.types = {"image/png", "text/plain"};
+    f.dnd.data = "not a png";
+    f.drop_at(f.point_of(f.album, ""));
+    CHECK(listing(f.album).empty());
+    f.browser.open(rummage::fs::trash_path());
+    REQUIRE(f.settle());
+    f.drop_at(f.point_of(rummage::fs::trash_path(), ""));
+    CHECK_FALSE(f.dnd.accepted);
+}
+
+TEST_CASE("drop: URI offers prefer local files then image data over web links") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.show(f.album, Browser::Mode::grid);
+    f.dnd.types = {"text/plain", "image/png", "text/uri-list"};
+    f.dnd.data = "https://example.com/image.png\r\n";
+    const std::string image{"\x89PNG\r\n\x1a\n", 8};
+    f.dnd.payloads = {{"image/png", image}};
+    SUBCASE("local file") {
+        f.dnd.data += rummage::views::uri_list(std::vector<fs::path>{f.photos / "P1.ORF"});
+        f.drop_at(f.point_of(f.album, ""));
+        CHECK(listing(f.album) == Names{"P1.ORF", "P1.ORF.xmp"});
+        CHECK(f.dnd.reads == Names{"text/uri-list"});
+    }
+    SUBCASE("image") {
+        f.drop_at(f.point_of(f.album, ""));
+        CHECK(listing(f.album) == Names{"Dropped.png"});
+        CHECK(rummage::core::read_text_file(f.album / "Dropped.png").text == image);
+        CHECK(f.dnd.reads == Names{"text/uri-list", "image/png"});
+    }
 }

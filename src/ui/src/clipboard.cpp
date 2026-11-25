@@ -118,15 +118,18 @@ void Clipboard::accept_drop(const std::optional<std::string>& type, std::uint32_
 
 void Clipboard::read_drop(const std::string& type, Done done) {
     wl_data_offer* const offer = dropped_;
-    if (offer == nullptr) {
+    const auto state = offers_.find(offer);
+    if (offer == nullptr || state == offers_.end()) {
         loop_.post([done = std::move(done)] { done(std::nullopt); });
         return;
     }
+    ++state->second.reads;
     read_offer(offer, type, [this, offer, done = std::move(done)](std::optional<std::string> data) {
-        if (dropped_ == offer) {
+        // Never let an old callback request fallback data from a newer drop.
+        done(dropped_ == offer ? std::move(data) : std::nullopt);
+        const auto remaining = offers_.find(offer);
+        if (remaining != offers_.end() && --remaining->second.reads == 0 && dropped_ == offer)
             finish_drop();
-        }
-        done(std::move(data));
     });
 }
 

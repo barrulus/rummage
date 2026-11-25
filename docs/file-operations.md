@@ -33,9 +33,19 @@ Ctrl+Z edits that text rather than undoing a file operation.
 
 When the clipboard contains an image or plain text, **Ctrl+V** creates a file in
 the current folder. Images retain their offered format (PNG, JPEG, WebP, GIF,
-TIFF, BMP or SVG); plain text becomes a `.txt` file. Image data takes priority
+TIFF, BMP, SVG or JPEG XL); plain text becomes a `.txt` file. Image data takes priority
 over a text alternative. Clipboard file lists still copy or move the original
-files as usual.
+files as usual. Image signatures must match the offered format; this is a format
+check, not a full decode or a guarantee that the image is undamaged. SVG accepts
+a UTF-8 root element after optional XML declaration/comments within the first
+4 KiB; SVGs with a DOCTYPE or a longer preamble are not accepted from raw clipboard
+data. AVIF data is not offered as a paste format.
+
+Data is limited to 64 MiB and written on a worker to a private staging file.
+Only the completed file becomes visible under its final name. Errors or
+cancellation remove the staging file; existing files and symlinks are never
+replaced. New content files are readable/writable only by their owner and are
+not executable.
 
 The new file starts as `Pasted.png`, `Pasted.txt`, or the matching extension, with
 a number added if the name is taken. Its base name is selected for immediate
@@ -216,7 +226,22 @@ filesystems. Ctrl requests copy; Shift requests move. It uses the transfer engin
 including conflict handling, sidecars, progress and undo. Dropping into the same
 location has no effect; a folder cannot be dropped inside itself.
 
-External drops into rummage copy local files. Drops out of rummage offer file URIs
+External drops into rummage copy local files. Images and plain text can also be
+dropped into ordinary folders, using the same validation, limits, atomic creation
+and undo as paste. File offers take priority, then supported image data, one
+HTTP(S) web address, and plain text. Invalid image data is rejected without
+silently saving its text alternative. Created files use `Dropped` plus the
+appropriate extension, adding a number on conflicts. They are selected when the
+destination is still the current folder.
+
+A dropped web address becomes a non-executable `Dropped.url` Internet Shortcut.
+Its URL is stored without fetching it. Opening uses the desktop's association for
+`.url` files; if no handler is installed, use Open With or read/copy the address
+with a text editor. Other URI schemes, multiple URLs and injected control lines
+are rejected. Raw content cannot be dropped into Trash, archives or the bookmarks
+insertion area.
+
+Drops out of rummage offer file URIs
 and paths for copying; rummage does not delete its source because another program
 claims it moved it. Web URLs are not local files. Dragging near a view's edge
 scrolls; hovering does not automatically open a folder.

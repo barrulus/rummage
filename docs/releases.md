@@ -9,6 +9,10 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Paste and drag/drop can create image and text files through a shared atomic write
+path, with image signature checks, size limits, conflict-free naming and Undo/Redo.
+Dropped HTTP(S) links become non-executable `.url` files without fetching the URL.
+
 The information pane now shows a compact media summary, with extended metadata
 under More details and a fixed Copy all properties button that includes collapsed
 fields. Properties has a draggable scrollbar with a wider hit area, normal wheel

@@ -116,7 +116,8 @@ public:
                      std::uint32_t preferred);
 
     // After a drop: reads type from it, then tells the source it is done (or gives up after
-    // kReadTimeout, done gets nullopt). Never at once.
+    // kReadTimeout, done gets nullopt). Never at once. A callback may read a fallback MIME
+    // type from the same offer; finish is delayed until that read completes too.
     void read_drop(const std::string& type, Done done);
 
     // After a drop whose data rummage has already (its own drag): done with it unread.
@@ -159,6 +160,7 @@ private:
         std::vector<std::string> types;
         std::uint32_t source_actions{0};
         std::uint32_t action{0};
+        std::size_t reads{0};
     };
 
     // Reads type from offer into done (the clipboard's, or a drop's).

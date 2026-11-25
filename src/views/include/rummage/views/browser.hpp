@@ -882,8 +882,9 @@ private:
     void trash_done(const fs::TransferResult& result);
     void restore_done(const fs::TransferResult& result);
     // Pastes files read from the system clipboard (at generation) into destination.
-    void paste_contents(const std::shared_ptr<Folder>& folder, std::string type,
-                        std::string extension);
+    void paste_contents(const std::shared_ptr<Folder>& folder, std::string type);
+    void create_contents(const std::filesystem::path& directory, std::string type,
+                         std::string bytes, bool dropped, const std::shared_ptr<Folder>& reveal);
     void paste_files(const std::filesystem::path& destination, const ClipboardFiles& files,
                      std::uint64_t generation);
     // Why an operation runs: the user's, or an undo or redo of one.
@@ -1235,6 +1236,8 @@ private:
     ActionHandoff action_handoff_;
     std::function<bool(const core::Action&, const core::ActionContext&)> action_available_;
     std::size_t operations_{0};  // new folders and renames on workers
+    std::uint64_t content_job_id_{0};
+    std::map<std::uint64_t, core::CancelToken> content_jobs_;
 
     // What Ctrl+C or Ctrl+X took.
     struct Clipboard {
