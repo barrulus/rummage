@@ -80,6 +80,7 @@ private:
 
     // Reverse order = teardown order: globals first, the connection last.
     WlPtr<wl_display> display_;
+    bool read_prepared_{false};
     WlPtr<wl_registry> registry_;
     WlPtr<wl_compositor> compositor_;
     WlPtr<wl_shm> shm_;

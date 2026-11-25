@@ -146,16 +146,35 @@ int EventLoop::run() {
     running_ = true;
     std::vector<pollfd> fds;
     std::vector<SourceId> ids;
+    std::vector<SourceId> prepare;
+    std::vector<std::pair<SourceId, FdCallback>> finish;
     while (running_) {
         std::erase_if(sources_, [](const Source& source) { return source.removed; });
 
+        // Preparation can dispatch Wayland events that add/remove sources. Snapshot IDs,
+        // then copy each hook before calling it so sources_ can safely reallocate.
+        prepare.clear();
+        finish.clear();
         for (const Source& source : sources_) {
-            if (source.options.before_poll) {
-                source.options.before_poll();
-            }
+            if (source.options.before_poll || source.options.after_poll)
+                prepare.push_back(source.id);
         }
-        // before_poll may have quit (e.g. lost Wayland connection) or removed sources.
+        for (const SourceId id : prepare) {
+            const auto it = std::ranges::find(sources_, id, &Source::id);
+            if (it == sources_.end() || it->removed)
+                continue;
+            const auto callback = it->options.before_poll;
+            if (it->options.after_poll)
+                finish.emplace_back(id, it->options.after_poll);
+            if (callback)
+                callback();
+            if (!running_)
+                break;
+        }
+        // Release any prepared reads even when preparation quits the loop.
         if (!running_) {
+            for (const auto& [id, callback] : finish)
+                callback(0);
             break;
         }
 
@@ -167,15 +186,24 @@ int EventLoop::run() {
                 ids.push_back(source.id);
             }
         }
-        if (poll(fds.data(), fds.size(), -1) < 0) {
-            if (errno != EINTR) {
-                log::error("poll: {}", std::strerror(errno));
-                return 1;
-            }
-            for (pollfd& fd : fds) {
+        const int poll_error = poll(fds.data(), fds.size(), -1) < 0 ? errno : 0;
+        if (poll_error != 0) {
+            for (pollfd& fd : fds)
                 fd.revents = 0;
-            }
         }
+        // Worker completions can redraw immediately. EGL may read its own Wayland queue,
+        // which deadlocks if this thread still has a prepared read on the same display.
+        // Finish every read before dispatching any application code, regardless of fd order.
+        for (const auto& [id, callback] : finish) {
+            const auto it = std::ranges::find(ids, id);
+            callback(it == ids.end() ? 0 : fds[static_cast<std::size_t>(it - ids.begin())].revents);
+        }
+        if (poll_error != 0 && poll_error != EINTR) {
+            log::error("poll: {}", std::strerror(poll_error));
+            return 1;
+        }
+        if (!running_)
+            break;
 
         // Callbacks may add sources (appended, not visited this round) or remove any of them.
         for (std::size_t i = 0; i < ids.size(); ++i) {

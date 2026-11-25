@@ -12,8 +12,11 @@ namespace rummage::core {
 struct FdOptions {
     // Called on every iteration right before poll(): Wayland's prepare_read and flush.
     std::function<void()> before_poll;
-    // Call the callback after every poll(), even with revents == 0: Wayland must cancel its
-    // prepared read when the socket was not readable.
+    // Complete prepared I/O before any source callback (including posted work) can run.
+    // Called with zero events if polling is interrupted, fails, or preparation quits the loop.
+    // Must not dispatch application callbacks; Wayland reads or cancels its prepared read here.
+    std::function<void(short revents)> after_poll{};
+    // Call the source callback after every poll(), even with revents == 0.
     bool notify_always{false};
 };
 
