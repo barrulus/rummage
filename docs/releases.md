@@ -9,6 +9,9 @@ See [installation](install.md#development-downloads) for package/source identity
 
 ## 0.6.1 — in development
 
+Restore rejects invalid disk-trash paths and checks the destination filesystem
+before creating missing folders. Failed cross-device restores leave no new folders.
+
 The information pane now shows a compact media summary, with extended metadata
 under More details and a fixed Copy all properties button that includes collapsed
 fields. Properties has a draggable scrollbar with a wider hit area, normal wheel

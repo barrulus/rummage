@@ -20,9 +20,9 @@
 #include <vector>
 
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::fs {
 namespace {
@@ -256,7 +256,7 @@ std::optional<TrashDir> Trasher::find_trash() {
             if (const std::error_code made = make_directory(home / "files");
                 made || make_directory(home / "info")) {
                 result_.refused = i18n::trf("Cannot make the trash {}: {}", home.string(),
-                                              (made ? made : last_error()).message());
+                                            (made ? made : last_error()).message());
                 return std::nullopt;
             }
             return TrashDir{.path = home, .relative_to = {}};
@@ -268,7 +268,7 @@ std::optional<TrashDir> Trasher::find_trash() {
     std::optional<TrashDir> trash = top_trash(top, geteuid(), why);
     if (!trash) {
         result_.refused = i18n::trf("No trash on the disk of {}: {} cannot hold one ({})",
-                                      source_.filename().string(), top.string(), why.message());
+                                    source_.filename().string(), top.string(), why.message());
     }
     return trash;
 }
@@ -476,17 +476,61 @@ bool usable_trash(const std::filesystem::path& dir, uid_t uid) {
            is_folder(dir / "info");
 }
 
-// What relative paths in a trash's .trashinfo files start from: the top directory, or for the
-// home trash the folder it is in ($XDG_DATA_HOME).
-std::filesystem::path relative_base(const std::filesystem::path& trash) {
+// Recover the trash kind for restore/undo paths. The configured home trash takes precedence
+// over a coincidental directory name; listing already has the explicit TrashDir descriptor.
+TrashDir describe_trash(const std::filesystem::path& trash) {
+    if (trash == trash_sources().home)
+        return {.path = trash, .relative_to = {}};
     const std::string name = trash.filename().string();
     if (name.starts_with(".Trash-")) {
-        return trash.parent_path();
+        return {.path = trash, .relative_to = trash.parent_path()};
     }
     if (trash.parent_path().filename() == ".Trash") {
-        return trash.parent_path().parent_path();
+        return {.path = trash, .relative_to = trash.parent_path().parent_path()};
     }
-    return trash.parent_path();
+    return {.path = trash, .relative_to = {}};
+}
+
+// Reject a destination that cannot accept a rename before making any parent directories.
+// stat follows existing parent symlinks; lstat keeps a dangling link from being mistaken for
+// a missing directory. For disk trash, existing symlinks must stay inside its top directory.
+std::error_code restore_parent(const std::filesystem::path& item,
+                               const std::filesystem::path& directory,
+                               const std::filesystem::path& top) {
+    struct stat source{};
+    if (lstat(item.c_str(), &source) != 0)
+        return last_error();
+    auto parent = directory;
+    struct stat target{};
+    while (stat(parent.c_str(), &target) != 0) {
+        if (errno != ENOENT)
+            return last_error();
+        struct stat link{};
+        if (lstat(parent.c_str(), &link) == 0)
+            return std::make_error_code(std::errc::not_a_directory);
+        if (errno != ENOENT)
+            return last_error();
+        if (parent.empty() || parent.parent_path() == parent)
+            return std::make_error_code(std::errc::no_such_file_or_directory);
+        parent = parent.parent_path();
+    }
+    if (!S_ISDIR(target.st_mode))
+        return std::make_error_code(std::errc::not_a_directory);
+    if (source.st_dev != target.st_dev)
+        return std::make_error_code(std::errc::cross_device_link);
+    if (!top.empty()) {
+        std::error_code error;
+        const auto root = std::filesystem::canonical(top, error);
+        if (error)
+            return error;
+        const auto existing = std::filesystem::canonical(parent, error);
+        if (error)
+            return error;
+        const auto relative = existing.lexically_relative(root);
+        if (relative.empty() || *relative.begin() == "..")
+            return std::make_error_code(std::errc::permission_denied);
+    }
+    return {};
 }
 
 // mkdir -p with mode for the folders made (a restored item's folder: the usual 0777 less the
@@ -514,12 +558,14 @@ struct Found {
     TrashInfo info;
     bool directory{false};
     bool regular{false};
+    std::filesystem::path top;  // empty for home trash
 };
 
 // The items of one trash with their info, read once per trash.
-std::vector<Found> read_trash(const std::filesystem::path& trash) {
+std::vector<Found> read_trash(const TrashDir& location) {
     std::vector<Found> found;
-    const std::filesystem::path base = relative_base(trash);
+    const auto& trash = location.path;
+    const auto base = location.relative_to.empty() ? trash.parent_path() : location.relative_to;
     std::error_code ignored;
     for (const std::filesystem::directory_entry& entry :
          std::filesystem::directory_iterator{trash / "info", ignored}) {
@@ -528,7 +574,8 @@ std::vector<Found> read_trash(const std::filesystem::path& trash) {
             continue;
         }
         const core::TextFile text = core::read_text_file(entry.path());
-        std::optional<TrashInfo> info = parse_trash_info(text.text, base);
+        std::optional<TrashInfo> info =
+            parse_trash_info(text.text, base, !location.relative_to.empty());
         const std::filesystem::path item =
             trash / "files" / file.substr(0, file.size() - kInfoSuffix.size());
         const std::optional<struct stat> status = status_of(item);
@@ -539,7 +586,8 @@ std::vector<Found> read_trash(const std::filesystem::path& trash) {
                          .info_file = entry.path(),
                          .info = std::move(*info),
                          .directory = S_ISDIR(status->st_mode),
-                         .regular = S_ISREG(status->st_mode)});
+                         .regular = S_ISREG(status->st_mode),
+                         .top = location.relative_to});
     }
     return found;
 }
@@ -595,7 +643,7 @@ private:
     const std::vector<Found>& trash_of(const std::filesystem::path& trash) {
         auto it = trashes_.find(trash);
         if (it == trashes_.end()) {
-            it = trashes_.emplace(trash, read_trash(trash)).first;
+            it = trashes_.emplace(trash, read_trash(describe_trash(trash))).first;
         }
         return it->second;
     }
@@ -676,6 +724,14 @@ TransferResult Restorer::run() {
         const std::filesystem::path directory = group.item.info.original.parent_path();
         const std::string original = group.item.info.original.filename().string();
         progress_.current = original;
+        if (const auto invalid = restore_parent(group.item.item, directory, group.item.top)) {
+            if (invalid == std::errc::cross_device_link)
+                result_.errors.push_back(
+                    i18n::trf("{}: its folder is on another disk now: not copied back", original));
+            else
+                error(original, invalid);
+            continue;
+        }
         if (const std::error_code made = make_folders(directory)) {
             error(original, made);
             continue;
@@ -930,7 +986,8 @@ std::vector<TrashDir> existing_trashes(const TrashSources& sources) {
 }
 
 std::optional<TrashInfo> parse_trash_info(std::string_view text,
-                                          const std::filesystem::path& relative_to) {
+                                          const std::filesystem::path& relative_to,
+                                          bool top_directory) {
     std::optional<std::string> path;
     std::string deleted;
     bool in_group = false;
@@ -963,20 +1020,29 @@ std::optional<TrashInfo> parse_trash_info(std::string_view text,
             deleted = std::string{line.substr(13)};
         }
     }
-    if (!path || path->empty()) {
+    if (!path || path->empty() || path->find('\0') != std::string::npos) {
         return std::nullopt;
     }
     std::filesystem::path original{*path};
+    if (top_directory && original.is_absolute())
+        return std::nullopt;
     if (original.is_relative()) {
+        if (!relative_to.is_absolute() || std::ranges::find(original, "..") != original.end())
+            return std::nullopt;
+        const auto normalized = original.lexically_normal();
+        if (normalized == "." || normalized.filename().empty())
+            return std::nullopt;
         original = relative_to / original;
     }
+    if (original.lexically_normal().filename().empty())
+        return std::nullopt;
     return TrashInfo{.original = original.lexically_normal(), .deleted = std::move(deleted)};
 }
 
 std::vector<TrashedItem> list_trash(const TrashSources& sources) {
     std::vector<TrashedItem> items;
     for (const TrashDir& trash : existing_trashes(sources)) {
-        for (Found& found : read_trash(trash.path)) {
+        for (Found& found : read_trash(trash)) {
             std::string name = found.info.original.filename().string();
             if (name.empty()) {
                 continue;
@@ -1029,7 +1095,7 @@ std::vector<std::optional<TrashedGroup>> trashed_groups(
         const std::filesystem::path trash = item.parent_path().parent_path();
         auto it = trashes.find(trash);
         if (it == trashes.end()) {
-            it = trashes.emplace(trash, read_trash(trash)).first;
+            it = trashes.emplace(trash, read_trash(describe_trash(trash))).first;
         }
         const auto found = std::ranges::find(it->second, item, &Found::item);
         if (found == it->second.end()) {

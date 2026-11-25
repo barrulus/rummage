@@ -372,3 +372,107 @@ TEST_CASE("trash folder: the disks' trashes are found from the mount table") {
         rummage::fs::mount_points(rummage::fs::read_proc_file("/proc/self/mountinfo"));
     CHECK(std::ranges::find(points, fs::path{"/"}) != points.end());
 }
+
+TEST_CASE("trash folder: disk paths reject absolute traversal NUL and root destinations") {
+    using rummage::fs::parse_trash_info;
+    for (const auto path : {"/outside/file", "%2Foutside/file", "../outside/file",
+                            "%2e%2e/outside/file", "folder/../file", "folder/%2E%2E/file",
+                            "folder%2f..%2f..%2ffile", "file%00suffix", ".", "folder/..", "/"}) {
+        CAPTURE(path);
+        CHECK_FALSE(
+            parse_trash_info(std::string{"[Trash Info]\nPath="} + path + "\n", "/disk", true));
+    }
+    const auto valid = parse_trash_info("[Trash Info]\nPath=folder/a%20b\n", "/disk", true);
+    REQUIRE(valid);
+    CHECK(valid->original == "/disk/folder/a b");
+    const auto home = parse_trash_info("[Trash Info]\nPath=/home/me/file\n", "/data", false);
+    REQUIRE(home);
+    CHECK(home->original == "/home/me/file");
+    const auto relative = parse_trash_info("[Trash Info]\nPath=folder/file\n", "/data", false);
+    REQUIRE(relative);
+    CHECK(relative->original == "/data/folder/file");
+    CHECK_FALSE(parse_trash_info("[Trash Info]\nPath=../escape\n", "/data", false));
+}
+
+TEST_CASE("trash folder: invalid disk metadata is excluded and restore makes no directories") {
+    Trashes t;
+    Trashes::make(t.disk / "shots" / "file", "recoverable");
+    t.trash(t.disk / "shots", {"file"});
+    const auto item = t.disk_trash() / "files" / "file";
+    const auto outside = t.dir.path / "outside" / "missing" / "file";
+    const auto info = rummage::fs::info_file_of(item);
+    SUBCASE("absolute") { Trashes::make(info, "[Trash Info]\nPath=" + outside.string() + "\n"); }
+    SUBCASE("relative traversal") {
+        Trashes::make(info, "[Trash Info]\nPath=../outside/missing/file\n");
+    }
+    SUBCASE("encoded traversal") {
+        Trashes::make(info, "[Trash Info]\nPath=%2e%2e/outside/missing/file\n");
+    }
+    CHECK(rummage::fs::list_trash(t.sources).empty());
+    const auto result = restore({item.string()});
+    CHECK_FALSE(result.errors.empty());
+    CHECK(result.placed.empty());
+    CHECK_FALSE(fs::exists(t.dir.path / "outside"));
+    CHECK(read_file(item) == "recoverable");
+    CHECK(fs::exists(info));
+}
+
+TEST_CASE("trash folder: parent symlinks cannot restore disk trash outside its root") {
+    Trashes t;
+    Trashes::make(t.disk / "shots" / "file", "recoverable");
+    t.trash(t.disk / "shots", {"file"});
+    const auto item = t.disk_trash() / "files" / "file";
+    fs::create_directories(t.dir.path / "outside");
+    fs::create_directory_symlink(t.dir.path / "outside", t.disk / "escape");
+    Trashes::make(rummage::fs::info_file_of(item), "[Trash Info]\nPath=escape/new/child/file\n");
+    const auto result = restore({item.string()});
+    CHECK_FALSE(result.errors.empty());
+    CHECK(result.placed.empty());
+    CHECK_FALSE(fs::exists(t.dir.path / "outside" / "new"));
+    CHECK(fs::exists(item));
+}
+
+TEST_CASE("trash folder: cross-device restore rejects before creating missing parents") {
+    Trashes t;
+    Trashes::make(t.photos / "file", "recoverable");
+    t.trash(t.photos, {"file"});
+    const auto item = t.sources.home / "files" / "file";
+
+    struct Scratch {
+        fs::path path;
+
+        ~Scratch() {
+            std::error_code ignored;
+            if (!path.empty())
+                fs::remove_all(path, ignored);
+        }
+    } scratch;
+
+    std::string pattern = "/dev/shm/rummage-restore-XXXXXX";
+    if (!mkdtemp(pattern.data())) {
+        MESSAGE("no writable /dev/shm for a second filesystem");
+        return;
+    }
+    scratch.path = pattern;
+    struct stat source{}, other{};
+    REQUIRE(lstat(item.c_str(), &source) == 0);
+    REQUIRE(stat(scratch.path.c_str(), &other) == 0);
+    if (source.st_dev == other.st_dev) {
+        MESSAGE("/dev/shm is on the test filesystem; cross-device case unavailable");
+        return;
+    }
+    auto destination = scratch.path / "missing" / "nested" / "file";
+    SUBCASE("direct") {}
+    SUBCASE("through symlink") {
+        fs::create_directory_symlink(scratch.path, t.home / "redirect");
+        destination = t.home / "redirect" / "missing" / "nested" / "file";
+    }
+    Trashes::make(rummage::fs::info_file_of(item),
+                  "[Trash Info]\nPath=" + destination.string() + "\n");
+    const auto result = restore({item.string()});
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors.front().find("another disk") != std::string::npos);
+    CHECK(result.placed.empty());
+    CHECK(fs::is_empty(scratch.path));
+    CHECK(read_file(item) == "recoverable");
+}

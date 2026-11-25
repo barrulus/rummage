@@ -223,6 +223,17 @@ scrolls; hovering does not automatically open a folder.
 
 ## Trash and restore
 
+Disk-trash metadata must name a relative path within its source volume; absolute
+paths, parent traversal (including URL-escaped `..`) and NUL bytes are rejected.
+Invalid entries are excluded from the combined Trash view and cannot be restored;
+their data stays in the volume's trash for manual recovery or Empty Trash.
+Home-trash absolute paths and valid relative paths remain supported.
+
+Before making missing destination folders, Restore checks the nearest existing
+parent's filesystem, following symlinks. A destination on another filesystem is
+refused without creating those folders, and disk-trash parent symlinks cannot
+redirect restoration outside the volume's root.
+
 **Delete** moves files to freedesktop Trash. Files on the home filesystem use the
 home trash; other filesystems use their own trash where permitted. If a trash
 cannot be created, the files remain and rummage reports why; it does not silently

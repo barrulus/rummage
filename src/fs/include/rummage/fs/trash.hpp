@@ -80,14 +80,16 @@ void set_trash_sources(TrashSources sources);
 
 // What a .trashinfo file says: the original path (absolute: a relative one is joined to
 // relative_to) and the deletion date as written ("2026-10-29T21:25:31"). nullopt when it is not
-// one ([Trash Info] first, a Path).
+// one ([Trash Info] first, a Path). Top-directory trash only accepts relative paths;
+// relative paths never contain '..'. Invalid/NUL paths are rejected before normalization.
 struct TrashInfo {
     std::filesystem::path original;
     std::string deleted;
 };
 
 [[nodiscard]] std::optional<TrashInfo> parse_trash_info(std::string_view text,
-                                                        const std::filesystem::path& relative_to);
+                                                        const std::filesystem::path& relative_to,
+                                                        bool top_directory = false);
 
 // One item in a trash.
 struct TrashedItem {
