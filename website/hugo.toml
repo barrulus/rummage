@@ -6,6 +6,7 @@ disableKinds = ['taxonomy', 'term', 'RSS']
 [params]
 description = 'A native file manager for Wayland. Browse in columns, grids or details, work across two panes, and take a closer look without opening another app.'
 repository = 'https://github.com/barrulus/rummage'
+koFi = 'https://ko-fi.com/barrulus'
 # Public Discord invite. Leave empty to hide Discord links until it is ready.
 discordInvite = 'https://discord.gg/f8mVpE9deu'
 # Add an H.264 MP4 to static/media/ and set this to /media/your-recording.mp4.

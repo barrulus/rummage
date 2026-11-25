@@ -33,7 +33,7 @@
   {{ block "main" . }}{{ end }}
   <footer class="site-footer">
     <div><a class="brand" href="{{ "" | relURL }}">rummage<span class="brand-dot">.</span></a><p>A little more at home in your files.</p></div>
-    <div><a href="{{ "support/" | relURL }}">Support</a>{{ with .Site.Params.discordInvite }}<a href="{{ . }}">Discord</a>{{ end }}<a href="{{ .Site.Params.repository }}">Source on GitHub</a><a href="{{ .Site.Params.repository }}/blob/main/LICENSE">MIT licensed</a><span>Built on <a href="https://github.com/pankaspe/nordend-fm">Nordend</a> by pankaspe.</span></div>
+    <div><a href="{{ "support/" | relURL }}">Support</a>{{ with .Site.Params.discordInvite }}<a href="{{ . }}">Discord</a>{{ end }}{{ with .Site.Params.koFi }}<a href="{{ . }}">Support on Ko-fi</a>{{ end }}<a href="{{ .Site.Params.repository }}">Source on GitHub</a><a href="{{ .Site.Params.repository }}/blob/main/LICENSE">MIT licensed</a><span>Built on <a href="https://github.com/pankaspe/nordend-fm">Nordend</a> by pankaspe.</span></div>
   </footer>
 </body>
 </html>

@@ -102,6 +102,8 @@ for a fixed revision. These are individual development packages, not an update r
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and
 [architecture](contributing/architecture.md) for the source map.
 
+If you find rummage useful, you can [support its development on Ko-fi](https://ko-fi.com/barrulus).
+
 ## License
 
 [MIT](LICENSE). Bundled code and data are credited in [THIRD_PARTY.md](THIRD_PARTY.md).

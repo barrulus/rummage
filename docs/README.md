@@ -42,3 +42,7 @@ reporting behavior in a development build.
 
 Contributor workflows, source architecture and package-maintenance instructions
 are separate from these application guides; start with [Contributing](../CONTRIBUTING.md).
+
+## Support development
+
+If you find rummage useful, you can [support its development on Ko-fi](https://ko-fi.com/barrulus).

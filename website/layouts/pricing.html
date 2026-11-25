@@ -42,7 +42,7 @@
       <dt>Does the department get a support contract?</dt>
       <dd>No contract is included. These are development builds of an open-source project. Visit <a href="{{ "support/" | relURL }}">Support & community</a> for help and ways to report a problem.</dd>
       <dt>How can I help?</dt>
-      <dd>Report a reproducible bug, improve a guide, help with a translation, or contribute code. The <a href="{{ .Site.Params.repository }}/blob/main/CONTRIBUTING.md">contribution guide</a> is a good place to start.</dd>
+      <dd>Report a reproducible bug, improve a guide, help with a translation, or contribute code. The <a href="{{ .Site.Params.repository }}/blob/main/CONTRIBUTING.md">contribution guide</a> is a good place to start.{{ with .Site.Params.koFi }} You can also <a href="{{ . }}">support development on Ko-fi</a>. Donations are optional; rummage remains free.{{ end }}</dd>
     </dl>
   </section>
   <aside class="pricing-credit"><p>With thanks to our friends at <a href="https://hesiodengine.com/pricing">Hesiod</a> for inspiring this page. Good ideas are worth a rummage.</p></aside>

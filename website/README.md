@@ -87,6 +87,10 @@ To add Discord, set the existing `params.discordInvite` to your public invite UR
 in `hugo.toml`. The Discord card and footer link appear automatically; leaving
 the value empty hides both. Use a permanent invite so published links stay valid.
 
+`params.koFi` points to the donation page linked from the footer, support page,
+and pricing FAQ. Leave it empty to hide those donation links. Donations are
+optional and do not unlock paid features.
+
 ## Add a screen recording
 
 Put a short, compressed H.264 MP4 in `website/static/media/`, then update:
