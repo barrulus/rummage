@@ -590,7 +590,6 @@ void InsightsView::set_hidden(bool hidden) {
 void InsightsView::rebuild() {
     invalidate_iris();
     clear_selection();
-    sync_folder();
     pending_offset_ = 0;
     requested_scroll_ = 0.0F;
     hover_.clear();
@@ -622,6 +621,7 @@ void InsightsView::rebuild() {
             });
         }
         finish_rows();
+        sync_folder();
         redraw_();
         return;
     }
@@ -711,6 +711,9 @@ void InsightsView::rebuild() {
         }
     }
     finish_rows();
+    // Creating a Folder can redraw synchronously. Publish the new rows first so that
+    // repaint cannot consume chart invalidation while the previous rows are still present.
+    sync_folder();
     redraw_();
 }
 
