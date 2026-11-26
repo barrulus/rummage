@@ -263,7 +263,8 @@ TEST_CASE("places: load, without user-dirs.dirs") {
     const std::vector<Place> places = rummage::fs::load_places(home.sources);
     // The usual names that exist, in the sidebar's order.
     CHECK(labels(places) == std::vector<std::string>{"Home", "Downloads", "Pictures", "File system",
-                                                     "Trash", "Served", "DATA"});
+                                                     "Trash", "Recent Files", "Network", "Served",
+                                                     "DATA"});
     CHECK(places[0].path == home.sources.home);
     CHECK(places[3].path == "/");
     CHECK(places[4].path == rummage::fs::trash_path());
@@ -276,7 +277,8 @@ TEST_CASE("places: load, with user-dirs.dirs") {
         << "XDG_PICTURES_DIR=\"$HOME/Immagini\"\nXDG_MUSIC_DIR=\"$HOME/Musica\"\n";
     // Downloads exists but the file does not name it; Musica is named but missing.
     CHECK(labels(rummage::fs::load_places(home.sources)) ==
-          std::vector<std::string>{"Home", "Immagini", "File system", "Trash"});
+          std::vector<std::string>{"Home", "Immagini", "File system", "Trash", "Recent Files",
+                                   "Network"});
 }
 
 TEST_CASE("places: the watcher follows the bookmarks") {
@@ -285,7 +287,7 @@ TEST_CASE("places: the watcher follows the bookmarks") {
     EventLoop loop;
     int changes = 0;
     rummage::fs::PlacesWatcher watcher{loop, home.sources, [&] { ++changes; }};
-    CHECK(watcher.places().size() == 5);
+    CHECK(watcher.places().size() == 7);
     std::ofstream{home.sources.config_home / "gtk-3.0" / "bookmarks"} << "file:///srv\n";
     CHECK(run_until(loop, [&] { return changes > 0; }));
     CHECK(labels(watcher.places()).back() == "srv");
@@ -307,7 +309,7 @@ TEST_CASE("places: icons exist in the icon font") {
     fs::create_directories(home.sources.config_home / "gtk-3.0");
     std::ofstream{home.sources.config_home / "gtk-3.0" / "bookmarks"} << "file:///srv\n";
     const std::vector<Place> places = rummage::fs::load_places(home.sources);
-    CHECK(places.size() == 11);
+    CHECK(places.size() == 13);
     // User directories above have arbitrary names; customization follows their XDG purpose.
     std::vector<std::string_view> keys;
     for (const auto& place : places) {
@@ -315,7 +317,7 @@ TEST_CASE("places: icons exist in the icon font") {
     }
     CHECK(keys == std::vector<std::string_view>{"home", "desktop", "documents", "downloads",
                                                 "music", "pictures", "videos", "filesystem",
-                                                "trash", "", ""});
+                                                "trash", "recent", "network", "", ""});
     for (const Place& place : places) {
         CHECK_MESSAGE(icons.has(place.icon), place.icon);
     }

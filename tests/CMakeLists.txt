@@ -85,6 +85,7 @@ add_executable(rummage-tests
     palette_test.cpp
     kde_palette_test.cpp
     paste_test.cpp
+    recent_test.cpp
     places_test.cpp
     remote_test.cpp
     pointer_shapes_test.cpp

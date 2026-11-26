@@ -16,6 +16,7 @@
 #include <set>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/vfs.h>
 #include <system_error>
 #include <thread>
 #include <unistd.h>
@@ -565,6 +566,20 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
         opened.st_dev != info.st_dev || opened.st_ino != info.st_ino ||
         (request_.verify && !unchanged(info, opened))) {
         error(where, i18n::tr("changed while being copied"));
+        return false;
+    }
+    // Some remote protocols expose only whole-second timestamps. A same-size write
+    // after byte comparison is then invisible to the final identity check. Preserve
+    // the source by refusing a copied verified move, before staging/publication.
+    struct statfs filesystem{};
+    const bool remote = ::fstatfs(from.get(), &filesystem) != 0 ||
+                        filesystem.f_type == 0x65735546 || filesystem.f_type == 0x6969 ||
+                        static_cast<unsigned long>(filesystem.f_type) == 0xff534d42UL ||
+                        filesystem.f_type == 0x517b;
+    if (moving_ && request_.verify && remote && opened.st_mtim.tv_nsec == 0 &&
+        opened.st_ctim.tv_nsec == 0) {
+        error(where, i18n::tr("Verified move cannot establish source stability on this filesystem; "
+                              "copy and review before deleting"));
         return false;
     }
     const std::filesystem::path part = fresh ? target : temporary(target);

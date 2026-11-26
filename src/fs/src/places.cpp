@@ -45,7 +45,8 @@ constexpr std::array<UserDirKind, 6> kUserDirs{{
 constexpr std::array<std::string_view, 3> kMountRoots{"/run/media/", "/media/", "/mnt/"};
 
 // The remote bookmarks the sidebar lists: the schemes gvfs mounts that rummage maps to a mount.
-constexpr std::array<std::string_view, 5> kRemoteSchemes{"smb", "sftp", "ftp", "dav", "davs"};
+constexpr std::array<std::string_view, 8> kRemoteSchemes{"smb",  "sftp", "ftp", "dav",
+                                                         "davs", "nfs",  "mtp", "gphoto2"};
 
 std::string_view trim(std::string_view text) {
     const std::size_t first = text.find_first_not_of(" \t\r");
@@ -287,6 +288,9 @@ std::optional<RemoteUri> parse_remote_uri(std::string_view uri) {
         }
         out.port = number;
     }
+    // Passwords belong to the authentication dialog, never URI/bookmark persistence.
+    if (out.user.find(':') != std::string::npos)
+        return std::nullopt;
     out.path = percent_decode(path);
     // Filesystem and gvfs byte-string APIs terminate at NUL. Reject it before normalization
     // can hide a component, or a decoded "..%00" can become a local parent traversal.
@@ -730,6 +734,22 @@ std::vector<Place> load_places(const PlaceSources& sources) {
                       .icon = "trash",
                       .disk = {},
                       .icon_key = "trash"});
+
+    places.push_back({.section = Place::Section::places,
+                      .label = std::string{i18n::tr("Recent Files")},
+                      .path = {},
+                      .icon = "calendar",
+                      .disk = {},
+                      .icon_key = "recent",
+                      .uri = "rummage:recent"});
+
+    places.push_back({.section = Place::Section::places,
+                      .label = std::string{i18n::tr("Network")},
+                      .path = {},
+                      .icon = "server",
+                      .disk = {},
+                      .icon_key = "network",
+                      .uri = "rummage:network"});
 
     std::ranges::move(
         parse_bookmarks(core::read_text_file(sources.config_home / "gtk-3.0" / "bookmarks").text),

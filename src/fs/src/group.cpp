@@ -40,10 +40,18 @@ TransferResult run_group(const TransferRequest& request, const core::CancelToken
                     0)
                 created = true;
             else {
+                const int publish_error = errno;
                 if (fd >= 0)
                     ::close(fd);
                 fd = -1;
                 (void)::rmdir(staging.c_str());
+                if (publish_error == EINVAL || publish_error == ENOSYS ||
+                    publish_error == EOPNOTSUPP) {
+                    result.refused =
+                        std::string{i18n::tr("This filesystem cannot safely publish a grouped "
+                                             "folder; create a folder and move files into it")};
+                    return result;
+                }
             }
         }
     }

@@ -126,6 +126,8 @@ struct Devices {
     std::function<void(const std::string& volume, Done done)> unmount;
     // Every file system on the volume's drive unmounted, then the drive powered off.
     std::function<void(const std::string& volume, Done done)> eject;
+    std::function<void(const std::string& volume, std::string password, Mounted done)> unlock{};
+    std::function<void(const std::string& encrypted, Done done)> lock{};
 };
 
 // Network folders as the app connects them (gvfs): remote bookmarks mounted by their URI; tests
@@ -1370,6 +1372,8 @@ private:
     DragAndDrop dnd_;
     Devices devices_;
     Remotes remotes_;
+    core::CancelToken network_job_;
+    void discover_network();
     // Leaves a folder on the disk at mount point before it goes: the view goes home.
     void leave_disk(const std::filesystem::path& mount_point);
     std::optional<std::filesystem::path> bookmarks_file_;

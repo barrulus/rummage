@@ -33,7 +33,8 @@ struct OpenPlan {
         std::vector<std::string> argv;
         std::filesystem::path directory;  // the entry's Path, else the first file's folder
         std::size_t files{0};             // how many of the files it opens
-        bool program{false};              // the file itself, started as a program
+        std::vector<std::filesystem::path> recent_paths{};
+        bool program{false};  // the file itself, started as a program
     };
 
     std::vector<Launch> launches;

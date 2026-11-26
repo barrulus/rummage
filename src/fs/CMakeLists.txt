@@ -21,6 +21,7 @@ add_library(rummage_fs
     src/measure.cpp
     src/mime.cpp
     src/operations.cpp
+    src/recent.cpp
     src/places.cpp
     src/subfolders.cpp
     src/sort.cpp

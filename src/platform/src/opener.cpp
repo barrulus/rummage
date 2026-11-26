@@ -11,6 +11,7 @@
 #include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/fs/permissions.hpp"
+#include "rummage/fs/recent.hpp"
 #include "rummage/platform/exec.hpp"
 #include "rummage/platform/program.hpp"
 
@@ -104,6 +105,7 @@ OpenPlan plan_open(std::span<const OpenFile> files, const Applications& apps,
         }
         const std::size_t per_line = lines.size() == 1 ? group.files.size() : 1;
         bool started = false;
+        std::size_t file_index = 0;
         for (std::vector<std::string>& line : lines) {
             if (app.terminal) {
                 std::optional<std::vector<std::string>> wrapped = in_terminal(line, environment);
@@ -119,13 +121,17 @@ OpenPlan plan_open(std::span<const OpenFile> files, const Applications& apps,
                            find_program(line.front(), environment.path)) {
                 line.front() = program->string();  // the one find() checked, from the same PATH
             }
-            plan.launches.push_back({.app_id = app.id,
-                                     .app_name = name,
-                                     .argv = std::move(line),
-                                     .directory = app.working_directory.empty()
-                                                      ? group.files.front().parent_path()
-                                                      : app.working_directory,
-                                     .files = per_line});
+            plan.launches.push_back(
+                {.app_id = app.id,
+                 .app_name = name,
+                 .argv = std::move(line),
+                 .directory = app.working_directory.empty() ? group.files.front().parent_path()
+                                                            : app.working_directory,
+                 .files = per_line,
+                 .recent_paths = lines.size() == 1 ? group.files
+                                                   : std::vector<std::filesystem::path>{
+                                                         group.files[file_index]}});
+            ++file_index;
             started = true;
         }
         if (started) {
@@ -443,6 +449,13 @@ void Opener::start_one(const OpenPlan::Launch& launch, const std::string& token)
         });
     if (error) {
         report_(i18n::trf("Could not start {}: {}", launch.app_name, error.message()), true);
+    } else if (!launch.recent_paths.empty()) {
+        pool_.submit(
+            core::Priority::nearby,
+            [paths = launch.recent_paths](const core::CancelToken&) {
+                return fs::RecentFiles{}.record(paths);
+            },
+            [](const std::string&) {});
     }
 }
 

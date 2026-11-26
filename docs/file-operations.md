@@ -459,3 +459,19 @@ Hard links share annotations. External copy/archive tools may discard extended a
 The optional Details “File rating” column displays and sorts general ratings. Zero is unrated;
 a dash means unavailable or malformed storage. Ratings are read on directory workers and refreshed
 with filesystem attribute changes. This sort is independent of photo star ratings in sidecars.
+
+### Remote filesystem limits
+
+A copied **verified move** is refused before staging when a FUSE/NFS/SMB source
+exposes only whole-second modification and change timestamps. Such metadata
+cannot reveal a same-size write made after comparison; use Copy, review the
+source and destination, and delete explicitly when appropriate. Ordinary verified
+copies and atomic same-filesystem moves retain their usual behavior. No
+verification can promise a snapshot while another writer modifies a file.
+
+Where `RENAME_NOREPLACE` is unavailable, archive creation and individual extracted
+regular files can publish with an atomic no-overwrite hard link. If the backend
+also lacks hard links, the operation fails without replacing existing data.
+Extracted directory publication and grouping into a new folder require atomic
+no-overwrite directory rename and report the limitation where it is absent.
+Create a folder and move files explicitly as an alternative to grouping.

@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <doctest/doctest.h>
 
@@ -14,6 +15,8 @@
 #include "rummage/fs/places.hpp"
 #include "rummage/platform/udisks.hpp"
 #include "rummage/platform/volumes.hpp"
+#include "rummage/ui/icons.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
 
@@ -435,4 +438,128 @@ TEST_CASE("devices: sidebar identities follow filesystem UUID across device chan
     changed.path = "/media/changed";
     CHECK(rummage::views::Sidebar::place_key(changed) ==
           rummage::views::Sidebar::place_key(places.front()));
+}
+
+TEST_CASE("volumes: encrypted containers transition locked unlocked mounted without duplicates") {
+    auto container = partition("/b/secret", "/d/usb", "Secret");
+    container.filesystem = false;
+    container.id_usage = "crypto";
+    container.encrypted = true;
+    auto objects = std::vector<UdisksObject>{drive("/d/usb", "usb"), container};
+    auto volumes = rummage::platform::volumes_from(objects);
+    REQUIRE(volumes.size() == 1);
+    CHECK(volumes[0].locked);
+    CHECK(volumes[0].encrypted_object == container.path);
+    auto places = rummage::platform::with_volumes({}, volumes);
+    REQUIRE(places.size() == 1);
+    CHECK(places[0].disk.locked);
+    CHECK(places[0].icon == "database-off");
+    CHECK(places[0].label == "“Secret” locked");
+    auto clear = partition("/b/dm0", "/d/usb", "Cleartext");
+    clear.crypto_backing = container.path;
+    objects.push_back(clear);
+    volumes = rummage::platform::volumes_from(objects);
+    REQUIRE(volumes.size() == 1);
+    CHECK_FALSE(volumes[0].locked);
+    CHECK_FALSE(volumes[0].mount_point);
+    CHECK(volumes[0].encrypted_object == container.path);
+    objects.back().mount_points = {"/fixture/secret"};
+    volumes = rummage::platform::volumes_from(objects);
+    REQUIRE(volumes.size() == 1);
+    CHECK(volumes[0].mount_point == std::filesystem::path{"/fixture/secret"});
+}
+
+TEST_CASE("devices: locked volume prompts cancellation success and incorrect passphrase") {
+    Fixture f;
+    f.browser.open(f.dir.path);
+    REQUIRE(f.settle());
+    std::string answer;
+    f.browser.set_devices({.mount = {},
+                           .unmount = {},
+                           .eject = {},
+                           .unlock = [&](const std::string& volume, std::string password,
+                                         rummage::views::Devices::Mounted done) {
+                               CHECK(volume == "/b/secret");
+                               CHECK(password == "correct horse");
+                               f.calls.push_back("unlock");
+                               done(answer.empty() ? f.disk : fs::path{}, answer);
+                           }});
+    auto place = f.place(false);
+    place.disk.volume = "/b/secret";
+    place.disk.encrypted_object = "/b/secret";
+    place.disk.locked = true;
+    f.browser.open_place(place);
+    REQUIRE(f.browser.mount_password_dialog().is_open());
+    rummage::ui::KeyEvent key;
+    key.keysym = XKB_KEY_Escape;
+    f.browser.mount_password_dialog().key(key);
+    CHECK(f.calls.empty());
+    CHECK_FALSE(f.browser.mount_password_dialog().is_open());
+    f.browser.open_place(place);
+    f.browser.mount_password_dialog().paste("correct horse");
+    key.keysym = XKB_KEY_Return;
+    f.browser.mount_password_dialog().key(key);
+    REQUIRE(f.settle());
+    CHECK(f.shown() == f.disk);
+    CHECK(f.calls.size() == 1);
+    f.browser.open(f.dir.path);
+    REQUIRE(f.settle());
+    answer = "incorrect passphrase";
+    f.browser.open_place(place);
+    f.browser.mount_password_dialog().paste("correct horse");
+    f.browser.mount_password_dialog().key(key);
+    REQUIRE(f.settle());
+    CHECK(f.shown() == f.dir.path);
+    CHECK(f.message().find("incorrect passphrase") != std::string::npos);
+}
+
+TEST_CASE("devices: lock action leaves mounted volume and reports busy or success") {
+    Fixture f;
+    f.browser.open(f.disk / "FOTOGRAFIA");
+    REQUIRE(f.settle());
+    std::string failure = "in use";
+    f.browser.set_devices(
+        {.mount = {},
+         .unmount = {},
+         .eject = {},
+         .unlock = {},
+         .lock = [&](const std::string& encrypted, rummage::views::Devices::Done done) {
+             CHECK(encrypted == "/b/secret");
+             CHECK(f.shown() != f.disk / "FOTOGRAFIA");
+             done(failure);
+         }});
+    auto place = f.place(true);
+    place.disk.encrypted_object = "/b/secret";
+    rummage::ui::Offscreen gl{220, 400};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    f.browser.sidebar().set_places({place});
+    const auto lock = [&] {
+        renderer.begin_frame(220, 400, 1, {});
+        f.browser.sidebar().draw(renderer, {0, 0, 220, 400}, {}, icons, {}, Browser::Clock::now());
+        renderer.end_frame();
+        const auto rect = f.browser.sidebar().place_icon_rect(place.path);
+        REQUIRE(rect);
+        f.browser.sidebar().pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                                     .x = rect->x + 8,
+                                     .y = rect->y + 8,
+                                     .button = rummage::ui::PointerButton::right},
+                                    Browser::Clock::now());
+        const auto& items = f.browser.context_menu().items();
+        const auto item =
+            std::ranges::find(items, std::string{"lock"}, &rummage::views::MenuItem::id);
+        REQUIRE(item != items.end());
+        REQUIRE(item->enabled);
+        const auto action = item->action;
+        f.browser.context_menu().close();
+        action();
+    };
+    lock();
+    REQUIRE(f.settle());
+    CHECK(f.message() == "“kinetic” could not be locked: in use");
+    failure.clear();
+    lock();
+    REQUIRE(f.settle());
+    CHECK(f.message() == "“kinetic” locked");
 }

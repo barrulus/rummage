@@ -50,7 +50,7 @@ public:
     explicit PasswordDialog(std::function<void()> redraw);
 
     // title: "Connect to “Public on fileshare”".
-    void open(std::string title, LoginRequest request, Answer answer);
+    void open(std::string title, LoginRequest request, Answer answer, std::string action = {});
 
     // Closes without answering (gvfs stopped waiting).
     void close();
@@ -105,6 +105,7 @@ private:
 
     std::function<void()> redraw_;
     std::string title_;
+    std::string action_;
     LoginRequest request_;
     Answer answer_;
     ui::TextField user_;

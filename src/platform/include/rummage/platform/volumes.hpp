@@ -38,6 +38,8 @@ struct UdisksObject {
     bool removable{false};
     bool ejectable{false};
     bool can_power_off{false};
+    bool encrypted{false};
+    std::string crypto_backing{};
     std::string connection_bus;  // "usb", "sdio", "ieee1394", "" for internal ones
 };
 
@@ -50,6 +52,8 @@ struct Volume {
     bool external{false};  // the drive can be unplugged (removable, USB, SD, FireWire)
     std::optional<std::filesystem::path> mount_point;  // the first one
     std::string uuid{};
+    std::string encrypted_object{};
+    bool locked{false};
 };
 
 // "466 GB Volume", "1.0 TB Volume" (decimal units, as GNOME names a disk without a label).

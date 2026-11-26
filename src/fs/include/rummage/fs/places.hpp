@@ -33,6 +33,9 @@ struct Place {
 
         std::string identity{};  // filesystem UUID, stable across device-node and mount changes
 
+        std::string encrypted_object{};
+        bool locked{false};
+
         bool operator==(const Disk&) const = default;
     };
 

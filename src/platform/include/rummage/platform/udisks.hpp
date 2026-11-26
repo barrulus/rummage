@@ -42,6 +42,10 @@ public:
 
     void unmount(const std::string& volume, Done done);
 
+    void unlock(const std::string& volume, std::string passphrase,
+                std::function<void(const std::filesystem::path&, const std::string&)> done);
+    void lock(const std::string& encrypted, Done done);
+
     // Unmounts every file system on volume's drive, then powers the drive off (or ejects its
     // medium): it can be unplugged then.
     void eject(const std::string& volume, Done done);

@@ -215,3 +215,22 @@ checks also require the three installed completion files.
 
 The bounded [sanitizer and fuzz gate](ci-packaging.md#sanitizer-and-fuzz-gate)
 provides repeatable instrumented checks and retains failure evidence.
+
+### Focused filesystem matrix
+
+Provision a disposable mount with fixture data only, then run the focused
+transfer, rename/create, compression/extraction and Undo checks against it:
+
+```sh
+python3 scripts/ci/filesystem-matrix.py --binary build-dev/tests/rummage-tests \
+  --target /path/to/disposable/mount --output /tmp/filesystem-results \
+  --backend 'protocol, client and server versions; mount options' --expected-fstype nfs4
+```
+
+The runner does not mount or configure services. It sets `TMPDIR` for fixtures,
+records separate test logs, exit status and leftover paths, and preserves any
+remaining fixture data for review. Capability differences (timestamps, xattrs,
+links, permissions or device write support) can fail POSIX-oriented assertions;
+inspect the exact assertion and operation outcome before classifying a product
+bug. Run as an ordinary user for permission checks. Include restrictive server
+policies, cancellation, history disposal and exit cleanup in backend reports.

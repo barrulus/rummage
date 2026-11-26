@@ -1,8 +1,10 @@
 #include "rummage/views/file_finder.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <chrono>
+#include <ctime>
 #include <fcntl.h>
 #include <format>
 #include <sys/stat.h>
@@ -11,6 +13,7 @@
 
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/annotations.hpp"
+#include "rummage/fs/recent.hpp"
 #include "rummage/views/fuzzy.hpp"
 
 namespace rummage::views {
@@ -465,11 +468,78 @@ void FileFinder::stop() {
     changed_();
 }
 
-void FileFinder::refresh() { start(root_, hidden_); }
+void FileFinder::refresh() {
+    if (recent_)
+        start_recent();
+    else
+        start(root_, hidden_);
+}
+
+void FileFinder::filter_recent() {
+    results_.clear();
+    auto lower = [](std::string value) {
+        for (auto& c : value)
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return value;
+    };
+    const auto wanted = lower(query_);
+    for (const auto& row : recent_rows_)
+        if (wanted.empty() || lower(row.path).find(wanted) != std::string::npos)
+            results_.push_back(row);
+    entries_ = recent_rows_.size();
+    stats_.matches = results_.size();
+}
+
+void FileFinder::start_recent() {
+    scan_token_.cancel();
+    cancel_matches();
+    recent_ = true;
+    root_ = "/";
+    scanning_ = true;
+    stopped_ = false;
+    recent_rows_.clear();
+    results_.clear();
+    spec_ = {};
+    stats_ = {};
+    walked_ = {};
+    const auto generation = generation_;
+    scan_token_ = pool_.submit(
+        core::Priority::visible,
+        [](const core::CancelToken& token) {
+            fs::RecentFiles history;
+            std::vector<FoundFile> rows;
+            for (const auto& file : history.load()) {
+                if (token.cancelled())
+                    break;
+                std::array<char, 32> date{};
+                const std::time_t time = file.opened;
+                std::tm utc{};
+                ::gmtime_r(&time, &utc);
+                std::strftime(date.data(), date.size(), "%Y-%m-%d %H:%M UTC", &utc);
+                rows.push_back({.path = file.path.relative_path().string(),
+                                .directory = false,
+                                .rank = {},
+                                .context = date.data()});
+            }
+            return std::pair{history.enabled(), rows};
+        },
+        [this, alive = alive_, generation](std::pair<bool, std::vector<FoundFile>> result) {
+            if (!*alive || generation != generation_)
+                return;
+            scanning_ = false;
+            recent_enabled_ = result.first;
+            recent_rows_ = std::move(result.second);
+            filter_recent();
+            changed_();
+        });
+    changed_();
+}
 
 void FileFinder::start(const std::filesystem::path& root, bool hidden) {
     scan_token_.cancel();
     cancel_matches();
+    recent_ = false;
+    recent_rows_.clear();
     root_ = root;
     hidden_ = hidden;
     spec_ = parse_search_query(query_, hidden);
@@ -519,6 +589,11 @@ void FileFinder::set_query(const std::string& query) {
     if (query == query_)
         return;
     query_ = query;
+    if (recent_) {
+        filter_recent();
+        changed_();
+        return;
+    }
     const auto next = parse_search_query(query, hidden_);
     const bool rescan = stopped_ || !spec_.error.empty() || next.hidden != spec_.hidden ||
                         next.excluded != spec_.excluded;
@@ -610,6 +685,8 @@ void FileFinder::fill_nearest() {
 }
 
 std::string FileFinder::status() const {
+    if (recent_ && !recent_enabled_)
+        return std::string{i18n::tr("Recent history is disabled")};
     if (!spec_.error.empty())
         return spec_.error;
     if (spec_.content && spec_.text.empty())

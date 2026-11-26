@@ -19,6 +19,7 @@ constexpr std::string_view kService = "org.freedesktop.UDisks2";
 constexpr std::string_view kManagerPath = "/org/freedesktop/UDisks2";
 constexpr std::string_view kBlock = "org.freedesktop.UDisks2.Block";
 constexpr std::string_view kFilesystem = "org.freedesktop.UDisks2.Filesystem";
+constexpr std::string_view kEncrypted = "org.freedesktop.UDisks2.Encrypted";
 constexpr std::string_view kDrive = "org.freedesktop.UDisks2.Drive";
 // Signals come in bursts (a disk plugged in: a dozen objects): read the objects once after.
 constexpr std::chrono::milliseconds kSettle{150};
@@ -64,6 +65,8 @@ UdisksObject object_from(const sdbus::ObjectPath& path, const Interfaces& interf
         object.hint_system = property<bool>(p, "HintSystem");
         object.drive = property<sdbus::ObjectPath>(p, "Drive", sdbus::ObjectPath{"/"});
         object.read_only = property<bool>(p, "ReadOnly");
+        object.crypto_backing =
+            property<sdbus::ObjectPath>(p, "CryptoBackingDevice", sdbus::ObjectPath{"/"});
     }
     if (const auto fs = interfaces.find(std::string{kFilesystem}); fs != interfaces.end()) {
         object.filesystem = true;
@@ -80,6 +83,7 @@ UdisksObject object_from(const sdbus::ObjectPath& path, const Interfaces& interf
         object.can_power_off = property<bool>(p, "CanPowerOff");
         object.connection_bus = property<std::string>(p, "ConnectionBus");
     }
+    object.encrypted = interfaces.contains(std::string{kEncrypted});
     return object;
 }
 
@@ -156,7 +160,8 @@ struct Udisks::Impl {
                 std::vector<Volume> fresh = volumes_from(objects);
                 const auto same = [](const Volume& a, const Volume& b) {
                     return a.object == b.object && a.name == b.name &&
-                           a.mount_point == b.mount_point && a.external == b.external;
+                           a.mount_point == b.mount_point && a.external == b.external &&
+                           a.encrypted_object == b.encrypted_object && a.locked == b.locked;
                 };
                 if (!std::ranges::equal(fresh, volumes, same)) {
                     volumes = std::move(fresh);
@@ -243,6 +248,78 @@ void Udisks::unmount(const std::string& volume, Done done) {
     impl_->proxy(volume)
         .callMethodAsync("Unmount")
         .onInterface(std::string{kFilesystem})
+        .withArguments(std::map<std::string, sdbus::Variant>{})
+        .uponReplyInvoke([done = std::move(done)](std::optional<sdbus::Error> error) {
+            done(error ? readable(*error) : std::string{});
+        });
+    impl_->pump();
+}
+
+void Udisks::unlock(const std::string& volume, std::string passphrase,
+                    std::function<void(const std::filesystem::path&, const std::string&)> done) {
+    if (!available()) {
+        done({}, "udisks2 is not running");
+        return;
+    }
+    const auto* object = impl_->object(volume);
+    if (!object || !object->encrypted) {
+        done({}, "it is gone already");
+        return;
+    }
+    impl_->proxy(volume)
+        .callMethodAsync("Unlock")
+        .withTimeout(std::chrono::minutes{5})
+        .onInterface(std::string{kEncrypted})
+        .withArguments(passphrase, std::map<std::string, sdbus::Variant>{})
+        .uponReplyInvoke([this, done = std::move(done)](std::optional<sdbus::Error> error,
+                                                        const sdbus::ObjectPath& cleartext) {
+            if (error) {
+                done({}, readable(*error));
+                return;
+            }
+            impl_->read_objects_soon();
+            mount(cleartext, std::move(done));
+        });
+    // The D-Bus message owns its serialized copy; never retain it in application state.
+    std::fill(passphrase.begin(), passphrase.end(), '\0');
+    impl_->pump();
+}
+
+void Udisks::lock(const std::string& encrypted, Done done) {
+    if (!available()) {
+        done("udisks2 is not running");
+        return;
+    }
+    const auto* object = impl_->object(encrypted);
+    if (!object || !object->encrypted) {
+        done("it is gone already");
+        return;
+    }
+    const auto clear = std::ranges::find_if(impl_->volumes, [&](const Volume& v) {
+        return v.encrypted_object == encrypted && !v.locked && v.mount_point.has_value();
+    });
+    if (clear != impl_->volumes.end()) {
+        const std::string volume = clear->object;
+        unmount(volume, [this, encrypted, done = std::move(done)](const std::string& error) {
+            if (!error.empty()) {
+                done(error);
+                return;
+            }
+            // The object snapshot may lag; proceed directly after the successful unmount.
+            impl_->proxy(encrypted)
+                .callMethodAsync("Lock")
+                .onInterface(std::string{kEncrypted})
+                .withArguments(std::map<std::string, sdbus::Variant>{})
+                .uponReplyInvoke([done](std::optional<sdbus::Error> e) {
+                    done(e ? readable(*e) : std::string{});
+                });
+            impl_->pump();
+        });
+        return;
+    }
+    impl_->proxy(encrypted)
+        .callMethodAsync("Lock")
+        .onInterface(std::string{kEncrypted})
         .withArguments(std::map<std::string, sdbus::Variant>{})
         .uponReplyInvoke([done = std::move(done)](std::optional<sdbus::Error> error) {
             done(error ? readable(*error) : std::string{});

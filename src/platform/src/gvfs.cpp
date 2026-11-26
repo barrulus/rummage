@@ -171,6 +171,16 @@ std::optional<GvfsLocation> gvfs_location(const fs::RemoteUri& uri) {
         location.path = uri.path;
         return location;
     }
+    if (uri.scheme == "nfs" || uri.scheme == "mtp" || uri.scheme == "gphoto2") {
+        if (!uri.user.empty() || uri.port != -1)
+            return std::nullopt;
+        spec.type = uri.scheme;
+        // GVFS's generic mapper retains brackets for IPv6 and USB bus addresses.
+        const bool brackets = uri.host.find(':') != std::string::npos;
+        spec.items.emplace("host", brackets ? "[" + uri.host + "]" : uri.host);
+        location.path = uri.path;
+        return location;
+    }
     // WebDAV: one "dav" type, ssl telling davs from dav, the host as written.
     if (uri.scheme == "dav" || uri.scheme == "davs") {
         const bool ssl = uri.scheme == "davs";
