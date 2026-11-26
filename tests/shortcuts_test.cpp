@@ -148,6 +148,8 @@ struct Fixture {
         browser.shortcuts_overlay().close();
         browser.context_menu().close();
         browser.command_palette().close();
+        if (browser.searching_results())
+            browser.search_action(rummage::views::SearchResults::Action::close);
         browser.confirm_dialog().close();
         browser.properties_dialog().close();
         browser.insights_view().close();
