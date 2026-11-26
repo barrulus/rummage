@@ -11,3 +11,9 @@ usr/share/xdg-desktop-portal/*
 usr/share/bash-completion/completions/rummage
 usr/share/zsh/site-functions/_rummage
 usr/share/fish/vendor_completions.d/rummage.fish
+usr/libexec/rummage/rummage-media
+usr/libexec/rummage/rummage-pdf
+usr/libexec/rummage/libpdfium.so
+usr/share/rummage/engines/media.toml
+usr/share/rummage/engines/pdf.toml
+usr/share/licenses/rummage-pdf/*

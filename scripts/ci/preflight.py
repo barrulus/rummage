@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = ("lint", "tests", "nix", "void", "deb", "rpm", "arch", "tumbleweed")
 NIX_TESTS = ".#checks.x86_64-linux.tests"
-NIX_PACKAGES = [".#rummage", ".#rummage-with-media", ".#rummage-with-pdf", ".#rummage-with-previews"]
+NIX_PACKAGES = [".#rummage", ".#rummage-with-photos"]
 
 
 def commands(target, output):

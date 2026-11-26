@@ -33,6 +33,8 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Photo Library" = "Fotobibliothek"
+"Add to Photo Library…" = "Zur Fotobibliothek hinzufügen…"
 "Windows" = "Fenster"
 "New Window" = "Neues Fenster"
 "Reuse browser windows" = "Browserfenster wiederverwenden"

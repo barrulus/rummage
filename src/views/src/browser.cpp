@@ -845,6 +845,8 @@ void Browser::paste_text() {
     const bool for_search =
         searching_results() && search_results_->editing() && !palette_.is_open();
     const auto search_generation = search_generation_;
+    const bool for_photos = showing_photos() && photo_library_->editing() && !palette_.is_open();
+    const auto photo_generation = for_photos ? photo_library_->edit_generation() : 0;
     const bool for_breadcrumb = area().breadcrumb.editing();
     const auto breadcrumb_generation = area().breadcrumb.edit_generation();
     const auto breadcrumb_area = context_area_;
@@ -854,76 +856,81 @@ void Browser::paste_text() {
             continue;
         }
         ++operations_;
-        system_.read(
-            std::string{type},
-            [this, alive = alive_, for_confirm, confirm_generation, for_password,
-             password_generation, for_properties, properties_generation, for_settings,
-             settings_generation, for_batch_rename, batch_rename_generation, for_breadcrumb,
-             breadcrumb_generation, breadcrumb_area, breadcrumb_owner, for_search,
-             search_generation](const std::optional<std::string>& text) {
-                if (!*alive) {
-                    return;
-                }
-                --operations_;
-                if (!text) {
-                    return;
-                }
-                if (for_batch_rename) {
-                    if (batch_rename_.is_open() &&
-                        batch_rename_.generation() == batch_rename_generation)
-                        batch_rename_.paste(*text);
-                    return;
-                }
-                if (for_confirm) {
-                    if (confirm_.is_open() && confirm_.generation() == confirm_generation)
-                        confirm_.paste(*text);
-                    return;
-                }
-                if (for_password) {
-                    if (password_.is_open() && password_.generation() == password_generation)
-                        password_.paste(*text);
-                    return;
-                }
-                if (for_settings) {
-                    if (settings_.is_open() && settings_.generation() == settings_generation)
-                        settings_.paste(*text);
-                    return;
-                }
-                if (for_properties) {
-                    if (properties_.is_open() && properties_.generation() == properties_generation)
-                        properties_.paste(*text);
-                    return;
-                }
-                if (for_search) {
-                    if (searching_results() && search_generation_ == search_generation)
-                        search_results_->paste(*text);
-                    return;
-                }
-                if (for_breadcrumb) {
-                    auto* owner = areas_[breadcrumb_area].get();
-                    if (owner == breadcrumb_owner && owner && owner->breadcrumb.editing() &&
-                        owner->breadcrumb.edit_generation() == breadcrumb_generation)
-                        owner->breadcrumb.paste(*text);
-                    return;
-                }
-                if (mount_password_.is_open()) {
-                    mount_password_.paste(*text);
-                } else if (location_.is_open()) {
-                    location_.paste(*text);
-                } else if (palette_.is_open()) {
-                    palette_.paste(*text);
-                } else if (editor_.active()) {
-                    editor_.paste(*text);
-                } else if (sidebar_.renaming()) {
-                    sidebar_.paste(*text);
-                } else if (filter_focused_) {
-                    pane().filter_field.insert(
-                        std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
-                    apply_filters();
-                } else {
-                    editor_.paste(*text);
-                }
-            });
+        system_.read(std::string{type}, [this, alive = alive_, for_confirm, confirm_generation,
+                                         for_password, password_generation, for_properties,
+                                         properties_generation, for_settings, settings_generation,
+                                         for_batch_rename, batch_rename_generation, for_breadcrumb,
+                                         breadcrumb_generation, breadcrumb_area, breadcrumb_owner,
+                                         for_search, search_generation, for_photos,
+                                         photo_generation](const std::optional<std::string>& text) {
+            if (!*alive) {
+                return;
+            }
+            --operations_;
+            if (!text) {
+                return;
+            }
+            if (for_batch_rename) {
+                if (batch_rename_.is_open() &&
+                    batch_rename_.generation() == batch_rename_generation)
+                    batch_rename_.paste(*text);
+                return;
+            }
+            if (for_confirm) {
+                if (confirm_.is_open() && confirm_.generation() == confirm_generation)
+                    confirm_.paste(*text);
+                return;
+            }
+            if (for_password) {
+                if (password_.is_open() && password_.generation() == password_generation)
+                    password_.paste(*text);
+                return;
+            }
+            if (for_settings) {
+                if (settings_.is_open() && settings_.generation() == settings_generation)
+                    settings_.paste(*text);
+                return;
+            }
+            if (for_properties) {
+                if (properties_.is_open() && properties_.generation() == properties_generation)
+                    properties_.paste(*text);
+                return;
+            }
+            if (for_photos) {
+                if (showing_photos() && photo_library_->edit_generation() == photo_generation)
+                    photo_library_->paste(*text);
+                return;
+            }
+            if (for_search) {
+                if (searching_results() && search_generation_ == search_generation)
+                    search_results_->paste(*text);
+                return;
+            }
+            if (for_breadcrumb) {
+                auto* owner = areas_[breadcrumb_area].get();
+                if (owner == breadcrumb_owner && owner && owner->breadcrumb.editing() &&
+                    owner->breadcrumb.edit_generation() == breadcrumb_generation)
+                    owner->breadcrumb.paste(*text);
+                return;
+            }
+            if (mount_password_.is_open()) {
+                mount_password_.paste(*text);
+            } else if (location_.is_open()) {
+                location_.paste(*text);
+            } else if (palette_.is_open()) {
+                palette_.paste(*text);
+            } else if (editor_.active()) {
+                editor_.paste(*text);
+            } else if (sidebar_.renaming()) {
+                sidebar_.paste(*text);
+            } else if (filter_focused_) {
+                pane().filter_field.insert(
+                    std::string_view{*text}.substr(0, text->find_first_of("\r\n")));
+                apply_filters();
+            } else {
+                editor_.paste(*text);
+            }
+        });
         return;
     }
 }
@@ -951,6 +958,8 @@ bool Browser::text_field_key(const ui::KeyEvent& event) {
         text = location_.copy_selection(cut);
     else if (palette_.is_open())
         text = cut ? palette_.cut() : palette_.field().selected_text();
+    else if (showing_photos() && photo_library_->editing())
+        text = photo_library_->copy_selection(cut);
     else if (searching_results() && search_results_->editing())
         text = search_results_->copy_query(cut);
     else if (editor_.active())
@@ -1405,6 +1414,15 @@ void Browser::show_places() {
                                             .icon = "search",
                                             .uri = "rummage:saved-searches"});
     }
+    if (photos_available()) {
+        const auto end_places = std::ranges::find_if(
+            places, [](const auto& place) { return place.section != fs::Place::Section::places; });
+        places.insert(end_places, fs::Place{.section = fs::Place::Section::places,
+                                            .label = std::string{i18n::tr("Photo Library")},
+                                            .path = {},
+                                            .icon = "photo",
+                                            .uri = "rummage:photos"});
+    }
     sidebar_.set_places(std::move(places));
 }
 
@@ -1582,6 +1600,7 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
 }
 
 void Browser::transfer_done(const fs::TransferRequest& request, const fs::TransferResult& result) {
+    photo_transfer_done(request, result);
     if (searching_results())
         search_results_->refresh();
     Submitted submitted;
@@ -1806,6 +1825,7 @@ std::string cannot_undo(std::size_t undo_excluded) {
 }  // namespace
 
 void Browser::record(FileOperation operation, Purpose purpose, bool failed) {
+    photo_reconcile(operation);
     const std::size_t undo_excluded = std::exchange(undo_excluded_, 0);
     if (purpose != Purpose::user) {
         undoing_ = false;
@@ -2388,6 +2408,9 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         add("add_bookmark", "Add to Sidebar", count == 1 ? keys_for(Command::add_bookmark) : "",
             [this, folders] { add_to_sidebar(folders); });
     }
+    if (photos_available() && !folder->is_archive() && folders.size() == 1 && count == 1)
+        add("photos_add_folder", "Add to Photo Library…", "",
+            [this, path = folders.front()] { open_photo_library(path); });
     if (const RunningTargets running = running_targets(*folder); !running.files.empty()) {
         const bool stop = running.all_run;
         add("running", stop ? "Stop Running as Program" : "Allow Running as Program", "",
@@ -2429,6 +2452,16 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
 
 std::vector<MenuItem> Browser::folder_menu() {
     std::vector<MenuItem> items;
+    if (photos_available()) {
+        const auto folder = current_folder();
+        if (folder && !folder->is_trash() && !folder->is_archive()) {
+            MenuItem item;
+            item.id = "photos_add_folder";
+            item.label = i18n::tr("Add to Photo Library…");
+            item.action = [this, path = folder->path()] { open_photo_library(path); };
+            items.push_back(std::move(item));
+        }
+    }
     MenuItem make_folder;
     make_folder.id = "new_folder";
     make_folder.label = i18n::tr("New Folder");
@@ -2688,7 +2721,7 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
         }
         group({"new_folder", "new_file"});
         group({"paste", "paste_links", "action:copy_location"});
-        group({"open_terminal", "add_bookmark"});
+        group({"open_terminal", "add_bookmark", "photos_add_folder"});
         extensions();
     } else {
         group({"open", "open_with", "open_tab", "open_terminal", "reveal_link_target"});
@@ -2696,7 +2729,7 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
                "create_hard_link", "move_into_folder"});
         group({"action:copy_name", "action:copy_location"});
         group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
-        group({"add_bookmark", "running"});
+        group({"add_bookmark", "photos_add_folder", "running"});
         extensions();
         group({"trash", "erase"});
     }
@@ -3490,6 +3523,7 @@ State Browser::state() {
     state.grid_icon = static_cast<std::int32_t>(pane().grid.icon_size());
     state.palette_recent = palette_recent_;
     state.saved_searches = saved_searches_;
+    state.photo_library = photo_library_ ? photo_library_->state() : photo_state_;
     state.split_visible = split_visible_;
     state.panes_initialized = areas_[1] != nullptr;
     state.stacked = stacked_;
@@ -3635,6 +3669,7 @@ void Browser::apply(const State& state) {
     pane().show_hidden = state.show_hidden;
     palette_recent_ = state.palette_recent;
     saved_searches_ = state.saved_searches;
+    photo_state_ = state.photo_library;
     show_places();
     for (const std::unique_ptr<Pane>& each : area().tabs) {
         each->show_hidden = state.show_hidden;
@@ -4006,11 +4041,14 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     draw_control_hint(renderer, bounds, palette);
     draw_band(renderer, palette);
     editor_.draw(renderer, palette);
+    if (showing_photos())
+        photo_library_->draw(renderer, bounds, palette);
     if (searching_results())
         search_results_->draw(renderer, bounds, palette);
     if (quick_look_.is_open())
-        quick_look_.follow(searching_results() && search_preview_ ? search_preview_
-                                                                  : current_folder());
+        quick_look_.follow((searching_results() || showing_photos()) && search_preview_
+                               ? search_preview_
+                               : current_folder());
     const auto overlay_motion = begin_overlay_motion(renderer, bounds, palette, icons, now);
     quick_look_.draw(renderer, bounds, palette, icons, now);
     shortcuts_.draw(renderer, bounds, palette);
@@ -4183,7 +4221,8 @@ bool Browser::animating() const {
 bool Browser::loading() const {
     if (show_items_pending_ > 0)
         return true;
-    if ((searching_results() && search_results_->loading()) ||
+    if ((showing_photos() && photo_library_->loading()) ||
+        (searching_results() && search_results_->loading()) ||
         (search_preview_pending_ && search_preview_ && search_preview_->model().loading()))
         return true;
     if (finder_ && (finder_->scanning() || finder_->matching()))
@@ -4305,6 +4344,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (menu_.is_open() || shortcuts_.is_open() || quick_look_.is_open()) {
         return Shape::standard;
     }
+    if (showing_photos())
+        return photo_library_->cursor_at(x, y);
     if (searching_results())
         return search_results_->cursor_at(x, y);
     if (editor_.active() && editor_.field().bounds().contains(x, y)) {
@@ -4428,6 +4469,13 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
             pointer_x_ = event.x;
             pointer_y_ = event.y;
         }
+        return;
+    }
+    if (showing_photos()) {
+        if (quick_look_.is_open())
+            quick_look_.pointer(event, now);
+        else
+            photo_library_->pointer(event);
         return;
     }
     if (searching_results()) {
@@ -5534,6 +5582,11 @@ void Browser::next_bookmark_change() {
 void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
     if (Sidebar::separator(place))
         return;
+    if (place.uri == "rummage:photos") {
+        if (destination == PlaceDestination::current)
+            open_photo_library();
+        return;
+    }
     if (place.uri == "rummage:saved-searches") {
         if (destination == PlaceDestination::current)
             open_saved_searches();
@@ -5955,6 +6008,18 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             paste_text();
         else
             properties_.key(event);
+        return true;
+    }
+    if (showing_photos() && !palette_.is_open() && !menu_.is_open()) {
+        if (quick_look_.is_open()) {
+            if (event.keysym == XKB_KEY_Escape || event.keysym == XKB_KEY_space)
+                quick_look_.close();
+            else
+                quick_look_.text_key(event, now);
+        } else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_k || event.keysym == XKB_KEY_K))
+            open_palette();
+        else if (!photo_library_->editing() || !text_field_key(event))
+            photo_library_->key(event);
         return true;
     }
     if (searching_results() && !palette_.is_open() && !menu_.is_open()) {

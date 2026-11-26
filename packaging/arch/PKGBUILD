@@ -1,15 +1,15 @@
 # Build from the checksum-verified checkout archive supplied by scripts/ci/native.sh.
-pkgname=('rummage' 'rummage-media' 'rummage-pdf' 'rummage-previews')
+pkgname=('rummage' 'rummage-photos')
 pkgver=0.6.1
 pkgrel=1
 pkgdesc='Native Wayland file manager'
 arch=('x86_64')
 url='https://github.com/barrulus/rummage'
-license=('MIT' 'Apache-2.0')
+license=('MIT' 'Apache-2.0' 'BSD-3-Clause' 'BSD-2-Clause' 'Unicode-3.0')
 depends=('glibc' 'gcc-libs' 'wayland' 'libglvnd' 'libxkbcommon' 'harfbuzz'
          'freetype2' 'fontconfig' 'tomlplusplus' 'libwebp' 'libjxl' 'libheif>=1.23' 'lcms2' 'zlib' 're2'
-         'librsvg>=2.52' 'pango' 'cairo' 'sdbus-cpp>=2' 'shared-mime-info' 'hicolor-icon-theme')
-makedepends=('nlohmann-json' 'ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
+         'librsvg>=2.52' 'pango' 'cairo' 'sdbus-cpp>=2' 'shared-mime-info' 'hicolor-icon-theme' 'ffmpeg' 'libjpeg-turbo' 'libpng' 'libtiff')
+makedepends=('sqlite' 'nlohmann-json' 'ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
 source=('rummage-source.tar.gz')
 # The checkout builder sets this to the verified source SHA-256, never SKIP.
 sha256sums=('CHECKOUT_SHA256')
@@ -17,16 +17,17 @@ sha256sums=('CHECKOUT_SHA256')
 build() {
     cmake -S rummage-checkout -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-        -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
-    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf
+        -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf rummage_photos
 }
 
 package_rummage() {
-    optdepends=('tokei: source language and line statistics'
-                'rummage-media: video thumbnails and still previews'
-                'rummage-pdf: PDF thumbnails and first-page previews'
-                'rummage-previews: all optional preview engines')
+    optdepends=('tokei: source language and line statistics' 'rummage-photos: Photo Library')
+    conflicts=('rummage-media' 'rummage-pdf' 'rummage-previews')
+    replaces=('rummage-media' 'rummage-pdf' 'rummage-previews')
     DESTDIR="$pkgdir" cmake --install build --component Unspecified
+    DESTDIR="$pkgdir" cmake --install build --component media
+    DESTDIR="$pkgdir" cmake --install build --component pdf
     install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 rummage-checkout/third_party/tabler-icons/LICENSE "$pkgdir/usr/share/licenses/$pkgname/tabler-icons-LICENSE"
     install -Dm644 rummage-checkout/third_party/fzy/LICENSE "$pkgdir/usr/share/licenses/$pkgname/fzy-LICENSE"
@@ -35,24 +36,9 @@ package_rummage() {
     install -Dm644 rummage-checkout/THIRD_PARTY.md "$pkgdir/usr/share/doc/$pkgname/THIRD_PARTY.md"
 }
 
-package_rummage-media() {
-    pkgdesc='Optional video thumbnails and still previews for rummage'
-    depends=("rummage=$pkgver-$pkgrel" 'ffmpeg')
-    DESTDIR="$pkgdir" cmake --install build --component media
-    install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-}
-
-package_rummage-pdf() {
-    pkgdesc='Optional PDF thumbnails and first-page previews for rummage'
-    license=('BSD-3-Clause' 'BSD-2-Clause' 'Apache-2.0' 'MIT' 'Unicode-3.0')
-    depends=("rummage=$pkgver-$pkgrel" 'gcc-libs' 'freetype2' 'harfbuzz' 'libjpeg-turbo'
-             'libpng' 'libtiff' 'lcms2' 'zlib')
-    DESTDIR="$pkgdir" cmake --install build --component pdf
-    install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-}
-
-package_rummage-previews() {
-    pkgdesc='All optional preview engines for rummage'
-    depends=("rummage-media=$pkgver-$pkgrel" "rummage-pdf=$pkgver-$pkgrel")
+package_rummage-photos() {
+    pkgdesc='Photo Library for rummage'
+    depends=("rummage=$pkgver-$pkgrel" 'sqlite' 'gcc-libs')
+    DESTDIR="$pkgdir" cmake --install build --component photos
     install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

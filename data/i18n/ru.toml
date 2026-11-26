@@ -23,6 +23,8 @@ Menu = "Меню"
 moves = "перемещение"
 
 [texts]
+"Photo Library" = "Фотобиблиотека"
+"Add to Photo Library…" = "Добавить в фотобиблиотеку…"
 "Windows" = "Окна"
 "New Window" = "Новое окно"
 "Reuse browser windows" = "Повторно использовать окна файлового менеджера"

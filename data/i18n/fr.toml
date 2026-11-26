@@ -29,6 +29,8 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Photo Library" = "Photothèque"
+"Add to Photo Library…" = "Ajouter à la photothèque…"
 "Windows" = "Fenêtres"
 "New Window" = "Nouvelle fenêtre"
 "Reuse browser windows" = "Réutiliser les fenêtres de navigation"

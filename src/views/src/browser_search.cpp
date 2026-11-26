@@ -16,6 +16,8 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
             return;
         root = folder->path();
     }
+    if (showing_photos())
+        photo_library_->close();
     palette_.close();
     menu_.close();
     shortcuts_.close();
@@ -206,7 +208,7 @@ void Browser::settle_search_preview() {
     if (!search_preview_pending_ || !search_preview_ || search_preview_->model().loading())
         return;
     search_preview_pending_ = false;
-    if (searching_results() && search_preview_->cursor_entry())
+    if ((searching_results() || showing_photos()) && search_preview_->cursor_entry())
         quick_look_.open(search_preview_, Clock::now());
     else
         show_message(std::string{i18n::tr("The result is no longer available; refresh the search")},

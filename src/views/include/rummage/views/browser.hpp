@@ -47,6 +47,7 @@
 #include "rummage/views/name_editor.hpp"
 #include "rummage/views/pane.hpp"
 #include "rummage/views/password_dialog.hpp"
+#include "rummage/views/photo_library.hpp"
 #include "rummage/views/properties_dialog.hpp"
 #include "rummage/views/quick_look.hpp"
 #include "rummage/views/search_results.hpp"
@@ -429,6 +430,9 @@ public:
 
     void set_picker_mode(bool picker) {
         picker_mode_ = picker;
+        if (picker && photo_library_)
+            photo_library_.reset();
+        show_places();
         if (picker)
             info_pane_.set_insights_handler({});
         else
@@ -713,6 +717,17 @@ public:
                              std::optional<bool> hidden = {});
     void open_saved_searches(bool remove = false);
     void search_action(SearchResults::Action action);
+    void set_photos_enabled(bool enabled);
+    void resume_photo_work();
+    void prepare_photo_library();
+    void open_photo_library(std::filesystem::path add_folder = {});
+    [[nodiscard]] bool photos_available() const;
+
+    [[nodiscard]] bool showing_photos() const {
+        return photo_library_ && photo_library_->is_open();
+    }
+
+    [[nodiscard]] PhotoLibrary* photo_library() const { return photo_library_.get(); }
 
     [[nodiscard]] SearchResults* search_results() const { return search_results_.get(); }
 
@@ -1227,6 +1242,20 @@ private:
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
     std::unique_ptr<SearchResults> search_results_;
+    std::unique_ptr<PhotoLibrary> photo_library_;
+    void photo_operation(const nlohmann::json& request);
+    void photo_transfer_done(const fs::TransferRequest&, const fs::TransferResult&);
+    void photo_reconcile(const FileOperation&);
+
+    struct PhotoOperation {
+        std::shared_ptr<photos::Client> client;
+        std::int64_t operation_id{};
+        nlohmann::json photos;
+    };
+
+    std::map<std::uint64_t, PhotoOperation> photo_operations_;
+    bool photos_enabled_{true};
+    std::string photo_state_;
     std::vector<State::SavedSearch> saved_searches_;
     std::shared_ptr<Folder> search_preview_;
     bool search_preview_pending_{false};

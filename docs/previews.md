@@ -54,8 +54,8 @@ reported pixel movement.
 | PGM / PPM | rummage's binary PNM reader | 8- and 16-bit samples; not every Netpbm format |
 | Camera raw | Embedded previews; some DNGs developed by rummage | Support depends on the file's container, preview and compression |
 | Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
-| Video | Optional `rummage-media` engine using FFmpeg libraries | Thumbnails and still previews; no playback |
-| PDF | Optional `rummage-pdf` engine using PDFium | First page as thumbnail and still; no document viewer |
+| Video | Included `rummage-media` helper using FFmpeg libraries | Thumbnails and still previews; no playback |
+| PDF | Included `rummage-pdf` helper using PDFium | First page as thumbnail and still; no document viewer |
 | SVG files | librsvg in the preview helper | Static previews and thumbnails; limits described below |
 | ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
 | Other formats | File information and external application opening | No built-in audio player or font preview |
@@ -206,8 +206,8 @@ clears text focus and selection. All preview and metadata text remains read-only
 
 ![Video thumbnails with filmstrip borders and a selected recording's still preview and metadata](images/rummage-dark-video-grid.webp)
 
-Install the matching `rummage-media` package for video thumbnails and still previews
-in the information pane and Quick Look. The grid decorates video thumbnails with
+Video thumbnails and still previews in the information pane and Quick Look are
+included in the standard package. Toggle **Video previews** in General settings. The grid decorates video thumbnails with
 film rails; cache images and larger stills stay undecorated. This is not playback.
 Enter opens the file in its default player.
 
@@ -223,8 +223,8 @@ for CMake, Nix and `RUMMAGE_ENGINE_PATH` registration.
 
 ## Optional PDF previews
 
-Install the matching `rummage-pdf` package for PDF thumbnails and first-page stills in
-the information pane and Quick Look. Enter still opens the document in its default
+PDF thumbnails and first-page stills in the information pane and Quick Look are
+included in the standard package. Toggle **PDF previews** in General settings. Enter still opens the document in its default
 application; this is a preview of page one, not a viewer.
 
 The helper links PDFium and uses PDFium's built-in fonts with an empty system font

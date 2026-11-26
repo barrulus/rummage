@@ -596,6 +596,20 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                                  {"size", [&](const toml::node& value, const std::string& path) {
                                       reader.read_number(value, path, 8.0, 32.0, config.font.size);
                                   }}});
+        } else if (key.str() == "photos") {
+            reader.read_section(node, "photos",
+                                {{"enabled", [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.photos.enabled);
+                                  }}});
+        } else if (key.str() == "previews") {
+            reader.read_section(node, "previews",
+                                {{"media",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.previews.media);
+                                  }},
+                                 {"pdf", [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.previews.pdf);
+                                  }}});
         } else if (key.str() == "windows") {
             reader.read_section(
                 node, "windows",

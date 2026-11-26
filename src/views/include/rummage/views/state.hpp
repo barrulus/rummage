@@ -93,6 +93,10 @@ struct State {
     static constexpr std::size_t kMaxSavedSearches = 64;
     std::vector<SavedSearch> saved_searches;
 
+    // Loaded inertly: only an explicit Photo Library visit constructs the optional catalog.
+    static constexpr std::size_t kMaxPhotoStateBytes = 4 * 1024 * 1024;
+    std::string photo_library;
+
     Folders folders;
     std::filesystem::path last_folder;
     // The window's size when it was last neither maximized, fullscreen nor tiled; logical pixels.

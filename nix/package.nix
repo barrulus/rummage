@@ -18,6 +18,7 @@
   tokei,
   libwebp,
   ffmpeg,
+  sqlite,
   callPackage,
   libjxl,
   libheif,
@@ -39,15 +40,14 @@
   unzip,
   writeShellScriptBin,
   withTests ? false,
-  withMedia ? false,
-  withPdf ? false,
+  withPhotos ? false,
   rummage-pdfium ? callPackage ./pdfium.nix { },
 }:
 
 stdenv.mkDerivation {
   pname = "rummage";
   version = "0.6.1";
-  outputs = [ "out" ] ++ lib.optional withMedia "media" ++ lib.optional withPdf "pdf";
+  outputs = [ "out" ] ++ lib.optional withPhotos "photos";
 
   src = lib.fileset.toSource {
     root = ../.;
@@ -108,13 +108,17 @@ stdenv.mkDerivation {
     sdbus-cpp_2
   ]
   ++ lib.optional withTests shared-mime-info
-  ++ lib.optional withMedia ffmpeg
-  ++ lib.optional withPdf rummage-pdfium;
+  ++ [
+    ffmpeg
+    rummage-pdfium
+  ]
+  ++ lib.optional withPhotos sqlite;
 
   cmakeFlags = [
     "-DRUMMAGE_WERROR=OFF"
-    "-DRUMMAGE_MEDIA=${if withMedia then "ON" else "OFF"}"
-    "-DRUMMAGE_PDF=${if withPdf then "ON" else "OFF"}"
+    "-DRUMMAGE_MEDIA=ON"
+    "-DRUMMAGE_PDF=ON"
+    "-DRUMMAGE_PHOTOS=${if withPhotos then "ON" else "OFF"}"
     "-DRUMMAGE_BUILD_TESTS=${if withTests then "ON" else "OFF"}"
   ];
 
@@ -149,21 +153,14 @@ stdenv.mkDerivation {
   '';
 
   postInstall =
-    lib.optionalString withMedia ''
-      mkdir -p "$media/libexec/rummage" "$media/share/rummage/engines"
-      mv "$out/libexec/rummage/rummage-media" "$media/libexec/rummage/"
-      mv "$out/share/rummage/engines/media.toml" "$media/share/rummage/engines/"
-    ''
-    + lib.optionalString withPdf ''
-      mkdir -p "$pdf/libexec/rummage" "$pdf/share/rummage/engines"
-      mv "$out/libexec/rummage/rummage-pdf" "$pdf/libexec/rummage/"
-      mv "$out/share/rummage/engines/pdf.toml" "$pdf/share/rummage/engines/"
+    lib.optionalString withPhotos ''
+      mkdir -p "$photos/libexec/rummage"
+      mv "$out/libexec/rummage/librummage-photos.so" "$photos/libexec/rummage/"
     ''
     + ''
       install -Dm644 "$src/LICENSE" "$out/share/licenses/rummage/LICENSE"
       wrapProgram "$out/bin/rummage" \
-        ${lib.optionalString withMedia "--suffix RUMMAGE_ENGINE_PATH : $media/share/rummage/engines"} \
-        ${lib.optionalString withPdf "--suffix RUMMAGE_ENGINE_PATH : $pdf/share/rummage/engines"} \
+        ${lib.optionalString withPhotos "--set RUMMAGE_PHOTOS_LIBRARY $photos/libexec/rummage/librummage-photos.so"} \
         --set-default XDG_DATA_DIRS /usr/local/share:/usr/share \
         --suffix XDG_DATA_DIRS : "${
           lib.makeSearchPath "share" [

@@ -42,12 +42,12 @@ public:
     [[nodiscard]] const ui::Texture* get(const std::filesystem::path& file,
                                          std::int64_t modified_ns, thumbs::Size size,
                                          std::string_view mime = {},
-                                         picture::Failure* failure = nullptr);
+                                         picture::Failure* failure = nullptr, bool offline = false);
 
     // Pin the already displayed texture for an operation; cache eviction waits for release.
     [[nodiscard]] std::shared_ptr<const ui::Texture> get_shared(
         const std::filesystem::path& file, std::int64_t modified_ns, thumbs::Size size,
-        std::string_view mime = {}, picture::Failure* failure = nullptr);
+        std::string_view mime = {}, picture::Failure* failure = nullptr, bool offline = false);
 
     // After each frame: cancels what this frame did not ask for, keeps to the budget.
     void end_frame();
@@ -80,7 +80,7 @@ private:
     };
 
     void request(const std::string& key, const std::filesystem::path& file, thumbs::Size size,
-                 const std::string& mime);
+                 const std::string& mime, std::int64_t modified_ns, bool offline);
 
     core::EventLoop& loop_;
     core::WorkerPool& pool_;

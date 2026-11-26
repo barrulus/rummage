@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -92,6 +93,10 @@ public:
     // another engine's family.
     bool add(Engine engine);
 
+    // Safe during background requests: disables routing without invalidating family pointers.
+    void set_previews_enabled(bool media, bool pdf) const;
+    [[nodiscard]] bool enabled(std::string_view name) const;
+
     // The family that shows type; nullptr when none does.
     [[nodiscard]] const Family* find(const fs::MimeDatabase& mime, fs::MimeId type) const;
     // The engine a family returned by find belongs to.
@@ -107,6 +112,8 @@ private:
 
     [[nodiscard]] const Family& at(Place place) const;
 
+    std::shared_ptr<std::atomic<unsigned>> enabled_previews_{
+        std::make_shared<std::atomic<unsigned>>(3U)};
     std::vector<Engine> engines_;
     std::unordered_map<std::string, Place> exact_;           // type name -> its family
     std::vector<std::pair<std::string, Place>> subclasses_;  // in the order added

@@ -9,7 +9,7 @@ use the embedded dialog. Only one separate Settings window is open at a time.
 Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
-- **General:** startup/session behavior, keyboard browsing, executable opening, double-click timing and terminal.
+- **General:** startup/session behavior, keyboard browsing, executable opening, double-click timing, terminal, preview switches and Photo Library.
 - **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement.
 - **Keyboard shortcuts:** search commands, record a chord, reset a binding to its default,
   or disable it. Conflicting chords are rejected before saving. Folder shortcuts accept
@@ -68,6 +68,19 @@ normal launch creates the complete reference when no config exists. First-run se
 never replaces existing files. You can keep a small file with only your changes, or copy the
 [annotated example](config.example.toml) from this checkout.
 
+## Preview and photo switches
+
+Video and PDF helpers ship with the standard application. General settings includes
+**Video previews** (`previews.media`, default `true`) and **PDF previews**
+(`previews.pdf`, default `true`). Disabling either stops new requests to that helper;
+in-flight previews finish and existing cached images may remain visible. Image and
+text previews remain available.
+
+**Enable Photo Library** (`photos.enabled`, default `true`) makes the installed
+photo add-on available. It never adds source folders automatically. Disabling the
+feature preserves the catalog and user annotations. The setting has no effect on
+ordinary browsing when the add-on is absent.
+
 ## Files and locations
 
 | File or directory | Default location | Ownership |
@@ -76,6 +89,7 @@ never replaces existing files. You can keep a small file with only your changes,
 | Palette | `~/.config/rummage/colors.toml` | Written by any palette producer (e.g. Noctalia or Matugen), or edited by you; see [Appearance](appearance.md#palette-file-interface) |
 | Window/tab/folder state | `~/.local/state/rummage/state.toml` | Written by rummage |
 | Picker window/view/last folder | `~/.local/state/rummage/picker.toml` | Written by the file picker |
+| Photo catalog | `~/.local/share/rummage/photos/catalog.sqlite3` | Optional [Photo Library](photo-library.md); created on first use |
 | Thumbnail cache | `~/.cache/thumbnails/` | Shared freedesktop cache |
 | Bookmarks | `~/.config/gtk-3.0/bookmarks` | Shared with GTK file managers |
 | User folder definitions | `~/.config/user-dirs.dirs` | Desktop/XDG user-directory setup |

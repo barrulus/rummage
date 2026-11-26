@@ -23,6 +23,7 @@ add_executable(rummage-tests
     archive_test.cpp
     archive_folder_test.cpp
     main.cpp
+    photo_client_test.cpp
     about_test.cpp
     app_icon_test.cpp
     breadcrumb_test.cpp
@@ -115,6 +116,34 @@ add_executable(rummage-tests
     worker_pool_test.cpp
     xcursor_test.cpp)
 target_link_libraries(rummage-tests PRIVATE rummage::svg rummage::core rummage::theme rummage::fs rummage::views rummage::picture rummage::formats rummage::formats::image rummage::formats::text rummage::formats::archive rummage::text rummage::thumbs rummage::preview rummage::engines rummage::isolate rummage::platform doctest::doctest rummage::warnings)
+target_link_libraries(rummage-tests PRIVATE rummage::photo_client)
+if(RUMMAGE_PHOTOS)
+    target_compile_definitions(rummage-tests PRIVATE
+        RUMMAGE_PHOTOS_TEST_MODULE="$<TARGET_FILE:rummage_photos>")
+    add_dependencies(rummage-tests rummage_photos)
+    add_executable(rummage-photos-tests photos_test.cpp)
+    target_link_libraries(rummage-photos-tests PRIVATE rummage_photos doctest::doctest
+        nlohmann_json::nlohmann_json rummage::warnings)
+    add_test(NAME photos-catalog COMMAND rummage-photos-tests)
+    add_executable(rummage-photo-recovery-tests photo_recovery_test.cpp)
+    target_link_libraries(rummage-photo-recovery-tests PRIVATE rummage::photo_client rummage::fs
+        doctest::doctest rummage::warnings)
+    target_compile_definitions(rummage-photo-recovery-tests PRIVATE
+        RUMMAGE_PHOTOS_TEST_MODULE="$<TARGET_FILE:rummage_photos>")
+    add_dependencies(rummage-photo-recovery-tests rummage_photos)
+    add_test(NAME photos-recovery COMMAND rummage-photo-recovery-tests)
+    add_executable(rummage-photo-watcher-tests photos_watcher_test.cpp)
+    target_link_libraries(rummage-photo-watcher-tests PRIVATE rummage::photo_client rummage::fs rummage::thumbs
+        rummage::core doctest::doctest rummage::warnings)
+    target_compile_definitions(rummage-photo-watcher-tests PRIVATE
+        RUMMAGE_PHOTOS_TEST_MODULE="$<TARGET_FILE:rummage_photos>")
+    add_dependencies(rummage-photo-watcher-tests rummage_photos)
+    add_test(NAME photos-watcher COMMAND rummage-photo-watcher-tests)
+    set_tests_properties(photos-watcher PROPERTIES TIMEOUT 60)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(NAME photos-migration COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/photos_migration.py" "$<TARGET_FILE:rummage_photos>")
+endif()
 
 # The helper protocol's private header, for its tests; the image family's private readers (TIFF,
 # DNG, lossless JPEG), for theirs.
@@ -179,6 +208,22 @@ target_compile_definitions(rummage-tests
             RUMMAGE_SANDBOX_PROBE="$<TARGET_FILE:rummage-sandbox-probe>")
 if(RUMMAGE_SANITIZER)
     target_sources(rummage-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/core/src/lsan_suppressions.cpp)
+endif()
+
+if(RUMMAGE_PHOTOS)
+    # Native photo workflows have their own executable so UI iteration does not rebuild the
+    # unrelated format, filesystem and preview test translation units.
+    add_executable(rummage-photo-ui-tests main.cpp photo_library_ui_test.cpp)
+    target_link_libraries(rummage-photo-ui-tests PRIVATE
+        $<TARGET_PROPERTY:rummage-tests,LINK_LIBRARIES>)
+    target_compile_definitions(rummage-photo-ui-tests PRIVATE
+        $<TARGET_PROPERTY:rummage-tests,COMPILE_DEFINITIONS>)
+    if(RUMMAGE_SANITIZER)
+        target_sources(rummage-photo-ui-tests PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/core/src/lsan_suppressions.cpp)
+    endif()
+    add_dependencies(rummage-photo-ui-tests rummage rummage-preview rummage_photos)
+    add_test(NAME photos-ui COMMAND rummage-photo-ui-tests)
 endif()
 
 # Allocator thresholds depend on earlier allocations: give memory accounting its own process.

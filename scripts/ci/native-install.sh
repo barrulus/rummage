@@ -36,32 +36,23 @@ case "$format" in
     *) exit 1 ;;
 esac
 # Check shared libraries before adding tools which could mask a missing dependency.
-for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview; do
+for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview /usr/libexec/rummage/rummage-media /usr/libexec/rummage/rummage-pdf; do
     libraries=$(ldd "$executable")
     printf '%s\n' "$libraries"
     if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 done
-# The base package must work before the optional media package is installed.
-test ! -e /usr/libexec/rummage/rummage-media
-test ! -e /usr/libexec/rummage/rummage-pdf
-test ! -e /usr/libexec/rummage/libpdfium.so
-test ! -e /usr/share/rummage/engines/pdf.toml
+# Previews belong to the standard package. Only photos is an add-on.
+test ! -e /usr/libexec/rummage/librummage-photos.so
+/usr/bin/rummage --about
 case "$format" in
-    deb) apt-get install -y --no-install-recommends /packages/rummage-media_*.deb ;;
-    rpm) dnf install -y /packages/rummage-media-[0-9]*.x86_64.rpm ;;
-    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-media-[0-9]*.x86_64.rpm ;;
-    arch) pacman -U --noconfirm /packages/rummage-media-[0-9]*-x86_64.pkg.tar.zst ;;
+    deb) apt-get install -y --no-install-recommends /packages/rummage-photos_*.deb ;;
+    rpm) dnf install -y /packages/rummage-photos-[0-9]*.x86_64.rpm ;;
+    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-photos-[0-9]*.x86_64.rpm ;;
+    arch) pacman -U --noconfirm /packages/rummage-photos-[0-9]*-x86_64.pkg.tar.zst ;;
 esac
-libraries=$(ldd /usr/libexec/rummage/rummage-media)
+libraries=$(ldd /usr/libexec/rummage/librummage-photos.so)
 printf '%s\n' "$libraries"
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
-test ! -e /usr/libexec/rummage/rummage-pdf
-case "$format" in
-    deb) apt-get install -y --no-install-recommends /packages/rummage-pdf_*.deb /packages/rummage-previews_*.deb ;;
-    rpm) dnf install -y /packages/rummage-pdf-[0-9]*.x86_64.rpm /packages/rummage-previews-[0-9]*.x86_64.rpm ;;
-    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-pdf-[0-9]*.x86_64.rpm /packages/rummage-previews-[0-9]*.x86_64.rpm ;;
-    arch) pacman -U --noconfirm /packages/rummage-pdf-[0-9]*-x86_64.pkg.tar.zst /packages/rummage-previews-[0-9]*-x86_64.pkg.tar.zst ;;
-esac
 libraries=$(ldd /usr/libexec/rummage/rummage-pdf)
 printf '%s\n' "$libraries"
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
@@ -76,12 +67,13 @@ case "$format" in
 esac
 python3 /source/scripts/ci/check-pdf.py /usr/libexec/rummage/rummage-pdf /source/tests/data/pdf
 case "$format" in
-    deb) apt-get install -y --no-install-recommends desktop-file-utils ;;
-    rpm) dnf install -y desktop-file-utils ;;
-    tumbleweed) zypper --non-interactive install --no-recommends desktop-file-utils ;;
-    arch) pacman -S --noconfirm --needed desktop-file-utils ;;
+    deb) apt-get install -y --no-install-recommends desktop-file-utils binutils ;;
+    rpm) dnf install -y desktop-file-utils binutils ;;
+    tumbleweed) zypper --non-interactive install --no-recommends desktop-file-utils binutils ;;
+    arch) pacman -S --noconfirm --needed desktop-file-utils binutils ;;
 esac
 bash /source/scripts/ci/check-installed.sh /usr "$version" "$license"
+python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage --module /usr/libexec/rummage/librummage-photos.so
 case "$format" in
     deb) apt-get install -y --no-install-recommends weston libgl1-mesa-dri dbus fonts-dejavu-core ;;
     rpm) dnf install -y weston mesa-dri-drivers dbus-daemon dejavu-sans-fonts ;;
@@ -89,3 +81,15 @@ case "$format" in
     arch) pacman -S --noconfirm --needed weston mesa dbus ttf-dejavu ;;
 esac
 bash /source/scripts/ci/check-wayland.sh /usr
+
+# Removing the only add-on leaves the launcher and all previews intact.
+case "$format" in
+    deb) apt-get remove -y rummage-photos ;;
+    rpm) dnf remove -y rummage-photos ;;
+    tumbleweed) zypper --non-interactive remove rummage-photos ;;
+    arch) pacman -R --noconfirm rummage-photos ;;
+esac
+test ! -e /usr/libexec/rummage/librummage-photos.so
+python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage
+test -x /usr/libexec/rummage/rummage-media
+test -x /usr/libexec/rummage/rummage-pdf

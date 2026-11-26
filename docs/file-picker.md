@@ -51,9 +51,9 @@ no separate picker package or service to enable. The backend exits after 30 seco
 without an active request and is activated again when needed. Enabling only `programs.rummage.enable`
 installs the file manager without changing portal preferences. `programs.rummage.package`
 can override the package used for both the application and backend.
-Set `programs.rummage.preview.thumbnails = true;` for video thumbnails and still
-previews, and `programs.rummage.preview.pdf = true;` for PDF previews in both.
-Both are optional and default to `false`; image thumbnails are built in.
+Video and PDF previews are included in the standard package for both. Use the
+application’s General settings to toggle them.
+Both preview settings default to `true`; image thumbnails are also built in.
 
 Keep your existing Umbriel and GTK portal packages and
 `xdg.portal.config.umbriel.default = [ "umbriel" "gtk" ];`: the module merges its package

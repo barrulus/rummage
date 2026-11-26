@@ -10,6 +10,8 @@ app="$prefix/bin/rummage"
 for file in \
     share/rummage/config.example.toml \
     share/rummage/engines/base.toml \
+    share/rummage/engines/media.toml \
+    share/rummage/engines/pdf.toml \
     share/applications/rummage.desktop \
     share/bash-completion/completions/rummage \
     share/zsh/site-functions/_rummage \
@@ -22,6 +24,16 @@ for file in \
     test -s "$prefix/$file"
 done
 test -x "$prefix/libexec/rummage/rummage-preview"
+test -x "$prefix/libexec/rummage/rummage-media"
+test -x "$prefix/libexec/rummage/rummage-pdf"
+# The launcher may be a Nix shell wrapper. Only the add-on is allowed to link SQLite.
+binary="$app"
+if [[ -x "$prefix/bin/.rummage-wrapped" ]]; then binary="$prefix/bin/.rummage-wrapped"; fi
+needed=$(readelf -d "$binary")
+if grep -E 'NEEDED.*(sqlite|rummage-photos|pdfium|avcodec|avformat)' <<< "$needed"; then
+    echo 'The application directly links an optional catalog or isolated decoder dependency' >&2
+    exit 1
+fi
 desktop-file-validate "$prefix/share/applications/rummage.desktop"
 grep -Fx 'Interfaces=org.freedesktop.impl.portal.FileChooser;' \
     "$prefix/share/xdg-desktop-portal/portals/rummage.portal"

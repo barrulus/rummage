@@ -6,18 +6,20 @@ version=0.6.1
 revision=1
 build_style=cmake
 # RUMMAGE_WERROR: a newer compiler's new warning must not break the package
-configure_args="-DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
+configure_args="-DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
 hostmakedepends="pkgconf wayland-devel python3 patch"
 makedepends="wayland-devel wayland-protocols libglvnd-devel libxkbcommon-devel
  harfbuzz-devel freetype-devel fontconfig-devel tomlplusplus-devel json-c++
  ffmpeg6-devel libwebp-devel libjxl-devel libheif-devel lcms2-devel librsvg-devel pango-devel cairo-devel
- zlib-devel re2-devel sdbus-c++-devel glib-devel libjpeg-turbo-devel libpng-devel tiff-devel"
+ sqlite-devel zlib-devel re2-devel sdbus-c++-devel glib-devel libjpeg-turbo-devel libpng-devel tiff-devel"
 # MIME types from shared-mime-info's database; udisks2 (disks in the sidebar)
 # and xdg-desktop-portal (desktop colours) are used when present
 depends="shared-mime-info hicolor-icon-theme libheif>=1.23"
 short_desc="Fast, native file manager for Wayland, made for photographers"
 maintainer="rummage maintainers <barrulus@users.noreply.github.com>"
-license="MIT"
+license="MIT, BSD-3-Clause, BSD-2-Clause, Apache-2.0, Unicode-3.0"
+replaces="rummage-media>=0 rummage-pdf>=0 rummage-previews>=0"
+shlib_provides="libpdfium.so"
 homepage="https://github.com/barrulus/rummage"
 distfiles="https://invalid.invalid/local-checkout/rummage-source.tar.gz"
 checksum=CHECKOUT_SHA256
@@ -26,35 +28,11 @@ post_install() {
 	vlicense LICENSE
 }
 
-rummage-media_package() {
+rummage-photos_package() {
     depends="rummage-${version}_${revision}"
-    short_desc="rummage optional video thumbnails and still previews"
+    short_desc="rummage Photo Library"
     pkg_install() {
-        vmove usr/libexec/rummage/rummage-media
-        vmove usr/share/rummage/engines/media.toml
-        vlicense LICENSE
-    }
-}
-
-rummage-pdf_package() {
-    depends="rummage-${version}_${revision}"
-    license="BSD-3-Clause, BSD-2-Clause, Apache-2.0, MIT, Unicode-3.0"
-    short_desc="rummage optional PDF thumbnails and first-page previews"
-    # libpdfium is private and shipped beside its only consumer.
-    shlib_provides="libpdfium.so"
-    pkg_install() {
-        vmove usr/libexec/rummage/rummage-pdf
-        vmove usr/libexec/rummage/libpdfium.so
-        vmove usr/share/rummage/engines/pdf.toml
-        vmove usr/share/licenses/rummage-pdf
-        vlicense LICENSE
-    }
-}
-
-rummage-previews_package() {
-    depends="rummage-media-${version}_${revision} rummage-pdf-${version}_${revision}"
-    short_desc="All optional preview engines for rummage"
-    pkg_install() {
+        vmove usr/libexec/rummage/librummage-photos.so
         vlicense LICENSE
     }
 }

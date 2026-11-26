@@ -25,14 +25,14 @@ programs enable particular features:
 | unrar, 7zz/7z, File Roller, unzip, gzip or tar | Archive extraction, depending on format |
 | Programs named in your custom actions | Those actions only |
 
-FFmpeg libraries are optional and used only by the separate media helper. The
+FFmpeg libraries are used only by the isolated media helper bundled with the package. The
 core application does not require FFmpeg. See
 [preview support](previews.md) and [desktop compatibility](compatibility.md).
 
 ## Upgrading from Nordend
 
 The command, desktop entry, portal backend, packages, Nix module, and environment variables
-now use `rummage` / `RUMMAGE` (including `rummage-media` and `programs.rummage`).
+now use `rummage` / `RUMMAGE` (including helper names and `programs.rummage`).
 Update launcher commands, `xdg-mime` defaults, compositor rules, portal preferences, and
 Noctalia templates accordingly; the old executable and portal names are not installed as aliases.
 
@@ -106,87 +106,72 @@ These source packages are unsigned development snapshots. The
 [generic source archive](https://github.com/barrulus/rummage/releases/download/development/rummage-source.tar.gz)
 is also available; it is distinct from the Debian source package.
 
-## Optional preview packages
+## Photo Library add-on
 
-Native builds provide `rummage-media` for video, `rummage-pdf` for PDF, and
-`rummage-previews` as a convenience package depending on both. Install helpers
-from the same development snapshot as the application, then restart rummage;
-no engine-path configuration is needed. The file picker uses the same helpers.
+The standard `rummage` package includes image, text, video and PDF previews.
+**Settings → General → Previews** controls video and PDF previews independently;
+no separate preview packages are needed. Native upgrades replace the former
+`rummage-media`, `rummage-pdf` and `rummage-previews` packages.
 
-For Debian, download the matching `rummage-media-debian13-amd64.deb`,
-`rummage-pdf-debian13-amd64.deb` and `rummage-previews-debian13-amd64.deb`
-from the development release alongside the base package, then install together:
-
-```sh
-sudo apt install ./rummage-debian13-amd64.deb ./rummage-media-debian13-amd64.deb \
-  ./rummage-pdf-debian13-amd64.deb ./rummage-previews-debian13-amd64.deb
-```
-
-For Fedora, Arch and Tumbleweed, use the corresponding four packages with
-`dnf install`, `pacman -U`, or `zypper install --allow-unsigned-rpm`.
-These are local downloads, so pass all required package files in the same command;
-the convenience package cannot fetch sibling packages from an online repository.
-For Void, all packages are included in the indexed bundle:
+`rummage-photos` is the only optional add-on. Install the matching version beside
+`rummage`; it owns the photo module and its SQLite dependency, and does not replace
+the application's launcher. For a local Debian build:
 
 ```sh
-sudo xbps-install -R "$PWD/rummage-void-x86_64/packages" rummage-previews
+sudo apt install ./rummage-debian13-amd64.deb ./rummage-photos-debian13-amd64.deb
 ```
 
-Installing only `rummage` keeps both optional engines and their dependencies out
-of the installation. Install either helper individually when only that format
-is needed.
+For Fedora, Arch and Tumbleweed, pass the matching two packages to `dnf install`,
+`pacman -U`, or `zypper install --allow-unsigned-rpm`. For Void, install
+`rummage-photos` from the same indexed bundle. Installing the add-on makes Photo
+Library available; it does not scan any folder. Disable **Enable Photo Library**
+in General settings to stop using the capability. Removal or disabling preserves
+catalog data and annotations, and ordinary file browsing remains available.
+
+For Nix, `nix build .#rummage-with-photos` selects the application with the module;
+`.#rummage-photos` selects the module output for custom composition. The wrapper
+sets `RUMMAGE_PHOTOS_LIBRARY` to its exact module path. A custom installation can
+set that variable to an absolute `librummage-photos.so` path. Source builds use
+`-DRUMMAGE_PHOTOS=ON` and SQLite development headers. Photo support defaults to OFF;
+`cmake --install build --component photos` installs the module only.
 
 ## Optional video previews
 
-Install the matching `rummage-media` package for video thumbnails and still previews in the
-information pane and Space Quick Look. The grid draws cinema filmstrip borders; cached images
-and larger previews stay undecorated. This is still-frame preview, not video playback.
+Video thumbnails and still previews are included in the standard package and
+controlled by `previews.media` (default `true`) or **Video previews** in Settings.
+This is still-frame preview; Enter opens the selected video in its default player.
+The grid draws filmstrip borders; cached images and larger previews stay undecorated.
 
-The helper uses system FFmpeg 6.1 or newer shared libraries (`libavformat`, `libavcodec`,
-`libavutil`, `libswscale`); it does not execute `ffmpeg`, `ffprobe`, or `ffmpegthumbnailer`.
-Your package manager reuses compatible installed libraries. Some distributions package these
-libraries together with the FFmpeg commands. Codec availability follows the distribution build.
+The isolated helper uses system FFmpeg 6.1 or newer libraries (`libavformat`,
+`libavcodec`, `libavutil`, `libswscale`); it does not execute FFmpeg command-line
+programs. Codec availability follows the distribution build. Turning the setting
+off prevents new helper requests; in-flight work finishes and already cached images
+may remain. The application itself does not link FFmpeg.
 
-The main package has no FFmpeg dependency. Without the media helper, videos retain their file
-icons and information cards; existing valid cached thumbnails remain usable. Enter opens the
-selected video in its default application. Missing helpers/libraries are retried after restarting
-rummage and do not create permanent failed-thumbnail records.
-
-For a source build, add `-DRUMMAGE_MEDIA=ON` with the four libraries' development packages
-installed. It defaults to OFF. `cmake --install build --component media` installs only the helper
-and its manifest; `--component Unspecified` installs the core application. The helper uses the
-existing seccomp/Landlock sandbox, reads only the supplied descriptor, and has bounded decoding,
-output dimensions, concurrency and time. Thumbnail selection tries beyond dark opening frames.
-
-For Nix, `nix build .#rummage-with-media` builds the application configured with the optional
-helper; `.#rummage-media` selects its separate helper output. The normal default remains free of
-FFmpeg. Separate custom prefixes can be registered through `RUMMAGE_ENGINE_PATH`, a colon-separated
-list of absolute `share/rummage/engines` directories. Restart after changing the installed engines.
-
+Source builds default to `RUMMAGE_MEDIA=ON`. Developers can set it to OFF for a
+lean build; this is not a separate distributed package. Separate custom helper
+prefixes can still be registered through `RUMMAGE_ENGINE_PATH`, a colon-separated
+list of absolute `share/rummage/engines` directories. Restart after changing the
+installed engines.
 
 ## Optional PDF previews
 
-Install the matching `rummage-pdf` package for PDF thumbnails and first-page stills in the
-information pane and Space Quick Look. Password-protected PDFs get a lock on their icon,
-damaged ones a cross; see [previews](previews.md#optional-pdf-previews).
+PDF thumbnails and first-page stills are included in the standard package and
+controlled by `previews.pdf` (default `true`) or **PDF previews** in Settings.
+Password-protected PDFs get a lock on their icon, damaged ones a cross; see
+[previews](previews.md#optional-pdf-previews). Enter opens the default document viewer.
 
-The helper uses PDFium built from pinned sources, without JavaScript or XFA support.
-Its licenses are installed with the package. The default application package does
-not depend on PDFium. Without the helper, PDFs keep their file icons and information
-cards.
+The isolated helper uses PDFium without JavaScript or XFA support. Native packages
+include a private `libpdfium.so` beside the helper and its license notices; they
+do not replace a system PDFium library. The application itself does not link PDFium.
+Turning the setting off prevents new helper requests; in-flight work finishes and
+already cached images may remain.
 
-For a source build, add `-DRUMMAGE_PDF=ON` and point CMake at a source-built PDFium
-installation using `PDFium_DIR` or `CMAKE_PREFIX_PATH`, or install `fpdfview.h` and
-`libpdfium.so` on the usual search paths. The library and its runtime dependencies must
-also be installed where the dynamic linker can find them. PDF support defaults to OFF.
-`cmake --install build --component pdf` installs only the helper and its
-manifest. For Nix, `.#rummage-with-pdf` builds the application with the helper, `.#rummage-pdf`
-selects its separate output, and `.#rummage-with-previews` includes both optional engines.
-Restart after changing the installed engines.
-
-Native `rummage-pdf` packages include a private `libpdfium.so` beside the helper;
-they do not replace a system PDFium library. For source-package builds and renderer
-maintenance, see the [package builder guide](../contributing/ci-packaging.md#native-pdf-previews).
+Source builds default to `RUMMAGE_PDF=ON`. Point CMake at PDFium using `PDFium_DIR`
+or `CMAKE_PREFIX_PATH`, or install its headers and library on the usual search
+paths. Developers can set the switch to OFF for lean builds. For source-package
+builds and renderer maintenance, see the
+[package builder guide](../contributing/ci-packaging.md#native-pdf-previews).
 
 ## Nix
 
@@ -281,10 +266,7 @@ outputs = { nixpkgs, rummage, ... }: {
       {
         programs.rummage = {
           enable = true;
-          preview = {
-            thumbnails = true;
-            pdf = true;
-          };
+          photos.enable = true;
           filePicker.enable = true;
         };
       }
@@ -300,15 +282,10 @@ host name. Apply from your configuration directory:
 sudo nixos-rebuild switch --flake .#my-host
 ```
 
-Both `preview` options default to `false`. `preview.thumbnails` adds video
-thumbnails and still previews; image thumbnails and image/text previews are
-always included. `preview.pdf` adds PDF thumbnails and first-page previews.
-The module configures the matching helpers for both the file manager and picker,
-so you do not need to select a `rummage-with-*` package or install helpers separately.
-
-`programs.rummage.package` can select another package. Enabled preview options
-override that package's `withMedia` / `withPdf` arguments, which custom packages
-must support. Features already enabled in the selected package are preserved.
+Video and PDF previews are included automatically and can be toggled in Settings.
+`photos.enable` defaults to `false` and selects the only add-on, Photo Library.
+`programs.rummage.package` can select another package. Enabling photos overrides
+that package's `withPhotos` argument, which custom packages must support.
 Enabling the application
 alone does not change portal preferences. For Open/Save dialogs also enable
 `programs.rummage.filePicker.enable`; see the [picker guide](file-picker.md) for
@@ -356,7 +333,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
 | SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |
-| Optional media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; enable `RUMMAGE_MEDIA` |
+| Media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; `RUMMAGE_MEDIA` defaults to ON |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
 
 librsvg is implemented partly in Rust, but rummage links its packaged C API;

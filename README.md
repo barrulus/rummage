@@ -87,8 +87,8 @@ unsigned Linux x86_64 snapshots, updated after all checks pass on `main`.
 | openSUSE Tumbleweed | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-tumbleweed-x86_64.rpm) |
 | Void glibc | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) |
 
-Optional `rummage-media`, `rummage-pdf` and `rummage-previews` packages are also
-provided for each distribution; the Void bundle contains all four packages.
+Video and PDF previews are included in the standard package, with switches in
+Settings. `rummage-photos` is the only optional add-on; the Void bundle includes it.
 
 Follow the [installation and checksum instructions](https://github.com/barrulus/rummage/blob/main/docs/install.md#development-downloads).
 Use the package for your exact distribution. For Nix, use

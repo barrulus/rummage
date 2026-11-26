@@ -32,6 +32,14 @@ struct GroupFolder {
 
 enum class LinkKind : std::uint8_t { automatic, absolute, relative, hard };
 
+// Captured regular-file identity, checked again immediately before a guarded trash or restore
+// rename.
+struct SourceIdentity {
+    std::filesystem::path path;
+    std::uint64_t device{0}, inode{0}, size{0};
+    std::int64_t mtime_ns{0};
+};
+
 struct TransferRequest {
     TransferKind kind{TransferKind::copy};
     std::filesystem::path source;  // the folder the items are in
@@ -60,6 +68,11 @@ struct TransferRequest {
     bool verify{false};
     LinkKind link_kind{LinkKind::automatic};
     std::uint64_t id{0};  // assigned by TransferQueue; never reused within that queue
+    // Empty preserves ordinary trash/restore behavior. Otherwise every requested original
+    // needs one identity; sidecars continue to follow their photo. No file is permanently erased.
+    std::vector<SourceIdentity> source_identities{};
+    // Duplicate keepers: each must still match before any guarded original is trashed.
+    std::vector<SourceIdentity> retained_identities{};
 };
 
 // What to do with an item whose name is taken in the destination.

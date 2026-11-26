@@ -37,18 +37,14 @@ class DownloadsTest(unittest.TestCase):
             if kind != 'void':
                 (root / 'input/source.tar.gz').write_bytes(b'source')
         for kind, names in {
-            'void': ['rummage-media-0.5.0_1.x86_64.xbps', 'rummage-0.5.0_1.x86_64.xbps', 'x86_64-repodata'],
-            'arch': ['rummage-media-0.5.0-1-x86_64.pkg.tar.zst', 'rummage-0.5.0-1-x86_64.pkg.tar.zst', 'rummage-debug-0.5.0-1-x86_64.pkg.tar.zst'],
-            'tumbleweed': ['rummage-media-0.5.0-1.1.x86_64.rpm', 'rummage-0.5.0-1.1.x86_64.rpm'],
-            'deb': ['rummage-media_0.5.0_amd64.deb', 'rummage_0.5.0_amd64.deb', 'rummage-dbgsym_0.5.0_amd64.deb'],
-            'rpm': ['rummage-media-0.5.0.x86_64.rpm', 'rummage-0.5.0.x86_64.rpm', 'rummage-debuginfo-0.5.0.x86_64.rpm', 'rummage-0.5.0.src.rpm'],
+            'void': ['rummage-photos-0.5.0_1.x86_64.xbps', 'rummage-0.5.0_1.x86_64.xbps', 'x86_64-repodata'],
+            'arch': ['rummage-photos-0.5.0-1-x86_64.pkg.tar.zst', 'rummage-0.5.0-1-x86_64.pkg.tar.zst', 'rummage-debug-0.5.0-1-x86_64.pkg.tar.zst'],
+            'tumbleweed': ['rummage-photos-0.5.0-1.1.x86_64.rpm', 'rummage-0.5.0-1.1.x86_64.rpm'],
+            'deb': ['rummage-photos_0.5.0_amd64.deb', 'rummage_0.5.0_amd64.deb', 'rummage-dbgsym_0.5.0_amd64.deb'],
+            'rpm': ['rummage-photos-0.5.0.x86_64.rpm', 'rummage-0.5.0.x86_64.rpm', 'rummage-debuginfo-0.5.0.x86_64.rpm', 'rummage-0.5.0.src.rpm'],
         }.items():
             for name in names:
                 (self.roots[kind] / 'packages' / name).write_bytes(name.encode())
-                if name.startswith('rummage-media'):
-                    for feature in ('pdf', 'previews'):
-                        extra = name.replace('rummage-media', f'rummage-{feature}')
-                        (self.roots[kind] / 'packages' / extra).write_bytes(extra.encode())
 
         directory = self.roots['deb'] / 'debian-source'
         directory.mkdir()
@@ -70,7 +66,7 @@ class DownloadsTest(unittest.TestCase):
 
     def test_assets_and_instructions(self):
         self.prepare()
-        self.assertEqual(len(list(self.output.iterdir())), 22)
+        self.assertEqual(len(list(self.output.iterdir())), 14)
         self.assertEqual((self.output / 'rummage-debian13-amd64.deb').read_bytes(), b'rummage_0.5.0_amd64.deb')
         self.assertEqual((self.output / 'rummage-fedora45-x86_64.rpm').read_bytes(), b'rummage-0.5.0.x86_64.rpm')
         self.assertEqual((self.output / 'rummage-arch-x86_64.pkg.tar.zst').read_bytes(), b'rummage-0.5.0-1-x86_64.pkg.tar.zst')
@@ -83,7 +79,7 @@ class DownloadsTest(unittest.TestCase):
         for line in (self.output / 'SHA256SUMS').read_text().splitlines():
             digest, filename = line.split('  ')
             self.assertEqual(digest, hashlib.sha256((self.output / filename).read_bytes()).hexdigest())
-        self.assertEqual((self.output / 'rummage-media-debian13-amd64.deb').read_bytes(), b'rummage-media_0.5.0_amd64.deb')
+        self.assertEqual((self.output / 'rummage-photos-debian13-amd64.deb').read_bytes(), b'rummage-photos_0.5.0_amd64.deb')
         self.assertIn('Install me.', (self.output / 'release-notes.md').read_text())
 
     def test_void_locally_built_dependency_is_included(self):
@@ -95,20 +91,10 @@ class DownloadsTest(unittest.TestCase):
             self.assertIsNotNone(member)
             self.assertEqual(member.read(), dependency.read_bytes())
 
-    def test_missing_media_rejected(self):
-        (self.roots['deb'] / 'packages/rummage-media_0.5.0_amd64.deb').unlink()
-        with self.assertRaisesRegex(ValueError, 'rummage-media'):
+    def test_missing_photos_rejected(self):
+        (self.roots['deb'] / 'packages/rummage-photos_0.5.0_amd64.deb').unlink()
+        with self.assertRaisesRegex(ValueError, 'rummage-photos'):
             self.prepare()
-
-    def test_missing_pdf_or_previews_rejected(self):
-        for feature in ('pdf', 'previews'):
-            with self.subTest(feature=feature):
-                path = self.roots['deb'] / f'packages/rummage-{feature}_0.5.0_amd64.deb'
-                contents = path.read_bytes()
-                path.unlink()
-                with self.assertRaisesRegex(ValueError, f'rummage-{feature}'):
-                    self.prepare()
-                path.write_bytes(contents)
 
     def test_mixed_source_rejected(self):
         self.identity['commit'] = 'b' * 40
@@ -197,7 +183,7 @@ elif args[0] == 'api' and '/compare/' in args[1]:
         result, calls = self.publish('existing')
         self.assertEqual(result.returncode, 0, result.stderr)
         uploads = [c for c in calls if c[:2] == ['release', 'upload']]
-        self.assertEqual(len(uploads), 21)
+        self.assertEqual(len(uploads), 13)
         self.assertTrue(uploads[-1][3].endswith('/SHA256SUMS'))
         self.assertTrue(any('sha=' + COMMIT in c for c in calls))
 

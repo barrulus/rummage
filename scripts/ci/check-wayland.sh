@@ -38,6 +38,8 @@ dbus-run-session -- timeout 5s env WAYLAND_DEBUG=1 \
 grep -E 'wl_surface[^ ]*\.attach\(' "$work/rummage.log"
 
 dbus-run-session -- python3 "$(dirname "$0")/check-windows.py" "$prefix"
+# Installing the add-on never creates a catalog during ordinary fresh browsing.
+test ! -e "$XDG_DATA_HOME/rummage/photos"
 
 # Close an idle picker, when no frame is in flight. Destroying the
 # picker clears its browser filter and requests a synchronous redraw: this must not call
@@ -54,6 +56,7 @@ for mode in --pick --pick-directory --save-file; do
         exit 1
     fi
     test -s "$XDG_STATE_HOME/rummage/picker.toml"
+    test ! -e "$XDG_DATA_HOME/rummage/photos"
 done
 status=0
 printf 'Installed rummage rendered a window and shut down its pickers under headless Weston.\n'

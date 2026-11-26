@@ -30,6 +30,8 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Photo Library" = "Fototeca"
+"Add to Photo Library…" = "Añadir a la fototeca…"
 "Windows" = "Ventanas"
 "New Window" = "Nueva ventana"
 "Reuse browser windows" = "Reutilizar las ventanas del explorador"

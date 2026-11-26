@@ -92,8 +92,7 @@ The **Nix packages and installed checks** job runs after the gate succeeds:
 ```sh
 nix flake check --print-build-logs
 nix build --no-link --print-build-logs \
-  '.#rummage^*' '.#rummage-with-media^*' \
-  '.#rummage-with-pdf^*' '.#rummage-with-previews^*'
+  '.#rummage^*' '.#rummage-with-photos^*'
 ```
 
 Checks include:
@@ -136,7 +135,7 @@ The test gate restores only the small test-result artifact on an identical-tree
 merge; it does not download the full package closure. On an identical-tree merge, main
 imports roots evaluated from its own flake, runs the usual Nix preflight (which can
 reuse those successful derivations), and explicitly publishes imported outputs to
-Cachix. The media/PDF helper outputs and custom PDFium runtime closure are included.
+Cachix. Bundled preview helpers, the photo output and the custom PDFium runtime closure are included.
 The test derivation alone would not provide the ordinary installable packages.
 
 Local preflight never uploads. Only x86_64-linux is populated by this workflow.
@@ -442,10 +441,11 @@ can be added separately without weakening these required checks.
 
 ## Native PDF previews
 
-All native recipes split the application, media helper, PDF helper and combined
-preview dependency package. The PDF helper and private renderer live together in
+All native recipes package the application with its image, media and PDF helpers.
+Only `rummage-photos` is split into an optional package. The PDF helper and private renderer live together in
 `/usr/libexec/rummage`; only that helper has an `$ORIGIN` runtime library path.
-The base application does not link PDFium or FFmpeg.
+The main executable does not link PDFium or FFmpeg; the standard package includes
+the isolated helpers and their dependencies.
 
 `nix/pdfium-sources.nix` exports source code from the locked Nixpkgs recipes,
 including GN and private dependency sources. `export-source.sh` puts this into
@@ -459,11 +459,11 @@ PDFium. System font, colour and image libraries remain shared. Licenses and
 source versions are installed with the PDF helper. Updating `flake.lock` also
 updates these sources, and requires rerunning the complete native matrix.
 
-Clean installation first checks the base package without optional helpers, then
-installs media, PDF and the convenience package. It checks runtime libraries
+Clean installation checks the standard package and its bundled preview helpers,
+then installs and removes the photo add-on. It checks runtime libraries
 before installing test tools and uses `scripts/ci/check-pdf.py` to exercise the
 installed helper's sandbox, first-page rendering, rotation, fonts and forms.
-The release assembler rejects missing PDF or convenience packages.
+The release assembler requires the standard and photo packages for every target.
 
 ### PDF renderer maintenance
 

@@ -604,3 +604,16 @@ TEST_CASE("state: saved searches reject embedded control names and NUL paths") {
     CHECK(parse("[[search]]\nname = \"bad\\nname\"\nroot = \"/tmp\"\nquery = \"\"")
               .state.saved_searches.empty());
 }
+
+TEST_CASE("state: photo workspace survives restart without interpreting catalog data") {
+    rummage::views::State state;
+    state.photo_library =
+        R"({"version":1,"text":"été 夏","filter":{"unknown_date":true},"selected":[12,34],"cursor":34,"offset":200})";
+    const auto restored =
+        rummage::views::parse_state(rummage::views::format_state(state), "memory");
+    CHECK(restored.problems.empty());
+    CHECK(restored.state.photo_library == state.photo_library);
+    const auto invalid = rummage::views::parse_state("[photos]\nworkspace = 42\n", "memory");
+    CHECK_FALSE(invalid.problems.empty());
+    CHECK(invalid.state.photo_library.empty());
+}

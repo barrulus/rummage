@@ -34,25 +34,26 @@ Thumbnails::~Thumbnails() {
 
 const ui::Texture* Thumbnails::get(const std::filesystem::path& file, std::int64_t modified_ns,
                                    thumbs::Size size, std::string_view mime,
-                                   picture::Failure* failure) {
-    return get_shared(file, modified_ns, size, mime, failure).get();
+                                   picture::Failure* failure, bool offline) {
+    return get_shared(file, modified_ns, size, mime, failure, offline).get();
 }
 
 std::shared_ptr<const ui::Texture> Thumbnails::get_shared(const std::filesystem::path& file,
                                                           std::int64_t modified_ns,
                                                           thumbs::Size size, std::string_view mime,
-                                                          picture::Failure* failure) {
+                                                          picture::Failure* failure, bool offline) {
     std::string key = file.string();
     key += '\n';
     key += thumbs::directory_name(size);
     key += '\n';
     key += std::to_string(modified_ns);
     key += mime;
+    key += offline ? "\noffline" : "\nonline";
     auto [it, added] = slots_.try_emplace(key);
     Slot& slot = it->second;
     slot.used = frame_;
     if (added) {
-        request(key, file, size, std::string{mime});
+        request(key, file, size, std::string{mime}, modified_ns, offline);
     }
     if (failure != nullptr) {
         *failure = slot.failed ? slot.failure : picture::Failure::none;
@@ -67,7 +68,8 @@ std::shared_ptr<const ui::Texture> Thumbnails::get_shared(const std::filesystem:
 }
 
 void Thumbnails::request(const std::string& key, const std::filesystem::path& file,
-                         thumbs::Size size, const std::string& mime) {
+                         thumbs::Size size, const std::string& mime, std::int64_t modified_ns,
+                         bool offline) {
     Slot& slot = slots_.at(key);
     slot.failed = false;
     slot.failure = picture::Failure::none;
@@ -75,12 +77,15 @@ void Thumbnails::request(const std::string& key, const std::filesystem::path& fi
     ++in_flight_;
     slot.job = pool_.submit(
         core::Priority::visible,
-        [cache = cache_, file, size, mime = std::string{mime}](const core::CancelToken& token) {
-            thumbs::Thumbnail thumbnail = cache->get(file, size, mime, &token);
+        [cache = cache_, file, size, mime = std::string{mime}, modified_ns,
+         offline](const core::CancelToken& token) {
+            thumbs::Thumbnail thumbnail =
+                offline ? cache->cached(file, size, modified_ns / 1'000'000'000)
+                        : cache->get(file, size, mime, &token);
             return std::make_shared<thumbs::Thumbnail>(std::move(thumbnail));
         },
-        [this, alive = alive_, key, file, size,
-         mime](const std::shared_ptr<thumbs::Thumbnail>& made) {
+        [this, alive = alive_, key, file, size, mime, modified_ns,
+         offline](const std::shared_ptr<thumbs::Thumbnail>& made) {
             if (!*alive) {
                 return;
             }
@@ -100,10 +105,10 @@ void Thumbnails::request(const std::string& key, const std::filesystem::path& fi
                     ++in_flight_;
                     found->second.retry = loop_.add_timer(
                         kRetryDelays.at(found->second.attempts - 1), std::chrono::milliseconds{0},
-                        [this, key, file, size, mime] {
+                        [this, key, file, size, mime, modified_ns, offline] {
                             slots_.at(key).retry.reset();
                             --in_flight_;
-                            request(key, file, size, mime);
+                            request(key, file, size, mime, modified_ns, offline);
                             redraw_();
                         });
                 }

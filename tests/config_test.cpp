@@ -218,6 +218,8 @@ ConfigResult parse(std::string_view text) { return parse_config(text, "test.toml
 
 void check_defaults(const Config& config) {
     const Config defaults;
+    CHECK(config.previews.media == defaults.previews.media);
+    CHECK(config.previews.pdf == defaults.previews.pdf);
     CHECK(config.windows.reuse == defaults.windows.reuse);
     CHECK(config.windows.separate_settings == defaults.windows.separate_settings);
     CHECK(config.keyboard.type_to_jump == defaults.keyboard.type_to_jump);
@@ -681,4 +683,15 @@ TEST_CASE("config: window policies validate independently") {
     CHECK(invalid.problems.size() == 2);
     CHECK(invalid.config.windows.reuse);
     CHECK(invalid.config.windows.separate_settings);
+}
+
+TEST_CASE("preview settings independently disable shipped helpers") {
+    const auto result = parse_config("[previews]\nmedia = false\npdf = true\n", "test.toml");
+    CHECK(result.problems.empty());
+    CHECK_FALSE(result.config.previews.media);
+    CHECK(result.config.previews.pdf);
+    const auto invalid = parse_config("[previews]\nmedia = 'false'\npdf = 0\n", "test.toml");
+    CHECK(invalid.problems.size() == 2);
+    CHECK(invalid.config.previews.media);
+    CHECK(invalid.config.previews.pdf);
 }

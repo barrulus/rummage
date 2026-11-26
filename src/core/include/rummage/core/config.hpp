@@ -38,6 +38,15 @@ struct Config {
         bool programs{true};
     };
 
+    struct Photos {
+        bool enabled{true};
+    };
+
+    struct Previews {
+        bool media{true};
+        bool pdf{true};
+    };
+
     struct Terminal {
         std::string program;  // Empty: use desktop/environment defaults.
         std::vector<std::string> args;
@@ -98,6 +107,8 @@ struct Config {
     Font font;
     Terminal terminal;
     Open open;
+    Previews previews;
+    Photos photos;
     Pointer pointer;
     Keyboard keyboard;
     Windows windows;

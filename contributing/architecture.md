@@ -85,7 +85,7 @@ use `../share/rummage/engines/` and `../libexec/rummage/`. Discovery is relative
 the executable; a missing manifest directory is not replaced by an arbitrary
 system-wide plugin search. `RUMMAGE_ENGINE_PATH` adds explicit trusted absolute
 manifest directories (colon-separated), with helpers located under the matching
-prefix’s `libexec/rummage`. The optional Nix media package configures this path.
+prefix’s `libexec/rummage`. Custom helper installations can configure this path.
 
 | Manifest field | Contract |
 | --- | --- |
@@ -107,8 +107,8 @@ registration. `--about` lists discovered engines. See
 Adding a manifest alone does not implement decoding: its program must speak the
 protocol and satisfy isolation/validation expectations. This is an internal
 extension mechanism, not a stable third-party plugin ABI. Decoders must remain
-out of the main application's format-reader dependency graph. The optional `rummage-media` uses the same isolation protocol and links FFmpeg
-libraries only in that helper; the optional `rummage-pdf` does the same with PDFium. SVG theme icons and thumbnail cache parsing have
+out of the main application's format-reader dependency graph. The bundled `rummage-media` helper uses the same isolation protocol and links FFmpeg
+libraries only in that helper; the bundled `rummage-pdf` helper does the same with PDFium. SVG theme icons and thumbnail cache parsing have
 different boundaries; see
 [security](../docs/security.md).
 

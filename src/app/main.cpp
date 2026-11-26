@@ -41,6 +41,7 @@
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/trash.hpp"
 #include "rummage/isolate/helpers.hpp"
+#include "rummage/photos/client.hpp"
 #include "rummage/platform/about.hpp"
 #include "rummage/platform/action_handoff.hpp"
 #include "rummage/platform/applications.hpp"
@@ -310,6 +311,14 @@ int print_about() {
         found = directory.empty() ? "none found" : std::format("none in {}", directory.string());
     }
     lines.push_back({.label = "Engines", .value = found});
+    const auto photos = rummage::photos::Client::installed_path();
+    std::error_code photo_error;
+    const bool photo_installed =
+        !photos.empty() && std::filesystem::is_regular_file(photos, photo_error);
+    lines.push_back({.label = "Photo Library",
+                     .value = photos.empty() ? "not installed"
+                                             : (photo_installed ? "installed: " : "missing: ") +
+                                                   photos.string()});
     // The GPU as OpenGL names it, from a context without a window.
     try {
         const ui::Offscreen offscreen{1, 1};
@@ -762,6 +771,7 @@ int main(int argc, char** argv) {
         {
             auto registry =
                 std::make_shared<const engines::Registry>(engines::Registry::load_installed());
+            registry->set_previews_enabled(config.previews.media, config.previews.pdf);
             isolate::use_engines(*registry, {}, mime);
             engines::set_installed(std::move(registry));
         }
@@ -892,6 +902,8 @@ int main(int argc, char** argv) {
         const auto update_config = [&](const core::ConfigResult& fresh) {
             const auto previous = config_result;
             config_result = fresh;
+            engines::installed()->set_previews_enabled(fresh.config.previews.media,
+                                                       fresh.config.previews.pdf);
             if (fresh.actions_valid && fresh.context_menu_valid &&
                 views::configure_shortcuts(fresh.config.keybindings, fresh.config.actions)
                     .empty()) {
@@ -1072,6 +1084,7 @@ int main(int argc, char** argv) {
                 configure_auxiliary();
                 window.set_zoom(fresh.font.zoom());
                 if (columns) {
+                    columns->set_photos_enabled(fresh.photos.enabled);
                     columns->set_motion_config(fresh.animations);
                     columns->set_keyboard_config(fresh.keyboard);
                     columns->status_bar().set_text_size(fresh.status_bar.text_size);
@@ -1175,6 +1188,7 @@ int main(int argc, char** argv) {
                                 });
                         });
                 columns->set_actions(configured_actions);
+                columns->set_photos_enabled(config.photos.enabled);
                 columns->set_motion_config(config.animations);
                 columns->set_keyboard_config(config.keyboard);
                 columns->set_reduced_motion(portal->appearance().reduced_motion);
@@ -1341,6 +1355,8 @@ int main(int argc, char** argv) {
                            !columns->restore_session(remembered.state)) {
                     columns->open(start_folder(launch_location.folder));
                 }
+                if (!picker_request && !reveal && !open_folders)
+                    columns->resume_photo_work();
                 if (picker_request) {
                     columns->set_open_with_handlers({}, {});
                     columns->set_terminal_handler({});

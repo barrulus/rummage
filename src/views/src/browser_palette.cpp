@@ -68,6 +68,17 @@ std::vector<PaletteItem> Browser::palette_items() {
         add(std::string{"command:"} + id, std::move(label), first_chord(which),
             [this, which] { run(which, Clock::now()); });
     };
+    if (photos_available()) {
+        add("photos:open", "Photo Library", "", [this] { open_photo_library(); });
+        const auto folder = current_folder();
+        if (folder && !folder->is_trash() && !folder->is_archive())
+            add("photos:add", "Add folder to Photo Library…", "",
+                [this, path = folder->path()] { open_photo_library(path); });
+    }
+    if (showing_photos()) {
+        add("photos:close", "Close Photo Library", "Escape", [this] { photo_library_->close(); });
+        return items;
+    }
     if (searching_results()) {
         using Action = SearchResults::Action;
         const auto count = search_results_->chosen().size();

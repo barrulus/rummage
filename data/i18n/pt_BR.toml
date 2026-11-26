@@ -21,6 +21,8 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Photo Library" = "Biblioteca de fotos"
+"Add to Photo Library…" = "Adicionar à biblioteca de fotos…"
 "Windows" = "Janelas"
 "New Window" = "Nova janela"
 "Reuse browser windows" = "Reutilizar janelas do navegador"

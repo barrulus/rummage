@@ -14,12 +14,8 @@ import json, sys
 identity = json.load(open(sys.argv[1]))
 assert identity.get('published_commit', identity['commit']) == sys.argv[2]
 PY
-files=(rummage-pdf-debian13-amd64.deb rummage-pdf-fedora45-x86_64.rpm
-       rummage-pdf-arch-x86_64.pkg.tar.zst rummage-pdf-tumbleweed-x86_64.rpm
-       rummage-previews-debian13-amd64.deb rummage-previews-fedora45-x86_64.rpm
-       rummage-previews-arch-x86_64.pkg.tar.zst rummage-previews-tumbleweed-x86_64.rpm
-       rummage-media-debian13-amd64.deb rummage-media-fedora45-x86_64.rpm
-       rummage-media-arch-x86_64.pkg.tar.zst rummage-media-tumbleweed-x86_64.rpm
+files=(rummage-photos-debian13-amd64.deb rummage-photos-fedora45-x86_64.rpm
+       rummage-photos-arch-x86_64.pkg.tar.zst rummage-photos-tumbleweed-x86_64.rpm
        rummage-debian13-amd64.deb rummage-fedora45-x86_64.rpm
        rummage-arch-x86_64.pkg.tar.zst rummage-tumbleweed-x86_64.rpm
        rummage-void-glibc-x86_64.tar.gz rummage-source.tar.gz rummage-debian-source.tar.gz source.json SHA256SUMS)

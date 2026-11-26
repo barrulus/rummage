@@ -32,8 +32,9 @@ working EGL/GLES and fonts even without a compositor. CMake generates
 | `RUMMAGE_HARDENING` | `ON` | Compiler-supported stack/control-flow protection, PIE, full RELRO and libstdc++ assertions; fortify in optimized builds |
 | `RUMMAGE_SANITIZER` | Empty | e.g. `address,undefined` or `thread` |
 | `RUMMAGE_CLANG_TIDY` | `OFF` | Run clang-tidy while compiling |
-| `RUMMAGE_MEDIA` | `OFF` | Build the optional sandboxed FFmpeg helper |
-| `RUMMAGE_PDF` | `OFF` | Build the optional sandboxed PDFium helper |
+| `RUMMAGE_MEDIA` | `ON` | Build the bundled sandboxed FFmpeg helper |
+| `RUMMAGE_PDF` | `ON` | Build the bundled sandboxed PDFium helper |
+| `RUMMAGE_PHOTOS` | `OFF` | Build the optional SQLite photo module |
 | `RUMMAGE_FUZZ` | `OFF` | Build libFuzzer targets; requires Clang |
 
 Hardening applies to all project targets, including the C decoder. Fortify level 3

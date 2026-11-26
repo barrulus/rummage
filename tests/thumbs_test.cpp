@@ -157,6 +157,28 @@ TEST_CASE("thumbs: shared-cache dimensions follow upright pixels or stay unknown
     check("480", "480", 0, 0);  // a crop/padded thumbnail cannot establish orientation
 }
 
+TEST_CASE("thumbs: offline catalog reads keep cached images without opening originals") {
+    TempDir dir;
+    const fs::path photo = dir.path / "photo.jpg";
+    fs::copy_file(kData / "with-thumbnail.jpg", photo);
+    rummage::picture::set_loader([](const rummage::picture::LoadRequest& request) {
+        return rummage::formats::image::load(request);
+    });
+    const thumbs::Cache cache{dir.path / "thumbnails", "rummage-test"};
+    const auto made = cache.get(photo, thumbs::Size::normal);
+    REQUIRE_FALSE(made.image.empty());
+    struct stat info{};
+    REQUIRE(::stat(photo.c_str(), &info) == 0);
+    fs::rename(photo, dir.path / "disconnected.jpg");
+    const auto offline = cache.cached(photo, thumbs::Size::normal, info.st_mtime);
+    CHECK(offline.source == thumbs::Source::cache);
+    CHECK(offline.image.rgba == made.image.rgba);
+    CHECK(cache.cached(photo, thumbs::Size::normal, info.st_mtime + 1).image.empty());
+    fs::remove(cache.path_for(photo, thumbs::Size::normal));
+    CHECK(cache.cached(photo, thumbs::Size::normal, info.st_mtime).image.empty());
+    CHECK_FALSE(fs::exists(photo));
+}
+
 TEST_CASE("thumbs: a failure is remembered until the file changes, make() tries again") {
     TempDir dir;
     const fs::path broken = dir.path / "broken.jpg";

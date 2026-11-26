@@ -461,6 +461,16 @@ StateResult parse_state(std::string_view text, std::string_view source) {
         }
     }
 
+    if (const auto* node = root.at_path("photos.workspace").node()) {
+        const auto value = node->value<std::string>();
+        if (value && value->size() <= State::kMaxPhotoStateBytes &&
+            value->find('\0') == std::string::npos)
+            s.photo_library = *value;
+        else
+            result.problems.push_back(
+                std::format("{}: invalid photo workspace state; ignored", source));
+    }
+
     // [palette] recent: a list of ids; what is not a string is left out.
     if (const toml::node* recent = root.at_path("palette.recent").node()) {
         if (const toml::array* list = recent->as_array()) {
@@ -741,7 +751,11 @@ std::string format_state(const State& s) {
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,
                s.active_pane) +
-           tabs + folders + searches;
+           tabs + folders + searches +
+           (s.photo_library.empty() || s.photo_library.size() > State::kMaxPhotoStateBytes ||
+                    !valid_utf8(s.photo_library)
+                ? std::string{}
+                : std::format("\n[photos]\nworkspace = {}\n", toml_string(s.photo_library)));
 }
 
 // Writes in generation order: one older than the last written is dropped.

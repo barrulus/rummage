@@ -8,7 +8,7 @@ import subprocess
 from preflight import NIX_PACKAGES, NIX_TESTS
 
 ATTRIBUTES = [*NIX_PACKAGES, *(
-    f'.#checks.x86_64-linux.{name}' for name in ('tests', 'smoke', 'nixos-module'))]
+    f'.#checks.x86_64-linux.{name}' for name in ('tests', 'smoke', 'smoke-photos', 'nixos-module'))]
 
 
 def roots(tests_only=False):

@@ -17,6 +17,11 @@
 // it on the transfer thread (TransferQueue does, for TransferKind::trash).
 namespace rummage::fs {
 
+// Captures a regular file without following a final symlink; canonicalizes its parent only.
+// Callers comparing content should retain the signature captured for that comparison.
+[[nodiscard]] std::optional<SourceIdentity> capture_source_identity(
+    const std::filesystem::path& path);
+
 // The home trash: $XDG_DATA_HOME/Trash, else ~/.local/share/Trash; empty without a home.
 [[nodiscard]] std::filesystem::path home_trash();
 

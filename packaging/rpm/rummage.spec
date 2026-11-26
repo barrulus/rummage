@@ -2,7 +2,7 @@ Name:           rummage
 Version:        0.6.1
 Release:        1%{?dist}
 Summary:        Native Wayland file manager
-License:        MIT AND (MIT OR Apache-2.0)
+License:        MIT AND Apache-2.0 AND BSD-3-Clause AND BSD-2-Clause AND Unicode-3.0
 URL:            https://github.com/barrulus/rummage
 Source0:        rummage-source.tar.gz
 
@@ -48,6 +48,7 @@ BuildRequires:  pkgconfig(libavformat) >= 60.16.100
 BuildRequires:  pkgconfig(libavcodec) >= 60.31.102
 BuildRequires:  pkgconfig(libavutil) >= 58.29.100
 BuildRequires:  pkgconfig(libswscale)
+BuildRequires:  pkgconfig(sqlite3)
 BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(sdbus-c++) >= 2
 # The decoder uses versioned option fields, so require the same minimum at runtime.
@@ -58,38 +59,24 @@ Requires:       libheif >= 1.23
 %endif
 Requires:       shared-mime-info
 Requires:       hicolor-icon-theme
+Obsoletes:      rummage-media <= %{version}-%{release}
+Obsoletes:      rummage-pdf <= %{version}-%{release}
+Obsoletes:      rummage-previews <= %{version}-%{release}
+# Private renderer is not a public ABI.
+%global __provides_exclude_from ^%{_libexecdir}/rummage/(libpdfium|librummage-photos)\.so$
+%global __requires_exclude ^libpdfium\.so.*$
 
 %description
 A file manager with column and grid views, isolated previews, configurable
 custom actions and an optional desktop file chooser portal.
 
-%package media
-Summary:        Optional video thumbnails and still previews for rummage
+%package photos
+Summary:        Photo Library for rummage
 Requires:       %{name} = %{version}-%{release}
 
-%description media
-Isolated video decoding using system FFmpeg shared libraries. No command-line
-FFmpeg tools are required. This package does not provide playback.
-
-%package pdf
-Summary:        Optional PDF thumbnails and first-page previews for rummage
-License:        BSD-3-Clause AND BSD-2-Clause AND Apache-2.0 AND MIT AND Unicode-3.0
-Requires:       %{name} = %{version}-%{release}
-# The library is private to this helper, not a public ABI for other packages.
-%global __provides_exclude_from ^%{_libexecdir}/rummage/libpdfium\.so$
-%global __requires_exclude ^libpdfium\.so.*$
-
-%description pdf
-Isolated PDF rendering with a private, source-built PDFium library.
-This package provides still previews, not a document viewer.
-
-%package previews
-Summary:        All optional preview engines for rummage
-Requires:       %{name}-media = %{version}-%{release}
-Requires:       %{name}-pdf = %{version}-%{release}
-
-%description previews
-Convenience package installing video and PDF preview helpers.
+%description photos
+Optional local photo catalog and organisation. Originals remain in place.
+Removing this package preserves the user's catalog and annotations.
 
 %prep
 %autosetup -n rummage-checkout
@@ -98,11 +85,11 @@ Convenience package installing video and PDF preview helpers.
 %if 0%{?suse_version}
 %define __builder ninja
 %endif
-%cmake -G Ninja -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+%cmake -G Ninja -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
 %if 0%{?suse_version}
-%cmake_build rummage rummage-preview rummage-media rummage-pdf
+%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage_photos
 %else
-%cmake_build --target rummage rummage-preview rummage-media rummage-pdf
+%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage_photos
 %endif
 
 %install
@@ -120,9 +107,11 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_bindir}/rummage
 %dir %{_libexecdir}/rummage
 %{_libexecdir}/rummage/rummage-preview
+%{_libexecdir}/rummage/rummage-media
+%{_libexecdir}/rummage/rummage-pdf
+%{_libexecdir}/rummage/libpdfium.so
+%license %{_datadir}/licenses/rummage-pdf/
 %{_datadir}/rummage/
-%exclude %{_datadir}/rummage/engines/media.toml
-%exclude %{_datadir}/rummage/engines/pdf.toml
 %{_datadir}/applications/rummage.desktop
 %{_datadir}/icons/hicolor/scalable/apps/rummage.svg
 %{_datadir}/xdg-desktop-portal/portals/rummage.portal
@@ -132,17 +121,6 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_datadir}/zsh/site-functions/_rummage
 %{_datadir}/fish/vendor_completions.d/rummage.fish
 
-%files media
+%files photos
 %license LICENSE
-%{_libexecdir}/rummage/rummage-media
-%{_datadir}/rummage/engines/media.toml
-
-%files pdf
-%license LICENSE
-%license %{_datadir}/licenses/rummage-pdf/
-%{_libexecdir}/rummage/rummage-pdf
-%{_libexecdir}/rummage/libpdfium.so
-%{_datadir}/rummage/engines/pdf.toml
-
-%files previews
-%license LICENSE
+%{_libexecdir}/rummage/librummage-photos.so

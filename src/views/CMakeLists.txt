@@ -8,6 +8,7 @@ if(RUMMAGE_SANITIZER)
 endif()
 
 add_library(rummage_views
+    src/browser_photo_operations.cpp
     src/batch_rename_dialog.cpp
     src/browser_batch_rename.cpp
     src/breadcrumb.cpp
@@ -39,6 +40,8 @@ add_library(rummage_views
     src/folder.cpp
     src/format.cpp
     src/file_finder.cpp
+    src/photo_library.cpp
+    src/browser_photos.cpp
     src/search_results.cpp
     src/browser_search.cpp
     src/file_picker.cpp
@@ -71,5 +74,5 @@ add_library(rummage::views ALIAS rummage_views)
 
 target_include_directories(rummage_views PUBLIC include)
 target_link_libraries(rummage_views
-    PUBLIC rummage::platform rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
+    PUBLIC rummage::photo_client rummage::platform rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview
     PRIVATE rummage::warnings PkgConfig::TOMLPLUSPLUS rummage_fzy)
