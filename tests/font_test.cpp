@@ -15,6 +15,11 @@ namespace isolate = rummage::isolate;
 namespace engines = rummage::engines;
 
 TEST_CASE("font: isolated scalable specimen, scale, cache, damaged and oversized input") {
+    // This standalone test owns the only Fontconfig user in its process. Release its
+    // process cache after all patterns/helpers, rather than suppressing its allocations.
+    struct FontconfigCleanup {
+        ~FontconfigCleanup() { FcFini(); }
+    } cleanup;
     // Fontconfig locates the test font; only the helper parses its contents.
     using Pattern = std::unique_ptr<FcPattern, decltype(&FcPatternDestroy)>;
     Pattern request{FcNameParse(reinterpret_cast<const FcChar8*>("sans")), FcPatternDestroy};

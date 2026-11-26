@@ -619,9 +619,9 @@ TEST_CASE(
     core::PickerRequest request;
     request.filters = {{"Text", {{0, "*.txt"}}}};
     request.choices = {{"readonly", "Read only", {}, "true"}};
-    auto picker = f.picker(request);
     fs::path launched;
     int cancelled = 0;
+    auto picker = f.picker(request);
     picker->set_terminal_navigation([&](const auto& directory) { launched = directory; },
                                     [&] { ++cancelled; });
     REQUIRE(f.settle());
@@ -661,8 +661,8 @@ TEST_CASE(
         request.name = "saved.txt";
     }
     SUBCASE("directory") { request.directory = true; }
-    auto picker = f.picker(request);
     int cancelled = 0;
+    auto picker = f.picker(request);
     picker->set_terminal_navigation([](const auto&) {}, [&] { ++cancelled; });
     REQUIRE(f.settle());
     const auto target = f.temp.path / "folder";
@@ -679,8 +679,8 @@ TEST_CASE(
 
 TEST_CASE("picker: closing or cancelling invalidates terminal navigation") {
     Fixture f;
-    auto picker = f.picker({});
     int cancelled = 0;
+    auto picker = f.picker({});
     picker->set_terminal_navigation([](const auto&) {}, [&] { ++cancelled; });
     REQUIRE(f.settle());
     SUBCASE("cancel") {
