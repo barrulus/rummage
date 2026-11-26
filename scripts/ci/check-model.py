@@ -15,7 +15,7 @@ import tempfile
 helper = sys.argv[1]
 
 
-def render(path, size=128, expected_failure=False):
+def render(path, size=128, expected_failure=False, allow_rejection=False):
     parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
     pid = os.fork()
     if pid == 0:
@@ -38,10 +38,14 @@ def render(path, size=128, expected_failure=False):
         assert len(data) >= 28, data
         magic, failure, _, _, width, height, _, _, pages = struct.unpack('=IBBHIIIII', data[:28])
         assert magic == 0x4E505253
+        response = (Path(path).name, failure, width, height, len(descriptors), data[28:])
         if expected_failure:
-            assert failure != 0 and not descriptors
-            return
-        assert failure == 0 and len(descriptors) == 1, (failure, data[28:])
+            assert failure != 0 and not descriptors, response
+            return False
+        if allow_rejection and failure != 0:
+            assert not descriptors, response
+            return False
+        assert failure == 0 and len(descriptors) == 1, response
         assert pages == 0 and width == min(size, 1024) and 0 < height <= 1024
         pixels = os.pread(descriptors[0], width * height * 4, 0)
         assert len(pixels) == width * height * 4
@@ -52,6 +56,7 @@ def render(path, size=128, expected_failure=False):
                 return struct.pack('>I', len(content)) + kind + content + struct.pack('>I', zlib.crc32(kind + content))
             raw = b''.join(b'\0' + pixels[y*width*4:(y+1)*width*4] for y in range(height))
             Path(os.environ["RUMMAGE_MODEL_PNG"]).write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+        return True
     finally:
         for descriptor in descriptors:
             os.close(descriptor)
@@ -85,12 +90,29 @@ with tempfile.TemporaryDirectory() as directory:
     cube = root / 'cube.obj'
     cube.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nv 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\nf 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\nf 2 6 7 3\nf 3 7 8 4\nf 4 8 5 1\n")
     render(cube, 512)
-    for payload in [b'not a model', b'', b'v nan 0 0\nv 0 1 0\nv 1 0 0\nf 1 2 3\n', b'v 0 0 0\nf 1 2 9999999\n', binary[:100]]:
-        bad = root / 'bad.obj'
+    # Assimp 6.0.6 normalizes the OBJ token "nan" to finite zero; other versions
+    # reject it. Either result is safe, but a returned image must pass all checks.
+    permissive = root / 'ascii-nan.obj'
+    permissive.write_bytes(b'v nan 0 0\nv 0 1 0\nv 1 0 0\nf 1 2 3\n')
+    rendered = render(permissive, allow_rejection=True)
+    print(permissive.name, 'validated image' if rendered else 'safely rejected')
+    failures = [('not-model.obj', b'not a model'), ('empty.obj', b''),
+                ('invalid-index.obj', b'v 0 0 0\nf 1 2 9999999\n'),
+                ('truncated.stl', binary[:100])]
+    # Binary coordinates bypass permissive ASCII conversion and must never reach
+    # the rasterizer as NaN or infinity, regardless of the Assimp version.
+    for name, value in [('nan', float('nan')), ('inf', float('inf')), ('negative-inf', -float('inf'))]:
+        nonfinite = bytearray(binary)
+        struct.pack_into('<f', nonfinite, 96, value)  # first triangle's first vertex x
+        failures.append((f'binary-{name}.stl', nonfinite))
+    for name, payload in failures:
+        bad = root / name
         bad.write_bytes(payload)
         render(bad, expected_failure=True)
+        print(name, 'rejected')
     doc['buffers'][0]['uri'] = str(root / 'external.bin')
     (root / 'external.bin').write_bytes(geometry)
+    bad = root / 'external.gltf'
     bad.write_text(json.dumps(doc))
     render(bad, expected_failure=True)
     with bad.open('wb') as out:
