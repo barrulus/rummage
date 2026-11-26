@@ -32,6 +32,7 @@
   shared-mime-info,
   hicolor-icon-theme,
   doctest,
+  python3,
   dbus,
   dejavu_fonts,
   makeFontsConf,
@@ -79,6 +80,7 @@ stdenv.mkDerivation {
   ]
   ++ lib.optionals withTests [
     doctest
+    python3
     (writeShellScriptBin "dbus-run-session" ''
       exec ${dbus}/bin/dbus-run-session --dbus-daemon=${dbus}/bin/dbus-daemon --config-file=${dbus}/share/dbus-1/session.conf "$@"
     '')
