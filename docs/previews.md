@@ -54,12 +54,13 @@ reported pixel movement.
 | PGM / PPM | rummage's binary PNM reader | 8- and 16-bit samples; not every Netpbm format |
 | Camera raw | Embedded previews; some DNGs developed by rummage | Support depends on the file's container, preview and compression |
 | Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
-| Video | Included `rummage-media` helper using FFmpeg libraries | Thumbnails, still previews and Quick Look playback |
+| Video | Included `rummage-media` helper using FFmpeg libraries | Thumbnails, still previews and Quick Look playback; archive members retain still previews |
+| Audio | Included `rummage-media` helper using FFmpeg libraries | Metadata and Quick Look playback for local files; extract archive members first |
 | PDF | Included `rummage-pdf` helper using PDFium | First-page thumbnails; page navigation and zoom in Quick Look |
 | SVG files | librsvg in the preview helper | Static previews and thumbnails; limits described below |
 | ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
 | Fonts | Optional `rummage-font` engine using FreeType | Scalable TrueType/OpenType specimens; first face of a collection |
-| Other formats | File information and external application opening | No built-in audio player; unsupported model/art formats listed below |
+| Other formats | File information and external application opening | Unsupported model/art formats listed below |
 
 The [base engine manifest](../data/engines/base.toml) registers MIME families.
 Registration is not a guarantee that every subtype/sample can decode. The image
@@ -409,6 +410,8 @@ time, duration and volume remain visible. **Space/Escape** closes Quick Look;
 arrow keys still move to another file. Closing, changing files and pausing stop
 audio output; closing or changing files also terminates and reaps the decoder.
 Playback does not start for neighbouring files prepared as still previews.
+Media inside archives retains its extracted still preview; extract the file to
+a regular folder before playing it in Quick Look.
 
 Audio uses the session's default PulseAudio output, including a PipeWire server
 with PulseAudio compatibility. No audio device is required for silent video.
