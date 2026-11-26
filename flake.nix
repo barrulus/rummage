@@ -107,6 +107,7 @@
               })
             ];
             packages = with pkgs; [
+              git
               python3
               doctest
               dbus
