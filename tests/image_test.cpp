@@ -16,6 +16,7 @@
 #include "rummage/formats/image/load.hpp"
 #include "rummage/formats/image/photo.hpp"
 #include "rummage/formats/image/preview.hpp"
+#include "rummage/formats/image/svg.hpp"
 #include "rummage/picture/load.hpp"
 #include "rummage/picture/png.hpp"
 #include "rummage/picture/scale.hpp"
@@ -88,6 +89,30 @@ std::vector<int> reds(const Image& picture) {
 }
 
 }  // namespace
+
+TEST_CASE("image: prepared SVG fonts survive reuse and an explicit lifecycle reset") {
+    struct ReleaseFonts {
+        ~ReleaseFonts() { image::release_svg_fonts(); }
+    } release;
+
+    const auto request =
+        picture::LoadRequest{.path = kData / "svg-warmup.svg", .max_width = 128, .max_height = 128};
+    image::prepare_svg_fonts();
+    const auto first = image::load(request);
+    REQUIRE(first.failure == picture::Failure::none);
+    REQUIRE_FALSE(first.image.empty());
+    image::prepare_svg_fonts();  // production warm-up and later loads reuse the same lifecycle
+    const auto reused = image::load(request);
+    CHECK(reused.failure == picture::Failure::none);
+    CHECK(reused.image.rgba == first.image.rgba);
+    image::release_svg_fonts();
+    image::release_svg_fonts();  // releasing an absent map is harmless
+    const auto renewed = image::load(request);
+    CHECK(renewed.failure == picture::Failure::none);
+    CHECK(renewed.image.width == first.image.width);
+    CHECK(renewed.image.height == first.image.height);
+    CHECK(renewed.image.rgba == first.image.rgba);
+}
 
 TEST_CASE("image: formats are recognized by their first bytes") {
     CHECK(image::decode_file(kData / "blocks.png").format == Format::png);

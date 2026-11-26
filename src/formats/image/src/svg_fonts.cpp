@@ -183,7 +183,18 @@ private:
     std::vector<Owned<cairo_font_face_t, &cairo_font_face_destroy>> faces_;
     Owned<PangoFontMap, &g_object_unref> map_{nullptr, g_object_unref};
 };
+
+std::unique_ptr<Fonts>& thread_fonts() {
+    thread_local std::unique_ptr<Fonts> fonts;
+    return fonts;
+}
 }  // namespace
 
-void prepare_svg_fonts() { thread_local Fonts fonts; }
+void prepare_svg_fonts() {
+    auto& fonts = thread_fonts();
+    if (!fonts)
+        fonts = std::make_unique<Fonts>();
+}
+
+void release_svg_fonts() { thread_fonts().reset(); }
 }  // namespace rummage::formats::image
