@@ -647,7 +647,7 @@ std::vector<std::size_t> Folder::matching(const std::string& glob) const {
     const std::vector<fs::Entry>& list = entries();
     const fs::NamePattern pattern{glob};
     for (std::size_t i = 0; i < list.size(); ++i) {
-        if (pattern.matches(list[i].name)) {
+        if (pattern.matches(list[i].label())) {
             rows.push_back(i);
         }
     }

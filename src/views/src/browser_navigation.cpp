@@ -23,7 +23,7 @@ bool Browser::match_type_jump() {
         return false;
     const auto& entries = folder->entries();
     for (std::size_t i = 0; i < entries.size(); ++i) {
-        if (filename_prefix_matches(entries[i].name, type_jump_prefix_)) {
+        if (filename_prefix_matches(entries[i].label(), type_jump_prefix_)) {
             folder->set_cursor(i, SelectMode::replace);
             return true;
         }

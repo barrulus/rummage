@@ -998,6 +998,14 @@ TEST_CASE("Recent folder: ordinary views preserve source operations and navigati
         REQUIRE(folder);
         REQUIRE(folder->is_recent());
         REQUIRE(folder->entries().size() == 1);
+        f.browser.set_name_filter("*.txt");
+        REQUIRE(folder->entries().size() == 1);
+        CHECK(folder->matching("*.txt") == std::vector<std::size_t>{0});
+        CHECK(folder->matching("text:" + f.a.string()).empty());
+        f.browser.set_name_filter("text:" + f.a.string());
+        CHECK(folder->entries().empty());
+        f.browser.set_name_filter({});
+        REQUIRE(folder->entries().size() == 1);
         folder->select_name(folder->entries().front().name);
         if (const auto* prefix = std::getenv("RUMMAGE_RECENT_SNAPSHOT")) {
             rummage::ui::Offscreen surface{1000, 640};

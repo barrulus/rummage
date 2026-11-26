@@ -3984,9 +3984,11 @@ void Browser::apply_filters(const std::filesystem::path& target) {
     }
     pane().insights.set_filter(pane().valid_filter);
     pane().entry_filter = [filter = picker_filter_, pattern](const fs::Entry& entry) {
-        return (!filter || filter(entry)) && pattern.matches(entry.name);
+        return (!filter || filter(entry)) && pattern.matches(entry.label());
     };
-    pane().columns.set_entry_filter(pane().entry_filter, pane().filter_folder, picker_filter_);
+    pane().columns.set_entry_filter(
+        [pattern](const fs::Entry& entry) { return pattern.matches(entry.label()); },
+        pane().filter_folder, picker_filter_);
     pane().grid.set_entry_filter(pane().entry_filter, pane().mode == Mode::grid);
     pane().details.set_entry_filter(pane().entry_filter, pane().mode == Mode::details);
 }
@@ -4381,10 +4383,11 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         reserve(search_button_bounds_);
     const auto folder = current_folder();
     if ((panes_enabled_ || showing_photos()) && !picker_mode_ && folder && !folder->is_archive() &&
-        !folder->is_trash())
+        !folder->is_trash() && !folder->is_recent())
         reserve(insights_bounds_);
     reserve(sort_bounds_);
-    reserve(new_folder_bounds_);
+    if (!folder || !folder->is_recent())
+        reserve(new_folder_bounds_);
     filter_bounds_ = {field_x, bounds.y + 6, std::max(1.0F, field_right - field_x), 32};
     if (!name_filter().empty() && filter_bounds_.width >= button_width + gap + 48) {
         filter_bounds_.width -= button_width + gap;

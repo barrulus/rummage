@@ -20,7 +20,8 @@ bool Browser::start_terminal() {
     if (picker_mode_)
         return false;
     const auto folder = current_folder();
-    if (!folder || folder->is_archive() || folder->is_trash() || searching_results()) {
+    if (!folder || folder->is_archive() || folder->is_trash() || folder->is_recent() ||
+        searching_results()) {
         show_message(std::string{i18n::tr("Terminal needs an ordinary local folder")}, true);
         return false;
     }
@@ -72,7 +73,8 @@ void Browser::terminal_tick() {
         return;
     }
     const auto folder = current_folder();
-    if (!folder || folder->is_archive() || folder->is_trash() || searching_results())
+    if (!folder || folder->is_archive() || folder->is_trash() || folder->is_recent() ||
+        searching_results())
         return;
     const auto browser_path = folder->path();
     if (browser_path != terminal_browser_path_) {
@@ -207,8 +209,8 @@ bool Browser::terminal_workflow_available(int kind) {
 
 void Browser::terminal_workflow(int kind) {
     const auto folder = current_folder();
-    if (!folder || folder->is_archive() || folder->is_trash() || searching_results() ||
-        picker_mode_) {
+    if (!folder || folder->is_archive() || folder->is_trash() || folder->is_recent() ||
+        searching_results() || picker_mode_) {
         show_message(std::string{i18n::tr("Terminal needs an ordinary local folder")}, true);
         return;
     }

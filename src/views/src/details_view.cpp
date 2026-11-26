@@ -1043,7 +1043,7 @@ bool DetailsView::jump_to_prefix(std::string_view prefix) {
     rebuild_rows();
     for (std::size_t i = 0; i < tree_rows_.size(); ++i) {
         const auto& row = tree_rows_[i];
-        if (filename_prefix_matches(row.folder->entries()[row.entry].name, prefix)) {
+        if (filename_prefix_matches(row.folder->entries()[row.entry].label(), prefix)) {
             focus_row(i, SelectMode::replace);
             redraw_();
             return true;

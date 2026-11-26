@@ -347,8 +347,8 @@ Only the current folder's last valid filter is saved with the tab. Invalid
 selection patterns leave the selection unchanged. Selection applies to the active
 folder's visible entries; expanded details descendants are not selected implicitly.
 
-In Miller columns the filter affects only the last column;
-ancestor columns remain visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
+In Miller columns the filter stays with the folder being filtered; child previews
+start unfiltered, and filtering a descendant leaves its ancestors visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
 returns focus to files. Escape or Clear removes it. It persists when switching
 views and combines with picker type restrictions. Name filters belong to the folder
 where they were entered: opening another folder or an archive starts unfiltered,
@@ -646,7 +646,7 @@ to existing processes because each write checks the shared flag under the histor
 lock; queued launches cannot repopulate disabled history. History lives in private
 `$XDG_STATE_HOME/rummage/recent-files` (normally `~/.local/state/rummage`), with a
 separate disable marker; passwords and remote URI credentials are never recorded.
-The view filters filename/path text and watches history and source folders for
+The view filters filename text and watches history and source folders for
 changes; it does not launch a recursive filesystem search. Recent is a collection,
 so paste and file-creation destinations must be real folders.
 

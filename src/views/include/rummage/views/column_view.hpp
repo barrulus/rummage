@@ -200,8 +200,8 @@ private:
     struct Slot {
         std::unique_ptr<Column> column;
         float width{kDefaultColumnWidth};
-        bool filtered{false};
-        float x{0.0F};  // left edge in content coordinates, set by layout()
+        unsigned filter_roles{0};  // 1: folder name filter; 2: last-column picker restriction
+        float x{0.0F};             // left edge in content coordinates, set by layout()
     };
 
     enum class Axis : std::uint8_t { none, vertical, horizontal };

@@ -56,6 +56,15 @@ void ColumnView::set_entry_filter(fs::Listing::Predicate filter, std::filesystem
     filter_folder_ = std::move(folder);
     fallback_filter_ = std::move(fallback);
     refresh_filters(true);
+    // Editing a folder's filter can hide the selection that opened its preview column.
+    // Refresh above suppresses cursor callbacks until every predicate is in place.
+    if (!suspended_ && reveal_.empty() && !filter_folder_.empty()) {
+        const auto found = std::ranges::find_if(columns_, [this](const auto& slot) {
+            return slot.column->path().lexically_normal() == filter_folder_;
+        });
+        if (found != columns_.end())
+            sync_after(static_cast<std::size_t>(found - columns_.begin()));
+    }
     redraw_();
 }
 
@@ -67,15 +76,21 @@ void ColumnView::refresh_filters(bool force) {
         auto& slot = columns_[i];
         // While revealing a path, its ancestors must remain available even when their
         // names do not match the eventual leaf column's filter.
-        const bool filtered = i + 1 == columns_.size() && reveal_.empty();
-        if (force || filtered != slot.filtered) {
-            slot.filtered = filtered;
-            const auto& folder = slot.column->folder();
-            const auto& scoped =
-                filter_folder_.empty() || folder.path().lexically_normal() == filter_folder_
-                    ? entry_filter_
-                    : fallback_filter_;
-            slot.column->folder().set_entry_filter(filtered ? scoped : fs::Listing::Predicate{});
+        const bool last = i + 1 == columns_.size();
+        const bool scoped = filter_folder_.empty()
+                                ? last
+                                : slot.column->path().lexically_normal() == filter_folder_;
+        const unsigned roles = reveal_.empty() ? (scoped ? 1U : 0U) | (last ? 2U : 0U) : 0U;
+        if (force || roles != slot.filter_roles) {
+            slot.filter_roles = roles;
+            fs::Listing::Predicate predicate = scoped ? entry_filter_ : fs::Listing::Predicate{};
+            if (last && fallback_filter_) {
+                predicate = [name = std::move(predicate),
+                             picker = fallback_filter_](const fs::Entry& entry) {
+                    return (!name || name(entry)) && picker(entry);
+                };
+            }
+            slot.column->folder().set_entry_filter(roles ? predicate : fs::Listing::Predicate{});
         }
     }
     filtering_ = false;

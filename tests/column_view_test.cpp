@@ -906,3 +906,31 @@ TEST_CASE("column view: restoring a tab binds its filter to the saved leaf") {
     REQUIRE(f.view.focused_folder()->entries().size() == 1);
     CHECK(f.view.focused_folder()->entries().front().name == "notes.txt");
 }
+
+TEST_CASE("column view: picker restrictions follow the last column independently of name scope") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    f.browser.set_name_filter("alpha");
+    f.browser.set_entry_filter(
+        [](const rummage::fs::Entry& entry) { return entry.name != "notes.txt"; });
+    f.view.column(0).folder().select_name("alpha");
+    REQUIRE(f.settle());
+    REQUIRE(f.view.column_count() == 2);
+    CHECK(f.view.column(0).folder().entries().size() == 1);
+    REQUIRE(f.view.column(1).folder().entries().size() == 1);
+    CHECK(f.view.column(1).folder().entries().front().name == "beta");
+    f.view.column(0).folder().set_cursor(std::nullopt);
+    REQUIRE(f.view.column_count() == 1);
+    f.browser.set_name_filter({});
+    f.browser.set_entry_filter(
+        [](const rummage::fs::Entry& entry) { return entry.name != "readme.md"; });
+    REQUIRE(f.view.column(0).folder().entries().size() == 2);
+    f.view.column(0).folder().select_name("alpha");
+    REQUIRE(f.settle());
+    REQUIRE(f.view.column_count() == 2);
+    CHECK(f.view.column(0).folder().entries().size() == 3);
+    f.view.column(0).folder().set_cursor(std::nullopt);
+    REQUIRE(f.view.column_count() == 1);
+    CHECK(f.view.column(0).folder().entries().size() == 2);
+}
