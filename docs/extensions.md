@@ -36,7 +36,9 @@ linked Git worktrees are supported. Submodule dirtiness is not recursively inspe
 A symlink path into a repository uses the physical repository for status lookup.
 
 Git → **View Git diff** and **View staged Git diff** open a scrollable, copyable
-text dialog for selected paths, or the whole folder on its background. These
+text dialog for selected paths, or the whole folder on its background. Filenames
+are literal Git pathspecs, so characters such as `*`, `?` and `[]` do not select
+other files. These
 operations are read-only. External diff programs, text conversion and optional
 index writes are disabled; inherited `GIT_*` repository/config redirection variables
 are removed. **Open repository in Git tool** launches your configured program;

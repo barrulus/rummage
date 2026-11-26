@@ -115,9 +115,15 @@ Json response(std::string_view text) {
 }
 
 std::vector<std::string> git(const std::filesystem::path& directory) {
-    return {
-        "git", "--no-optional-locks",       "-c", "core.fsmonitor=false",
-        "-c",  "core.untrackedCache=false", "-C", std::filesystem::absolute(directory).string()};
+    return {"git",
+            "--literal-pathspecs",
+            "--no-optional-locks",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+            "-C",
+            std::filesystem::absolute(directory).string()};
 }
 
 struct Cached {

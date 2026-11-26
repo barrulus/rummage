@@ -176,7 +176,8 @@ print(json.dumps({'version':1,'decorations':{r['files'][0]:{'badge':'T','label':
 TEST_CASE("extensions: Git states, unusual filenames, ignored policy and external index updates") {
     TempDir temporary;
     init(temporary.path);
-    for (const auto* name : {"modified", "staged", "both", "rename", "conflict"})
+    for (const auto* name :
+         {"modified", "staged", "both", "rename", "conflict", "file[1]", "file1"})
         temporary.write(name, "base\n");
     const std::string odd = std::string{"line\nü $();' .txt"} + char(0xff);
     temporary.write(odd, "base\n");
@@ -184,6 +185,8 @@ TEST_CASE("extensions: Git states, unusual filenames, ignored policy and externa
     git(temporary.path, {"add", "--all"});
     git(temporary.path, {"commit", "-qm", "initial"});
     temporary.write("modified", "change\n");
+    temporary.write("file[1]", "literal bracket change\n");
+    temporary.write("file1", "unselected neighbor change\n");
     temporary.write("staged", "change\n");
     temporary.write("both", "stage\n");
     temporary.write(odd, "change\n");
@@ -211,6 +214,11 @@ TEST_CASE("extensions: Git states, unusual filenames, ignored policy and externa
     const auto diff = ext::git_diff(context, false, CancelToken{});
     CHECK(diff.code == 0);
     CHECK(diff.output.find("+change") != std::string::npos);
+    context.targets = {{temporary.path / "file[1]", "text/plain"}};
+    const auto literal_diff = ext::git_diff(context, false, CancelToken{});
+    REQUIRE(literal_diff.code == 0);
+    CHECK(literal_diff.output.find("+literal bracket change") != std::string::npos);
+    CHECK(literal_diff.output.find("+unselected neighbor change") == std::string::npos);
     git(temporary.path, {"add", "--", "modified"});
     std::this_thread::sleep_for(2100ms);
     status = ext::git_status(temporary.path, CancelToken{});
