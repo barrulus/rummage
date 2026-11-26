@@ -60,6 +60,9 @@ public:
     bool expandable(std::size_t row) const;
 
     void set_show_hidden(bool hidden);
+
+    void set_current_uri(std::string uri) { current_uri_ = std::move(uri); }
+
     void toggle_folder(const std::filesystem::path& path, std::string_view root = {});
 
     static bool child(const fs::Place& place) { return place.icon_key == "sidebar_child"; }
@@ -280,6 +283,7 @@ private:
     std::vector<fs::Place> places_;
     std::vector<Row> rows_;
     float content_height_{0.0F};
+    std::string current_uri_;
     std::optional<std::size_t> current_;  // the place holding the folder shown, as last drawn
     std::optional<std::size_t> cursor_;   // while focused
     std::optional<std::size_t> hovered_;

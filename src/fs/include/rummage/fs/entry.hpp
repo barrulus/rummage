@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -36,6 +37,17 @@ struct Entry {
     std::string group{};
     std::string permissions{};
     std::string link_target{};
+
+    // Collection rows keep a stable key independently of their displayed filename. An empty
+    // identity preserves ordinary directory semantics. location is always a real original path,
+    // or empty for a logical row; it is never a synthetic directory or a symlink.
+    std::string identity{};
+    std::filesystem::path location{};
+    bool available{true};
+
+    [[nodiscard]] const std::string& key() const noexcept {
+        return identity.empty() ? name : identity;
+    }
 
     [[nodiscard]] bool hidden() const noexcept { return !name.empty() && name.front() == '.'; }
 

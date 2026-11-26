@@ -243,7 +243,8 @@ public:
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open() || searching_results();
+               quick_look_.is_open() || properties_.is_open() || searching_results() ||
+               (showing_photos() && photo_library_->has_dialog());
     }
 
     [[nodiscard]] std::shared_ptr<Folder> picker_folder() const { return current_folder(); }
@@ -423,6 +424,10 @@ public:
                                              std::function<void(std::filesystem::path)> chosen)>;
 
     void set_folder_chooser(FolderChooser chooser) { folder_chooser_ = std::move(chooser); }
+
+    void set_photo_path_chooser(PhotoLibrary::PathChooser chooser) {
+        photo_path_chooser_ = std::move(chooser);
+    }
 
     // A program the user opened may not run yet (no execute bit): the card asks, and
     // allow_and_run() is called on "Allow and Run" (issue #17).
@@ -720,12 +725,13 @@ public:
     void set_photos_enabled(bool enabled);
     void resume_photo_work();
     void prepare_photo_library();
+    void sync_photo_view();
+    void open_photo_properties();
+    void open_photo_menu(float x, float y, bool keyboard);
     void open_photo_library(std::filesystem::path add_folder = {});
     [[nodiscard]] bool photos_available() const;
 
-    [[nodiscard]] bool showing_photos() const {
-        return photo_library_ && photo_library_->is_open();
-    }
+    [[nodiscard]] bool showing_photos() const { return photo_library_ && pane().photos; }
 
     [[nodiscard]] PhotoLibrary* photo_library() const { return photo_library_.get(); }
 
@@ -1097,6 +1103,7 @@ private:
     OpenWithHandler open_with_;
     TerminalHandler terminal_;
     FolderChooser folder_chooser_;
+    PhotoLibrary::PathChooser photo_path_chooser_;
     bool picker_mode_{false};
     std::optional<std::filesystem::path> templates_dir_;
     fs::PlaceSources place_sources_{

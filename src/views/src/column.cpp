@@ -97,9 +97,9 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         const float y = bounds.y + (static_cast<float>(i) * size_.row) - offset;
         motion_bounds_.include(ui::Rect{bounds.x + kRowInset, y + 1.0F,
                                         bounds.width - 2.0F * kRowInset, size_.row - 2.0F},
-                               bounds, cursor == i, folder_->is_selected(entry.name));
+                               bounds, cursor == i, folder_->is_selected(entry.key()));
         const ItemStyle style = item_style(palette, entry,
-                                           {.selected = folder_->is_selected(entry.name),
+                                           {.selected = folder_->is_selected(entry.key()),
                                             .cursor = cursor == i,
                                             .ring = cursor_ring,
                                             .focused = focused,
@@ -122,7 +122,7 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         if (cursor == i)
             motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(bounds);
         float name_right = bounds.right() - kRightPadding;
-        if (entry.is_directory()) {
+        if (entry.is_directory() && !folder_->is_collection()) {
             name_right -= kChevronSize + 6.0F;
             icons.draw(renderer, "chevron-right", bounds.right() - kRightPadding - kChevronSize,
                        y + ((size_.row - kChevronSize) / 2.0F), kChevronSize, style.chevron);
@@ -146,9 +146,10 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
     if (model.error()) {
         draw_centered(renderer, model.problem(), bounds, bounds.y + 24.0F, size_.text,
                       palette.error);
-    } else if (entries.empty() && !model.loading()) {
-        draw_centered(renderer, i18n::tr("Empty folder"), bounds, bounds.y + 24.0F, size_.text,
-                      palette.on_surface_variant);
+    } else if (entries.empty() && !folder_->loading()) {
+        draw_centered(renderer,
+                      folder_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      bounds, bounds.y + 24.0F, size_.text, palette.on_surface_variant);
     }
 
     if (drop != nullptr && drop->covers(path())) {

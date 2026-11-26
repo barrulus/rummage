@@ -1209,6 +1209,11 @@ int main(int argc, char** argv) {
                         columns->password_dialog().open_password(path.filename().string(), retry,
                                                                  std::move(done));
                     });
+                columns->set_photo_path_chooser(
+                    [&](const core::PickerRequest& request,
+                        platform::ActionHandoff::DirectoryChosen chosen) {
+                        action_handoff->choose_path(request, std::move(chosen));
+                    });
                 columns->set_action_handoff(
                     [&](const core::Action& action, const core::ActionContext& context) {
                         action_handoff->run(action, context);

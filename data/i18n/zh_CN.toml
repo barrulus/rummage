@@ -21,6 +21,8 @@ Menu = "菜单"
 moves = "移动"
 
 [texts]
+"Mixed values" = "不同的值"
+"No results" = "无结果"
 "Photo Library" = "照片图库"
 "Add to Photo Library…" = "添加到照片图库…"
 "Windows" = "窗口"

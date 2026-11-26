@@ -514,13 +514,28 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                     continue;
                 }
                 State::Tab tab;
+                if (const auto* photos = table->get("photos")) {
+                    const auto value = photos->value<bool>();
+                    if (!value) {
+                        problem(*photos, "'photos' must be true or false");
+                        continue;
+                    }
+                    tab.photos = *value;
+                }
                 const std::optional<std::string_view> folder =
                     (*table)["folder"].value<std::string_view>();
-                if (!folder || folder->empty() || folder->front() != '/') {
-                    problem(node, "'folder' must be an absolute path");
-                    continue;
+                if (tab.photos) {
+                    if (table->contains("folder") && (!folder || !folder->empty())) {
+                        problem(node, "a photo tab must not have a filesystem folder");
+                        continue;
+                    }
+                } else {
+                    if (!folder || folder->empty() || folder->front() != '/') {
+                        problem(node, "'folder' must be an absolute path");
+                        continue;
+                    }
+                    tab.folder = std::filesystem::path{*folder};
                 }
-                tab.folder = std::filesystem::path{*folder};
                 if (const toml::node* mode = table->get("mode")) {
                     const std::optional<std::string_view> word = mode->value<std::string_view>();
                     const auto* found = std::ranges::find_if(
@@ -533,15 +548,16 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                 }
                 if (const toml::node* from = table->get("root")) {
                     const std::optional<std::string_view> given = from->value<std::string_view>();
-                    if (!given || given->empty() || given->front() != '/') {
-                        problem(*from, "'root' must be an absolute path");
+                    if (tab.photos || !given || given->empty() || given->front() != '/') {
+                        problem(*from, tab.photos ? "a photo tab must not have a filesystem root"
+                                                  : "'root' must be an absolute path");
                         continue;
                     }
                     tab.root = std::filesystem::path{*given};
                 }
                 if (const toml::node* name = table->get("cursor")) {
                     const std::optional<std::string_view> given = name->value<std::string_view>();
-                    if (!given || given->find('/') != std::string_view::npos) {
+                    if (!given || (!tab.photos && given->find('/') != std::string_view::npos)) {
                         problem(*name, "'cursor' must be a name in the folder");
                         continue;
                     }
@@ -647,9 +663,13 @@ std::string format_state(const State& s) {
         if (!valid_utf8(folder) || !valid_utf8(root) || !valid_utf8(tab.cursor)) {
             continue;  // TOML holds only UTF-8: a tab on such a name is not remembered
         }
-        tabs += std::format("\n[[tab]]\nfolder = {}\nmode = \"{}\"\n", toml_string(folder),
-                            word_of(kModes, tab.mode));
-        if (!root.empty()) {
+        if (tab.photos)
+            tabs +=
+                std::format("\n[[tab]]\nphotos = true\nmode = \"{}\"\n", word_of(kModes, tab.mode));
+        else
+            tabs += std::format("\n[[tab]]\nfolder = {}\nmode = \"{}\"\n", toml_string(folder),
+                                word_of(kModes, tab.mode));
+        if (!tab.photos && !root.empty()) {
             tabs += std::format("root = {}\n", toml_string(root));
         }
         if (!tab.cursor.empty()) {

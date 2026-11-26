@@ -23,6 +23,8 @@ Menu = "Меню"
 moves = "перемещение"
 
 [texts]
+"Mixed values" = "Разные значения"
+"No results" = "Нет результатов"
 "Photo Library" = "Фотобиблиотека"
 "Add to Photo Library…" = "Добавить в фотобиблиотеку…"
 "Windows" = "Окна"

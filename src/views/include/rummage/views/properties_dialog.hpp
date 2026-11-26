@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -17,6 +18,7 @@
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/scrollbar.hpp"
 #include "rummage/ui/text_field.hpp"
+#include "rummage/views/photo_properties.hpp"
 #include "rummage/views/selectable_text.hpp"
 
 namespace rummage::views {
@@ -31,6 +33,9 @@ public:
     ~PropertiesDialog();
     void open(std::filesystem::path path, std::function<void()> changed, bool editable = true,
               bool drive = false, std::string label = {});
+    void open_photo(PhotoProperties properties, PhotoSave save, std::function<void()> changed = {});
+    // The first three fields have explicit apply switches, including clearing mixed values.
+    void set_photo_field(std::size_t index, std::string value, bool apply = true);
 
     void open_drive(const std::filesystem::path& path, std::string label) {
         open(path, {}, false, true, std::move(label));
@@ -49,6 +54,9 @@ public:
     [[nodiscard]] ui::Rect text_bounds(std::string_view id) const { return text_.bounds(id); }
 
     [[nodiscard]] ui::Rect control_bounds(std::string_view id) const {
+        if (photo_ && id.size() == 7 && id.starts_with("photo:") && id.back() >= '0' &&
+            id.back() <= '4')
+            return photo_fields_[static_cast<std::size_t>(id.back() - '0')].bounds();
         for (const auto& control : controls_)
             if (control.id == id)
                 return control.rect;
@@ -86,6 +94,9 @@ public:
     void set_permissions(std::uint16_t permissions);
 
     [[nodiscard]] bool dirty() const {
+        if (photo_)
+            return photo_apply_[0] || photo_apply_[1] || photo_apply_[2] ||
+                   !photo_fields_[3].text().empty() || !photo_fields_[4].text().empty();
         return draft_ != original_ || permissions_ != (data_.mode & 0777);
     }
 
@@ -126,6 +137,8 @@ private:
     void load_catalogue(std::string theme);
     void accept_custom();
     [[nodiscard]] std::vector<std::string> focus_order() const;
+    void apply_photo();
+    [[nodiscard]] int photo_field_index() const;
     core::WorkerPool& pool_;
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_, changed_;
@@ -146,6 +159,11 @@ private:
     std::vector<std::string> catalogue_, filtered_;
     std::size_t selected_{0}, page_{0};
     ui::TextField search_, custom_;
+    std::optional<PhotoProperties> photo_;
+    PhotoSave photo_save_;
+    std::array<ui::TextField, 5> photo_fields_;
+    std::array<bool, 3> photo_apply_{};
+    std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
     std::vector<Control> controls_;
     ui::Rect grid_{};
     ui::Rect content_{};

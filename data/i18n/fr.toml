@@ -29,6 +29,8 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Mixed values" = "Valeurs différentes"
+"No results" = "Aucun résultat"
 "Photo Library" = "Photothèque"
 "Add to Photo Library…" = "Ajouter à la photothèque…"
 "Windows" = "Fenêtres"

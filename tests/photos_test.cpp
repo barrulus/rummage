@@ -1,4 +1,5 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -654,4 +655,51 @@ TEST_CASE("unresolved location identities remain in Activity after restart") {
     CHECK(operations[0]["photos"][0]["description"] == "retained annotation");
     CHECK(operations[0]["results"][0]["success"] == false);
     CHECK(fixture.call({{"op", "query"}})["photos"][0]["path"] == photo["path"]);
+}
+
+TEST_CASE("photo query sorts real file columns globally with safe explicit directions") {
+    Fixture fixture;
+    const auto first = fixture.file("a/z.jpg", "1");
+    const auto second = fixture.file("b/a.jpg", "222");
+    const auto third = fixture.file("a/nested/m.jpg", "22");
+    const auto time = fs::last_write_time(first);
+    fs::last_write_time(second, time + std::chrono::seconds(1));
+    fs::last_write_time(third, time + std::chrono::nanoseconds(1));
+    fixture.add("a");
+    fixture.add("b");
+    fixture.drain();
+    const auto names = [&](const std::string& sort, bool descending) {
+        const auto query =
+            fixture.call({{"op", "query"}, {"sort", sort}, {"descending", descending}});
+        std::vector<std::string> result;
+        for (const auto& row : query["photos"])
+            result.push_back(row["filename"]);
+        return result;
+    };
+    const std::vector<std::string> ascending{"z.jpg", "m.jpg", "a.jpg"};
+    const std::vector<std::string> descending{"a.jpg", "m.jpg", "z.jpg"};
+    for (const std::string sort : {"size", "modified", "location"}) {
+        INFO(sort);
+        CHECK(names(sort, false) == ascending);
+        CHECK(names(sort, true) == descending);
+        const auto page = fixture.call(
+            {{"op", "query"}, {"sort", sort}, {"descending", false}, {"offset", 1}, {"limit", 1}});
+        CHECK(page["photos"][0]["filename"] == "m.jpg");
+        CHECK(page["total"] == 3);
+    }
+    CHECK(names("name", false) == std::vector<std::string>{"a.jpg", "m.jpg", "z.jpg"});
+    CHECK(names("name", true) == std::vector<std::string>{"z.jpg", "m.jpg", "a.jpg"});
+    const auto rows = fixture.call({{"op", "query"}})["photos"];
+    fixture.call({{"op", "edit"},
+                  {"ids", Json::array({rows[0]["id"]})},
+                  {"capture_date", "2000-01-01"},
+                  {"rating", 5}});
+    CHECK(names("date", false).front() == "a.jpg");
+    CHECK(names("date", true).back() == "a.jpg");
+    CHECK(names("rating", false).back() == "a.jpg");
+    CHECK(names("rating", true).front() == "a.jpg");
+    // Capture-date edits must not change the ordering of filesystem modification times.
+    CHECK(names("modified", false) == ascending);
+    fixture.call({{"op", "query"}, {"sort", "name; DROP TABLE photos"}}, false);
+    CHECK(fixture.call({{"op", "query"}})["total"] == 3);
 }

@@ -71,12 +71,22 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (photos_available()) {
         add("photos:open", "Photo Library", "", [this] { open_photo_library(); });
         const auto folder = current_folder();
-        if (folder && !folder->is_trash() && !folder->is_archive())
+        if (showing_photos())
+            add("photos:add", "Add folder to Photo Library…", "",
+                [this] { photo_library_->add_folder(); });
+        else if (folder && !folder->is_collection() && !folder->is_trash() && !folder->is_archive())
             add("photos:add", "Add folder to Photo Library…", "",
                 [this, path = folder->path()] { open_photo_library(path); });
     }
     if (showing_photos()) {
-        add("photos:close", "Close Photo Library", "Escape", [this] { photo_library_->close(); });
+        add("photos:close", "Close Photo Library", keys_for(Command::close_tab), [this] {
+            photo_library_->close();
+            if (area().tabs.size() > 1)
+                close_tab(area().active);
+            else
+                open(place_sources_.home.is_absolute() ? place_sources_.home
+                                                       : std::filesystem::path{"/"});
+        });
         return items;
     }
     if (searching_results()) {
@@ -621,6 +631,8 @@ void Browser::refresh_transfer_tasks() {
 }
 
 void Browser::open_with_palette() {
+    if (showing_photos())
+        return;
     const std::shared_ptr<Folder> folder = current_folder();
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
     if (cursor == nullptr || !choices_ || !open_with_) {
@@ -675,6 +687,12 @@ void Browser::open_with_palette() {
 }
 
 void Browser::open_finder() {
+    if (showing_photos()) {
+        filter_focused_ = true;
+        pane().filter_field.select_all();
+        redraw_();
+        return;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
     if (!folder) {
         return;
@@ -762,7 +780,7 @@ void Browser::refresh_pattern(const std::string& typed) {
     row("pattern:select", i18n::trn("Select {} Item", "Select {} Items", count), false);
     // Adding differs from selecting only when something else is selected.
     const auto selected_in = std::ranges::count_if(
-        rows, [&](std::size_t i) { return folder->is_selected(folder->entries()[i].name); });
+        rows, [&](std::size_t i) { return folder->is_selected(folder->entries()[i].key()); });
     if (folder->selected_count() > static_cast<std::size_t>(selected_in)) {
         row("pattern:add", i18n::trf("Add {} to the Selection", count), true);
     }

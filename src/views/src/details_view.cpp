@@ -170,7 +170,8 @@ void DetailsView::toggle_row(std::size_t row) {
         return;
     const auto target = tree_rows_[row];
     const auto& entry = target.folder->entries()[target.entry];
-    if (!entry.is_directory() || target.folder->is_trash() || target.depth >= 64)
+    if (target.folder->is_collection() || !entry.is_directory() || target.folder->is_trash() ||
+        target.depth >= 64)
         return;
     const auto path = target.folder->path_of(entry);
     if (expanded_.contains(path)) {
@@ -193,7 +194,8 @@ void DetailsView::toggle_row(std::size_t row) {
 bool DetailsView::expandable(std::size_t row) const {
     const auto& target = tree_rows_[row];
     const auto& entry = target.folder->entries()[target.entry];
-    if (!entry.is_directory() || target.folder->is_trash() || target.depth >= 64)
+    if (target.folder->is_collection() || !entry.is_directory() || target.folder->is_trash() ||
+        target.depth >= 64)
         return false;
     const auto path = target.folder->path_of(entry);
     if (expanded_.contains(path))
@@ -293,10 +295,10 @@ void DetailsView::set_show_hidden(bool show) {
 bool DetailsView::loading() const {
     if (subfolders_.loading())
         return true;
-    if (root_ && (root_->model().loading() || root_->cursor_pending()))
+    if (root_ && (root_->loading() || root_->cursor_pending()))
         return true;
     for (const auto& [path, child] : expanded_) {
-        if (child->model().loading() || child->cursor_pending())
+        if (child->loading() || child->cursor_pending())
             return true;
     }
     return false;
@@ -458,6 +460,8 @@ void DetailsView::lay_out() {
 }
 
 void DetailsView::enter() {
+    if (folder_->is_collection())
+        return;
     const fs::Entry* const entry = folder_->single_selection();
     if (entry == nullptr || !entry->is_directory()) {
         return;
@@ -573,7 +577,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     for (std::size_t i = range.first; i < range.last; ++i) {
         const auto& row = tree_rows_[i];
         const auto& entry = row.folder->entries()[row.entry];
-        if (entry.is_directory() && !row.folder->model().is_archive() && !row.folder->is_trash())
+        if (entry.is_directory() && !row.folder->is_collection() &&
+            !row.folder->model().is_archive() && !row.folder->is_trash())
             visible.push_back(row.folder->path_of(entry));
     }
     subfolders_.retain(visible);
@@ -591,8 +596,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const float y = rows_.y + (static_cast<float>(i) * size_.row) - offset;
         motion_bounds_.include(
             ui::Rect{table_left, y + kRowInset, table_width, size_.row - 2.0F * kRowInset}, rows_,
-            cursor == i, owner->is_selected(entry.name));
-        const bool selected = owner->is_selected(entry.name);
+            cursor == i, owner->is_selected(entry.key()));
+        const bool selected = owner->is_selected(entry.key());
         const ItemStyle style =
             item_style(palette, entry,
                        {.selected = selected,
@@ -677,7 +682,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             entry.is_directory() ? expanded_.find(owner->path_of(entry)) : expanded_.end();
         std::string size_text = entry.is_directory() ? std::string{"—"} : format_size(entry.size);
         if (child != expanded_.end()) {
-            if (child->second->model().loading())
+            if (child->second->loading())
                 size_text = i18n::tr("Loading…");
             else if (!child->second->model().error()) {
                 const auto count = child->second->entries().size();
@@ -694,7 +699,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         cell(Field::group, entry.group, false);
         cell(Field::permissions, entry.permissions, false);
         if (layout_.shown.at(index(Field::location)))
-            cell(Field::location, owner->path().string(), false);
+            cell(Field::location, owner->path_of(entry).parent_path().string(), false);
         cell(Field::link_target, entry.link_target, false);
         cell(Field::type,
              child != expanded_.end() && child->second->model().error()
@@ -708,9 +713,10 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (model.error()) {
         draw_centered(renderer, model.error().message(), rows_, rows_.y + 24.0F, size_.text,
                       palette.error);
-    } else if (entries.empty() && !model.loading()) {
-        draw_centered(renderer, i18n::tr("Empty folder"), rows_, rows_.y + 24.0F, size_.text,
-                      palette.on_surface_variant);
+    } else if (entries.empty() && !root_->loading()) {
+        draw_centered(renderer,
+                      root_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      rows_, rows_.y + 24.0F, size_.text, palette.on_surface_variant);
     }
 
     scrollbar_.layout(rows_);
@@ -1127,7 +1133,7 @@ void DetailsView::right_click(float x, float y) {
             folder_ = root_;  // empty space: the root folder's own menu
         } else {
             const auto& target = tree_rows_[*row];
-            focus_row(*row, target.folder->is_selected(target.folder->entries()[target.entry].name)
+            focus_row(*row, target.folder->is_selected(target.folder->entries()[target.entry].key())
                                 ? SelectMode::keep
                                 : SelectMode::replace);
         }

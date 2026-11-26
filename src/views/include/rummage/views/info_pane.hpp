@@ -24,6 +24,7 @@
 #include "rummage/ui/scroller.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/folder.hpp"
+#include "rummage/views/photo_properties.hpp"
 #include "rummage/views/selectable_text.hpp"
 #include "rummage/views/thumbnails.hpp"
 
@@ -107,6 +108,7 @@ public:
     }
 
     void set_code_report(std::shared_ptr<const platform::CodeReport> report);
+    void set_photo_properties(std::optional<PhotoProperties> properties);
 
     [[nodiscard]] ui::Rect code_bounds() const { return code_button_; }
 
@@ -251,6 +253,7 @@ private:
     ui::Rect insights_button_{}, code_button_{};
     std::function<void(const std::filesystem::path&)> code_action_;
     std::shared_ptr<const platform::CodeReport> code_report_;
+    std::optional<PhotoProperties> photo_properties_;
     ui::Rect bounds_{};  // as last drawn
     ui::Rect toggle_{};  // "More details", as last drawn; empty when not shown
     ui::Rect thumbnail_{};

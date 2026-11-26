@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <format>
 #include <sys/stat.h>
@@ -35,6 +36,7 @@ PropertiesDialog::PropertiesDialog(core::WorkerPool& pool,
     : pool_{pool}, mime_{std::move(mime)}, redraw_{std::move(redraw)} {}
 
 PropertiesDialog::~PropertiesDialog() {
+    *alive_ = false;
     load_job_.cancel();
     save_job_.cancel();
     icons_job_.cancel();
@@ -45,6 +47,8 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     if (saving_)
         return;
     ++generation_;
+    photo_.reset();
+    photo_save_ = {};
     scroller_.jump_to(0);
     scrollbar_ = ui::Scrollbar{};
     details_expanded_ = copy_hovered_ = copied_ = false;
@@ -116,6 +120,118 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     redraw_();
 }
 
+void PropertiesDialog::open_photo(PhotoProperties properties, PhotoSave save,
+                                  std::function<void()> changed) {
+    if (saving_ || properties.ids.empty())
+        return;
+    ++generation_;
+    load_job_.cancel();
+    icons_job_.cancel();
+    scroller_.jump_to(0);
+    scrollbar_ = ui::Scrollbar{};
+    details_expanded_ = copy_hovered_ = copied_ = false;
+    text_.reset();
+    path_ = properties.path;
+    changed_ = std::move(changed);
+    photo_ = std::move(properties);
+    photo_save_ = std::move(save);
+    open_ = true;
+    loading_ = picking_ = drive_ = editable_ = false;
+    data_ = {};
+    data_.entry = photo_->entry;
+    permissions_ = 0;
+    draft_.clear();
+    original_.clear();
+    error_.clear();
+    controls_.clear();
+    photo_apply_ = {};
+    photo_fields_[0].set_text(photo_->annotations.description.value_or(""));
+    photo_fields_[1].set_text(
+        photo_->annotations.rating ? std::to_string(*photo_->annotations.rating) : "");
+    photo_fields_[2].set_text(photo_->annotations.capture_date.value_or(""));
+    photo_fields_[3].set_text({});
+    photo_fields_[4].set_text({});
+    focus_ = "close";
+    redraw_();
+}
+
+void PropertiesDialog::set_photo_field(std::size_t index, std::string value, bool apply) {
+    if (!photo_ || saving_ || index >= photo_fields_.size())
+        return;
+    photo_fields_[index].set_text(std::move(value));
+    if (index < photo_apply_.size())
+        photo_apply_[index] = apply;
+    redraw_();
+}
+
+int PropertiesDialog::photo_field_index() const {
+    if (photo_ && focus_.size() == 7 && focus_.starts_with("photo:") && focus_.back() >= '0' &&
+        focus_.back() <= '4')
+        return focus_.back() - '0';
+    return -1;
+}
+
+void PropertiesDialog::apply_photo() {
+    if (!photo_ || !photo_save_ || saving_ || !dirty())
+        return;
+    PhotoEdits edits;
+    if (photo_apply_[0])
+        edits.description = photo_fields_[0].text();
+    if (photo_apply_[1]) {
+        const auto& text = photo_fields_[1].text();
+        int rating = -1;
+        const auto result = std::from_chars(text.data(), text.data() + text.size(), rating);
+        if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || rating < 0 ||
+            rating > 5) {
+            error_ = "Enter a whole number from 0 to 5";
+            redraw_();
+            return;
+        }
+        edits.rating = rating;
+    }
+    if (photo_apply_[2])
+        edits.capture_date = photo_fields_[2].text();
+    const auto tags = [](std::string_view text) {
+        std::vector<std::string> result;
+        while (!text.empty()) {
+            const auto comma = text.find(',');
+            const auto part = text.substr(0, comma);
+            const auto first = part.find_first_not_of(" \t\r\n");
+            if (first != std::string_view::npos) {
+                const auto last = part.find_last_not_of(" \t\r\n");
+                auto tag = std::string{part.substr(first, last - first + 1)};
+                if (std::ranges::find(result, tag) == result.end())
+                    result.push_back(std::move(tag));
+            }
+            if (comma == std::string_view::npos)
+                break;
+            text.remove_prefix(comma + 1);
+        }
+        return result;
+    };
+    edits.add_tags = tags(photo_fields_[3].text());
+    edits.remove_tags = tags(photo_fields_[4].text());
+    saving_ = true;
+    error_.clear();
+    redraw_();
+    const auto generation = ++generation_;
+    photo_save_(photo_->ids, std::move(edits),
+                [this, alive = alive_, generation](std::string error) {
+                    if (!*alive || generation != generation_ || !open_ || !saving_)
+                        return;
+                    saving_ = false;
+                    error_ = std::move(error);
+                    if (error_.empty()) {
+                        auto changed = changed_;
+                        close();
+                        if (changed)
+                            changed();
+                    } else {
+                        redraw_();
+                    }
+                });
+}
+
 void PropertiesDialog::close() {
     if (saving_)
         return;
@@ -171,6 +287,10 @@ void PropertiesDialog::pick_icon() {
 }
 
 void PropertiesDialog::apply() {
+    if (photo_) {
+        apply_photo();
+        return;
+    }
     if ((!can_edit_icon() && !can_edit_permissions()) || !dirty())
         return;
 
@@ -281,6 +401,13 @@ std::vector<std::string> PropertiesDialog::focus_order() const {
     if (picking_)
         return {"search", "grid", "custom", "back", "use"};
     std::vector<std::string> order;
+    if (photo_ && photo_save_) {
+        for (std::size_t i = 0; i < photo_fields_.size(); ++i) {
+            if (i < photo_apply_.size())
+                order.push_back("photo-apply:" + std::to_string(i));
+            order.push_back("photo:" + std::to_string(i));
+        }
+    }
     if (!loading_ && data_.summary.photo &&
         !media_details(*data_.summary.photo, MediaDetails::additional).empty())
         order.push_back("details");
@@ -294,7 +421,7 @@ std::vector<std::string> PropertiesDialog::focus_order() const {
     if (!loading_ && copy_)
         order.push_back("copy");
     order.push_back("close");
-    if (can_edit_icon() || can_edit_permissions())
+    if (can_edit_icon() || can_edit_permissions() || (photo_ && photo_save_))
         order.push_back("apply");
     return order;
 }
@@ -305,6 +432,13 @@ void PropertiesDialog::accept_custom() {
 }
 
 void PropertiesDialog::activate(std::string_view id) {
+    if (photo_ && id.starts_with("photo-apply:") && id.size() == 13 && id.back() >= '0' &&
+        id.back() <= '2') {
+        const auto index = static_cast<std::size_t>(id.back() - '0');
+        photo_apply_[index] = !photo_apply_[index];
+        redraw_();
+        return;
+    }
     if (id.starts_with("permission:") && id.size() == 12 && id.back() >= '0' && id.back() <= '8') {
         set_permissions(static_cast<std::uint16_t>(permissions_ ^ (1U << (id.back() - '0'))));
     } else if (id == "details") {
@@ -313,6 +447,14 @@ void PropertiesDialog::activate(std::string_view id) {
         redraw_();
     } else if (id == "copy" && copy_ && !loading_) {
         auto rows = property_rows();
+        if (photo_) {
+            const auto& annotations = photo_->annotations;
+            rows.emplace_back("Description", annotations.description.value_or("Mixed values"));
+            rows.emplace_back("Rating", annotations.rating ? std::to_string(*annotations.rating)
+                                                           : "Mixed values");
+            rows.emplace_back("Capture date override",
+                              annotations.capture_date.value_or("Mixed values"));
+        }
         if (data_.summary.photo) {
             const auto details = media_details(*data_.summary.photo, MediaDetails::additional);
             rows.insert(rows.end(), details.begin(), details.end());
@@ -370,6 +512,28 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
             close();
         return true;
     }
+    if (const int index = photo_field_index(); index >= 0) {
+        auto& field = photo_fields_[static_cast<std::size_t>(index)];
+        const auto before = field.text();
+        bool handled = false;
+        if (event.modifiers == ui::Modifiers{.ctrl = true} &&
+            (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_C || event.keysym == XKB_KEY_x ||
+             event.keysym == XKB_KEY_X)) {
+            const bool cut = event.keysym == XKB_KEY_x || event.keysym == XKB_KEY_X;
+            const auto value = cut ? field.cut() : field.selected_text();
+            if (copy_ && !value.empty())
+                copy_(value);
+            handled = true;
+        } else {
+            handled = field.key(event);
+        }
+        if (handled) {
+            if (index < 3 && before != field.text())
+                photo_apply_[static_cast<std::size_t>(index)] = true;
+            redraw_();
+            return true;
+        }
+    }
     if (!picking_ && text_.key(event)) {
         redraw_();
         return true;
@@ -402,7 +566,9 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
             focus_ = order[(at + (backwards ? order.size() - 1 : 1)) % order.size()];
         }
         ui::Rect rect{};
-        if (focus_ == "search")
+        if (const int index = photo_field_index(); index >= 0)
+            rect = photo_fields_[static_cast<std::size_t>(index)].bounds();
+        else if (focus_ == "search")
             rect = search_.bounds();
         else if (focus_ == "custom")
             rect = custom_.bounds();
@@ -413,7 +579,8 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
                 if (control.id == focus_)
                     rect = control.rect;
         if (focus_ == "change" || focus_ == "default" || focus_ == "search" || focus_ == "custom" ||
-            focus_ == "grid" || focus_ == "details" || focus_.starts_with("permission:")) {
+            focus_ == "grid" || focus_ == "details" || focus_.starts_with("permission:") ||
+            focus_.starts_with("photo:") || focus_.starts_with("photo-apply:")) {
             if (rect.y < content_.y)
                 scroller_.jump_to(scroller_.offset() + rect.y - content_.y);
             else if (rect.bottom() > content_.bottom())
@@ -477,6 +644,17 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
 }
 
 void PropertiesDialog::paste(std::string_view text) {
+    if (open_ && !saving_) {
+        if (const int index = photo_field_index(); index >= 0) {
+            auto& field = photo_fields_[static_cast<std::size_t>(index)];
+            const auto before = field.text();
+            field.insert(text.substr(0, text.find_first_of("\r\n")));
+            if (index < 3 && before != field.text())
+                photo_apply_[static_cast<std::size_t>(index)] = true;
+            redraw_();
+            return;
+        }
+    }
     if (!open_ || !picking_ || saving_)
         return;
     text = text.substr(0, text.find_first_of("\r\n"));
@@ -522,6 +700,21 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
         activate(event.wheel_y > 0 ? "next" : "previous");
         return;
     }
+    if (photo_ && photo_save_) {
+        for (std::size_t index = 0; index < photo_fields_.size(); ++index) {
+            auto& field = photo_fields_[index];
+            if (event.kind == ui::PointerEvent::Kind::press &&
+                (!content_.contains(event.x, event.y) ||
+                 !field.bounds().contains(event.x, event.y)))
+                continue;
+            if (field.pointer(event)) {
+                text_.clear_focus();
+                focus_ = "photo:" + std::to_string(index);
+                redraw_();
+                return;
+            }
+        }
+    }
     if (!picking_ && text_.pointer(event)) {
         focus_ = "text";
         redraw_();
@@ -565,6 +758,10 @@ ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
     if (picking_ && content_.contains(x, y) &&
         (search_.bounds().contains(x, y) || custom_.bounds().contains(x, y)))
         return ui::CursorShape::text;
+    if (photo_ && photo_save_ && content_.contains(x, y))
+        for (const auto& field : photo_fields_)
+            if (field.bounds().contains(x, y))
+                return ui::CursorShape::text;
     if (!picking_ && text_.cursor_at(x, y) == ui::CursorShape::text)
         return ui::CursorShape::text;
     for (const auto& control : controls_) {
@@ -579,6 +776,21 @@ ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
 }
 
 std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows() const {
+    if (photo_) {
+        auto rows = photo_->rows;
+        if (!photo_->annotations.tags)
+            rows.emplace_back("Tags", "Mixed values");
+        else {
+            std::string tags;
+            for (const auto& tag : *photo_->annotations.tags) {
+                if (!tags.empty())
+                    tags += ", ";
+                tags += tag;
+            }
+            rows.emplace_back("Tags", std::move(tags));
+        }
+        return rows;
+    }
     if (drive_) {
         const auto& facts = data_.filesystem;
         const auto value = [this, &facts](std::uint64_t size) {
@@ -647,17 +859,20 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         return;
     controls_.clear();
     const bool preview =
-        !loading_ && thumbnails && !data_.entry.is_directory() &&
+        !loading_ && thumbnails && (!photo_ || photo_->ids.size() == 1) &&
+        !data_.entry.is_directory() &&
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
     const float row_height = 26.0F;
+    const bool photo_controls = photo_ && photo_save_;
     const bool permission_controls = editable_ && data_.owned;
     const bool folder_controls = data_.entry.is_directory() && editable_;
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
-    const std::string name = drive_ && !drive_label_.empty() ? drive_label_
-                             : path_.filename().empty()      ? path_.string()
-                                                             : path_.filename().string();
+    const std::string name = photo_ && !photo_->title.empty()  ? photo_->title
+                             : drive_ && !drive_label_.empty() ? drive_label_
+                             : path_.filename().empty()        ? path_.string()
+                                                               : path_.filename().string();
     const std::string type = loading_ ? std::string{i18n::tr("Loading…")}
                              : drive_ ? std::string{i18n::tr("Drive")}
                                       : std::string{mime_->name(data_.entry.mime)};
@@ -684,7 +899,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     float natural_width = 48 + std::max(value_offset + value_width,
                                         (preview ? 144.0F : 56.0F) + 20 +
                                             std::max(measure(name, 16), measure(type, 12)));
-    if (permission_controls)
+    if (permission_controls || photo_controls)
         natural_width = std::max(natural_width, 460.0F);
     if (folder_controls)
         natural_width = std::max(
@@ -735,9 +950,18 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                             : "Changing this icon affects the linked folder.");
     const float hint_height = SelectableText::height(renderer, hint, room, 12);
     const float message_height = SelectableText::height(renderer, i18n::tr(message), room, 12);
+    constexpr std::string_view photo_help =
+        "Only checked fields are applied. Tags are comma separated.";
+    constexpr std::string_view photo_date_help =
+        "Clear the date override to use the detected date.";
+    const float photo_help_height = SelectableText::height(renderer, photo_help, room, 12);
+    const float photo_date_help_height =
+        SelectableText::height(renderer, photo_date_help, room, 12);
+    const float photo_controls_height = 330 + photo_help_height + photo_date_help_height + 16;
     const float natural_height = picking_
                                      ? 550.0F
                                      : rows_top + rows_height + (permission_controls ? 132 : 0) +
+                                           (photo_controls ? photo_controls_height : 0) +
                                            (folder_controls ? 40 + icon_height + 8 : 0) +
                                            (folder_hint ? hint_height + 8 : 0) +
                                            (message.empty() ? 0 : message_height + 8) + 70;
@@ -833,7 +1057,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 path_, data_.entry.modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(
                     std::lround(std::max(preview_width, header_height) * renderer.scale()))),
-                mime_->name(data_.entry.mime));
+                mime_->name(data_.entry.mime), nullptr, photo_ && !photo_->available);
         }
         if (thumbnail) {
             const float fit =
@@ -888,6 +1112,37 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             if (details_expanded_)
                 for (const auto& [label, value] : details)
                     row(label, value);
+        }
+        if (photo_controls) {
+            const std::array<std::string_view, 5> labels{"Description", "Rating (0–5)",
+                                                         "Capture date override", "Tags to add",
+                                                         "Tags to remove"};
+            const std::array<bool, 3> mixed{!photo_->annotations.description,
+                                            !photo_->annotations.rating,
+                                            !photo_->annotations.capture_date};
+            for (std::size_t index = 0; index < photo_fields_.size(); ++index) {
+                const auto id = "photo:" + std::to_string(index);
+                std::string label{i18n::tr(labels[index])};
+                if (index < mixed.size() && mixed[index])
+                    label += " · " + std::string{i18n::tr("Mixed values")};
+                text(label, left, y + 6, 12, room - (index < 3 ? 100 : 0), true);
+                if (index < photo_apply_.size()) {
+                    button("photo-apply:" + std::to_string(index),
+                           photo_apply_[index] ? "✓ Apply" : "Apply", {left + room - 94, y, 94, 26},
+                           !saving_, photo_apply_[index]);
+                }
+                const bool focused = focus_ == id;
+                const ui::FieldColors colors{palette.surface,
+                                             focused ? palette.primary : palette.outline_variant,
+                                             palette.on_surface, palette.primary_container,
+                                             focused ? palette.primary : ui::Color{}};
+                photo_fields_[index].draw(renderer, {left, y + 30, room, 30}, 13, colors);
+                y += 66;
+            }
+            selectable("photo-help", photo_help, left, y, 12, room, true);
+            y += photo_help_height + 8;
+            selectable("photo-date-help", photo_date_help, left, y, 12, room, true);
+            y += photo_date_help_height + 8;
         }
         if (permission_controls) {
             const float label_space = std::min(90.0F, room * 0.28F);
@@ -959,12 +1214,13 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                true);
     } else {
         button("close", dirty() ? "Cancel" : "Close",
-               {card.right() - ((folder_controls || permission_controls) ? 232 : 124), footer, 100,
-                34},
+               {card.right() -
+                    ((folder_controls || permission_controls || photo_controls) ? 232 : 124),
+                footer, 100, 34},
                !saving_);
-        if (folder_controls || permission_controls)
+        if (folder_controls || permission_controls || photo_controls)
             button("apply", saving_ ? "Saving…" : "Apply", {card.right() - 124, footer, 100, 34},
-                   (can_edit_icon() || can_edit_permissions()) && dirty(), true);
+                   (can_edit_icon() || can_edit_permissions() || photo_controls) && dirty(), true);
     }
 }
 

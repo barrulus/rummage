@@ -2357,3 +2357,138 @@ TEST_CASE("content files: partial write failures remove all staging output") {
     CHECK(WEXITSTATUS(status) == 0);
     CHECK(fs::is_empty(dir.path));
 }
+
+TEST_CASE("properties: catalog bulk edits preserve mixed and untouched fields offline") {
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::views::PropertiesDialog dialog{pool, rummage::fs::MimeDatabase::load(), [] {}};
+    TempDir directory;
+    rummage::views::PhotoProperties properties;
+    properties.ids = {14, 29, 900};
+    properties.path = directory.path / "offline" / "photo.jpg";
+    properties.available = false;
+    properties.title = "3 photos";
+    properties.rows = {{"Availability", "Offline"}};
+    properties.annotations.rating = 2;
+    std::vector<std::int64_t> saved_ids;
+    rummage::views::PhotoEdits saved;
+    std::function<void(std::string)> complete;
+    int changes = 0;
+    dialog.open_photo(
+        properties,
+        [&](auto ids, auto edits, auto done) {
+            saved_ids = std::move(ids);
+            saved = std::move(edits);
+            complete = std::move(done);
+        },
+        [&] { ++changes; });
+    CHECK_FALSE(dialog.loading());
+    CHECK_FALSE(dialog.dirty());
+    dialog.apply();
+    CHECK_FALSE(complete);
+    dialog.set_photo_field(1, "4");
+    dialog.set_photo_field(3, " summer, 東京, summer ");
+    dialog.set_photo_field(4, "old");
+    dialog.apply();
+    REQUIRE(complete);
+    CHECK(dialog.saving());
+    CHECK(saved_ids == properties.ids);
+    CHECK_FALSE(saved.description);
+    CHECK_FALSE(saved.capture_date);
+    CHECK(saved.rating == 4);
+    CHECK(saved.add_tags == std::vector<std::string>{"summer", "東京"});
+    CHECK(saved.remove_tags == std::vector<std::string>{"old"});
+    CHECK_FALSE(fs::exists(properties.path.parent_path()));
+    complete({});
+    CHECK_FALSE(dialog.is_open());
+    CHECK(changes == 1);
+    complete({});
+    CHECK(changes == 1);
+}
+
+TEST_CASE("properties: catalog edits validate rating and retain drafts on save error") {
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::views::PropertiesDialog dialog{pool, rummage::fs::MimeDatabase::load(), [] {}};
+    rummage::views::PhotoProperties properties;
+    properties.ids = {7, 8};
+    std::function<void(std::string)> complete;
+    rummage::views::PhotoEdits saved;
+    dialog.open_photo(properties, [&](auto, auto edits, auto done) {
+        saved = std::move(edits);
+        complete = std::move(done);
+    });
+    dialog.set_photo_field(1, "9");
+    dialog.apply();
+    CHECK_FALSE(dialog.error().empty());
+    CHECK_FALSE(dialog.saving());
+    CHECK_FALSE(complete);
+    dialog.set_photo_field(1, "", false);
+    dialog.set_photo_field(0, "");  // Explicitly clear a mixed description.
+    dialog.set_photo_field(2, "");  // Explicitly remove manual capture-date overrides.
+    dialog.apply();
+    REQUIRE(complete);
+    REQUIRE(saved.description);
+    CHECK(saved.description->empty());
+    REQUIRE(saved.capture_date);
+    CHECK(saved.capture_date->empty());
+    CHECK_FALSE(saved.rating);
+    const auto first_complete = complete;
+    complete("Catalog temporarily unavailable");
+    CHECK(dialog.is_open());
+    CHECK(dialog.dirty());
+    CHECK(dialog.error() == "Catalog temporarily unavailable");
+    dialog.apply();
+    REQUIRE(dialog.saving());
+    first_complete({});
+    CHECK(dialog.saving());
+    CHECK(dialog.is_open());
+    complete({});
+    CHECK_FALSE(dialog.is_open());
+}
+
+TEST_CASE(
+    "properties: catalog keyboard fields use native scrolling and preserve cancelled originals") {
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(480, 360);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::views::PropertiesDialog dialog{pool, rummage::fs::MimeDatabase::load(), [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    rummage::views::PhotoProperties properties;
+    properties.ids = {1, 2};
+    properties.title = "2 photos";
+    properties.rows = {{"Source", "/a/long/source/path"}, {"Availability", "Offline"}};
+    bool saved = false;
+    dialog.open_photo(properties, [&](auto, auto, auto done) {
+        saved = true;
+        done({});
+    });
+    const auto draw = [&] {
+        renderer.begin_frame(480, 360, 1, {});
+        dialog.draw(renderer, {0, 0, 480, 360}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    draw();
+    dialog.key(key(XKB_KEY_Tab));  // Apply footer.
+    dialog.key(key(XKB_KEY_Tab));  // Apply-description switch.
+    draw();
+    dialog.key(key(XKB_KEY_Tab));  // Description field, scrolled into view.
+    draw();
+    const auto field = dialog.control_bounds("photo:0");
+    REQUIRE_FALSE(field.empty());
+    CHECK(dialog.card_bounds().contains(field.x + 4, field.y + 4));
+    dialog.paste("A café in 東京");
+    CHECK(dialog.dirty());
+    CHECK(dialog.scroll_offset() > 0);
+    dialog.key(key(XKB_KEY_Escape));
+    CHECK_FALSE(dialog.is_open());
+    CHECK_FALSE(saved);
+}

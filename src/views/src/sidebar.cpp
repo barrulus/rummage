@@ -452,6 +452,14 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                    Clock::time_point now) {
     bounds_ = bounds;
     current_ = place_holding(places_, current);
+    if (!current_uri_.empty()) {
+        current_.reset();
+        for (std::size_t i = 0; i < places_.size(); ++i)
+            if (places_[i].uri == current_uri_) {
+                current_ = i;
+                break;
+            }
+    }
     renderer.fill_background(bounds, palette.surface_container_low);
     scroller_.set_extent(content_height_, bounds.height);
     scroller_.advance(now);

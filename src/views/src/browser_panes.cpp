@@ -59,7 +59,7 @@ void Browser::toggle_split() {
     if (!areas_[1]) {
         const auto folder =
             pane().mode == Mode::details ? pane().details.root_folder() : current_folder();
-        const auto path = folder ? folder->path() : std::filesystem::path{"/"};
+        const auto path = folder && !folder->is_collection() ? folder->path() : session_fallback();
         const auto mode = pane().mode;
         const auto list = pane().details.list_size();
         const auto grid = pane().grid.size_index();
@@ -159,8 +159,9 @@ void Browser::open_in_other_pane(const std::filesystem::path& directory) {
 void Browser::transfer_to_other_pane(bool move) {
     const auto source = current_folder();
     const auto destination = other_folder();
-    if (!source || (source->is_trash() || (move && source->is_archive())) || !destination ||
-        (destination->is_trash() || destination->is_archive()))
+    if (!source || source->is_collection() ||
+        (source->is_trash() || (move && source->is_archive())) || !destination ||
+        (destination->is_collection() || destination->is_trash() || destination->is_archive()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*source))
@@ -330,7 +331,7 @@ std::vector<MenuItem> Browser::pane_items() {
             Command::orient_panes, [this] { set_stacked(!stacked_); });
     }
     const auto source = current_folder();
-    if (!source || source->is_trash())
+    if (!source || source->is_collection() || source->is_trash())
         return items;
     const auto same = pane().mode == Mode::details ? pane().details.root_folder() : source;
     if (same)
@@ -345,7 +346,9 @@ std::vector<MenuItem> Browser::pane_items() {
         }
     }
     const auto destination = other_folder();
-    if (!destination || (destination->is_trash() || destination->is_archive()) || names.empty())
+    if (!destination ||
+        (destination->is_collection() || destination->is_trash() || destination->is_archive()) ||
+        names.empty())
         return items;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : names)

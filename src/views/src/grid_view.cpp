@@ -161,7 +161,7 @@ void GridView::set_show_hidden(bool show) {
 }
 
 bool GridView::loading() const {
-    return folder_ && (folder_->model().loading() || folder_->cursor_pending());
+    return folder_ && (folder_->loading() || folder_->cursor_pending());
 }
 
 float GridView::drawn_icon_size() const {
@@ -188,6 +188,8 @@ void GridView::layout(float width) {
 }
 
 void GridView::enter() {
+    if (folder_->is_collection())
+        return;
     const fs::Entry* const entry = folder_->single_selection();
     if (entry == nullptr || !entry->is_directory()) {
         return;
@@ -324,11 +326,11 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             motion_bounds_.include(
                 ui::Rect{x + kCellInset, y + kCellInset, cell_width_ - 2.0F * kCellInset,
                          height - 2.0F * kCellInset},
-                area_, cursor == i, folder_->is_selected(entry.name));
+                area_, cursor == i, folder_->is_selected(entry.key()));
             const bool cut = cut_ != nullptr && cut_->holds(folder_->path(), entry);
             const ItemStyle style =
                 item_style(palette, entry,
-                           {.selected = folder_->is_selected(entry.name),
+                           {.selected = folder_->is_selected(entry.key()),
                             .cursor = cursor == i,
                             .ring = cursor_ring,
                             .focused = true,
@@ -373,9 +375,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
         draw_centered(renderer, model.problem(), area_, area_.y + 24.0F, 14.0F, palette.error);
-    } else if (entries.empty() && !model.loading()) {
-        draw_centered(renderer, i18n::tr("Empty folder"), area_, area_.y + 24.0F, 14.0F,
-                      palette.on_surface_variant);
+    } else if (entries.empty() && !folder_->loading()) {
+        draw_centered(renderer,
+                      folder_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      area_, area_.y + 24.0F, 14.0F, palette.on_surface_variant);
     }
 
     scrollbar_.layout(area_);
@@ -676,7 +679,7 @@ void GridView::right_click(float x, float y) {
         if (!cell) {
             folder_->set_cursor(std::nullopt);  // empty space: the folder's own menu
         } else {
-            folder_->set_cursor(cell, folder_->is_selected(folder_->entries()[*cell].name)
+            folder_->set_cursor(cell, folder_->is_selected(folder_->entries()[*cell].key())
                                           ? SelectMode::keep
                                           : SelectMode::replace);
         }

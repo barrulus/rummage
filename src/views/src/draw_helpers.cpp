@@ -33,14 +33,15 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
                                   : theme::readable_foreground(palette.primary, palette.surface)
                                         .with_alpha(visual.opacity);
     visual.run_background = style.fill.value_or(palette.surface);
-    if (thumbnails && !entry.is_directory() && !folder.is_archive()) {
+    if (thumbnails && !entry.is_directory() && !folder.is_archive() &&
+        !folder.path_of(entry).empty()) {
         const auto registry = engines::installed();
         const auto* family = registry->find(mime, typed.mime);
         if (video || (family && family->thumbnails)) {
             visual.thumbnail = thumbnails->get_shared(
                 folder.path_of(entry), entry.modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(size * renderer.scale()))),
-                type, &visual.failure);
+                type, &visual.failure, !entry.available);
         }
     }
     draw_item_visual(renderer, icons, palette, visual, bounds);

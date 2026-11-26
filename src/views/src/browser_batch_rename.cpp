@@ -9,8 +9,8 @@ namespace rummage::views {
 
 void Browser::start_batch_rename(const std::shared_ptr<Folder>& folder,
                                  std::vector<std::string> names) {
-    if (picker_mode_ || folder->is_trash() || folder->is_archive() || batch_rename_.is_open() ||
-        batch_rename_preparing_ || batch_rename_running_) {
+    if (picker_mode_ || folder->is_trash() || (folder->is_archive() || folder->is_collection()) ||
+        batch_rename_.is_open() || batch_rename_preparing_ || batch_rename_running_) {
         return;
     }
     if (operations_ > 0 || transfers_.pending() > 0 || undoing_) {

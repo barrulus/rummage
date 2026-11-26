@@ -216,7 +216,8 @@ const preview::Provider& QuickLook::provider_of(const fs::Entry& entry) const {
 
 // The provider is part of the key: an entry whose type becomes known (sniffed) gets a new slot.
 std::string QuickLook::key_of(const fs::Entry& entry) const {
-    return std::format("{}\n{}\n{}", folder_->path_of(entry).string(), entry.modified_ns,
+    return std::format("{}\n{}\n{}\n{}\n{}", entry.key(), folder_->path_of(entry).string(),
+                       entry.modified_ns, entry.available,
                        static_cast<int>(provider_of(entry).kind()));
 }
 
@@ -276,7 +277,8 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
         if (const auto* found = model.archive_entry(entry.name))
             source->entry = *found;
     }
-    if (current && details_ && !folder_->is_archive() && !slot.summary && !slot.summary_job) {
+    if (current && details_ && entry.available && !slot.path.empty() && !folder_->is_archive() &&
+        !slot.summary && !slot.summary_job) {
         const auto type = std::string{mime_->name(folder_->mime_of(entry))};
         slot.summary_job = pool_.submit(
             core::Priority::visible,
@@ -294,7 +296,7 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                 }
             });
     }
-    if (!slot.content && !slot.content_job) {
+    if (entry.available && !slot.path.empty() && !slot.content && !slot.content_job) {
         slot.requested = Clock::now();
         slot.in_advance = !current;
         slot.content_job = pool_.submit(
@@ -324,15 +326,19 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     }
     // The first stage of an image, while the sharp one is made: the thumbnail, usually cached
     // already.
-    if (current && slot.kind == preview::Kind::image && thumbnails_ && !folder_->is_archive() &&
-        !slot.content && !slot.thumbnail_job && !slot.thumbnail_pixels && !slot.thumbnail_texture) {
+    if (current && !slot.path.empty() && slot.kind == preview::Kind::image && thumbnails_ &&
+        !folder_->is_archive() && !slot.content && !slot.thumbnail_job && !slot.thumbnail_pixels &&
+        !slot.thumbnail_texture && !slot.offline_thumbnail_tried) {
+        slot.offline_thumbnail_tried = !entry.available;
         slot.thumbnail_job = pool_.submit(
             core::Priority::visible,
-            [cache = thumbnails_, path = slot.path,
+            [cache = thumbnails_, path = slot.path, offline = !entry.available,
+             modified = entry.modified_ns,
              mime = std::string{mime_->name(folder_->mime_of(entry))}](
                 const core::CancelToken& token) {
                 return std::make_shared<thumbs::Thumbnail>(
-                    cache->get(path, thumbs::Size::large, mime, &token));
+                    offline ? cache->cached(path, thumbs::Size::large, modified / 1000000000)
+                            : cache->get(path, thumbs::Size::large, mime, &token));
             },
             [this, alive = alive_, key](std::shared_ptr<thumbs::Thumbnail> made) {
                 if (!*alive) {

@@ -617,3 +617,39 @@ TEST_CASE("state: photo workspace survives restart without interpreting catalog 
     CHECK_FALSE(invalid.problems.empty());
     CHECK(invalid.state.photo_library.empty());
 }
+
+TEST_CASE("state: logical photo tabs persist without filesystem locations") {
+    State state;
+    State::Tab ordinary;
+    ordinary.folder = "/home/me/Pictures";
+    State::Tab photos;
+    photos.photos = true;
+    photos.mode = State::Mode::grid;
+    photos.cursor = "photo:42";
+    photos.filter = "holiday";
+    photos.sort_key = SortKey::modified;
+    photos.sort_descending = true;
+    state.tabs = {ordinary, photos};
+    state.shown_tab = 1;
+    const auto text = format_state(state);
+    CHECK(text.find("photos = true") != std::string::npos);
+    const auto result = parse(text);
+    CHECK(result.problems.empty());
+    CHECK(result.state == state);
+    REQUIRE(result.state.tabs.size() == 2);
+    CHECK(result.state.tabs[1].folder.empty());
+    CHECK(result.state.tabs[1].root.empty());
+    CHECK(result.state.tabs[1].cursor == "photo:42");
+    const auto explicit_empty = parse("[[tab]]\nphotos = true\nfolder = \"\"\n");
+    REQUIRE(explicit_empty.state.tabs.size() == 1);
+    CHECK(explicit_empty.problems.empty());
+    CHECK(explicit_empty.state.tabs[0].photos);
+    for (const auto* invalid :
+         {"[[tab]]\nfolder = \"\"\n", "[[tab]]\nphotos = false\nfolder = \"relative\"\n",
+          "[[tab]]\nphotos = \"true\"\n", "[[tab]]\nphotos = true\nfolder = \"/fake/photos\"\n",
+          "[[tab]]\nphotos = true\nroot = \"/fake\"\n"}) {
+        const auto rejected = parse(invalid);
+        CHECK(rejected.state.tabs.empty());
+        CHECK(rejected.problems.size() == 1);
+    }
+}

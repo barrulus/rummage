@@ -35,6 +35,13 @@ std::optional<FreeSpace> free_space_of(const std::filesystem::path& path) {
 }
 
 std::string status_of(const Folder& folder) {
+    if (folder.is_collection()) {
+        if (folder.selected_count() > 0)
+            return i18n::trf("{} of {} selected", folder.selected_count(), folder.total_count());
+        return folder.loading()
+                   ? i18n::trn("{} item, loading…", "{} items, loading…", folder.total_count())
+                   : i18n::trn("{} item", "{} items", folder.total_count());
+    }
     const fs::DirectoryModel& model = folder.model();
     const std::size_t count = folder.entries().size();
     if (model.error()) {
@@ -85,6 +92,14 @@ StatusBar::~StatusBar() {
 }
 
 void StatusBar::update(const Folder& folder) {
+    if (folder.is_collection()) {
+        if (job_)
+            job_->cancel();
+        job_.reset();
+        known_ = false;
+        free_.reset();
+        return;
+    }
     if (job_ || (known_ && path_ == folder.path() && revision_ == folder.model().revision())) {
         return;  // on its way, or known: a draw after the result checks again
     }
@@ -210,7 +225,8 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         text = transfer_->text;
         color = palette.on_surface;
     } else if (message_.empty()) {
-        text = status_of(folder);
+        text = folder.is_collection() && !collection_status_.empty() ? collection_status_
+                                                                     : status_of(folder);
         if (free_ && !folder.model().error()) {
             const auto with_space = text + i18n::trf("  ·  {} free of {}", format_size(free_->free),
                                                      format_size(free_->total));

@@ -123,6 +123,8 @@ struct State {
         std::optional<std::vector<fs::SortKey>> details_columns{};
         std::optional<bool> show_hidden{};
         std::string filter{};
+        // A logical Photo Library tab has no folder/root path; cursor holds its stable item key.
+        bool photos{false};
 
         bool operator==(const Tab&) const = default;
     };

@@ -40,7 +40,8 @@ void Browser::open_archive_members(const std::filesystem::path& source,
 
 void Browser::compress(bool tar_gz) {
     const auto folder = current_folder();
-    if (!folder || picker_mode_ || folder->is_trash() || folder->is_archive())
+    if (!folder || picker_mode_ || folder->is_trash() ||
+        (folder->is_archive() || folder->is_collection()))
         return;
     auto names = targets(*folder);
     if (names.empty())

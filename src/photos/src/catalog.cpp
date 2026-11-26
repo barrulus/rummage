@@ -643,12 +643,30 @@ Json query(Database& db, const Json& request) {
     bind(count);
     (void)count.row();
     const Id total = count.number(0);
-    std::string order = "p.filename COLLATE NOCASE,p.id";
     const auto sort = request.value("sort", std::string("name"));
-    if (sort == "date")
-        order = "COALESCE(p.date_override,p.capture_date) DESC,p.id";
-    if (sort == "rating")
-        order = "p.rating DESC,p.id";
+    // Only fixed SQL expressions enter ORDER BY. Keep the historic default direction for
+    // capture date and rating; browser file columns default ascending unless requested.
+    const std::string direction =
+        request.value("descending", sort == "date" || sort == "rating") ? " DESC" : " ASC";
+    std::string order;
+    if (sort == "name")
+        order = "p.filename COLLATE NOCASE" + direction;
+    else if (sort == "date")
+        order = "COALESCE(p.date_override,p.capture_date)" + direction;
+    else if (sort == "rating")
+        order = "p.rating" + direction;
+    else if (sort == "size")
+        order = "p.size" + direction;
+    else if (sort == "modified")
+        order = "p.mtime" + direction + ",p.mtime_ns" + direction;
+    else if (sort == "location")
+        order =
+            "(s.path||'/'||substr(p.relative_path,1,length(p.relative_path)-length(p.filename))) "
+            "COLLATE NOCASE" +
+            direction;
+    else
+        throw std::runtime_error("Unsupported photo sort order");
+    order += ",p.id";  // stable tie-break across pages and repeated requests
     Statement statement(db.get(), "SELECT " + photo_columns +
                                       " FROM photos p JOIN sources s ON s.id=p.source_id" + where +
                                       " ORDER BY " + order + " LIMIT ? OFFSET ?");

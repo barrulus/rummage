@@ -41,13 +41,16 @@ public:
                                  const core::ActionContext& context) const;
     void run(const core::Action& action, const core::ActionContext& context);
 
+    // Rummage's native single folder, Open or Save picker. Cancel/failure returns nullopt;
+    // failures use the existing report handler. The picker never creates the selected file.
+    void choose_path(const core::PickerRequest& request, DirectoryChosen chosen);
+
 private:
     struct Extraction;
     void launch(const core::Action& action, const core::ActionContext& context,
                 const std::filesystem::path& destination = {}, bool archive = false);
     void run_archive(const core::Action& action, const core::ActionContext& context);
     void choose_destination(const std::filesystem::path& initial, DirectoryChosen chosen);
-    void choose_path(const core::PickerRequest& request, DirectoryChosen chosen);
     void extract(const core::ActionTarget& target, const ArchiveBackend& backend,
                  const std::filesystem::path& destination);
     void extract_step(std::shared_ptr<Extraction> extraction, bool second_pass = false);

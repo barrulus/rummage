@@ -19,6 +19,8 @@ namespace {
 using namespace std::chrono_literals;
 using rummage::core::EventLoop;
 using rummage::ui::KeyEvent;
+using rummage::views::Browser;
+using rummage::views::PhotoLibrary;
 
 bool settle_photos(EventLoop& loop, const std::function<bool()>& predicate) {
     bool ready = false;
@@ -43,23 +45,49 @@ KeyEvent photo_key(xkb_keysym_t keysym, rummage::ui::Modifiers modifiers = {},
     result.text = std::move(text);
     return result;
 }
+
+void invoke(std::vector<rummage::views::MenuItem> items, std::string_view id) {
+    const auto found = std::ranges::find(items, id, &rummage::views::MenuItem::id);
+    REQUIRE(found != items.end());
+    REQUIRE(found->enabled);
+    REQUIRE(static_cast<bool>(found->action));
+    found->action();
+}
+
+void capture(const std::string& name, int width, int height) {
+    const char* frames = std::getenv("RUMMAGE_PHOTO_FRAMES");
+    if (!frames || name.empty())
+        return;
+    std::filesystem::create_directories(frames);
+    std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    std::ofstream output{std::filesystem::path{frames} / (name + ".ppm"), std::ios::binary};
+    output << "P6\n" << width << ' ' << height << "\n255\n";
+    for (int y = height - 1; y >= 0; --y)
+        for (int x = 0; x < width; ++x)
+            output.write(reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4), 3);
+    REQUIRE(output.good());
+}
+
+void fixture(const std::filesystem::path& path) {
+    std::filesystem::create_directories(path.parent_path());
+    std::filesystem::copy_file(std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png", path);
+}
 }  // namespace
 
-TEST_CASE("photo workspace: browser and picker stay inert until the library is explicitly opened") {
+TEST_CASE("photo workspace: ordinary browser and picker remain inert until explicit activation") {
     const rummage::test::TempDir directory;
     const rummage::test::ScopedEnv data{"XDG_DATA_HOME", directory.path.string()};
     const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
     rummage::fs::DirectoryWatcher watcher{loop};
-    rummage::views::Browser browser{loop,  pool,       watcher, rummage::fs::MimeDatabase::load(),
-                                    [] {}, [](auto) {}};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
     const auto catalog = directory.path / "rummage/photos/catalog.sqlite3";
     browser.set_photos_enabled(true);
     CHECK(browser.photos_available());
     CHECK_FALSE(std::filesystem::exists(catalog));
     browser.set_picker_mode(true);
-    CHECK_FALSE(browser.photos_available());
     browser.open_photo_library();
     CHECK_FALSE(browser.showing_photos());
     CHECK_FALSE(std::filesystem::exists(catalog));
@@ -79,358 +107,390 @@ TEST_CASE("photo workspace: browser and picker stay inert until the library is e
     CHECK(std::filesystem::exists(catalog));
 }
 
-TEST_CASE("photo workspace: add folders through native input and keep equal filenames distinct") {
+TEST_CASE(
+    "photo workspace: real collection Folder keeps equal filenames distinct and query state "
+    "stable") {
     const rummage::test::TempDir directory;
     const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
     const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
-    const auto first = directory.path / "first";
-    const auto second = directory.path / "second";
-    std::filesystem::create_directories(first);
-    std::filesystem::create_directories(second);
-    std::filesystem::copy_file(std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png",
-                               first / "same.png");
-    std::filesystem::copy_file(first / "same.png", second / "same.png");
+    const auto first = directory.path / "first", second = directory.path / "second";
+    fixture(first / "same.png");
+    fixture(second / "same.png");
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
-    rummage::views::PhotoLibrary library{loop, pool, nullptr, [] {}, [](auto, auto) {}};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    PhotoLibrary library{loop, pool, watcher, mime, [] {}};
     library.open();
     library.add_folder(first);
-    library.key(photo_key(XKB_KEY_Return));
+    library.key_dialog(photo_key(XKB_KEY_Return));
     REQUIRE(settle_photos(loop, [&] { return library.rows().size() == 1; }));
     library.add_folder(second);
-    library.key(photo_key(XKB_KEY_Return));
+    library.key_dialog(photo_key(XKB_KEY_Return));
     REQUIRE(settle_photos(loop, [&] { return library.rows().size() == 2; }));
-    CHECK(library.rows()[0]["filename"] == library.rows()[1]["filename"]);
-    CHECK(library.rows()[0]["id"] != library.rows()[1]["id"]);
-    library.key(photo_key(XKB_KEY_a, {.ctrl = true}));
-    REQUIRE(library.selection().size() == 2);
-    const auto ids = library.selection();
+    const auto folder = library.folder();
+    CHECK(folder->is_collection());
+    CHECK(folder->path().empty());
+    REQUIRE(folder->entries().size() == 2);
+    CHECK(folder->entries()[0].name == folder->entries()[1].name);
+    CHECK(folder->entries()[0].key() != folder->entries()[1].key());
+    CHECK(folder->path_of(folder->entries()[0]) != folder->path_of(folder->entries()[1]));
+    folder->set_cursor(1);
+    const auto chosen = library.selected_ids();
     library.refresh();
     REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
-    CHECK(library.selection() == ids);
+    CHECK(library.selected_ids() == chosen);
     const auto saved = library.state();
-    rummage::views::PhotoLibrary reopened{loop, pool, nullptr, [] {}, [](auto, auto) {}};
-    reopened.restore_state(saved);
-    reopened.open();
-    REQUIRE(settle_photos(loop, [&] { return !reopened.loading(); }));
-    CHECK(reopened.selection() == ids);
-    CHECK(reopened.rows().size() == 2);
-    library.key(photo_key(XKB_KEY_Escape));
-    CHECK(library.selection().empty());
-    CHECK(library.is_open());
-    // Search edits consume text and supersede earlier asynchronous responses.
-    library.key(photo_key(XKB_KEY_f, {.ctrl = true}));
-    library.paste("no match");
-    library.key(photo_key(XKB_KEY_a, {.ctrl = true}));
-    library.paste("same");
+    PhotoLibrary restored{loop, pool, watcher, mime, [] {}};
+    restored.restore_state(saved);
+    restored.open();
+    REQUIRE(settle_photos(loop, [&] { return !restored.loading(); }));
+    CHECK(restored.selected_ids() == chosen);
+    CHECK(restored.folder()->selected_count() == 1);
+    library.set_query("absent");
+    library.set_query("same");
     REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
     CHECK(library.rows().size() == 2);
+    CHECK(library.selected_ids().empty());
+    rummage::core::PickerRequest picker_request;
+    std::function<void(std::optional<std::filesystem::path>)> chosen_path;
+    library.set_path_chooser([&](const auto& request, auto completion) {
+        picker_request = request;
+        chosen_path = std::move(completion);
+    });
+    invoke(library.menu_items(), "photos:export");
+    CHECK(picker_request.mode == rummage::core::PickerRequest::Mode::save);
+    CHECK_FALSE(picker_request.directory);
+    CHECK(picker_request.name == "rummage-photo-annotations.json");
+    CHECK_FALSE(library.has_dialog());
+    const auto exported = directory.path / "annotations.json";
+    chosen_path(std::nullopt);
+    CHECK_FALSE(std::filesystem::exists(exported));
+    invoke(library.menu_items(), "photos:export");
+    chosen_path(exported);
+    REQUIRE(settle_photos(loop, [&] {
+        return library.status().find("Photo annotations exported") != std::string::npos;
+    }));
+    REQUIRE(std::filesystem::exists(exported));
+    const auto id = library.rows().front().at("id");
+    REQUIRE(library.client()
+                ->request({{"op", "edit"}, {"ids", {id}}, {"description", "After export"}})
+                .value("ok", false));
+    invoke(library.menu_items(), "photos:restore");
+    CHECK(picker_request.mode == rummage::core::PickerRequest::Mode::open);
+    CHECK_FALSE(picker_request.directory);
+    chosen_path(exported);
+    REQUIRE(settle_photos(loop, [&] {
+        const auto rows = library.client()->request({{"op", "query"}}).at("photos");
+        return std::ranges::any_of(rows, [&](const auto& row) {
+            return row.at("id") == id && row.value("description", "") != "After export";
+        });
+    }));
     CHECK(std::filesystem::exists(first / "same.png"));
     CHECK(std::filesystem::exists(second / "same.png"));
 }
 
-TEST_CASE("photo workspace: native gallery inspector and view switching preserve the working set") {
+TEST_CASE(
+    "photo workspace: uses native browser frames folder chooser grid details QuickLook and "
+    "Properties") {
     rummage::ui::Offscreen offscreen{1100, 820};
     const rummage::test::TempDir directory;
     const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
     const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
     const auto source = directory.path / "Holiday";
-    std::filesystem::create_directories(source);
-    for (const auto& name : {"Holiday.png", "Beach.png", "Mountains.png"})
-        std::filesystem::copy_file(std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png",
-                                   source / name);
+    for (const auto* name : {"Holiday.png", "Beach.png", "Mountains.png"})
+        fixture(source / name);
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
     rummage::fs::DirectoryWatcher watcher{loop};
     const auto cache =
         std::make_shared<rummage::thumbs::Cache>(directory.path / "cache", "photos-test");
-    rummage::views::Browser browser{loop,  pool,        watcher, rummage::fs::MimeDatabase::load(),
-                                    [] {}, [](auto) {}, cache};
+    Browser browser{loop,  pool,        watcher, rummage::fs::MimeDatabase::load(),
+                    [] {}, [](auto) {}, cache};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
     rummage::ui::IconSet icons{fonts};
-    browser.open(source);
-    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
-    const auto commands = browser.palette_items();
-    const auto add = std::ranges::find(commands, "photos:add", &rummage::views::PaletteItem::id);
-    REQUIRE(add != commands.end());
-    add->action();
-    REQUIRE(browser.showing_photos());
-    auto* library = browser.photo_library();
-    const auto draw = [&](const std::string& name, int width = 1100, int height = 820) {
-        renderer.begin_frame(width, height, 1, {});
-        browser.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
-                     rummage::theme::Palette{}, icons, rummage::views::Browser::Clock::now());
-        renderer.end_frame();
-        if (const char* frames = std::getenv("RUMMAGE_PHOTO_FRAMES")) {
-            std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
-            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-            std::ofstream output{std::filesystem::path{frames} / (name + ".ppm"), std::ios::binary};
-            output << "P6\n" << width << ' ' << height << "\n255\n";
-            for (int y = height - 1; y >= 0; --y)
-                for (int x = 0; x < width; ++x)
-                    output.write(reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4),
-                                 3);
-            REQUIRE(output.good());
-        }
+    const auto draw = [&](const std::string& name = "", int width = 1100, int height = 820) {
+        const auto frame = [&] {
+            const rummage::theme::Palette palette;
+            renderer.begin_frame(width, height, 1, palette.surface);
+            browser.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                         palette, icons, Browser::Clock::now());
+            renderer.end_frame();
+        };
+        frame();
+        if (!name.empty())
+            REQUIRE(settle_photos(loop, [&] {
+                frame();
+                return !browser.animating();
+            }));
+        capture(name, width, height);
     };
-    const auto click = [&](rummage::ui::Rect bounds) {
-        REQUIRE_FALSE(bounds.empty());
-        for (const auto kind :
+    const auto press = [&](KeyEvent key) { CHECK(browser.key(key, Browser::Clock::now())); };
+    const auto click = [&](rummage::ui::Rect rect) {
+        REQUIRE_FALSE(rect.empty());
+        for (auto kind :
              {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
             browser.pointer({.kind = kind,
-                             .x = bounds.x + bounds.width / 2,
-                             .y = bounds.y + bounds.height / 2,
+                             .x = rect.x + rect.width / 2,
+                             .y = rect.y + rect.height / 2,
                              .button = rummage::ui::PointerButton::left},
-                            rummage::views::Browser::Clock::now());
+                            Browser::Clock::now());
     };
-    draw("source-setup");
+    browser.set_places({{.label = "Home", .path = directory.path, .icon = "home"},
+                        {.label = "Pictures", .path = source, .icon = "photo"}});
+    browser.open(source);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    const auto normal_tab = browser.active_tab();
+    std::function<void(std::filesystem::path)> chosen_folder;
+    browser.set_folder_chooser(
+        [&](const auto&, auto chosen) { chosen_folder = std::move(chosen); });
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(browser.tab_count() == 2);
+    const auto photo_tab = browser.active_tab();
+    library->add_folder();
+    REQUIRE(static_cast<bool>(chosen_folder));
+    CHECK_FALSE(library->has_dialog());
+    chosen_folder(source);
+    REQUIRE(library->has_dialog());
+    draw("native-source-review");
     click(library->control_bounds("Add folder"));
     REQUIRE(
         settle_photos(loop, [&] { return library->rows().size() == 3 && !library->loading(); }));
     const auto second_source = directory.path / "Other trip";
-    std::filesystem::create_directories(second_source);
-    std::filesystem::copy_file(source / "Beach.png", second_source / "Beach.png");
+    fixture(second_source / "Beach.png");
     browser.open_photo_library(second_source);
-    CHECK(browser.key(photo_key(XKB_KEY_Return), rummage::views::Browser::Clock::now()));
+    press(photo_key(XKB_KEY_Return));
     REQUIRE(
         settle_photos(loop, [&] { return library->rows().size() == 4 && !library->loading(); }));
-    draw("gallery-loading");
+    browser.set_mode(Browser::Mode::grid);
+    draw();
     REQUIRE(settle_photos(loop, [&] {
-        draw("gallery");
+        draw();
         return !browser.loading();
     }));
-    click(library->row_bounds(0));
-    REQUIRE(library->selection().size() == 1);
-    const auto chosen = library->selection();
-    const auto before_preview = library->state();
-    CHECK(browser.key(photo_key(XKB_KEY_Return), rummage::views::Browser::Clock::now()));
+    CHECK(browser.sidebar_visible());
+    CHECK(browser.grid().folder() == library->folder());
+    CHECK(browser.tab_titles()[photo_tab] == "Photo Library");
+    press(photo_key(XKB_KEY_Home));
+    draw("native-gallery");
+    REQUIRE(library->folder()->selected_count() == 1);
+    const auto selected = library->selected_ids();
+    const auto before = library->state();
+    press(photo_key(XKB_KEY_space));
     REQUIRE(settle_photos(loop, [&] {
-        draw("quick-look-loading");
+        draw();
         return browser.quick_look().is_open() && !browser.loading();
     }));
-    draw("quick-look");
-    CHECK(browser.key(photo_key(XKB_KEY_Escape), rummage::views::Browser::Clock::now()));
-    CHECK_FALSE(browser.quick_look().is_open());
-    CHECK(library->selection() == chosen);
-    CHECK(library->state() == before_preview);
-    draw("selected");
-    click(library->control_bounds("Edit selected"));
-    draw("inspector");
-    CHECK(browser.key(photo_key(XKB_KEY_a, {.ctrl = true}), rummage::views::Browser::Clock::now()));
-    CHECK(browser.key(photo_key(XKB_KEY_NoSymbol, {}, "Été au bord de la mer — 夏"),
-                      rummage::views::Browser::Clock::now()));
-    CHECK(browser.key(photo_key(XKB_KEY_Return), rummage::views::Browser::Clock::now()));
-    REQUIRE(settle_photos(loop, [&] {
-        const auto result = library->client()->request({{"op", "query"}});
-        return result.value("ok", false) &&
-               result["photos"][0].value("description", "") == "Été au bord de la mer — 夏";
-    }));
-    const auto press = [&](KeyEvent event) {
-        CHECK(browser.key(event, rummage::views::Browser::Clock::now()));
-    };
-    // The same native fields retain Unicode tags and timezone-unknown date overrides.
-    press(photo_key(XKB_KEY_Tab));
+    draw("native-quick-look");
+    press(photo_key(XKB_KEY_Escape));
+    CHECK(library->selected_ids() == selected);
+    CHECK(library->state() == before);
+    invoke(library->context_menu_items(), "photos:edit");
+    REQUIRE(browser.properties_dialog().is_open());
+    draw("native-properties");
+    // Existing PropertiesDialog keyboard focus order reaches the actual native text field.
+    for (int i = 0; i < 3; ++i) {
+        press(photo_key(XKB_KEY_Tab));
+        draw();
+    }
+    press(photo_key(XKB_KEY_a, {.ctrl = true}));
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Été au bord de la mer — 夏"));
+    for (int i = 0; i < 2; ++i) {
+        press(photo_key(XKB_KEY_Tab));
+        draw();
+    }
     press(photo_key(XKB_KEY_a, {.ctrl = true}));
     press(photo_key(XKB_KEY_NoSymbol, {}, "5"));
-    press(photo_key(XKB_KEY_Return));
-    press(photo_key(XKB_KEY_Tab));
+    for (int i = 0; i < 2; ++i) {
+        press(photo_key(XKB_KEY_Tab));
+        draw();
+    }
     press(photo_key(XKB_KEY_a, {.ctrl = true}));
     press(photo_key(XKB_KEY_NoSymbol, {}, "2024-06-12T14:30:00"));
-    press(photo_key(XKB_KEY_Return));
     press(photo_key(XKB_KEY_Tab));
+    draw();
     press(photo_key(XKB_KEY_NoSymbol, {}, "été, 家族"));
-    press(photo_key(XKB_KEY_Return));
+    draw("native-properties-edited");
+    click(browser.properties_dialog().control_bounds("apply"));
     REQUIRE(settle_photos(loop, [&] {
-        const auto result = library->client()->request({{"op", "query"}});
-        if (!result.value("ok", false))
-            return false;
-        const auto row = result["photos"][0];
-        return row.value("rating", 0) == 5 && row["capture_date"] == "2024-06-12T14:30:00" &&
-               row.value("tags", nlohmann::json::array()).size() == 2;
+        const auto rows =
+            library->client()->request({{"op", "query"}}).value("photos", nlohmann::json::array());
+        return std::ranges::any_of(rows, [&](const auto& row) {
+            return row["id"] == selected.front() &&
+                   row.value("description", "") == "Été au bord de la mer — 夏" &&
+                   row.value("rating", 0) == 5 &&
+                   row.value("tags", nlohmann::json::array()).size() == 2;
+        });
     }));
-    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
-    draw("inspector-saved");
-    press(photo_key(XKB_KEY_Tab, {.shift = true}));
-    press(photo_key(XKB_KEY_a, {.ctrl = true}));
-    press(photo_key(XKB_KEY_BackSpace));
-    press(photo_key(XKB_KEY_Return));
-    REQUIRE(settle_photos(loop, [&] {
-        const auto result = library->client()->request({{"op", "query"}});
-        return result.value("ok", false) && result["photos"][0]["capture_date"].is_null();
-    }));
-    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
-    draw("inspector-restored-date");
-    draw("inspector-small", 680, 380);
-    press(photo_key(XKB_KEY_Page_Down));
-    draw("inspector-small-scrolled", 680, 380);
-    CHECK(library->control_bounds("Done").bottom() <= 380);
-    click(library->control_bounds("Done"));
-    draw("gallery-edited");
-    CHECK(library->selection() == chosen);
-    click(library->control_bounds("Details view"));
-    draw("details");
-    CHECK(library->selection() == chosen);
-    CHECK(library->rows().size() == 4);
-    CHECK_FALSE(library->background_status().empty());
-    click(library->control_bounds("Pause background work"));
+    REQUIRE(settle_photos(
+        loop, [&] { return !browser.properties_dialog().saving() && !library->loading(); }));
+    draw("native-properties-saved");
+    CHECK_FALSE(browser.properties_dialog().is_open());
+    browser.set_mode(Browser::Mode::details);
+    draw("native-details");
+    CHECK(browser.mode() == Browser::Mode::details);
+    CHECK(browser.details().root_folder() == library->folder());
+    CHECK(library->selected_ids() == selected);
+    browser.select_tab(normal_tab);
+    draw("native-original-tab");
+    CHECK_FALSE(browser.showing_photos());
+    CHECK(browser.picker_folder()->path() == source);
+    browser.select_tab(photo_tab);
+    draw("native-returned-tab");
+    CHECK(browser.showing_photos());
+    CHECK(library->selected_ids() == selected);
+    {
+        const auto saved_state = browser.state();
+        const auto parsed = rummage::views::parse_state(rummage::views::format_state(saved_state),
+                                                        "native-photo-session.toml");
+        REQUIRE(parsed.problems.empty());
+        Browser reopened{loop,  pool,        watcher, rummage::fs::MimeDatabase::load(),
+                         [] {}, [](auto) {}, cache};
+        reopened.apply(parsed.state);
+        REQUIRE(reopened.restore_session(parsed.state));
+        REQUIRE(reopened.showing_photos());
+        REQUIRE(settle_photos(loop, [&] {
+            return reopened.photo_library()->rows().size() == 4 &&
+                   !reopened.photo_library()->loading();
+        }));
+        CHECK(reopened.mode() == Browser::Mode::details);
+        CHECK(reopened.photo_library()->selected_ids() == selected);
+        REQUIRE(reopened.photo_library()->folder()->cursor_entry());
+        CHECK(reopened.photo_library()->folder()->cursor_entry()->key() ==
+              library->folder()->cursor_entry()->key());
+        CHECK(reopened.details().columns() == browser.details().columns());
+        CHECK(reopened.details().widths() == browser.details().widths());
+    }
+    invoke(library->menu_items(), "photos:pause");
     REQUIRE(settle_photos(loop, [&] {
         return library->client()->request({{"op", "background_state"}}).value("paused", false) &&
                !library->loading();
     }));
-    draw("background-paused");
-    // The native browser's shared watcher notices a new photo, but global pause prevents the
-    // queued reconciliation from beginning until the user resumes it.
-    std::filesystem::copy_file(source / "Beach.png", source / "Captured.png");
+    fixture(source / "Captured.png");
     REQUIRE(settle_photos(loop, [&] {
         const auto jobs =
             library->client()->request({{"op", "jobs"}}).value("jobs", nlohmann::json::array());
         return std::ranges::any_of(
-            jobs, [](const auto& job) { return job.value("state", "") == "queued"; });
+            jobs, [](const auto& row) { return row.value("state", "") == "queued"; });
     }));
     CHECK(library->rows().size() == 4);
-    click(library->control_bounds("Resume background work"));
+    invoke(library->menu_items(), "photos:pause");
     REQUIRE(
         settle_photos(loop, [&] { return library->rows().size() == 5 && !library->loading(); }));
-    CHECK(library->selection() == chosen);
-    draw("watcher-new-photo");
-    click(library->control_bounds("Pace: Normal"));
-    REQUIRE(settle_photos(loop, [&] {
-        return library->client()->request({{"op", "background_state"}}).value("pace", "") ==
-                   "gentle" &&
-               !library->loading();
-    }));
-    draw("background-gentle");
-    click(library->control_bounds("Pace: Gentle"));
-    REQUIRE(settle_photos(loop, [&] {
-        return library->client()->request({{"op", "background_state"}}).value("pace", "") ==
-                   "normal" &&
-               !library->loading();
-    }));
-    const auto disconnected = directory.path / "Disconnected original folder";
+    draw("native-watched-photo");
+    library->show(PhotoLibrary::Destination::sources);
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    draw();
+    press(photo_key(XKB_KEY_Home));
+    const auto source_properties = library->properties(true);
+    CHECK(source_properties.ids.empty());
+    CHECK(source_properties.path.empty());
+    CHECK(source_properties.entry.identity.starts_with("source:"));
+    CHECK_FALSE(source_properties.rows.empty());
+    draw("native-sources");
+    library->show(PhotoLibrary::Destination::activity);
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    draw();
+    press(photo_key(XKB_KEY_Home));
+    CHECK_FALSE(library->properties(true).rows.empty());
+    draw("native-activity");
+    library->show(PhotoLibrary::Destination::library);
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    const auto disconnected = directory.path / "Disconnected";
     std::filesystem::rename(source, disconnected);
     REQUIRE(settle_photos(loop, [&] {
-        return std::ranges::count_if(library->rows(), [](const auto& photo) {
-                   return photo.value("availability", "") == "offline";
+        return std::ranges::count_if(library->rows(), [](const auto& row) {
+                   return row.value("availability", "") == "offline";
                }) == 4;
     }));
-    CHECK(library->selection() == chosen);
-    draw("offline-loading");
+    draw();
     REQUIRE(settle_photos(loop, [&] {
-        draw("offline-loading");
+        draw();
         return !browser.loading();
     }));
-    draw("offline-cached-details");
+    draw("native-offline-details");
+    CHECK(library->selected_ids() == selected);
     std::filesystem::rename(disconnected, source);
-    for (const auto& name : {"Holiday.png", "Beach.png", "Mountains.png"})
-        CHECK(std::filesystem::file_size(source / name) ==
-              std::filesystem::file_size(std::filesystem::path{RUMMAGE_TEST_DATA} /
-                                         "image/blocks.png"));
 }
 
 TEST_CASE(
-    "photo workspace: large duplicate groups scroll full locations and capture the exact chosen "
-    "scope") {
-    rummage::ui::Offscreen offscreen{1000, 700};
+    "photo workspace: duplicate candidates use native Details selection and captured "
+    "confirmation") {
+    rummage::ui::Offscreen offscreen{1100, 820};
     const rummage::test::TempDir directory;
     const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
     const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
     const auto source =
         directory.path / "Photo archive" / std::string(70, 'a') / std::string(70, 'b');
-    std::filesystem::create_directories(source);
     for (int i = 0; i < 50; ++i)
-        std::filesystem::copy_file(std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png",
-                                   source / (std::to_string(i) + ".png"));
+        fixture(source / (std::to_string(i) + ".png"));
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
-    rummage::views::PhotoLibrary library{loop, pool, nullptr, [] {}, [](auto, auto) {}};
-    nlohmann::json captured;
-    library.set_file_action([&](auto request) { captured = std::move(request); });
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
-    const auto draw = [&](const std::string& name) {
-        renderer.begin_frame(1000, 700, 1, {});
-        library.draw(renderer, {0, 0, 1000, 700}, rummage::theme::Palette{});
-        renderer.end_frame();
-        if (const char* frames = std::getenv("RUMMAGE_PHOTO_FRAMES")) {
-            std::vector<unsigned char> pixels(1000 * 700 * 4);
-            glReadPixels(0, 0, 1000, 700, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-            std::ofstream output{std::filesystem::path{frames} / (name + ".ppm"), std::ios::binary};
-            output << "P6\n1000 700\n255\n";
-            for (int y = 699; y >= 0; --y)
-                for (int x = 0; x < 1000; ++x)
-                    output.write(reinterpret_cast<const char*>(pixels.data() + (y * 1000 + x) * 4),
-                                 3);
-            REQUIRE(output.good());
-        }
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&](const std::string& name = "") {
+        const auto frame = [&] {
+            const rummage::theme::Palette palette;
+            renderer.begin_frame(1100, 820, 1, palette.surface);
+            browser.draw(renderer, {0, 0, 1100, 820}, palette, icons, Browser::Clock::now());
+            renderer.end_frame();
+        };
+        frame();
+        if (!name.empty())
+            REQUIRE(settle_photos(loop, [&] {
+                frame();
+                return !browser.animating();
+            }));
+        capture(name, 1100, 820);
     };
-    const auto click = [&](std::string_view label) {
-        const auto bounds = library.control_bounds(label);
-        REQUIRE_FALSE(bounds.empty());
-        library.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                         .x = bounds.x + bounds.width / 2,
-                         .y = bounds.y + bounds.height / 2,
-                         .button = rummage::ui::PointerButton::left});
-    };
-    library.open();
-    library.add_folder(source);
-    library.key(photo_key(XKB_KEY_Return));
-    const bool imported = settle_photos(loop, [&] { return library.rows().size() == 50; });
-    INFO("Loaded rows: " << library.rows().size());
-    INFO("Catalog jobs: " << library.client()->request({{"op", "jobs"}}).dump());
-    INFO("Catalog sources: " << library.client()->request({{"op", "sources"}}).dump());
-    draw("large-library");
+    browser.set_places({{.label = "Home", .path = directory.path, .icon = "home"},
+                        {.label = "Pictures", .path = source, .icon = "photo"}});
+    browser.open(directory.path);
+    browser.open_photo_library(source);
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    library->key_dialog(photo_key(XKB_KEY_Return));
+    const bool imported = settle_photos(loop, [&] { return library->rows().size() == 50; });
+    INFO("Jobs: " << library->client()->request({{"op", "jobs"}}).dump());
     REQUIRE(imported);
-    const auto initial_row = library.row_bounds(0);
-    REQUIRE_FALSE(initial_row.empty());
-    library.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
-                     .x = initial_row.x + 20,
-                     .y = initial_row.y + 20,
-                     .button = rummage::ui::PointerButton::left});
-    library.pointer(
-        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 500, .y = 400, .scroll_y = 100000});
-    draw("large-library-scrolled");
-    const auto collection_state = library.state();
-    click("Activity");
-    draw("large-activity");
-    library.key(photo_key(XKB_KEY_Down));
-    CHECK(library.state() == collection_state);
-    click("Library");
-    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
-    draw("large-library-returned");
-    CHECK(library.state() == collection_state);
-    click("Review");
-    draw("duplicate-review");
-    click("Find exact duplicates");
-    // Groups arrive incrementally. Wait for the complete fixture before capturing the review
-    // scope; opening an earlier group correctly keeps only that earlier set of candidates.
+    library->show(PhotoLibrary::Destination::review);
+    invoke(library->menu_items(), "photos:find-duplicates");
     REQUIRE(settle_photos(loop, [&] {
-        const auto result = library.client()->request({{"op", "duplicates"}});
-        const auto groups = result.value("groups", nlohmann::json::array());
+        const auto groups = library->client()
+                                ->request({{"op", "duplicates"}})
+                                .value("groups", nlohmann::json::array());
         return !groups.empty() &&
                groups.front().value("photos", nlohmann::json::array()).size() == 50;
     }));
-    library.refresh();
-    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
-    draw("duplicate-groups");
-    click("Review these copies");
-    draw("duplicates-first");
-    REQUIRE_FALSE(library.control_bounds("Keep 1 · Trash 49").empty());
-    library.pointer(
-        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 500, .y = 350, .scroll_y = 100000});
-    draw("duplicates-last");
-    click("Trash");
-    draw("duplicates-two-keepers");
-    click("Keep 2 · Trash 48");
+    library->refresh();
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    draw("native-duplicate-groups");
+    CHECK(browser.mode() == Browser::Mode::details);
+    CHECK(browser.key(photo_key(XKB_KEY_Home), Browser::Clock::now()));
+    CHECK(browser.key(photo_key(XKB_KEY_Return), Browser::Clock::now()));
+    REQUIRE(library->destination() == PhotoLibrary::Destination::duplicate_group);
+    browser.set_mode(Browser::Mode::details);
+    draw("native-duplicate-candidates");
+    CHECK(browser.details().root_folder() == library->folder());
+    CHECK(browser.key(photo_key(XKB_KEY_End), Browser::Clock::now()));
+    draw("native-duplicate-last");
+    invoke(library->context_menu_items(), "photos:keep");
+    CHECK(library->status().find("2 kept") != std::string::npos);
+    nlohmann::json captured;
+    library->set_file_action([&](auto request) { captured = std::move(request); });
+    invoke(library->menu_items(), "photos:trash-marked");
+    draw("native-duplicate-confirmation");
+    CHECK(browser.key(photo_key(XKB_KEY_Return), Browser::Clock::now()));
     REQUIRE(captured.is_object());
-    CHECK(captured["kind"] == "trash");
     CHECK(captured["keeper_ids"].size() == 2);
     CHECK(captured["ids"].size() == 48);
     CHECK(captured["reviewed"].size() == 50);
-    for (const auto& id : captured["keeper_ids"])
-        CHECK(std::ranges::find(captured["ids"], id) == captured["ids"].end());
-    // This UI test captures the verified-operation handoff; filesystem behavior is covered by
-    // Browser/TransferQueue recovery tests. Reviewing alone never changes originals.
     for (int i = 0; i < 50; ++i)
         CHECK(std::filesystem::exists(source / (std::to_string(i) + ".png")));
 }

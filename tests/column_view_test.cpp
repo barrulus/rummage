@@ -501,3 +501,89 @@ TEST_CASE("column view: wildcard filters match hidden extensions only in the las
     REQUIRE(f.view.column(2).folder().entries().size() == 1);
     CHECK(f.view.column(2).folder().entries().front().name == "icon.svg");
 }
+
+TEST_CASE("collection folder: duplicate filenames retain independent stable selections") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry first{.name = "photo.jpg",
+                             .kind = rummage::fs::EntryKind::file,
+                             .size = 10,
+                             .identity = "photo:1",
+                             .location = "/unmounted/a/photo.jpg",
+                             .available = false};
+    auto second = first;
+    second.identity = "photo:2";
+    second.location = "/unmounted/b/photo.jpg";
+    second.size = 20;
+    folder->replace_collection({first, second}, "Photos", 1000);
+    CHECK(folder->is_collection());
+    CHECK(folder->path().empty());
+    CHECK_FALSE(folder->model().loading());
+    CHECK(folder->model().path().empty());
+    CHECK(folder->total_count() == 1000);
+    CHECK(folder->entries()[0].name == folder->entries()[1].name);
+    folder->set_cursor(0);
+    folder->set_cursor(1, SelectMode::toggle);
+    CHECK(folder->selected_count() == 2);
+    CHECK(folder->selected_names() == std::vector<std::string>{"photo:1", "photo:2"});
+    CHECK(folder->summary().bytes == 30);
+    CHECK(folder->selected_paths() == std::vector<fs::path>{first.location, second.location});
+    folder->replace_collection({second, first}, "Photos", 1000);
+    REQUIRE(folder->cursor_entry());
+    CHECK(folder->cursor_entry()->key() == "photo:2");
+    CHECK(folder->cursor() == 0);
+    CHECK(folder->selected_count() == 2);
+    folder->set_order({.key = rummage::fs::SortKey::size});
+    CHECK(folder->entries()[0].key() == "photo:2");  // controller owns full-query sorting
+    folder->select_name("photo:1");
+    REQUIRE(folder->single_selection());
+    CHECK(folder->single_selection()->location == first.location);
+    folder->sniff(0, 2);  // offline rows never schedule original reads
+    folder->replace_collection({second}, "Photos", 999);
+    CHECK(folder->cursor_entry() == nullptr);
+    CHECK(folder->selected_count() == 0);
+    rummage::fs::Entry logical{.name = "Sources",
+                               .kind = rummage::fs::EntryKind::other,
+                               .identity = "sources",
+                               .available = false};
+    folder->replace_collection({logical}, "Library", 1);
+    folder->select_all();
+    CHECK(folder->selected_paths().empty());
+    CHECK(folder->selected_entries().size() == 1);
+}
+
+TEST_CASE("collection folder: shared views adopt rows without opening a directory") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry row{.name = "Duplicate name",
+                           .kind = rummage::fs::EntryKind::other,
+                           .identity = "source:1",
+                           .available = false};
+    folder->replace_collection({row}, "Sources", 1, true);
+    ColumnView columns{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    GridView grid{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    rummage::views::DetailsView details{loop, pool,  watcher,
+                                        mime, [] {}, [](rummage::ui::CursorShape) {}};
+    columns.show(folder);
+    grid.show(folder);
+    details.show(folder);
+    CHECK(columns.focused_folder() == folder);
+    CHECK(grid.folder() == folder);
+    CHECK(details.folder() == folder);
+    CHECK(columns.loading());
+    CHECK(grid.loading());
+    CHECK(details.loading());
+    folder->replace_collection({row}, "Sources", 1);
+    folder->select_name(row.key());
+    CHECK_FALSE(columns.loading());
+    CHECK_FALSE(grid.loading());
+    CHECK_FALSE(details.loading());
+    CHECK(folder->model().path().empty());
+    CHECK(folder->path_of(row).empty());
+}

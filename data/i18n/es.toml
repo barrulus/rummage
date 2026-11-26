@@ -30,6 +30,8 @@ Menu = "Menú"
 moves = "mover"
 
 [texts]
+"Mixed values" = "Valores distintos"
+"No results" = "Sin resultados"
 "Photo Library" = "Fototeca"
 "Add to Photo Library…" = "Añadir a la fototeca…"
 "Windows" = "Ventanas"

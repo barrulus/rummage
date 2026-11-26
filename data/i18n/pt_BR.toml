@@ -21,6 +21,8 @@ Arrows = "Setas"
 moves = "mover"
 
 [texts]
+"Mixed values" = "Valores diferentes"
+"No results" = "Nenhum resultado"
 "Photo Library" = "Biblioteca de fotos"
 "Add to Photo Library…" = "Adicionar à biblioteca de fotos…"
 "Windows" = "Janelas"

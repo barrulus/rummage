@@ -20,6 +20,8 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Mixed values" = "複数の異なる値"
+"No results" = "結果なし"
 "Photo Library" = "写真ライブラリ"
 "Add to Photo Library…" = "写真ライブラリに追加…"
 "Windows" = "ウィンドウ"

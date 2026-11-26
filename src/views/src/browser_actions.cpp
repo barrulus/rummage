@@ -30,7 +30,7 @@ void Browser::set_actions(std::span<const core::Action> custom) {
 core::ActionContext Browser::action_context(const std::shared_ptr<Folder>& folder,
                                             bool background) const {
     core::ActionContext context;
-    if (!folder || folder->is_archive()) {
+    if (!folder || folder->is_archive() || folder->is_collection()) {
         return context;
     }
     std::error_code error;
@@ -121,6 +121,10 @@ void Browser::invoke_action(const core::Action& action, const core::ActionContex
 }
 
 void Browser::run_action(std::string_view id) {
+    if (const auto folder = current_folder(); folder && folder->is_collection()) {
+        show_message("Use Show in Folder for file actions", false);
+        return;
+    }
     if (const auto folder = current_folder(); folder && folder->is_archive()) {
         show_message(
             std::string{i18n::tr("Archive contents are read-only; extract the archive first")},

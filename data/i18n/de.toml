@@ -33,6 +33,8 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Mixed values" = "Unterschiedliche Werte"
+"No results" = "Keine Ergebnisse"
 "Photo Library" = "Fotobibliothek"
 "Add to Photo Library…" = "Zur Fotobibliothek hinzufügen…"
 "Windows" = "Fenster"

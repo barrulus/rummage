@@ -72,7 +72,11 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
              palette.primary_container, palette.primary});
         return;
     }
-    std::vector<Crumb> crumbs = crumbs_of(folder.path(), home_);
+    std::vector<Crumb> crumbs;
+    if (folder.is_collection())
+        crumbs.push_back({.path = {}, .label = folder.collection_label(), .icon = {}});
+    else
+        crumbs = crumbs_of(folder.path(), home_);
     if (crumbs != crumbs_) {
         crumbs_ = std::move(crumbs);
         hovered_.reset();

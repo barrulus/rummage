@@ -175,6 +175,20 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
         redraw_();
         return;
     }
+    if (folder->is_collection()) {
+        for (const auto& slot : columns_)
+            slot.column->folder().set_changed_handler(nullptr);
+        columns_.clear();
+        focus_ = 0;
+        resizing_.reset();
+        hovered_column_.reset();
+        gesture_axis_ = Axis::none;
+        scroller_.jump_to(0.0F);
+        columns_.push_back({.column = make_column(std::move(folder))});
+        refresh_filters();
+        redraw_();
+        return;
+    }
     const std::filesystem::path target = folder->path();
     const auto inside = [&target](const std::filesystem::path& root) {
         const std::filesystem::path relative = target.lexically_relative(root);
@@ -210,7 +224,7 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
 bool ColumnView::loading() const {
     return std::ranges::any_of(columns_, [](const Slot& slot) {
         const Folder& folder = slot.column->folder();
-        return folder.model().loading() || folder.cursor_pending();
+        return folder.loading() || folder.cursor_pending();
     });
 }
 
@@ -250,7 +264,7 @@ void ColumnView::sync_columns(std::size_t index) {
         reveal_.clear();  // arrived
         focus_ = index;
     }
-    if (entry == nullptr || !entry->is_directory()) {
+    if (folder.is_collection() || entry == nullptr || !entry->is_directory()) {
         reveal_.clear();  // arrived above, or the way is lost
         truncate(index + 1);
         reveal_focus_ = true;
@@ -840,7 +854,7 @@ void ColumnView::right_click(float x, float y) {
         if (!row) {
             folder.set_cursor(std::nullopt);  // empty space: the folder's own menu
         } else {
-            folder.set_cursor(row, folder.is_selected(folder.entries()[*row].name)
+            folder.set_cursor(row, folder.is_selected(folder.entries()[*row].key())
                                        ? SelectMode::keep
                                        : SelectMode::replace);
         }
