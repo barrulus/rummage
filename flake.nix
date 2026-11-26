@@ -68,6 +68,16 @@
             python3 ${./scripts/ci/check-audio.py} ${helper}/libexec/rummage/rummage-audio ${pkgs.pulseaudio}/bin
             touch "$out"
           '';
+        model =
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
+            helper = self.packages.${system}.rummage-model;
+          in
+          pkgs.runCommand "rummage-model-installed" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+            test -s ${helper}/share/rummage/engines/model.toml
+            python3 ${./scripts/ci/check-model.py} ${helper}/libexec/rummage/rummage-model
+            touch "$out"
+          '';
         font =
           let
             pkgs = nixpkgs.legacyPackages.${system};
