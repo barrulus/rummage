@@ -366,3 +366,25 @@ TEST_CASE("terminal UI: focus styling yields the filter caret and border to the 
     f.browser.focus_terminal();
     CHECK(draw_border() == focused);
 }
+
+TEST_CASE(
+    "terminal UI: oversized selection rejects the workflow without queuing a partial command") {
+    Fixture f;
+    for (int i = 0; i < 250; ++i)
+        f.temp.write(std::string(230, 'x') + std::to_string(i), "data");
+    f.browser.open(f.temp.path);
+    REQUIRE(until(f.loop, [&] { return !f.browser.loading(); }));
+    f.browser.details().folder()->select_all();
+    f.browser.terminal_workflow(3);
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    f.browser.confirm_dialog().paste("touch SHOULD_NOT_RUN");
+    f.press(XKB_KEY_Return);
+    CHECK(f.browser.confirm_dialog().is_open());
+    REQUIRE(until(f.loop, [&] { return f.terminal().ready(); }));
+    CHECK_FALSE(fs::exists(f.temp.path / "SHOULD_NOT_RUN"));
+    f.browser.confirm_dialog().close();
+    f.browser.details().folder()->set_cursor(0);
+    f.command("printf ok > result");
+    REQUIRE(until(f.loop, [&] { return fs::exists(f.temp.path / "result"); }));
+    CHECK(read(f.temp.path / "result") == "ok");
+}
