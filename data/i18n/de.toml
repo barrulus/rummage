@@ -33,6 +33,7 @@ Menu = "Menü"
 moves = "Bewegung"
 
 [texts]
+"Gallery: hide media filenames" = "Galerie: Mediendateinamen ausblenden"
 "Mixed values" = "Unterschiedliche Werte"
 "No results" = "Keine Ergebnisse"
 "Photo Library" = "Fotobibliothek"

@@ -20,6 +20,7 @@ Menu = "メニュー"
 moves = "移動"
 
 [texts]
+"Gallery: hide media filenames" = "ギャラリー：メディアのファイル名を非表示"
 "Mixed values" = "複数の異なる値"
 "No results" = "結果なし"
 "Photo Library" = "写真ライブラリ"

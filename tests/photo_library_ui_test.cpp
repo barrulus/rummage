@@ -22,7 +22,8 @@ using rummage::ui::KeyEvent;
 using rummage::views::Browser;
 using rummage::views::PhotoLibrary;
 
-bool settle_photos(EventLoop& loop, const std::function<bool()>& predicate) {
+bool settle_photos(EventLoop& loop, const std::function<bool()>& predicate,
+                   std::chrono::milliseconds budget = 8s) {
     bool ready = false;
     const auto poll = loop.add_timer(5ms, 5ms, [&] {
         if (predicate()) {
@@ -30,7 +31,7 @@ bool settle_photos(EventLoop& loop, const std::function<bool()>& predicate) {
             loop.quit(0);
         }
     });
-    const auto timeout = loop.add_timer(8s, 0ms, [&] { loop.quit(1); });
+    const auto timeout = loop.add_timer(budget, 0ms, [&] { loop.quit(1); });
     loop.run();
     loop.remove(poll);
     loop.remove(timeout);
@@ -276,6 +277,13 @@ TEST_CASE(
     CHECK(browser.tab_titles()[photo_tab] == "Photo Library");
     press(photo_key(XKB_KEY_Home));
     draw("native-gallery");
+    browser.open_view_menu(820, 44, true);
+    const auto gallery_menu = browser.context_menu().items();
+    press(photo_key(XKB_KEY_Escape));
+    invoke(gallery_menu, "gallery");
+    draw("native-gallery-enabled");
+    CHECK(browser.gallery());
+    CHECK(browser.grid().gallery());
     REQUIRE(library->folder()->selected_count() == 1);
     const auto selected = library->selected_ids();
     const auto before = library->state();
@@ -461,13 +469,16 @@ TEST_CASE(
     REQUIRE(imported);
     library->show(PhotoLibrary::Destination::review);
     invoke(library->menu_items(), "photos:find-duplicates");
-    REQUIRE(settle_photos(loop, [&] {
-        const auto groups = library->client()
-                                ->request({{"op", "duplicates"}})
-                                .value("groups", nlohmann::json::array());
-        return !groups.empty() &&
-               groups.front().value("photos", nlohmann::json::array()).size() == 50;
-    }));
+    REQUIRE(settle_photos(
+        loop,
+        [&] {
+            const auto groups = library->client()
+                                    ->request({{"op", "duplicates"}})
+                                    .value("groups", nlohmann::json::array());
+            return !groups.empty() &&
+                   groups.front().value("photos", nlohmann::json::array()).size() == 50;
+        },
+        20s));
     library->refresh();
     REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
     draw("native-duplicate-groups");
@@ -507,7 +518,10 @@ TEST_CASE(
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
     rummage::fs::DirectoryWatcher watcher{loop};
-    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    const auto cache =
+        std::make_shared<rummage::thumbs::Cache>(directory.path / "cache", "album-gallery-test");
+    Browser browser{loop,  pool,        watcher, rummage::fs::MimeDatabase::load(),
+                    [] {}, [](auto) {}, cache};
     browser.set_places({{.label = "Home", .path = directory.path, .icon = "home"},
                         {.label = "Pictures", .path = source, .icon = "photo"}});
     rummage::ui::FontSystem fonts;
@@ -581,6 +595,19 @@ TEST_CASE(
         actual_ids.insert(row.at("id").get<PhotoLibrary::Id>());
     CHECK(actual_ids == captured_ids.get<std::set<PhotoLibrary::Id>>());
     draw("native-album-thirteen");
+    browser.set_mode(Browser::Mode::grid);
+    browser.open_view_menu(820, 44, true);
+    const auto gallery_menu = browser.context_menu().items();
+    press(photo_key(XKB_KEY_Escape));
+    invoke(gallery_menu, "gallery");
+    REQUIRE(settle_photos(loop, [&] {
+        draw();
+        return !browser.loading();
+    }));
+    draw("native-album-gallery");
+    CHECK(browser.gallery());
+    CHECK(browser.grid().gallery());
+    CHECK(library->rows().size() == 13);
     invoke(library->menu_items(), "photos:destination:0");
     REQUIRE(
         settle_photos(loop, [&] { return library->rows().size() == 14 && !library->loading(); }));
@@ -625,5 +652,146 @@ TEST_CASE(
     draw("native-album-return-all");
     for (int i = 0; i < 14; ++i)
         CHECK(std::filesystem::exists(source / (std::to_string(i) + ".png")));
+}
+
+TEST_CASE(
+    "photo workspace: native Add to album chooser captures twenty-three photos without "
+    "navigation") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Album selection";
+    for (int i = 0; i < 24; ++i)
+        fixture(source / (std::to_string(i) + ".png"));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.set_places({{.label = "Home", .path = directory.path, .icon = "home"},
+                        {.label = "Pictures", .path = source, .icon = "photo"}});
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&](const std::string& name = "") {
+        const auto frame = [&] {
+            const rummage::theme::Palette palette;
+            renderer.begin_frame(1100, 820, 1, palette.surface);
+            browser.draw(renderer, {0, 0, 1100, 820}, palette, icons, Browser::Clock::now());
+            renderer.end_frame();
+        };
+        frame();
+        if (!name.empty())
+            REQUIRE(settle_photos(loop, [&] {
+                frame();
+                return !browser.animating();
+            }));
+        capture(name, 1100, 820);
+    };
+    const auto press = [&](KeyEvent key) { REQUIRE(browser.key(key, Browser::Clock::now())); };
+    browser.open(directory.path);
+    browser.open_photo_library(source);
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 24 && !library->loading(); }));
+    const auto target =
+        library->client()->request({{"op", "create_album"}, {"name", "Family album"}});
+    REQUIRE(target.value("ok", false));
+    const auto other = library->client()->request({{"op", "create_album"},
+                                                   {"name", "Other album"},
+                                                   {"ids", {library->rows().front().at("id")}}});
+    REQUIRE(other.value("ok", false));
+    const auto members = [&](const nlohmann::json& id) {
+        std::set<PhotoLibrary::Id> ids;
+        const auto response = library->client()->request({{"op", "query"}, {"album_id", id}});
+        for (const auto& row : response.at("photos"))
+            ids.insert(row.at("id").get<PhotoLibrary::Id>());
+        return ids;
+    };
+    const auto original_other = members(other.at("id"));
+    browser.set_mode(Browser::Mode::details);
+    draw();
+    const auto select_twenty_three = [&] {
+        press(photo_key(XKB_KEY_F6, {.shift = true}));
+        press(photo_key(XKB_KEY_Home));
+        for (int i = 0; i < 22; ++i)
+            press(photo_key(XKB_KEY_Down, {.shift = true}));
+        REQUIRE(library->selected_ids().size() == 23);
+    };
+    select_twenty_three();
+    const auto selected = library->selected_ids().get<std::set<PhotoLibrary::Id>>();
+    browser.open_menu(380, 180, false);
+    REQUIRE(browser.context_menu().is_open());
+    draw("native-add-to-album-context");
+    press(photo_key(XKB_KEY_Escape));
+    invoke(library->context_menu_items(), "photos:add-to-album");
+    REQUIRE(settle_photos(loop, [&] { return browser.command_palette().is_open(); }));
+    draw("native-add-to-album-chooser");
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Family album"));
+    draw("native-add-to-album-search");
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(
+        loop, [&] { return members(target.at("id")) == selected && !library->loading(); }));
+    CHECK_FALSE(browser.command_palette().is_open());
+    CHECK(library->at_all_photos());
+    CHECK(library->rows().size() == 24);
+    CHECK(library->selected_ids().get<std::set<PhotoLibrary::Id>>() == selected);
+    draw("native-add-to-album-preserved-selection");
+    CHECK(members(other.at("id")) == original_other);
+    select_twenty_three();
+    invoke(library->menu_items(), "photos:add-to-album");
+    REQUIRE(settle_photos(loop, [&] { return browser.command_palette().is_open(); }));
+    const auto items = browser.command_palette().items();
+    const auto stale = std::ranges::find(items, "photos:album-choice:" + other.at("id").dump(),
+                                         &rummage::views::PaletteItem::id);
+    REQUIRE(stale != items.end());
+    const auto cancelled_action = stale->action;
+    press(photo_key(XKB_KEY_Escape));
+    CHECK_FALSE(browser.command_palette().is_open());
+    cancelled_action();
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    CHECK(members(other.at("id")) == original_other);
+    CHECK(members(target.at("id")) == selected);
+    CHECK(library->selected_ids().get<std::set<PhotoLibrary::Id>>() == selected);
+    // Cancel before the asynchronous list arrives: it must not reopen a chooser.
+    invoke(library->menu_items(), "photos:add-to-album");
+    library->cancel_album_chooser();
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    CHECK_FALSE(browser.command_palette().is_open());
+    invoke(library->menu_items(), "photos:add-to-album");
+    REQUIRE(settle_photos(loop, [&] { return browser.command_palette().is_open(); }));
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Create new album"));
+    library->folder()->set_cursor(23);
+    const auto changed_selection = library->selected_ids();
+    REQUIRE(changed_selection.size() == 1);
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(library->has_dialog());
+    CHECK_FALSE(browser.command_palette().is_open());
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Created from chooser"));
+    draw("native-add-to-new-album");
+    press(photo_key(XKB_KEY_Return));
+    nlohmann::json created_id;
+    REQUIRE(settle_photos(loop, [&] {
+        const auto response = library->client()->request({{"op", "albums"}});
+        for (const auto& album : response.at("albums"))
+            if (album.value("name", "") == "Created from chooser")
+                created_id = album.at("id");
+        return !created_id.is_null() && !library->loading();
+    }));
+    CHECK(members(created_id) == selected);
+    CHECK(members(other.at("id")) == original_other);
+    CHECK(members(target.at("id")) == selected);
+    CHECK(library->at_all_photos());
+    CHECK(library->selected_ids() == changed_selection);
+    invoke(library->menu_items(), "photos:clear-selection");
+    for (const auto& menu : {library->menu_items(), library->context_menu_items()}) {
+        const auto item =
+            std::ranges::find(menu, "photos:add-to-album", &rummage::views::MenuItem::id);
+        REQUIRE(item != menu.end());
+        CHECK_FALSE(item->enabled);
+    }
+    draw("native-add-to-album-complete");
 }
 #endif

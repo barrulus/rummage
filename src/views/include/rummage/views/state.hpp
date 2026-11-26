@@ -26,6 +26,7 @@ struct State {
     enum class Mode : std::uint8_t { columns, grid, details };
 
     Mode mode{Mode::columns};
+    bool gallery{false};
     bool show_hidden{false};
     bool show_extensions{true};
     bool show_thumbnails{true};

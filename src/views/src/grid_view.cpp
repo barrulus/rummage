@@ -88,7 +88,10 @@ bool GridView::on_item(std::size_t index, float x, float y) const {
     const ui::Rect name{left + ((cell_width_ - width) / 2.0F) - kNameGap,
                         top + kIconTop + icon + (kNameGap / 2.0F), width + (2.0F * kNameGap),
                         kTextSize + kNameGap};
-    return picture.contains(x, y) || name.contains(x, y);
+    return picture.contains(x, y) || name.contains(x, y) ||
+           (width < 0 && ui::Rect{left + kCellInset, top + kCellInset, cell_width_ - 2 * kCellInset,
+                                  cell_height() - 2 * kCellInset}
+                             .contains(x, y));
 }
 
 std::optional<BandLane> GridView::band_lane(const Folder& folder) const {
@@ -345,10 +348,29 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                                    .border_width = style.ring ? 1.5F : 0.0F,
                                    .border = style.ring.value_or(kTransparent)});
             }
-            draw_entry_icon(renderer, icons, palette, *folder_, entry, style,
-                            show_thumbnails_ ? thumbnails_ : nullptr,
-                            {x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, icon}, cut,
-                            cursor == i ? &motion_bounds_.visual : nullptr);
+            // Gallery uses the native grid: only a ready image/video thumbnail can replace
+            // its label. Selection, hover and rename always reveal the filename.
+            const float gallery_icon =
+                std::min(cell_width_ - kCellExtraWidth, height - 2 * kIconTop);
+            bool gallery_item = false;
+            if (gallery_ && show_thumbnails_ && thumbnails_ && !entry.is_directory() &&
+                !folder_->is_archive() && cursor != i && hovered_ != i &&
+                !folder_->is_selected(entry.key()) && !(edit_ && edit_->holds(*folder_, entry)) &&
+                !folder_->path_of(entry).empty()) {
+                const auto type = folder_->mime().name(folder_->mime_of(entry));
+                if (type.starts_with("image/") || type.starts_with("video/"))
+                    gallery_item =
+                        thumbnails_->get(folder_->path_of(entry), entry.modified_ns,
+                                         thumbs::size_for(static_cast<std::uint32_t>(
+                                             std::lround(gallery_icon * renderer.scale()))),
+                                         type, nullptr, !entry.available) != nullptr;
+            }
+            const float item_icon = gallery_item ? gallery_icon : icon;
+            draw_entry_icon(
+                renderer, icons, palette, *folder_, entry, style,
+                show_thumbnails_ ? thumbnails_ : nullptr,
+                {x + ((cell_width_ - item_icon) / 2.0F), y + kIconTop, item_icon, item_icon}, cut,
+                cursor == i ? &motion_bounds_.visual : nullptr);
             if (cursor == i)
                 motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(area_);
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {
@@ -359,6 +381,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                               kTextSize + (2.0F * pad) + 6.0F},
                              kTextSize);
                 name_width_.push_back(cell_width_ - (2.0F * kNameMargin));
+                continue;
+            }
+            if (gallery_item) {
+                name_width_.push_back(-1);
                 continue;
             }
             const ui::TextLayout& name =

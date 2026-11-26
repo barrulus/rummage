@@ -239,6 +239,8 @@ Pane& Browser::add_pane(std::size_t at) {
 }
 
 void Browser::leave_pane() {
+    if (showing_photos())
+        photo_library_->cancel_album_chooser();
     clear_type_jump();
     area().breadcrumb.cancel_edit();
     info_pane_.clear_text_focus();
@@ -3636,6 +3638,7 @@ State Browser::state() {
     state.show_hidden = pane().show_hidden;
     state.show_extensions = show_extensions_;
     state.show_thumbnails = show_thumbnails_;
+    state.gallery = gallery_;
     state.sidebar_visible = sidebar_visible_;
     state.sidebar_width = sidebar_.width();
     state.sidebar_size = sidebar_.list_size();
@@ -3843,6 +3846,7 @@ void Browser::apply(const State& state) {
     }
     show_extensions_ = state.show_extensions;
     show_thumbnails_ = state.show_thumbnails;
+    gallery_ = state.gallery;
     pane().show_hidden = state.show_hidden;
     palette_recent_ = state.palette_recent;
     saved_searches_ = state.saved_searches;
@@ -4384,6 +4388,7 @@ void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
     }
     pane().columns.set_show_thumbnails(show_thumbnails_);
     pane().grid.set_show_thumbnails(show_thumbnails_);
+    pane().grid.set_gallery(gallery_);
     pane().details.set_show_thumbnails(show_thumbnails_);
     pane().columns.set_show_extensions(show_extensions_);
     pane().grid.set_show_extensions(show_extensions_);
@@ -6144,6 +6149,8 @@ bool Browser::key(const ui::KeyEvent& event, Clock::time_point now) {
 }
 
 bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
+    if (showing_photos() && event.keysym == XKB_KEY_Escape)
+        photo_library_->cancel_album_chooser();
     if (drag_ && event.keysym == XKB_KEY_Escape && event.modifiers == ui::Modifiers{}) {
         if (dnd_.cancel) {
             dnd_.cancel();

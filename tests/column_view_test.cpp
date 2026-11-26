@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -15,6 +16,8 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/thumbs/cache.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
 
@@ -586,4 +589,125 @@ TEST_CASE("collection folder: shared views adopt rows without opening a director
     CHECK_FALSE(details.loading());
     CHECK(folder->model().path().empty());
     CHECK(folder->path_of(row).empty());
+}
+
+TEST_CASE("gallery: native view menu selects Grid and preserves the window preference") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    CHECK_FALSE(f.browser.gallery());
+    f.browser.open_view_menu(0, 0, true);
+    const auto& items = f.browser.context_menu().items();
+    const auto found = std::ranges::find(items, "gallery", &rummage::views::MenuItem::id);
+    REQUIRE(found != items.end());
+    CHECK(found->checkable);
+    CHECK_FALSE(found->checked);
+    auto activate = found->action;
+    f.browser.context_menu().close();
+    activate();
+    CHECK(f.browser.gallery());
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+    CHECK(f.browser.state().gallery);
+    f.browser.set_mode(Browser::Mode::columns);
+    CHECK(f.browser.gallery());
+    f.browser.open_view_menu(0, 0, true);
+    const auto& reopened = f.browser.context_menu().items();
+    const auto enabled = std::ranges::find(reopened, "gallery", &rummage::views::MenuItem::id);
+    REQUIRE(enabled != reopened.end());
+    CHECK(enabled->checked);
+    activate = enabled->action;
+    f.browser.context_menu().close();
+    activate();
+    CHECK_FALSE(f.browser.gallery());
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+}
+
+TEST_CASE("gallery: offline cached media hides names only until focused or hovered") {
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(400, 400);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    TempDir directory;
+    const auto photo = directory.path / "same.jpg";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "image/with-thumbnail.jpg", photo);
+    struct stat info{};
+    REQUIRE(::stat(photo.c_str(), &info) == 0);
+    auto cache = std::make_shared<rummage::thumbs::Cache>(directory.path / "cache", "gallery-test");
+    REQUIRE_FALSE(cache->get(photo, rummage::thumbs::Size::normal).image.empty());
+    fs::remove(photo);
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::Thumbnails thumbnails{loop, pool, cache, [] {}};
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry first;
+    first.name = "same.jpg";
+    first.kind = rummage::fs::EntryKind::file;
+    first.mime = mime->by_name(first.name).mime;
+    first.modified_ns =
+        static_cast<std::int64_t>(info.st_mtim.tv_sec) * 1000000000LL + info.st_mtim.tv_nsec;
+    first.identity = "photo:100";
+    first.location = photo;
+    first.available = false;
+    auto missing = first;
+    missing.identity = "photo:101";
+    missing.location = directory.path / "missing" / "same.jpg";
+    rummage::fs::Entry logical;
+    logical.name = "Album";
+    logical.kind = rummage::fs::EntryKind::directory;
+    logical.identity = "album:1";
+    logical.available = false;
+    folder->replace_collection({first, missing, logical}, "Photos", 3);
+    folder->set_cursor(std::nullopt);
+    GridView grid{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}, &thumbnails};
+    grid.set_info_visible(false);
+    grid.set_size_index(Browser::grid_index(96));
+    grid.set_gallery(true);
+    grid.show(folder);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(400, 400, 1, {});
+        grid.draw(renderer, {0, 0, 400, 400}, rummage::theme::Palette{}, icons,
+                  GridView::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    REQUIRE(run_until(loop, [&] { return !thumbnails.loading(); }));
+    draw();
+    REQUIRE(grid.columns() == 2);
+    const auto gallery_hit = grid.hit(21, 21);
+    REQUIRE(gallery_hit);
+    CHECK(gallery_hit->entry == 0);
+    CHECK(gallery_hit->on_item);  // The thumbnail's enlarged gallery cell is interactive.
+    const auto missing_hit = grid.hit(205, 21);
+    REQUIRE(missing_hit);
+    CHECK_FALSE(missing_hit->on_item);  // Uncached originals keep the normal labelled cell.
+    const auto folder_hit = grid.hit(21, 21 + grid.cell_height());
+    REQUIRE(folder_hit);
+    CHECK_FALSE(folder_hit->on_item);
+    folder->set_cursor(0);
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    folder->set_cursor(std::nullopt);
+    grid.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 100, .y = 60},
+                 GridView::Clock::now());
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    grid.pointer({.kind = rummage::ui::PointerEvent::Kind::leave}, GridView::Clock::now());
+    grid.set_show_thumbnails(false);
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    grid.set_show_thumbnails(true);
+    grid.set_gallery(false);
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    CHECK_FALSE(fs::exists(photo));
+    CHECK_FALSE(fs::exists(missing.location.parent_path()));
 }

@@ -222,6 +222,13 @@ public:
 
     [[nodiscard]] bool shows_thumbnails() const { return show_thumbnails_; }
 
+    void set_gallery(bool gallery) {
+        gallery_ = gallery;
+        redraw_();
+    }
+
+    [[nodiscard]] bool gallery() const { return gallery_; }
+
     void set_entry_filter(fs::Listing::Predicate filter);
     // Live filename substring filter, combined with the picker's type restrictions.
     void set_name_filter(std::string text);
@@ -1225,6 +1232,7 @@ private:
     ShortcutsOverlay shortcuts_;
     bool show_extensions_{true};
     bool show_thumbnails_{true};
+    bool gallery_{false};
     NameEditor editor_;
     ConflictDialog conflict_;
     ConfirmDialog confirm_;

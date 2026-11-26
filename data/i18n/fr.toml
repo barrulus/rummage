@@ -29,6 +29,7 @@ Arrows = "Flèches"
 moves = "déplacement"
 
 [texts]
+"Gallery: hide media filenames" = "Galerie : masquer les noms des médias"
 "Mixed values" = "Valeurs différentes"
 "No results" = "Aucun résultat"
 "Photo Library" = "Photothèque"

@@ -76,6 +76,12 @@ public:
 
     void set_path_chooser(PathChooser choose) { choose_path_ = std::move(choose); }
 
+    void set_album_chooser(std::function<void(std::vector<MenuItem>, std::string)> choose) {
+        choose_album_ = std::move(choose);
+    }
+
+    void cancel_album_chooser() { ++album_chooser_generation_; }
+
     void set_file_action(std::function<void(Json)> action) { file_action_ = std::move(action); }
 
     void set_edit_handler(std::function<void()> edit) { edit_ = std::move(edit); }
@@ -137,6 +143,8 @@ private:
     void update_background(const Json&);
     void control_background(Json);
     void page(int direction);
+    void add_to_album();
+    void create_album(Json ids);
     void name_dialog(std::string title, std::string detail, std::string action,
                      std::function<void(std::string)>);
     void open_form(Form, std::vector<std::pair<std::string, std::string>> fields = {});
@@ -161,6 +169,7 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_, changed_, edit_;
     FolderChooser choose_folder_;
+    std::function<void(std::vector<MenuItem>, std::string)> choose_album_;
     PathChooser choose_path_;
     std::function<void(std::filesystem::path)> reveal_;
     std::function<void(Json)> file_action_;
@@ -172,6 +181,7 @@ private:
     core::CancelToken query_job_;
     core::EventLoop::SourceId work_timer_{};
     std::uint64_t task_ids_{}, generation_{}, progress_generation_{}, background_generation_{};
+    std::uint64_t album_chooser_generation_{};
     bool open_{false}, querying_{false}, working_{false}, publishing_{false};
     Destination destination_{Destination::library};
     Json rows_ = Json::array(), records_ = Json::array(), filter_ = Json::object();

@@ -341,6 +341,7 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     State& s = result.state;
     Reader read{root, source};
     read.word("view.mode", kModes, s.mode);
+    read.flag("view.gallery", s.gallery);
     read.flag("view.show_hidden", s.show_hidden);
     read.flag("view.show_extensions", s.show_extensions);
     read.flag("view.show_thumbnails", s.show_thumbnails);
@@ -728,6 +729,7 @@ std::string format_state(const State& s) {
                "\n"
                "[view]\n"
                "mode = \"{}\"\n"
+               "gallery = {}\n"
                "show_hidden = {}\n"
                "show_extensions = {}\n"
                "show_thumbnails = {}\n"
@@ -759,9 +761,10 @@ std::string format_state(const State& s) {
                "\n"
                "[palette]\n"
                "recent = [{}]\n",
-               word_of(kModes, s.mode), flag(s.show_hidden), flag(s.show_extensions),
-               flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
-               strings(s.sidebar_order), strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
+               word_of(kModes, s.mode), flag(s.gallery), flag(s.show_hidden),
+               flag(s.show_extensions), flag(s.show_thumbnails),
+               word_of(kListSizeWords, s.list_size), s.grid_icon, strings(s.sidebar_order),
+               strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
                word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
                flag(s.info_visible), flag(s.info_auto_hide), s.info_width, flag(s.info_expanded),
                s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),

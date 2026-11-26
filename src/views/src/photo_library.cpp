@@ -546,6 +546,7 @@ void PhotoLibrary::show(Destination destination) {
 void PhotoLibrary::set_query(std::string query_text) {
     if (query_text == search_)
         return;
+    cancel_album_chooser();
     sync_selection();
     search_ = std::move(query_text);
     offset_ = 0;
@@ -575,6 +576,7 @@ void PhotoLibrary::set_sort(const fs::SortOrder& order) {
 }
 
 void PhotoLibrary::page(int direction) {
+    cancel_album_chooser();
     sync_selection();
     if (direction < 0)
         offset_ = offset_ >= page_size_ ? offset_ - page_size_ : 0;
@@ -817,8 +819,59 @@ void PhotoLibrary::save_annotations(std::vector<Id> ids, PhotoEdits edits,
     });
 }
 
+void PhotoLibrary::create_album(Json ids) {
+    const auto detail =
+        ids.empty()
+            ? "Create an empty album. Originals stay in place."
+            : std::format("Include {} selected photos. Originals stay in place.", ids.size());
+    name_dialog("Create album", detail, "Create", [this, ids = std::move(ids)](std::string name) {
+        mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
+               ids.empty() ? "Empty album created"
+                           : std::format("Album created with {} photos", ids.size()));
+    });
+}
+
+void PhotoLibrary::add_to_album() {
+    const auto ids = selected_ids();
+    if (ids.empty() || !choose_album_ || !photo_rows())
+        return;
+    const auto epoch = ++album_chooser_generation_;
+    request({{"op", "albums"}}, [this, ids, epoch](Json response) {
+        if (epoch != album_chooser_generation_ || !open_ || !photo_rows() ||
+            !response.value("ok", false))
+            return;
+        std::vector<MenuItem> choices;
+        for (const auto& album : response.value("albums", Json::array())) {
+            const auto id = album.value("id", Id{});
+            const auto name = album.value("name", "");
+            MenuItem item;
+            item.id = "photos:album-choice:" + std::to_string(id);
+            item.label = name;
+            item.action = [this, alive = alive_, ids, id, name, epoch] {
+                if (!*alive || epoch != album_chooser_generation_ || !open_ || !photo_rows())
+                    return;
+                cancel_album_chooser();
+                mutate({{"op", "edit"}, {"ids", ids}, {"add_albums", {id}}},
+                       std::format("Added {} photos to “{}”", ids.size(), name));
+            };
+            choices.push_back(std::move(item));
+        }
+        MenuItem create;
+        create.id = "photos:album-create";
+        create.label = "Create new album…";
+        create.action = [this, alive = alive_, ids, epoch] {
+            if (!*alive || epoch != album_chooser_generation_ || !open_ || !photo_rows())
+                return;
+            create_album(ids);
+        };
+        choices.push_back(std::move(create));
+        choose_album_(std::move(choices), std::format("Add {} photos to album…", ids.size()));
+    });
+}
+
 void PhotoLibrary::name_dialog(std::string title_text, std::string detail, std::string action,
                                std::function<void(std::string)> accept) {
+    cancel_album_chooser();
     confirm_.open_name(
         std::move(title_text), std::move(detail), "",
         [accept = std::move(accept)](const std::string& name) {
@@ -878,19 +931,11 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
                                "Photo search saved");
                     });
     });
-    add("photos:create-album", "Create album…", [this] {
-        const auto ids = selected_ids();
-        name_dialog(
-            "Create album",
-            ids.empty()
-                ? "Create an empty album. Originals stay in place."
-                : std::format("Include {} selected photos. Originals stay in place.", ids.size()),
-            "Create", [this, ids](std::string name) {
-                mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
-                       ids.empty() ? "Empty album created"
-                                   : std::format("Album created with {} photos", ids.size()));
-            });
-    });
+    add("photos:create-album", "Create album…", [this] { create_album(selected_ids()); });
+    if (photo_rows())
+        add(
+            "photos:add-to-album", "Add to album…", [this] { add_to_album(); },
+            !selected_.empty() && static_cast<bool>(choose_album_));
     if (photo_rows())
         add(
             "photos:edit", "Edit photo annotations…",
@@ -1077,6 +1122,9 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
                     edit_();
             },
             !ids.empty() && static_cast<bool>(edit_));
+        add(
+            "photos:add-to-album", "Add to album…", [this] { add_to_album(); },
+            !ids.empty() && static_cast<bool>(choose_album_));
         if (destination_ == Destination::duplicate_group) {
             add(
                 "photos:keep", "Keep selected copies",
@@ -1116,7 +1164,9 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
     if (!common.empty())
         common.front().separator = true;
     for (auto& item : common)
-        result.push_back(std::move(item));
+        if (std::ranges::none_of(result,
+                                 [&](const MenuItem& existing) { return existing.id == item.id; }))
+            result.push_back(std::move(item));
     return result;
 }
 
@@ -1228,6 +1278,7 @@ void PhotoLibrary::relink_source(const Json& source) {
 }
 
 void PhotoLibrary::open_form(Form form, std::vector<std::pair<std::string, std::string>> fields) {
+    cancel_album_chooser();
     confirm_.close();
     ++edit_generation_;
     ++form_generation_;
@@ -1264,6 +1315,7 @@ void PhotoLibrary::open_form(Form form, std::vector<std::pair<std::string, std::
 }
 
 void PhotoLibrary::close_form() {
+    cancel_album_chooser();
     ++edit_generation_;
     ++form_generation_;
     form_ = Form::none;

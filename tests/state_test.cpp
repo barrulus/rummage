@@ -653,3 +653,18 @@ TEST_CASE("state: logical photo tabs persist without filesystem locations") {
         CHECK(rejected.problems.size() == 1);
     }
 }
+
+TEST_CASE("state: native Gallery is opt-in and persists independently of view mode") {
+    CHECK_FALSE(parse("").state.gallery);
+    State state;
+    state.gallery = true;
+    state.mode = State::Mode::details;
+    const auto restored = parse(format_state(state));
+    CHECK(restored.problems.empty());
+    CHECK(restored.state == state);
+    CHECK(restored.state.gallery);
+    CHECK(restored.state.mode == State::Mode::details);
+    const auto invalid = parse("[view]\ngallery = 'yes'\n");
+    CHECK_FALSE(invalid.problems.empty());
+    CHECK_FALSE(invalid.state.gallery);
+}

@@ -110,6 +110,25 @@ void Browser::prepare_photo_library() {
                 show_message("The folder chooser is unavailable", true);
         });
         photo_library_->set_edit_handler([this] { open_photo_properties(); });
+        photo_library_->set_album_chooser([this](std::vector<MenuItem> choices, std::string title) {
+            if (!showing_photos() || has_overlay())
+                return;
+            std::vector<PaletteItem> items;
+            for (auto& choice : choices) {
+                if (!choice.enabled || !choice.action)
+                    continue;
+                items.push_back({.id = std::move(choice.id),
+                                 .label = std::move(choice.label),
+                                 .keys = {},
+                                 .remember = false,
+                                 .action = std::move(choice.action),
+                                 .path = false,
+                                 .quick_look = {},
+                                 .open = {}});
+            }
+            palette_use_ = PaletteUse::commands;
+            palette_.open(std::move(items), {}, std::move(title));
+        });
         photo_library_->set_path_chooser([this](const auto& request, auto chosen) {
             if (photo_path_chooser_)
                 photo_path_chooser_(request, std::move(chosen));

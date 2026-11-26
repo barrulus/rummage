@@ -36,6 +36,11 @@ modification time or original location; Details includes the location so same-na
 from different folders remain distinguishable. The information pane shows the focused photo’s
 preview, cached metadata and catalog annotations.
 
+The view menu’s **Gallery: hide media filenames** option switches to Grid and enlarges ready
+image and video thumbnails into the label area. It works in the full library and inside albums.
+Selected, focused and hovered photos retain their names; missing thumbnails retain their labels.
+The Gallery preference is remembered between sessions.
+
 Results are paged. The Photo Library menu provides **Previous photo page**, **Next photo page**,
 and **Select loaded photos (this page)**. Selecting a page does not select every matching result.
 Selection can span pages; the status bar reports its scope. Use **Clear all photo selection**
@@ -74,7 +79,12 @@ An unknown timezone stays unknown; modification time is not substituted as the c
 The information pane and Properties identify an extracted, user-supplied or unknown date. Rescanning preserves
 manual annotations and date overrides.
 
-Select photos and use **Create album…** in the Photo Library menu to create an album containing
+Select photos, right-click and choose **Add to album…**. Choose an existing album in the
+searchable album list, or **Create new album…** to make one from the same selection. Cancelling
+the chooser leaves your photos and album memberships unchanged. This action is also in the
+Photo Library toolbar menu.
+
+Use **Create album…** in the Photo Library menu to create an album containing
 that selection. The dialog shows how many photos will be included; with no selection it creates
 an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
 album. Choose **All photos**, click **Photo Library** in the sidebar, or use Back or Parent to

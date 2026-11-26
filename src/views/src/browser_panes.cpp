@@ -204,6 +204,16 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         item.action = [this, command] { run(command, Clock::now()); };
         items.push_back(std::move(item));
     }
+    MenuItem gallery;
+    gallery.id = "gallery";
+    gallery.label = i18n::tr("Gallery: hide media filenames");
+    gallery.checkable = true;
+    gallery.checked = gallery_;
+    gallery.action = [this] {
+        set_gallery(!gallery_);
+        set_mode(Mode::grid);
+    };
+    items.push_back(std::move(gallery));
     items.push_back(sort_menu());
     items.push_back(name_filter_menu());
     if (!picker_mode_) {
