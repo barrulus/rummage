@@ -393,17 +393,6 @@ A small icon badge and “Runs as program” in the information pane indicate ex
 with permission. Direct opening runs ELF programs/AppImages, not scripts or documents renamed
 to look like executables; a filesystem mounted `noexec` reports why running is unavailable.
 
-## File permissions
-
-Open **Properties** to change owner, group and others' read, write and execute
-permissions on a file or folder you own. For folders, execute permits traversal.
-Changes are staged until **Apply**; **Cancel** discards them. The operation affects
-only that item, not its children, and uses your current user permissions without
-elevation. Symbolic links and read-only archive items do not offer permission edits.
-Ownership and special permission bits are not editable. Filesystem errors and
-changes made externally while Properties was open leave the dialog open with an error.
-
-
 ## Choosing applications
 
 **Open With…** in the command palette lists installed, launchable applications,
@@ -420,7 +409,10 @@ Read-only configuration and concurrent edits detected during saving are reported
 If saving several override files partially fails, retry after correcting the error;
 successfully written associations remain saved. No system-wide MIME files are changed.
 
-### Permissions and ownership
+## Permissions and ownership
+
+Open **Properties** and edit permissions, then choose **Apply**; **Cancel** discards the draft.
+Symbolic links and read-only archive members do not offer permission edits.
 
 Properties accepts multiple selected files and folders. Mixed read/write/execute bits are shown
 as mixed; only bits you edit apply to every selected item. Owner and group accept an account name
@@ -435,7 +427,7 @@ errors name failed items. Retry retains your draft and refreshes successfully va
 externally changed or replaced targets require reopening Properties. Permission/ownership edits
 are immediate filesystem metadata changes and are not part of file-operation Undo.
 
-### Tags, ratings and comments
+## Tags, ratings and comments
 
 Properties edits comma-separated tags, a rating from 0 to 5, and a comment. Multiple selections
 keep mixed fields unchanged until edited. Empty edits remove the corresponding value. The info
@@ -459,7 +451,8 @@ Hard links share annotations. External copy/archive tools may discard extended a
 The optional Details “File rating” column displays and sorts general ratings. Zero is unrated;
 a dash means unavailable or malformed storage. Ratings are read on directory workers and refreshed
 with filesystem attribute changes. This sort is independent of photo star ratings in sidecars.
-### Archive members and executable trust
+
+## Archive members and executable trust
 
 Drag archive members to an ordinary folder, another pane or another Rummage window
 to extract them. These drags always copy, including when Shift is held. They use
