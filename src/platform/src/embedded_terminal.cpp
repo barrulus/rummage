@@ -128,7 +128,10 @@ struct EmbeddedTerminal::Impl {
             return 0;
         auto row = std::move(self.history.back());
         self.history.pop_back();
-        std::fill(cells, cells + cols, VTermScreenCell{});
+        VTermScreenCell blank{};
+        blank.fg.type = VTERM_COLOR_DEFAULT_FG;
+        blank.bg.type = VTERM_COLOR_DEFAULT_BG;
+        std::fill(cells, cells + cols, blank);
         std::copy_n(row.begin(), std::min(row.size(), static_cast<std::size_t>(cols)), cells);
         return 1;
     }
@@ -591,6 +594,8 @@ EmbeddedTerminal::Screen EmbeddedTerminal::screen() const {
     for (int row = 0; row < p.rows; ++row)
         for (int col = 0; col < p.columns; ++col) {
             VTermScreenCell cell{};
+            cell.fg.type = VTERM_COLOR_DEFAULT_FG;
+            cell.bg.type = VTERM_COLOR_DEFAULT_BG;
             const int source = row - p.offset;
             if (source < 0) {
                 const int h = static_cast<int>(p.history.size()) + source;
@@ -604,6 +609,15 @@ EmbeddedTerminal::Screen EmbeddedTerminal::screen() const {
                 for (const auto c : cell.chars)
                     if (c && c != UINT32_MAX)
                         out.text += utf8(c);
+            const auto role = [](const VTermColor& color) {
+                if (VTERM_COLOR_IS_DEFAULT_FG(&color))
+                    return ColorRole::foreground;
+                if (VTERM_COLOR_IS_DEFAULT_BG(&color))
+                    return ColorRole::background;
+                return ColorRole::explicit_rgb;
+            };
+            out.fg_role = role(cell.fg);
+            out.bg_role = role(cell.bg);
             auto fg = cell.fg, bg = cell.bg;
             vterm_screen_convert_color_to_rgb(p.display, &fg);
             vterm_screen_convert_color_to_rgb(p.display, &bg);
@@ -613,8 +627,10 @@ EmbeddedTerminal::Screen EmbeddedTerminal::screen() const {
             };
             out.fg = rgb(fg);
             out.bg = rgb(bg);
-            if (cell.attrs.reverse)
+            if (cell.attrs.reverse) {
                 std::swap(out.fg, out.bg);
+                std::swap(out.fg_role, out.bg_role);
+            }
             out.underline = cell.attrs.underline != 0;
             result.cells.push_back(std::move(out));
         }

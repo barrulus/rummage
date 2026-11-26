@@ -41,9 +41,14 @@ public:
         f12
     };
 
+    enum class ColorRole : std::uint8_t { explicit_rgb, foreground, background };
+
     struct Cell {
         std::string text;
         std::uint32_t fg{0xd8dee9}, bg{0x11131a};
+        // Preserve defaults independently of their RGB values so live themes and reverse
+        // video can resolve them without changing explicit ANSI colors.
+        ColorRole fg_role{ColorRole::foreground}, bg_role{ColorRole::background};
         int width{1};
         bool underline{false};
     };

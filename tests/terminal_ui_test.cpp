@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -713,6 +714,93 @@ TEST_CASE("terminal UI: all placements render above search and retain terminal i
             output.write(reinterpret_cast<const char*>(png.data()),
                          static_cast<std::streamsize>(png.size()));
             REQUIRE(output.good());
+        }
+    }
+}
+
+TEST_CASE("terminal UI: theme defaults and opacity preserve explicit ANSI and inverse colors") {
+    namespace ui = rummage::ui;
+    using Role = rummage::platform::EmbeddedTerminal::ColorRole;
+    Fixture f;
+    f.start();
+    ui::Offscreen surface{800, 300};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    auto& panel = f.browser.terminal_panel();
+    renderer.begin_frame(800, 300, 1, {});
+    panel.draw(renderer, {0, 0, 800, 300}, {});
+    renderer.end_frame();
+    // The explicit RGB deliberately equals the old default background: it must not be
+    // mistaken for a theme default. Rows are default, explicit, inverse and underline.
+    REQUIRE(f.terminal().command(
+        "printf '\\033[2J\\033[H\\033[0m        "
+        "\\033[2;1H\\033[48;2;17;19;26m        "
+        "\\033[0m\\033[3;1H\\033[7m        "
+        "\\033[0m\\033[4;1H\\033[4m        "
+        "\\033[0m\\033[5;1H\\033[4;38;2;216;222;233m        \\033[0m\\033[7;1H'"));
+    REQUIRE(until(f.loop, [&] { return f.terminal().ready(); }));
+    const auto screen = f.terminal().screen();
+    REQUIRE(screen.rows > 5);
+    CHECK(screen.cells[0].fg_role == Role::foreground);
+    CHECK(screen.cells[0].bg_role == Role::background);
+    CHECK(screen.cells[static_cast<std::size_t>(screen.columns)].bg_role == Role::explicit_rgb);
+    CHECK(screen.cells[static_cast<std::size_t>(screen.columns)].bg == 0x11131a);
+    CHECK(screen.cells[static_cast<std::size_t>(screen.columns * 2)].bg_role == Role::foreground);
+    CHECK(screen.cells[static_cast<std::size_t>(screen.columns * 2)].fg_role == Role::background);
+    CHECK(screen.cells[static_cast<std::size_t>(screen.columns * 4)].fg_role == Role::explicit_rgb);
+    const auto pixel = [](int x, int y) {
+        std::array<std::uint8_t, 4> rgba{};
+        glReadPixels(x, 299 - y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+        return rgba;
+    };
+    const auto matches = [&](int x, int y, ui::Color expected) {
+        const auto rgba = pixel(x, y);
+        const auto premultiplied = expected.premultiplied();
+        CHECK(std::abs(static_cast<double>(rgba[0]) -
+                       static_cast<double>(premultiplied.r) * 255.0) <= 1.0);
+        CHECK(std::abs(static_cast<double>(rgba[1]) -
+                       static_cast<double>(premultiplied.g) * 255.0) <= 1.0);
+        CHECK(std::abs(static_cast<double>(rgba[2]) -
+                       static_cast<double>(premultiplied.b) * 255.0) <= 1.0);
+        CHECK(std::abs(static_cast<double>(rgba[3]) -
+                       static_cast<double>(premultiplied.a) * 255.0) <= 1.0);
+    };
+    for (const bool dark : {true, false}) {
+        rummage::theme::Palette palette;
+        palette.surface = ui::Color::rgb(dark ? 0x123456 : 0xf1e6d5);
+        palette.on_surface = ui::Color::rgb(dark ? 0xecdabc : 0x172533);
+        palette.surface_container_highest = ui::Color::rgb(dark ? 0x234567 : 0xdacbbb);
+        for (const float opacity : {0.0F, 0.4F, 1.0F}) {
+            CAPTURE(dark);
+            CAPTURE(opacity);
+            renderer.begin_frame(800, 300, 1, ui::Color::rgb(0xff0000), opacity);
+            // A floating terminal must replace, not blend over, the file content underneath.
+            renderer.fill_rect({0, 0, 800, 300}, ui::Color::rgb(0x00ff00));
+            panel.draw(renderer, {0, 0, 800, 300}, palette);
+            renderer.end_frame();
+            matches(600, 200, palette.surface.with_alpha(opacity));
+            matches(10, 42, palette.surface.with_alpha(opacity));
+            matches(600, 20, palette.surface_container_highest.with_alpha(opacity));
+            matches(10, 60, ui::Color::rgb(0x11131a));
+            matches(10, 78, palette.on_surface);
+            matches(10, 104, palette.on_surface);  // default foreground underline stays opaque
+            matches(10, 122, ui::Color::rgb(0xd8dee9));  // explicit foreground stays literal
+            if (opacity == 0.4F) {
+                if (const char* prefix = std::getenv("RUMMAGE_TERMINAL_SNAPSHOT")) {
+                    std::vector<std::uint8_t> pixels(800 * 300 * 4), flipped(pixels.size());
+                    glReadPixels(0, 0, 800, 300, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                    for (int y = 0; y < 300; ++y)
+                        std::copy_n(pixels.data() + y * 800 * 4, 800 * 4,
+                                    flipped.data() + (299 - y) * 800 * 4);
+                    const auto png = rummage::picture::encode_png(
+                        {.width = 800, .height = 300, .rgba = std::move(flipped)});
+                    std::ofstream output{std::string{prefix} + (dark ? "-dark.png" : "-light.png"),
+                                         std::ios::binary};
+                    output.write(reinterpret_cast<const char*>(png.data()),
+                                 static_cast<std::streamsize>(png.size()));
+                    REQUIRE(output.good());
+                }
+            }
         }
     }
 }

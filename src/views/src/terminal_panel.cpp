@@ -137,8 +137,8 @@ void TerminalPanel::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (bounds.empty())
         return;
     renderer.push_clip(bounds);
-    renderer.fill_background(bounds, ui::Color::rgb(0x11131a));
-    renderer.fill_rect(header_, palette.surface_container_highest);
+    renderer.fill_background(bounds, palette.surface);
+    renderer.fill_background(header_, palette.surface_container_highest);
     renderer.fill_rect(grip_, focused_ ? palette.primary : palette.outline_variant);
     renderer.draw_text(
         bounds.width >= 360 ? i18n::tr("Terminal · Ctrl+` focuses files") : i18n::tr("Terminal"),
@@ -163,14 +163,27 @@ void TerminalPanel::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.accessible(std::move(node), area);
     }
     const auto state = session_.screen();
+    using Role = platform::EmbeddedTerminal::ColorRole;
+    const auto color = [&](std::uint32_t rgb, Role role) {
+        if (role == Role::foreground)
+            return palette.on_surface.with_alpha(1);
+        if (role == Role::background)
+            return palette.surface.with_alpha(1);
+        return ui::Color::rgb(rgb);
+    };
     renderer.push_clip(area);
     for (int y = 0; y < state.rows; ++y)
         for (int x = 0; x < state.columns; ++x) {
             const auto index = static_cast<std::size_t>(y * state.columns + x);
-            if (index < state.cells.size())
-                renderer.fill_rect({area.x + static_cast<float>(x) * cell,
-                                    area.y + static_cast<float>(y) * row, cell, row},
-                                   ui::Color::rgb(state.cells[index].bg));
+            if (index < state.cells.size()) {
+                const auto& value = state.cells[index];
+                // The panel already owns the default background, including its opacity.
+                // Explicit and inverse-video backgrounds remain opaque highlights.
+                if (value.bg_role != Role::background)
+                    renderer.fill_rect({area.x + static_cast<float>(x) * cell,
+                                        area.y + static_cast<float>(y) * row, cell, row},
+                                       color(value.bg, value.bg_role));
+            }
         }
 
     for (int y = 0; y < state.rows; ++y)
@@ -183,10 +196,10 @@ void TerminalPanel::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                         py = area.y + static_cast<float>(y) * row;
 
             if (!value.text.empty())
-                renderer.draw_text(value.text, px, py, font, ui::Color::rgb(value.fg), 0,
+                renderer.draw_text(value.text, px, py, font, color(value.fg, value.fg_role), 0,
                                    ui::Ellipsis::end, ui::Typeface::monospace);
             if (value.underline)
-                renderer.fill_rect({px, py + row - 2, cell, 1}, ui::Color::rgb(value.fg));
+                renderer.fill_rect({px, py + row - 2, cell, 1}, color(value.fg, value.fg_role));
         }
     if (focused_ && state.cursor_visible)
         renderer.fill_rect({area.x + static_cast<float>(state.cursor_column) * cell,

@@ -18,6 +18,10 @@ The close button hides the panel. Hiding it retains the shell and its jobs;
 closing the window ends the terminal session and its foreground/background jobs.
 Commands which deliberately start a separate session are independent.
 
+The terminal's default colors follow the application theme and background opacity,
+including live appearance changes. Text and explicit ANSI background highlights
+remain opaque for readability.
+
 The terminal uses `$SHELL`, falling back to `/bin/sh`, and starts in the current
 folder. It supports ANSI colours, UTF-8, cursor/function keys, alternate-screen
 programs and terminal resize. While it has focus, ordinary browsing shortcuts go
