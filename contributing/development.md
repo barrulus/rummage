@@ -134,6 +134,11 @@ The example is a smoke run, not a release qualification. Targets are `tiff`,
 `rummage-fuzz-` prefix. Keep generated corpus files separate from committed seeds;
 preserve crash inputs and reproduce them in the same instrumented build.
 Camera corpora may require local samples; SVG corpus references are not all shipped.
+The standalone picture fuzzer releases its prepared SVG font map and finalizes
+Fontconfig after each input, before libFuzzer checks leaks. This tears down the
+thread/process caches without suppressing allocation reports; production helpers
+continue to reuse their prepared map across requests.
+
 SVG changes have the longer fuzzing and visual requirements in
 [their validation policy](svg-validation.md).
 

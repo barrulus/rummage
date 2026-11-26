@@ -12,7 +12,8 @@ target_link_libraries(rummage-fuzz-camera PRIVATE rummage::formats::image rummag
 target_link_options(rummage-fuzz-camera PRIVATE -fsanitize=fuzzer)
 
 add_executable(rummage-fuzz-picture fuzz_picture.cpp)
-target_link_libraries(rummage-fuzz-picture PRIVATE rummage::formats rummage::warnings)
+target_link_libraries(rummage-fuzz-picture PRIVATE rummage::formats rummage::formats::image
+    PkgConfig::FONTCONFIG rummage::warnings)
 target_link_options(rummage-fuzz-picture PRIVATE -fsanitize=fuzzer)
 
 # DNG (ROADMAP 2d): seeds from tests/fuzz/make_dng_seeds.py and tests/data/image/dng.
