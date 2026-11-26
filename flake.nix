@@ -120,7 +120,6 @@
               git
               python3
               doctest
-              dbus
               shared-mime-info
               _7zz
               unzip

@@ -93,9 +93,13 @@ stdenv.mkDerivation {
     python3
     bashInteractive
     zsh
-    dbus # dbus-send is needed to register the file-manager activation integration test.
     (writeShellScriptBin "dbus-run-session" ''
       exec ${dbus}/bin/dbus-run-session --dbus-daemon=${dbus}/bin/dbus-daemon --config-file=${dbus}/share/dbus-1/session.conf "$@"
+    '')
+    # Do not put the full dbus package on PATH: its raw dbus-run-session can shadow
+    # the explicit-config wrapper above and depend on the host's /etc/dbus-1.
+    (writeShellScriptBin "dbus-send" ''
+      exec ${dbus}/bin/dbus-send "$@"
     '')
   ];
 
