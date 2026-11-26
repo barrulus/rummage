@@ -930,6 +930,8 @@ private:
     void show_drop_target(const std::optional<DropTarget>& target);
     struct Press;
     // Starts rummage's drag from press.
+    void extract_dragged_members(const std::filesystem::path& destination,
+                                 std::vector<std::filesystem::path> paths);
     void start_drag(Press press);
     // Drops paths into folder: own (rummage's drag: Ctrl copies, Shift moves, else the same disk
     // moves), or another program's with the action agreed.
@@ -1051,6 +1053,13 @@ private:
     [[nodiscard]] bool opens_as_folder(const fs::Entry& file) const;
     void open_archive_members(const std::filesystem::path& source, std::vector<fs::Entry> files);
     void compress(bool tar_gz);
+    MenuItem advanced_archive_menu();
+    void advanced_archive(bool test_only);
+    int archive_level_{5};
+    std::uint64_t archive_volume_{0};
+    bool archive_encrypt_{false};
+    bool archive_encrypt_names_{true};
+    bool archive_verify_{true};
     void links_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     void compress_done(const fs::TransferRequest& request, const fs::TransferResult& result);
     bool open_selection();
@@ -1413,7 +1422,8 @@ private:
     struct Drag {
         std::filesystem::path directory;
         std::vector<std::string> names;
-        std::string icon;          // the first entry's
+        std::string icon;  // the first entry's
+        bool archive{false};
         bool folders_only{false};  // every entry is a folder
         bool choose{false};
     };

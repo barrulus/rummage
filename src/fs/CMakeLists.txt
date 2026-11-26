@@ -1,6 +1,8 @@
 add_library(rummage_fs
     src/annotations.cpp
     src/archive_folder.cpp
+    src/archive_origin.cpp
+    src/advanced_archive.cpp
     src/compress.cpp
     src/extract.cpp
     src/batch_rename.cpp

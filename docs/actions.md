@@ -303,3 +303,25 @@ Sidebar layouts can include `open`, `open_tab`, `open_other_pane`, `open_termina
 `copy_path` and `properties`, alongside bookmark and device actions. These actions
 use the location that was right-clicked. Availability depends on the location and
 whether it is mounted.
+
+### Advanced 7z creation and integrity checks
+
+The selection context menu's **Advanced archive options** area leaves the simple
+ZIP and tar.gz commands unchanged. **Create 7z…** uses installed `7zz` or `7z`;
+missing dependencies are reported before asking for a name. Choose Store, Fast,
+Normal or Maximum compression, enable password protection and optionally filename
+encryption, and set a volume size in MiB (zero means a single archive). Options
+apply to the current window and are not saved to configuration. Filename encryption
+is available only with password protection. **Verify after creation** is on by
+default. **Test archive integrity…** tests one selected archive; enable Password
+protection first to supply a password for an encrypted archive.
+
+Passwords are masked, sent through a private stdin descriptor, never added to
+command arguments, environment, configuration or diagnostic messages, and cleared
+when the job consumes them. Creation uses a private staging directory. A failed,
+failed-verification or cancelled job publishes no archive. Cancel kills and reaps
+the backend before removing staging. Split volumes are published together inside
+a new folder named after the archive plus ` volumes`; keep all volumes together.
+Existing files and folders are retained using numbered names. Compression uses at
+most two backend threads; progress is indeterminate during the external command.
+No command updates an existing archive. Editing archives remains out of scope.

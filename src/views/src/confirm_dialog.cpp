@@ -45,12 +45,13 @@ void ConfirmDialog::open(std::string title, std::string detail, std::string acti
 }
 
 void ConfirmDialog::open_password(std::string name, bool retry,
-                                  std::function<void(std::optional<std::string>)> answer) {
+                                  std::function<void(std::optional<std::string>)> answer,
+                                  std::string action) {
     open(
         i18n::trf("Password for “{}”", name),
         std::string{retry ? i18n::tr("Password rejected or archive damaged. Try again.")
                           : i18n::tr("Enter the archive password.")},
-        std::string{i18n::tr("Extract")},
+        action.empty() ? std::string{i18n::tr("Extract")} : std::move(action),
         [this, answer = std::move(answer)](bool confirmed) {
             std::optional<std::string> password;
             if (confirmed)

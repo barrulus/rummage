@@ -37,7 +37,8 @@ public:
 
     // A separate instance can be used for archive passwords without replacing a confirmation.
     void open_password(std::string name, bool retry,
-                       std::function<void(std::optional<std::string>)> answer);
+                       std::function<void(std::optional<std::string>)> answer,
+                       std::string action = {});
     void open_name(std::string title, std::string detail, std::string initial,
                    std::function<std::string(const std::string&)> accept, std::string label = {});
     void paste(std::string_view text);

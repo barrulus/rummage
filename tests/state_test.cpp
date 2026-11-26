@@ -697,3 +697,33 @@ TEST_CASE("gallery display persists without changing the default") {
     CHECK(restored.state.gallery);
     CHECK(restored.state.vertical_columns);
 }
+
+TEST_CASE("state: explicit archive launch survives startup defaults and independent tab routing") {
+    const TempDir dir;
+    const auto archive = dir.path / "naïve archive.zip";
+    std::filesystem::copy_file(std::filesystem::path{RUMMAGE_TEST_DATA} / "archive/basic.zip",
+                               archive);
+    State state;
+    rummage::core::Config::Startup config;
+    config.mode = rummage::core::Config::Startup::Mode::session;
+    const auto location = rummage::views::startup_location(config, state, archive);
+    CHECK(location.folder == archive);
+    CHECK_FALSE(location.restore_tabs);
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    bool external_open = false;
+    browser.set_open_handler([&](const auto&, const auto&) { external_open = true; });
+    browser.open(location.folder);
+    REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
+    REQUIRE(browser.columns().focused_folder()->is_archive());
+    browser.open(dir.path);
+    REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
+    browser.open_tabs({archive});
+    browser.select_tab(1);
+    REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.columns().focused_folder()->path() == archive);
+    CHECK(browser.columns().focused_folder()->is_archive());
+    CHECK_FALSE(external_open);
+}
