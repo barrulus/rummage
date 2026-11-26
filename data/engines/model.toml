@@ -1,0 +1,12 @@
+[engine]
+name = "model"
+program = "rummage-model"
+protocol = 8
+
+[[family]]
+name = "model"
+shows = "picture"
+info = false
+thumbnails = true
+subclasses = true
+mime = ["model/obj", "model/stl", "model/x.stl-ascii", "model/x.stl-binary", "application/sla", "model/ply", "application/x-ply", "model/gltf+json", "model/gltf-binary"]

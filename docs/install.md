@@ -459,3 +459,9 @@ follow the selected mode: picker options appear after `--pick`, `--pick-director
 or `--save-file`. Folder arguments complete directories; `--reveal` and
 `--properties` also complete files. Source builds can omit these files with
 `-DRUMMAGE_INSTALL_COMPLETIONS=OFF`.
+
+The optional model helper uses system Assimp (`assimp` via pkg-config); the UI does
+not link it. `-DRUMMAGE_MODEL=ON` builds this helper, and native packages split it
+into `rummage-model`. The Nix outputs `rummage-model` and `rummage-with-model` provide
+the helper alone or the application with it; `rummage-with-previews` includes it.
+See [model format coverage](previews.md) before choosing this optional component.

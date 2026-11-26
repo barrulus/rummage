@@ -14,7 +14,9 @@ import json, sys
 identity = json.load(open(sys.argv[1]))
 assert identity.get('published_commit', identity['commit']) == sys.argv[2]
 PY
-files=(rummage-font-debian13-amd64.deb rummage-font-fedora45-x86_64.rpm
+files=(rummage-model-debian13-amd64.deb rummage-model-fedora45-x86_64.rpm
+       rummage-model-arch-x86_64.pkg.tar.zst rummage-model-tumbleweed-x86_64.rpm
+       rummage-font-debian13-amd64.deb rummage-font-fedora45-x86_64.rpm
        rummage-font-arch-x86_64.pkg.tar.zst rummage-font-tumbleweed-x86_64.rpm
        rummage-photos-debian13-amd64.deb rummage-photos-fedora45-x86_64.rpm
        rummage-photos-arch-x86_64.pkg.tar.zst rummage-photos-tumbleweed-x86_64.rpm

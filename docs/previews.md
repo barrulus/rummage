@@ -372,13 +372,23 @@ shown; glyphs absent from the font may appear as replacement boxes. Damaged inpu
 produce a failure badge/reason; a missing optional helper leaves the regular icon.
 No font is installed into the user's font collection.
 
-The requested model and art-project families are assessed separately; the font
-provider does not register their MIME types or claim to render them:
+The optional `rummage-model` provider uses system Assimp in a separate sandboxed
+process. Enable `RUMMAGE_MODEL=ON` when building, install the native `rummage-model`
+package or use the Nix `rummage-with-model` output. It renders a fixed isometric,
+flat-shaded geometry image, without materials, textures, animation or project scripts.
+Only standalone input is allowed: external buffers, textures and material files
+cannot be opened. Input is limited to 32 MiB, output to 1024×1024 pixels, geometry to
+100,000 triangles and raster work to 64 million pixel samples, in addition to the
+ordinary helper memory/time limits. Oversized or unsupported models use the ordinary
+preview failure fallback. Existing thumbnail caching, scale requests and cancellation
+apply unchanged. Assimp is linked only into this optional helper.
+
+Coverage is deliberately narrower than [Assimp's importer list](https://github.com/assimp/assimp/blob/master/doc/Fileformats.md):
 
 | Family | Current coverage and backend boundary |
 | --- | --- |
-| glTF / GLB | No provider. A future glTF importer must supply bounded mesh/material decoding and handle external buffers/textures without opening arbitrary paths. |
-| STL, PLY, OBJ | No provider. Mesh import needs a separate isolated renderer; OBJ material/texture references need explicit resource rules. No Assimp dependency is currently linked. |
+| glTF / GLB | Geometry from GLB or glTF with embedded data buffers. External buffer references are rejected. Materials and animations are not rendered. |
+| STL, PLY, OBJ | ASCII/binary STL, ASCII PLY and standalone OBJ polygon geometry. OBJ material files are ignored; no texture lookup occurs. Other PLY encodings are not advertised as verified. |
 | STEP | No provider. CAD tessellation needs a dedicated backend such as Open CASCADE, bounded independently of triangle-mesh formats. |
 | FBX | No provider. An importer and renderer would need version-specific samples and licensing review; it cannot be inferred from glTF support. |
 | Blender | No provider. No Blender process or project scripts are launched. A saved embedded preview could be supported separately from scene rendering. |

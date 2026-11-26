@@ -19,8 +19,9 @@ bash /source/scripts/ci/check-wayland.sh /usr
 
 # Optional siblings own no launcher.
 test ! -e /usr/libexec/rummage/rummage-font
+test ! -e /usr/libexec/rummage/rummage-model
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage
-xbps-install -y -R /packages rummage-photos rummage-font
+xbps-install -y -R /packages rummage-photos rummage-font rummage-model
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage --module /usr/libexec/rummage/librummage-photos.so
 libraries=$(ldd /usr/libexec/rummage/librummage-photos.so)
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
@@ -42,3 +43,9 @@ libraries=$(ldd /usr/libexec/rummage/rummage-font)
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 test -s /usr/share/rummage/engines/font.toml
 python3 /source/scripts/ci/check-font.py /usr/libexec/rummage/rummage-font "$(fc-match -f '%{file}' sans)"
+
+# The optional model parser stays outside the UI process.
+libraries=$(ldd /usr/libexec/rummage/rummage-model)
+if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+test -s /usr/share/rummage/engines/model.toml
+python3 /source/scripts/ci/check-model.py /usr/libexec/rummage/rummage-model

@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, pyt
  libglib2.0-dev, libjpeg-dev, libpng-dev, libtiff-dev,
  libwayland-dev, wayland-protocols, libegl-dev, libgles-dev, libxkbcommon-dev,
  libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev, nlohmann-json3-dev,
- libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
+ libassimp-dev, libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
  libwebp-dev, libjxl-dev, libheif-dev (>= 1.23), liblcms2-dev,
  librsvg2-dev (>= 2.52), libpango1.0-dev,
  libsqlite3-dev, zlib1g-dev, libre2-dev, libsdbus-c++-dev (>= 2)
@@ -18,7 +18,7 @@ Package: rummage
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, shared-mime-info, hicolor-icon-theme,
  libheif1 (>= 1.23), libheif-plugin-libde265 (>= 1.23)
-Suggests: rummage-photos, rummage-font, tokei
+Suggests: rummage-photos, rummage-font, rummage-model, tokei
 Conflicts: rummage-media, rummage-pdf, rummage-previews
 Replaces: rummage-media, rummage-pdf, rummage-previews
 Description: Native Wayland file manager
@@ -37,3 +37,9 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
 Description: Optional font specimens for rummage
  Isolated scalable TrueType/OpenType specimens using system FreeType.
+
+Package: rummage-model
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
+Description: Optional 3D model previews for rummage
+ Isolated standalone geometry previews using system Assimp.

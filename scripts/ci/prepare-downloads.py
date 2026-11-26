@@ -93,7 +93,7 @@ def prepare(artifacts, output, commit, repository, run_id, readme):
         'rummage-photos-arch-x86_64.pkg.tar.zst': only(roots['arch'] / 'packages', 'rummage-photos-[0-9]*-x86_64.pkg.tar.zst'),
         'rummage-photos-tumbleweed-x86_64.rpm': only(roots['tumbleweed'] / 'packages', 'rummage-photos-[0-9]*.x86_64.rpm'),
     }
-    for feature in ('font',):
+    for feature in ('font', 'model'):
         only(roots['void'] / 'packages', f'rummage-{feature}-*.x86_64.xbps')
         for kind, suffix, pattern in (
             ('deb', 'debian13-amd64.deb', '_*_amd64.deb'),
