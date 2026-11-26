@@ -43,6 +43,7 @@
 #include "rummage/isolate/helpers.hpp"
 #include "rummage/photos/client.hpp"
 #include "rummage/platform/about.hpp"
+#include "rummage/platform/accessibility.hpp"
 #include "rummage/platform/action_handoff.hpp"
 #include "rummage/platform/applications.hpp"
 #include "rummage/platform/browser_instance.hpp"
@@ -817,6 +818,7 @@ int main(int argc, char** argv) {
         struct Binding {
             ui::Window* window{};
             views::Browser* browser{};
+            std::function<ui::TextField*()> input_field;
             std::weak_ptr<Binding> parent;
             std::function<void(const ui::KeyEvent&)> key;
             std::function<void(const ui::PointerEvent&)> pointer;
@@ -825,6 +827,121 @@ int main(int argc, char** argv) {
         };
 
         std::vector<std::shared_ptr<Binding>> bindings;
+        platform::Accessibility accessibility{loop};
+        accessibility.set_ready_handler([&] {
+            for (const auto& binding : bindings)
+                if (binding->window)
+                    binding->window->request_redraw();
+        });
+        const auto accessible_id = [](const std::shared_ptr<Binding>& binding) {
+            return std::to_string(reinterpret_cast<std::uintptr_t>(binding.get()));
+        };
+        const auto publish_accessibility = [&](const std::shared_ptr<Binding>& binding,
+                                               ui::AccessibleFrame& frame) {
+            if (!accessibility.active())
+                return;
+            // Only one descendant holds keyboard focus. Overlay controls are drawn last.
+            auto focused = frame.nodes.end();
+            for (auto it = frame.nodes.begin(); it != frame.nodes.end(); ++it)
+                if (it->focused &&
+                    (focused == frame.nodes.end() || !focused->editable || it->editable))
+                    focused = it;
+            // A modal with no editable or explicitly focused control still receives focus
+            // so screen readers announce its purpose and available actions immediately.
+            if (focused == frame.nodes.end())
+                for (auto it = frame.nodes.begin(); it != frame.nodes.end(); ++it)
+                    if (it->role == core::AccessibleRole::dialog)
+                        focused = it;
+            for (auto it = frame.nodes.begin(); it != frame.nodes.end(); ++it) {
+                it->focused =
+                    it == focused && seat.keyboard_surface() == binding->window->surface();
+                const auto role = it->role;
+                const bool interactive = it->editable || role == core::AccessibleRole::button ||
+                                         role == core::AccessibleRole::check_box ||
+                                         role == core::AccessibleRole::radio_button ||
+                                         role == core::AccessibleRole::list_item ||
+                                         role == core::AccessibleRole::menu_item ||
+                                         role == core::AccessibleRole::tab;
+                if (!interactive)
+                    continue;
+                const auto bounds = it->bounds;
+                it->perform = [weak = std::weak_ptr{binding}, bounds, role,
+                               selected = it->selected](const core::AccessibleEdit& edit) {
+                    auto owner = weak.lock();
+                    if (!owner || !owner->window || !owner->pointer)
+                        return false;
+                    // Focusing a command must never execute it. Entry/file clicks establish
+                    // selection safely; command activation is explicit through Action.DoAction.
+                    if (edit.kind == core::AccessibleEdit::Kind::focus &&
+                        role != core::AccessibleRole::entry &&
+                        role != core::AccessibleRole::password &&
+                        role != core::AccessibleRole::list_item)
+                        return false;
+                    const auto map = owner->window->content_map();
+                    ui::PointerEvent press{
+                        .kind = ui::PointerEvent::Kind::press,
+                        .x = map.to_surface(static_cast<float>(bounds.x) +
+                                            static_cast<float>(bounds.width) / 2),
+                        .y = map.to_surface(static_cast<float>(bounds.y) +
+                                            static_cast<float>(bounds.height) / 2),
+                        .button = ui::PointerButton::left,
+                        .click_count = 1};
+                    if (edit.kind == core::AccessibleEdit::Kind::select &&
+                        role == core::AccessibleRole::list_item) {
+                        if (selected == (edit.first != 0))
+                            return true;
+                        press.modifiers.ctrl = true;
+                    }
+                    owner->pointer(press);
+                    press.kind = ui::PointerEvent::Kind::release;
+                    owner->pointer(press);
+                    if (edit.kind == core::AccessibleEdit::Kind::activate &&
+                        role == core::AccessibleRole::list_item) {
+                        press.kind = ui::PointerEvent::Kind::press;
+                        press.click_count = 2;
+                        owner->pointer(press);
+                        press.kind = ui::PointerEvent::Kind::release;
+                        owner->pointer(press);
+                    }
+                    if (edit.kind == core::AccessibleEdit::Kind::set_text ||
+                        edit.kind == core::AccessibleEdit::Kind::set_selection ||
+                        edit.kind == core::AccessibleEdit::Kind::copy ||
+                        edit.kind == core::AccessibleEdit::Kind::cut ||
+                        edit.kind == core::AccessibleEdit::Kind::paste) {
+                        auto* field = owner->input_field ? owner->input_field() : nullptr;
+                        if (!field || !owner->key)
+                            return false;
+                        field->select(core::text_byte_offset(field->text(), edit.first),
+                                      core::text_byte_offset(field->text(), edit.last));
+                        if (edit.kind == core::AccessibleEdit::Kind::set_text)
+                            owner->key(ui::KeyEvent{
+                                .text = {}, .input_edit = ui::TextInputEdit{.commit = edit.text}});
+                        else if (edit.kind != core::AccessibleEdit::Kind::set_selection)
+                            owner->key(ui::KeyEvent{
+                                .keysym = static_cast<xkb_keysym_t>(
+                                    edit.kind == core::AccessibleEdit::Kind::copy  ? XKB_KEY_c
+                                    : edit.kind == core::AccessibleEdit::Kind::cut ? XKB_KEY_x
+                                                                                   : XKB_KEY_v),
+                                .text = {},
+                                .modifiers = {.ctrl = true}});
+                    }
+                    owner->window->request_redraw();
+                    return true;
+                };
+            }
+            const auto map = binding->window->content_map();
+            for (auto& node : frame.nodes) {
+                auto& r = node.bounds;
+                r = {static_cast<int>(map.to_surface(static_cast<float>(r.x))),
+                     static_cast<int>(map.to_surface(static_cast<float>(r.y))),
+                     static_cast<int>(static_cast<float>(r.width) * map.zoom),
+                     static_cast<int>(static_cast<float>(r.height) * map.zoom)};
+            }
+            accessibility.update_window(accessible_id(binding), binding->window->title(),
+                                        std::move(frame.nodes),
+                                        seat.keyboard_surface() == binding->window->surface());
+        };
+
         std::weak_ptr<Binding> last_browser, state_owner, drag_origin;
         memory_lines = [&] {
             std::vector<std::string> lines;
@@ -843,16 +960,35 @@ int main(int argc, char** argv) {
                     return binding;
             return {};
         };
+        seat.set_text_input_provider([&] {
+            const auto binding = find_window(seat.keyboard_surface());
+            auto* field = binding && binding->input_field ? binding->input_field() : nullptr;
+            ui::TextField::focus_input(field);
+            if (!field)
+                return ui::TextInputState{};
+            auto state = field->input_state();
+            const auto map = binding->window->content_map();
+            auto& rect = state.cursor_rect;
+            rect = {map.to_surface(rect.x), map.to_surface(rect.y), rect.width * map.zoom,
+                    rect.height * map.zoom};
+            return state;
+        });
         seat.set_key_handler([&](const ui::KeyEvent& event) {
             if (const auto binding = find_window(seat.keyboard_surface()); binding && binding->key)
                 binding->key(event);
+            seat.update_text_input();
         });
         seat.set_pointer_handler([&](const ui::PointerEvent& event) {
             if (const auto binding = find_window(seat.pointer_surface());
                 binding && binding->pointer)
                 binding->pointer(event);
+            seat.update_text_input();
         });
         seat.set_focus_handler([&](wl_surface* surface) {
+            seat.update_text_input();
+            for (const auto& binding : bindings)
+                if (binding->window)
+                    binding->window->request_redraw();
             if (const auto binding = find_window(surface); binding && binding->browser) {
                 last_browser = binding;
                 state_owner = binding;
@@ -977,6 +1113,7 @@ int main(int argc, char** argv) {
         };
 
         const auto remove_binding = [&](const std::shared_ptr<Binding>& binding) {
+            accessibility.remove_window(accessible_id(binding));
             if (drag_origin.lock() == binding)
                 clipboard.cancel_drag();
             seat.forget_surface(binding->window->surface());
@@ -989,6 +1126,7 @@ int main(int argc, char** argv) {
                 last_browser.reset();
             binding->window = nullptr;
             binding->browser = nullptr;
+            binding->input_field = {};
             binding->key = {};
             binding->pointer = {};
             binding->config = {};
@@ -1464,6 +1602,9 @@ int main(int argc, char** argv) {
                 false;  // the content heard a leave when the bar took the pointer
             bool content_pressed = false;  // a press in the content keeps the pointer there
 
+            binding->input_field = [&]() -> ui::TextField* {
+                return picker ? picker->input_field() : columns ? columns->input_field() : nullptr;
+            };
             std::string last_key = "Press a key (Ctrl+Q closes this window)";
             binding->key = [&](const ui::KeyEvent& event) {
                 if (event.modifiers.ctrl &&
@@ -1629,6 +1770,10 @@ int main(int argc, char** argv) {
                 });
             }
             window.set_draw_handler([&](ui::Renderer& renderer, const ui::Rect& bounds) {
+                ui::AccessibleFrame accessible_frame{accessibility.active()};
+                if (seat.keyboard_surface() == window.surface() && binding->input_field)
+                    ui::TextField::focus_input(binding->input_field());
+
                 loop.remove(std::exchange(frame_handlers.ambient_timer, 0));
                 if (columns)
                     columns->set_effects_active(window.state().activated);
@@ -1665,6 +1810,8 @@ int main(int argc, char** argv) {
                         columns->draw(renderer, content, palette, icons,
                                       views::Browser::Clock::now());
                     }
+                    seat.update_text_input();
+                    publish_accessibility(binding, accessible_frame);
                     renderer_for_stats = &renderer;
                     if (columns->animating()) {
                         window.request_redraw();  // next frame, paced by the compositor
@@ -1796,6 +1943,9 @@ int main(int argc, char** argv) {
             auto title_bar = make_title_bar(window, display, seat);
             bool content_pressed = false;
             bool closing = false;
+            binding->input_field = [&] {
+                return settings ? preferences.input_field() : properties.input_field();
+            };
             binding->key = [&, weak = std::weak_ptr{binding}](const ui::KeyEvent& event) {
                 if (event.modifiers.ctrl &&
                     (event.keysym == XKB_KEY_q || event.keysym == XKB_KEY_Q)) {
@@ -1870,6 +2020,10 @@ int main(int argc, char** argv) {
                     lifetime->close(loop, reap);
             });
             window.set_draw_handler([&](ui::Renderer& renderer, const ui::Rect& bounds) {
+                ui::AccessibleFrame accessible_frame{accessibility.active()};
+                if (seat.keyboard_surface() == window.surface() && binding->input_field)
+                    ui::TextField::focus_input(binding->input_field());
+
                 loop.remove(std::exchange(watches.ambient, 0));
                 if (!settings && closing && !properties.saving())
                     properties.close();
@@ -1902,6 +2056,8 @@ int main(int argc, char** argv) {
                             });
                 } else
                     properties.draw(renderer, content, theme.palette(), icons);
+                seat.update_text_input();
+                publish_accessibility(binding, accessible_frame);
             });
             co_await *lifetime;
         };

@@ -22,10 +22,32 @@ bool separator(char c) {
 
 // Text a key may type: no control characters.
 bool typable(std::string_view text) {
-    return !text.empty() && std::ranges::none_of(text, [](char c) {
-        const auto byte = static_cast<unsigned char>(c);
-        return byte < 0x20U || byte == 0x7FU;
-    });
+    if (text.empty())
+        return false;
+    for (std::size_t at = 0; at < text.size();) {
+        const auto first = static_cast<unsigned char>(text[at++]);
+        if (first < 0x20U || first == 0x7fU)
+            return false;
+        if (first < 0x80U)
+            continue;
+        const unsigned length = first >= 0xc2U && first <= 0xdfU   ? 2U
+                                : first >= 0xe0U && first <= 0xefU ? 3U
+                                : first >= 0xf0U && first <= 0xf4U ? 4U
+                                                                   : 0U;
+        if (!length || text.size() - at < length - 1)
+            return false;
+        std::uint32_t scalar = first & ((1U << (7U - length)) - 1U);
+        for (unsigned n = 1; n < length; ++n) {
+            const auto byte = static_cast<unsigned char>(text[at++]);
+            if ((byte & 0xc0U) != 0x80U)
+                return false;
+            scalar = (scalar << 6U) | (byte & 0x3fU);
+        }
+        if ((length == 3 && scalar < 0x800U) || (length == 4 && scalar < 0x10000U) ||
+            (scalar >= 0xd800U && scalar <= 0xdfffU) || scalar > 0x10ffffU)
+            return false;
+    }
+    return true;
 }
 
 }  // namespace
@@ -34,6 +56,7 @@ TextField::TextField(std::string text) { set_text(std::move(text)); }
 
 void TextField::set_text(std::string text) {
     dragging_ = false;
+    preedit_.clear();
     text_ = std::move(text);
     caret_ = text_.size();
     anchor_ = caret_;
@@ -192,6 +215,8 @@ std::string TextField::cut() {
 }
 
 bool TextField::key(const KeyEvent& event) {
+    if (event.input_edit)
+        return input_edit(*event.input_edit);
     dragging_ = false;
     const bool shift = event.modifiers.shift;
     const bool ctrl = event.modifiers.ctrl;
@@ -260,6 +285,83 @@ bool TextField::key(const KeyEvent& event) {
         return true;
     }
     return false;
+}
+
+void TextField::focus_input(TextField* field) {
+    if (input_focus_ != field && field)
+        field->preedit_.clear();
+    input_focus_ = field;
+}
+
+TextInputState TextField::input_state() const {
+    TextInputState state{.identity = this,
+                         .text = {},
+                         .cursor = 0,
+                         .anchor = 0,
+                         .password = masked_,
+                         .cursor_rect = caret_bounds_};
+    if (masked_)
+        return state;
+    // Protocol messages have a 4000-byte surrounding-text limit. Include only complete
+    // UTF-8 characters; omit an overlong selection instead of publishing invalid indices.
+    const auto [first, last] = selection();
+    if (last - first > 3000)
+        return state;
+    std::size_t start = first > 500 ? first - 500 : 0;
+    while (start < text_.size() && continuation(text_[start]))
+        ++start;
+    std::size_t end = std::min(text_.size(), start + 4000);
+    while (end > start && end < text_.size() && continuation(text_[end]))
+        --end;
+    if (last > end)
+        return state;
+    state.text = text_.substr(start, end - start);
+    state.cursor = static_cast<std::int32_t>(caret_ - start);
+    state.anchor = static_cast<std::int32_t>(anchor_ - start);
+    return state;
+}
+
+bool TextField::input_edit(const TextInputEdit& edit) {
+    const auto boundary = [](std::string_view text, std::size_t at) {
+        return at <= text.size() && (at == text.size() || !continuation(text[at]));
+    };
+    const auto [first, last] = selection();
+    // Never split UTF-8 or accept offsets outside the state supplied to the IME.
+    if (edit.before > first || edit.after > text_.size() - last ||
+        !boundary(text_, first - edit.before) || !boundary(text_, last + edit.after))
+        return false;
+    if ((edit.commit && !edit.commit->empty() && !typable(*edit.commit)) ||
+        (!edit.preedit.empty() && !typable(edit.preedit)) || edit.preedit.size() > 4000 ||
+        (edit.commit && edit.commit->size() > 65536))
+        return false;
+    preedit_.clear();
+    if (edit.before || edit.after || edit.commit || (!edit.preedit.empty() && first != last)) {
+        remember(Edit::other);
+        // Surrounding deletion excludes the selection. A commit or a new preedit
+        // replaces it; a deletion-only transaction preserves its direction and text.
+        text_.erase(last, edit.after);
+        text_.erase(first - edit.before, edit.before);
+        caret_ -= edit.before;
+        anchor_ -= edit.before;
+        if (edit.commit || !edit.preedit.empty()) {
+            const auto from = first - edit.before;
+            const auto committed = edit.commit.value_or("");
+            text_.replace(from, last - first, committed);
+            caret_ = anchor_ = from + committed.size();
+        }
+    }
+    preedit_ = edit.preedit;
+    const auto clamp = [&](std::int32_t at) {
+        if (at < 0)
+            return std::int32_t{-1};
+        auto value = std::min(static_cast<std::size_t>(at), preedit_.size());
+        while (value > 0 && !boundary(preedit_, value))
+            --value;
+        return static_cast<std::int32_t>(value);
+    };
+    preedit_begin_ = clamp(edit.begin);
+    preedit_end_ = clamp(edit.end);
+    return true;
 }
 
 std::string TextField::display_text(std::size_t bytes) const {
@@ -338,6 +440,21 @@ bool TextField::pointer(const PointerEvent& event) {
 void TextField::draw(Renderer& renderer, const Rect& rect, float size, const FieldColors& colors,
                      bool masked) {
     masked_ = masked || always_masked_;
+    if (AccessibleFrame::current()) {
+        core::AccessibleNode node;
+        node.id = "field:" + std::to_string(reinterpret_cast<std::uintptr_t>(this));
+        node.name = accessible_name_;
+        node.role = masked_ ? core::AccessibleRole::password : core::AccessibleRole::entry;
+        node.password = masked_;
+        node.editable = accessible_editable_;
+        node.focused = input_focus_ == this;
+        node.enabled = accessible_editable_;
+        node.text = display_text(text_.size());
+        node.caret = core::text_character_offset(text_, caret_);
+        node.anchor = core::text_character_offset(text_, anchor_);
+        renderer.accessible(std::move(node), rect);
+    }
+
     bounds_ = rect;
     size_ = size;
     scale_ = renderer.scale();
@@ -349,8 +466,26 @@ void TextField::draw(Renderer& renderer, const Rect& rect, float size, const Fie
     // Sideways scroll: the caret stays inside, and a text that fits is not scrolled.
     const Rect inner = rect.inset(kPadding);
     const float room = std::max(1.0F, inner.width - kCaretWidth);
-    const float total = width_of(*fonts_, text_.size());
-    const float caret_x = width_of(*fonts_, caret_);
+    const bool composing = input_focus_ == this && !preedit_.empty();
+    const auto [selection_first, selection_last] = selection();
+    auto composing_text = masked_ ? std::string{} : preedit_;
+    if (masked_)
+        for (char byte : preedit_)
+            if (!continuation(byte))
+                composing_text += "•";
+    const float preedit_width =
+        composing ? fonts_->layout(composing_text, size_, scale_).width / scale_ : 0;
+    const float start_x = width_of(*fonts_, composing ? selection_first : caret_);
+    const float total = width_of(*fonts_, text_.size()) + preedit_width;
+    const float caret_x =
+        start_x + (composing && preedit_begin_ >= 0
+                       ? fonts_->layout(masked_ ? composing_text
+                                                : preedit_.substr(
+                                                      0, static_cast<std::size_t>(preedit_begin_)),
+                                        size_, scale_)
+                                 .width /
+                             scale_
+                       : 0);
     if (total <= room) {
         scroll_ = 0.0F;
     } else {
@@ -363,14 +498,37 @@ void TextField::draw(Renderer& renderer, const Rect& rect, float size, const Fie
     const float line = size + 6.0F;
     const float line_y = rect.y + ((rect.height - line) / 2.0F);
     const auto [first, last] = selection();
-    if (first != last) {
+    if (first != last && !composing) {
         const float from = width_of(*fonts_, first);
         const float to = width_of(*fonts_, last);
         renderer.fill_rect({x + from, line_y, to - from, line}, colors.selection);
     }
-    renderer.draw_text(display_text(text_.size()), x, rect.y + ((rect.height - size) / 2.0F) - 2.0F,
-                       size, colors.text);
-    renderer.fill_rect({x + caret_x, line_y, kCaretWidth, line}, colors.caret);
+    auto shown = display_text(text_.size());
+    if (composing) {
+        const auto prefix = display_text(selection_first);
+        const auto suffix = display_text(selection_last);
+        shown = prefix + composing_text + shown.substr(suffix.size());
+        renderer.fill_rect({x + start_x, line_y + line - 2, preedit_width, 1.5F}, colors.text);
+        if (!masked_ && preedit_begin_ >= 0 && preedit_end_ > preedit_begin_) {
+            const float left =
+                fonts_
+                    ->layout(preedit_.substr(0, static_cast<std::size_t>(preedit_begin_)), size_,
+                             scale_)
+                    .width /
+                scale_;
+            const float right =
+                fonts_
+                    ->layout(preedit_.substr(0, static_cast<std::size_t>(preedit_end_)), size_,
+                             scale_)
+                    .width /
+                scale_;
+            renderer.fill_rect({x + start_x + left, line_y, right - left, line}, colors.selection);
+        }
+    }
+    renderer.draw_text(shown, x, rect.y + ((rect.height - size) / 2.0F) - 2.0F, size, colors.text);
+    caret_bounds_ = {std::clamp(x + caret_x, inner.x, inner.right()), line_y, kCaretWidth, line};
+    if (!composing || preedit_begin_ >= 0)
+        renderer.fill_rect(caret_bounds_, colors.caret);
     renderer.pop_clip();
 }
 

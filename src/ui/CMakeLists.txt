@@ -29,6 +29,7 @@ function(rummage_wayland_protocol xml)
 endfunction()
 
 rummage_wayland_protocol(${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml)
+rummage_wayland_protocol(${WAYLAND_PROTOCOLS_DIR}/unstable/text-input/text-input-unstable-v3.xml)
 rummage_wayland_protocol(${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-foreign/xdg-foreign-unstable-v2.xml)
 rummage_wayland_protocol(${WAYLAND_PROTOCOLS_DIR}/staging/xdg-dialog/xdg-dialog-v1.xml)
 rummage_wayland_protocol(

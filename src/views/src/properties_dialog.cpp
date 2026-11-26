@@ -1220,6 +1220,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                         bounds.y + (bounds.height - height) / 2, width, height};
     card_ = card;
     draw_dialog_surface(renderer, bounds, card, palette);
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(std::string{i18n::tr(picking_ ? "Choose Folder Icon" : "Properties")}, card);
     const float fixed_header = picking_ ? 0.0F : 60.0F;
     content_ = {card.x, card.y + fixed_header, card.width, card.height - 70 - fixed_header};
     scroller_.set_extent(natural_height - 70 - fixed_header, content_.height);

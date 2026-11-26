@@ -2,6 +2,12 @@
 
 namespace rummage::ui {
 
+void destroy(zwp_text_input_manager_v3* value) noexcept {
+    zwp_text_input_manager_v3_destroy(value);
+}
+
+void destroy(zwp_text_input_v3* value) noexcept { zwp_text_input_v3_destroy(value); }
+
 void destroy(wl_display* display) noexcept { wl_display_disconnect(display); }
 
 void destroy(wl_registry* registry) noexcept { wl_registry_destroy(registry); }

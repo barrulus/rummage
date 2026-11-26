@@ -78,6 +78,8 @@ public:
     // A button, a field or a toggle is there, as last drawn.
     [[nodiscard]] bool clickable_at(float x, float y) const;
 
+    [[nodiscard]] ui::TextField* input_field() { return is_open() ? field(focus_) : nullptr; }
+
 private:
     enum class Item : std::uint8_t { mode, user, domain, password, remember };
 

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <functional>
 #include <memory>
 #include <optional>
@@ -7,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/text_field.hpp"
@@ -89,6 +89,11 @@ public:
     [[nodiscard]] ui::Rect list_bounds() const { return list_; }
 
     [[nodiscard]] std::size_t first_row() const { return first_; }
+
+    [[nodiscard]] ui::TextField* input_field() {
+        query_.set_accessible_name(std::string{i18n::tr("Search Results")});
+        return open_ && editing() ? &query_ : nullptr;
+    }
 
 private:
     struct Control {

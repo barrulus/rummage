@@ -150,6 +150,8 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float height = std::max(160.0F, std::min(520.0F, bounds.height - 32));
     const ui::Rect card{bounds.x + (bounds.width - width) / 2,
                         bounds.y + (bounds.height - height) / 2, width, height};
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(std::string{i18n::tr(title_)}, card);
     renderer.draw_box(card, {.fill = palette.surface_container_high,
                              .radius = {},
                              .border_width = 1,
@@ -158,6 +160,13 @@ void ErrorDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         pending() == 1 || title_ != "Action failed"
             ? std::string{i18n::tr(title_)}
             : i18n::trn("Action failed · {} report", "Action failed · {} reports", pending());
+    if (ui::AccessibleFrame::current()) {
+        core::AccessibleNode node;
+        node.id = "error";
+        node.role = core::AccessibleRole::alert;
+        node.name = title;
+        renderer.accessible(std::move(node), card);
+    }
     renderer.draw_text(title, card.x + 20, card.y + 18, 16, palette.on_surface, width - 40);
     const ui::Rect content{card.x + 20, card.y + 50, width - 40, height - 124};
     wrap(renderer, content.width);

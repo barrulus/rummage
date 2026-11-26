@@ -1,5 +1,4 @@
 #pragma once
-
 #include <cstddef>
 #include <filesystem>
 #include <functional>
@@ -12,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/directory_model.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/subfolders.hpp"
@@ -253,6 +253,11 @@ public:
 
     // The cursor on the place at path, when it is listed (a bookmark pointed elsewhere).
     void set_cursor_to(const std::filesystem::path& path);
+
+    [[nodiscard]] ui::TextField* input_field() {
+        field_.set_accessible_name(std::string{i18n::tr("Name")});
+        return renaming() ? &field_ : nullptr;
+    }
 
 private:
     struct Row {

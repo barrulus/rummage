@@ -179,6 +179,11 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         x -= kButtonWidth + kButtonGap;
         const ui::Rect button{x, top, kButtonWidth, kButtonHeight};
         buttons_[i] = button;
+        core::AccessibleNode control;
+        control.id = "status-button:" + std::to_string(i);
+        control.role = core::AccessibleRole::button;
+        control.name = std::string{i18n::tr(i == 0 ? "Settings" : "Keyboard Shortcuts")};
+        renderer.accessible(std::move(control), button);
         if (hovered_ == i)
             renderer.draw_box(button, {.fill = palette.surface_container_high, .radius = {}});
         const auto color = hovered_ == i ? palette.on_surface : palette.on_surface_variant;
@@ -196,6 +201,11 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
                 palette.primary);
         }
         cancel_button_ = {x - kHelpGap - kButtonWidth, top, kButtonWidth, kButtonHeight};
+        core::AccessibleNode cancel;
+        cancel.id = "cancel-transfer";
+        cancel.name = std::string{i18n::tr("Cancel")};
+        cancel.role = core::AccessibleRole::button;
+        renderer.accessible(std::move(cancel), cancel_button_);
         if (cancel_hovered_) {
             renderer.draw_box(cancel_button_,
                               {.fill = palette.surface_container_high, .radius = {}});
@@ -239,6 +249,12 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         }
         color = !folder.model().problem().empty() ? palette.error : palette.on_surface_variant;
     }
+    core::AccessibleNode status;
+    status.id = "status";
+    status.name = text;
+    status.text = text;
+    status.role = message_error_ ? core::AccessibleRole::alert : core::AccessibleRole::status;
+    renderer.accessible(std::move(status), bounds);
     if (!type_jump_.empty()) {
         text = type_jump_matched_ ? i18n::trf("Jump to: {}", type_jump_)
                                   : i18n::trf("No match: {}", type_jump_);

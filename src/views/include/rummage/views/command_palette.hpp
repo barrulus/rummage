@@ -125,6 +125,11 @@ public:
 
     [[nodiscard]] const ui::Rect& list_bounds() const noexcept { return list_; }
 
+    [[nodiscard]] ui::TextField* input_field() {
+        field_.set_accessible_name(placeholder_);
+        return open_ && !in_list_ ? &field_ : nullptr;
+    }
+
 private:
     void filter();
     void move_highlight(std::ptrdiff_t rows);

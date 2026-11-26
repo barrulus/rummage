@@ -892,6 +892,8 @@ public:
     // What the views hold, as lines for the memory report (ROADMAP 6.3b).
     [[nodiscard]] std::vector<std::string> memory_lines() const;
 
+    [[nodiscard]] ui::TextField* input_field();
+
 private:
     std::uint64_t path_navigation_generation_{0};
 

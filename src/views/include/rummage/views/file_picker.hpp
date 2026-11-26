@@ -61,6 +61,15 @@ public:
     void navigate_in_terminal();
     void return_from_terminal(const std::filesystem::path& directory);
 
+    [[nodiscard]] ui::TextField* input_field() {
+        name_.set_accessible_name(std::string{i18n::tr(name_label())});
+        if (confirm_.is_open())
+            return confirm_.input_field();
+        if (menu_.is_open())
+            return nullptr;
+        return editing_name() ? &name_ : browser_.input_field();
+    }
+
 private:
     void sync_selection();
     void cancel_validation();

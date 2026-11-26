@@ -1,5 +1,4 @@
 #pragma once
-
 #include <cstddef>
 #include <filesystem>
 #include <functional>
@@ -8,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -116,6 +116,11 @@ public:
     // The steps shown in the last draw: the first one's icon name, then the folders' names, "…"
     // where steps were left out (tests).
     [[nodiscard]] std::vector<std::string> shown() const;
+
+    [[nodiscard]] ui::TextField* input_field() {
+        field_.set_accessible_name(std::string{i18n::tr("Location")});
+        return editing_ ? &field_ : nullptr;
+    }
 
 private:
     void complete(bool reverse);

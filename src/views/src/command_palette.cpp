@@ -546,6 +546,8 @@ void CommandPalette::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float height = fixed + (static_cast<float>(rows) * kRowHeight);
     panel_ = {bounds.x + ((bounds.width - width) / 2.0F), top, width, height};
 
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(placeholder_, panel_);
     renderer.draw_shadow({panel_.x, panel_.y + 6.0F, panel_.width, panel_.height}, {}, 18.0F,
                          palette.shadow.with_alpha(0.6F));
     renderer.draw_box(panel_, {.fill = palette.surface_container_high,
@@ -592,6 +594,16 @@ void CommandPalette::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const ui::Rect rect{list_.x, list_.y + (static_cast<float>(r) * kRowHeight), list_.width,
                             kRowHeight};
         const bool lit = highlighted_ == row;
+        if (ui::AccessibleFrame::current()) {
+            core::AccessibleNode node;
+            node.id = "command:" + item.id;
+            node.name = item.label;
+            node.description = item.keys;
+            node.role = core::AccessibleRole::menu_item;
+            node.selected = lit;
+            node.focused = lit && in_list_;
+            renderer.accessible(std::move(node), rect);
+        }
         if (lit) {
             renderer.draw_box(rect, {.fill = palette.hover, .radius = {}});
         }

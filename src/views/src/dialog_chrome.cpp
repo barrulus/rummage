@@ -34,6 +34,8 @@ void DialogFrame::draw(ui::Renderer& renderer, const ui::Rect& window,
         renderer.fill_background(card, palette.surface_container_high);
     else
         draw_dialog_surface(renderer, window, card, palette);
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(std::string{title}, card);
     renderer.draw_text(title, header.x + 20, header.y + 18, 18, palette.on_surface,
                        std::max(1.0F, header.width - 40));
     renderer.fill_rect({card.x + 1, header.bottom(), std::max(0.0F, card.width - 2), 1},
@@ -44,6 +46,8 @@ void DialogFrame::draw(ui::Renderer& renderer, const ui::Rect& window,
 
 void draw_dialog_surface(ui::Renderer& renderer, const ui::Rect& window, const ui::Rect& card,
                          const theme::Palette& palette) {
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog("Dialog", card);
     renderer.fill_rect(window, palette.scrim.with_alpha(0.55F));
     renderer.draw_shadow(card, ui::Corners::all(8), 16, palette.shadow.with_alpha(0.5F));
     renderer.draw_box(card, {.fill = palette.surface_container_high,
@@ -55,6 +59,12 @@ void draw_dialog_surface(ui::Renderer& renderer, const ui::Rect& window, const u
 void draw_dialog_button(ui::Renderer& renderer, const ui::Rect& bounds,
                         const theme::Palette& palette, std::string_view label, bool focused,
                         DialogButton style) {
+    core::AccessibleNode node;
+    node.id = "button:" + std::string{label} + ":" + std::to_string(static_cast<int>(bounds.y));
+    node.name = label.substr(0, label.find("   "));
+    node.role = core::AccessibleRole::button;
+    node.focused = focused;
+    renderer.accessible(std::move(node), bounds);
     const auto fill = style == DialogButton::primary       ? palette.primary
                       : style == DialogButton::destructive ? palette.error
                                                            : palette.surface_container_highest;

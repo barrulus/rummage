@@ -34,6 +34,7 @@ reporting behavior in a development build.
 | Open browser downloads with Show in Folder | [Desktop integration](command-line.md#show-in-folder) |
 | Replace application Open/Save dialogs | [File picker and portal](file-picker.md) |
 | Understand compositor requirements and fallbacks | [Desktop compatibility](compatibility.md) |
+| Use screen readers and input methods | [Accessibility and input methods](accessibility.md) |
 
 ## Application reference
 

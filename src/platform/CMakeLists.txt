@@ -1,4 +1,5 @@
 add_library(rummage_platform
+    src/accessibility.cpp
     src/code_stats.cpp
     src/code_report.cpp
     src/program.cpp

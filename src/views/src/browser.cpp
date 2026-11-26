@@ -1058,6 +1058,38 @@ void Browser::paste_text() {
     }
 }
 
+ui::TextField* Browser::input_field() {
+    if (password_.is_open())
+        return password_.input_field();
+    if (errors_.is_open() || conflict_.is_open())
+        return nullptr;
+    if (confirm_.is_open())
+        return confirm_.input_field();
+    if (mount_password_.is_open())
+        return mount_password_.input_field();
+    if (batch_rename_.is_open())
+        return batch_rename_.input_field();
+    if (location_.is_open())
+        return location_.input_field();
+    if (settings_.is_open())
+        return settings_.input_field();
+    if (properties_.is_open())
+        return properties_.input_field();
+    if (menu_.is_open() || quick_look_.is_open())
+        return nullptr;
+    if (palette_.is_open())
+        return palette_.input_field();
+    if (searching_results())
+        return pane().search_results->input_field();
+    if (editor_.active())
+        return editor_.input_field();
+    if (sidebar_.renaming())
+        return sidebar_.input_field();
+    if (area().breadcrumb.editing())
+        return area().breadcrumb.input_field();
+    return filter_focused_ && !shortcuts_.is_open() ? &pane().filter_field : nullptr;
+}
+
 bool Browser::text_field_key(const ui::KeyEvent& event) {
     if (event.modifiers != ui::Modifiers{.ctrl = true})
         return false;
@@ -4158,6 +4190,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         const float height = (line.ascent + line.descent) / renderer.scale();
         renderer.draw_layout(line, rect.x, rect.y + (rect.height - height) / 2, color);
     };
+    pane().filter_field.set_accessible_name(std::string{i18n::tr("Filter names…")});
     pane().filter_field.draw(
         renderer, filter_bounds_, 14,
         {.background = palette.surface,
@@ -4187,6 +4220,22 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         icons.draw(renderer, icon, rect.x + (rect.width - 18) / 2, rect.y + 7, 18,
                    active ? palette.on_primary_container : palette.on_surface);
     };
+    if (ui::AccessibleFrame::current()) {
+        for (const auto& [rect, label] :
+             {std::pair{sidebar_toggle_bounds_, i18n::tr("Places sidebar")},
+              std::pair{view_menu_bounds_, i18n::tr("View")},
+              std::pair{insights_bounds_, i18n::tr("Insights")},
+              std::pair{sort_bounds_, i18n::tr("Sort By")},
+              std::pair{clear_filter_bounds_, i18n::tr("Clear")},
+              std::pair{new_folder_bounds_, i18n::tr("New Folder")}}) {
+            core::AccessibleNode node;
+            node.id =
+                "toolbar:" + std::string{label} + ":" + std::to_string(static_cast<int>(rect.x));
+            node.name = label;
+            node.role = core::AccessibleRole::button;
+            renderer.accessible(std::move(node), rect);
+        }
+    }
     button(sidebar_toggle_bounds_, "layout-columns", sidebar_visible_);
     const auto view_icon = pane().mode == Mode::columns ? "layout-columns"
                            : pane().mode == Mode::grid  ? "layout-grid"

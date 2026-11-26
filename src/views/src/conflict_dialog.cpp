@@ -141,6 +141,8 @@ void ConflictDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const ui::Rect card{bounds.x + ((bounds.width - width) / 2.0F),
                         bounds.y + ((bounds.height - height) / 2.0F), width, height};
     draw_dialog_surface(renderer, bounds, card, palette);
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(i18n::trf("“{}” is already in {}", conflict_.name, destination_), card);
     renderer.push_clip(card);
     const float left = card.x + kPadding;
     const float room = width - (2.0F * kPadding);

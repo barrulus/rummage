@@ -133,6 +133,16 @@ public:
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
               ui::IconSet& icons, Thumbnails* thumbnails = nullptr);
 
+    [[nodiscard]] ui::TextField* input_field() {
+        if (!open_ || saving_)
+            return nullptr;
+        if (picking_ && focus_ == "search")
+            return &search_;
+        if (picking_ && focus_ == "custom")
+            return &custom_;
+        return editing_field();
+    }
+
 private:
     struct Data {
         fs::Entry entry;

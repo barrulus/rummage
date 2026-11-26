@@ -668,6 +668,7 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
         y += 38;
     };
     const auto field = [&](std::string_view label, ui::TextField& input, bool mutates = true) {
+        input.set_accessible_name(std::string{label});
         text(label);
         const ui::Rect rect{x, y, width, 32};
         const bool focused = focus_ == static_cast<int>(controls_.size());
