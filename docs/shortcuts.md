@@ -282,3 +282,7 @@ In the sidebar, **Left/Right** collapse/expand folders or move to their
 parent/first child. **Alt+Up/Down** reorders Places entries and separators within
 their section; it does not reorder tree folders. **View → Sidebar** provides
 keyboard access to section visibility and restore/reset controls.
+
+The configurable command `reset_column_root` makes the focused column the root
+without changing the selection. It has no default shortcut and is also available
+in the View menu and command palette.

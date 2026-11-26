@@ -31,6 +31,7 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
     // An explicit filesystem search opens in a normal tab, preserving the logical photo tab.
     if (showing_photos())
         open_tab(root, true);
+    note_location();
     palette_.close();
     menu_.close();
     shortcuts_.close();
@@ -38,10 +39,23 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
     search_preview_.reset();
     search_preview_pending_ = false;
     ++search_generation_;
-    if (!search_results_)
-        search_results_ = std::make_unique<SearchResults>(
+    if (!pane().search_results)
+        pane().search_results = std::make_unique<SearchResults>(
             pool_, redraw_, [this](auto action) { search_action(action); });
-    search_results_->open(root, std::move(query), hidden.value_or(pane().show_hidden));
+    pane().search_results->open(root, std::move(query), hidden.value_or(pane().show_hidden));
+    if (!pane().history.empty() && pane().history[pane().here].search) {
+        pane().history[pane().here].search = pane().search_results->snapshot();
+    } else {
+        if (!pane().history.empty())
+            pane().history.erase(
+                pane().history.begin() + static_cast<std::ptrdiff_t>(pane().here + 1),
+                pane().history.end());
+        pane().history.push_back(
+            {.folder = root, .cursor = {}, .search = pane().search_results->snapshot()});
+        if (pane().history.size() > kHistorySize)
+            pane().history.erase(pane().history.begin());
+        pane().here = pane().history.size() - 1;
+    }
 }
 
 void Browser::open_saved_searches(bool remove) {
@@ -87,17 +101,18 @@ void Browser::search_action(SearchResults::Action action) {
     using Action = SearchResults::Action;
     if (!searching_results())
         return;
-    const auto paths = search_results_->chosen();
-    auto* finder = search_results_->finder();
+    const auto paths = pane().search_results->chosen();
+    auto* finder = pane().search_results->finder();
     if (!finder)
         return;
     switch (action) {
         case Action::close:
+            note_location();
             ++search_generation_;
             quick_look_.close();
             search_preview_.reset();
             search_preview_pending_ = false;
-            search_results_->close();
+            pane().search_results->close();
             return;
         case Action::saved:
             open_saved_searches();

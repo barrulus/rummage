@@ -326,3 +326,87 @@ TEST_CASE("breadcrumb: completion cycles Unicode paths and ignores stale results
     REQUIRE(f.settled());
     CHECK(f.browser.picker_folder()->path() == f.root / "Été");
 }
+
+TEST_CASE("breadcrumb: clicking the current crumb appends while keyboard editing selects all") {
+    Fixture f;
+    SUBCASE("browser") {}
+    SUBCASE("picker") { f.browser.set_picker_mode(true); }
+    f.browser.open(f.root);
+    REQUIRE(f.settled());
+    rummage::ui::Offscreen surface{1200, 800};
+    FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(1200, 800, 1, {});
+    f.browser.draw(renderer, {0, 0, 1200, 800}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    auto& crumb = f.browser.breadcrumb();
+    bool clicked = false;
+    for (float y = 0; y < 160 && !clicked; y += 1) {
+        for (float x = 0; x < 1200; x += 1) {
+            if (!crumb.text_at(x, y))
+                continue;
+            CHECK(crumb.path_at(x, y) == f.root);
+            crumb.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                           .x = x,
+                           .y = y,
+                           .button = rummage::ui::PointerButton::left});
+            clicked = true;
+            break;
+        }
+    }
+    REQUIRE(clicked);
+    REQUIRE(crumb.editing());
+    CHECK(crumb.copy_selection(false).empty());
+    crumb.paste("/a");
+    CHECK(crumb.text() == (f.root / "a").string());
+    crumb.cancel_edit();
+    crumb.edit(f.root);
+    CHECK(crumb.copy_selection(false) == f.root.string());
+}
+
+TEST_CASE("columns: reset root keeps focused folder selection and descendants") {
+    Fixture f;
+    f.browser.reveal(f.root, f.root / "a" / "b");
+    REQUIRE(f.settled());
+    auto& columns = f.browser.columns();
+    const auto focused = columns.focused_folder();
+    REQUIRE(focused);
+    const auto before = columns.column_count() - columns.focus();
+    const auto name = cursor_name(*focused);
+    columns.reset_root();
+    CHECK(columns.focus() == 0);
+    CHECK(columns.focused_folder() == focused);
+    CHECK(columns.column_count() == before);
+    CHECK(cursor_name(*focused) == name);
+    columns.reset_root();
+    CHECK(columns.focused_folder() == focused);
+}
+
+TEST_CASE("columns: vertical hierarchy keeps independent lists and hit targets") {
+    Fixture f;
+    f.browser.reveal(f.root, f.root / "a" / "b");
+    REQUIRE(f.settled());
+    auto& columns = f.browser.columns();
+    columns.set_info_visible(false);
+    columns.set_vertical(true);
+    rummage::ui::Offscreen surface{500, 900};
+    FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(500, 900, 1, {});
+    columns.draw(renderer, {0, 0, 500, 900}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    REQUIRE(columns.column_count() >= 2);
+    const auto a = columns.column(0).rows_area();
+    const auto b = columns.column(1).rows_area();
+    CHECK(a.x == b.x);
+    CHECK(a.width == b.width);
+    CHECK(b.y > a.y);
+    const auto hit = columns.hit(b.x + 20, b.y + 10);
+    REQUIRE(hit);
+    CHECK(hit->folder == columns.column(1).shared_folder());
+    const auto focused = columns.focused_folder();
+    columns.set_vertical(false);
+    CHECK(columns.focused_folder() == focused);
+}

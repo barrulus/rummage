@@ -808,3 +808,94 @@ TEST_CASE("search results: a removed preview target never falls back to another 
     CHECK(f.browser.search_results()->rows().empty());
     CHECK_FALSE(f.browser.search_results()->finder()->status().empty());
 }
+
+TEST_CASE("search results: Back restores query and selection with refreshed paths per tab") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "ext:orf", true);
+    REQUIRE(f.settle());
+    auto* results = f.browser.search_results();
+    REQUIRE(results);
+    REQUIRE(results->rows().size() == 2);
+    results->select(1);
+    const auto selected = results->chosen();
+    const auto before = results->snapshot();
+    f.browser.search_action(rummage::views::SearchResults::Action::reveal);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    f.browser.back();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.searching_results());
+    CHECK(f.browser.search_results()->finder()->root() == f.a);
+    CHECK(f.browser.search_results()->finder()->query() == "ext:orf");
+    CHECK(f.browser.search_results()->finder()->hidden());
+    CHECK(f.browser.search_results()->chosen() == selected);
+    CHECK(f.browser.search_results()->first_row() == before.first);
+    f.browser.open_tab(f.a, true);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    f.browser.select_tab(0);
+    REQUIRE(f.settle());
+    CHECK(f.browser.search_results()->finder()->query() == "ext:orf");
+    f.browser.forward();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    fs::remove(selected.front());
+    f.browser.back();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.searching_results());
+    const auto remaining = f.browser.search_results()->chosen();
+    CHECK(std::ranges::find(remaining, selected.front()) == remaining.end());
+}
+
+TEST_CASE("search results: restoring a snapshot cancels an earlier search") {
+    Fixture f;
+    for (int i = 0; i < 30; ++i)
+        touch(f.a / ("extra-" + std::to_string(i) + ".txt"));
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    auto* results = f.browser.search_results();
+    results->select(20);
+    const auto saved = results->snapshot();
+    CHECK(saved.first > 0);
+    results->set_query("not-present");
+    results->restore(saved);
+    REQUIRE(f.settle());
+    CHECK(results->snapshot().cursor == saved.cursor);
+    CHECK(results->first_row() == saved.first);
+}
+
+TEST_CASE("search results: unavailable Forward leaves the current search open") {
+    Fixture f;
+    f.browser.open_search_results(f.a, "ext:txt", false);
+    REQUIRE(f.settle());
+    f.browser.forward();
+    REQUIRE(f.browser.searching_results());
+    CHECK(f.browser.search_results()->finder()->query() == "ext:txt");
+}
+
+TEST_CASE("find files: Back restores a chosen palette result as a search session") {
+    Fixture f;
+    for (int i = 0; i < 30; ++i)
+        touch(f.a / ("extra-" + std::to_string(i) + ".txt"));
+    f.find("ext:txt");
+    for (int i = 0; i < 20; ++i)
+        REQUIRE(f.press(key(XKB_KEY_Down)));
+    const auto& palette = f.browser.command_palette();
+    REQUIRE(palette.highlighted());
+    const auto path = palette.items()[palette.shown()[*palette.highlighted()]].id.substr(5);
+    const auto first = palette.first_row();
+    REQUIRE(first > 0);
+    REQUIRE(f.press(key(XKB_KEY_Return)));
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.command_palette().is_open());
+    f.browser.back();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.searching_results());
+    const auto* results = f.browser.search_results();
+    CHECK(results->finder()->root() == f.a);
+    CHECK(results->finder()->query() == "ext:txt");
+    CHECK(results->chosen() == std::vector<fs::path>{f.a / path});
+    CHECK(results->first_row() == first);
+}

@@ -41,7 +41,26 @@ void SearchResults::open(const std::filesystem::path& root, std::string query, b
     redraw_();
 }
 
+SearchResults::Snapshot SearchResults::snapshot() const {
+    if (restoring_)
+        return *restoring_;
+    return {.root = finder_ ? finder_->root() : std::filesystem::path{},
+            .query = query_.text(),
+            .hidden = finder_ && finder_->hidden(),
+            .selected = selected_,
+            .cursor = cursor_,
+            .anchor = anchor_,
+            .first = first_};
+}
+
+void SearchResults::restore(const Snapshot& saved) {
+    open(saved.root, saved.query, saved.hidden);
+    restoring_ = saved;
+    focus_ = -2;
+}
+
 void SearchResults::close() {
+    restoring_.reset();
     open_ = false;
     finder_.reset();
     selected_.clear();
@@ -81,6 +100,17 @@ const std::vector<FoundFile>& SearchResults::rows() const {
 }
 
 void SearchResults::updated() {
+    if (restoring_) {
+        if (loading()) {
+            redraw_();
+            return;
+        }
+        selected_ = std::move(restoring_->selected);
+        cursor_ = std::move(restoring_->cursor);
+        anchor_ = std::move(restoring_->anchor);
+        first_ = restoring_->first;
+        restoring_.reset();
+    }
     const auto exists = [&](const std::string& path) {
         return std::ranges::find(rows(), path, &FoundFile::path) != rows().end();
     };

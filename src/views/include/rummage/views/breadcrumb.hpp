@@ -60,8 +60,10 @@ public:
     // The pointer at (x, y) is over the bar as last drawn.
     [[nodiscard]] bool claims(float x, float y) const;
 
-    // A crumb that opens its folder is there (not the last: the folder shown).
+    // A crumb navigates, or this part of the bar opens the path editor.
     [[nodiscard]] bool clickable_at(float x, float y) const;
+
+    [[nodiscard]] bool text_at(float x, float y) const;
 
     void pointer(const ui::PointerEvent& event);
 
@@ -99,7 +101,7 @@ public:
         redraw_();
     }
 
-    void edit(const std::filesystem::path& path);
+    void edit(const std::filesystem::path& path, bool select_all = true);
     bool key(const ui::KeyEvent& event);
     void paste(std::string_view text);
     std::string copy_selection(bool cut);

@@ -1718,6 +1718,8 @@ moves = "Bewegung"
 "{} restored sources need explicit Refresh before discovery" = "{} wiederhergestellte Quellen benötigen vor der Suche eine ausdrückliche Aktualisierung"
 "{} selected photos" = { one = "{} ausgewähltes Foto", other = "{} ausgewählte Fotos" }
 "{}: {} · {} items completed" = "{}: {} · {} Einträge abgeschlossen"
+"Make Focused Folder Column Root" = "Fokussierten Ordner als Spaltenwurzel verwenden"
+"Stack directory columns vertically" = "Verzeichnisspalten vertikal stapeln"
 
 [contexts.file-action]
 "Open" = "Öffnen"

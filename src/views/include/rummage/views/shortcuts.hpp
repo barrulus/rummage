@@ -33,6 +33,7 @@ inline constexpr std::uint16_t kConfirm = 1U << 8U;   // while a delete asks to 
 enum class Command : std::uint8_t {
     none,
     columns_view,
+    reset_column_root,
     grid_view,
     details_view,
     toggle_info,

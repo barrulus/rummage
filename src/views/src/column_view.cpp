@@ -132,6 +132,40 @@ void ColumnView::open(const std::filesystem::path& directory) {
     redraw_();
 }
 
+void ColumnView::set_vertical(bool vertical) {
+    if (vertical_ == vertical)
+        return;
+    vertical_ = vertical;
+    scrollbar_ =
+        ui::Scrollbar{vertical ? ui::Scrollbar::Axis::vertical : ui::Scrollbar::Axis::horizontal};
+    resizing_.reset();
+    hovered_column_.reset();
+    gesture_column_.reset();
+    gesture_axis_ = Axis::none;
+    shift_ = 0;
+    scroller_.jump_to(0);
+    reveal_focus_ = true;
+    redraw_();
+}
+
+void ColumnView::reset_root() {
+    if (columns_.empty() || focus_ == 0)
+        return;
+    for (std::size_t i = 0; i < focus_; ++i)
+        columns_[i].column->folder().set_changed_handler(nullptr);
+    columns_.erase(columns_.begin(), columns_.begin() + static_cast<std::ptrdiff_t>(focus_));
+    focus_ = 0;
+    resizing_.reset();
+    hovered_column_.reset();
+    gesture_column_.reset();
+    gesture_axis_ = Axis::none;
+    shift_ = 0;
+    scroller_.jump_to(0);
+    reveal_focus_ = true;
+    refresh_filters();
+    redraw_();
+}
+
 void ColumnView::reveal(const std::filesystem::path& root, const std::filesystem::path& target) {
     open(root);
     const std::filesystem::path relative = target.lexically_relative(root);
@@ -384,14 +418,16 @@ bool ColumnView::shows_info() const {
 
 float ColumnView::content_width() const {
     float width = columns_.empty() ? 0.0F : columns_.back().x + columns_.back().width;
-    if (shows_info()) {
+    if (shows_info() && !vertical_) {
         width += kInfoWidth;
     }
     return width;
 }
 
-std::optional<std::size_t> ColumnView::column_at(float x) const {
-    const float content_x = x - area_.x + scroller_.offset();
+std::optional<std::size_t> ColumnView::column_at(float x, float y) const {
+    if (!area_.contains(x, y))
+        return std::nullopt;
+    const float content_x = (vertical_ ? y - area_.y : x - area_.x) + scroller_.offset();
     for (std::size_t i = 0; i < columns_.size(); ++i) {
         if (content_x >= columns_[i].x && content_x < columns_[i].x + columns_[i].width) {
             return i;
@@ -406,7 +442,7 @@ std::optional<ViewHit> ColumnView::hit(float x, float y) const {
         (info_area_.width > 0.0F && x >= info_area_.x)) {
         return std::nullopt;
     }
-    const std::optional<std::size_t> index = column_at(x);
+    const std::optional<std::size_t> index = column_at(x, y);
     if (!index) {
         return std::nullopt;
     }
@@ -450,12 +486,13 @@ void ColumnView::band_scroll(const Folder& folder, float pixels) {
 }
 
 std::optional<std::size_t> ColumnView::divider_at(float x, float y) const {
-    if (y < area_.y || y >= area_.bottom()) {
+    if (!area_.contains(x, y)) {
         return std::nullopt;
     }
     for (std::size_t i = 0; i < columns_.size(); ++i) {
-        const float edge = area_.x + columns_[i].x + columns_[i].width - scroller_.offset();
-        if (std::abs(x - edge) <= kDividerGrab) {
+        const float edge = (vertical_ ? area_.y : area_.x) + columns_[i].x + columns_[i].width -
+                           scroller_.offset();
+        if (std::abs((vertical_ ? y : x) - edge) <= kDividerGrab) {
             return i;
         }
     }
@@ -467,7 +504,7 @@ void ColumnView::update_hover() {
     std::optional<std::size_t> row;
     if (pointer_inside_ && !resizing_ && pointer_y_ >= area_.y && pointer_y_ < area_.bottom() &&
         !scrollbar_.hit(scroller_, pointer_x_, pointer_y_) && !divider_at(pointer_x_, pointer_y_)) {
-        column = column_at(pointer_x_);
+        column = column_at(pointer_x_, pointer_y_);
         if (column && !columns_[*column].column->scrollbar().hit(
                           columns_[*column].column->scroller(), pointer_x_, pointer_y_)) {
             row = columns_[*column].column->row_at(pointer_x_, pointer_y_);
@@ -491,8 +528,17 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     area_ = bounds;
     std::vector<std::pair<std::shared_ptr<Folder>, RowRange>> visible_collections;
 
+    info_area_ = {};
+    if (vertical_ && shows_info() && info_pane_ != nullptr) {
+        const float width = info_pane_->width_in(bounds.width);
+        if (width > 0) {
+            area_.width -= width;
+            info_area_ = {area_.right(), bounds.y, width, bounds.height};
+        }
+    }
+    const float extent = vertical_ ? area_.height : area_.width;
     layout();
-    scroller_.set_extent(content_width(), area_.width);
+    scroller_.set_extent(content_width(), extent);
     if (shift_ != 0.0F) {
         scroller_.jump_to(scroller_.offset() + shift_);
         shift_ = 0.0F;
@@ -505,8 +551,8 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
                                 : content_width();
         const float from = scroller_.destination();
         float to = from;
-        if (right > to + area_.width) {
-            to = right - area_.width;
+        if (right > to + extent) {
+            to = right - extent;
         }
         to = std::min(to, left);
         if (to != from) {
@@ -520,28 +566,32 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     renderer.push_clip(area_);
     for (std::size_t i = 0; i < columns_.size(); ++i) {
         const Slot& slot = columns_[i];
-        const float left = area_.x + slot.x - offset;
-        if (left + slot.width <= area_.x || left >= area_.right()) {
+        const float origin = vertical_ ? area_.y : area_.x;
+        const float left = origin + slot.x - offset;
+        if (left + slot.width <= origin || left >= origin + extent) {
             slot.column->scroller().advance(now);  // off screen: animations still end
             continue;
         }
-        slot.column->draw(renderer, {left, area_.y, slot.width, area_.height}, palette, icons,
-                          i == focus_, now, edit_, cut_, drop_, show_extensions_,
-                          show_thumbnails_ ? thumbnails_ : nullptr);
+        const ui::Rect column_bounds =
+            vertical_ ? ui::Rect{area_.x, left, std::max(1.0F, area_.width - 12.0F), slot.width}
+                      : ui::Rect{left, area_.y, slot.width, area_.height};
+        slot.column->draw(renderer, column_bounds, palette, icons, i == focus_, now, edit_, cut_,
+                          drop_, show_extensions_, show_thumbnails_ ? thumbnails_ : nullptr);
         if (slot.column->folder().is_collection()) {
             visible_collections.emplace_back(
                 slot.column->shared_folder(),
                 visible_rows(slot.column->folder().entries().size(), slot.column->size().row,
-                             slot.column->scroller().offset(), area_.height));
+                             slot.column->scroller().offset(), column_bounds.height));
         }
         const bool grabbed =
             resizing_ == i || (over_divider_ && divider_at(pointer_x_, pointer_y_) == i);
         const float line = grabbed ? 2.0F : 1.0F / renderer.scale();
-        renderer.fill_rect({left + slot.width - line, area_.y, line, area_.height},
+        renderer.fill_rect(vertical_
+                               ? ui::Rect{area_.x, left + slot.width - line, area_.width, line}
+                               : ui::Rect{left + slot.width - line, area_.y, line, area_.height},
                            grabbed ? palette.primary : palette.outline_variant);
     }
-    info_area_ = {};
-    if (shows_info() && info_pane_ != nullptr) {
+    if (!vertical_ && shows_info() && info_pane_ != nullptr) {
         const float left = area_.x + content_width() - kInfoWidth - offset;
         info_area_ = {left, area_.y, std::max(kInfoWidth, area_.right() - left), area_.height};
         info_pane_->draw(renderer, info_area_, palette, icons, columns_[focus_].column->folder(),
@@ -555,6 +605,9 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
              .radius = {}});
     }
     renderer.pop_clip();
+    if (vertical_ && !info_area_.empty())
+        info_pane_->draw(renderer, info_area_, palette, icons, columns_[focus_].column->folder(),
+                         now);
 
     update_hover();  // content may have moved under a still pointer
     // A controller may replace its snapshot here; no column or entry references remain in use.
@@ -584,7 +637,7 @@ void ColumnView::pointer(const ui::PointerEvent& event, Clock::time_point now) {
             return;
         }
         if (area_.contains(event.x, event.y)) {
-            if (const auto index = column_at(event.x); index) {
+            if (const auto index = column_at(event.x, event.y); index) {
                 Column& column = *columns_[*index].column;
                 if (column.scrollbar().pointer(event, column.scroller())) {
                     consumed();
@@ -602,16 +655,18 @@ void ColumnView::pointer(const ui::PointerEvent& event, Clock::time_point now) {
             pointer_y_ = event.y;
             if (resizing_) {
                 Slot& slot = columns_[*resizing_];
-                const float left = area_.x + slot.x - scroller_.offset();
-                slot.width =
-                    std::clamp(event.x - resize_grab_ - left, kMinColumnWidth, kMaxColumnWidth);
+                const float left = (vertical_ ? area_.y : area_.x) + slot.x - scroller_.offset();
+                slot.width = std::clamp((vertical_ ? event.y : event.x) - resize_grab_ - left,
+                                        kMinColumnWidth, kMaxColumnWidth);
                 redraw_();
                 break;
             }
             const bool over = divider_at(event.x, event.y).has_value();
             if (over != over_divider_) {
                 over_divider_ = over;
-                set_cursor_(over ? ui::CursorShape::ew_resize : ui::CursorShape::standard);
+                set_cursor_(
+                    over ? (vertical_ ? ui::CursorShape::ns_resize : ui::CursorShape::ew_resize)
+                         : ui::CursorShape::standard);
                 redraw_();
             }
             update_hover();
@@ -663,7 +718,8 @@ void ColumnView::pointer(const ui::PointerEvent& event, Clock::time_point now) {
                     break;
                 }
                 resizing_ = divider;
-                resize_grab_ = event.x - (area_.x + slot.x + slot.width - scroller_.offset());
+                resize_grab_ = (vertical_ ? event.y - area_.y : event.x - area_.x) -
+                               (slot.x + slot.width - scroller_.offset());
                 update_hover();
                 break;
             }
@@ -673,7 +729,7 @@ void ColumnView::pointer(const ui::PointerEvent& event, Clock::time_point now) {
             if (info_pane_ != nullptr && info_pane_->click(event.x, event.y)) {
                 break;
             }
-            if (const std::optional<std::size_t> index = column_at(event.x)) {
+            if (const std::optional<std::size_t> index = column_at(event.x, event.y)) {
                 reveal_.clear();
                 Column& column = *columns_[*index].column;
                 focus_on(*index);
@@ -698,7 +754,9 @@ void ColumnView::pointer(const ui::PointerEvent& event, Clock::time_point now) {
                 const bool over = divider_at(event.x, event.y).has_value();
                 if (over != over_divider_) {
                     over_divider_ = over;
-                    set_cursor_(over ? ui::CursorShape::ew_resize : ui::CursorShape::standard);
+                    set_cursor_(
+                        over ? (vertical_ ? ui::CursorShape::ns_resize : ui::CursorShape::ew_resize)
+                             : ui::CursorShape::standard);
                 }
                 redraw_();
             }
@@ -712,7 +770,7 @@ void ColumnView::scroll(const ui::PointerEvent& event, Clock::time_point now) {
         if (gesture_axis_ == Axis::none && (event.scroll_x != 0.0F || event.scroll_y != 0.0F)) {
             gesture_axis_ = std::abs(event.scroll_x) > std::abs(event.scroll_y) ? Axis::horizontal
                                                                                 : Axis::vertical;
-            gesture_column_ = column_at(event.x);
+            gesture_column_ = column_at(event.x, event.y);
         }
         if (gesture_axis_ == Axis::horizontal) {
             if (event.scroll_x != 0.0F) {
@@ -743,7 +801,7 @@ void ColumnView::scroll(const ui::PointerEvent& event, Clock::time_point now) {
     }
     if (horizontal_wheel != 0.0F) {
         scroller_.wheel(horizontal_wheel, now);
-    } else if (const std::optional<std::size_t> index = column_at(event.x)) {
+    } else if (const std::optional<std::size_t> index = column_at(event.x, event.y)) {
         ui::Scroller& scroller = columns_[*index].column->scroller();
         if (event.wheel_y != 0.0F) {
             scroller.wheel(event.wheel_y, now);
@@ -853,7 +911,7 @@ void ColumnView::right_click(float x, float y) {
     const bool in_pane = info_area_.width > 0.0F && x >= info_area_.x && x < info_area_.right() &&
                          y >= info_area_.y && y < info_area_.bottom();
     if (!in_pane) {
-        const std::optional<std::size_t> index = column_at(x);
+        const std::optional<std::size_t> index = column_at(x, y);
         if (!index) {
             return;
         }

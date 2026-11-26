@@ -94,7 +94,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (searching_results()) {
         using Action = SearchResults::Action;
-        const auto count = search_results_->chosen().size();
+        const auto count = pane().search_results->chosen().size();
         const auto offer = [&](const char* id, std::string_view label, Action action,
                                bool enabled = true) {
             if (enabled)
@@ -334,6 +334,8 @@ std::vector<PaletteItem> Browser::palette_items() {
         command(Command::show_settings, "show_settings", "Settings…");
 
     // Views.
+    if (pane().mode == Mode::columns)
+        command(Command::reset_column_root, "reset_column_root", "Make Focused Folder Column Root");
     if (pane().mode != Mode::columns) {
         command(Command::columns_view, "columns_view", "Show Columns");
     }
@@ -811,8 +813,29 @@ void Browser::refresh_found() {
     std::vector<PaletteItem> items;
     items.reserve(finder_->results().size());
     for (const FoundFile& found : finder_->results()) {
-        const auto then = [this, root, path = found.path](FoundAction after) {
-            return [this, root, path, after] { show_found(root, path, after); };
+        SearchResults::Snapshot saved{.root = root,
+                                      .query = finder_->query(),
+                                      .hidden = finder_->hidden(),
+                                      .selected = {found.path},
+                                      .cursor = found.path,
+                                      .anchor = found.path};
+        const auto then = [this, saved, path = found.path](FoundAction after) {
+            return [this, saved, path, after]() mutable {
+                // The palette closes (and destroys its finder) before running this callback.
+                // Its last scroll offset survives close; retain the definition and selected
+                // path here so Back can rescan it in the full results view.
+                saved.first = palette_.first_row();
+                note_location();
+                if (!pane().history.empty())
+                    pane().history.erase(
+                        pane().history.begin() + static_cast<std::ptrdiff_t>(pane().here + 1),
+                        pane().history.end());
+                pane().history.push_back({.folder = saved.root, .cursor = {}, .search = saved});
+                if (pane().history.size() > kHistorySize)
+                    pane().history.erase(pane().history.begin());
+                pane().here = pane().history.size() - 1;
+                show_found(saved.root, path, after);
+            };
         };
         items.push_back(
             {.id = "file:" + found.path,

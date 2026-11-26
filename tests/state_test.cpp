@@ -671,3 +671,15 @@ TEST_CASE("state: native Gallery is opt-in and persists independently of view mo
     CHECK_FALSE(invalid.problems.empty());
     CHECK_FALSE(invalid.state.gallery);
 }
+
+TEST_CASE("gallery display persists without changing the default") {
+    const auto defaults = rummage::views::parse_state("", "test");
+    CHECK_FALSE(defaults.state.gallery);
+    auto state = defaults.state;
+    state.gallery = true;
+    state.vertical_columns = true;
+    const auto restored = rummage::views::parse_state(rummage::views::format_state(state), "test");
+    CHECK(restored.problems.empty());
+    CHECK(restored.state.gallery);
+    CHECK(restored.state.vertical_columns);
+}
