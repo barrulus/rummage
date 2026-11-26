@@ -31,6 +31,7 @@ def configure(profile, build):
             "-DRUMMAGE_BUILD_TESTS=" + ("OFF" if profile == "fuzz" else "ON"),
             "-DRUMMAGE_MEDIA=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_PDF=" + ("ON" if profile == "asan" else "OFF"),
+            "-DRUMMAGE_FONT=" + ("ON" if profile == "asan" else "OFF"),
             *( ["-DRUMMAGE_FUZZ=ON"] if profile == "fuzz" else
                ["-DRUMMAGE_SANITIZER=" + ("address,undefined" if profile == "asan" else "thread")])]
 
@@ -100,7 +101,7 @@ def main(argv=None):
             listing = subprocess.check_output(
                 ["ctest", "--test-dir", str(build), "--show-only=json-v1"], text=True)
             names = {x["name"] for x in json.loads(listing)["tests"]}
-            required = {"rummage-tests", "i18n-runtime", "media-tests", "pdf-tests",
+            required = {"rummage-tests", "i18n-runtime", "media-tests", "pdf-tests", "font-tests",
                         "file-picker-portal", "action-notifications"}
             if not required <= names:
                 raise RuntimeError(f"missing required tests: {sorted(required - names)}")

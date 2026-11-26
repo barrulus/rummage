@@ -21,6 +21,7 @@ class InstrumentationTest(unittest.TestCase):
         self.assertIn("-DRUMMAGE_SANITIZER=address,undefined", asan)
         self.assertIn("-DRUMMAGE_MEDIA=ON", asan)
         self.assertIn("-DRUMMAGE_PDF=ON", asan)
+        self.assertIn("-DRUMMAGE_FONT=ON", asan)
         self.assertIn("-DRUMMAGE_BUILD_TESTS=ON", asan)
         self.assertIn("-DRUMMAGE_SANITIZER=thread", module.configure("tsan", Path("build")))
         fuzz = module.configure("fuzz", Path("build"))
