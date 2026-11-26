@@ -120,6 +120,7 @@
               git
               python3
               doctest
+              llvmPackages.llvm # Symbolized sanitizer stacks and saved crash reports.
               shared-mime-info
               _7zz
               unzip
