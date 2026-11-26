@@ -82,6 +82,8 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       location_{redraw},
       batch_rename_{redraw},
       errors_{redraw, [this](std::string text) { copy_text(std::move(text)); }},
+      extension_output_{redraw, [this](std::string text) { copy_text(std::move(text)); },
+                        std::string{i18n::mark("Extension output")}},
       properties_{pool, mime, redraw},
       settings_{pool, redraw},
       menu_{std::move(redraw)},
@@ -2411,6 +2413,7 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 
 Browser::~Browser() {
     photo_copy_job_.cancel();
+    extension_job_.cancel();
     network_job_.cancel();
     for (const auto& [id, token] : content_jobs_)
         token.cancel();
@@ -4381,10 +4384,11 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
 
 void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                    ui::IconSet& icons, Clock::time_point now) {
-    if (password_.is_open() || errors_.is_open() || conflict_.is_open() || confirm_.is_open() ||
-        mount_password_.is_open() || location_.is_open() || batch_rename_.is_open() ||
-        settings_.is_open() || properties_.is_open() || palette_.is_open() || menu_.is_open() ||
-        shortcuts_.is_open() || quick_look_.is_open() || editor_.active())
+    if (password_.is_open() || errors_.is_open() || extension_output_.is_open() ||
+        conflict_.is_open() || confirm_.is_open() || mount_password_.is_open() ||
+        location_.is_open() || batch_rename_.is_open() || settings_.is_open() ||
+        properties_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
+        quick_look_.is_open() || editor_.active())
         info_pane_.clear_text_focus();
     begin_motion_frame(renderer, bounds, now);
     context_area_ = active_area_;
@@ -4516,6 +4520,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     settings_.draw(renderer, bounds, palette, icons);
     conflict_.draw(renderer, bounds, palette);
     confirm_.draw(renderer, bounds, palette);
+    extension_output_.draw(renderer, bounds, palette);
     errors_.draw(renderer, bounds, palette);
     password_.draw(renderer, bounds, palette);
     batch_rename_.draw(renderer, bounds, palette);
@@ -4776,6 +4781,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         return hand(password_.clickable_at(x, y));
     if (errors_.is_open())
         return hand(errors_.clickable_at(x, y));
+    if (extension_output_.is_open())
+        return hand(extension_output_.clickable_at(x, y));
     if (conflict_.is_open()) {
         return hand(conflict_.clickable_at(x, y));
     }
@@ -4869,10 +4876,11 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
         found_after_.reset();
     }
     if (event.kind == ui::PointerEvent::Kind::release &&
-        (errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
-         location_.is_open() || batch_rename_.is_open() || conflict_.is_open() ||
-         confirm_.is_open() || properties_.is_open() || settings_.is_open() || palette_.is_open() ||
-         menu_.is_open() || shortcuts_.is_open() || quick_look_.is_open())) {
+        (errors_.is_open() || extension_output_.is_open() || password_.is_open() ||
+         mount_password_.is_open() || location_.is_open() || batch_rename_.is_open() ||
+         conflict_.is_open() || confirm_.is_open() || properties_.is_open() ||
+         settings_.is_open() || palette_.is_open() || menu_.is_open() || shortcuts_.is_open() ||
+         quick_look_.is_open())) {
         // Taken by what the press opened (a menu from a right click): the button is up all the
         // same, and the next press finds its target again.
         button_held_ = false;
@@ -4885,6 +4893,10 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
     }
     if (errors_.is_open()) {
         errors_.pointer(event);
+        return;
+    }
+    if (extension_output_.is_open()) {
+        extension_output_.pointer(event);
         return;
     }
     if (conflict_.is_open()) {
@@ -6539,6 +6551,8 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
     }
     if (errors_.is_open())
         return errors_.key(event);
+    if (extension_output_.is_open())
+        return extension_output_.key(event);
     if (conflict_.is_open()) {
         return conflict_.key(event);  // a copy waits for the answer: every key is the card's
     }

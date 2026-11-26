@@ -13,6 +13,7 @@ add_library(rummage_views
     src/browser_batch_rename.cpp
     src/breadcrumb.cpp
     src/browser_actions.cpp
+    src/browser_extensions.cpp
     src/browser_panes.cpp
     src/browser_drives.cpp
     src/browser_folder_settings.cpp

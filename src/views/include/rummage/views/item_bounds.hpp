@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "rummage/fs/entry.hpp"
 #include "rummage/picture/load.hpp"
 #include "rummage/ui/color.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -22,6 +23,7 @@ struct ItemVisual {
     picture::Failure failure{picture::Failure::none};
     float opacity{1}, rail{0};
     bool executable{false};
+    std::shared_ptr<const fs::Decoration> decoration;
 };
 
 // Bounds of painted items, clipped to the viewport. Reset before each layout draw.

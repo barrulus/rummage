@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -83,6 +84,8 @@ public:
     void refresh_entry(const std::string& name);
     // Accept derived helper results only for unchanged entries; preserve selection by name.
     void apply_media(const std::vector<Entry>& results);
+    void apply_decorations(
+        const std::map<std::string, std::shared_ptr<const Decoration>>& decorations);
 
     [[nodiscard]] const std::filesystem::path& path() const noexcept { return path_; }
 

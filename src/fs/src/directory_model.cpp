@@ -498,6 +498,29 @@ void DirectoryModel::apply_media(const std::vector<Entry>& results) {
     }
 }
 
+void DirectoryModel::apply_decorations(
+    const std::map<std::string, std::shared_ptr<const Decoration>>& decorations) {
+    std::vector<Entry> changed;
+    ModelChange change;
+    change.metadata_only = true;
+    for (const auto& entry : listing_.entries()) {
+        const auto at = decorations.find(entry.name);
+        auto decoration =
+            at == decorations.end() ? std::shared_ptr<const Decoration>{} : at->second;
+        if ((!decoration && !entry.decoration) ||
+            (decoration && entry.decoration && *decoration == *entry.decoration))
+            continue;
+        auto value = entry;
+        value.decoration = std::move(decoration);
+        changed.push_back(std::move(value));
+        change.updated.push_back(entry.name);
+    }
+    if (!changed.empty()) {
+        listing_.replace({}, std::move(changed));
+        notify(change);
+    }
+}
+
 void DirectoryModel::notify(const ModelChange& change) {
     ++revision_;
     if (change_handler_) {

@@ -61,6 +61,8 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
                 type, &visual.failure, ThumbnailOptions::for_entry(entry));
         }
     }
+    if (entry.decoration)
+        visual.decoration = entry.decoration;
     draw_item_visual(renderer, icons, palette, visual, bounds);
     if (painted) {
         visual.path = folder.path_of(entry);
@@ -101,6 +103,16 @@ void draw_item_visual(ui::Renderer& renderer, ui::IconSet& icons, const theme::P
                         visual.folder_icon);
         draw_failure_badge(renderer, icons, palette, visual.failure, bounds.x, bounds.y, size,
                            alpha);
+    }
+    if (visual.decoration) {
+        const auto& value = *visual.decoration;
+        const float font = std::clamp(size * 0.35F, 9.0F, 13.0F);
+        const float width = std::min(44.0F, text_width(renderer, value.badge, font) + 4.0F);
+        const ui::Rect badge{bounds.x - 1, bounds.y - 1, width, font + 3};
+        const auto fill = value.severity >= 3 ? palette.error : palette.primary;
+        renderer.draw_box(badge, {.fill = fill.with_alpha(alpha), .radius = ui::Corners::all(2)});
+        renderer.draw_text(value.badge, badge.x + 2, badge.y + 1, font,
+                           palette.on_primary.with_alpha(alpha), width - 4);
     }
     if (visual.executable)
         draw_run_mark(renderer, bounds.x, bounds.y, size, visual.run_color, visual.run_background);

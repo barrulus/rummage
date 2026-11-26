@@ -20,6 +20,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/transfer_queue.hpp"
+#include "rummage/platform/extensions.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/clipboard.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -262,7 +263,7 @@ public:
     [[nodiscard]] const ui::Rect& new_folder_bounds() const { return new_folder_bounds_; }
 
     [[nodiscard]] bool has_overlay() const {
-        return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
+        return errors_.is_open() || extension_output_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
                quick_look_.is_open() || properties_.is_open() || searching_results() ||
@@ -490,6 +491,10 @@ public:
     [[nodiscard]] ErrorDialog& action_errors() { return errors_; }
 
     void set_actions(std::span<const core::Action> custom);
+    void set_extensions(const core::Config::Extensions& config);
+
+    [[nodiscard]] ErrorDialog& extension_output() { return extension_output_; }
+
     void set_context_menu(core::MenuLayout layout);
 
     // Where "New File" takes its templates from: fs::templates_dir() unless set (tests).
@@ -1278,6 +1283,7 @@ private:
     bool batch_rename_running_{false};
     std::uint64_t batch_rename_generation_{0};
     ErrorDialog errors_;
+    ErrorDialog extension_output_;
     PropertiesDialog properties_;
     SettingsDialog settings_;
     std::filesystem::path config_path_;
@@ -1360,6 +1366,12 @@ private:
     std::size_t show_items_pending_{0};
     std::shared_ptr<bool> alive_{std::make_shared<bool>(true)};
     std::vector<core::Action> actions_{core::action_registry()};
+    core::CancelToken extension_job_;
+    bool extension_running_{false};
+    std::vector<MenuItem> extension_items(const core::ActionContext&);
+    void invoke_extension(platform::extensions::Extension, platform::extensions::Command,
+                          core::ActionContext);
+    void show_git_diff(core::ActionContext, bool staged);
     core::MenuLayout menu_layout_;
     ActionHandoff action_handoff_;
     std::function<bool(const core::Action&, const core::ActionContext&)> action_available_;

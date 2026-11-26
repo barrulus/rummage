@@ -96,7 +96,17 @@ void ErrorDialog::wrap(ui::Renderer& renderer, float width) {
     lines_.clear();
     wrapped_width_ = width;
     wrapped_scale_ = renderer.scale();
-    std::string_view remaining = detail();
+    // Render tabs as spacing while preserving the original bytes for Copy Details.
+    // Git diffs can contain tabs both in headers and in file contents.
+    std::string display;
+    display.reserve(detail().size());
+    for (char c : detail()) {
+        if (c == '\t')
+            display += "    ";
+        else
+            display += c;
+    }
+    std::string_view remaining = display;
     while (!remaining.empty()) {
         const auto newline = remaining.find('\n');
         auto paragraph = remaining.substr(0, newline);

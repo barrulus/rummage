@@ -230,6 +230,7 @@ int main(int argc, char** argv) {
     bool stacked_panes = false;
     bool vertical_columns = false;
     bool gallery = false;
+    bool git_status = false;
     std::filesystem::path thumbnails;
     std::string sort;
     int bench_frames = 0;
@@ -280,6 +281,11 @@ int main(int argc, char** argv) {
         }
         if (option == "--vertical-columns") {
             vertical_columns = true;
+            args = args.subspan(1);
+            continue;
+        }
+        if (option == "--git") {
+            git_status = true;
             args = args.subspan(1);
             continue;
         }
@@ -389,7 +395,8 @@ int main(int argc, char** argv) {
         log::error(
             "usage: rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails "
             "CACHE] [--icon-theme NAME] [--sort FIELDS] [--info-expanded] [--info-width W] "
-            "[--split DIR] [--stacked] [--vertical-columns] [--gallery] [--expand-sidebar PATH] "
+            "[--split DIR] [--stacked] [--vertical-columns] [--gallery] [--git] [--expand-sidebar "
+            "PATH] "
             "[--bench FRAMES] [--walk "
             "FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME] [--drag NAME] "
             "[--drop-over X,Y] [--band X1,Y1,X2,Y2] [--fake-disks] [--memory [--trim] "
@@ -540,6 +547,8 @@ int main(int argc, char** argv) {
                 columns->set_preview_in_sidebar(preview_sidebar);
                 columns->set_vertical_columns(vertical_columns);
                 columns->set_gallery(gallery);
+                if (git_status)
+                    columns->set_extensions({.git = true});
                 if (!settings_config.empty())
                     columns->set_settings_handler(settings_config, [] {}, {});
                 columns->set_places(std::move(places));
@@ -572,6 +581,12 @@ int main(int argc, char** argv) {
                     columns->reveal(columns_dir, reveal);
                 }
                 run_until(loop, [&] { return !columns->loading(); });
+                if (git_status)
+                    run_until(loop, [&] {
+                        const auto folder = columns->picker_folder();
+                        return folder && (!folder->repository().empty() ||
+                                          !folder->decoration_problem().empty());
+                    });
                 if (picker_mode) {
                     core::PickerRequest request;
                     request.mode = *picker_mode == "save" ? core::PickerRequest::Mode::save

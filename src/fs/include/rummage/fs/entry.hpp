@@ -20,6 +20,12 @@ struct MediaMetadata {
 
 // One directory entry, as the views need it. A symbolic link takes the kind of its target
 // (a link to a directory is a directory) and keeps is_link; a dangling link is kind other.
+struct Decoration {
+    std::string badge, label;
+    unsigned severity{0};
+    bool operator==(const Decoration&) const = default;
+};
+
 struct Entry {
     std::string name;  // bytes as on disk: usually UTF-8, not guaranteed
     EntryKind kind{EntryKind::unknown};
@@ -47,6 +53,7 @@ struct Entry {
     std::string link_target{};
     // Absent: not requested/pending. Present but empty: unsupported or unavailable.
     std::shared_ptr<const MediaMetadata> media{};
+    std::shared_ptr<const Decoration> decoration{};
     std::optional<unsigned> rating{};  // General file rating, distinct from photo metadata.
 
     // Collection rows keep a stable key independently of their displayed filename. An empty

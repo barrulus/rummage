@@ -11,8 +11,53 @@
 
 #include "rummage/fs/name_pattern.hpp"
 #include "rummage/picture/load.hpp"
+#include "rummage/platform/extensions.hpp"
 
 namespace rummage::views {
+
+// One timer per event loop, not a timerfd per retained/expanded folder.
+class StatusTicker {
+public:
+    static std::shared_ptr<StatusTicker> acquire(core::EventLoop& loop) {
+        static std::map<core::EventLoop*, std::weak_ptr<StatusTicker>> loops;
+        auto& weak = loops[&loop];
+        auto shared = weak.lock();
+        if (!shared) {
+            shared = std::make_shared<StatusTicker>(loop);
+            weak = shared;
+        }
+        std::erase_if(loops, [](const auto& pair) { return pair.second.expired(); });
+        return shared;
+    }
+
+    explicit StatusTicker(core::EventLoop& loop) : loop_{loop} {
+        timer_ = loop_.add_timer(std::chrono::milliseconds{50}, std::chrono::seconds{2}, [this] {
+            // Still call listeners when disabling: they clear old badges and cancel jobs.
+            const auto callbacks = callbacks_;
+            for (const auto& [id, callback] : callbacks) {
+                (void)id;
+                callback();
+            }
+        });
+    }
+
+    ~StatusTicker() { loop_.remove(timer_); }
+
+    std::uint64_t add(std::function<void()> callback) {
+        auto id = ++next_;
+        callbacks_[id] = std::move(callback);
+        return id;
+    }
+
+    void remove(std::uint64_t id) { callbacks_.erase(id); }
+
+private:
+    core::EventLoop& loop_;
+    core::EventLoop::SourceId timer_{};
+    std::uint64_t next_{};
+    std::map<std::uint64_t, std::function<void()>> callbacks_;
+};
+
 namespace {
 
 // Sniffing batches stay small so a fast scroll does not queue minutes of reads.
@@ -32,6 +77,11 @@ Folder::Folder(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatch
     model_.set_change_handler([this](const fs::ModelChange& change) { on_change(change); });
     model_.set_filter(show_hidden, {});
     model_.open(std::move(directory));
+    status_ticker_ = StatusTicker::acquire(loop);
+    status_subscription_ = status_ticker_->add([this, alive = alive_] {
+        if (*alive)
+            request_decorations();
+    });
 }
 
 Folder::Folder(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
@@ -100,6 +150,8 @@ void Folder::append_collection(std::vector<fs::Entry> rows, std::size_t total, b
 Folder::~Folder() {
     *alive_ = false;
     media_job_.cancel();
+    status_job_.cancel();
+    status_ticker_->remove(status_subscription_);
 }
 
 void Folder::notify_visible_range(std::size_t first, std::size_t last_exclusive) const {
@@ -186,6 +238,47 @@ void Folder::selection_changed(bool feedback) {
     if (changed_) {
         changed_();
     }
+}
+
+void Folder::request_decorations() {
+    const auto registry = platform::extensions::snapshot();
+    if (status_generation_ != registry->generation) {
+        status_job_.cancel();
+        status_running_ = false;
+        status_generation_ = registry->generation;
+        model_.apply_decorations({});
+        repository_.clear();
+        decoration_problem_.clear();
+    }
+    if (status_running_ || is_archive() || is_trash() ||
+        (!registry->config.git && registry->config.enabled.empty()))
+        return;
+    std::vector<std::string> names;
+    for (const auto& entry : entries()) {
+        names.push_back(entry.name);
+        if (names.size() > 4096)
+            break;
+    }
+    status_running_ = true;
+    const auto revision = model_.revision();
+    const auto version = status_generation_;
+    status_job_ = pool_.submit(
+        core::Priority::prefetch,
+        [directory = path(), names = std::move(names)](const core::CancelToken& token) {
+            return platform::extensions::status(directory, names, token);
+        },
+        [this, alive = alive_, revision, version](platform::extensions::Status status) {
+            if (!*alive)
+                return;
+            status_running_ = false;
+            if (version != platform::extensions::snapshot()->generation ||
+                revision != model_.revision())
+                return;
+            repository_ = std::move(status.repository);
+            decoration_problem_ = std::move(status.problem);
+            model_.apply_decorations(status.entries);
+            redraw_();
+        });
 }
 
 void Folder::set_order(const fs::SortOrder& order) {

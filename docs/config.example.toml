@@ -661,3 +661,11 @@ follow_accent = true
 # mount, unmount, eject, remove_bookmark.
 # open_with and new_file include their dynamically discovered applications/templates;
 # sort and actions include their remaining children. Each ID may appear once per layout.
+
+# Optional workflow extensions and read-only Git status/diff integration.
+# See extensions.md for installation, protocol, limits and trusted-code access.
+[extensions]
+enabled = []
+git = false
+# Literal command/arguments; Rummage appends the repository root as one argument.
+git_tool = []

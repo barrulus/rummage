@@ -783,3 +783,18 @@ TEST_CASE("config: Settings transparency requires a boolean and defaults to opaq
         CHECK_FALSE(result.config.appearance.transparent_settings);
     }
 }
+
+TEST_CASE("extensions: configuration is opt-in and preserves literal Git tool arguments") {
+    CHECK_FALSE(Config{}.extensions.git);
+    CHECK(Config{}.extensions.enabled.empty());
+    const auto result = parse_config(R"config([extensions]
+enabled = ["example"]
+git = true
+git_tool = ["git-tool", "--literal=$()"]
+)config",
+                                     "test");
+    CHECK(result.config.extensions.git);
+    CHECK(result.config.extensions.enabled == std::vector<std::string>{"example"});
+    CHECK(result.config.extensions.git_tool ==
+          std::vector<std::string>{"git-tool", "--literal=$()"});
+}

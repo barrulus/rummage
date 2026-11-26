@@ -480,6 +480,20 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                                   motion.durations_ms[static_cast<std::size_t>(*event)]);
                       }
                   }}});
+        } else if (key.str() == "extensions") {
+            reader.read_section(
+                node, "extensions",
+                {{"enabled",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_strings(value, path, config.extensions.enabled);
+                  }},
+                 {"git",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, config.extensions.git);
+                  }},
+                 {"git_tool", [&](const toml::node& value, const std::string& path) {
+                      reader.read_strings(value, path, config.extensions.git_tool);
+                  }}});
         } else if (key.str() == "interface") {
             reader.read_section(
                 node, "interface",
