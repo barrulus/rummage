@@ -18,7 +18,7 @@ def exercise(module_path, root):
     module.rummage_photos_request.restype = ctypes.c_void_p
     module.rummage_photos_free.argtypes = [ctypes.c_void_p]
     module.rummage_photos_free.restype = None
-    catalog = root / 'catalog.sqlite3'
+    catalog = root / 'catalog/catalog.sqlite3'
 
     def request(**payload):
         result = module.rummage_photos_request(os.fsencode(catalog), json.dumps(payload).encode())

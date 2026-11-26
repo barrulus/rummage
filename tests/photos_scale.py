@@ -35,7 +35,7 @@ def main():
         root = Path(temporary)
         source = root / "originals"
         source.mkdir()
-        catalog = root / "catalog.db"
+        catalog = root / "catalog/catalog.db"
 
         def request(value):
             response = module.rummage_photos_request(
