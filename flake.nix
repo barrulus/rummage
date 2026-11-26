@@ -33,6 +33,8 @@
         rummage-photos = self.packages.${system}.rummage-with-photos.photos;
         rummage-with-font = self.packages.${system}.rummage.override { withFont = true; };
         rummage-font = self.packages.${system}.rummage-with-font.font;
+        rummage-with-model = self.packages.${system}.rummage.override { withModel = true; };
+        rummage-model = self.packages.${system}.rummage-with-model.model;
         default = self.packages.${system}.rummage;
       });
 
@@ -42,6 +44,7 @@
             withTests = true;
             withPhotos = true;
             withFont = true;
+            withModel = true;
           }).overrideAttrs
             {
               pname = "rummage-tests";
@@ -85,8 +88,9 @@
               (self.packages.${system}.rummage.override {
                 stdenv = pkgs.clangStdenv;
                 withTests = true;
-                withMedia = true;
-                withPdf = true;
+                withPhotos = true;
+                withFont = true;
+                withModel = true;
               })
             ];
             packages = with pkgs; [
@@ -110,6 +114,7 @@
             inputsFrom = [ self.packages.${system}.rummage ];
             packages = with pkgs; [
               clang-tools
+              assimp
               doctest
               tokei
               gdb

@@ -19,6 +19,7 @@
   libwebp,
   ffmpeg,
   sqlite,
+  assimp,
   callPackage,
   libjxl,
   libheif,
@@ -43,13 +44,14 @@
   withTests ? false,
   withPhotos ? false,
   withFont ? false,
+  withModel ? false,
   rummage-pdfium ? callPackage ./pdfium.nix { },
 }:
 
 stdenv.mkDerivation {
   pname = "rummage";
   version = "0.7.0";
-  outputs = [ "out" ] ++ lib.optional withPhotos "photos" ++ lib.optional withFont "font";
+  outputs = [ "out" ] ++ lib.optional withPhotos "photos" ++ lib.optional withFont "font" ++ lib.optional withModel "model";
 
   src = lib.fileset.toSource {
     root = ../.;
@@ -67,7 +69,7 @@ stdenv.mkDerivation {
         ../tests/svg_compare.hpp
         ../third_party
       ]
-      ++ lib.optional withTests ../tests
+      ++ lib.optionals withTests [ ../tests ../scripts/ci/check-model.py ]
     );
   };
 
@@ -115,13 +117,15 @@ stdenv.mkDerivation {
     ffmpeg
     rummage-pdfium
   ]
-  ++ lib.optional withPhotos sqlite;
+  ++ lib.optional withPhotos sqlite
+  ++ lib.optional withModel assimp;
 
   cmakeFlags = [
     "-DRUMMAGE_WERROR=OFF"
     "-DRUMMAGE_MEDIA=ON"
     "-DRUMMAGE_PDF=ON"
     "-DRUMMAGE_PHOTOS=${if withPhotos then "ON" else "OFF"}"
+    "-DRUMMAGE_MODEL=${if withModel then "ON" else "OFF"}"
     "-DRUMMAGE_FONT=${if withFont then "ON" else "OFF"}"
     "-DRUMMAGE_BUILD_TESTS=${if withTests then "ON" else "OFF"}"
   ];
@@ -161,6 +165,11 @@ stdenv.mkDerivation {
       mkdir -p "$photos/libexec/rummage"
       mv "$out/libexec/rummage/librummage-photos.so" "$photos/libexec/rummage/"
     ''
+    + lib.optionalString withModel ''
+      mkdir -p "$model/libexec/rummage" "$model/share/rummage/engines"
+      mv "$out/libexec/rummage/rummage-model" "$model/libexec/rummage/"
+      mv "$out/share/rummage/engines/model.toml" "$model/share/rummage/engines/"
+    ''
     + lib.optionalString withFont ''
       mkdir -p "$font/libexec/rummage" "$font/share/rummage/engines"
       mv "$out/libexec/rummage/rummage-font" "$font/libexec/rummage/"
@@ -171,6 +180,7 @@ stdenv.mkDerivation {
       wrapProgram "$out/bin/rummage" \
         ${lib.optionalString withPhotos "--set RUMMAGE_PHOTOS_LIBRARY $photos/libexec/rummage/librummage-photos.so"} \
         ${lib.optionalString withFont "--suffix RUMMAGE_ENGINE_PATH : $font/share/rummage/engines"} \
+        ${lib.optionalString withModel "--suffix RUMMAGE_ENGINE_PATH : $model/share/rummage/engines"} \
         --set-default XDG_DATA_DIRS /usr/local/share:/usr/share \
         --suffix XDG_DATA_DIRS : "${
           lib.makeSearchPath "share" [

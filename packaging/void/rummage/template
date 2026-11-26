@@ -6,11 +6,11 @@ version=0.7.0
 revision=1
 build_style=cmake
 # RUMMAGE_WERROR: a newer compiler's new warning must not break the package
-configure_args="-DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
+configure_args="-DRUMMAGE_MODEL=ON -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
 hostmakedepends="pkgconf wayland-devel python3 patch"
 makedepends="wayland-devel wayland-protocols libglvnd-devel libxkbcommon-devel
  harfbuzz-devel freetype-devel fontconfig-devel tomlplusplus-devel json-c++
- ffmpeg6-devel libwebp-devel libjxl-devel libheif-devel lcms2-devel librsvg-devel pango-devel cairo-devel
+ assimp-devel ffmpeg6-devel libwebp-devel libjxl-devel libheif-devel lcms2-devel librsvg-devel pango-devel cairo-devel
  sqlite-devel zlib-devel re2-devel sdbus-c++-devel glib-devel libjpeg-turbo-devel libpng-devel tiff-devel"
 # MIME types from shared-mime-info's database; udisks2 (disks in the sidebar)
 # and xdg-desktop-portal (desktop colours) are used when present
@@ -43,6 +43,16 @@ rummage-font_package() {
     pkg_install() {
         vmove usr/libexec/rummage/rummage-font
         vmove usr/share/rummage/engines/font.toml
+        vlicense LICENSE
+    }
+}
+
+rummage-model_package() {
+    depends="rummage-${version}_${revision}"
+    short_desc="rummage optional standalone model previews"
+    pkg_install() {
+        vmove usr/libexec/rummage/rummage-model
+        vmove usr/share/rummage/engines/model.toml
         vlicense LICENSE
     }
 }

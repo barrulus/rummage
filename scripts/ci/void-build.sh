@@ -23,6 +23,7 @@ cp /source/packaging/void/rummage/template srcpkgs/rummage/template
 # xbps-src discovers split packages through a sibling link to their parent template.
 ln -s rummage srcpkgs/rummage-photos
 ln -s rummage srcpkgs/rummage-font
+ln -s rummage srcpkgs/rummage-model
 # Only source metadata changes: use the checked-out tree, never upstream's old release.
 python3 /source/scripts/ci/void-source.py /input /buildroot
 ./xbps-src pkg rummage

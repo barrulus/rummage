@@ -41,15 +41,16 @@ for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview /usr/lib
     printf '%s\n' "$libraries"
     if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 done
-# Media/PDF belong to the standard package. Photos and font are add-ons.
+# Media/PDF belong to the standard package. Photos, font and model are add-ons.
 test ! -e /usr/libexec/rummage/rummage-font
+test ! -e /usr/libexec/rummage/rummage-model
 test ! -e /usr/libexec/rummage/librummage-photos.so
 /usr/bin/rummage --about
 case "$format" in
-    deb) apt-get install -y --no-install-recommends /packages/rummage-photos_*.deb /packages/rummage-font_*.deb ;;
-    rpm) dnf install -y /packages/rummage-photos-[0-9]*.x86_64.rpm /packages/rummage-font-[0-9]*.x86_64.rpm ;;
-    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-photos-[0-9]*.x86_64.rpm /packages/rummage-font-[0-9]*.x86_64.rpm ;;
-    arch) pacman -U --noconfirm /packages/rummage-photos-[0-9]*-x86_64.pkg.tar.zst /packages/rummage-font-[0-9]*-x86_64.pkg.tar.zst ;;
+    deb) apt-get install -y --no-install-recommends /packages/rummage-photos_*.deb /packages/rummage-font_*.deb /packages/rummage-model_*.deb ;;
+    rpm) dnf install -y /packages/rummage-photos-[0-9]*.x86_64.rpm /packages/rummage-font-[0-9]*.x86_64.rpm /packages/rummage-model-[0-9]*.x86_64.rpm ;;
+    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-photos-[0-9]*.x86_64.rpm /packages/rummage-font-[0-9]*.x86_64.rpm /packages/rummage-model-[0-9]*.x86_64.rpm ;;
+    arch) pacman -U --noconfirm /packages/rummage-photos-[0-9]*-x86_64.pkg.tar.zst /packages/rummage-font-[0-9]*-x86_64.pkg.tar.zst /packages/rummage-model-[0-9]*-x86_64.pkg.tar.zst ;;
 esac
 libraries=$(ldd /usr/libexec/rummage/librummage-photos.so)
 printf '%s\n' "$libraries"
@@ -99,3 +100,9 @@ libraries=$(ldd /usr/libexec/rummage/rummage-font)
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 test -s /usr/share/rummage/engines/font.toml
 python3 /source/scripts/ci/check-font.py /usr/libexec/rummage/rummage-font "$(fc-match -f '%{file}' sans)"
+
+# The optional model parser stays outside the UI process.
+libraries=$(ldd /usr/libexec/rummage/rummage-model)
+if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+test -s /usr/share/rummage/engines/model.toml
+python3 /source/scripts/ci/check-model.py /usr/libexec/rummage/rummage-model

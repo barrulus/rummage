@@ -48,6 +48,7 @@ BuildRequires:  pkgconfig(libavformat) >= 60.16.100
 BuildRequires:  pkgconfig(libavcodec) >= 60.31.102
 BuildRequires:  pkgconfig(libavutil) >= 58.29.100
 BuildRequires:  pkgconfig(libswscale)
+BuildRequires:  pkgconfig(assimp)
 BuildRequires:  pkgconfig(sqlite3)
 BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(sdbus-c++) >= 2
@@ -85,6 +86,13 @@ Requires:       %{name} = %{version}-%{release}
 %description font
 Isolated scalable TrueType/OpenType specimens using system FreeType.
 
+%package model
+Summary:        Optional 3D model previews for rummage
+Requires:       %{name} = %{version}-%{release}
+
+%description model
+Isolated standalone geometry previews using system Assimp.
+
 %prep
 %autosetup -n rummage-checkout
 
@@ -92,11 +100,11 @@ Isolated scalable TrueType/OpenType specimens using system FreeType.
 %if 0%{?suse_version}
 %define __builder ninja
 %endif
-%cmake -G Ninja -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+%cmake -G Ninja -DRUMMAGE_MODEL=ON -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
 %if 0%{?suse_version}
-%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage-font rummage_photos
+%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage-font rummage-model rummage_photos
 %else
-%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage_photos
+%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage-model rummage_photos
 %endif
 
 %install
@@ -120,6 +128,7 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %license %{_datadir}/licenses/rummage-pdf/
 %{_datadir}/rummage/
 %exclude %{_datadir}/rummage/engines/font.toml
+%exclude %{_datadir}/rummage/engines/model.toml
 %{_datadir}/applications/rummage.desktop
 %{_datadir}/icons/hicolor/scalable/apps/rummage.svg
 %{_datadir}/xdg-desktop-portal/portals/rummage.portal
@@ -137,3 +146,8 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %license LICENSE
 %{_libexecdir}/rummage/rummage-font
 %{_datadir}/rummage/engines/font.toml
+
+%files model
+%license LICENSE
+%{_libexecdir}/rummage/rummage-model
+%{_datadir}/rummage/engines/model.toml

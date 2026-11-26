@@ -1,5 +1,5 @@
 # Build from the checksum-verified checkout archive supplied by scripts/ci/native.sh.
-pkgname=('rummage' 'rummage-photos' 'rummage-font')
+pkgname=('rummage' 'rummage-photos' 'rummage-font' 'rummage-model')
 pkgver=0.7.0
 pkgrel=1
 pkgdesc='Native Wayland file manager'
@@ -9,7 +9,7 @@ license=('MIT' 'Apache-2.0' 'BSD-3-Clause' 'BSD-2-Clause' 'Unicode-3.0')
 depends=('glibc' 'gcc-libs' 'wayland' 'libglvnd' 'libxkbcommon' 'harfbuzz'
          'freetype2' 'fontconfig' 'tomlplusplus' 'libwebp' 'libjxl' 'libheif>=1.23' 'lcms2' 'zlib' 're2'
          'librsvg>=2.52' 'pango' 'cairo' 'sdbus-cpp>=2' 'shared-mime-info' 'hicolor-icon-theme' 'ffmpeg' 'libjpeg-turbo' 'libpng' 'libtiff')
-makedepends=('sqlite' 'nlohmann-json' 'ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
+makedepends=('assimp' 'sqlite' 'nlohmann-json' 'ffmpeg' 'cmake' 'ninja' 'pkgconf' 'wayland-protocols' 'python' 'patch' 'glib2' 'libjpeg-turbo' 'libpng' 'libtiff')
 source=('rummage-source.tar.gz')
 # The checkout builder sets this to the verified source SHA-256, never SKIP.
 sha256sums=('CHECKOUT_SHA256')
@@ -17,13 +17,13 @@ sha256sums=('CHECKOUT_SHA256')
 build() {
     cmake -S rummage-checkout -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-        -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
-    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage_photos
+        -DRUMMAGE_MODEL=ON -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage-model rummage_photos
 }
 
 package_rummage() {
     optdepends=('tokei: source language and line statistics' 'rummage-photos: Photo Library'
-                'rummage-font: font specimens')
+                'rummage-font: font specimens' 'rummage-model: 3D model previews')
     conflicts=('rummage-media' 'rummage-pdf' 'rummage-previews')
     replaces=('rummage-media' 'rummage-pdf' 'rummage-previews')
     DESTDIR="$pkgdir" cmake --install build --component Unspecified
@@ -48,5 +48,12 @@ package_rummage-font() {
     pkgdesc='Optional font specimens for rummage'
     depends=("rummage=$pkgver-$pkgrel" 'freetype2')
     DESTDIR="$pkgdir" cmake --install build --component font
+    install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_rummage-model() {
+    pkgdesc='Optional 3D model previews for rummage'
+    depends=("rummage=$pkgver-$pkgrel" 'assimp')
+    DESTDIR="$pkgdir" cmake --install build --component model
     install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
