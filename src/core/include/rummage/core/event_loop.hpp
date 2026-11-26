@@ -3,10 +3,14 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <vector>
 
 namespace rummage::core {
+
+class FileWatcher;
+class FileWatchService;
 
 // Options for EventLoop::add_fd.
 struct FdOptions {
@@ -59,7 +63,10 @@ public:
     void quit(int code = 0);
 
 private:
+    friend class FileWatcher;
     struct Source;
+    // Weak ownership: the last FileWatcher releases the shared inotify source.
+    std::weak_ptr<FileWatchService> file_watch_service_;
 
     void run_posted();
 

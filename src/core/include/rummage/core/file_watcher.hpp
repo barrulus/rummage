@@ -3,6 +3,7 @@
 #include <chrono>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "rummage/core/event_loop.hpp"
@@ -15,6 +16,7 @@ namespace rummage::core {
 // coalesced: the handler runs once, settle after the last one, so a writer that saves in several
 // steps is read only when it is done.
 //
+// Watchers on the same loop share one inotify instance and reference-count directory watches.
 // Must not outlive the loop. Not copyable or movable: the loop callbacks keep a pointer to it.
 class FileWatcher {
 public:
@@ -32,14 +34,15 @@ public:
     FileWatcher& operator=(FileWatcher&&) = delete;
 
 private:
-    void on_readable();
+    friend class FileWatchService;
+    void changed();
 
     EventLoop& loop_;
     std::string name_;  // file name inside the watched directory
     Handler handler_;
     std::chrono::milliseconds settle_;
-    int fd_{-1};
-    EventLoop::SourceId source_{0};
+    std::shared_ptr<FileWatchService> service_;
+    int watch_{-1};
     EventLoop::SourceId timer_{0};  // 0 = no change pending
 };
 
