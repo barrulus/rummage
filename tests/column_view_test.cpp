@@ -711,3 +711,113 @@ TEST_CASE("gallery: offline cached media hides names only until focused or hover
     CHECK_FALSE(fs::exists(photo));
     CHECK_FALSE(fs::exists(missing.location.parent_path()));
 }
+
+TEST_CASE("collection viewport: notifications clamp ranges and allow handler replacement") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    Folder folder{loop, pool, watcher, mime, [] {}};
+    folder.replace_collection(std::vector<rummage::fs::Entry>(3), "Photos", 300);
+    std::vector<std::pair<std::size_t, std::size_t>> ranges;
+    folder.set_visible_range_handler([&](std::size_t first, std::size_t last) {
+        ranges.emplace_back(first, last);
+        folder.set_visible_range_handler({});
+        folder.replace_collection({}, "Photos", 300);
+    });
+    folder.notify_visible_range(1, 200);
+    REQUIRE(ranges.size() == 1);
+    CHECK(ranges[0] == std::pair<std::size_t, std::size_t>{1, 3});
+    folder.notify_visible_range(0, 0);
+    CHECK(ranges.size() == 1);
+    folder.set_visible_range_handler(
+        [&](std::size_t first, std::size_t last) { ranges.emplace_back(first, last); });
+    folder.notify_visible_range(10, 2);
+    CHECK(ranges.back() == std::pair<std::size_t, std::size_t>{0, 0});
+
+    TempDir directory;
+    Folder ordinary{loop, pool, watcher, mime, directory.path, [] {}};
+    ordinary.set_visible_range_handler(
+        [&](std::size_t, std::size_t) { FAIL("filesystem callback"); });
+    ordinary.notify_visible_range(0, 200);
+}
+
+TEST_CASE("collection viewport: native views report the drawn range after scrolling") {
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(400, 400);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    std::vector<rummage::fs::Entry> entries;
+    for (std::size_t i = 0; i < 200; ++i) {
+        rummage::fs::Entry entry;
+        entry.name = "Photo " + std::to_string(i);
+        entry.identity = "photo:" + std::to_string(i);
+        entry.available = false;
+        entries.push_back(std::move(entry));
+    }
+    folder->replace_collection(entries, "Photos", 450);
+    GridView grid{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    rummage::views::DetailsView details{loop, pool,  watcher,
+                                        mime, [] {}, [](rummage::ui::CursorShape) {}};
+    ColumnView columns{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    grid.set_info_visible(false);
+    details.set_info_visible(false);
+    columns.set_info_visible(false);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    std::vector<std::pair<std::size_t, std::size_t>> ranges;
+    bool append = false;
+    folder->set_visible_range_handler([&](std::size_t first, std::size_t last) {
+        ranges.emplace_back(first, last);
+        if (append) {
+            append = false;
+            auto more = entries;
+            auto extra = entries.back();
+            extra.identity = "photo:200";
+            more.push_back(std::move(extra));
+            folder->replace_collection(std::move(more), "Photos", 450);
+        }
+    });
+    const auto exercise = [&](auto& view, auto& scroller) {
+        const auto draw = [&] {
+            renderer.begin_frame(400, 400, 1, {});
+            view.draw(renderer, {0, 0, 400, 400}, rummage::theme::Palette{}, icons,
+                      GridView::Clock::now());
+            renderer.end_frame();
+        };
+        draw();
+        REQUIRE_FALSE(ranges.empty());
+        CHECK(ranges.back().first == 0);
+        CHECK(ranges.back().second > 0);
+        CHECK(ranges.back().second < 200);
+        scroller.jump_to(100000);
+        append = true;
+        draw();
+        CHECK(ranges.back().first > 0);
+        CHECK(ranges.back().second == 200);
+        CHECK(folder->entries().size() == 201);
+        CHECK(folder->path().empty());
+    };
+    SUBCASE("Grid") {
+        grid.show(folder);
+        exercise(grid, grid.scroller());
+    }
+    SUBCASE("Details") {
+        details.show(folder);
+        exercise(details, details.scroller());
+    }
+    SUBCASE("Columns") {
+        columns.show(folder);
+        REQUIRE(columns.column_count() == 1);
+        exercise(columns, columns.column(0).scroller());
+    }
+}

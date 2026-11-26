@@ -431,6 +431,8 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     folder_->sniff(range.first * columns_, range.last * columns_);
     update_hover();  // content may have moved under a still pointer
+    const auto shown = folder_;
+    shown->notify_visible_range(range.first * columns_, range.last * columns_);
 }
 
 std::optional<std::size_t> GridView::cell_at(float x, float y) const {

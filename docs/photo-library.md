@@ -48,10 +48,13 @@ image and video thumbnails into the label area. It works in the full library and
 Selected, focused and hovered photos retain their names; missing thumbnails retain their labels.
 The Gallery preference is remembered between sessions.
 
-Results are paged. The Photo Library menu provides **Previous photo page**, **Next photo page**,
-and **Select loaded photos (this page)**. Selecting a page does not select every matching result.
-Selection can span pages; the status bar reports its scope. Use **Clear all photo selection**
-before beginning an unrelated bulk edit.
+Photos load automatically as you scroll in Grid, Columns and Details, including albums,
+sources and saved searches. The initial 200 photos are a loading batch, not a collection limit;
+more are appended near the end without changing your selection or resetting your scroll.
+The status bar distinguishes the full matching count from the number currently loaded.
+**Select loaded photos** and the ordinary Select All shortcut select the loaded entries;
+they do not select matching photos that have not loaded yet. Selection can span collections.
+Use **Clear all photo selection** before beginning an unrelated bulk edit.
 
 Enter or Space opens the focused photo in **Quick Look**, using Rummage's existing
 preview. **Show in Folder** opens the original location in a folder tab. An offline original
@@ -104,7 +107,11 @@ provided.
 ## Sources and background work
 
 **Activity** lists discovery and duplicate-review jobs, their states, known progress and file
-errors in the existing Details view. A job’s context menu offers **Pause job**, **Resume job**,
+errors in the existing Details view. The status bar distinguishes folder discovery from metadata
+processing. Discovery counts entries examined (including folders and skipped files); it is not
+a count of finished photo metadata. After discovery, metadata progress shows checked and pending
+eligible photos. Changed or unavailable originals are reported separately and need source refresh;
+they are not counted as successful metadata reads. A job’s context menu offers **Pause job**, **Resume job**,
 **Cancel job** and **Retry job** when appropriate. Completed work remains recorded. A pause
 prevents new items from starting at a safe checkpoint; already claimed metadata work can finish.
 
@@ -136,7 +143,11 @@ made while Rummage was closed. Nearby filesystem events are collected for 150 ms
 queuing a source refresh. Watcher overflow also queues reconciliation; unchanged signatures retain
 derived metadata and duplicate fingerprints. Source availability is checked every 30 seconds,
 and a reconnected source queues a refresh. An unavailable source is marked offline; failure
-to read a drive is not treated as mass deletion.
+to read a drive is not treated as mass deletion. Sources must expose stable file identities.
+Some SSHFS mounts change child inode numbers between reads; those originals can be marked
+changed and have metadata rejected even when size and modification time match. The status
+reports them separately. Refresh can retry, but does not resolve continuing inode instability;
+this implementation does not weaken identity checks to accept those replacements automatically.
 
 Automatic monitoring is limited to 4,096 folders per browser window. Reaching this limit or
 failing to register a folder displays a warning. Use **Refresh folder** in a source’s context menu
@@ -204,6 +215,34 @@ any SQLite journal files. Schema initialization/upgrades are versioned; failures
 existing catalog and report an error. Do not delete a catalog to dismiss an upgrade error.
 
 This implementation supports still-image cataloging through the available image engines.
-Unsupported or damaged files appear as problems without stopping healthy photographs. AI,
+Recognised image extensions with unavailable decoders or damaged contents appear as problems
+without stopping healthy photographs; other file extensions are skipped during discovery. AI,
 people recognition, video cataloging, remote synchronization and automatic folder relocation
 are not included.
+
+## Current limits
+
+There is no configured cap on the total number of catalogued photos, sources, albums or saved
+searches. Query responses contain at most 1,000 records; the browser fetches additional batches.
+Rows already browsed remain in memory, so memory use grows as you browse a large result set.
+The scrollbar and End key refer to the currently loaded portion.
+
+These remaining limits affect normal use:
+
+| Feature | Current limit and effect |
+| --- | --- |
+| Automatic folder monitoring | 4,096 folders per window; a warning appears when coverage is incomplete. Manual refresh still scans the sources. |
+| Bulk edits / new album selection | 100,000 photos per request. Larger requests are rejected. |
+| Duplicate review | First 1,000 groups are listed; one review accepts up to 1,000 candidates. Additional groups are not currently paginated. |
+| Activity history | Latest 1,000 jobs and 1,000 file operations; only the first 100 file outcomes per job are returned. This can hide older jobs and additional failures. Recovery scans unresolved file operations independently of this history limit. |
+| Annotation restore | At most 256 MiB per JSON file and 1,000,000 photo records. Export currently has no matching bound, so a larger export cannot be restored through this interface. |
+| Annotation text | Description: 65,536 UTF-8 bytes. Each tag, album name and saved-search name: 512 bytes. Native Properties fields are currently single-line. |
+| Source exclusions | Up to 1,000 patterns per source. |
+| Workspace restoration | At most 100,000 selected IDs in the photo workspace; the overall saved workspace is limited to 4 MiB. Oversized state may not survive a restart; catalog data is separate. |
+| Image decoding | Shared image safety limits include 200 megapixels, a three-second helper timeout and a 4 GiB helper address space. A file can be catalogued even when its preview fails. |
+| Metadata inspector | At most 256 detail rows, 4,096 bytes per detail field, within a 64 KiB transport packet; truncated details are marked. It is not a complete metadata export. |
+
+Background discovery and metadata batches, thumbnail cache eviction and watcher event buffers
+bound individual units of work; they do not impose a total library size limit. Discovery does
+not follow symlinks. It currently recognises JPEG, PNG, WebP, GIF, BMP, TIFF, JPEG XL,
+HEIF/HEIC, AVIF and selected RAW extensions; decoding still requires an available image engine.

@@ -58,6 +58,16 @@ void Folder::replace_collection(std::vector<fs::Entry> rows, std::string label, 
 
 Folder::~Folder() { *alive_ = false; }
 
+void Folder::notify_visible_range(std::size_t first, std::size_t last_exclusive) const {
+    if (!collection_ || !visible_range_handler_)
+        return;
+    first = std::min(first, collection_entries_.size());
+    last_exclusive = std::clamp(last_exclusive, first, collection_entries_.size());
+    // The controller may replace the snapshot or its handler while handling the notification.
+    const auto handler = visible_range_handler_;
+    handler(first, last_exclusive);
+}
+
 const fs::Entry* Folder::cursor_entry() const {
     return cursor_index_ ? &entries()[*cursor_index_] : nullptr;
 }

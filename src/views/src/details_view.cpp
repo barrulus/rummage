@@ -761,6 +761,10 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         i = last;
     }
     update_hover();  // content may have moved under a still pointer
+    // Collection rows are flat and preserve the controller's entry order.
+    const auto shown = root_;
+    if (shown)
+        shown->notify_visible_range(range.first, range.last);
 }
 
 std::optional<std::size_t> DetailsView::row_at(float x, float y) const {

@@ -73,6 +73,16 @@ public:
     void replace_collection(std::vector<fs::Entry> entries, std::string label, std::size_t total,
                             bool loading = false);
 
+    using VisibleRangeHandler = std::function<void(std::size_t first, std::size_t last_exclusive)>;
+
+    // Collection controllers may load more rows as the native view reaches them. Views report
+    // after drawing, when they no longer hold entry references; ordinary directories stay silent.
+    void set_visible_range_handler(VisibleRangeHandler handler) {
+        visible_range_handler_ = std::move(handler);
+    }
+
+    void notify_visible_range(std::size_t first, std::size_t last_exclusive) const;
+
     [[nodiscard]] bool is_collection() const noexcept { return collection_; }
 
     [[nodiscard]] const std::string& collection_label() const noexcept { return collection_label_; }
@@ -269,6 +279,7 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_;
     std::function<void()> changed_;
+    VisibleRangeHandler visible_range_handler_;
     fs::DirectoryModel model_;
     bool collection_{false};
     bool collection_loading_{false};

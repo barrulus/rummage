@@ -34,6 +34,32 @@ TEST_CASE("photos recovery: a crash after trash preserves receipts and never rep
                                 {"kind", "trash"},
                                 {"ids", Json::array({removed})},
                                 {"keeper_ids", Json::array({rows[0].at("id")})}});
+    // More than one recovery page, followed by enough failed history to hide every
+    // pending intent from the bounded Activity list. No filesystem changes yet.
+    for (int index = 0; index < 1128; ++index) {
+        const auto intent = call({{"op", "operation_prepare"},
+                                  {"kind", "trash"},
+                                  {"ids", Json::array({removed})},
+                                  {"keeper_ids", Json::array({rows[0].at("id")})}});
+        if (index >= 128)
+            call({{"op", "operation_complete"},
+                  {"operation_id", intent.at("operation_id")},
+                  {"results", Json::array({{{"id", removed},
+                                            {"success", false},
+                                            {"error", "Cancelled before filesystem mutation"}}})}});
+    }
+    const auto activity = call({{"op", "operations"}}).at("operations");
+    REQUIRE(activity.size() == 1000);
+    for (const auto& operation : activity)
+        CHECK(operation.at("state") == "failed");
+    const auto first_page = call({{"op", "recovery_operations"}});
+    REQUIRE(first_page.at("operations").size() == 128);
+    CHECK(first_page.at("more") == true);
+    CHECK(first_page.at("operations")[0].at("id") == prepared.at("operation_id"));
+    const auto last_page =
+        call({{"op", "recovery_operations"}, {"after_id", first_page.at("next_after_id")}});
+    REQUIRE(last_page.at("operations").size() == 1);
+    CHECK(last_page.at("more") == false);
     const auto original =
         std::filesystem::path{prepared.at("photos")[0].at("path").get<std::string>()};
     const auto result = rummage::fs::run_trash({.kind = rummage::fs::TransferKind::trash,
@@ -48,9 +74,8 @@ TEST_CASE("photos recovery: a crash after trash preserves receipts and never rep
     const rummage::photos::Client restarted{RUMMAGE_PHOTOS_TEST_MODULE, catalog};
     const auto recovered = restarted.request({{"op", "recover_operations"}});
     REQUIRE_MESSAGE(recovered.value("ok", false), recovered.dump());
-    const auto operations = call({{"op", "operations"}}).at("operations");
-    REQUIRE(operations.size() == 1);
-    CHECK(operations[0].at("state") == "completed");
+    CHECK(call({{"op", "recovery_operations"}}).at("operations").empty());
+    CHECK(recovered.at("operations").empty());
     CHECK(std::filesystem::exists(source / "a.jpg"));
     CHECK(std::filesystem::exists(result.items[0].to));
     CHECK(call({{"op", "query"}, {"text", "annotation"}}).at("photos")[0].at("id") == removed);

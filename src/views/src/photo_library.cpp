@@ -81,7 +81,12 @@ PhotoLibrary::PhotoLibrary(core::EventLoop& loop, core::WorkerPool& pool,
       redraw_{std::move(redraw)},
       client_{std::make_shared<photos::Client>()},
       folder_{std::make_shared<Folder>(loop, pool, watcher, mime_, redraw_)},
-      confirm_{redraw_} {}
+      confirm_{redraw_} {
+    folder_->set_visible_range_handler([this, alive = alive_](std::size_t, std::size_t last) {
+        if (*alive && last > 0 && last + 40 >= rows_.size())
+            load_more();
+    });
+}
 
 PhotoLibrary::~PhotoLibrary() {
     *alive_ = false;
@@ -144,8 +149,8 @@ std::string PhotoLibrary::status() const {
         text = std::format("{} candidates · {} kept · {} marked for trash", rows_.size(),
                            keepers_.size(), rows_.size() - keepers_.size());
     else if (destination_ == Destination::library)
-        text = std::format("{} photos · {} selected across pages · {} loaded · Page {}", total_,
-                           selected_.size(), rows_.size(), offset_ / page_size_ + 1);
+        text = std::format("{} photos · {} selected · {} loaded", total_, selected_.size(),
+                           rows_.size());
     else
         text = std::format("{} items", records_.size());
     if (querying_)
@@ -154,7 +159,7 @@ std::string PhotoLibrary::status() const {
         text += " · Background paused";
     if (!message_.empty())
         text += " · " + message_;
-    else if (!progress_.empty())
+    if (!progress_.empty())
         text += " · " + progress_;
     return text;
 }
@@ -232,7 +237,8 @@ const std::string& PhotoLibrary::state() const {
                              {"filter", filter_},
                              {"selected", selected_ids()},
                              {"cursor", cursor_},
-                             {"offset", offset_},
+                             {"offset", 0},
+                             {"loaded", offset_},
                              {"saved_search_id", active_saved_search_},
                              {"collection_name", collection_name_}}
                             .dump();
@@ -260,16 +266,17 @@ void PhotoLibrary::restore_state(std::string_view value) {
             selected.insert(id.get<Id>());
         }
         const auto offset = saved.value("offset", std::int64_t{});
+        const auto loaded = saved.value("loaded", offset + static_cast<std::int64_t>(page_size_));
         const auto cursor = saved.value("cursor", Id{});
         const auto saved_search = saved.value("saved_search_id", Id{});
         auto collection_name = saved.value("collection_name", std::string{});
-        if (offset < 0 || offset > 100000000 || cursor < 0 || saved_search < 0 ||
-            collection_name.size() > 16384)
+        if (offset < 0 || offset > 100000000 || loaded < 0 || loaded > 100001000 || cursor < 0 ||
+            saved_search < 0 || collection_name.size() > 16384)
             return;
         search_ = std::move(text);
         filter_ = std::move(filter);
         selected_ = std::move(selected);
-        offset_ = static_cast<std::size_t>(offset);
+        offset_ = static_cast<std::size_t>(loaded);
         cursor_ = cursor;
         active_saved_search_ = saved_search;
         collection_name_ = std::move(collection_name);
@@ -553,11 +560,77 @@ void PhotoLibrary::publish() {
     changed();
 }
 
-void PhotoLibrary::query() {
+void PhotoLibrary::query(bool reset) {
     sync_selection();
     query_job_.cancel();
     const auto generation = ++generation_;
+    const auto wanted = reset ? page_size_ : std::max({page_size_, rows_.size(), offset_});
     querying_ = true;
+    refresh_again_ = false;
+    append_failed_ = false;
+    if (reset) {
+        rows_ = Json::array();
+        total_ = offset_ = 0;
+        publish();
+    }
+    Json input = filter_;
+    input["op"] = "query";
+    input["text"] = search_;
+    query_job_ = pool_.submit(
+        core::Priority::visible,
+        [client = client_, input, wanted](const core::CancelToken& token) mutable {
+            Json collected = Json::array();
+            Json response;
+            do {
+                if (token.cancelled())
+                    return Json{{"ok", false}, {"error", "Query cancelled"}};
+                input["offset"] = collected.size();
+                input["limit"] = std::min(std::size_t{1000}, wanted - collected.size());
+                response = client->request(input, &token);
+                if (!response.value("ok", false))
+                    return response;
+                const auto& batch = response.at("photos");
+                if (batch.empty())
+                    break;
+                for (const auto& row : batch)
+                    collected.push_back(row);
+            } while (collected.size() < wanted &&
+                     collected.size() < response.value("total", std::size_t{}));
+            response["fetched"] = collected.size();
+            response["photos"] = std::move(collected);
+            return response;
+        },
+        [this, alive = alive_, generation](Json response) {
+            if (!*alive || generation != generation_)
+                return;
+            querying_ = false;
+            if (response.value("ok", false)) {
+                sync_selection();
+                rows_ = Json::array();
+                std::set<Id> seen;
+                for (auto& row : response.at("photos"))
+                    if (seen.insert(row.value("id", Id{})).second)
+                        rows_.push_back(std::move(row));
+                offset_ = response.value("fetched", std::size_t{});
+                total_ = response.value("total", std::size_t{});
+                publish();
+                if (std::exchange(refresh_again_, false))
+                    refresh();
+            } else {
+                append_failed_ = true;
+                report(response.value("error", "Cannot query Photo Library"));
+            }
+        });
+    changed();
+}
+
+void PhotoLibrary::load_more() {
+    if (!open_ || destination_ != Destination::library || querying_ || append_failed_ ||
+        offset_ >= total_)
+        return;
+    sync_selection();
+    querying_ = true;
+    const auto generation = ++generation_;
     Json input = filter_;
     input["op"] = "query";
     input["text"] = search_;
@@ -572,19 +645,37 @@ void PhotoLibrary::query() {
             if (!*alive || generation != generation_)
                 return;
             querying_ = false;
-            if (response.value("ok", false)) {
-                sync_selection();
-                rows_ = response.value("photos", Json::array());
-                total_ = response.value("total", std::size_t{});
-                publish();
-            } else
-                report(response.value("error", "Cannot query Photo Library"));
+            if (!response.value("ok", false)) {
+                append_failed_ = true;
+                report(response.value("error", "Cannot load more photos. Refresh to retry."));
+                return;
+            }
+            sync_selection();
+            auto batch = response.value("photos", Json::array());
+            offset_ += batch.size();
+            total_ = response.value("total", std::size_t{});
+            if (batch.empty())
+                offset_ = total_;
+            std::set<Id> seen;
+            for (const auto& row : rows_)
+                seen.insert(row.value("id", Id{}));
+            for (auto& row : batch)
+                if (seen.insert(row.value("id", Id{})).second)
+                    rows_.push_back(std::move(row));
+            publish();
+            if (std::exchange(refresh_again_, false) ||
+                (offset_ >= total_ && rows_.size() < total_))
+                refresh();
         });
     changed();
 }
 
 void PhotoLibrary::refresh() {
     if (destination_ == Destination::library) {
+        if (querying_) {
+            refresh_again_ = true;
+            return;
+        }
         query();
         refresh_progress();
         return;
@@ -658,6 +749,7 @@ void PhotoLibrary::show(Destination destination) {
     query_job_.cancel();
     ++generation_;
     destination_ = destination;
+    refresh_again_ = false;
     records_ = Json::array();
     close_form();
     confirm_.close();
@@ -667,7 +759,11 @@ void PhotoLibrary::show(Destination destination) {
         publishing_ = false;
         selection_revision_ = folder_->selection_revision();
     }
-    refresh();
+    if (destination == Destination::library) {
+        query(true);
+        refresh_progress();
+    } else
+        refresh();
     changed();
 }
 
@@ -690,7 +786,7 @@ void PhotoLibrary::set_query(std::string query_text) {
     selection_revision_ = folder_->selection_revision();
     if (destination_ != Destination::library)
         destination_ = Destination::library;
-    query();
+    query(true);
 }
 
 void PhotoLibrary::set_sort(const fs::SortOrder& order) {
@@ -703,16 +799,6 @@ void PhotoLibrary::set_sort(const fs::SortOrder& order) {
                       : order.key == fs::SortKey::location ? "location"
                                                            : "name";
     filter_["descending"] = order.descending;
-    query();
-}
-
-void PhotoLibrary::page(int direction) {
-    cancel_album_chooser();
-    sync_selection();
-    if (direction < 0)
-        offset_ = offset_ >= page_size_ ? offset_ - page_size_ : 0;
-    else if (offset_ + rows_.size() < total_)
-        offset_ += page_size_;
     query();
 }
 
@@ -840,14 +926,32 @@ void PhotoLibrary::update_progress(const Json& jobs) {
         waiting += state == "waiting" ? 1U : 0U;
         failed += state == "failed" ? 1U : 0U;
     }
-    const auto title =
-        shown->value("kind", "") == "duplicates" ? "Find exact duplicates" : "Index photos";
-    progress_ = std::format("{}: {} · {} items completed", title, shown->value("state", ""),
-                            shown->value("completed", 0));
-    if (shown->contains("total") && !(*shown)["total"].is_null())
-        progress_ += " / " + (*shown)["total"].dump();
-    else
-        progress_ += " · Total not yet known";
+    const auto kind = shown->value("kind", "");
+    const auto phase = shown->value("phase", "");
+    if (kind == "scan" && !phase.empty()) {
+        const auto state = shown->value("state", "");
+        if (phase == "discovering")
+            progress_ = std::format("Finding photos: {} · {} entries checked · {} folders pending",
+                                    state, shown->value("completed", Id{}),
+                                    shown->value("pending_directories", Id{}));
+        else if (phase == "metadata")
+            progress_ = std::format("Reading metadata: {} · {} / {} eligible photos checked", state,
+                                    shown->value("metadata_completed", Id{}),
+                                    shown->value("metadata_total", Id{}));
+        else
+            progress_ = "Index photos: " + (phase == "finishing" ? "finishing" : state);
+        const auto unavailable = shown->value("metadata_unavailable", Id{});
+        if (unavailable > 0)
+            progress_ += std::format(" · {} changed or unavailable — refresh source", unavailable);
+    } else {
+        const auto title = kind == "duplicates" ? "Find exact duplicates" : "Index photos";
+        progress_ = std::format("{}: {} · {} items completed", title, shown->value("state", ""),
+                                shown->value("completed", Id{}));
+        if (shown->contains("total") && !(*shown)["total"].is_null())
+            progress_ += " / " + (*shown)["total"].dump();
+        else
+            progress_ += " · Total not yet known";
+    }
     const auto in_flight = shown->value("in_flight", 0);
     if (in_flight > 0)
         progress_ += std::format(" · {} in flight", in_flight);
@@ -871,8 +975,12 @@ PhotoProperties PhotoLibrary::properties(bool focused_only) const {
                         std::pair{"exclusions", "Excluded folders"}, std::pair{"name", "Name"},
                         std::pair{"count", "Photos"}, std::pair{"kind", "Job"},
                         std::pair{"state", "State"}, std::pair{"completed", "Completed"},
-                        std::pair{"total", "Total"}, std::pair{"error", "Error"},
-                        std::pair{"reason", "Review reason"}}) {
+                        std::pair{"total", "Total"}, std::pair{"phase", "Phase"},
+                        std::pair{"pending_directories", "Folders pending"},
+                        std::pair{"metadata_completed", "Metadata checked"},
+                        std::pair{"metadata_pending", "Metadata pending"},
+                        std::pair{"metadata_unavailable", "Changed or unavailable"},
+                        std::pair{"error", "Error"}, std::pair{"reason", "Review reason"}}) {
             const auto value = std::string_view{key} == "recursive" && row.contains(key)
                                    ? std::string{row.value(key, false) ? "Yes" : "No"}
                                    : text_value(row, key);
@@ -1084,7 +1192,7 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
             },
             !selected_.empty() && static_cast<bool>(edit_));
     if (photo_rows()) {
-        add("photos:select-page", "Select loaded photos (this page)", [this] {
+        add("photos:select-page", "Select loaded photos", [this] {
             folder_->select_all();
             sync_selection();
             changed();
@@ -1102,10 +1210,6 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
                 changed();
             },
             !selected_.empty());
-    }
-    if (destination_ == Destination::library) {
-        add("photos:previous", "Previous photo page", [this] { page(-1); }, offset_ > 0);
-        add("photos:next", "Next photo page", [this] { page(1); }, offset_ + rows_.size() < total_);
     }
     if (destination_ == Destination::review)
         add("photos:find-duplicates", "Find exact duplicate candidates",

@@ -1019,4 +1019,195 @@ TEST_CASE(
     CHECK(library->at_all_photos());
     CHECK(library->rows().size() == 3);
 }
+
+TEST_CASE("photo workspace: native scrolling appends every collection beyond two hundred photos") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Continuous pictures";
+    constexpr std::size_t count = 450;
+    for (std::size_t i = 0; i < count; ++i)
+        fixture(source / ("photo-" + std::to_string(1000 + i) + ".png"));
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.available());
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    nlohmann::json all;
+    for (int batch = 0; batch < 16; ++batch) {
+        REQUIRE(catalog.request({{"op", "work"}, {"budget", 256}}).value("ok", false));
+        all = catalog.request({{"op", "query"}, {"limit", 1000}});
+        if (all.value("total", std::size_t{}) == count)
+            break;
+    }
+    REQUIRE(all.at("photos").size() == count);
+    // Discovery is real; stop background metadata cadence from extending viewport-test timing.
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    nlohmann::json ids = nlohmann::json::array();
+    for (const auto& row : all.at("photos"))
+        ids.push_back(row.at("id"));
+    const auto album = catalog.request({{"op", "create_album"}, {"name", "All 450"}, {"ids", ids}});
+    REQUIRE(album.value("ok", false));
+    REQUIRE(
+        catalog
+            .request(
+                {{"op", "save_filter"}, {"name", "Every photo"}, {"filter", {{"text", "photo-"}}}})
+            .value("ok", false));
+    const auto searches = catalog.request({{"op", "filters"}}).at("filters");
+    REQUIRE(searches.size() == 1);
+    const auto saved_search = searches.front();
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    for (const auto mode : {Browser::Mode::grid, Browser::Mode::details, Browser::Mode::columns}) {
+        for (const auto collection : {"library", "album", "saved search"}) {
+            INFO("Native mode " << static_cast<int>(mode) << ", " << collection);
+            Browser browser{loop, pool, watcher, mime, [] {}, [](auto) {}};
+            browser.set_places({{.label = "Home", .path = directory.path, .icon = "home"},
+                                {.label = "Pictures", .path = source, .icon = "photo"}});
+            browser.open(directory.path);
+            browser.open_photo_library();
+            auto* library = browser.photo_library();
+            REQUIRE(library);
+            REQUIRE(settle_photos(
+                loop, [&] { return library->rows().size() == 200 && !library->loading(); }));
+            if (std::string_view{collection} == "album")
+                library->open_album(album.at("id").get<PhotoLibrary::Id>(), "All 450");
+            else if (std::string_view{collection} == "saved search")
+                library->open_saved_search(saved_search);
+            REQUIRE(settle_photos(
+                loop, [&] { return library->rows().size() == 200 && !library->loading(); }));
+            browser.set_mode(mode);
+            const auto draw = [&] {
+                const rummage::theme::Palette palette;
+                renderer.begin_frame(1100, 820, 1, palette.surface);
+                browser.draw(renderer, {0, 0, 1100, 820}, palette, icons, Browser::Clock::now());
+                renderer.end_frame();
+            };
+            REQUIRE(settle_photos(loop, [&] {
+                draw();
+                return !browser.animating();
+            }));
+            REQUIRE(browser.mode() == mode);
+            REQUIRE(browser.key(photo_key(XKB_KEY_Home), Browser::Clock::now()));
+            REQUIRE(
+                browser.key(photo_key(mode == Browser::Mode::grid ? XKB_KEY_Right : XKB_KEY_Down,
+                                      {.shift = true}),
+                            Browser::Clock::now()));
+            const auto selected = library->selected_ids();
+            REQUIRE(selected.size() == 2);
+            draw();
+            const auto scroller = [&]() -> rummage::ui::Scroller& {
+                if (mode == Browser::Mode::grid)
+                    return browser.grid().scroller();
+                if (mode == Browser::Mode::details)
+                    return browser.details().scroller();
+                return browser.columns().column(0).scroller();
+            };
+            std::vector<std::string> prefix;
+            for (const auto& entry : library->folder()->entries())
+                prefix.push_back(entry.key());
+            for (const auto& menu : {library->menu_items(), library->context_menu_items()})
+                CHECK(std::ranges::none_of(menu, [](const auto& item) {
+                    return item.id == "photos:previous" || item.id == "photos:next";
+                }));
+            CHECK(library->status().find("Page ") == std::string::npos);
+            for (int append = 0; append < 3 && library->rows().size() < count; ++append) {
+                const auto loaded = library->rows().size();
+                REQUIRE(scroller().max_offset() > 0);
+                browser.pointer({.kind = rummage::ui::PointerEvent::Kind::scroll,
+                                 .x = 350,
+                                 .y = 350,
+                                 .scroll_y = 100000},
+                                Browser::Clock::now());
+                const auto before_append = scroller().offset();
+                REQUIRE(before_append > 0);
+                draw();
+                REQUIRE(settle_photos(loop, [&] {
+                    draw();
+                    return library->rows().size() > loaded && !library->loading();
+                }));
+                CHECK(scroller().offset() >= before_append - 1);
+                CHECK(library->selected_ids() == selected);
+                CHECK(library->folder()->total_count() == count);
+                REQUIRE(library->folder()->entries().size() >= prefix.size());
+                for (std::size_t i = 0; i < prefix.size(); ++i)
+                    CHECK(library->folder()->entries()[i].key() == prefix[i]);
+            }
+            REQUIRE(library->rows().size() == count);
+            std::set<std::string> unique_keys;
+            for (const auto& entry : library->folder()->entries())
+                unique_keys.insert(entry.key());
+            CHECK(unique_keys.size() == count);
+            CHECK(library->folder()->entries().back().name == "photo-1449.png");
+            const auto before_refresh = scroller().offset();
+            library->refresh();
+            REQUIRE(settle_photos(loop, [&] {
+                draw();
+                return !library->loading();
+            }));
+            CHECK(library->rows().size() == count);
+            CHECK(library->selected_ids() == selected);
+            CHECK(scroller().offset() >= before_refresh - 1);
+            if (mode == Browser::Mode::grid && std::string_view{collection} == "library") {
+                capture("native-continuous-library-450", 1100, 820);
+                library->folder()->set_cursor(count - 1);
+                draw();
+                const auto cursor_key = library->folder()->entries().back().key();
+                const auto saved = browser.state();
+                Browser reopened{loop, pool, watcher, mime, [] {}, [](auto) {}};
+                reopened.apply(saved);
+                REQUIRE(reopened.restore_session(saved));
+                REQUIRE(reopened.photo_library());
+                // Repeated same-scope invalidations must coalesce, not keep cancelling the query.
+                const auto churn =
+                    loop.add_timer(1ms, 1ms, [&] { reopened.photo_library()->refresh(); });
+                const bool restored = settle_photos(
+                    loop, [&] { return reopened.photo_library()->rows().size() == count; });
+                loop.remove(churn);
+                REQUIRE(restored);
+                REQUIRE(settle_photos(loop, [&] { return !reopened.photo_library()->loading(); }));
+                const auto* cursor = reopened.photo_library()->folder()->cursor_entry();
+                REQUIRE(cursor);
+                if (cursor)
+                    CHECK(cursor->key() == cursor_key);
+                REQUIRE(settle_photos(loop, [&] {
+                    const rummage::theme::Palette palette;
+                    renderer.begin_frame(1100, 820, 1, palette.surface);
+                    reopened.draw(renderer, {0, 0, 1100, 820}, palette, icons,
+                                  Browser::Clock::now());
+                    renderer.end_frame();
+                    return !reopened.animating();
+                }));
+                CHECK(reopened.grid().scroller().offset() > 0);
+                CHECK(reopened.photo_library()->rows().size() == count);
+                capture("native-continuous-restored-450", 1100, 820);
+            }
+            if (mode == Browser::Mode::details && std::string_view{collection} == "album")
+                capture("native-continuous-album-450", 1100, 820);
+            if (mode == Browser::Mode::columns && std::string_view{collection} == "saved search")
+                capture("native-continuous-search-450", 1100, 820);
+        }
+    }
+    // Queue an append, then replace the query before the event loop can deliver its result.
+    Browser browser{loop, pool, watcher, mime, [] {}, [](auto) {}};
+    browser.open(directory.path);
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 200 && !library->loading(); }));
+    library->folder()->notify_visible_range(180, 200);
+    library->set_query("photo-1000.png");
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 1 && !library->loading(); }));
+    library->refresh();
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    REQUIRE(library->rows().size() == 1);
+    CHECK(library->rows().front().value("filename", "") == "photo-1000.png");
+    CHECK(library->folder()->total_count() == 1);
+}
 #endif

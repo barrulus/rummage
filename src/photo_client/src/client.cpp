@@ -119,9 +119,6 @@ nlohmann::json Client::request(const nlohmann::json& request,
                 {"error", "Set an absolute XDG_DATA_HOME or HOME for Photo Library."}};
     try {
         if (request.value("op", "") == "recover_operations") {
-            const auto journal = this->request({{"op", "operations"}}, cancel);
-            if (!journal.value("ok", false))
-                return journal;
             std::optional<std::vector<fs::TrashedItem>> trash;
             const auto matches = [](const nlohmann::json& photo,
                                     const std::filesystem::path& path) {
@@ -131,58 +128,69 @@ nlohmann::json Client::request(const nlohmann::json& request,
                        actual->size == photo.at("size").get<std::uint64_t>() &&
                        actual->mtime_ns == photo.at("mtime_ns").get<std::int64_t>();
             };
-            for (const auto& operation : journal.at("operations")) {
-                if (cancel && cancel->cancelled())
-                    break;
-                const auto state = operation.value("state", "");
-                if (state != "pending" && state != "needs_review")
-                    continue;
-                const auto kind = operation.value("kind", "");
-                if (kind != "trash" && kind != "restore")
-                    continue;
-                nlohmann::json recovered = nlohmann::json::array();
-                for (const auto& photo : operation.at("photos")) {
-                    const std::filesystem::path original{photo.at("path").get<std::string>()};
-                    std::error_code error;
-                    // Missing alone proves nothing. Only an unambiguous existing receipt and
-                    // the captured inode/size/time can establish that this operation happened.
-                    if (std::filesystem::exists(std::filesystem::symlink_status(original, error)) ||
-                        (error && error != std::errc::no_such_file_or_directory))
+            std::int64_t after = 0;
+            for (;;) {
+                const auto journal =
+                    this->request({{"op", "recovery_operations"}, {"after_id", after}}, cancel);
+                if (!journal.value("ok", false))
+                    return journal;
+                for (const auto& operation : journal.at("operations")) {
+                    if (cancel && cancel->cancelled())
+                        return {{"ok", false}, {"error", "Photo Library recovery cancelled"}};
+                    const auto state = operation.value("state", "");
+                    if (state != "pending" && state != "needs_review")
                         continue;
-                    std::filesystem::path destination;
-                    if (operation.at("kind") == "trash") {
-                        if (!trash)
-                            trash = fs::list_trash(fs::TrashSources::from_environment());
-                        bool ambiguous = false;
-                        for (const auto& candidate : *trash) {
-                            if (candidate.info.original == original &&
-                                matches(photo, candidate.path)) {
-                                if (!destination.empty())
-                                    ambiguous = true;
-                                destination = candidate.path;
+                    const auto kind = operation.value("kind", "");
+                    if (kind != "trash" && kind != "restore")
+                        continue;
+                    nlohmann::json recovered = nlohmann::json::array();
+                    for (const auto& photo : operation.at("photos")) {
+                        const std::filesystem::path original{photo.at("path").get<std::string>()};
+                        std::error_code error;
+                        // Missing alone proves nothing. Only an unambiguous existing receipt and
+                        // the captured inode/size/time can establish that this operation happened.
+                        if (std::filesystem::exists(
+                                std::filesystem::symlink_status(original, error)) ||
+                            (error && error != std::errc::no_such_file_or_directory))
+                            continue;
+                        std::filesystem::path destination;
+                        if (operation.at("kind") == "trash") {
+                            if (!trash)
+                                trash = fs::list_trash(fs::TrashSources::from_environment());
+                            bool ambiguous = false;
+                            for (const auto& candidate : *trash) {
+                                if (candidate.info.original == original &&
+                                    matches(photo, candidate.path)) {
+                                    if (!destination.empty())
+                                        ambiguous = true;
+                                    destination = candidate.path;
+                                }
                             }
+                            if (ambiguous)
+                                destination.clear();
+                        } else if (operation.at("kind") == "restore" &&
+                                   photo.contains("original_path")) {
+                            const std::filesystem::path target{
+                                photo.at("original_path").get<std::string>()};
+                            if (matches(photo, target))
+                                destination = target;
                         }
-                        if (ambiguous)
-                            destination.clear();
-                    } else if (operation.at("kind") == "restore" &&
-                               photo.contains("original_path")) {
-                        const std::filesystem::path target{
-                            photo.at("original_path").get<std::string>()};
-                        if (matches(photo, target))
-                            destination = target;
+                        if (!destination.empty())
+                            recovered.push_back({{"id", photo.at("id")},
+                                                 {"success", true},
+                                                 {"destination", destination.string()}});
                     }
-                    if (!destination.empty())
-                        recovered.push_back({{"id", photo.at("id")},
-                                             {"success", true},
-                                             {"destination", destination.string()}});
+                    if (!recovered.empty()) {
+                        const auto saved = this->request({{"op", "operation_complete"},
+                                                          {"operation_id", operation.at("id")},
+                                                          {"results", recovered}});
+                        if (!saved.value("ok", false))
+                            return saved;
+                    }
                 }
-                if (!recovered.empty()) {
-                    const auto saved = this->request({{"op", "operation_complete"},
-                                                      {"operation_id", operation.at("id")},
-                                                      {"results", recovered}});
-                    if (!saved.value("ok", false))
-                        return saved;
-                }
+                if (!journal.value("more", false))
+                    break;
+                after = journal.at("next_after_id").get<std::int64_t>();
             }
             return this->request({{"op", "reconcile_operations"}});
         }

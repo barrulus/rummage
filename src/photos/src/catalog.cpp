@@ -1506,9 +1506,34 @@ Json work(Database& db, const Json& request) {
 }
 
 Json jobs(Database& db) {
-    Statement statement(db.get(),
-                        "SELECT id,kind,COALESCE(source_id,0),state,completed,total,error FROM "
-                        "jobs ORDER BY id DESC LIMIT 1000");
+    // Aggregate once over the displayed jobs, rather than scanning the photo catalog
+    // separately for each historical job. Counts describe rows currently owned by each
+    // scan (a later refresh may take ownership); completed job history is not a snapshot.
+    Statement statement(db.get(), R"SQL(
+WITH listed AS (
+    SELECT id,kind,source_id,state,completed,total,error FROM jobs ORDER BY id DESC LIMIT 1000
+), photo_progress AS (
+    SELECT p.seen_job AS job_id,
+        sum(p.availability IN ('online','unreadable') AND p.metadata_signature<>'') AS done,
+        sum(p.availability='online' AND p.metadata_signature='') AS pending,
+        sum(p.availability NOT IN ('online','unreadable') OR
+            (p.availability='unreadable' AND p.metadata_signature='')) AS unavailable
+    FROM photos p JOIN listed j ON j.id=p.seen_job AND j.kind='scan' GROUP BY p.seen_job
+), directory_progress AS (
+    SELECT d.job_id,count(*) AS pending FROM directories d
+    JOIN listed j ON j.id=d.job_id GROUP BY d.job_id
+), claims AS (
+    SELECT p.seen_job AS job_id,count(*) AS active FROM metadata_claims c
+    JOIN photos p ON p.id=c.photo_id JOIN listed j ON j.id=p.seen_job
+    WHERE c.expires>unixepoch() GROUP BY p.seen_job
+)
+SELECT j.id,j.kind,COALESCE(j.source_id,0),j.state,j.completed,j.total,j.error,
+    COALESCE(p.done,0),COALESCE(p.pending,0),COALESCE(p.unavailable,0),
+    COALESCE(d.pending,0),COALESCE(c.active,0)
+FROM listed j LEFT JOIN photo_progress p ON p.job_id=j.id
+LEFT JOIN directory_progress d ON d.job_id=j.id LEFT JOIN claims c ON c.job_id=j.id
+ORDER BY j.id DESC
+)SQL");
     Json items = Json::array();
     while (statement.row()) {
         Json item{
@@ -1520,12 +1545,23 @@ Json jobs(Database& db) {
             {"total", statement.value(5).is_null() ? Json(nullptr) : Json(statement.number(5))},
             {"error", statement.text(6)},
             {"failures", Json::array()}};
-        Statement inflight(db.get(),
-                           "SELECT count(*) FROM metadata_claims c JOIN photos p ON "
-                           "p.id=c.photo_id WHERE p.seen_job=? AND c.expires>unixepoch()");
-        inflight.bind(1, statement.number(0));
-        (void)inflight.row();
-        item["in_flight"] = inflight.number(0);
+        item["metadata_completed"] = statement.number(7);
+        item["metadata_pending"] = statement.number(8);
+        item["metadata_total"] = statement.number(7) + statement.number(8);
+        item["metadata_unavailable"] = statement.number(9);
+        item["pending_directories"] = statement.number(10);
+        item["in_flight"] = statement.number(11);
+        const auto state = statement.text(3);
+        if (state == "completed")
+            item["phase"] = "complete";
+        else if (state == "failed" || state == "cancelled")
+            item["phase"] = state;
+        else if (statement.text(1) != "scan")
+            item["phase"] = "fingerprinting";
+        else if (statement.number(10) > 0)
+            item["phase"] = "discovering";
+        else
+            item["phase"] = statement.number(8) > 0 ? "metadata" : "finishing";
         Statement failures(db.get(),
                            "SELECT path,error,stage FROM outcomes WHERE job_id=? LIMIT 100");
         failures.bind(1, statement.number(0));
@@ -2039,6 +2075,34 @@ Json operations(Database& db) {
     return {{"operations", result}};
 }
 
+Json recovery_operations(Database& db, const Json& request) {
+    const Id after = std::max(request.value("after_id", Id{0}), Id{0});
+    const Id limit = std::clamp(request.value("limit", Id{128}), Id{1}, Id{1000});
+    Statement statement(db.get(),
+                        "SELECT id,kind,state,payload,error FROM operations WHERE id>? AND "
+                        "state IN ('pending','needs_review') AND kind IN ('trash','restore') "
+                        "ORDER BY id LIMIT ?");
+    statement.bind(1, after).bind(2, limit + 1);
+    Json result = Json::array();
+    Id next = after;
+    bool more = false;
+    while (statement.row()) {
+        if (static_cast<Id>(result.size()) == limit) {
+            more = true;
+            break;
+        }
+        auto row = Json::parse(statement.text(3));
+        next = statement.number(0);
+        row["id"] = next;
+        row["kind"] = statement.text(1);
+        row["state"] = statement.text(2);
+        row["error"] = statement.text(4);
+        result.push_back(std::move(row));
+    }
+    // ID cursors remain stable as each recovered operation leaves the pending set.
+    return {{"operations", result}, {"next_after_id", next}, {"more", more}};
+}
+
 Json reconcile_locations(Database& db, const Json& request) {
     const auto kind = request.at("kind").get<std::string>();
     if (kind != "move" && kind != "rename" && kind != "trash" && kind != "restore")
@@ -2380,6 +2444,8 @@ Json dispatch(Database& db, const Json& request) {
         return operation_restore_prepare(db, request);
     if (op == "operations")
         return operations(db);
+    if (op == "recovery_operations")
+        return recovery_operations(db, request);
     if (op == "reconcile_locations")
         return reconcile_locations(db, request);
     if (op == "reconcile_operations")

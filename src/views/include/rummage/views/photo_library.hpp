@@ -148,7 +148,8 @@ private:
     void changed();
     void request(Json, std::function<void(Json)>, core::Priority = core::Priority::visible);
     void mutate(Json, std::string success);
-    void query();
+    void query(bool reset = false);
+    void load_more();
     void publish();
     void sync_selection() const;
     void work();
@@ -157,7 +158,6 @@ private:
     void update_progress(const Json&);
     void update_background(const Json&);
     void control_background(Json);
-    void page(int direction);
     void add_to_album();
     void create_album(Json ids);
     void name_dialog(std::string title, std::string detail, std::string action,
@@ -220,6 +220,7 @@ private:
     bool background_paused_{false}, background_ready_{false};
     int work_delay_ms_{250};
     std::size_t offset_{}, total_{};
+    bool append_failed_{false}, refresh_again_{false};
     static constexpr std::size_t page_size_ = 200;
     fs::SortOrder order_;
 

@@ -4191,9 +4191,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
             photo.entry.identity.empty() ? std::nullopt : std::optional{std::move(photo)});
     } else
         info_pane_.set_photo_properties(std::nullopt);
-    status_bar_.set_collection_status(showing_photos() ? photo_library_->status() + " · " +
-                                                             photo_library_->background_status()
-                                                       : std::string{});
+    status_bar_.set_collection_status(showing_photos() ? photo_library_->status() : std::string{});
     sidebar_.set_current_uri(showing_photos() ? photo_library_->navigation_uri() : "");
     if (sidebar_drawn_) {
         float places_height = bounds.height;

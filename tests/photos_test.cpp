@@ -202,6 +202,69 @@ TEST_CASE("metadata claims serialize windows and stale results never replace der
     CHECK(fixture.call({{"op", "query"}})["photos"][0]["width"] == 0);
 }
 
+TEST_CASE("scan progress distinguishes discovery from metadata and changed originals") {
+    Fixture fixture;
+    fixture.file("a/healthy.jpg");
+    fixture.file("a/damaged.jpg");
+    fixture.file("a/changed.jpg");
+    fixture.add("a");
+    const auto progress = [&] { return fixture.call({{"op", "jobs"}})["jobs"][0]; };
+    auto job = progress();
+    CHECK(job["phase"] == "discovering");
+    CHECK(job["pending_directories"] == 1);
+    CHECK(job["metadata_total"] == 0);
+
+    const auto work = fixture.call({{"op", "work"}, {"budget", 64}});
+    REQUIRE(work["metadata"].size() == 3);
+    job = progress();
+    CHECK(job["state"] == "running");
+    CHECK(job["phase"] == "metadata");
+    CHECK(job["pending_directories"] == 0);
+    CHECK(job["metadata_completed"] == 0);
+    CHECK(job["metadata_total"] == 3);
+    CHECK(job["metadata_pending"] == 3);
+    const auto discovery_completed = job["completed"];
+
+    // A metadata attempt advances progress without advancing directory-entry counts.
+    const auto first = work["metadata"][0];
+    fixture.call({{"op", "metadata"},
+                  {"id", first["id"]},
+                  {"signature", first["signature"]},
+                  {"width", 12},
+                  {"height", 8}});
+    job = progress();
+    CHECK(job["completed"] == discovery_completed);
+    CHECK(job["metadata_completed"] == 1);
+    CHECK(job["metadata_pending"] == 2);
+    CHECK(job["phase"] == "metadata");
+
+    const auto second = work["metadata"][1];
+    fixture.call({{"op", "metadata"},
+                  {"id", second["id"]},
+                  {"signature", second["signature"]},
+                  {"error", "Damaged image"}});
+    const auto third = work["metadata"][2];
+    std::ofstream{third["path"].get<std::string>()} << "Changed since discovery";
+    CHECK(fixture.call({{"op", "metadata"},
+                        {"id", third["id"]},
+                        {"signature", third["signature"]}})["stale"] == true);
+    job = progress();
+    CHECK(job["state"] == "running");
+    CHECK(job["phase"] == "finishing");
+    CHECK(job["metadata_completed"] == 2);
+    CHECK(job["metadata_total"] == 2);
+    CHECK(job["metadata_pending"] == 0);
+    CHECK(job["metadata_unavailable"] == 1);
+    CHECK(job["failures"].size() == 1);
+
+    fixture.call({{"op", "work"}});
+    job = progress();
+    CHECK(job["state"] == "completed");
+    CHECK(job["phase"] == "complete");
+    CHECK(job["metadata_completed"] == 2);
+    CHECK(job["metadata_unavailable"] == 1);
+}
+
 TEST_CASE("byte duplicate review verifies changed candidates and records intent without deletion") {
     Fixture fixture;
     fixture.file("a/one.jpg", "identical");
