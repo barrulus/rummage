@@ -40,6 +40,7 @@ photo
 player-eject
 plug
 presentation
+search
 server
 settings
 square

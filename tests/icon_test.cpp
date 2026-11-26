@@ -45,7 +45,7 @@ TEST_CASE("icons: every name exists in the icon font") {
          {"chevron-left",   "player-eject", "chevron-right", "chevron-up", "chevron-down", "x",
           "layout-columns", "layout-grid",  "list-details",  "help",       "files",        "home",
           "server",         "trash",        "trash-filled",  "usb",        "database-off", "minus",
-          "square",         "squares",      "settings"}) {
+          "square",         "squares",      "settings",      "search"}) {
         CHECK_MESSAGE(icons.has(name), name);
     }
     CHECK_FALSE(icons.has("no-such-icon"));
