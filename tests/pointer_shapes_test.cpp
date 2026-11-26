@@ -195,8 +195,47 @@ TEST_CASE("pointer shapes: buttons use hands and selectable metadata uses text c
         CHECK(f.browser.cursor_at(x, y) == CursorShape::text);
     }
     CHECK_FALSE(f.find(CursorShape::text, [&](float x, float y) {
-        return !f.browser.filter_bounds().contains(x, y) && !f.browser.info_pane().text_at(x, y);
-    }));  // text cursors belong to the filter and the info pane's actual text targets
+        return !f.browser.filter_bounds().contains(x, y) && !f.browser.info_pane().text_at(x, y) &&
+               !path.text_at(x, y);
+    }));  // only actual filter, metadata and editable breadcrumb text targets
+}
+
+TEST_CASE("pointer shapes: the current breadcrumb has a text cursor and opens path editing") {
+    Fixture f;
+    if (!f.gl) {
+        return;
+    }
+    f.browser.open(f.photos);
+    REQUIRE(f.settle());
+    auto& path = f.browser.breadcrumb();
+    const auto current =
+        f.find(CursorShape::text, [&](float x, float y) { return path.path_at(x, y) == f.photos; });
+    REQUIRE(current);
+    CHECK(path.text_at(current->x, current->y));
+    CHECK_FALSE(f.browser.filter_bounds().contains(current->x, current->y));
+    CHECK_FALSE(f.browser.info_pane().text_at(current->x, current->y));
+    const auto ancestor = f.find(CursorShape::pointer, [&](float x, float y) {
+        const auto target = path.path_at(x, y);
+        return target && *target != f.photos;
+    });
+    REQUIRE(ancestor);
+    CHECK_FALSE(path.text_at(ancestor->x, ancestor->y));
+    f.move(*current);
+    REQUIRE_FALSE(f.sent.empty());
+    CHECK(f.sent.back() == CursorShape::text);
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = current->x,
+                       .y = current->y,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    REQUIRE(path.editing());
+    CHECK(path.text() == f.photos.string());
+    f.draw();
+    CHECK(f.browser.cursor_at(current->x, current->y) == CursorShape::text);
+    path.cancel_edit();
+    f.draw();
+    CHECK(path.path_at(current->x, current->y) == f.photos);
+    CHECK(f.browser.cursor_at(current->x, current->y) == CursorShape::text);
 }
 
 TEST_CASE("pointer shapes: the text cursor over a name being edited") {
