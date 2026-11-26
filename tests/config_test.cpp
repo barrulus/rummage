@@ -185,6 +185,7 @@ TEST_CASE("context menu config: invalid trees reject the entire layout") {
              "[context_menu]\nitems = ['open']",
              "[context_menu]\nitems = [{}]",
              "[context_menu]\nitems = [{id = 'typo'}]",
+             "[context_menu]\nitems = [{id = 'sort:unsupported'}]",
              "[context_menu]\nitems = [{id = 'action:missing'}]",
              "[context_menu]\nitems = [{id = ''}]",
              "[context_menu]\nitems = [{id = true}]",

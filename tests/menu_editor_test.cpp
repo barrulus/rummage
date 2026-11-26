@@ -235,15 +235,19 @@ TEST_CASE("menu editor: complete picker catalog uses names and valid command ref
         if (!command.id.starts_with("action:"))
             ++builtins;
     }
-    CHECK(builtins == 70);
+    CHECK(builtins == 76);
     const auto parsed = core::parse_config(
         "[context_menu]\nitems=" + views::MenuEditor::serialize(nodes), "test.toml");
     CHECK(parsed.context_menu_valid);
-    for (const auto id :
-         {"running", "compress_zip", "compress_tar", "sort:accessed", "sort:link_target",
-          "sort:descending", "copy_other_pane", "orient_panes", "create_link", "reset_folder_view",
-          "create_relative_link", "create_hard_link", "paste_links", "paste_absolute_link",
-          "paste_relative_link", "paste_hard_link", "reveal_link_target"})
+    CHECK(parsed.problems.empty());
+    for (const auto id : {"running",           "compress_zip",         "compress_tar",
+                          "sort:accessed",     "sort:link_target",     "sort:descending",
+                          "copy_other_pane",   "orient_panes",         "create_link",
+                          "reset_folder_view", "create_relative_link", "create_hard_link",
+                          "paste_links",       "paste_absolute_link",  "paste_relative_link",
+                          "paste_hard_link",   "reveal_link_target",   "sort:dimensions",
+                          "sort:duration",     "sort:bitrate",         "sort:video_codec",
+                          "sort:audio_codec",  "sort:rating"})
         CHECK(std::ranges::find(catalog, id, &views::MenuItem::id) != catalog.end());
 }
 

@@ -595,7 +595,9 @@ follow_accent = true
 #   actions    Actions: applicable custom actions with placement = "actions", in config order.
 #   sort       Sort By: sort:name (Name), sort:size (Size), sort:modified (Modified),
 #              sort:type (Type), sort:created, sort:accessed, sort:owner, sort:group,
-#              sort:permissions, sort:location, sort:link_target, then sort:ascending (Ascending),
+#              sort:permissions, sort:location, sort:link_target, sort:dimensions, sort:duration,
+#              sort:bitrate, sort:video_codec, sort:audio_codec, sort:rating,
+#              then sort:ascending (Ascending),
 #              sort:descending (Descending). The current key and direction are checked.
 # Actions disappears when empty. The default registry puts Copy Location, Copy Name,
 # Extract Here and Extract To at the top level; extraction only appears for applicable archive selections.
@@ -658,7 +660,8 @@ follow_accent = true
 # open, open_with, open_tab, open_terminal, add_bookmark, copy, cut, paste, rename, trash,
 # erase, restore, empty_trash, properties, new_folder, new_file, empty_file, sort, sort:name, sort:size,
 # sort:modified, sort:type, sort:created, sort:accessed, sort:owner, sort:group,
-# sort:permissions, sort:location, sort:link_target, sort:ascending, sort:descending, actions,
+# sort:permissions, sort:location, sort:link_target, sort:dimensions, sort:duration, sort:bitrate,
+# sort:video_codec, sort:audio_codec, sort:rating, sort:ascending, sort:descending, actions,
 # panes, toggle_split, switch_pane, swap_panes, orient_panes, open_other_pane,
 # same_other_pane, copy_other_pane, move_other_pane,
 # compress_zip, compress_tar,
