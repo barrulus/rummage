@@ -3486,6 +3486,7 @@ void Browser::note_location() {
     if (!shown) {
         return;
     }
+    restore_name_filter(shown->path());
     if (!shown->is_trash()) {
         restore_folder(shown->path(), std::exchange(pane().restore_mode_on_arrival, false));
         if (context_area_ == active_area_)
@@ -3865,12 +3866,49 @@ void Browser::set_name_filter(std::string text) {
     apply_filters();
 }
 
-void Browser::apply_filters() {
+void Browser::restore_name_filter(const std::filesystem::path& path) {
+    const auto normalized = path.lexically_normal();
+    if (pane().filter_folder == normalized)
+        return;
+    if (!pane().filter_folder.empty()) {
+        if (pane().valid_filter.empty())
+            pane().folder_filters.erase(pane().filter_folder);
+        else {
+            if (pane().folder_filters.size() >= kHistorySize)
+                pane().folder_filters.erase(pane().folder_filters.begin());
+            pane().folder_filters.insert_or_assign(pane().filter_folder, pane().valid_filter);
+        }
+    }
+    pane().filter_folder = normalized;
+    const auto saved = pane().folder_filters.find(normalized);
+    pane().valid_filter = saved == pane().folder_filters.end() ? std::string{} : saved->second;
+    pane().filter_field.set_text(pane().valid_filter);
+    apply_filters(normalized);
+}
+
+void Browser::apply_filters(const std::filesystem::path& target) {
     if (showing_photos()) {
         pane().filter_error.clear();
         pane().valid_filter = pane().filter_field.text();
         photo_library_->set_query(pane().valid_filter);
         return;
+    }
+    const auto shown =
+        pane().mode == Mode::details ? pane().details.root_folder() : current_folder();
+    const auto path = !target.empty() ? target.lexically_normal()
+                      : shown         ? shown->path().lexically_normal()
+                                      : pane().settings_folder;
+    if (!path.empty() && pane().filter_folder != path) {
+        if (!pane().filter_folder.empty()) {
+            if (pane().valid_filter.empty())
+                pane().folder_filters.erase(pane().filter_folder);
+            else {
+                if (pane().folder_filters.size() >= kHistorySize)
+                    pane().folder_filters.erase(pane().folder_filters.begin());
+                pane().folder_filters.insert_or_assign(pane().filter_folder, pane().valid_filter);
+            }
+        }
+        pane().filter_folder = path;
     }
     fs::NamePattern pattern{pane().filter_field.text()};
     if (pattern.error().empty() && !pane().filter_error.empty() &&
@@ -3887,9 +3925,9 @@ void Browser::apply_filters() {
     pane().entry_filter = [filter = picker_filter_, pattern](const fs::Entry& entry) {
         return (!filter || filter(entry)) && pattern.matches(entry.name);
     };
-    pane().columns.set_entry_filter(pane().entry_filter);
-    pane().grid.set_entry_filter(pane().entry_filter);
-    pane().details.set_entry_filter(pane().entry_filter);
+    pane().columns.set_entry_filter(pane().entry_filter, pane().filter_folder, picker_filter_);
+    pane().grid.set_entry_filter(pane().entry_filter, pane().mode == Mode::grid);
+    pane().details.set_entry_filter(pane().entry_filter, pane().mode == Mode::details);
 }
 
 void Browser::set_show_hidden(bool show, bool announce) {
@@ -4127,7 +4165,8 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
         pane().details.set_columns(*tab.details_columns);
     if (tab.details_widths)
         pane().details.set_widths(*tab.details_widths);
-    set_name_filter(tab.filter);
+    pane().filter_field.set_text(tab.filter);
+    apply_filters(tab.folder);
     note_location();
 }
 

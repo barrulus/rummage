@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -52,6 +53,8 @@ struct Pane {
     InsightsView insights;
     ui::TextField filter_field;
     std::string valid_filter;
+    std::filesystem::path filter_folder;
+    std::map<std::filesystem::path, std::string> folder_filters;
     std::string filter_error;
     fs::Listing::Predicate entry_filter;
     bool show_hidden{false};

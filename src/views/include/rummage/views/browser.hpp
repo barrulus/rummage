@@ -1366,7 +1366,8 @@ private:
     fs::Listing::Predicate picker_filter_;
     bool filter_focused_{false};
     bool keyboard_focus_visible_{false};
-    void apply_filters();
+    void apply_filters(const std::filesystem::path& target = {});
+    void restore_name_filter(const std::filesystem::path& path);
     void toolbar_pointer(const ui::PointerEvent& event);
     void draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                       ui::IconSet& icons);

@@ -148,8 +148,10 @@ void GridView::set_order(const fs::SortOrder& order) {
     }
 }
 
-void GridView::set_entry_filter(fs::Listing::Predicate filter) {
+void GridView::set_entry_filter(fs::Listing::Predicate filter, bool apply) {
     entry_filter_ = std::move(filter);
+    if (!apply)
+        return;
     if (folder_) {
         folder_->set_entry_filter(entry_filter_);
     }

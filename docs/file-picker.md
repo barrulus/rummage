@@ -189,7 +189,10 @@ grid, and details views. The name filter matches substrings (ignoring ASCII case
 and combines with the application's file type restrictions. Ctrl+Shift+F focuses
 it; Enter returns to browsing with the filter applied, and Escape clears it without
 closing the picker. Clear removes the filter with a click. Ctrl+F still opens the
-recursive file finder. The filter remains active when changing views or folders.
+recursive file finder. The name filter remains active when changing views, but
+opening another folder or an archive starts without the previous folder's name
+filter. Returning restores that folder's filter during the session. The
+application's file type restrictions continue to apply in every destination.
 
 New Folder (also Ctrl+Shift+N) clears the name filter, creates a folder in the current
 location, and selects its name for editing. When choosing a folder, the picker labels

@@ -294,8 +294,10 @@ void DetailsView::band_scroll(const Folder& folder, float pixels) {
     }
 }
 
-void DetailsView::set_entry_filter(fs::Listing::Predicate filter) {
+void DetailsView::set_entry_filter(fs::Listing::Predicate filter, bool apply) {
     entry_filter_ = std::move(filter);
+    if (!apply)
+        return;
     if (root_) {
         root_->set_entry_filter(entry_filter_);
     }

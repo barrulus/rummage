@@ -104,7 +104,8 @@ public:
     // Dotfiles listed in every column, or left out (hidden at first). Left out, the columns
     // before the focused one keep the hidden entry that leads on, the others move their cursor.
     void set_show_hidden(bool show);
-    void set_entry_filter(fs::Listing::Predicate filter);
+    void set_entry_filter(fs::Listing::Predicate filter, std::filesystem::path folder = {},
+                          fs::Listing::Predicate fallback = {});
 
     // The order of every folder the columns show, now and later (the window's: Browser::set_sort).
     void set_order(const fs::SortOrder& order);
@@ -247,6 +248,8 @@ private:
     bool suspended_{false};
     bool root_locked_{false};
     fs::Listing::Predicate entry_filter_;
+    std::filesystem::path filter_folder_;
+    fs::Listing::Predicate fallback_filter_;
     bool show_hidden_{false};
     fs::SortOrder order_;
     std::size_t list_size_{kUsualListSize};

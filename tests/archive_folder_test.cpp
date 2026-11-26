@@ -315,6 +315,46 @@ TEST_CASE("archive folders: what is not an archive, or not in it, says so") {
     CHECK(f.model.problem() == "no such folder in the archive");
 }
 
+TEST_CASE("archive folders: a parent ZIP filter stays behind on entry and returns on Back") {
+    TempDir dir;
+    fs::copy_file(kArchives / "basic.zip", dir.path / "basic.zip");
+    std::ofstream{dir.path / "visible.txt"} << "parent";
+    rummage::fs::forget_archive_trees();
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    rummage::views::Browser browser{loop,    pool,
+                                    watcher, rummage::fs::MimeDatabase::load(),
+                                    [] {},   [](rummage::ui::CursorShape) {}};
+    auto mode = rummage::views::Browser::Mode::columns;
+    SUBCASE("columns") {}
+    SUBCASE("grid") { mode = rummage::views::Browser::Mode::grid; }
+    SUBCASE("details") { mode = rummage::views::Browser::Mode::details; }
+    browser.open(dir.path);
+    browser.set_mode(mode);
+    const auto settle = [&] { return run_until(loop, [&] { return !browser.loading(); }); };
+    REQUIRE(settle());
+    browser.set_name_filter("*.zip");
+    REQUIRE(browser.picker_folder()->entries().size() == 1);
+    browser.picker_folder()->select_name("basic.zip");
+    rummage::ui::KeyEvent enter;
+    enter.keysym = XKB_KEY_Return;
+    browser.key(enter, rummage::views::Browser::Clock::now());
+    REQUIRE(settle());
+    REQUIRE(browser.picker_folder()->is_archive());
+    CHECK(browser.name_filter().empty());
+    CHECK_FALSE(browser.picker_folder()->entries().empty());
+    CHECK(std::ranges::any_of(browser.picker_folder()->entries(),
+                              [](const auto& entry) { return entry.name == "docs"; }));
+    browser.back();
+    REQUIRE(settle());
+    (void)browser.state();  // Like the next draw, note an asynchronously revealed location.
+    CHECK(browser.picker_folder()->path() == dir.path);
+    CHECK(browser.name_filter() == "*.zip");
+    REQUIRE(browser.picker_folder()->entries().size() == 1);
+    CHECK(browser.picker_folder()->entries().front().name == "basic.zip");
+}
+
 TEST_CASE("archive folders: Enter goes into an archive, where nothing is changed") {
     TempDir dir;
     fs::copy_file(kArchives / "basic.zip", dir.path / "basic.zip");

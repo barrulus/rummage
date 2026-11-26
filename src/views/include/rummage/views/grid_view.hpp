@@ -73,7 +73,7 @@ public:
 
     // Dotfiles listed or left out (hidden at first), in the folder shown and the ones it opens.
     void set_show_hidden(bool show);
-    void set_entry_filter(fs::Listing::Predicate filter);
+    void set_entry_filter(fs::Listing::Predicate filter, bool apply = true);
 
     // The cells' size (kGridIconSizes[index]), as the window sets it: no zoom handler call.
     void set_size_index(std::size_t index);

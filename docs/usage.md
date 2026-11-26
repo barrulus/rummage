@@ -342,15 +342,17 @@ unsupported. Patterns are limited to 1024 bytes, with bounded regex compilation
 memory and no backtracking. Text matching folds ASCII case; glob and regex matching use
 Unicode simple case folding without Unicode
 normalization. Use case-sensitive text to match arbitrary filename bytes exactly.
-Invalid patterns show an error and retain the last valid filter, including when
-the folder changes. Only the last valid filter is saved with the tab. Invalid
+Invalid patterns show an error and retain the last valid filter in that folder.
+Only the current folder's last valid filter is saved with the tab. Invalid
 selection patterns leave the selection unchanged. Selection applies to the active
 folder's visible entries; expanded details descendants are not selected implicitly.
 
 In Miller columns the filter affects only the last column;
 ancestor columns remain visible. **Ctrl+Shift+F** focuses it; Enter keeps the filter and
 returns focus to files. Escape or Clear removes it. It persists when switching
-views/folders and combines with picker type restrictions. New Folder clears the
+views and combines with picker type restrictions. Name filters belong to the folder
+where they were entered: opening another folder or an archive starts unfiltered,
+and returning restores that folder's filter during the session. New Folder clears the
 filter before starting a rename. Use Ctrl+F for recursive search instead.
 
 ## Commands and finding files

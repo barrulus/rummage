@@ -171,10 +171,10 @@ TEST_CASE("column view: filtering affects only the last column and preserves anc
     f.browser.set_name_filter("photo");
     REQUIRE(f.view.column(2).folder().entries().size() == 1);
     CHECK(f.view.column(2).folder().entries().front().name == "photo.jpg");
-    // Close the child column: its parent now receives the filter.
+    // Close the child column: its filter must not hide the parent's entries.
     f.view.column(1).folder().set_cursor(std::nullopt);
     REQUIRE(f.view.column_count() == 2);
-    CHECK(f.view.column(1).folder().entries().empty());
+    CHECK(f.view.column(1).folder().entries().size() == 2);
     CHECK(f.view.column(0).folder().entries().size() == 3);
     f.browser.set_name_filter("");
     REQUIRE(f.view.column(1).folder().entries().size() == 2);
@@ -851,4 +851,58 @@ TEST_CASE("collection folder: incremental metadata and append preserve stable se
     CHECK(folder.cursor_entry()->key() == "photo:2");
     CHECK(folder.selected_names() == std::vector<std::string>{"photo:2"});
     CHECK(folder.selection_revision() == selection_revision);
+}
+
+TEST_CASE("column view: a parent name filter does not hide a child preview or its contents") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    f.browser.set_name_filter("alpha");
+    f.view.column(0).folder().select_name("alpha");
+    REQUIRE(f.settle());
+    REQUIRE(f.view.column_count() == 2);
+    CHECK(f.view.column(1).folder().entries().size() == 2);
+    f.press(XKB_KEY_Right);
+    REQUIRE(f.settle());
+    CHECK(f.browser.name_filter().empty());
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    CHECK(f.browser.name_filter() == "alpha");
+    REQUIRE(f.view.column(0).folder().entries().size() == 1);
+}
+
+TEST_CASE("column view: filtering a child does not mutate an inactive view's ancestor") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    SUBCASE("grid") { f.browser.set_mode(Browser::Mode::grid); }
+    SUBCASE("details") { f.browser.set_mode(Browser::Mode::details); }
+    f.browser.set_mode(Browser::Mode::columns);
+    f.view.column(0).folder().select_name("alpha");
+    REQUIRE(f.settle());
+    f.press(XKB_KEY_Right);
+    REQUIRE(f.settle());
+    f.browser.set_name_filter("*.txt");
+    REQUIRE(f.view.focused_folder());
+    CHECK(f.view.focused_folder()->path() == f.root / "alpha");
+    REQUIRE(f.view.focused_folder()->entries().size() == 1);
+    CHECK(f.view.focused_folder()->entries().front().name == "notes.txt");
+}
+
+TEST_CASE("column view: restoring a tab binds its filter to the saved leaf") {
+    Fixture f;
+    rummage::views::State::Tab tab;
+    tab.folder = f.root / "alpha";
+    tab.root = f.root;
+    tab.cursor = "notes.txt";
+    tab.filter = "*.txt";
+    tab.mode = rummage::views::State::Mode::columns;
+    REQUIRE(f.browser.restore_tabs({tab}, 0));
+    REQUIRE(f.settle());
+    (void)f.browser.state();
+    CHECK(f.browser.name_filter() == "*.txt");
+    REQUIRE(f.view.focused_folder());
+    CHECK(f.view.focused_folder()->path() == f.root / "alpha");
+    REQUIRE(f.view.focused_folder()->entries().size() == 1);
+    CHECK(f.view.focused_folder()->entries().front().name == "notes.txt");
 }

@@ -84,7 +84,7 @@ public:
 
     // Dotfiles listed or left out (hidden at first), in the folder shown and the ones it opens.
     void set_show_hidden(bool show);
-    void set_entry_filter(fs::Listing::Predicate filter);
+    void set_entry_filter(fs::Listing::Predicate filter, bool apply = true);
 
     // Where a drag over the window would drop (the browser's).
     void set_drop_mark(const DropMark* drop) { drop_ = drop; }

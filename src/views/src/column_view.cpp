@@ -50,8 +50,11 @@ std::unique_ptr<Column> ColumnView::make_column(const std::filesystem::path& dir
         std::make_shared<Folder>(loop_, pool_, watcher_, mime_, directory, redraw_, show_hidden_));
 }
 
-void ColumnView::set_entry_filter(fs::Listing::Predicate filter) {
+void ColumnView::set_entry_filter(fs::Listing::Predicate filter, std::filesystem::path folder,
+                                  fs::Listing::Predicate fallback) {
     entry_filter_ = std::move(filter);
+    filter_folder_ = std::move(folder);
+    fallback_filter_ = std::move(fallback);
     refresh_filters(true);
     redraw_();
 }
@@ -67,8 +70,12 @@ void ColumnView::refresh_filters(bool force) {
         const bool filtered = i + 1 == columns_.size() && reveal_.empty();
         if (force || filtered != slot.filtered) {
             slot.filtered = filtered;
-            slot.column->folder().set_entry_filter(filtered ? entry_filter_
-                                                            : fs::Listing::Predicate{});
+            const auto& folder = slot.column->folder();
+            const auto& scoped =
+                filter_folder_.empty() || folder.path().lexically_normal() == filter_folder_
+                    ? entry_filter_
+                    : fallback_filter_;
+            slot.column->folder().set_entry_filter(filtered ? scoped : fs::Listing::Predicate{});
         }
     }
     filtering_ = false;
