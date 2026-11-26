@@ -28,6 +28,7 @@
 #include "rummage/views/browser.hpp"
 #include "rummage/views/shortcuts_overlay.hpp"
 #include "rummage/views/status_bar.hpp"
+#include "scoped_env.hpp"
 #include "temp_dir.hpp"
 
 using rummage::core::EventLoop;
@@ -85,6 +86,10 @@ std::string describe(const KeyEvent& event) {
 // root/{sub/{inner.txt}, a.txt, b.txt}
 struct Fixture {
     TempDir dir;
+#ifdef RUMMAGE_TEST_BASH
+    rummage::test::ScopedEnv home{"HOME", dir.path.string()};
+    rummage::test::ScopedEnv shell{"SHELL", RUMMAGE_TEST_BASH};
+#endif
     fs::path root = dir.path / "root";
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 2};
@@ -124,6 +129,9 @@ struct Fixture {
 
     // The root in mode, loaded, the cursor on cursor_on, nothing over the view.
     void reset(Browser::Mode mode, const std::string& cursor_on = "sub") {
+        // Terminal shortcuts retain a session, but each chord starts with file-view focus.
+        browser.terminal_panel().show(false);
+        REQUIRE_FALSE(browser.terminal_focused());
         // A new folder, say; an undone Delete may ask about a name made again meanwhile.
         REQUIRE(run_until(loop, [&] {
             if (browser.conflict_dialog().is_open()) {
@@ -264,14 +272,22 @@ TEST_CASE("shortcuts: every one listed for the sidebar and Quick Look works ther
             }
             if ((shortcut.scope & scope::kQuickLook) != 0) {
                 const bool markdown = event.keysym == XKB_KEY_m || event.keysym == XKB_KEY_M;
+                const bool pdf = event.modifiers == Modifiers{} &&
+                                 (event.keysym == XKB_KEY_equal || event.keysym == XKB_KEY_minus ||
+                                  event.keysym == XKB_KEY_0);
                 if (markdown) {
                     std::ofstream{f.root / "preview.md"} << "# A Markdown preview\n";
                 }
-                f.reset(Browser::Mode::grid, markdown ? "preview.md" : "a.txt");
-                if (markdown) {
-                    f.browser.go_to(f.root, "preview.md");
+                if (pdf && !fs::exists(f.root / "preview.pdf")) {
+                    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "pdf/two-pages.pdf",
+                                  f.root / "preview.pdf");
+                }
+                const std::string name = markdown ? "preview.md" : pdf ? "preview.pdf" : "a.txt";
+                f.reset(Browser::Mode::grid, name);
+                if (markdown || pdf) {
+                    f.browser.go_to(f.root, name);
                     REQUIRE(run_until(f.loop, [&] {
-                        return cursor_name_is(*f.folder(), "preview.md") && !f.browser.loading();
+                        return cursor_name_is(*f.folder(), name) && !f.browser.loading();
                     }));
                     f.folder()->sniff(0, f.folder()->entries().size());
                     REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
@@ -281,8 +297,18 @@ TEST_CASE("shortcuts: every one listed for the sidebar and Quick Look works ther
                 if (markdown) {
                     REQUIRE(run_until(f.loop, [&] { return !f.browser.quick_look().loading(); }));
                 }
+                if (pdf) {
+                    if (event.keysym != XKB_KEY_equal) {
+                        REQUIRE(f.browser.key(chord(XKB_KEY_equal, {}), Browser::Clock::now()));
+                        REQUIRE(f.browser.quick_look().document_zoom() > 1.0F);
+                    }
+                }
                 CHECK_MESSAGE(f.browser.key(event, Browser::Clock::now()), describe(event)
                                                                                << " in Quick Look");
+                if (pdf) {
+                    CHECK(f.browser.quick_look().document_zoom() ==
+                          (event.keysym == XKB_KEY_equal ? 1.25F : 1.0F));
+                }
             }
         }
     }
@@ -302,6 +328,27 @@ TEST_CASE("shortcuts: every one listed for renaming works in the name's field") 
         }
     }
 }
+
+#ifdef RUMMAGE_TEST_BASH
+TEST_CASE("shortcuts: terminal focus consumes preview keys until the file context is restored") {
+    Fixture f;
+    for (const Browser::Mode mode : kModes) {
+        for (const bool sidebar : {false, true}) {
+            f.reset(mode, "a.txt");
+            f.browser.sidebar().set_focused(sidebar);
+            REQUIRE(f.browser.key(chord(XKB_KEY_F4, {.shift = true}), Browser::Clock::now()));
+            REQUIRE(f.browser.terminal_focused());
+            CHECK(f.browser.key(chord(XKB_KEY_space, {}), Browser::Clock::now()));
+            CHECK_FALSE(f.browser.quick_look().is_open());
+
+            f.reset(mode, "a.txt");
+            REQUIRE_FALSE(f.browser.terminal_panel().visible());
+            CHECK(f.browser.key(chord(XKB_KEY_space, {}), Browser::Clock::now()));
+            CHECK(f.browser.quick_look().is_open());
+        }
+    }
+}
+#endif
 
 TEST_CASE("shortcuts: nothing else does anything") {
     // The keys a file manager could plausibly react to, with each modifier.
