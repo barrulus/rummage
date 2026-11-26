@@ -74,7 +74,11 @@ An unknown timezone stays unknown; modification time is not substituted as the c
 The information pane and Properties identify an extracted, user-supplied or unknown date. Rescanning preserves
 manual annotations and date overrides.
 
-Use **Create album…** in the Photo Library menu, then open **Albums**. An album’s context
+Select photos and use **Create album…** in the Photo Library menu to create an album containing
+that selection. The dialog shows how many photos will be included; with no selection it creates
+an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
+album. Choose **All photos**, click **Photo Library** in the sidebar, or use Back or Parent to
+return to the full active library. An album’s context
 menu offers **Add selected photos to album** and **Remove selected photos from album**. Filesystem-browser annotations, xattrs and sidecars retain their existing separate
 semantics. The photo library does not silently import or synchronise those editable values,
 and it does not rewrite embedded metadata. Explicit external-annotation import is not yet

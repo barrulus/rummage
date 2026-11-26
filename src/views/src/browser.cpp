@@ -3202,7 +3202,7 @@ void Browser::note_location() {
 
 bool Browser::can_travel(int direction) const {
     if (showing_photos())
-        return direction < 0 && photo_library_->destination() != PhotoLibrary::Destination::library;
+        return direction < 0 && !photo_library_->at_all_photos();
     if (pane().insights.is_open())
         return direction < 0 && pane().insights.can_back();
     return direction < 0 ? !pane().history.empty() && pane().here > 0
@@ -3235,7 +3235,7 @@ void Browser::forward() { travel(1); }
 void Browser::travel(int direction) {
     if (showing_photos()) {
         if (direction < 0)
-            photo_library_->show(PhotoLibrary::Destination::library);
+            photo_library_->show_all_photos();
         return;
     }
     if (pane().insights.is_open()) {
@@ -6457,7 +6457,7 @@ void Browser::run(Command command, Clock::time_point now) {
         switch (command) {
             case Command::parent_folder:
             case Command::collapse_folder:
-                photo_library_->show(PhotoLibrary::Destination::library);
+                photo_library_->show_all_photos();
                 return;
             case Command::folder_insights:
                 open_photo_menu(insights_bounds_.x, insights_bounds_.bottom(), true);

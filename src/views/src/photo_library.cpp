@@ -14,6 +14,14 @@ namespace {
 using Json = nlohmann::json;
 using Id = PhotoLibrary::Id;
 
+Json sort_filter(const Json& filter) {
+    Json result = Json::object();
+    for (const auto* key : {"sort", "descending"})
+        if (filter.contains(key))
+            result[key] = filter[key];
+    return result;
+}
+
 std::vector<std::string> split(std::string_view value) {
     std::vector<std::string> result;
     std::size_t start = 0;
@@ -104,6 +112,10 @@ bool PhotoLibrary::photo_rows() const {
 std::string PhotoLibrary::title() const {
     switch (destination_) {
         case Destination::library:
+            if (filter_.contains("album_id"))
+                return collection_name_.empty() ? "Photo Album" : "Album: " + collection_name_;
+            if (filter_.contains("source_id"))
+                return collection_name_.empty() ? "Photos in Folder" : collection_name_;
             return "Photo Library";
         case Destination::sources:
             return "Photo Sources";
@@ -492,6 +504,27 @@ void PhotoLibrary::refresh() {
     refresh_progress();
 }
 
+bool PhotoLibrary::at_all_photos() const {
+    if (destination_ != Destination::library || !search_.empty())
+        return false;
+    for (const auto& [key, value] : filter_.items()) {
+        (void)value;
+        if (key != "sort" && key != "descending")
+            return false;
+    }
+    return true;
+}
+
+void PhotoLibrary::show_all_photos() {
+    sync_selection();
+    filter_ = sort_filter(filter_);
+    search_.clear();
+    collection_name_.clear();
+    offset_ = 0;
+    message_.clear();
+    show(Destination::library);
+}
+
 void PhotoLibrary::show(Destination destination) {
     sync_selection();
     query_job_.cancel();
@@ -811,15 +844,21 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
         result.push_back(std::move(item));
     };
     for (const auto& [label, destination] : std::array{
-             std::pair{"Library", Destination::library}, std::pair{"Sources", Destination::sources},
-             std::pair{"Albums", Destination::albums},
+             std::pair{"All photos", Destination::library},
+             std::pair{"Sources", Destination::sources}, std::pair{"Albums", Destination::albums},
              std::pair{"Saved searches", Destination::filters},
              std::pair{"Review duplicates", Destination::review},
              std::pair{"Activity", Destination::activity}}) {
         add("photos:destination:" + std::to_string(static_cast<int>(destination)), label,
-            [this, destination] { show(destination); });
+            [this, destination] {
+                if (destination == Destination::library)
+                    show_all_photos();
+                else
+                    show(destination);
+            });
         result.back().radio = result.back().checkable = true;
-        result.back().checked = destination_ == destination;
+        result.back().checked =
+            destination == Destination::library ? at_all_photos() : destination_ == destination;
     }
     add("photos:add", "Add folder…", [this] { add_folder(); }, static_cast<bool>(choose_folder_));
     result.back().separator = true;
@@ -829,12 +868,7 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
                    {"Capture date from (YYYY-MM-DD)", filter_.value("date_from", "")},
                    {"Capture date to (YYYY-MM-DD)", filter_.value("date_to", "")}});
     });
-    add("photos:clear", "Clear photo filters", [this] {
-        filter_ = Json::object();
-        set_query("");
-        offset_ = 0;
-        show(Destination::library);
-    });
+    add("photos:clear", "Clear photo filters", [this] { show_all_photos(); });
     add("photos:save-search", "Save photo search…", [this] {
         name_dialog("Save photo search", "Keep the current search and filters.", "Save",
                     [this](std::string name) {
@@ -845,10 +879,17 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
                     });
     });
     add("photos:create-album", "Create album…", [this] {
-        name_dialog("Create album", "Albums organise photos without moving originals.", "Create",
-                    [this](std::string name) {
-                        mutate({{"op", "create_album"}, {"name", name}}, "Album created");
-                    });
+        const auto ids = selected_ids();
+        name_dialog(
+            "Create album",
+            ids.empty()
+                ? "Create an empty album. Originals stay in place."
+                : std::format("Include {} selected photos. Originals stay in place.", ids.size()),
+            "Create", [this, ids](std::string name) {
+                mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
+                       ids.empty() ? "Empty album created"
+                                   : std::format("Album created with {} photos", ids.size()));
+            });
     });
     if (photo_rows())
         add(
@@ -923,7 +964,10 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
     const auto record = focused_record();
     const auto id = record.value("id", Id{});
     if (destination_ == Destination::sources && !record.empty()) {
-        add("photos:show-source", "Show photos", [this, id] {
+        add("photos:show-source", "Show photos", [this, id, record] {
+            filter_ = sort_filter(filter_);
+            search_.clear();
+            collection_name_ = record.value("path", "");
             filter_["source_id"] = id;
             offset_ = 0;
             show(Destination::library);
@@ -955,7 +999,10 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
             },
             !record.value("active", true));
     } else if (destination_ == Destination::albums && !record.empty()) {
-        add("photos:show-album", "Show album", [this, id] {
+        add("photos:show-album", "Show album", [this, id, record] {
+            filter_ = sort_filter(filter_);
+            search_.clear();
+            collection_name_ = record.value("name", "");
             filter_["album_id"] = id;
             offset_ = 0;
             show(Destination::library);

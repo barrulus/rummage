@@ -703,3 +703,53 @@ TEST_CASE("photo query sorts real file columns globally with safe explicit direc
     fixture.call({{"op", "query"}, {"sort", "name; DROP TABLE photos"}}, false);
     CHECK(fixture.call({{"op", "query"}})["total"] == 3);
 }
+
+TEST_CASE("photo album creation atomically includes the selected photos") {
+    Fixture fixture;
+    for (int i = 0; i < 15; ++i)
+        fixture.file("source/photo-" + std::to_string(i) + ".jpg");
+    fixture.add("source");
+    fixture.drain();
+    const auto photos = fixture.call({{"op", "query"}})["photos"];
+    Json ids = Json::array();
+    for (std::size_t i = 0; i < 13; ++i)
+        ids.push_back(photos[i]["id"]);
+    const auto created =
+        fixture.call({{"op", "create_album"}, {"name", "Selected thirteen"}, {"ids", ids}});
+    CHECK(created["count"] == 13);
+    const auto members = fixture.call({{"op", "query"}, {"album_id", created["id"]}});
+    CHECK(members["total"] == 13);
+    Json actual = Json::array();
+    for (const auto& photo : members["photos"])
+        actual.push_back(photo["id"]);
+    CHECK(actual == ids);
+    const auto before = fixture.call({{"op", "albums"}})["albums"];
+    fixture.call({{"op", "create_album"},
+                  {"name", "Selected thirteen"},
+                  {"ids", Json::array({photos[14]["id"]})}},
+                 false);
+    CHECK(fixture.call({{"op", "albums"}})["albums"] == before);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", created["id"]}})["photos"] ==
+          members["photos"]);
+
+    // An invalid ID after a valid membership must roll back both the new album and membership.
+    fixture.call({{"op", "create_album"},
+                  {"name", "Retry safely"},
+                  {"ids", Json::array({photos[0]["id"], 999999999})}},
+                 false);
+    CHECK(fixture.call({{"op", "albums"}})["albums"] == before);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", created["id"]}})["photos"] ==
+          members["photos"]);
+    const auto retried = fixture.call({{"op", "create_album"},
+                                       {"name", "Retry safely"},
+                                       {"ids", Json::array({photos[0]["id"], photos[0]["id"]})}});
+    CHECK(retried["count"] == 1);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", retried["id"]}})["total"] == 1);
+    CHECK(fixture.call({{"op", "create_album"}, {"name", "Empty"}})["count"] == 0);
+    CHECK(fixture.call({{"op", "create_album"},
+                        {"name", "Explicit empty"},
+                        {"ids", Json::array()}})["count"] == 0);
+    for (const auto& invalid : {Json(nullptr), Json("one"), Json::array({-1}), Json::array({1.5})})
+        fixture.call({{"op", "create_album"}, {"name", "Invalid"}, {"ids", invalid}}, false);
+    CHECK(fixture.call({{"op", "albums"}})["albums"].size() == 4);
+}

@@ -2467,9 +2467,29 @@ Json dispatch(Database& db, const Json& request) {
         const auto name = checked_text(request, "name", 512);
         if (name.empty())
             throw std::runtime_error("Album name cannot be empty");
+        const auto ids = request.value("ids", Json::array());
+        if (!ids.is_array() || ids.size() > 100000)
+            throw std::runtime_error("Choose at most 100000 photographs for the album");
+        std::set<Id> unique;
+        for (const auto& value : ids) {
+            if (!value.is_number_integer() || value.get<Id>() <= 0)
+                throw std::runtime_error("Album selections must contain valid photograph IDs");
+            unique.insert(value.get<Id>());
+        }
+        Transaction transaction(db);
         Statement insert(db.get(), "INSERT INTO albums(name) VALUES(?)");
         insert.bind(1, name).run();
-        return {{"id", db.last_id()}, {"name", name}};
+        const auto album = db.last_id();
+        for (const auto id : unique) {
+            Statement exists(db.get(), "SELECT id FROM photos WHERE id=?");
+            exists.bind(1, id);
+            if (!exists.row())
+                throw std::runtime_error("A selected photograph no longer exists in the catalog");
+            Statement add(db.get(), "INSERT INTO memberships(photo_id,album_id) VALUES(?,?)");
+            add.bind(1, id).bind(2, album).run();
+        }
+        transaction.commit();
+        return {{"id", album}, {"name", name}, {"count", unique.size()}};
     }
     if (op == "save_filter") {
         const auto name = checked_text(request, "name", 512);

@@ -494,4 +494,136 @@ TEST_CASE(
     for (int i = 0; i < 50; ++i)
         CHECK(std::filesystem::exists(source / (std::to_string(i) + ".png")));
 }
+
+TEST_CASE(
+    "photo workspace: create album captures thirteen selected photos and empty albums have exits") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Album pictures";
+    for (int i = 0; i < 14; ++i)
+        fixture(source / (std::to_string(i) + ".png"));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.set_places({{.label = "Home", .path = directory.path, .icon = "home"},
+                        {.label = "Pictures", .path = source, .icon = "photo"}});
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&](const std::string& name = "") {
+        const auto frame = [&] {
+            const rummage::theme::Palette palette;
+            renderer.begin_frame(1100, 820, 1, palette.surface);
+            browser.draw(renderer, {0, 0, 1100, 820}, palette, icons, Browser::Clock::now());
+            renderer.end_frame();
+        };
+        frame();
+        if (!name.empty())
+            REQUIRE(settle_photos(loop, [&] {
+                frame();
+                return !browser.animating();
+            }));
+        capture(name, 1100, 820);
+    };
+    const auto press = [&](KeyEvent key) { REQUIRE(browser.key(key, Browser::Clock::now())); };
+    browser.open(directory.path);
+    browser.open_photo_library(source);
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 14 && !library->loading(); }));
+    browser.set_mode(Browser::Mode::details);
+    draw();
+    press(photo_key(XKB_KEY_Home));
+    for (int i = 0; i < 12; ++i)
+        press(photo_key(XKB_KEY_Down, {.shift = true}));
+    const auto captured_ids = library->selected_ids();
+    REQUIRE(captured_ids.size() == 13);
+    invoke(library->menu_items(), "photos:create-album");
+    REQUIRE(library->has_dialog());
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Thirteen selected"));
+    draw("native-album-create-thirteen");
+    // A changed collection cursor while the dialog is open must not change its captured scope.
+    library->folder()->set_cursor(13);
+    REQUIRE(library->selected_ids().size() == 1);
+    CHECK(library->selected_ids() != captured_ids);
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(loop, [&] {
+        const auto albums = library->client()->request({{"op", "albums"}}).at("albums");
+        return std::ranges::any_of(albums, [](const auto& album) {
+            return album.value("name", "") == "Thirteen selected" && album.value("count", 0) == 13;
+        });
+    }));
+    const auto open_album = [&](std::string_view name) {
+        library->show(PhotoLibrary::Destination::albums);
+        REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+        const auto& entries = library->folder()->entries();
+        const auto found = std::ranges::find(entries, name, &rummage::fs::Entry::name);
+        REQUIRE(found != entries.end());
+        draw();
+        press(photo_key(XKB_KEY_F6, {.shift = true}));
+        press(photo_key(XKB_KEY_Home));
+        for (auto it = entries.begin(); it != found; ++it)
+            press(photo_key(XKB_KEY_Down));
+        press(photo_key(XKB_KEY_Return));
+        REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+        CHECK(library->destination() == PhotoLibrary::Destination::library);
+    };
+    open_album("Thirteen selected");
+    REQUIRE(library->rows().size() == 13);
+    CHECK(library->title().find("Thirteen selected") != std::string::npos);
+    std::set<PhotoLibrary::Id> actual_ids;
+    for (const auto& row : library->rows())
+        actual_ids.insert(row.at("id").get<PhotoLibrary::Id>());
+    CHECK(actual_ids == captured_ids.get<std::set<PhotoLibrary::Id>>());
+    draw("native-album-thirteen");
+    invoke(library->menu_items(), "photos:destination:0");
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 14 && !library->loading(); }));
+    invoke(library->menu_items(), "photos:clear-selection");
+    REQUIRE(library->selected_ids().empty());
+    invoke(library->menu_items(), "photos:create-album");
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Empty album"));
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(loop, [&] {
+        const auto albums = library->client()->request({{"op", "albums"}}).at("albums");
+        return std::ranges::any_of(albums, [](const auto& album) {
+            return album.value("name", "") == "Empty album" && album.value("count", -1) == 0;
+        });
+    }));
+    for (const auto route : {"sidebar", "back", "parent", "menu"}) {
+        INFO("Return route: " << route);
+        open_album("Empty album");
+        REQUIRE(library->rows().empty());
+        draw("native-empty-album");
+        if (std::string_view{route} == "sidebar") {
+            const auto bounds = browser.sidebar().place_icon_rect({});
+            REQUIRE(bounds);
+            for (auto kind :
+                 {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
+                browser.pointer({.kind = kind,
+                                 .x = bounds->x + bounds->width / 2,
+                                 .y = bounds->y + bounds->height / 2,
+                                 .button = rummage::ui::PointerButton::left},
+                                Browser::Clock::now());
+        } else if (std::string_view{route} == "back")
+            press(photo_key(XKB_KEY_Left, {.alt = true}));
+        else if (std::string_view{route} == "parent")
+            press(photo_key(XKB_KEY_Up, {.alt = true}));
+        else
+            invoke(library->menu_items(), "photos:destination:0");
+        REQUIRE(settle_photos(loop,
+                              [&] { return library->rows().size() == 14 && !library->loading(); }));
+        CHECK(browser.showing_photos());
+        CHECK(library->query_text().empty());
+        CHECK(library->at_all_photos());
+    }
+    draw("native-album-return-all");
+    for (int i = 0; i < 14; ++i)
+        CHECK(std::filesystem::exists(source / (std::to_string(i) + ".png")));
+}
 #endif

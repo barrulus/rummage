@@ -44,6 +44,8 @@ public:
     void close();
     void refresh();
     void show(Destination);
+    void show_all_photos();
+    [[nodiscard]] bool at_all_photos() const;
     void add_folder(std::filesystem::path initial = {});
 
     [[nodiscard]] const std::shared_ptr<Folder>& folder() const { return folder_; }
@@ -173,6 +175,7 @@ private:
     bool open_{false}, querying_{false}, working_{false}, publishing_{false};
     Destination destination_{Destination::library};
     Json rows_ = Json::array(), records_ = Json::array(), filter_ = Json::object();
+    std::string collection_name_;
     Json duplicate_group_ = Json::object();
     std::map<std::string, Json> record_by_key_;
     mutable std::set<Id> selected_;

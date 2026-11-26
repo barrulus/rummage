@@ -89,6 +89,8 @@ void Browser::open_photo_library(std::filesystem::path add_folder) {
         pane().photo_view = Mode::grid;
     }
     photo_library_->open();
+    if (found && add_folder.empty())
+        photo_library_->show_all_photos();
     pane().filter_field.set_text(photo_library_->query_text());
     pane().valid_filter = photo_library_->query_text();
     sync_photo_view();
