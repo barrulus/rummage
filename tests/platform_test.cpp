@@ -17,6 +17,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/fs/recent.hpp"
 #include "rummage/platform/applications.hpp"
 #include "rummage/platform/desktop_entry.hpp"
 #include "rummage/platform/exec.hpp"
@@ -726,4 +727,39 @@ TEST_CASE("opener: save default then launch using the existing desktop argument 
     REQUIRE(run_until(loop, [&] { return done; }));
     REQUIRE(choices.size() == 1);
     CHECK(choices.front().is_default);
+}
+
+TEST_CASE("recent files: only successfully dispatched document files enter history") {
+    System sys;
+    rummage::fs::RecentFiles history;
+    REQUIRE(history.set_enabled(true).empty());
+    REQUIRE(history.clear().empty());
+    sys.program("viewer");
+    sys.app("share", "viewer.desktop", "viewer");
+    const auto invalid = sys.dir.write("bin/invalid", "#!/definitely/missing/interpreter\n");
+    fs::permissions(invalid, fs::perms::owner_all);
+    sys.app("share", "invalid.desktop", "invalid");
+    const auto good = sys.dir.write("good.txt", "good");
+    sys.dir.write("failed.txt", "bad");
+    fs::create_directory(sys.dir.path / "folder");
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    std::vector<bool> errors;
+    Opener opener{loop, pool, sys.mime, sys.environment,
+                  [&](const std::string&, bool bad) { errors.push_back(bad); }};
+    opener.open(sys.dir.path,
+                {{.name = "good.txt", .kind = rummage::fs::EntryKind::file},
+                 {.name = "folder", .kind = rummage::fs::EntryKind::directory}},
+                "viewer.desktop");
+    REQUIRE(run_until(loop, [&] {
+        return !opener.planning() && opener.launcher().running() == 0 && history.load().size() == 1;
+    }));
+    CHECK(history.load()[0].path == good);
+    opener.open(sys.dir.path, {{.name = "failed.txt", .kind = rummage::fs::EntryKind::file}},
+                "invalid.desktop");
+    REQUIRE(
+        run_until(loop, [&] { return !opener.planning() && !errors.empty() && errors.back(); }));
+    REQUIRE(history.load().size() == 1);
+    CHECK(history.load()[0].path == good);
+    REQUIRE(history.clear().empty());
 }

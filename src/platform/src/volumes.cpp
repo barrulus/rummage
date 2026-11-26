@@ -34,8 +34,12 @@ std::string size_name(std::uint64_t bytes) {
 std::vector<Volume> volumes_from(const std::vector<UdisksObject>& objects) {
     std::vector<Volume> volumes;
     for (const UdisksObject& object : objects) {
-        if (!object.block || !object.filesystem || object.hint_ignore ||
-            object.id_usage != "filesystem") {
+        const bool locked =
+            object.encrypted && std::ranges::none_of(objects, [&](const UdisksObject& other) {
+                return other.crypto_backing == object.path;
+            });
+        if (!object.block || object.hint_ignore ||
+            (!locked && (!object.filesystem || object.id_usage != "filesystem"))) {
             continue;
         }
         const UdisksObject* const drive = find(objects, object.drive);
@@ -51,7 +55,10 @@ std::vector<Volume> volumes_from(const std::vector<UdisksObject>& objects) {
              .drive = object.drive,
              .external = external,
              .mount_point = mounted ? std::optional{object.mount_points.front()} : std::nullopt,
-             .uuid = object.id_uuid});
+             .uuid = object.id_uuid,
+             .encrypted_object =
+                 locked ? object.path : (object.crypto_backing == "/" ? "" : object.crypto_backing),
+             .locked = locked});
     }
     std::ranges::sort(volumes, {}, &Volume::name);
     return volumes;
@@ -71,7 +78,9 @@ std::vector<fs::Place> with_volumes(std::vector<fs::Place> places,
             place.disk = {.volume = volume->object,
                           .mounted = true,
                           .ejectable = volume->external,
-                          .identity = volume->uuid};
+                          .identity = volume->uuid,
+                          .encrypted_object = volume->encrypted_object,
+                          .locked = volume->locked};
             if (volume->external) {
                 place.icon = "usb";
             }
@@ -81,14 +90,17 @@ std::vector<fs::Place> with_volumes(std::vector<fs::Place> places,
         if (volume.mount_point) {
             continue;  // listed from the mount table, where it is mounted
         }
-        places.push_back({.section = fs::Place::Section::devices,
-                          .label = volume.name,
-                          .path = {},
-                          .icon = volume.external ? "usb" : "database-off",
-                          .disk = {.volume = volume.object,
-                                   .mounted = false,
-                                   .ejectable = volume.external,
-                                   .identity = volume.uuid}});
+        places.push_back(
+            {.section = fs::Place::Section::devices,
+             .label = volume.locked ? i18n::trf("“{}” locked", volume.name) : volume.name,
+             .path = {},
+             .icon = volume.locked ? "database-off" : (volume.external ? "usb" : "database-off"),
+             .disk = {.volume = volume.object,
+                      .mounted = false,
+                      .ejectable = volume.external,
+                      .identity = volume.uuid,
+                      .encrypted_object = volume.encrypted_object,
+                      .locked = volume.locked}});
     }
     return places;
 }

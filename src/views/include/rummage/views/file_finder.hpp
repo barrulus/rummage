@@ -47,6 +47,9 @@ public:
 
     // Starts listing root (dotfiles with hidden).
     void start(const std::filesystem::path& root, bool hidden);
+    void start_recent();
+
+    [[nodiscard]] bool recent() const { return recent_; }
 
     [[nodiscard]] const std::filesystem::path& root() const noexcept { return root_; }
 
@@ -104,6 +107,10 @@ private:
     SearchQuery spec_;
     SearchStats stats_;
     bool hidden_{false}, stopped_{false};
+    bool recent_{false};
+    bool recent_enabled_{true};
+    std::vector<FoundFile> recent_rows_;
+    void filter_recent();
     std::shared_ptr<SearchBudget> budget_{std::make_shared<SearchBudget>()};
     std::uint64_t generation_{0};
     std::vector<core::CancelToken> match_tokens_;

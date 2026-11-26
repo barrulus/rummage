@@ -1436,6 +1436,15 @@ int main(int argc, char** argv) {
                             [&](const std::string& volume, views::Devices::Done done) {
                                 udisks->eject(volume, std::move(done));
                             },
+                        .unlock =
+                            [&](const std::string& volume, std::string password,
+                                views::Devices::Mounted done) {
+                                udisks->unlock(volume, std::move(password), std::move(done));
+                            },
+                        .lock =
+                            [&](const std::string& volume, views::Devices::Done done) {
+                                udisks->lock(volume, std::move(done));
+                            },
                     });
                 }
                 // Remote bookmarks (smb://, sftp://, ftp://, WebDAV), mounted through gvfs on the

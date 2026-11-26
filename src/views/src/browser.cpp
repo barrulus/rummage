@@ -28,7 +28,9 @@
 #include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/fs/recent.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/platform/network.hpp"
 #include "rummage/views/format.hpp"
 
 namespace rummage::views {
@@ -116,6 +118,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
         }
     });
     palette_.set_close_handler([this] {
+        network_job_.cancel();
         palette_use_ = PaletteUse::commands;
         if (finder_) {
             finder_.reset();  // its paths go, and the memory they took back to the system
@@ -1384,6 +1387,42 @@ void Browser::submit_erase() {
 }
 
 void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard) {
+    if (place.uri == "rummage:recent") {
+        std::vector<MenuItem> items;
+        const auto change = [this](int operation) {
+            pool_.submit(
+                core::Priority::visible,
+                [operation](const core::CancelToken&) {
+                    fs::RecentFiles history;
+                    return operation == 0 ? history.clear() : history.set_enabled(operation == 1);
+                },
+                [this, alive = alive_](const std::string& error) {
+                    if (!*alive)
+                        return;
+                    if (!error.empty())
+                        show_message(error, true);
+                    else
+                        open_search_results("rummage:recent");
+                });
+        };
+        MenuItem clear;
+        clear.id = "clear_recent";
+        clear.label = i18n::tr("Clear recent files");
+        clear.action = [change] { change(0); };
+        items.push_back(std::move(clear));
+        MenuItem enable;
+        enable.id = "enable_recent";
+        enable.label = i18n::tr("Enable recent history");
+        enable.action = [change] { change(1); };
+        items.push_back(std::move(enable));
+        MenuItem disable;
+        disable.id = "disable_recent";
+        disable.label = i18n::tr("Disable and clear recent history");
+        disable.action = [change] { change(2); };
+        items.push_back(std::move(disable));
+        menu_.open(x, y, std::move(items), keyboard);
+        return;
+    }
     if (Sidebar::separator(place)) {
         menu_.open(x, y, sidebar_organization_items(place), keyboard);
         return;
@@ -1402,8 +1441,10 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
         MenuItem mount;
         mount.id = "mount";
         mount.separator = !items.empty();
-        mount.label = i18n::tr("Mount");
-        mount.enabled = !place.disk.mounted && !place.disk.volume.empty() && bool(devices_.mount);
+        mount.label = i18n::tr(place.disk.locked ? "Unlock…" : "Mount");
+        mount.enabled =
+            !place.disk.mounted && !place.disk.volume.empty() &&
+            bool(place.disk.locked ? devices_.unlock != nullptr : devices_.mount != nullptr);
         mount.action = [this, place] { mount_place(place, false); };
         items.push_back(std::move(mount));
         MenuItem unmount;
@@ -1413,6 +1454,28 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
             place.disk.mounted && !place.disk.volume.empty() && bool(devices_.unmount);
         unmount.action = [this, place] { unmount_place(place); };
         items.push_back(std::move(unmount));
+        if (!place.disk.encrypted_object.empty() && !place.disk.locked) {
+            MenuItem lock;
+            lock.id = "lock";
+            lock.label = i18n::tr("Lock volume");
+            lock.enabled = bool(devices_.lock);
+            lock.action = [this, place] {
+                leave_disk(place.path);
+                ++operations_;
+                devices_.lock(place.disk.encrypted_object,
+                              [this, alive = alive_, name = place.label](const std::string& error) {
+                                  if (!*alive)
+                                      return;
+                                  --operations_;
+                                  show_message(error.empty()
+                                                   ? i18n::trf("“{}” locked", name)
+                                                   : i18n::trf("“{}” could not be locked: {}", name,
+                                                               i18n::tr(error)),
+                                               !error.empty());
+                              });
+            };
+            items.push_back(std::move(lock));
+        }
         if (place.disk.ejectable) {
             MenuItem eject;
             eject.id = "eject";
@@ -2348,6 +2411,7 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 
 Browser::~Browser() {
     photo_copy_job_.cancel();
+    network_job_.cancel();
     for (const auto& [id, token] : content_jobs_)
         token.cancel();
     loop_.remove(type_jump_timer_);
@@ -6004,6 +6068,35 @@ void Browser::next_bookmark_change() {
         });
 }
 
+void Browser::discover_network() {
+    network_job_.cancel();
+    palette_.open_external(std::string{i18n::tr("Network servers")}, [](const std::string&) {});
+    palette_.set_results({}, std::string{i18n::tr("Discovering servers… Escape cancels")});
+    network_job_ = pool_.submit(
+        core::Priority::visible,
+        [](const core::CancelToken& token) { return platform::discover_network(token); },
+        [this, alive = alive_](platform::NetworkDiscovery result) {
+            if (!*alive || !palette_.is_open())
+                return;
+            std::vector<PaletteItem> items;
+            for (const auto& place : result.places) {
+                PaletteItem item;
+                item.id = place.uri;
+                item.label = place.label;
+                item.remember = false;
+                item.action = [this, place] { mount_remote(place, true); };
+                items.push_back(std::move(item));
+            }
+            palette_.open({}, {}, std::string{i18n::tr("Network servers")});
+            palette_.set_results(
+                std::move(items),
+                result.error.empty()
+                    ? std::string{i18n::tr(
+                          "Select a server; use Go to Folder or Server for an unlisted address")}
+                    : result.error);
+        });
+}
+
 void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
     if (Sidebar::separator(place))
         return;
@@ -6046,6 +6139,16 @@ void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
             photo_library_->refresh_navigation();
             return;
         }
+        return;
+    }
+    if (place.uri == "rummage:network") {
+        if (destination == PlaceDestination::current)
+            discover_network();
+        return;
+    }
+    if (place.uri == "rummage:recent") {
+        if (destination == PlaceDestination::current)
+            open_search_results("rummage:recent");
         return;
     }
     if (place.uri == "rummage:saved-searches") {
@@ -6099,15 +6202,15 @@ void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
 
 void Browser::mount_place(const fs::Place& place, bool open,
                           std::function<void(const std::filesystem::path&)> ready) {
-    if (!devices_.mount || place.disk.volume.empty()) {
+    if ((!place.disk.locked && !devices_.mount) || (place.disk.locked && !devices_.unlock) ||
+        place.disk.volume.empty()) {
         return;
     }
     show_message(i18n::trf("Mounting “{}”…", place.label), false);
     ++operations_;
-    devices_.mount(place.disk.volume, [this, alive = alive_, name = place.label, open,
-                                       ready = std::move(ready), origin = current_folder()](
-                                          const std::filesystem::path& where,
-                                          const std::string& error) {
+    auto done = [this, alive = alive_, name = place.label, open, ready = std::move(ready),
+                 origin = current_folder()](const std::filesystem::path& where,
+                                            const std::string& error) {
         if (!*alive) {
             return;
         }
@@ -6142,7 +6245,27 @@ void Browser::mount_place(const fs::Place& place, bool open,
                                        : i18n::trf("“{}” mounted", name),
                              read_only);
             });
-    });
+    };
+    if (place.disk.locked) {
+        mount_password_.open(
+            i18n::trf("Unlock “{}”", place.label),
+            LoginRequest{.message = std::string{i18n::tr("Enter the volume passphrase")},
+                         .user = {},
+                         .domain = {}},
+            [this, alive = alive_, volume = place.disk.volume,
+             done = std::move(done)](std::optional<Login> login) mutable {
+                if (!*alive)
+                    return;
+                if (!login) {
+                    --operations_;
+                    show_message(std::string{i18n::tr("Cancelled")}, false);
+                    return;
+                }
+                devices_.unlock(volume, std::move(login->password), std::move(done));
+            },
+            std::string{i18n::tr("Unlock")});
+    } else
+        devices_.mount(place.disk.volume, std::move(done));
 }
 
 void Browser::mount_remote(const fs::Place& place, bool open,

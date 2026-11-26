@@ -479,3 +479,19 @@ publication. The check is Rummage's opener policy, not a system-wide execution
 sandbox: terminal commands, other file managers and deliberate chmod/xattr changes
 are outside it. File Roller and custom external extraction actions own their output and
 are outside this provenance policy. Scripts continue to open as documents rather than run automatically.
+
+### Remote filesystem limits
+
+A copied **verified move** is refused before staging when a FUSE/NFS/SMB source
+exposes only whole-second modification and change timestamps. Such metadata
+cannot reveal a same-size write made after comparison; use Copy, review the
+source and destination, and delete explicitly when appropriate. Ordinary verified
+copies and atomic same-filesystem moves retain their usual behavior. No
+verification can promise a snapshot while another writer modifies a file.
+
+Where `RENAME_NOREPLACE` is unavailable, archive creation and individual extracted
+regular files can publish with an atomic no-overwrite hard link. If the backend
+also lacks hard links, the operation fails without replacing existing data.
+Extracted directory publication and grouping into a new folder require atomic
+no-overwrite directory rename and report the limitation where it is absent.
+Create a folder and move files explicitly as an alternative to grouping.

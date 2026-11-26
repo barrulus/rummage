@@ -50,8 +50,10 @@ PasswordDialog::PasswordDialog(std::function<void()> redraw) : redraw_{std::move
     password_.set_masked(true);
 }
 
-void PasswordDialog::open(std::string title, LoginRequest request, Answer answer) {
+void PasswordDialog::open(std::string title, LoginRequest request, Answer answer,
+                          std::string action) {
     title_ = std::move(title);
+    action_ = std::move(action);
     request_ = std::move(request);
     answer_ = std::move(answer);
     user_.set_text(request_.user);
@@ -417,9 +419,11 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     for (const bool connect : {false, true}) {
         const ui::Rect& button = connect ? rects_.connect : rects_.cancel;
         const bool hover = hovered_ == (connect ? Target::connect : Target::cancel);
-        draw_dialog_button(renderer, button, palette,
-                           connect ? i18n::tr("Connect   ↵") : i18n::tr("Cancel   Esc"), hover,
-                           connect ? DialogButton::primary : DialogButton::normal);
+        draw_dialog_button(
+            renderer, button, palette,
+            connect ? (action_.empty() ? std::string{i18n::tr("Connect   ↵")} : action_ + "   ↵")
+                    : std::string{i18n::tr("Cancel   Esc")},
+            hover, connect ? DialogButton::primary : DialogButton::normal);
     }
     renderer.pop_clip();
 }

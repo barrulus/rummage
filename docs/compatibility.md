@@ -37,3 +37,12 @@ source revision, and the affected interaction. Identify whether the problem
 occurs with the title bar, cursor, clipboard, drag and drop, application focus,
 colour changes or file-picker integration. See [troubleshooting](troubleshooting.md)
 for logs and configuration checks.
+
+## Remote backends
+
+Network discovery uses the separate `avahi-browse` executable and Avahi service.
+File access uses gvfs (`gvfsd`, `gvfsd-fuse`, and the provider for SMB, SFTP, FTP,
+WebDAV, NFS, MTP or gphoto2). No GLib library is loaded into the Rummage process.
+See [remote locations and limits](usage.md#discovering-servers-and-attached-devices).
+Encrypted volumes require UDisks2 plus a working polkit authorization agent when
+policy requires authentication. Passphrases are not saved by Rummage.

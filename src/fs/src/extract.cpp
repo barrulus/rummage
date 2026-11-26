@@ -520,8 +520,22 @@ private:
                 if (attempt > 0) {
                     name = free_name(request_.destination, top, folder, {});
                 }
-                if (::renameat2(staging_.get(), top.c_str(), destination_.get(), name.c_str(),
-                                RENAME_NOREPLACE) == 0) {
+                int published = ::renameat2(staging_.get(), top.c_str(), destination_.get(),
+                                            name.c_str(), RENAME_NOREPLACE);
+                if (published != 0 && (errno == EINVAL || errno == ENOSYS || errno == EOPNOTSUPP)) {
+                    if (S_ISREG(info.st_mode)) {
+                        published = ::linkat(staging_.get(), top.c_str(), destination_.get(),
+                                             name.c_str(), 0);
+                        if (published == 0)
+                            ::unlinkat(staging_.get(), top.c_str(), 0);
+                    } else {
+                        result_.errors.emplace_back(
+                            i18n::tr("This filesystem cannot safely publish an extracted folder "
+                                     "without replacing existing data"));
+                        break;
+                    }
+                }
+                if (published == 0) {
                     placed = true;
                 } else if (errno != EEXIST) {
                     result_.errors.push_back(std::format("{}: {}", top, errno_text(errno)));

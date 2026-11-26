@@ -505,8 +505,7 @@ when unlabelled, rather than the mount folder's UUID. Unmounted disks appear
 without mounting themselves. Click to mount and open, with
 authorization requested when required; use the context menu to mount, unmount or eject. Ejecting an external
 disk unmounts its partitions and powers it off when supported. Busy or read-only
-devices report errors in the status bar. Encrypted-device unlocking is not
-implemented. Already mounted volumes can still appear without udisks2.
+devices report errors in the status bar. Locked encrypted volumes are labelled as locked. Click one or choose **Unlock…**, enter its passphrase, and authorize through the session’s polkit agent if requested. The resulting filesystem opens after mounting. **Lock volume** unmounts it first; a busy filesystem stops the operation. Incorrect passphrases, authorization refusal and removed devices are reported without retaining the passphrase. No UDisks passphrase storage is offered. Already mounted volumes can still appear without udisks2.
 
 Hover a mounted drive to see its available and total space. Right-click it and
 choose **Properties…** for mount point, filesystem, device, capacity, used and
@@ -621,3 +620,50 @@ in, use the desktop's default-application settings or, for example,
 Use the desktop's settings or `xdg-mime default OTHER.desktop TYPE` to restore a
 previous association. Other archive formats remain available through external
 extraction actions, not advertised built-in browsing associations.
+
+## Recent Files
+
+**Recent Files** lists up to 200 readable files most recently opened through
+Rummage, newest first, with their actual parent folder and UTC opening time.
+It uses Rummage's own history, separate from desktop-shared history, bookmarks,
+folder navigation and recent commands. A successful application launch records
+its document paths; this does not prove the other application finished reading.
+Folder navigation, failed launches and executable approval refusals are excluded.
+Quick Look, opening, Show in Folder, copy/cut, rename and Trash use the actual
+source locations. Missing, moved, inaccessible and disconnected remote files are
+omitted on refresh; a mounted remote file is recorded by its FUSE path.
+
+Right-click **Recent Files** for **Clear recent files**, **Disable and clear recent
+history**, or **Enable recent history**. Clearing never deletes files. Disabled
+history stays disabled across windows and restarts. Enable/disable applies immediately
+to existing processes because each write checks the shared flag under the history
+lock; queued launches cannot repopulate disabled history. History lives in private
+`$XDG_STATE_HOME/rummage/recent-files` (normally `~/.local/state/rummage`), with a
+separate disable marker; passwords and remote URI credentials are never recorded.
+The view filters filename/path text and refreshes on request; it does not launch
+a recursive filesystem search.
+
+## Discovering servers and attached devices
+
+**Network** opens a cancellable server list. Rummage asks the external
+`avahi-browse` utility for advertised SMB, SSH/SFTP, FTP, WebDAV and NFS services.
+Escape closes and cancels discovery. The scan is bounded to six seconds and 256
+servers; unavailable Avahi or its utility produces a useful status message.
+Discovery requires Avahi's system service and local multicast connectivity;
+servers that do not advertise remain accessible through **Ctrl+L**.
+
+NFS addresses such as `nfs://server/export/folder` require gvfs's NFS backend.
+`mtp://[usb:001,002]/` and `gphoto2://[usb:001,003]/` address attached Android/MTP
+and camera backends where installed. Their USB addresses can change when
+reconnected. Unlock an Android screen and select file-transfer mode on the device.
+These providers are optional and their capabilities depend on the device.
+
+All browsing, opening, previews, clipboard and drag/drop currently require a
+usable gvfs FUSE projection. Without one, Rummage reports the mount limitation;
+it does not pretend remote URIs are local paths or enable unsupported transfers.
+Clipboard/drag exports the mounted local file URI. Remote URI inputs are accepted
+through Ctrl+L/bookmarks, not file paste/drop. Copy/move/rename/Undo inherit the
+backend's filesystem limits; camera/MTP backends may reject writes, seeks,
+permissions, atomic replacement or deletion. Such failures are reported. Rummage
+does not persist URI passwords; use its authentication dialog, with the GVFS
+keyring option only when offered by that backend.

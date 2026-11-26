@@ -25,7 +25,9 @@
 #include "rummage/fs/annotations.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/fs/recent.hpp"
 #include "rummage/fs/walk.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/command_palette.hpp"
@@ -913,4 +915,62 @@ TEST_CASE("annotation search: exact tags rating and comment predicates") {
     CHECK(search_tree(dir.path, "tag:travel case:fold rating:4 comment:trip").files.size() == 1);
     CHECK(search_tree(dir.path, "rating:3").files.empty());
     CHECK_FALSE(rummage::views::parse_search_query("rating:6").error.empty());
+}
+
+TEST_CASE("recent files: collection filters restores and acts on actual source parents") {
+    Fixture f;
+    rummage::fs::RecentFiles history;
+    REQUIRE(history.set_enabled(true).empty());
+    REQUIRE(history.clear().empty());
+    const auto one = f.a / "one.txt";
+    const auto other = f.a / "photos" / "shot.orf";
+    REQUIRE(history.record({one, other}).empty());
+    f.browser.open_search_results("rummage:recent");
+    REQUIRE(f.settle());
+    auto* results = f.browser.search_results();
+    REQUIRE(results);
+    REQUIRE(results->rows().size() == 2);
+    CHECK(results->finder()->recent());
+    CHECK(results->rows()[0].context.find("UTC") != std::string::npos);
+    results->select_all();
+    CHECK(results->chosen() == std::vector<fs::path>{other, one});
+    results->set_query("one.txt");
+    REQUIRE(results->rows().size() == 1);
+    results->select(0);
+    const auto saved = results->snapshot();
+    CHECK(saved.root == "rummage:recent");
+    f.browser.search_action(rummage::views::SearchResults::Action::reveal);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    f.browser.back();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.searching_results());
+    results = f.browser.search_results();
+    CHECK(results->finder()->recent());
+    CHECK(results->chosen() == std::vector<fs::path>{one});
+    if (const char* output = std::getenv("RUMMAGE_RECENT_FRAME")) {
+        rummage::ui::Offscreen gl{700, 600};
+        rummage::ui::FontSystem fonts;
+        rummage::ui::Renderer renderer{fonts};
+        renderer.begin_frame(700, 600, 1, {});
+        results->draw(renderer, {0, 0, 700, 600}, rummage::theme::Palette{});
+        renderer.end_frame();
+        std::vector<unsigned char> pixels(700 * 600 * 4);
+        glReadPixels(0, 0, 700, 600, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        std::ofstream image{output, std::ios::binary};
+        image << "P6\n700 600\n255\n";
+        for (int y = 599; y >= 0; --y)
+            for (int x = 0; x < 700; ++x)
+                image.write(reinterpret_cast<const char*>(pixels.data() + (y * 700 + x) * 4), 3);
+        REQUIRE(image.good());
+    }
+    fs::remove(one);
+    results->refresh();
+    REQUIRE(f.settle());
+    CHECK(results->rows().empty());
+    REQUIRE(history.set_enabled(false).empty());
+    results->refresh();
+    REQUIRE(f.settle());
+    CHECK(results->finder()->status() == "Recent history is disabled");
+    REQUIRE(history.set_enabled(true).empty());
 }

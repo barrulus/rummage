@@ -1265,3 +1265,46 @@ TEST_CASE("transfer: file and directory annotations survive copy and move") {
     CHECK(rummage::fs::read_annotations(tree.to / "Trip") == value);
     CHECK(rummage::fs::read_annotations(tree.to / "Trip/a.jpg") == value);
 }
+
+TEST_CASE("transfer: verified copied move preserves coarse remote sources") {
+    Tree t;
+    const auto source = t.from / "notes.txt";
+    struct stat before{};
+    REQUIRE(::stat(source.c_str(), &before) == 0);
+    const auto result = rummage::fs::run_transfer({.kind = TransferKind::move,
+                                                   .source = t.from,
+                                                   .names = {"notes.txt"},
+                                                   .destination = t.to,
+                                                   .force_copy = true,
+                                                   .verify = true},
+                                                  {}, {});
+    if (!result.errors.empty()) {
+        CHECK(result.errors.front().find("cannot establish source stability") != std::string::npos);
+        CHECK(fs::exists(source));
+        CHECK(read_file(source) == "notes.txt");
+        CHECK(listing(t.to).empty());
+        CHECK(result.placed.empty());
+        CHECK(result.items.empty());
+    } else {
+        CHECK_FALSE(fs::exists(source));
+        CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+        CHECK(result.files_verified == 1);
+    }
+}
+
+TEST_CASE("transfer: backend replacement refusal keeps recoverable original without staging") {
+    Tree t;
+    std::ofstream{t.to / "notes.txt"} << "recoverable original";
+    const auto result = rummage::fs::run_transfer(
+        {.kind = TransferKind::copy, .source = t.from, .names = {"notes.txt"}, .destination = t.to},
+        {}, {.progress = {}, .resolve = [](const Conflict&) { return Resolution::replace; }});
+    CHECK(read_file(t.from / "notes.txt") == "notes.txt");
+    CHECK(listing(t.to) == Names{"notes.txt"});
+    if (result.errors.empty())
+        CHECK(read_file(t.to / "notes.txt") == "notes.txt");
+    else {
+        CHECK(read_file(t.to / "notes.txt") == "recoverable original");
+        CHECK(result.placed.empty());
+        CHECK(result.items.empty());
+    }
+}

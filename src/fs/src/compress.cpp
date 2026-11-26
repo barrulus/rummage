@@ -759,8 +759,16 @@ private:
                 name =
                     std::format("{} {}{}", wanted.substr(0, dot), attempt + 1, wanted.substr(dot));
             }
-            if (::renameat2(AT_FDCWD, temporary_.c_str(), AT_FDCWD,
-                            (request_.destination / name).c_str(), RENAME_NOREPLACE) == 0) {
+            const auto destination = request_.destination / name;
+            bool published = ::renameat2(AT_FDCWD, temporary_.c_str(), AT_FDCWD,
+                                         destination.c_str(), RENAME_NOREPLACE) == 0;
+            if (!published && (errno == EINVAL || errno == ENOSYS || errno == EOPNOTSUPP)) {
+                // link publishes a complete regular file atomically without replacing a name.
+                published = ::link(temporary_.c_str(), destination.c_str()) == 0;
+                if (published)
+                    ::unlink(temporary_.c_str());
+            }
+            if (published) {
                 result_.placed.push_back(name);
                 result_.items.push_back({.from = {}, .to = request_.destination / name});
                 return;

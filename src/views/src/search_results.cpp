@@ -37,14 +37,19 @@ void SearchResults::open(const std::filesystem::path& root, std::string query, b
     query_.set_text(std::move(query));
     finder_ = std::make_unique<FileFinder>(pool_, [this] { updated(); });
     finder_->set_query(query_.text());
-    finder_->start(root, hidden);
+    if (root == "rummage:recent")
+        finder_->start_recent();
+    else
+        finder_->start(root, hidden);
     redraw_();
 }
 
 SearchResults::Snapshot SearchResults::snapshot() const {
     if (restoring_)
         return *restoring_;
-    return {.root = finder_ ? finder_->root() : std::filesystem::path{},
+    return {.root = finder_ ? (finder_->recent() ? std::filesystem::path{"rummage:recent"}
+                                                 : finder_->root())
+                            : std::filesystem::path{},
             .query = query_.text(),
             .hidden = finder_ && finder_->hidden(),
             .selected = selected_,
@@ -189,6 +194,9 @@ std::vector<std::filesystem::path> SearchResults::chosen() const {
 }
 
 bool SearchResults::enabled(Action action) const {
+    if (finder_ && finder_->recent() &&
+        (action == Action::save || action == Action::saved || action == Action::details))
+        return false;
     if (action == Action::stop)
         return loading();
     if (action == Action::copy || action == Action::cut || action == Action::trash)
@@ -426,10 +434,12 @@ void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::P
     renderer.fill_rect(bounds, palette.surface);
     renderer.push_clip(bounds);
     const float left = bounds.x + 16, width = std::max(1.0F, bounds.width - 32);
-    renderer.draw_text(i18n::tr("Search Results"), left, bounds.y + 12, 18, palette.on_surface,
-                       width);
-    renderer.draw_text(finder_->root().string(), left, bounds.y + 38, 12,
-                       palette.on_surface_variant, width);
+    renderer.draw_text(i18n::tr(finder_->recent() ? "Recent Files" : "Search Results"), left,
+                       bounds.y + 12, 18, palette.on_surface, width);
+    renderer.draw_text(finder_->recent()
+                           ? std::string{i18n::tr("Files opened in Rummage · newest first")}
+                           : finder_->root().string(),
+                       left, bounds.y + 38, 12, palette.on_surface_variant, width);
     query_.draw(renderer, {left, bounds.y + 60, width, 34}, 14,
                 {.background = palette.surface_container,
                  .border = editing() ? palette.primary : palette.outline_variant,
@@ -440,6 +450,11 @@ void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::P
     float x = left, y = bounds.y + 102;
     for (std::size_t i = 0; i < toolbar.size(); ++i) {
         const auto [action, label] = toolbar[i];
+        if (finder_->recent() &&
+            (action == Action::save || action == Action::saved || action == Action::details)) {
+            controls_.push_back({action, {}, false});
+            continue;
+        }
         const auto translated = i18n::tr(label);
         const float w =
             std::min(width, renderer.fonts().layout(translated, 12, renderer.scale()).width /
@@ -486,8 +501,8 @@ void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::P
         renderer.draw_text(relative.filename().string(), left + 10, rect.y + 5, 14, ink,
                            width - 20);
         const auto parent = finder_->root() / relative.parent_path();
-        renderer.draw_text(parent.string(), left + 10, rect.y + 26, 11, ink.with_alpha(0.75F),
-                           width - 20);
+        renderer.draw_text(parent.string() + (finder_->recent() ? " · " + row.context : ""),
+                           left + 10, rect.y + 26, 11, ink.with_alpha(0.75F), width - 20);
         if (row.line)
             renderer.draw_text(std::format("{}: {}", row.line, row.context), left + 10, rect.y + 46,
                                11, ink.with_alpha(0.8F), width - 20);

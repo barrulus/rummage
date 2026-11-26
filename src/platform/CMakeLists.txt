@@ -10,6 +10,7 @@ add_library(rummage_platform
     src/bus_loop.cpp
     src/desktop_entry.cpp
     src/exec.cpp
+    src/network.cpp
     src/gvfs.cpp
     src/file_manager.cpp
     src/file_manager_config.cpp
