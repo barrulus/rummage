@@ -104,8 +104,11 @@ struct EmbeddedTerminal::Impl {
     pid_t child{-1};
     int rows{24}, columns{80}, offset{};
     bool prompt{}, prompt_seen{}, draft{}, sync_supported{}, cursor_visible{true};
+    bool probe_needed{}, probing{};
+    std::uint64_t input_generation{}, probe_generation{}, prompt_generation{},
+        probe_prompt_generation{};
     std::filesystem::path session, cwd, pending, syncing;
-    std::string marker, tail, outgoing, problem;
+    std::string marker, probe_key, tail, outgoing, problem;
 #ifdef RUMMAGE_TERMINAL
     VTerm* terminal{};
     VTermScreen* display{};
@@ -191,14 +194,27 @@ struct EmbeddedTerminal::Impl {
         outgoing.clear();
         prompt = prompt_seen = false;
         draft = false;
+        probe_needed = probing = false;
+        input_generation = probe_generation = 0;
+        prompt_generation = probe_prompt_generation = 0;
         pending.clear();
         syncing.clear();
         tail.clear();
     }
 
     bool ready() const {
-        return child > 0 && master >= 0 && prompt && !draft && outgoing.empty() && sync_supported &&
-               ::tcgetpgrp(master) == child;
+        return child > 0 && master >= 0 && prompt && !draft && !probing && outgoing.empty() &&
+               sync_supported && ::tcgetpgrp(master) == child;
+    }
+
+    void user_input() {
+        ++input_generation;
+        // A foreground program may consume this input, or leave it queued for the
+        // shell. Ask its line editor after the next prompt; process ownership alone
+        // cannot distinguish top's q from typeahead during sleep.
+        if (prompt_seen && !prompt)
+            probe_needed = true;
+        draft = true;
     }
 
     void flush() {
@@ -219,6 +235,14 @@ struct EmbeddedTerminal::Impl {
     void tick() {
         if (child <= 0)
             return;
+        if (probe_needed && !probing && prompt && draft && sync_supported && outgoing.empty() &&
+            ::tcgetpgrp(master) == child) {
+            probing = true;
+            probe_needed = false;
+            probe_generation = input_generation;
+            probe_prompt_generation = prompt_generation;
+            outgoing += probe_key;
+        }
         std::array<char, 8192> path{};
         const auto count = ::readlink(("/proc/" + std::to_string(child) + "/cwd").c_str(),
                                       path.data(), path.size());
@@ -255,12 +279,36 @@ struct EmbeddedTerminal::Impl {
             const std::string_view data{bytes.data(), static_cast<std::size_t>(n)};
             tail.append(data);
             if (!marker.empty()) {
-                if (const auto at = tail.rfind(marker); at != std::string::npos) {
-                    prompt = prompt_seen = true;
-                    tail.erase(0, at + marker.size());
+                while (true) {
+                    const auto at = tail.find(marker);
+                    if (at == std::string::npos)
+                        break;
+                    const auto end = tail.find('\a', at + marker.size());
+                    if (end == std::string::npos)
+                        break;
+                    const auto status = tail.substr(at + marker.size(), end - at - marker.size());
+                    if (status == "prompt") {
+                        prompt = prompt_seen = true;
+                        // The synchronous editor widget cannot outlive this prompt.
+                        // Ctrl+C may have interrupted it before it acknowledged.
+                        probing = false;
+                        ++prompt_generation;
+                    } else if (status == "continuation") {
+                        prompt = false;
+                        probing = false;
+                        ++prompt_generation;
+                    } else if (probing && (status == "clean" || status == "dirty")) {
+                        probing = false;
+                        // A delayed acknowledgement must never erase newer typing.
+                        if (status == "clean" && probe_generation == input_generation && prompt &&
+                            probe_prompt_generation == prompt_generation && outgoing.empty())
+                            draft = false;
+                    }
+                    tail.erase(0, end + 1);
                 }
-                if (tail.size() >= marker.size())
-                    tail.erase(0, tail.size() - marker.size() + 1);
+                const auto keep = marker.size() + 16;
+                if (tail.size() > keep)
+                    tail.erase(0, tail.size() - keep);
             }
             vterm_input_write(terminal, data.data(), data.size());
             vterm_screen_flush_damage(display);
@@ -332,11 +380,27 @@ std::string EmbeddedTerminal::start(const std::filesystem::path& directory,
     if (!::mkdtemp(name.data()))
         return std::string{i18n::tr("Cannot create private terminal session")};
     p.session = name.data();
-    p.marker = "\033]777;" + p.session.filename().string() + "\a";
-    const std::string signal = "printf '\\033]777;" + p.session.filename().string() + "\\007'";
+    p.marker = "\033]777;" + p.session.filename().string() + ";";
+    p.probe_key = "\033[777;" + p.session.filename().string() + "~";
+    const std::string signal = "printf '\\033]777;" + p.session.filename().string();
+    const std::string prompt_signal = signal + ";prompt\\007'";
+    const std::string probe_signal = signal + ";%s\\007' \"$state\"";
+    const auto continuation_prefix =
+        shell_argument("\\[\\e]777;" + p.session.filename().string() + ";continuation\\a\\]");
     std::ofstream(p.session / "bashrc")
-        << "if [[ -f ~/.bashrc ]]; then source ~/.bashrc; fi\n__rummage_prompt() { " << signal
-        << "; }\nPROMPT_COMMAND+=(__rummage_prompt)\n";
+        // Readline's buffer can be empty at PS2 while Bash retains an unfinished
+        // command. Refresh this guard after user prompt hooks; a readonly PS2
+        // which cannot accept it must never advertise a synchronization prompt.
+        << "if [[ -f ~/.bashrc ]]; then source ~/.bashrc; fi\n__rummage_prompt() { local prefix="
+        << continuation_prefix
+        << "; if [[ $PS2 != \"$prefix\"* ]]; then PS2=\"$prefix${PS2-> }\" || return; fi; "
+        << prompt_signal << "; }\nPROMPT_COMMAND+=(__rummage_prompt)\n"
+        << "__rummage_probe() { local state=dirty; [[ -z $READLINE_LINE ]] && state=clean; "
+        << probe_signal << "; }\n"
+        << "for __rummage_map in emacs-standard vi-insert vi-command; do bind -m "
+           "\"$__rummage_map\" -x "
+        << shell_argument("\"\\e[777;" + p.session.filename().string() + "~\":__rummage_probe")
+        << "; done\nunset __rummage_map\n";
     std::ofstream(p.session / ".zshenv")
         << "ZDOTDIR=$RUMMAGE_ORIGINAL_ZDOTDIR\n"
         << "if [[ -f $RUMMAGE_ORIGINAL_ZDOTDIR/.zshenv ]]; then source "
@@ -345,7 +409,12 @@ std::string EmbeddedTerminal::start(const std::filesystem::path& directory,
     std::ofstream(p.session / ".zshrc")
         << "ZDOTDIR=$RUMMAGE_ORIGINAL_ZDOTDIR\nif [[ -f $ZDOTDIR/.zshrc ]]; then source "
            "\"$ZDOTDIR/.zshrc\"; fi\n__rummage_prompt() { "
-        << signal << "; }\nautoload -Uz add-zsh-hook\nadd-zsh-hook precmd __rummage_prompt\n";
+        << prompt_signal << "; }\nautoload -Uz add-zsh-hook\nadd-zsh-hook precmd __rummage_prompt\n"
+        << "__rummage_probe() { local state=dirty; [[ $CONTEXT == start && -z $BUFFER && "
+           "-z $PREBUFFER && $PENDING == 0 && $KEYS_QUEUED_COUNT == 0 ]] && state=clean; "
+        << probe_signal << "; }\nzle -N __rummage_probe\n"
+        << "for __rummage_map in emacs viins vicmd main; do bindkey -M \"$__rummage_map\" "
+        << shell_argument(p.probe_key) << " __rummage_probe; done\nunset __rummage_map\n";
     p.sync_supported = shell.filename() == "bash" || shell.filename() == "zsh";
     p.master = ::posix_openpt(O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
     if (p.master < 0 || ::grantpt(p.master) < 0 || ::unlockpt(p.master) < 0) {
@@ -428,7 +497,7 @@ void EmbeddedTerminal::key(Key key, std::string_view text, bool ctrl, bool alt, 
     if (p.master < 0)
         return;
     p.offset = 0;
-    p.draft = true;
+    p.user_input();
     if (key == Key::enter || (ctrl && (text == "c" || text == "d"))) {
         p.prompt = false;
         p.draft = !p.prompt_seen;
@@ -485,7 +554,7 @@ void EmbeddedTerminal::paste(std::string_view text) {
         return;
     }
     auto& p = *impl_;
-    p.draft = true;
+    p.user_input();
     vterm_keyboard_start_paste(p.terminal);
     Impl::output(text.data(), text.size(), &p);
     vterm_keyboard_end_paste(p.terminal);

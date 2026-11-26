@@ -111,6 +111,159 @@ TEST_CASE("terminal: teardown reaps HUP-ignoring foreground processes promptly")
     REQUIRE(until(f.loop, [&] { return ::kill(child, 0) < 0 && errno == ESRCH; }));
     CHECK_FALSE(f.terminal.running());
 }
+
+TEST_CASE("terminal: quitting an interactive foreground job resumes queued directory tracking") {
+    Fixture f;
+    auto shell = std::filesystem::path{RUMMAGE_TEST_BASH};
+    bool paste = false;
+    SUBCASE("bash keyboard") {}
+    SUBCASE("bash paste") { paste = true; }
+    SUBCASE("bash vi mode") { f.temp.write(".bashrc", "set -o vi\n"); }
+#ifdef RUMMAGE_TEST_ZSH
+    SUBCASE("zsh keyboard") { shell = RUMMAGE_TEST_ZSH; }
+    SUBCASE("zsh paste") {
+        shell = RUMMAGE_TEST_ZSH;
+        paste = true;
+    }
+    SUBCASE("zsh vi mode") {
+        shell = RUMMAGE_TEST_ZSH;
+        f.temp.write(".zshrc", "bindkey -v\n");
+    }
+#endif
+    f.start(shell);
+    const auto first = f.temp.path / "first", latest = f.temp.path / "latest";
+    std::filesystem::create_directory(first);
+    std::filesystem::create_directory(latest);
+    // A separate foreground process reads one key without Enter, like top's q.
+    // Alternate-screen output also exercises returning to the shell's display.
+    REQUIRE(f.terminal.command(rummage::platform::shell_argument(RUMMAGE_TEST_BASH) + " -c " +
+                               rummage::platform::shell_argument(
+                                   "printf '\\033[?1049hJOB_READY'; IFS= read -r -n1 key; "
+                                   "printf '%s' \"$key\" > job-key; printf '\\033[?1049l'")));
+    REQUIRE(
+        until(f.loop, [&] { return f.terminal.text().find("JOB_READY") != std::string::npos; }));
+    f.terminal.request_directory(first);
+    wait(f.loop, 150ms);
+    f.terminal.request_directory(latest);
+    wait(f.loop, 150ms);
+    CHECK(f.terminal.directory() == f.temp.path);
+    CHECK_FALSE(f.terminal.ready());
+    // Both input paths must distinguish job input from a draft at the shell prompt.
+    if (paste)
+        f.terminal.paste("q");
+    else
+        f.terminal.key(EmbeddedTerminal::Key::none, "q");
+    const bool resumed = until(f.loop, [&] {
+        return f.terminal.ready() && !f.terminal.directory_pending() &&
+               f.terminal.directory() == latest;
+    });
+    INFO(f.terminal.text());
+    REQUIRE(resumed);
+    std::string key;
+    std::ifstream(f.temp.path / "job-key") >> key;
+    CHECK(key == "q");
+    f.terminal.request_directory(first);
+    REQUIRE(until(f.loop, [&] { return f.terminal.ready() && f.terminal.directory() == first; }));
+    REQUIRE(f.terminal.command("cd -- " + rummage::platform::shell_argument(f.temp.path.string())));
+    REQUIRE(
+        until(f.loop, [&] { return f.terminal.ready() && f.terminal.directory() == f.temp.path; }));
+}
+
+TEST_CASE("terminal: foreground typeahead stays protected at normal and continuation prompts") {
+    Fixture f;
+    auto shell = std::filesystem::path{RUMMAGE_TEST_BASH};
+    bool continuation = false;
+    SUBCASE("bash draft") {}
+    SUBCASE("bash continuation") { continuation = true; }
+    SUBCASE("bash prompt hook replaces PS2") {
+        continuation = true;
+        f.temp.write(".bashrc", "PROMPT_COMMAND=('PS2=\"more> \"')\n");
+    }
+#ifdef RUMMAGE_TEST_ZSH
+    SUBCASE("zsh draft") { shell = RUMMAGE_TEST_ZSH; }
+    SUBCASE("zsh continuation") {
+        shell = RUMMAGE_TEST_ZSH;
+        continuation = true;
+    }
+#endif
+    f.start(shell);
+    const auto target = f.temp.path / "next";
+    std::filesystem::create_directory(target);
+    REQUIRE(f.terminal.command(
+        rummage::platform::shell_argument(RUMMAGE_TEST_BASH) + " -c " +
+        rummage::platform::shell_argument("printf JOB_READY; IFS= read -r -n1 key")));
+    REQUIRE(
+        until(f.loop, [&] { return f.terminal.text().find("JOB_READY") != std::string::npos; }));
+    f.terminal.request_directory(target);
+    wait(f.loop, 100ms);
+    // Only q is consumed by the job. The remaining bytes belong to the shell.
+    f.terminal.paste(continuation ? "qprintf '%s' 'DRAFT\n" : "qtouch SHOULD_NOT_RUN #");
+    wait(f.loop, 500ms);
+    CHECK_FALSE(std::filesystem::exists(f.temp.path / "SHOULD_NOT_RUN"));
+    CHECK(f.terminal.directory() == f.temp.path);
+    CHECK(f.terminal.directory_pending());
+    CHECK_FALSE(f.terminal.ready());
+    f.terminal.key(EmbeddedTerminal::Key::none, "c", true);
+    REQUIRE(until(f.loop, [&] {
+        return f.terminal.ready() && !f.terminal.directory_pending() &&
+               f.terminal.directory() == target;
+    }));
+}
+
+TEST_CASE("terminal: readonly continuation prompt disables unsafe automatic synchronization") {
+    Fixture f;
+    f.temp.write(".bashrc", "readonly PS2='more> '\n");
+    REQUIRE(f.terminal.start(f.temp.path, RUMMAGE_TEST_BASH, RUMMAGE_TERMINAL_HELPER).empty());
+    const auto target = f.temp.path / "next";
+    std::filesystem::create_directory(target);
+    f.terminal.request_directory(target);
+    wait(f.loop, 400ms);
+    CHECK(f.terminal.running());
+    CHECK_FALSE(f.terminal.ready());
+    CHECK(f.terminal.directory() == f.temp.path);
+    CHECK(f.terminal.directory_pending());
+}
+
+TEST_CASE("terminal: a delayed clean-editor acknowledgement cannot erase newer typing") {
+    Fixture f;
+    bool interrupt = false;
+    SUBCASE("new typing") {}
+    SUBCASE("interrupted probe") { interrupt = true; }
+    f.start();
+    const auto target = f.temp.path / "next";
+    std::filesystem::create_directory(target);
+    const auto signal =
+        "printf '\\033]777;" + f.terminal.session_directory().filename().string() + ";clean\\007'";
+    // Delay the editor's response so a keystroke deterministically arrives after
+    // its empty-line check but before the parent processes the acknowledgement.
+    REQUIRE(f.terminal.command("__rummage_probe() { touch probe-started; sleep 0.2; " + signal +
+                               "; }"));
+    REQUIRE(until(f.loop, [&] { return f.terminal.ready(); }));
+    REQUIRE(f.terminal.command(
+        rummage::platform::shell_argument(RUMMAGE_TEST_BASH) + " -c " +
+        rummage::platform::shell_argument("printf JOB_READY; IFS= read -r -n1 key")));
+    REQUIRE(
+        until(f.loop, [&] { return f.terminal.text().find("JOB_READY") != std::string::npos; }));
+    f.terminal.request_directory(target);
+    f.terminal.key(EmbeddedTerminal::Key::none, "q");
+    REQUIRE(until(f.loop, [&] { return std::filesystem::exists(f.temp.path / "probe-started"); }));
+    if (interrupt)
+        f.terminal.key(EmbeddedTerminal::Key::none, "c", true);
+    else {
+        f.terminal.key(EmbeddedTerminal::Key::none, "touch SHOULD_NOT_RUN #");
+        wait(f.loop, 400ms);
+        CHECK_FALSE(std::filesystem::exists(f.temp.path / "SHOULD_NOT_RUN"));
+        CHECK(f.terminal.directory() == f.temp.path);
+        CHECK(f.terminal.directory_pending());
+        CHECK_FALSE(f.terminal.ready());
+        f.terminal.key(EmbeddedTerminal::Key::none, "u", true);
+        f.terminal.key(EmbeddedTerminal::Key::enter, "");
+    }
+    REQUIRE(until(f.loop, [&] {
+        return f.terminal.ready() && !f.terminal.directory_pending() &&
+               f.terminal.directory() == target;
+    }));
+}
 #ifdef RUMMAGE_TEST_ZSH
 TEST_CASE("terminal: zsh prompt hooks support bidirectional cwd without modifying user files") {
     Fixture f;

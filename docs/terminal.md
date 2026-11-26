@@ -27,8 +27,12 @@ It never sends a directory change into a running command or partially typed
 line. Finish the command, or clear the draft and press Enter, to release a
 queued change. The most recent browser destination takes precedence. A failed
 shell directory change leaves the browser where it is and displays an error.
-Shell configurations which replace the installed prompt hooks suspend automatic
-synchronization. Other shells work interactively without automatic synchronization.
+After an interactive program such as `top` exits, the shell's line editor checks
+for leftover typing before applying the queued folder change. Quitting with `q`
+resumes tracking automatically; an unfinished command remains protected.
+Shell configurations which replace the installed prompt hooks or private editor
+bindings suspend automatic synchronization. Other shells work interactively
+without automatic synchronization.
 
 Each window has one terminal. Switching tabs or the active dual pane updates its
 queued destination; directory changes made in the shell affect the active pane.
