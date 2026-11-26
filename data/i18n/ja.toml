@@ -1701,5 +1701,9 @@ moves = "移動"
 "Video" = "動画"
 "{} items · Select a row to explore" = "{} 項目 · 行を選択して探索"
 
+"Gallery: hide media filenames" = "ギャラリー：メディアのファイル名を非表示"
+"Make Focused Folder Column Root" = "フォーカス中のフォルダーをカラムのルートにする"
+"Stack directory columns vertically" = "ディレクトリのカラムを縦に並べる"
+
 [contexts.file-action]
 "Open" = "開く"

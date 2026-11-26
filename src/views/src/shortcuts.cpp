@@ -690,6 +690,11 @@ constexpr std::array kShortcuts{
              .keysyms = {XKB_KEY_Up, XKB_KEY_Down}},
 
     // Quick Look
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Make Focused Folder Column Root"),
+             .scope = scope::kColumns,
+             .command = Command::reset_column_root},
     Shortcut{.group = i18n::mark("Quick Look"),
              .keys = "M",
              .action = i18n::mark("Markdown: rendered text or source"),
@@ -777,6 +782,8 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::show_settings;
     if (name == "toggle_split")
         command = Command::toggle_split;
+    if (name == "reset_column_root")
+        command = Command::reset_column_root;
     if (name == "columns_view")
         command = Command::columns_view;
     if (name == "grid_view")
@@ -1117,6 +1124,7 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "swap_panes",
                              "switch_pane",
                              "toggle_split",
+                             "reset_column_root",
                              "columns_view",
                              "grid_view",
                              "details_view",

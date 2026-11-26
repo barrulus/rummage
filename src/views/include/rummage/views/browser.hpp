@@ -209,6 +209,18 @@ public:
     // the hidden folders on the way to the one shown stay.
     void set_show_hidden(bool show, bool announce = true);
 
+    void set_vertical_columns(bool vertical) {
+        vertical_columns_ = vertical;
+        redraw_();
+    }
+
+    void set_gallery(bool gallery) {
+        gallery_ = gallery;
+        redraw_();
+    }
+
+    [[nodiscard]] bool gallery() const { return gallery_; }
+
     void set_show_extensions(bool show) {
         show_extensions_ = show;
         redraw_();
@@ -481,7 +493,7 @@ public:
     // A line in the status bar for a few seconds (what opening a file did).
     void show_message(std::string text, bool error) {
         if (searching_results())
-            search_results_->message(text);
+            pane().search_results->message(text);
         if (error)
             start_motion(core::MotionEvent::invalid_operation);
         status_bar_.show_message(std::move(text), error);
@@ -745,10 +757,10 @@ public:
 
     [[nodiscard]] PhotoLibrary* photo_library() const { return photo_library_.get(); }
 
-    [[nodiscard]] SearchResults* search_results() const { return search_results_.get(); }
+    [[nodiscard]] SearchResults* search_results() const { return pane().search_results.get(); }
 
     [[nodiscard]] bool searching_results() const {
-        return search_results_ && search_results_->is_open();
+        return pane().search_results && pane().search_results->is_open();
     }
 
     void settle_search_preview();
@@ -1233,6 +1245,8 @@ private:
     PropertiesHandler properties_window_;
     StatusBar status_bar_;
     ShortcutsOverlay shortcuts_;
+    bool vertical_columns_{false};
+    bool gallery_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
     bool gallery_{false};
@@ -1259,7 +1273,6 @@ private:
     bool pattern_selection_enabled_{true};
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
-    std::unique_ptr<SearchResults> search_results_;
     std::unique_ptr<PhotoLibrary> photo_library_;
     nlohmann::json photo_navigation_ = nlohmann::json::object();
     void copy_photo_files(bool cut);

@@ -249,6 +249,10 @@ void Browser::leave_pane() {
     if (showing_photos())
         photo_library_->cancel_album_chooser();
     clear_type_jump();
+    note_location();
+    ++search_generation_;
+    search_preview_.reset();
+    search_preview_pending_ = false;
     area().breadcrumb.cancel_edit();
     info_pane_.clear_text_focus();
     leave_motion();
@@ -962,7 +966,7 @@ void Browser::paste_text() {
     const bool for_properties = properties_.is_open();
     const auto properties_generation = properties_.generation();
     const bool for_search =
-        searching_results() && search_results_->editing() && !palette_.is_open();
+        searching_results() && pane().search_results->editing() && !palette_.is_open();
     const auto search_generation = search_generation_;
     const bool for_photos = showing_photos() && photo_library_->editing() && !palette_.is_open();
     const auto photo_generation = for_photos ? photo_library_->edit_generation() : 0;
@@ -1022,7 +1026,7 @@ void Browser::paste_text() {
             }
             if (for_search) {
                 if (searching_results() && search_generation_ == search_generation)
-                    search_results_->paste(*text);
+                    pane().search_results->paste(*text);
                 return;
             }
             if (for_breadcrumb) {
@@ -1079,8 +1083,8 @@ bool Browser::text_field_key(const ui::KeyEvent& event) {
         text = cut ? palette_.cut() : palette_.field().selected_text();
     else if (showing_photos() && photo_library_->editing())
         text = photo_library_->copy_selection(cut);
-    else if (searching_results() && search_results_->editing())
-        text = search_results_->copy_query(cut);
+    else if (searching_results() && pane().search_results->editing())
+        text = pane().search_results->copy_query(cut);
     else if (editor_.active())
         text = cut ? editor_.cut() : editor_.field().selected_text();
     else if (sidebar_.renaming())
@@ -1771,7 +1775,7 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
 void Browser::transfer_done(const fs::TransferRequest& request, const fs::TransferResult& result) {
     photo_transfer_done(request, result);
     if (searching_results())
-        search_results_->refresh();
+        pane().search_results->refresh();
     Submitted submitted;
     if (const auto found = std::ranges::find(submitted_, request.id, &Submitted::id);
         found != submitted_.end()) {
@@ -3131,7 +3135,7 @@ void Browser::rename(const std::shared_ptr<Folder>& folder, const std::string& f
             }
             editor_.finished(true);
             if (searching_results())
-                search_results_->refresh();
+                pane().search_results->refresh();
         });
 }
 
@@ -3307,6 +3311,11 @@ void Browser::show_items(const std::vector<std::filesystem::path>& items, bool d
 void Browser::note_location() {
     if (pane().photos)
         return;
+    if (searching_results()) {
+        if (!pane().history.empty() && pane().history[pane().here].search)
+            pane().history[pane().here].search = pane().search_results->snapshot();
+        return;
+    }
     if (pane().insights.is_open())
         return;
     if (pane().mode == Mode::columns && pane().columns.revealing()) {
@@ -3328,7 +3337,8 @@ void Browser::note_location() {
     }
     remember_folder(pane());
     const fs::Entry* const cursor = shown->cursor_entry();
-    if (!pane().history.empty() && pane().history[pane().here].folder == shown->path()) {
+    if (!pane().history.empty() && !pane().history[pane().here].search &&
+        pane().history[pane().here].folder == shown->path()) {
         if (cursor != nullptr) {
             pane().history[pane().here].cursor = cursor->name;
         }
@@ -3391,6 +3401,12 @@ void Browser::travel(int direction) {
         return;
     }
     note_location();  // the cursor where it is now
+    if (!can_travel(direction))
+        return;
+    if (searching_results()) {
+        pane().search_results->close();
+        ++search_generation_;
+    }
     quick_look_.close();
     const auto ahead = [&] {
         return direction < 0 ? pane().here > 0 : pane().here + 1 < pane().history.size();
@@ -3409,6 +3425,16 @@ void Browser::travel(int direction) {
         area().motion_back = true;
         pane().here = direction < 0 ? pane().here - 1 : pane().here + 1;
         const Step step = pane().history[pane().here];  // go_to() notes the cursor it finds there
+        if (step.search) {
+            if (!pane().search_results)
+                pane().search_results = std::make_unique<SearchResults>(
+                    pool_, redraw_, [this](auto action) { search_action(action); });
+            pane().search_results->restore(*step.search);
+            ++search_generation_;
+            search_preview_.reset();
+            search_preview_pending_ = false;
+            return;
+        }
         go_to(step.folder, step.cursor);
         moved = true;
         const std::shared_ptr<Folder> shown = current_folder();
@@ -3779,6 +3805,8 @@ State Browser::state() {
     state.last_folder = last_folder_;
     state.mode = static_cast<State::Mode>(pane().mode);
     state.show_hidden = pane().show_hidden;
+    state.vertical_columns = vertical_columns_;
+    state.gallery = gallery_;
     state.show_extensions = show_extensions_;
     state.show_thumbnails = show_thumbnails_;
     state.gallery = gallery_;
@@ -3978,6 +4006,8 @@ void Browser::apply(const State& state) {
         each->retained_folder_mode.reset();
         each->restore_mode_on_arrival = false;
     }
+    vertical_columns_ = state.vertical_columns;
+    gallery_ = state.gallery;
     show_extensions_ = state.show_extensions;
     show_thumbnails_ = state.show_thumbnails;
     gallery_ = state.gallery;
@@ -4380,7 +4410,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     if (showing_photos() && photo_library_->has_dialog())
         photo_library_->draw_dialogs(renderer, bounds, palette);
     if (searching_results())
-        search_results_->draw(renderer, bounds, palette);
+        pane().search_results->draw(renderer, bounds, palette);
     if (quick_look_.is_open())
         quick_look_.follow(searching_results() && search_preview_ ? search_preview_
                                                                   : current_folder());
@@ -4523,7 +4553,9 @@ void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
     pane().grid.set_show_thumbnails(show_thumbnails_);
     pane().grid.set_gallery(gallery_);
     pane().details.set_show_thumbnails(show_thumbnails_);
+    pane().columns.set_vertical(vertical_columns_);
     pane().columns.set_show_extensions(show_extensions_);
+    pane().grid.set_gallery(gallery_);
     pane().grid.set_show_extensions(show_extensions_);
     pane().details.set_show_extensions(show_extensions_);
     switch (pane().mode) {
@@ -4558,7 +4590,7 @@ bool Browser::loading() const {
     if (show_items_pending_ > 0)
         return true;
     if ((showing_photos() && photo_library_->loading()) ||
-        (searching_results() && search_results_->loading()) ||
+        (searching_results() && pane().search_results->loading()) ||
         (search_preview_pending_ && search_preview_ && search_preview_->model().loading()))
         return true;
     if (finder_ && (finder_->scanning() || finder_->matching()))
@@ -4683,7 +4715,7 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     if (showing_photos() && photo_library_->has_dialog())
         return photo_library_->cursor_at(x, y);
     if (searching_results())
-        return search_results_->cursor_at(x, y);
+        return pane().search_results->cursor_at(x, y);
     if (editor_.active() && editor_.field().bounds().contains(x, y)) {
         return Shape::text;
     }
@@ -4711,8 +4743,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         if (owner.tab_bar.claims(x, y))
             return hand(owner.tab_bar.clickable_at(x, y));
         if (owner.breadcrumb.claims(x, y))
-            return owner.breadcrumb.editing() ? Shape::text
-                                              : hand(owner.breadcrumb.clickable_at(x, y));
+            return owner.breadcrumb.text_at(x, y) ? Shape::text
+                                                  : hand(owner.breadcrumb.clickable_at(x, y));
     }
     if (sidebar_drawn_ && sidebar_.claims(x, y)) {
         return hand(sidebar_.clickable_at(x, y));
@@ -4721,8 +4753,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         return hand(area().tab_bar.clickable_at(x, y));
     }
     if (area().breadcrumb.claims(x, y)) {
-        return area().breadcrumb.editing() ? Shape::text
-                                           : hand(area().breadcrumb.clickable_at(x, y));
+        return area().breadcrumb.text_at(x, y) ? Shape::text
+                                               : hand(area().breadcrumb.clickable_at(x, y));
     }
     if (status_bar_.claims(x, y)) {
         return hand(status_bar_.clickable_at(x, y));
@@ -4812,10 +4844,16 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
         return;
     }
     if (searching_results()) {
+        if (!quick_look_.is_open() && event.kind == ui::PointerEvent::Kind::press &&
+            (event.button == ui::PointerButton::back ||
+             event.button == ui::PointerButton::forward)) {
+            travel(event.button == ui::PointerButton::back ? -1 : 1);
+            return;
+        }
         if (quick_look_.is_open())
             quick_look_.pointer(event, now);
         else
-            search_results_->pointer(event);
+            pane().search_results->pointer(event);
         return;
     }
     // While a name is edited, a press in its field is the field's; elsewhere it keeps the name,
@@ -6392,6 +6430,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     if (searching_results() && !palette_.is_open() && !menu_.is_open()) {
+        if (!quick_look_.is_open() && event.modifiers.alt &&
+            (event.keysym == XKB_KEY_Left || event.keysym == XKB_KEY_Right)) {
+            travel(event.keysym == XKB_KEY_Left ? -1 : 1);
+            return true;
+        }
         if (quick_look_.is_open()) {
             if (event.keysym == XKB_KEY_Escape || event.keysym == XKB_KEY_space)
                 quick_look_.close();
@@ -6407,11 +6450,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             } else
                 quick_look_.text_key(event, now);
         } else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_f || event.keysym == XKB_KEY_F))
-            search_results_->focus_query();
+            pane().search_results->focus_query();
         else if (event.modifiers.ctrl && (event.keysym == XKB_KEY_k || event.keysym == XKB_KEY_K))
             open_palette();
-        else if (!search_results_->editing() || !text_field_key(event))
-            search_results_->key(event);
+        else if (!pane().search_results->editing() || !text_field_key(event))
+            pane().search_results->key(event);
         return true;
     }
     found_after_.reset();  // a key while a file found is on its way: it stays shown, no more
@@ -6833,6 +6876,10 @@ void Browser::run(Command command, Clock::time_point now) {
             redraw_();
             break;
         case Command::none:
+            break;
+        case Command::reset_column_root:
+            if (mode() == Mode::columns)
+                pane().columns.reset_root();
             break;
         case Command::columns_view:
             set_mode(Mode::columns);

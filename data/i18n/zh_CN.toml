@@ -1702,5 +1702,9 @@ moves = "移动"
 "Video" = "视频"
 "{} items · Select a row to explore" = "{} 个项目 · 选择一行以浏览"
 
+"Gallery: hide media filenames" = "图库：隐藏媒体文件名"
+"Make Focused Folder Column Root" = "将当前文件夹设为分栏根目录"
+"Stack directory columns vertically" = "垂直排列目录分栏"
+
 [contexts.file-action]
 "Open" = "打开"

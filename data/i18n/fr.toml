@@ -1711,6 +1711,8 @@ moves = "déplacement"
 "{} restored sources need explicit Refresh before discovery" = "{} sources restaurées nécessitent une actualisation explicite avant la recherche"
 "{} selected photos" = { one = "{} photo sélectionnée", many = "{} photos sélectionnées", other = "{} photos sélectionnées" }
 "{}: {} · {} items completed" = "{} : {} · {} éléments terminés"
+"Make Focused Folder Column Root" = "Définir le dossier actif comme racine des colonnes"
+"Stack directory columns vertically" = "Empiler les colonnes de dossiers verticalement"
 
 [contexts.file-action]
 "Open" = "Ouvrir"

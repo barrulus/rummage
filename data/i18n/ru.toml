@@ -1704,5 +1704,9 @@ moves = "перемещение"
 "Video" = "Видео"
 "{} items · Select a row to explore" = "{} элементов · Выберите строку для просмотра"
 
+"Gallery: hide media filenames" = "Галерея: скрывать имена медиафайлов"
+"Make Focused Folder Column Root" = "Сделать текущую папку корнем столбцов"
+"Stack directory columns vertically" = "Расположить столбцы папок вертикально"
+
 [contexts.file-action]
 "Open" = "Открыть"

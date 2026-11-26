@@ -86,6 +86,12 @@ public:
     // One column showing directory, focused, no cursor.
     void open(const std::filesystem::path& directory);
 
+    // Keep the focused folder, its selection and descendants; discard ancestor columns.
+    void reset_root();
+    void set_vertical(bool vertical);
+
+    [[nodiscard]] bool vertical() const { return vertical_; }
+
     // Columns from root down to target, with the cursor on each step of the way (they unfold
     // as each folder loads). target must be inside root.
     void reveal(const std::filesystem::path& root, const std::filesystem::path& target);
@@ -182,6 +188,7 @@ public:
     [[nodiscard]] float scroll_offset() const noexcept { return scroller_.offset(); }
 
 private:
+    bool vertical_{false};
     bool wrap_navigation_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
@@ -211,7 +218,7 @@ private:
     void layout();
     [[nodiscard]] bool shows_info() const;
     [[nodiscard]] float content_width() const;
-    [[nodiscard]] std::optional<std::size_t> column_at(float x) const;
+    [[nodiscard]] std::optional<std::size_t> column_at(float x, float y) const;
     [[nodiscard]] std::optional<std::size_t> divider_at(float x, float y) const;
     void scroll(const ui::PointerEvent& event, Clock::time_point now);
     void update_hover();

@@ -147,6 +147,7 @@ public:
     [[nodiscard]] bool info_visible() const noexcept { return info_visible_; }
 
 private:
+    bool gallery_{false};
     bool wrap_navigation_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};

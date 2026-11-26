@@ -1702,5 +1702,9 @@ moves = "mover"
 "Video" = "Vídeo"
 "{} items · Select a row to explore" = "{} itens · Selecione uma linha para explorar"
 
+"Gallery: hide media filenames" = "Galeria: ocultar nomes de arquivos de mídia"
+"Make Focused Folder Column Root" = "Usar a pasta em foco como raiz das colunas"
+"Stack directory columns vertically" = "Empilhar colunas de diretórios verticalmente"
+
 [contexts.file-action]
 "Open" = "Abrir"

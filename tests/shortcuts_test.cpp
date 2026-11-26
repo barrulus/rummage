@@ -1143,3 +1143,10 @@ TEST_CASE("insights: shortcut coexists with inversion and yields to custom chord
     CHECK(help->keys == "Ctrl+Alt+f");
     CHECK(help->action == "Open Insights or its view menu");
 }
+
+TEST_CASE("shortcuts: column root reset can be assigned without a default chord") {
+    using namespace rummage::views;
+    REQUIRE(configure_shortcuts({{"reset_column_root", "Ctrl+Alt+r"}}).empty());
+    CHECK(command_for(chord(XKB_KEY_r, {.ctrl = true, .alt = true})) == Command::reset_column_root);
+    REQUIRE(configure_shortcuts({}).empty());
+}

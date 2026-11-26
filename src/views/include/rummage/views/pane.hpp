@@ -20,6 +20,7 @@
 #include "rummage/views/grid_view.hpp"
 #include "rummage/views/info_pane.hpp"
 #include "rummage/views/insights_view.hpp"
+#include "rummage/views/search_results.hpp"
 #include "rummage/views/state.hpp"
 #include "rummage/views/thumbnails.hpp"
 
@@ -32,6 +33,7 @@ enum class ViewMode : std::uint8_t { columns, grid, details };
 struct HistoryStep {
     std::filesystem::path folder;
     std::string cursor;
+    std::optional<SearchResults::Snapshot> search{};
 };
 
 // One tab's browsing state. A Browser owns two independent tab groups, with one visible
@@ -43,6 +45,7 @@ struct Pane {
          const std::function<void(ui::CursorShape)>& set_cursor, Thumbnails* thumbnails,
          InfoPane* info_pane);
 
+    std::unique_ptr<SearchResults> search_results;
     ColumnView columns;  // before grid: grid folders may report to it
     GridView grid;
     DetailsView details;

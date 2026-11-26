@@ -228,6 +228,8 @@ int main(int argc, char** argv) {
     std::string keys;
     std::string split_folder;
     bool stacked_panes = false;
+    bool vertical_columns = false;
+    bool gallery = false;
     std::filesystem::path thumbnails;
     std::string sort;
     int bench_frames = 0;
@@ -274,6 +276,16 @@ int main(int argc, char** argv) {
         if (option == "--settings-config" && args.size() >= 3) {
             settings_config = args[2];
             args = args.subspan(2);
+            continue;
+        }
+        if (option == "--vertical-columns") {
+            vertical_columns = true;
+            args = args.subspan(1);
+            continue;
+        }
+        if (option == "--gallery") {
+            gallery = true;
+            args = args.subspan(1);
             continue;
         }
         if (option == "--stacked") {
@@ -377,7 +389,7 @@ int main(int argc, char** argv) {
         log::error(
             "usage: rummage-snapshot [--columns DIR [--reveal PATH] [--keys KEYS] [--thumbnails "
             "CACHE] [--icon-theme NAME] [--sort FIELDS] [--info-expanded] [--info-width W] "
-            "[--split DIR] [--stacked] [--expand-sidebar PATH] "
+            "[--split DIR] [--stacked] [--vertical-columns] [--gallery] [--expand-sidebar PATH] "
             "[--bench FRAMES] [--walk "
             "FRAMES] [--message TEXT] [--transfer TEXT] [--conflict NAME] [--drag NAME] "
             "[--drop-over X,Y] [--band X1,Y1,X2,Y2] [--fake-disks] [--memory [--trim] "
@@ -526,6 +538,8 @@ int main(int argc, char** argv) {
                 }
                 columns->status_bar().set_text_size(status_text_size);
                 columns->set_preview_in_sidebar(preview_sidebar);
+                columns->set_vertical_columns(vertical_columns);
+                columns->set_gallery(gallery);
                 if (!settings_config.empty())
                     columns->set_settings_handler(settings_config, [] {}, {});
                 columns->set_places(std::move(places));

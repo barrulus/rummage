@@ -203,6 +203,25 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         item.action = [this, command] { run(command, Clock::now()); };
         items.push_back(std::move(item));
     }
+    if (mode() == Mode::columns) {
+        MenuItem root;
+        root.id = "reset_column_root";
+        root.label = i18n::tr("Make Focused Folder Column Root");
+        root.keys = keys_for(Command::reset_column_root);
+        root.action = [this] { pane().columns.reset_root(); };
+        items.push_back(std::move(root));
+    }
+    MenuItem orientation;
+    orientation.id = "vertical_columns";
+    orientation.label = i18n::tr("Stack directory columns vertically");
+    orientation.checkable = true;
+    orientation.checked = vertical_columns_;
+    orientation.action = [this] {
+        vertical_columns_ = !vertical_columns_;
+        set_mode(Mode::columns);
+        redraw_();
+    };
+    items.push_back(std::move(orientation));
     MenuItem gallery;
     gallery.id = "gallery";
     gallery.label = i18n::tr("Gallery: hide media filenames");

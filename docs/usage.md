@@ -182,8 +182,9 @@ resets on navigation or switching views and is not saved across restarts.
 Enter or a double-click opens a folder, or opens a file in its default application.
 Backspace or Alt+Up goes to the parent. Alt+Left/Right and mouse side buttons go
 back/forward through location history. Click an ancestor breadcrumb to navigate. Click the current folder segment or empty
-space in the breadcrumb to edit its path inline. The current path starts selected:
-copy it with Ctrl+C or paste a new path with Ctrl+V. Enter navigates; Escape cancels.
+space in the breadcrumb to edit its path inline. Clicking the current folder places
+the caret at the end; clicking empty space or pressing Alt+D selects the path.
+Ctrl+A selects it for copying with Ctrl+C or replacing with Ctrl+V. Enter navigates; Escape cancels.
 Tab completes a path; press Tab again to cycle forward, or Shift+Tab to cycle
 backward. Completion includes files, folders and paths inside supported archives.
 Type a leading dot to include hidden names. Absolute paths, paths relative to the
@@ -561,3 +562,42 @@ changes only Rummage's saved sidebar order.
 **Copy Path** (Ctrl+Shift+C) copies the active pane's current folder, regardless of selection.
 It is also available from the background menu and command palette. **Copy Location** continues
 to copy selected paths, and **Copy Name** continues to copy filenames.
+
+### Refocus the column hierarchy
+
+In Columns, choose **Make Focused Folder Column Root** from the View menu or
+command palette to remove ancestor columns. The current folder, selection,
+descendant columns and view settings stay in place. This is a layout change:
+Back continues to follow location history, while Alt+Up can reveal the parent
+again. It does not clear descendant columns.
+
+### Gallery display
+
+Choose **Gallery: hide media filenames** in the View menu to use more of each
+Grid cell for image and video thumbnails. Hovering or selecting an item shows
+its filename again, and rename, keyboard navigation and context actions work as
+in the ordinary Grid. Folders, unavailable previews and other files keep their
+labels. The option is remembered for the window across restarts; it never turns
+on automatically based on a folder's contents.
+
+### Vertical directory columns
+
+Choose **Stack directory columns vertically** in the View menu for a top-to-bottom
+hierarchy. Each folder keeps its own list and scroll position. Drag the horizontal
+dividers to resize a level; double-click a divider to restore its default size.
+Up/Down still select files, and Left/Right still move between hierarchy levels.
+Wheel scrolling moves the list under the pointer; Shift+wheel or a horizontal
+touchpad gesture scrolls the hierarchy. The hierarchy also has its own scrollbar.
+The preview stays at the right independently of the hierarchy. The orientation is
+remembered across restarts and applies to Columns in all tabs of this window.
+
+### Returning to search results
+
+Opening or revealing a Search Results item, or choosing a result in the Ctrl+F
+finder, records the search in that tab's Back history. Finder searches return in
+the full Search Results view. Back restores its root, query (including filters), hidden-file setting,
+selected paths and scroll position. Results are rescanned asynchronously, so removed
+or inaccessible items disappear rather than becoming stale operation targets.
+Forward returns to the opened location. Parent-folder navigation still follows the
+filesystem hierarchy. Each tab and pane owns its own results session; searches are
+not restored after restarting Rummage unless saved explicitly.

@@ -144,7 +144,7 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
                                     .radius = {},
                                     .border_width = 1.5F,
                                     .border = palette.primary});
-        } else if (hovered_ == i && !last) {
+        } else if (hovered_ == i && (!last || submit_)) {
             renderer.draw_box(box, {.fill = palette.surface_container_high, .radius = {}});
         }
         ui::Color color = last || hovered_ == i ? palette.on_surface : palette.on_surface_variant;
@@ -199,6 +199,11 @@ bool Breadcrumb::clickable_at(float x, float y) const {
     return claims(x, y) && (submit_ || (crumb && *crumb + 1 < crumbs_.size()));
 }
 
+bool Breadcrumb::text_at(float x, float y) const {
+    const auto crumb = crumb_at(x, y);
+    return claims(x, y) && (editing_ || (submit_ && crumb && *crumb + 1 == crumbs_.size()));
+}
+
 bool Breadcrumb::claims(float x, float y) const {
     return !bounds_.empty() && x >= bounds_.x && x < bounds_.right() && y >= bounds_.y &&
            y < bounds_.bottom();
@@ -217,7 +222,7 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
         claims(event.x, event.y)) {
         const auto crumb = crumb_at(event.x, event.y);
         if (!crumb || *crumb + 1 == crumbs_.size()) {
-            edit(path_);
+            edit(path_, !crumb);
             return;
         }
     }
@@ -240,13 +245,14 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
     }
 }
 
-void Breadcrumb::edit(const std::filesystem::path& path) {
+void Breadcrumb::edit(const std::filesystem::path& path, bool select_all) {
     if (!submit_)
         return;
     invalidate_completion();
     path_ = path;
     field_.set_text(path.string());
-    field_.select_all();
+    if (select_all)
+        field_.select_all();
     error_.clear();
     editing_ = true;
     redraw_();

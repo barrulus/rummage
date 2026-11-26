@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -13,9 +14,21 @@
 
 namespace rummage::views {
 
-// A window-local results view. Selection is keyed by root-relative path, never by row number.
+// A tab-local results view. Selection is keyed by root-relative path, never by row number.
 class SearchResults {
 public:
+    struct Snapshot {
+        std::filesystem::path root;
+        std::string query;
+        bool hidden{false};
+        std::set<std::string> selected;
+        std::string cursor, anchor;
+        std::size_t first{0};
+    };
+
+    [[nodiscard]] Snapshot snapshot() const;
+    void restore(const Snapshot& snapshot);
+
     enum class Action {
         copy,
         cut,
@@ -103,5 +116,6 @@ private:
     int focus_{-1};  // -1 query, -2 list, otherwise toolbar index
     float row_height_{52}, wheel_rest_{0};
     bool open_{false};
+    std::optional<Snapshot> restoring_;
 };
 }  // namespace rummage::views
