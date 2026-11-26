@@ -2,6 +2,7 @@
 # rummage-preview program that runs the parsers.
 add_library(rummage_isolate
     src/helpers.cpp
+    src/playback.cpp
     src/protocol.cpp)
 add_library(rummage::isolate ALIAS rummage_isolate)
 target_include_directories(rummage_isolate PUBLIC include PRIVATE src)

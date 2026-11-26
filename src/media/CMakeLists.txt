@@ -10,3 +10,14 @@ configure_file("${PROJECT_SOURCE_DIR}/data/engines/media.toml"
     "${PROJECT_BINARY_DIR}/engines/media.toml" COPYONLY)
 install(FILES "${PROJECT_SOURCE_DIR}/data/engines/media.toml"
     DESTINATION share/rummage/engines COMPONENT media)
+
+add_executable(rummage-playback playback_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp)
+target_include_directories(rummage-playback PRIVATE ../isolate/src)
+target_link_libraries(rummage-playback PRIVATE rummage::picture rummage::text rummage::archive
+    PkgConfig::AVFORMAT PkgConfig::AVCODEC PkgConfig::AVUTIL PkgConfig::SWSCALE PkgConfig::SWRESAMPLE rummage::warnings)
+add_executable(rummage-audio audio_main.cpp)
+target_link_libraries(rummage-audio PRIVATE PkgConfig::PULSE_SIMPLE rummage::warnings)
+set_target_properties(rummage-playback rummage-audio PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+install(TARGETS rummage-playback rummage-audio RUNTIME DESTINATION libexec/rummage COMPONENT media)
+
+add_dependencies(rummage-media rummage-playback rummage-audio)

@@ -12,6 +12,7 @@
 
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/isolate/playback.hpp"
 #include "rummage/picture/image.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
@@ -62,6 +63,8 @@ public:
     [[nodiscard]] std::uint32_t document_page() const;
     [[nodiscard]] std::uint32_t document_pages() const;
     void set_document_page(std::uint32_t page);
+
+    [[nodiscard]] const isolate::Playback* playback() const { return playback_.get(); }
 
     [[nodiscard]] float document_zoom() const { return document_zoom_; }
 
@@ -135,6 +138,16 @@ public:
     [[nodiscard]] Usage usage() const;
 
 private:
+    std::unique_ptr<isolate::Playback> playback_;
+    std::shared_ptr<const picture::Image> playback_pixels_;
+    std::unique_ptr<ui::Texture> playback_texture_;
+    ui::Rect play_button_, seek_bar_, volume_down_, volume_up_;
+    [[nodiscard]] bool is_media() const;
+    void stop_playback();
+    void toggle_playback();
+    void seek_playback(std::int64_t milliseconds);
+    void draw_playback(ui::Renderer& renderer, const ui::Rect& area, const theme::Palette& palette,
+                       float fade);
     bool details_{false};
     float document_zoom_{1.0F};
     ui::Rect previous_page_, next_page_, zoom_out_, zoom_in_, document_area_;

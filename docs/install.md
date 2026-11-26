@@ -165,14 +165,14 @@ set that variable to an absolute `librummage-photos.so` path. Source builds use
 
 Video thumbnails and still previews are included in the standard package and
 controlled by `previews.media` (default `true`) or **Video previews** in Settings.
-This is still-frame preview; Enter opens the selected video in its default player.
+Quick Look supports [audio/video playback](previews.md#audio-and-video-playback); Enter opens the default player.
 The grid draws filmstrip borders; cached images and larger previews stay undecorated.
 
 The isolated helper uses system FFmpeg 6.1 or newer libraries (`libavformat`,
-`libavcodec`, `libavutil`, `libswscale`); it does not execute FFmpeg command-line
+`libavcodec`, `libavutil`, `libswscale`, `libswresample`); it does not execute FFmpeg command-line
 programs. Codec availability follows the distribution build. Turning the setting
 off prevents new helper requests; in-flight work finishes and already cached images
-may remain. The application itself does not link FFmpeg.
+may remain. The application itself does not link FFmpeg. A separate audio helper links `libpulse-simple` for PCM output.
 
 Source builds default to `RUMMAGE_MEDIA=ON`. Developers can set it to OFF for a
 lean build; this is not a separate distributed package. Separate custom helper
@@ -359,7 +359,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | Images | `libwebp`, `libwebpdemux`, `libjxl`, `libheif >= 1.23`, `lcms2`, `zlib` |
 | SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |
-| Media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`; `RUMMAGE_MEDIA` defaults to ON |
+| Media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`, `libswresample` and `libpulse-simple`; `RUMMAGE_MEDIA` defaults to ON |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
 
 librsvg is implemented partly in Rust, but rummage links its packaged C API;

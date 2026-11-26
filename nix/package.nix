@@ -19,6 +19,7 @@
   libwebp,
   ffmpeg,
   sqlite,
+  libpulseaudio,
   callPackage,
   libjxl,
   libheif,
@@ -63,6 +64,7 @@ stdenv.mkDerivation {
         ../src
         # The preview helper embeds these images to warm up codecs before sandboxing.
         ../tests/data/image
+        ../tests/data/media
         # The development SVG renderer shares its comparison helper with the tests.
         ../tests/svg_compare.hpp
         ../third_party
@@ -113,6 +115,7 @@ stdenv.mkDerivation {
   ++ lib.optional withTests shared-mime-info
   ++ [
     ffmpeg
+    libpulseaudio
     rummage-pdfium
   ]
   ++ lib.optional withPhotos sqlite;

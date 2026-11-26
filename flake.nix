@@ -54,6 +54,17 @@
               postInstall = "";
               dontFixup = true;
             };
+        playback =
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
+            helper = self.packages.${system}.rummage;
+          in
+          pkgs.runCommand "rummage-playback-installed" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+            test -x ${helper}/libexec/rummage/rummage-audio
+            python3 ${./scripts/ci/check-playback.py} ${helper}/libexec/rummage/rummage-playback ${./tests/data/media}
+            python3 ${./scripts/ci/check-audio.py} ${helper}/libexec/rummage/rummage-audio ${pkgs.pulseaudio}/bin
+            touch "$out"
+          '';
         font =
           let
             pkgs = nixpkgs.legacyPackages.${system};
@@ -116,6 +127,7 @@
               git
               ffmpeg
               sqlite
+              libpulseaudio
               libjpeg_turbo
               nixfmt
               shared-mime-info

@@ -243,6 +243,7 @@ void QuickLook::open(std::shared_ptr<Folder> folder, Clock::time_point now) {
 }
 
 void QuickLook::close() {
+    stop_playback();
     document_zoom_ = 1;
     previous_page_ = next_page_ = zoom_out_ = zoom_in_ = document_area_ = {};
     for (auto& [key, slot] : slots_) {
@@ -399,6 +400,9 @@ void QuickLook::follow(std::shared_ptr<Folder> folder) {
     const std::vector<fs::Entry>& entries = folder_->entries();
     const std::size_t index = *cursor;
     if (moved) {
+        stop_playback();
+        if (is_media())
+            playback_ = std::make_unique<isolate::Playback>(folder_->path_of(*entry));
         document_zoom_ = 1;
         previous_page_ = next_page_ = zoom_out_ = zoom_in_ = document_area_ = {};
         markdown_.reset();
@@ -497,6 +501,28 @@ void QuickLook::toggle_markdown() {
 }
 
 bool QuickLook::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (playback_ && event.kind == ui::PointerEvent::Kind::press &&
+        event.button == ui::PointerButton::left) {
+        if (play_button_.contains(event.x, event.y)) {
+            toggle_playback();
+            return true;
+        }
+        if (seek_bar_.contains(event.x, event.y)) {
+            const auto state = playback_->snapshot();
+            if (state.duration_ms > 0)
+                seek_playback(static_cast<std::int64_t>(
+                    static_cast<double>(
+                        std::clamp((event.x - seek_bar_.x) / seek_bar_.width, 0.0F, 1.0F)) *
+                    static_cast<double>(state.duration_ms)));
+            return true;
+        }
+        if (volume_up_.contains(event.x, event.y) || volume_down_.contains(event.x, event.y)) {
+            playback_->volume(playback_->volume() +
+                              (volume_up_.contains(event.x, event.y) ? 10 : -10));
+            redraw_();
+            return true;
+        }
+    }
     if (is_document()) {
         if (event.kind == ui::PointerEvent::Kind::press &&
             event.button == ui::PointerButton::left) {
@@ -673,6 +699,39 @@ bool QuickLook::autoscrolling() const {
 }
 
 bool QuickLook::text_key(const ui::KeyEvent& event, Clock::time_point now) {
+    if (playback_ &&
+        (event.modifiers == ui::Modifiers{} ||
+         (event.keysym == XKB_KEY_plus && event.modifiers == ui::Modifiers{.shift = true}))) {
+        const auto state = playback_->snapshot();
+        switch (event.keysym) {
+            case XKB_KEY_p:
+            case XKB_KEY_P:
+                toggle_playback();
+                return true;
+            case XKB_KEY_j:
+            case XKB_KEY_J:
+                seek_playback(state.position_ms - 5000);
+                return true;
+            case XKB_KEY_l:
+            case XKB_KEY_L:
+                seek_playback(state.position_ms + 5000);
+                return true;
+            case XKB_KEY_Home:
+                seek_playback(0);
+                return true;
+            case XKB_KEY_plus:
+            case XKB_KEY_equal:
+                playback_->volume(playback_->volume() + 10);
+                redraw_();
+                return true;
+            case XKB_KEY_minus:
+                playback_->volume(playback_->volume() - 10);
+                redraw_();
+                return true;
+            default:
+                break;
+        }
+    }
     if (is_document() &&
         (event.modifiers == ui::Modifiers{} ||
          (event.keysym == XKB_KEY_plus && event.modifiers == ui::Modifiers{.shift = true}))) {
@@ -792,12 +851,16 @@ std::string QuickLook::selected_text() const {
 }
 
 bool QuickLook::animating(Clock::time_point now) const {
-    return is_open() && (fade_at(opened_, now) < 1.0F || text_scroller_.animating() ||
-                         text_sideways_.animating() ||
-                         (details_ && details_scroller_.animating()) || autoscrolling());
+    const auto playback = playback_ ? playback_->snapshot() : isolate::Playback::Snapshot{};
+    return is_open() &&
+           ((playback_ && (playback.loading || !playback.paused)) || fade_at(opened_, now) < 1.0F ||
+            text_scroller_.animating() || text_sideways_.animating() ||
+            (details_ && details_scroller_.animating()) || autoscrolling());
 }
 
 bool QuickLook::loading() const {
+    if (playback_ && playback_->snapshot().loading)
+        return true;
     const auto it = slots_.find(shown_key_);
     return it != slots_.end() &&
            (it->second.content_job.has_value() || (details_ && it->second.summary_job.has_value()));
@@ -898,6 +961,10 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         area.y += 36;
         area.height = std::max(1.0F, area.height - 36);
         document_area_ = area;
+    }
+    if (playback_) {
+        draw_playback(renderer, area, palette, fade);
+        return;
     }
     // Images are made for this area, in physical pixels (from the next one on).
     target_width_ = static_cast<std::uint32_t>(std::max(1.0F, area.width * renderer.scale()));
@@ -1483,6 +1550,10 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
 
 QuickLook::Usage QuickLook::usage() const {
     Usage usage{.slots = slots_.size(), .texture_bytes = 0, .pixel_bytes = 0};
+    if (playback_texture_)
+        usage.texture_bytes += playback_texture_->bytes();
+    if (playback_pixels_)
+        usage.pixel_bytes += playback_pixels_->rgba.size();
     for (const auto& [key, slot] : slots_) {
         for (const auto* texture : {slot.thumbnail_texture.get(), slot.image_texture.get()}) {
             usage.texture_bytes += texture != nullptr ? texture->bytes() : 0;
@@ -1497,4 +1568,112 @@ QuickLook::Usage QuickLook::usage() const {
     return usage;
 }
 
+}  // namespace rummage::views
+
+namespace rummage::views {
+bool QuickLook::is_media() const {
+    const auto* entry = folder_ ? folder_->cursor_entry() : nullptr;
+    if (!entry || entry->is_directory())
+        return false;
+    const auto mime = mime_->name(folder_->mime_of(*entry));
+    return mime.starts_with("video/") || mime.starts_with("audio/") || mime == "application/ogg";
+}
+
+void QuickLook::stop_playback() {
+    playback_.reset();
+    playback_pixels_.reset();
+    if (playback_texture_)
+        retired_.push_back(std::move(playback_texture_));
+    play_button_ = seek_bar_ = volume_down_ = volume_up_ = {};
+}
+
+void QuickLook::toggle_playback() {
+    if (!playback_)
+        return;
+    playback_->pause(!playback_->snapshot().paused);
+    redraw_();
+}
+
+void QuickLook::seek_playback(std::int64_t ms) {
+    if (!playback_)
+        return;
+    const auto state = playback_->snapshot();
+    playback_->seek(std::clamp<std::int64_t>(
+        ms, 0, state.duration_ms > 0 ? state.duration_ms : std::max<std::int64_t>(0, ms)));
+    redraw_();
+}
+
+void QuickLook::draw_playback(ui::Renderer& renderer, const ui::Rect& area,
+                              const theme::Palette& palette, float fade) {
+    const auto state = playback_->snapshot();
+    const ui::Rect controls{area.x, area.bottom() - 100, area.width, 100};
+    ui::Rect picture = area;
+    picture.height = std::max(1.0F, picture.height - 112);
+    if (state.image && state.image != playback_pixels_) {
+        playback_texture_ = std::make_unique<ui::Texture>(state.image->width, state.image->height,
+                                                          state.image->rgba);
+        playback_pixels_ = state.image;
+    }
+    if (playback_texture_) {
+        const float w = static_cast<float>(playback_texture_->width());
+        const float h = static_cast<float>(playback_texture_->height());
+        const float fit = std::min(picture.width / w, picture.height / h);
+        renderer.draw_image(*playback_texture_,
+                            {picture.x + (picture.width - w * fit) / 2,
+                             picture.y + (picture.height - h * fit) / 2, w * fit, h * fit},
+                            {}, fade);
+    } else {
+        draw_centered(renderer, i18n::tr(state.loading ? "Loading media…" : "Audio preview"),
+                      picture, picture.y + picture.height / 2, 18, palette.on_surface);
+    }
+    seek_bar_ = {controls.x, controls.y, controls.width, 20};
+    renderer.fill_rect({seek_bar_.x, seek_bar_.y + 8, seek_bar_.width, 4}, palette.outline_variant);
+    const double progress = state.duration_ms > 0
+                                ? std::clamp(static_cast<double>(state.position_ms) /
+                                                 static_cast<double>(state.duration_ms),
+                                             0.0, 1.0)
+                                : 0;
+    renderer.fill_rect(
+        {seek_bar_.x, seek_bar_.y + 8, seek_bar_.width * static_cast<float>(progress), 4},
+        palette.primary);
+    const auto time = [](std::int64_t ms) {
+        const auto seconds = ms / 1000;
+        return std::format("{}:{:02}", seconds / 60, seconds % 60);
+    };
+    const auto label = time(state.position_ms) + " / " + time(state.duration_ms) + "   " +
+                       std::string{i18n::tr("J/L: seek 5 seconds")};
+    renderer.draw_text(label, controls.x, controls.y + 23, 12, palette.on_surface, controls.width);
+    play_button_ = {controls.x, controls.y + 45, std::min(110.0F, controls.width * 0.40F), 28};
+    volume_down_ = {controls.right() - 62, controls.y + 45, 28, 28};
+    volume_up_ = {controls.right() - 28, controls.y + 45, 28, 28};
+    for (const auto& rect : {play_button_, volume_down_, volume_up_})
+        renderer.draw_box(rect, {.fill = palette.surface_container_high, .radius = {}});
+    renderer.draw_text(i18n::tr(state.paused ? "Play · P" : "Pause · P"), play_button_.x + 7,
+                       play_button_.y + 6, 13, palette.on_surface,
+                       std::max(1.0F, play_button_.width - 14));
+    renderer.draw_text("−", volume_down_.x + 7, volume_down_.y + 4, 16, palette.on_surface);
+    renderer.draw_text("+", volume_up_.x + 7, volume_up_.y + 4, 16, palette.on_surface);
+    const auto volume = i18n::trf("Volume {}%", playback_->volume());
+    renderer.draw_text(volume, play_button_.right() + 8, play_button_.y + 7, 11, palette.on_surface,
+                       std::max(1.0F, volume_down_.x - play_button_.right() - 12));
+    // Explicit catalog entries for the finite set of worker status messages.
+    static constexpr std::array messages{i18n::mark("Loading media…"),
+                                         i18n::mark("Audio preview"),
+                                         i18n::mark("Play · P"),
+                                         i18n::mark("Pause · P"),
+                                         i18n::mark("Playback backend unavailable"),
+                                         i18n::mark("Media file unavailable"),
+                                         i18n::mark("Playback failed or timed out"),
+                                         i18n::mark("Media seeking unavailable"),
+                                         i18n::mark("Unsupported or damaged media"),
+                                         i18n::mark("Audio output unavailable")};
+    static_cast<void>(messages);
+    const auto status = !state.error.empty() ? i18n::tr(state.error)
+                        : state.ended        ? i18n::tr("Playback ended")
+                                             : std::string_view{};
+    renderer.draw_text(status, controls.x, controls.y + 80, 12,
+                       state.error.empty() ? palette.on_surface_variant : palette.error,
+                       controls.width);
+    draw_caption(renderer, area, palette, shown_name_, fade);
+}
 }  // namespace rummage::views

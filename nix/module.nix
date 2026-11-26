@@ -18,7 +18,7 @@ in
       defaultText = lib.literalExpression "inputs.rummage.packages.\${pkgs.stdenv.hostPlatform.system}.default";
       apply = package: if cfg.photos.enable then package.override { withPhotos = true; } else package;
       description = ''
-        rummage package, including video and PDF previews. Enabling Photo Library
+        rummage package, including audio/video playback and PDF previews. Enabling Photo Library
         overrides withPhotos; a custom package must support that argument.
         Preview features can be switched off in the application's Settings.
       '';
