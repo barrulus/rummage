@@ -33,6 +33,7 @@
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
+#include "xattr_support.hpp"
 
 using rummage::core::EventLoop;
 using rummage::test::TempDir;
@@ -1976,18 +1977,29 @@ TEST_CASE("properties: every rwx permission toggle is keyboard accessible") {
     Fixture f;
     const auto path = f.photos / "a.txt";
     REQUIRE(::chmod(path.c_str(), 0644) == 0);
+    const bool annotations = rummage::test::user_xattrs_available(path);
     auto& dialog = f.browser.properties_dialog();
     dialog.open(path, [] {});
     REQUIRE(f.settle());
+    REQUIRE(dialog.can_edit_permissions());
+    REQUIRE(dialog.can_edit_annotations() == annotations);
+    REQUIRE(dialog.permissions() == 0644);
     std::uint16_t mode = 0644;
-    // Close initially has focus. Skip Copy, annotation and owner/group/scope controls.
-    for (int i = 0; i < 8; ++i)
-        dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+    // Close initially has focus. Annotation controls are absent without xattr support.
+    // Skip Copy, owner/group/scope, and only the annotation controls actually available.
+    const int controls_before_permissions = 4 + (annotations ? 4 : 0);
+    for (int i = 0; i < controls_before_permissions; ++i)
+        REQUIRE(dialog.key(key(XKB_KEY_Tab, {.shift = true})));
     for (unsigned bit = 0; bit < 9; ++bit) {
-        dialog.key(key(XKB_KEY_Tab, {.shift = true}));
-        dialog.key(key(XKB_KEY_space));
+        REQUIRE(dialog.key(key(XKB_KEY_Tab, {.shift = true})));
+        REQUIRE(dialog.key(key(XKB_KEY_space)));
         mode = static_cast<std::uint16_t>(mode ^ (1U << bit));
         CHECK(dialog.permissions() == mode);
+        REQUIRE(dialog.is_open());
+        CHECK_FALSE(dialog.saving());
+        struct stat staged{};
+        REQUIRE(::stat(path.c_str(), &staged) == 0);
+        CHECK((staged.st_mode & 0777) == 0644);
     }
     dialog.close();
     struct stat info{};
@@ -2582,14 +2594,20 @@ TEST_CASE(
 
 TEST_CASE("properties: multiple items stage annotations and permissions together") {
     Fixture f;
+    for (const auto* name : {"a.txt", "b.txt"})
+        REQUIRE(::chmod((f.photos / name).c_str(), 0644) == 0);
+    const bool annotations = rummage::test::user_xattrs_available(f.photos / "a.txt");
+    REQUIRE(rummage::test::user_xattrs_available(f.photos / "b.txt") == annotations);
     f.select({"a.txt", "b.txt"});
     f.browser.show_properties();
     REQUIRE(f.settle());
     auto& dialog = f.browser.properties_dialog();
     REQUIRE(dialog.can_edit_permissions());
-    REQUIRE(dialog.can_edit_annotations());
+    REQUIRE(dialog.can_edit_annotations() == annotations);
+    REQUIRE(dialog.permissions() == 0644);
     dialog.set_permissions(0600);
-    dialog.set_annotations("project, favorite", "4", "reviewed");
+    if (annotations)
+        dialog.set_annotations("project, favorite", "4", "reviewed");
     rummage::ui::Offscreen surface{800, 1200};
     rummage::ui::FontSystem fonts;
     rummage::ui::Renderer renderer{fonts};
@@ -2598,7 +2616,7 @@ TEST_CASE("properties: multiple items stage annotations and permissions together
     dialog.draw(renderer, {0, 0, 800, 1200}, rummage::theme::Palette{}, icons);
     renderer.end_frame();
     CHECK_FALSE(dialog.control_bounds("recursive").empty());
-    CHECK_FALSE(dialog.control_bounds("clear_annotations").empty());
+    CHECK(dialog.control_bounds("clear_annotations").empty() == !annotations);
     if (const char* snapshot = std::getenv("RUMMAGE_PROPERTIES_SNAPSHOT")) {
         const auto capture = [&](const std::string& path, int width, int height) {
             std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width * height * 4));
@@ -2642,6 +2660,17 @@ TEST_CASE("properties: multiple items stage annotations and permissions together
         struct stat info{};
         REQUIRE(::stat((f.photos / name).c_str(), &info) == 0);
         CHECK((info.st_mode & 0777) == 0600);
-        CHECK(rummage::fs::read_annotations(f.photos / name).rating == "4");
+        const auto saved = rummage::fs::read_annotations(f.photos / name);
+        if (annotations) {
+            CHECK(saved.error.empty());
+            CHECK(saved.tags == "project, favorite");
+            CHECK(saved.rating == "4");
+            CHECK(saved.comment == "reviewed");
+        } else {
+            CHECK_FALSE(saved.error.empty());
+            CHECK(saved.tags.empty());
+            CHECK(saved.rating.empty());
+            CHECK(saved.comment.empty());
+        }
     }
 }
