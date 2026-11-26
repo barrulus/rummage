@@ -593,3 +593,39 @@ TEST_CASE("directory model: Recent shares normal listings and watches source pat
     REQUIRE(history.record({b}).empty());
     REQUIRE(run_until(fixture.loop, [&] { return fixture.model.listing().entries().size() == 1; }));
 }
+
+TEST_CASE("directory model: search listings retain distinct sources and replace results") {
+    Fixture f;
+    std::filesystem::create_directories(f.dir.path / "a");
+    std::filesystem::create_directories(f.dir.path / "b");
+    const auto first = f.dir.write("a/same.zip", "first");
+    const auto second = f.dir.write("b/same.zip", "second");
+    const auto hidden = f.dir.write("b/.hidden.zip", "hidden");
+    f.model.open(rummage::fs::search_path());
+    REQUIRE(f.model.is_search());
+    CHECK(f.model.is_collection());
+    CHECK_FALSE(f.model.is_recent());
+    f.model.set_search_results({first, second, hidden});
+    REQUIRE(run_until(f.loop, [&] { return !f.model.loading(); }));
+    const auto& entries = f.model.listing().entries();
+    REQUIRE(entries.size() == 3);
+    const auto* a = find(f.model, first.string());
+    const auto* b = find(f.model, second.string());
+    REQUIRE(a);
+    REQUIRE(b);
+    CHECK(a->name != b->name);
+    CHECK(a->label() == "same.zip");
+    CHECK(b->label() == "same.zip");
+    CHECK(f.model.source_path(a->name) == first);
+    CHECK(f.model.source_path(b->name) == second);
+    f.model.set_search_results({second});
+    REQUIRE(run_until(f.loop, [&] { return !f.model.loading(); }));
+    REQUIRE(f.model.listing().entries().size() == 1);
+    CHECK(f.model.listing().entries().front().name == second.string());
+    CHECK(std::filesystem::exists(first));
+    f.model.set_search_results({first, second});
+    f.model.set_search_results({hidden});
+    REQUIRE(run_until(f.loop, [&] { return !f.model.loading(); }));
+    REQUIRE(f.model.listing().entries().size() == 1);
+    CHECK(f.model.listing().entries().front().name == hidden.string());
+}

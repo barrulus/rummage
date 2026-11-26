@@ -27,6 +27,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/recent.hpp"
 #include "rummage/fs/walk.hpp"
+#include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
@@ -314,6 +315,24 @@ struct Fixture {
 
     bool press(const KeyEvent& event) { return browser.key(event, Browser::Clock::now()); }
 
+    void select_result(std::size_t row,
+                       rummage::views::SelectMode mode = rummage::views::SelectMode::replace) {
+        const auto folder = browser.picker_folder();
+        REQUIRE(folder);
+        REQUIRE(folder->is_collection());
+        folder->set_cursor(row, mode);
+    }
+
+    std::vector<fs::path> chosen_results() const {
+        const auto folder = browser.picker_folder();
+        std::vector<fs::path> paths;
+        if (folder)
+            for (const auto& name : folder->selected_names())
+                paths.push_back(folder->model().source_path(name));
+        std::ranges::sort(paths);
+        return paths;
+    }
+
     // The optional quick finder, query typed, the list filled.
     void find(const std::string& query) {
         browser.open_finder();
@@ -402,7 +421,7 @@ TEST_CASE("find files: Space is a space in the field, Quick Look in the list (is
     CHECK(palette.items()[palette.shown().front()].keys == "Folder");
 }
 
-TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses their query") {
+TEST_CASE("find files: Ctrl+F opens native recursive results and refocuses the toolbar query") {
     Fixture f;
     touch(f.a / "one.zip");
     touch(f.a / "photos" / "another.zip");
@@ -412,28 +431,36 @@ TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses t
     REQUIRE(f.browser.filtering());
     REQUIRE(f.press(key(XKB_KEY_f, kCtrl)));
     REQUIRE(f.browser.searching_results());
-    CHECK_FALSE(f.browser.filtering());
+    CHECK(f.browser.filtering());
+    CHECK_FALSE(f.browser.has_overlay());
     CHECK_FALSE(f.browser.command_palette().is_open());
     auto* results = f.browser.search_results();
-    results->set_query("*.zip");
+    f.browser.set_name_filter("*.zip");
     REQUIRE(f.settle());
     CHECK(results->finder()->root() == f.a);
     REQUIRE(results->rows().size() == 3);
-    results->select_all();
-    CHECK(results->chosen().size() == 3);
+    f.browser.picker_folder()->select_all();
+    CHECK(f.chosen_results().size() == 3);
     REQUIRE(f.press(key(XKB_KEY_f, kCtrl)));
-    CHECK(results->editing());
+    CHECK(f.browser.filtering());
     CHECK(results->finder()->query() == "*.zip");
     CHECK(results->rows().size() == 3);
+    // The usual command palette remains available while the toolbar query owns focus.
+    REQUIRE(f.press(key(XKB_KEY_k, kCtrl)));
+    CHECK(f.browser.command_palette().is_open());
+    CHECK_FALSE(f.browser.command_palette().external());
+    REQUIRE(f.press(key(XKB_KEY_Escape)));
+    CHECK_FALSE(f.browser.command_palette().is_open());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.name_filter() == "*.zip");
+    CHECK(f.browser.picker_folder()->entries().size() == 3);
     f.browser.search_action(rummage::views::SearchResults::Action::close);
     f.browser.open_palette();
     f.browser.command_palette().set_query("find files");
     f.press(key(XKB_KEY_Return));
     CHECK(f.browser.searching_results());
     f.browser.search_action(rummage::views::SearchResults::Action::close);
-    f.browser.open_palette();
-    f.browser.command_palette().set_query("quick file finder");
-    f.press(key(XKB_KEY_Return));
+    f.browser.open_finder();
     REQUIRE(f.browser.command_palette().external());
     f.browser.command_palette().set_query("*.zip");
     REQUIRE(f.settle());
@@ -443,6 +470,147 @@ TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses t
     REQUIRE(f.settle());
     CHECK(f.browser.search_results()->finder()->query() == "*.zip");
     CHECK(f.browser.search_results()->rows().size() == 3);
+}
+
+TEST_CASE("native search: duplicate names use normal selection copy and navigation history") {
+    Fixture f;
+    const auto first = f.a / "left" / "same.zip";
+    const auto second = f.a / "right" / "same.zip";
+    touch(first);
+    touch(second);
+    f.browser.set_name_filter("one.txt");
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.picker_folder()->entries().size() == 1);
+    f.browser.open_search_results();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.picker_folder()->is_search());
+    CHECK_FALSE(f.browser.has_overlay());
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+    CHECK(f.browser.picker_folder()->entries().empty());
+    f.browser.set_name_filter("*.zip");
+    REQUIRE(f.settle());
+    const auto folder = f.browser.picker_folder();
+    REQUIRE(folder->entries().size() == 2);
+    CHECK(folder == f.browser.grid().folder());
+    CHECK(folder->entries()[0].label() == "same.zip");
+    CHECK(folder->entries()[1].label() == "same.zip");
+    CHECK(folder->entries()[0].name != folder->entries()[1].name);
+    f.browser.blur_filter();
+    f.select_result(0);
+    REQUIRE(f.press(key(XKB_KEY_a, kCtrl)));
+    CHECK(f.chosen_results() == std::vector<fs::path>{first, second});
+    std::vector<rummage::views::SystemClipboard::Format> offered;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto formats) { offered = std::move(formats); };
+    f.browser.set_system_clipboard(std::move(clipboard));
+    REQUIRE(f.press(key(XKB_KEY_c, kCtrl)));
+    const auto uris = std::ranges::find_if(
+        offered, [](const auto& format) { return format.first == "text/uri-list"; });
+    REQUIRE(uris != offered.end());
+    CHECK(uris->second.find("file://" + first.string()) != std::string::npos);
+    CHECK(uris->second.find("file://" + second.string()) != std::string::npos);
+    CHECK(uris->second.find("rummage:search") == std::string::npos);
+    f.browser.back();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    CHECK(f.browser.name_filter() == "one.txt");
+    REQUIRE(f.browser.picker_folder()->entries().size() == 1);
+    CHECK(f.browser.picker_folder()->entries().front().label() == "one.txt");
+    f.browser.forward();
+    REQUIRE(f.settle());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.name_filter() == "*.zip");
+    CHECK(f.chosen_results() == std::vector<fs::path>{first, second});
+    CHECK_FALSE(f.browser.has_overlay());
+}
+
+TEST_CASE("native search: hidden toggle reruns the same query and scope") {
+    Fixture f;
+    const auto visible = f.a / "visible.zip";
+    const auto hidden = f.a / ".hidden" / "secret.zip";
+    touch(visible);
+    touch(hidden);
+    f.browser.open_search_results(f.a, "*.zip", false);
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.picker_folder()->entries().size() == 1);
+    CHECK(f.browser.picker_folder()->path_of(f.browser.picker_folder()->entries()[0]) == visible);
+    f.browser.blur_filter();
+    REQUIRE(f.press(key(XKB_KEY_h, kCtrl)));
+    REQUIRE(f.settle());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.search_results()->finder()->root() == f.a);
+    CHECK(f.browser.search_results()->finder()->query() == "*.zip");
+    CHECK(f.browser.name_filter() == "*.zip");
+    CHECK(f.browser.search_results()->finder()->hidden());
+    REQUIRE(f.browser.picker_folder()->entries().size() == 2);
+    REQUIRE(f.press(key(XKB_KEY_h, kCtrl)));
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.picker_folder()->entries().size() == 1);
+    CHECK_FALSE(f.browser.search_results()->finder()->hidden());
+}
+
+TEST_CASE("native search: columns enter result folders and return to the result column") {
+    Fixture f;
+    f.browser.set_mode(Browser::Mode::columns);
+    REQUIRE(f.settle());
+    f.browser.open_search_results(f.a, "type:folder name:photo[s]", false);
+    REQUIRE(f.settle());
+    const auto folder = f.browser.picker_folder();
+    REQUIRE(folder->is_search());
+    REQUIRE(folder->entries().size() == 1);
+    CHECK(folder->path_of(folder->entries()[0]) == f.a / "photos");
+    f.select_result(0);
+    f.browser.blur_filter();
+    REQUIRE(f.press(key(XKB_KEY_Return)));
+    REQUIRE(f.settle());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.mode() == Browser::Mode::columns);
+    CHECK(f.browser.picker_folder()->path() == f.a / "photos");
+    REQUIRE(f.press(key(XKB_KEY_Left)));
+    REQUIRE(f.settle());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.picker_folder()->is_search());
+    CHECK_FALSE(f.browser.has_overlay());
+    CHECK(f.browser.mode() == Browser::Mode::columns);
+    CHECK(f.browser.name_filter() == "type:folder name:photo[s]");
+    CHECK(f.chosen_results() == std::vector<fs::path>{f.a / "photos"});
+    f.browser.back();
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    CHECK(f.browser.picker_folder()->path() == f.a);
+    f.browser.forward();
+    REQUIRE(f.settle());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.picker_folder()->is_search());
+    CHECK(f.browser.name_filter() == "type:folder name:photo[s]");
+    CHECK(f.chosen_results() == std::vector<fs::path>{f.a / "photos"});
+}
+
+TEST_CASE("native search: a split pane keeps independent normal navigation") {
+    Fixture f;
+    f.browser.toggle_split();
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.split_visible());
+    f.browser.open_search_results(f.a, "*.txt", false);
+    REQUIRE(f.settle());
+    REQUIRE(f.browser.searching_results());
+    const auto search_pane = f.browser.active_pane();
+    f.browser.focus_pane(1 - search_pane);
+    REQUIRE(f.settle());
+    CHECK_FALSE(f.browser.searching_results());
+    f.browser.open(f.a / "photos");
+    REQUIRE(f.settle());
+    CHECK(f.browser.picker_folder()->path() == f.a / "photos");
+    CHECK_FALSE(f.browser.picker_folder()->is_collection());
+    f.browser.focus_pane(search_pane);
+    REQUIRE(f.settle());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.name_filter() == "*.txt");
+    REQUIRE(f.browser.picker_folder()->entries().size() == 1);
+    CHECK(f.browser.picker_folder()->entries()[0].label() == "one.txt");
+    CHECK_FALSE(f.browser.has_overlay());
+    CHECK(f.browser.sidebar_visible());
 }
 
 TEST_CASE("find files: in the columns, the way down from the first column stays") {
@@ -641,8 +809,8 @@ TEST_CASE("search results: promote a live query, select across parents, copy and
     CHECK(results->finder()->query() == "ext:txt");
     CHECK(results->finder()->root() == f.a);
     REQUIRE(results->rows().size() == 2);
-    results->select_all();
-    REQUIRE(results->chosen().size() == 2);
+    f.browser.picker_folder()->select_all();
+    REQUIRE(f.chosen_results().size() == 2);
     f.browser.search_action(rummage::views::SearchResults::Action::copy);
     f.browser.search_action(rummage::views::SearchResults::Action::close);
     f.browser.open(f.dir.path / "destination");
@@ -666,7 +834,7 @@ TEST_CASE("search results: cut from different parents, conflict choices and a si
     touch(destination / "one.txt");
     f.browser.open_search_results(f.a, "ext:txt", false);
     REQUIRE(f.settle());
-    f.browser.search_results()->select_all();
+    f.browser.picker_folder()->select_all();
     f.browser.search_action(rummage::views::SearchResults::Action::cut);
     f.browser.search_action(rummage::views::SearchResults::Action::close);
     f.browser.open(destination);
@@ -692,7 +860,7 @@ TEST_CASE("search results: trash multiple parents and undo while results stay op
     f.browser.open_search_results(f.a, "ext:txt", false);
     REQUIRE(f.settle());
     auto& results = *f.browser.search_results();
-    results.select_all();
+    f.browser.picker_folder()->select_all();
     f.browser.search_action(rummage::views::SearchResults::Action::trash);
     REQUIRE(f.settle());
     CHECK(results.is_open());
@@ -711,14 +879,15 @@ TEST_CASE("search results: preview keeps the search open and rename refreshes wi
     f.browser.open_search_results(f.a, "ext:txt", false);
     REQUIRE(f.settle());
     auto& results = *f.browser.search_results();
-    REQUIRE(results.chosen().size() == 1);
+    f.select_result(0);
+    REQUIRE(f.chosen_results().size() == 1);
     f.browser.search_action(rummage::views::SearchResults::Action::preview);
     REQUIRE(run_until(f.loop, [&] {
         f.browser.settle_search_preview();
         return f.browser.quick_look().is_open();
     }));
     CHECK(results.is_open());
-    CHECK(f.browser.grid().folder()->path() == f.a);
+    CHECK(f.browser.grid().folder()->is_search());
     f.press(key(XKB_KEY_Escape));
     CHECK_FALSE(f.browser.quick_look().is_open());
     CHECK(results.is_open());
@@ -738,19 +907,20 @@ TEST_CASE("search results: preview keeps the search open and rename refreshes wi
 TEST_CASE(
     "search results: overlapping selections act on the parent once and Ctrl-click deselects") {
     Fixture f;
-    f.browser.open_search_results(f.a, "", false);
+    f.browser.open_search_results(f.a, "*", false);
     REQUIRE(f.settle());
     auto& results = *f.browser.search_results();
-    results.select_all();
-    const auto paths = results.chosen();
-    CHECK(paths.size() == 2);  // one.txt and photos; photos includes all of its descendants
+    f.browser.picker_folder()->select_all();
+    const auto paths = f.chosen_results();
+    CHECK(paths.size() == 5);  // Native selection includes descendants; actions prune overlaps.
     CHECK(std::ranges::find(paths, f.a / "photos") != paths.end());
-    results.set_query("one");
+    f.browser.set_name_filter("one");
     REQUIRE(f.settle());
-    REQUIRE(results.chosen().size() == 1);
-    results.select(0, kCtrl);
-    CHECK(results.chosen().empty());
-    results.select(0);
+    f.select_result(0);
+    REQUIRE(f.chosen_results().size() == 1);
+    f.select_result(0, rummage::views::SelectMode::toggle);
+    CHECK(f.chosen_results().empty());
+    f.select_result(0);
     fs::remove(f.a / "one.txt");
     f.browser.search_action(rummage::views::SearchResults::Action::trash);
     REQUIRE(f.settle());
@@ -792,27 +962,41 @@ TEST_CASE("saved searches: persist definitions, rerun current files, and remove 
     CHECK(f.browser.state().saved_searches.empty());
 }
 
-TEST_CASE(
-    "search results: the command palette acts on results and drops cannot reach the folder "
-    "behind") {
+TEST_CASE("search results: normal file commands act on results and collection drops are rejected") {
     Fixture f;
     f.browser.open_search_results(f.a, "ext:txt", false);
     REQUIRE(f.settle());
+    f.select_result(0);
+    f.browser.blur_filter();
     f.browser.open_palette();
     const auto& items = f.browser.command_palette().items();
-    CHECK(std::ranges::any_of(items, [](const auto& item) { return item.id == "search:copy"; }));
-    CHECK(std::ranges::none_of(items, [](const auto& item) {
-        return item.id == "command:new_folder" || item.id == "command:trash";
-    }));
+    CHECK(std::ranges::any_of(items, [](const auto& item) { return item.id == "command:copy"; }));
+    CHECK(std::ranges::none_of(items,
+                               [](const auto& item) { return item.id == "command:new_folder"; }));
     f.browser.command_palette().close();
+    rummage::ui::Offscreen surface{800, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(800, 600, 1, {});
+    f.browser.draw(renderer, {0, 0, 800, 600}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    const auto bounds = f.browser.pane_bounds(0);
+    REQUIRE_FALSE(bounds.empty());
     bool rejected = false, read = false;
     rummage::views::DragAndDrop drag;
     drag.accept = [&](const auto& type, std::uint32_t actions, std::uint32_t) {
         rejected = !type && actions == 0;
     };
+    drag.types = [] { return std::vector<std::string>{"text/uri-list"}; };
     drag.read = [&](const auto&, auto) { read = true; };
     f.browser.set_drag_and_drop(std::move(drag));
-    f.browser.drop_event({.kind = rummage::ui::DropEvent::Kind::drop});
+    f.browser.drop_event({.kind = rummage::ui::DropEvent::Kind::enter,
+                          .x = bounds.right() - 20,
+                          .y = bounds.bottom() - 20});
+    f.browser.drop_event({.kind = rummage::ui::DropEvent::Kind::drop,
+                          .x = bounds.right() - 20,
+                          .y = bounds.bottom() - 20});
     CHECK(rejected);
     CHECK_FALSE(read);
 }
@@ -821,6 +1005,7 @@ TEST_CASE("search results: a removed preview target never falls back to another 
     Fixture f;
     f.browser.open_search_results(f.a, "one", false);
     REQUIRE(f.settle());
+    f.select_result(0);
     fs::remove(f.a / "one.txt");
     touch(f.a / "different.txt");
     f.browser.search_action(rummage::views::SearchResults::Action::preview);
@@ -842,9 +1027,8 @@ TEST_CASE("search results: Back restores query and selection with refreshed path
     auto* results = f.browser.search_results();
     REQUIRE(results);
     REQUIRE(results->rows().size() == 2);
-    results->select(1);
-    const auto selected = results->chosen();
-    const auto before = results->snapshot();
+    f.select_result(1);
+    const auto selected = f.chosen_results();
     f.browser.search_action(rummage::views::SearchResults::Action::reveal);
     REQUIRE(f.settle());
     CHECK_FALSE(f.browser.searching_results());
@@ -854,8 +1038,8 @@ TEST_CASE("search results: Back restores query and selection with refreshed path
     CHECK(f.browser.search_results()->finder()->root() == f.a);
     CHECK(f.browser.search_results()->finder()->query() == "ext:orf");
     CHECK(f.browser.search_results()->finder()->hidden());
-    CHECK(f.browser.search_results()->chosen() == selected);
-    CHECK(f.browser.search_results()->first_row() == before.first);
+    CHECK(f.chosen_results() == selected);
+    CHECK(f.browser.picker_folder()->selected_count() == selected.size());
     f.browser.open_tab(f.a, true);
     REQUIRE(f.settle());
     CHECK_FALSE(f.browser.searching_results());
@@ -871,7 +1055,7 @@ TEST_CASE("search results: Back restores query and selection with refreshed path
     f.browser.back();
     REQUIRE(f.settle());
     REQUIRE(f.browser.searching_results());
-    const auto remaining = f.browser.search_results()->chosen();
+    const auto remaining = f.chosen_results();
     CHECK(std::ranges::find(remaining, selected.front()) == remaining.end());
 }
 
@@ -922,8 +1106,10 @@ TEST_CASE("find files: Back restores a chosen palette result as a search session
     const auto* results = f.browser.search_results();
     CHECK(results->finder()->root() == f.a);
     CHECK(results->finder()->query() == "ext:txt");
-    CHECK(results->chosen() == std::vector<fs::path>{f.a / path});
-    CHECK(results->first_row() == first);
+    CHECK(f.chosen_results() == std::vector<fs::path>{f.a / path});
+    REQUIRE(f.browser.picker_folder()->cursor_entry());
+    CHECK(f.browser.picker_folder()->path_of(*f.browser.picker_folder()->cursor_entry()) ==
+          f.a / path);
 }
 
 TEST_CASE("annotation search: exact tags rating and comment predicates") {
@@ -959,11 +1145,12 @@ TEST_CASE("recent files: collection filters restores and acts on actual source p
     REQUIRE(results->rows().size() == 2);
     CHECK(results->finder()->recent());
     CHECK(results->rows()[0].context.find("UTC") != std::string::npos);
-    results->select_all();
-    CHECK(results->chosen() == std::vector<fs::path>{other, one});
-    results->set_query("one.txt");
+    f.browser.picker_folder()->select_all();
+    CHECK(f.chosen_results() == std::vector<fs::path>{one, other});
+    f.browser.set_name_filter("one.txt");
+    REQUIRE(f.settle());
     REQUIRE(results->rows().size() == 1);
-    results->select(0);
+    f.select_result(0);
     const auto saved = results->snapshot();
     CHECK(saved.root == "rummage:recent");
     f.browser.search_action(rummage::views::SearchResults::Action::reveal);
@@ -974,13 +1161,15 @@ TEST_CASE("recent files: collection filters restores and acts on actual source p
     REQUIRE(f.browser.searching_results());
     results = f.browser.search_results();
     CHECK(results->finder()->recent());
-    CHECK(results->chosen() == std::vector<fs::path>{one});
+    CHECK(f.chosen_results() == std::vector<fs::path>{one});
     if (const char* output = std::getenv("RUMMAGE_RECENT_FRAME")) {
         rummage::ui::Offscreen gl{700, 600};
         rummage::ui::FontSystem fonts;
         rummage::ui::Renderer renderer{fonts};
         renderer.begin_frame(700, 600, 1, {});
-        results->draw(renderer, {0, 0, 700, 600}, rummage::theme::Palette{});
+        rummage::ui::IconSet icons{fonts};
+        f.browser.draw(renderer, {0, 0, 700, 600}, rummage::theme::Palette{}, icons,
+                       Browser::Clock::now());
         renderer.end_frame();
         std::vector<unsigned char> pixels(700 * 600 * 4);
         glReadPixels(0, 0, 700, 600, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
@@ -1113,13 +1302,13 @@ TEST_CASE("find files: wildcard archive queries populate quick finder and persis
     REQUIRE(results);
     REQUIRE(f.settle());
     REQUIRE(results->rows().size() == 3);
-    results->select_all();
-    CHECK(results->chosen().size() == 3);
-    results->set_query("name:nested/*.zip type:file");
+    f.browser.picker_folder()->select_all();
+    CHECK(f.chosen_results().size() == 3);
+    f.browser.set_name_filter("name:nested/*.zip type:file");
     REQUIRE(f.settle());
     REQUIRE(results->rows().size() == 1);
     CHECK(results->rows().front().path == "nested/second.zip");
-    results->set_query("name:*.zip ext:zip");
+    f.browser.set_name_filter("name:*.zip ext:zip");
     REQUIRE(f.settle());
     REQUIRE(results->rows().size() == 3);
     CHECK(results->finder()->specification().error.empty());

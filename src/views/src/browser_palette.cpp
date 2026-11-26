@@ -94,23 +94,15 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
     if (searching_results()) {
         using Action = SearchResults::Action;
-        const auto count = pane().search_results->chosen().size();
-        const auto offer = [&](const char* id, std::string_view label, Action action,
-                               bool enabled = true) {
-            if (enabled)
-                add(id, std::string{label}, "", [this, action] { search_action(action); }, false);
-        };
-        offer("search:copy", i18n::mark("Copy"), Action::copy, count > 0);
-        offer("search:cut", i18n::mark("Cut"), Action::cut, count > 0);
-        offer("search:trash", i18n::mark("Move to Trash"), Action::trash, count > 0);
-        offer("search:rename", i18n::mark("Rename…"), Action::rename, count == 1);
-        offer("search:preview", i18n::mark("Quick Look"), Action::preview, count == 1);
-        offer("search:reveal", i18n::mark("Show in Folder"), Action::reveal, count == 1);
-        offer("search:save", i18n::mark("Save Search…"), Action::save);
-        offer("search:saved", i18n::mark("Saved Searches…"), Action::saved);
-        offer("search:details", i18n::mark("Copy Search Details"), Action::details);
-        offer("search:close", i18n::mark("Close"), Action::close);
-        return items;
+        for (const auto& [id, label, action] :
+             {std::tuple{"search:save", i18n::mark("Save Search…"), Action::save},
+              std::tuple{"search:details", i18n::mark("Copy Search Details"), Action::details},
+              std::tuple{"search:close", i18n::mark("Close"), Action::close}})
+            add(id, std::string{label}, "", [this, action] { search_action(action); }, false);
+        add("search:refresh", std::string{i18n::mark("Refresh")}, "",
+            [this] { pane().search_results->refresh(); });
+        add("search:stop", std::string{i18n::mark("Stop")}, "",
+            [this] { pane().search_results->finder()->stop(); });
     }
     // A key the view handles itself (zoom, select all, parent): the same key, sent to it.
     const auto view_command = [&](const char* id, std::string label, std::string keys,
@@ -150,7 +142,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
     const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
-    const bool editable = folder && !in_trash && !folder->is_archive() && !folder->is_recent();
+    const bool editable = folder && !in_trash && !folder->is_archive() && !folder->is_collection();
     if (folder && !folder->is_archive() && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
@@ -197,7 +189,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     // Opening and moving.
     if (cursor != nullptr)
         command(Command::open_selected, "open", "Open");
-    if (cursor != nullptr && (editable || folder->is_recent()) && choices_ && open_with_) {
+    if (cursor != nullptr && (editable || folder->is_collection()) && choices_ && open_with_) {
         add("command:open_with", "Open With…", "", [this] { open_with_palette(); });
     }
     if (panes_enabled_ && !picker_mode_ && folder && !in_trash && !names.empty()) {
@@ -255,7 +247,7 @@ std::vector<PaletteItem> Browser::palette_items() {
             for (auto& item : link_menu(true))
                 add("command:" + item.id, item.label, "", std::move(item.action), true, false);
     }
-    if ((editable || (folder && folder->is_recent() && names.size() == 1)) && !names.empty() &&
+    if ((editable || (folder && folder->is_collection() && names.size() == 1)) && !names.empty() &&
         (names.size() == 1 || !picker_mode_)) {
         command(Command::rename, "rename", names.size() > 1 ? "Batch Rename…" : "Rename…");
     }
@@ -269,7 +261,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (!names.empty() && !in_trash && !folder->is_archive()) {
         command(Command::trash, "trash", "Move to Trash");
     }
-    if (!names.empty() && !folder->is_archive() && !folder->is_recent()) {
+    if (!names.empty() && !folder->is_archive() && !folder->is_collection()) {
         command(Command::erase, "erase", "Delete Permanently…");
     }
     if (!names.empty() && in_trash) {
@@ -448,8 +440,6 @@ std::vector<PaletteItem> Browser::palette_items() {
     }
 
     if (!picker_mode_) {
-        add("command:search_results", std::string{i18n::mark("Search Results…")}, "",
-            [this] { open_search_results(); });
         add("command:saved_searches", std::string{i18n::mark("Saved Searches…")}, "",
             [this] { open_saved_searches(); });
     }
@@ -457,8 +447,6 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !in_trash) {
         command(Command::filter_names, "filter_names", "Filter Names…");
         command(Command::find_files, "find_files", "Find Files…");
-        add("command:quick_finder", std::string{i18n::mark("Quick File Finder…")}, "",
-            [this] { open_finder(); });
         add("command:find_contents", std::string{i18n::mark("Find File Contents…")}, "", [this] {
             if (picker_mode_) {
                 open_finder();
@@ -672,7 +660,7 @@ void Browser::open_with_palette() {
         if (entry.is_directory() == cursor->is_directory() && target_names.contains(entry.name)) {
             fs::Entry typed = entry;
             typed.mime = folder->mime_of(entry);
-            if (folder->is_recent()) {
+            if (folder->is_collection()) {
                 typed.name = folder->path_of(entry).string();
                 typed.display_name.clear();
             }
@@ -682,8 +670,8 @@ void Browser::open_with_palette() {
     fs::Entry typed = *cursor;
     typed.mime = folder->mime_of(*cursor);
     const auto directory =
-        folder->is_recent() ? folder->path_of(*cursor).parent_path() : folder->path();
-    if (folder->is_recent()) {
+        folder->is_collection() ? folder->path_of(*cursor).parent_path() : folder->path();
+    if (folder->is_collection()) {
         typed.name = folder->path_of(*cursor).filename().string();
         typed.display_name.clear();
     }

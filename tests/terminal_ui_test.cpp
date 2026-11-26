@@ -329,11 +329,12 @@ TEST_CASE("terminal UI: focused shell receives input while a virtual search view
     renderer.begin_frame(800, 600, 1, {});
     f.browser.draw(renderer, {0, 0, 800, 600}, {}, icons, Browser::Clock::now());
     renderer.end_frame();
-    CHECK(f.browser.search_results()->list_bounds().bottom() <=
-          f.browser.terminal_panel().bounds().y);
+    CHECK(f.browser.pane_bounds(0).bottom() <= f.browser.terminal_panel().bounds().y);
     const auto query_border = [&] {
         std::array<std::uint8_t, 4> pixel{};
-        glReadPixels(16, 529, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        const auto field = f.browser.filter_bounds();
+        glReadPixels(static_cast<int>(field.x), 599 - static_cast<int>(field.y + 5), 1, 1, GL_RGBA,
+                     GL_UNSIGNED_BYTE, pixel.data());
         return pixel;
     };
     const auto inactive_query_border = query_border();
@@ -406,7 +407,7 @@ TEST_CASE("terminal UI: IME and accessible focus follow terminal and modal owner
         std::ranges::none_of(frame.nodes, [](const auto& node) { return node.id == "terminal"; }));
     CHECK(f.press(XKB_KEY_Escape));
     f.browser.focus_terminal();
-    f.browser.search_results()->focus_query();
+    CHECK(f.press(XKB_KEY_f, {.ctrl = true}));
     CHECK(f.browser.input_field() != nullptr);
     ui::TextField::focus_input(nullptr);
 }
@@ -675,7 +676,7 @@ TEST_CASE("terminal UI: all placements render above search and retain terminal i
         renderer.begin_frame(1000, 700, 1, {});
         f.browser.draw(renderer, {0, 0, 1000, 700}, {}, icons, Browser::Clock::now());
         renderer.end_frame();
-        const auto bounds = panel.bounds(), list = f.browser.search_results()->list_bounds();
+        const auto bounds = panel.bounds(), list = f.browser.pane_bounds(0);
         switch (placement) {
             case TerminalPlacement::bottom:
                 CHECK(list.bottom() <= bounds.y);

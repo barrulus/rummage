@@ -489,6 +489,25 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         clear_text_focus();
         metadata_.reset();
     }
+    if (single == nullptr && folder.is_collection()) {
+        // Collections have no backing directory to stat or analyse. Keep their empty
+        // selection summary in the ordinary info pane without requesting a virtual path.
+        forget_summary();
+        measure(folder_measure_, {}, {});
+        measure(selection_measure_, {}, {});
+        insights_path_.clear();
+        icon(folder.is_search() ? "search" : "folder",
+             theme::readable_foreground(palette.primary, palette.surface_container));
+        out.centered("name",
+                     folder.is_external_collection()
+                         ? folder.collection_label()
+                         : i18n::tr(folder.is_search() ? "Search Results" : "Recent Files"),
+                     15.0F, palette.on_surface, 22.0F);
+        out.section("INFORMATION");
+        out.row("Items", std::to_string(folder.total_count()));
+        finish();
+        return;
+    }
     if (folder.selected_count() > 1) {
         const SelectionSummary& selection = folder.summary();
         if (selection.folders > 0 && !folder.is_archive() && !folder.is_collection()) {
@@ -497,7 +516,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             key += '\0' + std::to_string(folder.model().revision());
             roots.reserve(folder.selected_count());
             for (const fs::Entry& entry : folder.entries()) {
-                if (folder.is_selected(entry.name)) {
+                if (folder.is_selected(entry.key())) {
                     roots.push_back(folder.path_of(entry));
                     key += '\0' + entry.name;
                 }
@@ -512,9 +531,10 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     const fs::MimeDatabase& mime = folder.mime();
     const std::filesystem::path path = single == nullptr ? folder.path() : folder.path_of(*single);
-    const bool album =
-        single != nullptr && folder.is_collection() && single->identity.starts_with("album:");
-    const bool logical = single != nullptr && folder.is_collection() && (path.empty() || album);
+    const bool album = single != nullptr && folder.is_external_collection() &&
+                       single->identity.starts_with("album:");
+    const bool logical =
+        single != nullptr && folder.is_external_collection() && (path.empty() || album);
     fs::Entry typed;
     preview::Kind kind = preview::Kind::info;
     if (single != nullptr) {
@@ -621,9 +641,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     // Name and type.
     std::string name = single == nullptr
-                           ? (folder.is_collection() ? folder.collection_label()
-                                                     : folder.path().filename().string())
-                           : single->name;
+                           ? (folder.is_external_collection() ? folder.collection_label()
+                                                              : folder.path().filename().string())
+                           : single->label();
     if (name.empty()) {
         name = folder.path().string();  // the root
     }

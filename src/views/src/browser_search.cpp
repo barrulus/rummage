@@ -20,19 +20,28 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
         redraw_();
         return;
     }
+    if (searching_results() && root.empty() && query.empty()) {
+        filter_focused_ = true;
+        pane().filter_field.select_all();
+        redraw_();
+        return;
+    }
+    if (root.empty() && searching_results())
+        root = pane().search_results->snapshot().root;
     if (root.empty()) {
         const auto folder = current_folder();
-        if (!folder || folder->is_collection() || folder->is_trash() || folder->is_archive())
+        if (!folder || folder->is_trash() || folder->is_archive() || folder->is_collection())
             return;
         root = folder->path();
     }
-    if (!root.is_absolute())
+    if (!root.is_absolute() && !fs::is_recent(root))
         return;
     // An explicit filesystem search opens in a normal tab, preserving the logical photo tab.
     if (showing_photos())
         open_tab(root, true);
     note_location();
-    filter_focused_ = false;
+    remember_folder(pane());
+    filter_focused_ = true;
     palette_.close();
     menu_.close();
     shortcuts_.close();
@@ -40,22 +49,115 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
     search_preview_.reset();
     search_preview_pending_ = false;
     ++search_generation_;
+    pane().search_folder.reset();
+    pane().search_paths.clear();
+    pane().restoring_search.reset();
     if (!pane().search_results)
         pane().search_results = std::make_unique<SearchResults>(
-            pool_, redraw_, [this](auto action) { search_action(action); });
-    pane().search_results->open(root, std::move(query), hidden.value_or(pane().show_hidden));
+            pool_,
+            [this, target = &pane()] {
+                sync_search_results(*target);
+                redraw_();
+            },
+            [this](auto action) { search_action(action); });
+    pane().search_results->open(root, std::move(query), hidden.value_or(pane().show_hidden),
+                                root != "rummage:recent");
+    show_search_folder();
     if (!pane().history.empty() && pane().history[pane().here].search) {
-        pane().history[pane().here].search = pane().search_results->snapshot();
+        pane().history[pane().here].search = search_snapshot();
     } else {
         if (!pane().history.empty())
             pane().history.erase(
                 pane().history.begin() + static_cast<std::ptrdiff_t>(pane().here + 1),
                 pane().history.end());
-        pane().history.push_back(
-            {.folder = root, .cursor = {}, .search = pane().search_results->snapshot()});
+        pane().history.push_back({.folder = root, .cursor = {}, .search = search_snapshot()});
         if (pane().history.size() > kHistorySize)
             pane().history.erase(pane().history.begin());
         pane().here = pane().history.size() - 1;
+    }
+}
+
+void Browser::show_search_folder() {
+    const auto saved = pane().search_results->snapshot();
+    pane().settings_folder.clear();
+    pane().retained_folder_mode.reset();
+    if (!pane().filter_folder.empty() && !pane().valid_filter.empty())
+        pane().folder_filters[pane().filter_folder] = pane().valid_filter;
+    pane().filter_folder = fs::search_path();
+    pane().valid_filter.clear();
+    pane().filter_error.clear();
+    pane().filter_field.set_text(saved.query);
+    pane().entry_filter = {};
+    pane().columns.set_entry_filter({});
+    pane().grid.set_entry_filter({});
+    pane().details.set_entry_filter({});
+    pane().search_paths.clear();
+    pane().search_folder = std::make_shared<Folder>(
+        loop_, pool_, watcher_, mime_, fs::search_path(),
+        [this, alive = alive_] {
+            if (!*alive)
+                return;
+            // Operations can retain a Folder after its tab closes; never capture its Pane.
+            for (const auto& owner : areas_)
+                if (owner)
+                    for (const auto& tab : owner->tabs)
+                        sync_search_results(*tab);
+            redraw_();
+        },
+        true);
+    pane().columns.show(pane().search_folder);
+    if (pane().mode == Mode::grid) {
+        pane().columns.suspend();
+        pane().grid.show(pane().search_folder);
+    } else if (pane().mode == Mode::details) {
+        pane().columns.suspend();
+        pane().details.show(pane().search_folder);
+    }
+    sync_search_results(pane());
+}
+
+SearchResults::Snapshot Browser::search_snapshot() const {
+    auto saved = pane().search_results->snapshot();
+    if (pane().restoring_search)
+        return *pane().restoring_search;
+    if (const auto& folder = pane().search_folder) {
+        const auto selected = folder->selected_names();
+        saved.selected = {selected.begin(), selected.end()};
+        saved.cursor = folder->cursor_entry() ? folder->cursor_entry()->name : "";
+        saved.anchor = saved.cursor;
+    }
+    return saved;
+}
+
+void Browser::sync_search_results(Pane& target) {
+    if (!target.search_results || !target.search_results->is_open() || !target.search_folder)
+        return;
+    const auto saved = target.search_results->snapshot();
+    const auto root =
+        target.search_results->finder()->recent() ? std::filesystem::path{"/"} : saved.root;
+    std::vector<std::filesystem::path> paths;
+    for (const auto& row : target.search_results->rows())
+        paths.push_back(root / row.path);
+    if (paths != target.search_paths) {
+        target.search_paths = paths;
+        target.search_folder->set_search_results(std::move(paths));
+    }
+    if (target.restoring_search && !target.search_results->loading() &&
+        !target.search_folder->model().loading()) {
+        const auto restore = std::move(*target.restoring_search);
+        target.restoring_search.reset();
+        const auto identity = [&](const std::string& value) {
+            return value.empty() ? std::string{} : (root / value).lexically_normal().string();
+        };
+        target.search_folder->select_name(identity(restore.cursor));
+        std::vector<std::size_t> selected;
+        const auto& entries = target.search_folder->entries();
+        for (std::size_t i = 0; i < entries.size(); ++i)
+            if (std::ranges::any_of(restore.selected, [&](const auto& name) {
+                    return identity(name) == entries[i].name;
+                }))
+                selected.push_back(i);
+        target.search_folder->select_rows(selected, false);
     }
 }
 
@@ -105,28 +207,35 @@ void Browser::search_action(SearchResults::Action action) {
     if (!searching_results() && !recent)
         return;
     std::vector<std::filesystem::path> paths;
-    if (recent) {
+    if (collection && (collection->is_search() || collection->is_recent()))
         for (const auto& name : targets(*collection))
             paths.push_back(collection->model().source_path(name));
-    } else
-        paths = pane().search_results->chosen();
     auto* finder = recent ? nullptr : pane().search_results->finder();
     if (!finder && !recent)
         return;
     switch (action) {
-        case Action::close:
+        case Action::close: {
+            filter_focused_ = false;
+            if (can_travel(-1)) {
+                travel(-1);
+                return;
+            }
+            const auto root = pane().search_results->snapshot().root;
             note_location();
             ++search_generation_;
             quick_look_.close();
             search_preview_.reset();
             search_preview_pending_ = false;
             pane().search_results->close();
+            open(root);
             return;
+        }
         case Action::saved:
             open_saved_searches();
             return;
         case Action::details:
-            copy_text(finder->root().string() + "\n" + finder->query() + "\n" + finder->status());
+            copy_text(pane().search_results->snapshot().root.string() + "\n" + finder->query() +
+                      "\n" + finder->status());
             return;
         case Action::undo:
             run(Command::undo, Clock::now());
@@ -139,8 +248,8 @@ void Browser::search_action(SearchResults::Action action) {
                 show_message(finder->specification().error, true);
                 return;
             }
-            const State::SavedSearch definition{"", finder->root(), finder->query(),
-                                                finder->hidden()};
+            const auto snapshot = pane().search_results->snapshot();
+            const State::SavedSearch definition{"", snapshot.root, snapshot.query, snapshot.hidden};
             confirm_.open_name(
                 std::string{i18n::tr("Save Search…")}, definition.root.string(), "",
                 [this, definition](const std::string& name) {
@@ -176,7 +285,7 @@ void Browser::search_action(SearchResults::Action action) {
             const bool cut = action == Action::cut;
             clipboard_ = {.directory = {}, .names = {}, .cut = cut, .paths = paths};
             cut_marks_ = {};
-            if (recent && cut) {
+            if (collection && cut) {
                 const auto names = targets(*collection);
                 cut_marks_ = {.directory = collection->path(),
                               .names = {names.begin(), names.end()}};
@@ -221,7 +330,18 @@ void Browser::search_action(SearchResults::Action action) {
             break;
         }
         case Action::preview:
-            if (recent) {
+            if (paths.size() != 1)
+                return;
+            {
+                std::error_code error;
+                if (!std::filesystem::exists(paths.front(), error)) {
+                    show_message(std::string{i18n::tr(
+                                     "The result is no longer available; refresh the search")},
+                                 true);
+                    return;
+                }
+            }
+            if (collection && (collection->is_search() || collection->is_recent())) {
                 quick_look_.open(collection, Clock::now());
                 return;
             }
@@ -235,13 +355,13 @@ void Browser::search_action(SearchResults::Action action) {
             break;
         case Action::reveal:
         case Action::open: {
-            if (recent && action == Action::open) {
+            if (action == Action::open) {
                 open_selection();
                 return;
             }
             if (paths.size() != 1)
                 return;
-            if (recent) {
+            if (collection && (collection->is_search() || collection->is_recent())) {
                 go_to(paths.front().parent_path(), paths.front().filename().string());
                 return;
             }

@@ -45,6 +45,10 @@ void DirectoryModel::open(std::filesystem::path path) {
     error_.clear();
     notify(reset_change());
 
+    if (is_search()) {
+        notify(loaded_change());
+        return;
+    }
     if (is_recent()) {
         loading_ = true;
         load_recent();
@@ -85,6 +89,16 @@ void DirectoryModel::set_order(SortOrder order) {
 }
 
 void DirectoryModel::refresh_entry(const std::string& name) {
+    if (is_search()) {
+        if (refresh_running_)
+            search_again_ = true;
+        else if (!settle_timer_)
+            settle_timer_ = loop_.add_timer(settle_, std::chrono::milliseconds{0}, [this] {
+                settle_timer_ = 0;
+                load_search();
+            });
+        return;
+    }
     if (is_recent()) {
         if (refresh_running_)
             recent_again_ = true;
@@ -166,8 +180,10 @@ void DirectoryModel::stop() {
         watcher_.unwatch(id);
     }
     trash_watches_.clear();
-    recent_paths_.clear();
+    source_paths_.clear();
     recent_again_ = false;
+    search_paths_.clear();
+    search_again_ = false;
     trashed_.clear();
     trash_ = false;
     trash_again_ = false;
@@ -255,9 +271,99 @@ struct DirectoryModel::TrashListing {
 };
 
 std::filesystem::path DirectoryModel::source_path(const std::string& name) const {
-    if (const auto found = recent_paths_.find(name); found != recent_paths_.end())
+    if (const auto found = source_paths_.find(name); found != source_paths_.end())
         return found->second;
     return path_ / name;
+}
+
+void DirectoryModel::set_search_results(std::vector<std::filesystem::path> paths) {
+    if (!is_search() || paths == search_paths_)
+        return;
+    search_paths_ = std::move(paths);
+    loading_ = true;
+    if (refresh_running_) {
+        search_again_ = true;
+        return;
+    }
+    load_search();
+}
+
+void DirectoryModel::load_search() {
+    struct Result {
+        std::vector<std::filesystem::path> requested;
+        std::vector<Entry> entries;
+        std::unordered_map<std::string, std::filesystem::path> paths;
+        std::unordered_set<std::string> directories;
+    };
+
+    refresh_running_ = true;
+    refresh_job_ = pool_.submit(
+        core::Priority::visible,
+        [paths = search_paths_, options = options_](const core::CancelToken& token) {
+            Result result;
+            result.requested = paths;
+            for (const auto& path : paths) {
+                if (token.cancelled())
+                    break;
+                if (!path.is_absolute())
+                    continue;
+                result.directories.insert(path.parent_path().string());
+                const auto identity = path.string();
+                if (result.paths.contains(identity))
+                    continue;
+                auto read = read_entries(path.parent_path(), {path.filename().string()}, options);
+                if (read.empty() || !read.front())
+                    continue;
+                auto entry = std::move(*read.front());
+                entry.display_name = entry.name;
+                entry.name = identity;
+                result.paths.emplace(identity, path);
+                result.entries.push_back(std::move(entry));
+            }
+            return result;
+        },
+        [this](Result result) {
+            refresh_running_ = false;
+            if (result.requested != search_paths_) {
+                search_again_ = false;
+                load_search();
+                return;
+            }
+            for (auto it = trash_watches_.begin(); it != trash_watches_.end();) {
+                if (!result.directories.contains(it->first)) {
+                    watcher_.unwatch(it->second);
+                    it = trash_watches_.erase(it);
+                } else
+                    ++it;
+            }
+            for (const auto& directory : result.directories) {
+                if (trash_watches_.contains(directory))
+                    continue;
+                std::error_code error;
+                const auto id =
+                    watcher_.watch(directory, [this](const auto&) { refresh_entry({}); }, error);
+                if (id)
+                    trash_watches_.emplace(directory, id);
+            }
+            ModelChange change;
+            std::unordered_set<std::string> gone;
+            for (const auto& name : names_)
+                if (!result.paths.contains(name)) {
+                    gone.insert(name);
+                    change.removed.push_back(name);
+                }
+            for (const auto& entry : result.entries)
+                (names_.contains(entry.name) ? change.updated : change.added).push_back(entry.name);
+            listing_.replace(gone, std::move(result.entries));
+            source_paths_ = std::move(result.paths);
+            names_.clear();
+            for (const auto& [name, path] : source_paths_)
+                names_.insert(name);
+            change.loaded = std::exchange(loading_, false);
+            notify(change);
+            if (std::exchange(search_again_, false))
+                load_search();
+        });
 }
 
 void DirectoryModel::load_recent() {
@@ -341,9 +447,9 @@ void DirectoryModel::load_recent() {
             for (const auto& entry : result.entries)
                 (names_.contains(entry.name) ? change.updated : change.added).push_back(entry.name);
             listing_.replace(gone, std::move(result.entries));
-            recent_paths_ = std::move(result.paths);
+            source_paths_ = std::move(result.paths);
             names_.clear();
-            for (const auto& [name, path] : recent_paths_)
+            for (const auto& [name, path] : source_paths_)
                 names_.insert(name);
             change.loaded = std::exchange(loading_, false);
             notify(change);

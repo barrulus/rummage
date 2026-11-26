@@ -219,6 +219,10 @@ std::shared_ptr<Folder> ColumnView::focused_folder() const {
     return columns_.empty() ? nullptr : columns_[focus_].column->shared_folder();
 }
 
+std::shared_ptr<Folder> ColumnView::root_folder() const {
+    return columns_.empty() ? nullptr : columns_.front().column->shared_folder();
+}
+
 void ColumnView::show(std::shared_ptr<Folder> folder) {
     suspended_ = false;
     reveal_.clear();
@@ -234,7 +238,7 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
         redraw_();
         return;
     }
-    if (folder->is_collection()) {
+    if (folder->is_external_collection()) {
         for (const auto& slot : columns_)
             slot.column->folder().set_changed_handler(nullptr);
         columns_.clear();
@@ -249,6 +253,14 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
         return;
     }
     const std::filesystem::path target = folder->path();
+    if (folder->is_collection()) {
+        open(target);
+        columns_.front() = Slot{.column = make_column(std::move(folder))};
+        root_locked_ = true;
+        refresh_filters();
+        sync_after(0);
+        return;
+    }
     const auto inside = [&target](const std::filesystem::path& root) {
         const std::filesystem::path relative = target.lexically_relative(root);
         return !relative.empty() && relative != "." && *relative.begin() != "..";
@@ -323,7 +335,7 @@ void ColumnView::sync_columns(std::size_t index) {
         reveal_.clear();  // arrived
         focus_ = index;
     }
-    if (folder.is_collection() || entry == nullptr || !entry->is_directory()) {
+    if (folder.is_external_collection() || entry == nullptr || !entry->is_directory()) {
         reveal_.clear();  // arrived above, or the way is lost
         truncate(index + 1);
         reveal_focus_ = true;
@@ -403,6 +415,8 @@ void ColumnView::go_left() {
         focus_on(focus_ - 1);
         return;
     }
+    if (columns_.front().column->folder().is_collection())
+        return;
     if (root_locked_ &&
         columns_.front().column->folder().model().error() != std::errc::no_such_file_or_directory)
         return;

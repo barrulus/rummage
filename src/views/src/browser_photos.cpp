@@ -210,8 +210,6 @@ void Browser::open_photo_library(std::filesystem::path add_folder) {
     menu_.close();
     shortcuts_.close();
     quick_look_.close();
-    if (searching_results())
-        search_results_->close();
     prepare_photo_library();
     bool found = false;
     for (std::size_t index = 0; index < areas_.size() && !found; ++index) {

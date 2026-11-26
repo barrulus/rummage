@@ -25,6 +25,9 @@ constexpr std::string_view kEllipsis = "…";
 
 std::vector<Crumb> crumbs_of(const std::filesystem::path& folder,
                              const std::filesystem::path& home) {
+    if (fs::is_search(folder))
+        return {{.path = folder, .label = {}, .icon = "search"},
+                {.path = folder, .label = std::string{i18n::tr("Search Results")}, .icon = {}}};
     if (fs::is_recent(folder))
         return {{.path = folder, .label = {}, .icon = "calendar"},
                 {.path = folder, .label = std::string{i18n::tr("Recent Files")}, .icon = {}}};
@@ -59,10 +62,13 @@ Breadcrumb::Breadcrumb(std::function<void()> redraw, Go go, std::filesystem::pat
     : pool_{pool}, redraw_{std::move(redraw)}, go_{std::move(go)}, home_{std::move(home)} {}
 
 void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-                      ui::IconSet& icons, const Folder& folder) {
+                      ui::IconSet& icons, const Folder& folder,
+                      std::filesystem::path search_scope) {
     bounds_ = bounds;
-    if (path_ != folder.path()) {
-        path_ = folder.path();
+    const auto& location =
+        folder.is_search() && !search_scope.empty() ? search_scope : folder.path();
+    if (path_ != location) {
+        path_ = location;
         cancel_edit();
         error_.clear();
     }
@@ -76,10 +82,13 @@ void Breadcrumb::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
         return;
     }
     std::vector<Crumb> crumbs;
-    if (folder.is_collection())
+    if (folder.is_external_collection())
         crumbs.push_back({.path = {}, .label = folder.collection_label(), .icon = {}});
     else
-        crumbs = crumbs_of(folder.path(), home_);
+        crumbs = crumbs_of(location, home_);
+    if (folder.is_search() && !search_scope.empty())
+        crumbs.push_back(
+            {.path = folder.path(), .label = std::string{i18n::tr("Search Results")}, .icon = {}});
     if (crumbs != crumbs_) {
         crumbs_ = std::move(crumbs);
         hovered_.reset();
@@ -242,7 +251,8 @@ void Breadcrumb::pointer(const ui::PointerEvent& event) {
         return;  // the last step is the folder shown
     }
     const std::filesystem::path path = crumbs_[*over].path;
-    const std::string child = crumbs_[*over + 1].path.filename().string();
+    const auto& next = crumbs_[*over + 1].path;
+    const std::string child = fs::is_search(next) ? std::string{} : next.filename().string();
     if (go_) {
         go_(path, child);
     }

@@ -91,7 +91,7 @@ public:
 
     void notify_visible_range(std::size_t first, std::size_t last_exclusive) const;
 
-    [[nodiscard]] bool is_collection() const noexcept { return collection_; }
+    [[nodiscard]] bool is_external_collection() const noexcept { return collection_; }
 
     [[nodiscard]] const std::string& collection_label() const noexcept { return collection_label_; }
 
@@ -136,6 +136,16 @@ public:
 
     // The trash folder (fs::trash_path()): nothing is made, pasted or renamed in it.
     [[nodiscard]] bool is_recent() const noexcept { return model_.is_recent(); }
+
+    [[nodiscard]] bool is_search() const noexcept { return model_.is_search(); }
+
+    [[nodiscard]] bool is_collection() const noexcept {
+        return collection_ || model_.is_collection();
+    }
+
+    void set_search_results(std::vector<std::filesystem::path> paths) {
+        model_.set_search_results(std::move(paths));
+    }
 
     [[nodiscard]] bool is_trash() const noexcept { return model_.is_trash(); }
 

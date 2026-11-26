@@ -444,7 +444,8 @@ can be added separately without weakening these required checks.
 ## Native PDF previews
 
 All native recipes package the application with its image, media and PDF helpers.
-Only `rummage-photos` is split into an optional package. The PDF helper and private renderer live together in
+Photo Library (`rummage-photos`), font specimens (`rummage-font`) and model previews
+(`rummage-model`) are separate optional packages. The PDF helper and private renderer live together in
 `/usr/libexec/rummage`; only that helper has an `$ORIGIN` runtime library path.
 The main executable does not link PDFium or FFmpeg; the standard package includes
 the isolated helpers and their dependencies.
@@ -465,7 +466,7 @@ Clean installation checks the standard package and its bundled preview helpers,
 then installs and removes the photo add-on. It checks runtime libraries
 before installing test tools and uses `scripts/ci/check-pdf.py` to exercise the
 installed helper's sandbox, first-page rendering, rotation, fonts and forms.
-The release assembler requires the standard and photo packages for every target.
+The release assembler requires the standard, photo, font and model packages for every target.
 
 ### PDF renderer maintenance
 
@@ -555,8 +556,8 @@ Before publishing enablement instructions, verify the actual project URL and
 signing-key fingerprint, then test `dnf copr enable OWNER/PROJECT` in a clean
 Fedora environment. `OWNER/PROJECT` is a placeholder, not an available repository.
 Document who controls that signing key and that enabling a third-party
-repository trusts its package updates. Test base-only, `rummage-media`,
-`rummage-pdf`, `rummage-font`, `rummage-model` and `rummage-previews` installs,
+repository trusts its package updates. Test base-only, `rummage-photos`,
+`rummage-font` and `rummage-model` installs,
 exact-version dependencies, helper
 isolation, upgrade from the previous release, downgrade/channel switching and
 removal. Use `scripts/ci/native.sh rpm` for the existing container package check;

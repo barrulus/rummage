@@ -31,6 +31,7 @@ def configure(profile, build):
             "-DRUMMAGE_BUILD_TESTS=" + ("OFF" if profile == "fuzz" else "ON"),
             "-DRUMMAGE_MEDIA=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_PDF=" + ("ON" if profile == "asan" else "OFF"),
+            "-DRUMMAGE_PHOTOS=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_MODEL=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_TERMINAL=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_FONT=" + ("ON" if profile == "asan" else "OFF"),

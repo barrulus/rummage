@@ -849,3 +849,30 @@ TEST_CASE(
     CHECK_FALSE(pane.loading());
     CHECK(pane.summary() == nullptr);
 }
+
+TEST_CASE("info pane: search collection without selection has no filesystem summary") {
+    rummage::ui::Offscreen gl{kWidth, kHeight};
+    Fixture f;
+    REQUIRE(f.settle());
+    // Columns intentionally hide the info pane without a cursor; grid shows its folder summary.
+    f.browser.set_mode(Browser::Mode::grid);
+    std::string copied;
+    f.pane().set_copy_handler([&](std::string text) { copied = std::move(text); });
+    f.pane().set_insights_handler([](const auto&) {});
+    f.pane().set_code_handler([](const auto&) {});
+    f.browser.open_search_results(f.dir.path);
+    f.draw();
+    CHECK_FALSE(f.pane().loading());
+    CHECK(f.pane().summary() == nullptr);
+    CHECK(f.pane().code_bounds().empty());
+    CHECK(f.pane().property_bounds("error").empty());
+    CHECK_FALSE(f.pane().property_bounds("Items.value").empty());
+    const auto copy = f.pane().copy_bounds();
+    REQUIRE_FALSE(copy.empty());
+    f.pane().click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Search Results") != std::string::npos);
+    CHECK(copied.find("Items: 0") != std::string::npos);
+    CHECK(copied.find("rummage:") == std::string::npos);
+    CHECK(copied.find("No such file") == std::string::npos);
+    CHECK(copied.find("Location:") == std::string::npos);
+}

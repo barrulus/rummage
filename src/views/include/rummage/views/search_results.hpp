@@ -48,7 +48,8 @@ public:
     };
     SearchResults(core::WorkerPool& pool, std::function<void()> redraw,
                   std::function<void(Action)> action);
-    void open(const std::filesystem::path& root, std::string query, bool hidden);
+    void open(const std::filesystem::path& root, std::string query, bool hidden,
+              bool defer_empty = false);
     void close();
     void refresh();
     void set_query(std::string query);
@@ -122,6 +123,8 @@ private:
     int focus_{-1};  // -1 query, -2 list, otherwise toolbar index
     float row_height_{52}, wheel_rest_{0};
     bool open_{false};
+    bool defer_empty_{false}, search_hidden_{false};
+    std::filesystem::path search_root_;
     std::optional<Snapshot> restoring_;
 };
 }  // namespace rummage::views

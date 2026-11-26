@@ -58,7 +58,9 @@ void Browser::toggle_split() {
     if (!areas_[1]) {
         const auto folder =
             pane().mode == Mode::details ? pane().details.root_folder() : current_folder();
-        const auto path = folder && !folder->is_collection() ? folder->path() : session_fallback();
+        const auto path = searching_results() ? pane().search_results->snapshot().root
+                          : folder && !folder->is_collection() ? folder->path()
+                                              : session_fallback();
         const auto mode = pane().mode;
         const auto list = pane().details.list_size();
         const auto grid = pane().grid.size_index();
@@ -145,6 +147,9 @@ std::shared_ptr<Folder> Browser::other_folder() const {
 void Browser::open_in_other_pane(const std::filesystem::path& directory) {
     if (!panes_enabled_)
         return;
+    const auto search = fs::is_search(directory) && searching_results()
+                            ? std::optional{search_snapshot()}
+                            : std::nullopt;
     if (!split_visible_) {
         const auto source = active_area_;
         toggle_split();
@@ -152,15 +157,17 @@ void Browser::open_in_other_pane(const std::filesystem::path& directory) {
     } else {
         switch_pane();
     }
-    open_tab(directory, true);
+    open_tab(search ? search->root : directory, true);
+    if (search)
+        open_search_results(search->root, search->query, search->hidden);
 }
 
 void Browser::transfer_to_other_pane(bool move) {
     const auto source = current_folder();
     const auto destination = other_folder();
-    if (!source || source->is_collection() ||
+    if (!source || source->is_external_collection() ||
         (source->is_trash() || (move && source->is_archive())) || !destination ||
-        (destination->is_collection() || destination->is_recent() || destination->is_trash() || destination->is_archive()))
+        (destination->is_trash() || destination->is_archive() || destination->is_collection()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*source))
@@ -241,11 +248,6 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         find.keys = keys_for(Command::find_files);
         find.action = [this] { open_search_results(); };
         items.push_back(std::move(find));
-        MenuItem results;
-        results.id = "search_results";
-        results.label = i18n::tr("Search Results…");
-        results.action = [this] { open_search_results(); };
-        items.push_back(std::move(results));
         MenuItem saved;
         saved.id = "saved_searches";
         saved.label = i18n::tr("Saved Searches…");
@@ -399,7 +401,7 @@ std::vector<MenuItem> Browser::pane_items() {
             Command::orient_panes, [this] { set_stacked(!stacked_); });
     }
     const auto source = current_folder();
-    if (!source || source->is_collection() || source->is_trash())
+    if (!source || source->is_external_collection() || source->is_trash())
         return items;
     const auto same = pane().mode == Mode::details ? pane().details.root_folder() : source;
     if (same)
@@ -410,12 +412,12 @@ std::vector<MenuItem> Browser::pane_items() {
         const auto entry = std::ranges::find(source->entries(), names.front(), &fs::Entry::name);
         if (entry != source->entries().end() && entry->is_directory()) {
             add("open_other_pane", "Open in Other Pane", Command::open_other_pane,
-                [this, path = source->path() / entry->name] { open_in_other_pane(path); });
+                [this, path = source->path_of(*entry)] { open_in_other_pane(path); });
         }
     }
     const auto destination = other_folder();
     if (!destination ||
-        (destination->is_collection() || destination->is_recent() || destination->is_trash() || destination->is_archive()) ||
+        (destination->is_trash() || destination->is_archive() || destination->is_collection()) ||
         names.empty())
         return items;
     std::vector<std::filesystem::path> paths;

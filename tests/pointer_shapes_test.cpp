@@ -410,27 +410,73 @@ TEST_CASE("toolbar: filter and New Folder buttons work in each view") {
     }
 }
 
-TEST_CASE("toolbar: search button opens recursive file search instead of filtering names") {
-    Fixture f;
-    REQUIRE(f.gl);
-    f.browser.open(f.photos);
-    REQUIRE(f.settle());
-    const auto button = f.browser.search_button_bounds();
-    REQUIRE_FALSE(button.empty());
-    CHECK(f.browser.cursor_at(button.x + 4, button.y + 4) == CursorShape::pointer);
-    f.browser.pointer({.kind = PointerEvent::Kind::press,
-                       .x = button.x + 4,
-                       .y = button.y + 4,
-                       .button = rummage::ui::PointerButton::left},
-                      Browser::Clock::now());
-    f.browser.pointer({.kind = PointerEvent::Kind::release,
-                       .x = button.x + 4,
-                       .y = button.y + 4,
-                       .button = rummage::ui::PointerButton::left},
-                      Browser::Clock::now());
-    CHECK(f.browser.searching_results());
-    CHECK_FALSE(f.browser.command_palette().is_open());
-    CHECK_FALSE(f.browser.filtering());
+TEST_CASE("toolbar: search stays inside the browser with working navigation and native views") {
+    for (const auto mode : {Browser::Mode::columns, Browser::Mode::details, Browser::Mode::grid}) {
+        CAPTURE(static_cast<int>(mode));
+        Fixture f;
+        REQUIRE(f.gl);
+        f.browser.open(f.photos);
+        f.browser.set_mode(mode);
+        REQUIRE(f.settle());
+        const auto field_before = f.browser.filter_bounds();
+        const auto button = f.browser.search_button_bounds();
+        REQUIRE_FALSE(button.empty());
+        const auto click = [&](rummage::ui::Rect rect) {
+            f.browser.pointer({.kind = PointerEvent::Kind::press,
+                               .x = rect.x + 4,
+                               .y = rect.y + 4,
+                               .button = rummage::ui::PointerButton::left},
+                              Browser::Clock::now());
+            f.browser.pointer({.kind = PointerEvent::Kind::release,
+                               .x = rect.x + 4,
+                               .y = rect.y + 4,
+                               .button = rummage::ui::PointerButton::left},
+                              Browser::Clock::now());
+        };
+        CHECK(f.browser.cursor_at(button.x + 4, button.y + 4) == CursorShape::pointer);
+        click(button);
+        REQUIRE(f.settle());
+        CHECK(f.browser.searching_results());
+        CHECK_FALSE(f.browser.has_overlay());
+        CHECK_FALSE(f.browser.command_palette().is_open());
+        CHECK(f.browser.filtering());
+        CHECK(f.browser.sidebar_visible());
+        CHECK(f.browser.mode() == mode);
+        REQUIRE(f.browser.picker_folder());
+        CHECK(f.browser.picker_folder()->is_search());
+        CHECK(f.browser.picker_folder()->entries().empty());
+        CHECK(f.browser.search_results()->finder()->entries() == 0);
+        CHECK_FALSE(f.browser.search_results()->finder()->scanning());
+        const auto field = f.browser.filter_bounds();
+        CHECK(field.x == field_before.x);
+        CHECK(field.y == field_before.y);
+        CHECK(f.browser.cursor_at(field.x + 4, field.y + 4) == CursorShape::text);
+        CHECK(f.browser.pane_bounds(0).x > 0);  // Places keeps its area beside the results.
+
+        // Type into the existing toolbar, then use the usual file view and toolbar controls.
+        CHECK(f.browser.key({.keysym = XKB_KEY_asterisk, .text = "*.txt"}, Browser::Clock::now()));
+        REQUIRE(f.settle());
+        REQUIRE(f.browser.picker_folder()->entries().size() == 1);
+        CHECK(f.browser.picker_folder()->entries()[0].label() == "b.txt");
+        if (mode == Browser::Mode::details)
+            CHECK(f.browser.details().folder() == f.browser.picker_folder());
+        else if (mode == Browser::Mode::grid)
+            CHECK(f.browser.grid().folder() == f.browser.picker_folder());
+        else
+            CHECK(f.browser.columns().focused_folder() == f.browser.picker_folder());
+        click(f.browser.sidebar_toggle_bounds());
+        REQUIRE(f.settle());
+        CHECK_FALSE(f.browser.sidebar_visible());
+        CHECK(f.browser.searching_results());
+        CHECK(f.browser.pane_bounds(0).x == 0);
+        click(f.browser.view_menu_bounds());
+        CHECK(f.browser.context_menu().is_open());
+        f.browser.context_menu().close();
+        f.browser.back();
+        REQUIRE(f.settle());
+        CHECK_FALSE(f.browser.searching_results());
+        CHECK(f.browser.picker_folder()->path() == f.photos);
+    }
 }
 
 TEST_CASE("toolbar: compact icons leave usable filter fields at every scale") {

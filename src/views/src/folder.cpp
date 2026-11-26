@@ -250,7 +250,7 @@ void Folder::request_decorations() {
         repository_.clear();
         decoration_problem_.clear();
     }
-    if (status_running_ || is_archive() || is_trash() || is_recent() ||
+    if (status_running_ || is_archive() || is_trash() || is_collection() ||
         (!registry->config.git && registry->config.enabled.empty()))
         return;
     std::vector<std::string> names;
@@ -574,7 +574,8 @@ void Folder::expect_names(const std::vector<std::string>& names) {
 }
 
 void Folder::select_name(std::string name) {
-    if (!shows_hidden() && hidden_name(name)) {
+    if (!shows_hidden() &&
+        hidden_name(is_search() ? std::filesystem::path{name}.filename().string() : name)) {
         model_.set_filter(false, name);  // asked for by name: shown all the same
     }
     cursor_expected_ = false;
@@ -686,6 +687,10 @@ void Folder::select_rows(std::span<const std::size_t> rows, bool add) {
 }
 
 void Folder::set_show_hidden(bool show, bool keep_cursor) {
+    // The search backend controls traversal of hidden paths, including hidden parents.
+    // A view adopting this collection must not independently hide matched basenames.
+    if (is_search())
+        show = true;
     if (collection_ || show == shows_hidden()) {
         return;
     }

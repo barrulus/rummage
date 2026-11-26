@@ -136,12 +136,12 @@ std::string_view icon_name(const MimeDatabase& db, const Entry& entry) {
     }
     // darktable's sidecars: edits of the photo next to them. shared-mime-info has no type for
     // them (they sniff as XML), and to a photographer they are not code.
-    if (ends_with_ignoring_case(entry.name, ".xmp")) {
+    if (ends_with_ignoring_case(entry.label(), ".xmp")) {
         return "adjustments-horizontal";
     }
     // An empty file's type is "empty" (as GLib says), but a freshly created notes.txt should
     // still look like text: the icon follows the name, as opening does.
-    return icon_name(db, db.to_open(entry.mime, entry.name));
+    return icon_name(db, db.to_open(entry.mime, entry.label()));
 }
 
 }  // namespace rummage::fs

@@ -159,7 +159,9 @@ bool SortOrder::operator()(const Entry& a, const Entry& b) const noexcept {
             break;
     }
     if (result == 0) {
-        result = natural_compare(a.name, b.name);
+        result = natural_compare(a.label(), b.label());
+        if (result == 0)
+            result = natural_compare(a.name, b.name);
     }
     return descending ? result > 0 : result < 0;
 }

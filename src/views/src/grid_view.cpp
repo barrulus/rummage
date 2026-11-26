@@ -193,7 +193,7 @@ void GridView::layout(float width) {
 }
 
 void GridView::enter() {
-    if (folder_->is_collection())
+    if (folder_->is_external_collection())
         return;
     const fs::Entry* const entry = folder_->single_selection();
     if (entry == nullptr || !entry->is_directory()) {
@@ -203,6 +203,8 @@ void GridView::enter() {
 }
 
 void GridView::go_up() {
+    if (folder_->is_collection())
+        return;
     const std::filesystem::path current = folder_->path();
     const std::filesystem::path parent = current.parent_path();
     if (parent == current || current.filename().empty()) {
@@ -411,7 +413,9 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         draw_centered(renderer, model.problem(), area_, area_.y + 24.0F, 14.0F, palette.error);
     } else if (entries.empty() && !folder_->loading()) {
         draw_centered(renderer,
-                      folder_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      folder_->is_external_collection()
+                          ? i18n::tr("No results")
+                          : i18n::tr(folder_->is_search() ? "Find Files…" : "Empty folder"),
                       area_, area_.y + 24.0F, 14.0F, palette.on_surface_variant);
     }
 

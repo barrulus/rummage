@@ -99,7 +99,8 @@ unsigned Linux x86_64 snapshots, updated after all checks pass on `main`.
 | Void glibc | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) |
 
 Video and PDF previews are included in the standard package, with switches in
-Settings. `rummage-photos` is the only optional add-on; the Void bundle includes it.
+Settings. Photo Library (`rummage-photos`), font specimens (`rummage-font`) and
+model previews (`rummage-model`) are optional packages; the Void bundle includes them.
 
 Follow the [installation and checksum instructions](https://github.com/barrulus/rummage/blob/main/docs/install.md#development-downloads).
 Use the package for your exact distribution. For Nix, use

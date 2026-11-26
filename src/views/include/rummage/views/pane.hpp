@@ -47,6 +47,9 @@ struct Pane {
          InfoPane* info_pane);
 
     std::unique_ptr<SearchResults> search_results;
+    std::shared_ptr<Folder> search_folder;
+    std::vector<std::filesystem::path> search_paths;
+    std::optional<SearchResults::Snapshot> restoring_search;
     ColumnView columns;  // before grid: grid folders may report to it
     GridView grid;
     DetailsView details;

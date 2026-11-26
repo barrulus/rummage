@@ -193,8 +193,8 @@ void DetailsView::toggle_row(std::size_t row) {
         return;
     const auto target = tree_rows_[row];
     const auto& entry = target.folder->entries()[target.entry];
-    if (target.folder->is_collection() || !entry.is_directory() || target.folder->is_trash() ||
-        target.depth >= 64)
+    if (target.folder->is_external_collection() || !entry.is_directory() ||
+        target.folder->is_trash() || target.depth >= 64)
         return;
     const auto path = target.folder->path_of(entry);
     if (expanded_.contains(path)) {
@@ -217,8 +217,8 @@ void DetailsView::toggle_row(std::size_t row) {
 bool DetailsView::expandable(std::size_t row) const {
     const auto& target = tree_rows_[row];
     const auto& entry = target.folder->entries()[target.entry];
-    if (target.folder->is_collection() || !entry.is_directory() || target.folder->is_trash() ||
-        target.depth >= 64)
+    if (target.folder->is_external_collection() || !entry.is_directory() ||
+        target.folder->is_trash() || target.depth >= 64)
         return false;
     const auto path = target.folder->path_of(entry);
     if (expanded_.contains(path))
@@ -485,7 +485,7 @@ void DetailsView::lay_out() {
 }
 
 void DetailsView::enter() {
-    if (folder_->is_collection())
+    if (folder_->is_external_collection())
         return;
     const fs::Entry* const entry = folder_->single_selection();
     if (entry == nullptr || !entry->is_directory()) {
@@ -495,6 +495,8 @@ void DetailsView::enter() {
 }
 
 void DetailsView::go_up() {
+    if (root_->is_collection())
+        return;
     const std::filesystem::path current = root_->path();
     const std::filesystem::path parent = current.parent_path();
     if (parent == current || current.filename().empty()) {
@@ -603,7 +605,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     for (std::size_t i = range.first; i < range.last; ++i) {
         const auto& row = tree_rows_[i];
         const auto& entry = row.folder->entries()[row.entry];
-        if (entry.is_directory() && !row.folder->is_collection() &&
+        if (entry.is_directory() && !row.folder->is_external_collection() &&
             !row.folder->model().is_archive() && !row.folder->is_trash())
             visible.push_back(row.folder->path_of(entry));
     }
@@ -776,7 +778,9 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                       palette.error);
     } else if (entries.empty() && !root_->loading()) {
         draw_centered(renderer,
-                      root_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      root_->is_external_collection()
+                          ? i18n::tr("No results")
+                          : i18n::tr(root_->is_search() ? "Find Files…" : "Empty folder"),
                       rows_, rows_.y + 24.0F, size_.text, palette.on_surface_variant);
     }
 

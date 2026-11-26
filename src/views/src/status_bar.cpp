@@ -103,8 +103,8 @@ void StatusBar::update(const Folder& folder) {
     if (job_ || (known_ && path_ == folder.path() && revision_ == folder.model().revision())) {
         return;  // on its way, or known: a draw after the result checks again
     }
-    if (folder.is_archive()) {
-        // No free space inside an archive: it means nothing there.
+    if (folder.is_archive() || folder.is_collection()) {
+        // Archives and collections have no single writable filesystem of their own.
         path_ = folder.path();
         revision_ = folder.model().revision();
         known_ = true;
@@ -145,6 +145,13 @@ void StatusBar::set_transfer(std::optional<TransferStatus> transfer) {
         cancel_button_ = {};
         cancel_hovered_ = false;
     }
+    redraw_();
+}
+
+void StatusBar::set_context_status(std::string text) {
+    if (context_status_ == text)
+        return;
+    context_status_ = std::move(text);
     redraw_();
 }
 
@@ -226,14 +233,17 @@ void StatusBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
         }
     }
 
-    // The message, else a transfer, else the status and the free space; cut in the middle when
-    // the buttons leave too little room.
+    // The message, else a transfer, else collection progress or the folder status and free
+    // space; cut in the middle when the buttons leave too little room.
     const float room = std::max(1.0F, text_right - (bounds.x + kPadding));
     std::string text = message_;
     ui::Color color = message_error_ ? palette.error : palette.on_surface;
     if (message_.empty() && transfer_) {
         text = transfer_->text;
         color = palette.on_surface;
+    } else if (message_.empty() && !context_status_.empty()) {
+        text = context_status_;
+        color = palette.on_surface_variant;
     } else if (message_.empty()) {
         text = folder.is_collection() && !collection_status_.empty() ? collection_status_
                                                                      : status_of(folder);

@@ -111,10 +111,11 @@ is also available; it is distinct from the Debian source package.
 
 The standard `rummage` package includes image, text, video and PDF previews.
 **Settings → General → Previews** controls video and PDF previews independently;
-no separate preview packages are needed. Native upgrades replace the former
+no separate media or PDF preview packages are needed. Native upgrades replace the former
 `rummage-media`, `rummage-pdf` and `rummage-previews` packages.
 
-`rummage-photos` is the only optional add-on. Install the matching version beside
+Photo Library (`rummage-photos`), font specimens (`rummage-font`) and model previews
+(`rummage-model`) are optional packages. Install the matching Photo Library version beside
 `rummage`; it owns the photo module and its SQLite dependency, and does not replace
 the application's launcher. For a local Debian build:
 
@@ -129,7 +130,7 @@ the downloaded packages (these filenames are for the Fedora 45 build):
 sudo dnf install ./rummage-fedora45-x86_64.rpm ./rummage-photos-fedora45-x86_64.rpm
 ```
 
-There are two packages: the application and its optional photo add-on. The add-on
+The Photo Library installation uses the application and its photo add-on. The add-on
 requires the exact matching application version. If that version of `rummage` is
 already installed, only the add-on RPM needs to be supplied. These filenames
 describe the packaging output; local branch builds are not published downloads.
@@ -465,7 +466,9 @@ or `--save-file`. Folder arguments complete directories; `--reveal` and
 The optional model helper uses system Assimp (`assimp` via pkg-config); the UI does
 not link it. `-DRUMMAGE_MODEL=ON` builds this helper, and native packages split it
 into `rummage-model`. The Nix outputs `rummage-model` and `rummage-with-model` provide
-the helper alone or the application with it; `rummage-with-previews` includes it.
+the helper alone or the application with it. To combine optional Nix features,
+use `rummage.override { withPhotos = true; withFont = true; withModel = true; }`
+in your configuration. Media/PDF and playback remain included in the base package.
 See [model format coverage](previews.md) before choosing this optional component.
 
 NixOS module users can independently enable `programs.rummage.preview.font` and

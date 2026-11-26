@@ -8,8 +8,8 @@
 namespace rummage::views {
 void Browser::move_into_new_folder() {
     const auto folder = current_folder();
-    if (!folder || picker_mode_ || folder->is_trash() ||
-        (folder->is_archive() || folder->is_collection() || folder->is_recent()))
+    if (!folder || picker_mode_ || folder->is_trash() || folder->is_archive() ||
+        folder->is_collection())
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*folder))

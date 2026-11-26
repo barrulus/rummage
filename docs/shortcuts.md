@@ -121,8 +121,9 @@ Copy Name copies plain text, with multiple names separated by newlines. Its
 | Text Quick Look | Home/End, Page Up/Down scroll; Ctrl+A selects text; Ctrl+C copies selection; Shift+wheel scrolls horizontally |
 | PDF Quick Look | Page Up/Down changes page; Home/End goes first/last; +/− or Ctrl+wheel zooms; 0 fits; wheel pans vertically, Shift+wheel horizontally |
 | Markdown Quick Look | M switches between rendered text and source |
-| Palette/search | Arrows/Page Up/Down choose; Enter runs/reveals; Escape closes |
-| File search | Space types a space while editing; after arrow-key navigation it previews; Shift+Space always types a space; Shift+Enter opens in application |
+| Command palette | Arrows/Page Up/Down choose; Enter runs; Escape closes |
+| Search query | Enter/Tab focuses results in the current file view; Escape closes search; Ctrl+F returns focus to the query |
+| Picker finder | Space types a space while editing; after arrow-key navigation it previews; Shift+Space always types a space; Shift+Enter opens in application |
 | Rename editor | Enter accepts, Escape cancels, Ctrl+arrows moves words, Ctrl+C / Ctrl+X / Ctrl+V copies/cuts/pastes text, Ctrl+Z / Ctrl+Shift+Z edits undo history |
 | Batch Rename | Tab/Shift+Tab moves between fields and controls; Enter applies valid changes; Escape cancels; Page Up/Down scrolls the preview |
 | Conflict dialog | R replaces a file or merges folders, S skips, Enter keeps both, A applies to rest, Escape stops |
@@ -272,14 +273,19 @@ existing custom assignments.
 
 ### Search results
 
-In Ctrl+F, **Ctrl+Enter** opens the query in the Search Results view. There, Down
-moves from the query field to the list. Ctrl/Shift-click and Shift+arrows extend
-selection; Ctrl+A selects displayed results while the list has focus. Ctrl+C and
-Ctrl+X copy/cut the selected files, Delete trashes them, F2 renames one item, Space
-previews, Enter opens and Shift+Enter reveals it in its folder. Ctrl+Z/Ctrl+Shift+Z
-undo/redo file operations from the list. Ctrl+S saves a query, Ctrl+Shift+S opens
-saved searches, F5 refreshes and Escape closes. Tab visits the query, toolbar and
-list. The query field retains its normal text-editing shortcuts.
+**Ctrl+F** or the Search toolbar button focuses a recursive query in the existing
+toolbar. Results use the current Columns, Grid or Details view, with the normal
+sidebar, breadcrumbs, context menu and file shortcuts. **Enter** or **Tab** moves
+from the query to the results; **Ctrl+F** focuses the query again. **Escape** while
+editing the query closes search, and **Alt+Left / Alt+Right** navigate history.
+
+With results focused, Ctrl/Shift-click and Shift+arrows extend selection, Ctrl+A
+selects displayed results, Ctrl+C/Ctrl+X copy/cut, Delete trashes, F2 renames one
+item, Space previews and Enter opens. Ctrl+Z/Ctrl+Shift+Z undo/redo supported file
+operations. Search-specific **Save Search…**, **Stop**, **Refresh** and **Copy
+Search Details** are commands in **Ctrl+K**. **Saved Searches…** in View or Ctrl+K
+opens a saved query in the same browser. The query retains normal text-editing
+shortcuts; Ctrl+S in the file view keeps its normal Select by Name meaning.
 
 In the sidebar, **Left/Right** collapse/expand folders or move to their
 parent/first child. **Alt+Up/Down** reorders Places entries and separators within

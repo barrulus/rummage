@@ -1120,7 +1120,7 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
     const ui::Texture* const texture =
         slot.image_texture ? slot.image_texture.get() : slot.thumbnail_texture.get();
 
-    std::string caption = entry.name;
+    std::string caption = entry.label();
     // The size from the sharp image, or already from the thumbnail: the caption stays put.
     if (loaded != nullptr && loaded->full_width > 0) {
         caption += std::format("   {} × {}", loaded->full_width, loaded->full_height);
@@ -1229,7 +1229,7 @@ void QuickLook::draw_markdown(ui::Renderer& renderer, const ui::Rect& area,
                            palette.on_surface_variant.with_alpha(0.45F * fade));
     }
     draw_caption(renderer, area, palette,
-                 entry.name + "   Markdown" +
+                 entry.label() + "   Markdown" +
                      (text.markdown.truncated || markdown_.truncated()
                           ? "   " + std::string{i18n::tr("Preview truncated")}
                           : ""),
@@ -1384,7 +1384,7 @@ void QuickLook::draw_text(ui::Renderer& renderer, const ui::Rect& area,
     }
 
     // name   C++   UTF-8   CRLF   3449 lines   120 kB
-    std::string caption = entry.name;
+    std::string caption = entry.label();
     if (!text.language.empty()) {
         caption += "   " + text.language;
         if (text::looks_minified(text)) {
@@ -1441,7 +1441,7 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
     }
     const bool error = info != nullptr && !info->error.empty();
     const float name_height =
-        std::max(24.0F, SelectableText::height(renderer, entry.name, kCardWidth - 24, 15) + 4);
+        std::max(24.0F, SelectableText::height(renderer, entry.label(), kCardWidth - 24, 15) + 4);
     const float height = 32.0F + kCardIcon + 20.0F + name_height + 20.0F + 4.0F +
                          (static_cast<float>(rows.size() + (error ? 1 : 0)) * kRowHeight) + 20.0F;
     const ui::Rect card{area.x + ((area.width - kCardWidth) / 2.0F),
@@ -1457,7 +1457,7 @@ void QuickLook::draw_card(ui::Renderer& renderer, const ui::Rect& area,
                     : palette.on_surface_variant)
                    .with_alpha(fade));
     y += kCardIcon + 20.0F;
-    draw_name(renderer, card, y, entry.name, palette.on_surface.with_alpha(fade));
+    draw_name(renderer, card, y, entry.label(), palette.on_surface.with_alpha(fade));
     y += name_height;
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;
@@ -1497,7 +1497,7 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
     // Its first entries, as many as there is room for, then how many more.
     const float width = std::min(kArchiveCardWidth, area.width);
     const float name_height =
-        std::max(24.0F, SelectableText::height(renderer, entry.name, width - 24, 15) + 4);
+        std::max(24.0F, SelectableText::height(renderer, entry.label(), width - 24, 15) + 4);
     const float head = 28.0F + kArchiveIcon + 16.0F + name_height + 20.0F + 4.0F +
                        (static_cast<float>(rows.size()) * kRowHeight) +
                        (problem.empty() ? 0.0F : kRowHeight) + 20.0F;
@@ -1521,7 +1521,7 @@ void QuickLook::draw_archive(ui::Renderer& renderer, const ui::Rect& area,
     icons.draw(renderer, fs::icon_name(*mime_, typed), card.x + ((width - kArchiveIcon) / 2.0F), y,
                kArchiveIcon, palette.on_surface_variant.with_alpha(fade));
     y += kArchiveIcon + 16.0F;
-    draw_name(renderer, card, y, entry.name, palette.on_surface.with_alpha(fade));
+    draw_name(renderer, card, y, entry.label(), palette.on_surface.with_alpha(fade));
     y += name_height;
     draw_centered(renderer, type, card, y, 12.0F, palette.on_surface_variant.with_alpha(fade));
     y += 20.0F + 4.0F;

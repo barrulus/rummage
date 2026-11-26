@@ -277,10 +277,10 @@ public:
     [[nodiscard]] const ui::Rect& new_folder_bounds() const { return new_folder_bounds_; }
 
     [[nodiscard]] bool has_overlay() const {
-        return errors_.is_open() || extension_output_.is_open() || password_.is_open() || mount_password_.is_open() ||
-               location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
-               palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open() || searching_results() ||
+        return errors_.is_open() || extension_output_.is_open() || password_.is_open() ||
+               mount_password_.is_open() || location_.is_open() || conflict_.is_open() ||
+               confirm_.is_open() || palette_.is_open() || menu_.is_open() || editor_.active() ||
+               shortcuts_.is_open() || quick_look_.is_open() || properties_.is_open() ||
                (showing_photos() && photo_library_->has_dialog());
     }
 
@@ -790,6 +790,9 @@ public:
     }
 
     void settle_search_preview();
+    void sync_search_results(Pane& target);
+    void show_search_folder();
+    SearchResults::Snapshot search_snapshot() const;
     void open_pattern();
     void create_links(fs::LinkKind kind = fs::LinkKind::absolute);
     void paste_links(fs::LinkKind kind);

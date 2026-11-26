@@ -121,6 +121,8 @@ public:
     // The folder of the focused column; nullptr before open().
     [[nodiscard]] std::shared_ptr<Folder> focused_folder() const;
 
+    [[nodiscard]] std::shared_ptr<Folder> root_folder() const;
+
     // Another view shows the folders for now: changes to their selections wait for show().
     void suspend() noexcept { suspended_ = true; }
 

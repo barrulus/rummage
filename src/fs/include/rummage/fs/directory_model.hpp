@@ -25,6 +25,10 @@
 
 namespace rummage::fs {
 
+inline std::filesystem::path search_path() { return "rummage:search"; }
+
+inline bool is_search(const std::filesystem::path& path) { return path == search_path(); }
+
 // What changed in a DirectoryModel since the last notification. Names, not indices: a view
 // looks them up in the listing (and keeps its selection across renames).
 struct ModelChange {
@@ -72,6 +76,10 @@ public:
     // Shows another directory: clears the listing (a reset change), watches and loads it.
     void open(std::filesystem::path path);
 
+    // A search collection uses the ordinary listing and keeps original paths for file actions.
+    // Metadata is loaded on a worker; replacement preserves surviving entry identities.
+    void set_search_results(std::vector<std::filesystem::path> paths);
+
     void set_change_handler(ChangeHandler handler) { change_handler_ = std::move(handler); }
 
     void set_order(SortOrder order);
@@ -102,6 +110,10 @@ public:
     [[nodiscard]] const TrashedItem* trashed(const std::string& name) const;
 
     [[nodiscard]] bool is_recent() const noexcept { return fs::is_recent(path_); }
+
+    [[nodiscard]] bool is_search() const noexcept { return fs::is_search(path_); }
+
+    [[nodiscard]] bool is_collection() const noexcept { return is_recent() || is_search(); }
 
     [[nodiscard]] std::filesystem::path source_path(const std::string& name) const;
 
@@ -139,6 +151,7 @@ private:
     struct TrashListing;
     void load_trash();
     void load_recent();
+    void load_search();
     void load_archive();
     void fail_with(std::error_code error, std::string problem);
     void apply_trash(TrashListing listing);
@@ -175,8 +188,10 @@ private:
     std::unordered_map<std::uint32_t, std::string> moved_from_;  // cookie -> old name
     std::vector<std::pair<std::string, std::string>> renames_;
 
-    std::unordered_map<std::string, std::filesystem::path> recent_paths_;
+    std::unordered_map<std::string, std::filesystem::path> source_paths_;
     bool recent_again_{false};
+    std::vector<std::filesystem::path> search_paths_;
+    bool search_again_{false};
     bool trash_{false};
     std::unordered_map<std::string, TrashedItem> trashed_;  // by name, as listed
     std::unordered_map<std::string, DirectoryWatcher::WatchId> trash_watches_;  // by info/ dir

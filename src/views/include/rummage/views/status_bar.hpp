@@ -86,6 +86,10 @@ public:
     // draws it in the error color.
     void show_message(std::string text, bool error);
 
+    // Persistent status for a collection (for example, recursive search progress). Messages
+    // and transfers take priority; an empty string restores the ordinary folder status.
+    void set_context_status(std::string text);
+
     void set_type_jump(std::string prefix, bool matched = true) {
         type_jump_ = std::move(prefix);
         type_jump_matched_ = matched;
@@ -146,6 +150,7 @@ private:
     ui::Rect cancel_button_{};  // as last drawn; empty without a transfer
     bool cancel_hovered_{false};
     std::string message_;
+    std::string context_status_;
     bool message_error_{false};
     core::EventLoop::SourceId message_timer_{0};
 

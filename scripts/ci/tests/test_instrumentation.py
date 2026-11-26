@@ -21,6 +21,7 @@ class InstrumentationTest(unittest.TestCase):
         self.assertIn("-DRUMMAGE_SANITIZER=address,undefined", asan)
         self.assertIn("-DRUMMAGE_MEDIA=ON", asan)
         self.assertIn("-DRUMMAGE_PDF=ON", asan)
+        self.assertIn("-DRUMMAGE_PHOTOS=ON", asan)
         self.assertIn("-DRUMMAGE_FONT=ON", asan)
         self.assertIn("-DRUMMAGE_MODEL=ON", asan)
         self.assertIn("-DRUMMAGE_TERMINAL=ON", asan)
@@ -28,6 +29,8 @@ class InstrumentationTest(unittest.TestCase):
         self.assertIn("-DRUMMAGE_SANITIZER=thread", module.configure("tsan", Path("build")))
         fuzz = module.configure("fuzz", Path("build"))
         self.assertIn("-DRUMMAGE_FUZZ=ON", fuzz)
+        self.assertIn("-DRUMMAGE_PHOTOS=OFF", fuzz)
+        self.assertIn("-DRUMMAGE_PHOTOS=OFF", module.configure("tsan", Path("build")))
         self.assertNotIn("-DRUMMAGE_SANITIZER=thread", fuzz)
 
     def test_fuzz_limits_and_reproducers_are_per_target(self):

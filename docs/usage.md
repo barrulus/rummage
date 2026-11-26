@@ -363,22 +363,23 @@ shortcuts, and lists recently used commands first when the query is empty.
 Only applicable commands appear. Use arrows or Page Up/Down, Enter to run, and
 Escape or Ctrl+K to close. Open With opens an application list within the palette.
 
-**Ctrl+F**, the magnifying-glass toolbar button and **View → Find Files…** open
-persistent **Search Results**, searching the current folder and its subfolders.
-The separate **Filter this folder…** field only narrows the current folder listing;
-it does not limit recursive search. Ctrl+F inside results returns focus to the query
-without losing the results or search scope.
+**Ctrl+F**, the magnifying-glass toolbar button and **View → Find Files…** activate
+recursive search in the existing toolbar field. Results appear in the current
+Columns, Grid or Details view; the sidebar, breadcrumbs, view selector and normal
+file actions remain available. The breadcrumb shows the search scope followed by
+**Search Results**. Ctrl+F while searching returns focus to the query without
+changing its scope. Enter or Tab moves focus from the query to the results.
 
-Plain filename text ranks exact matches, prefixes and substrings ahead of scattered
-letters and parent-path matches. Within each group, shallower paths come first.
-The optional **Quick File Finder…** command in Ctrl+K retains the compact picker for
-jumping straight to one result. Ctrl+Enter or Ctrl+F promotes that picker to the
-persistent results list with the same query.
+Outside search, the same toolbar field is labelled **Filter this folder…** and
+only narrows the current folder listing. That folder filter does not limit
+recursive search. Plain filename text ranks exact matches, prefixes and substrings
+ahead of scattered letters and parent-path matches when choosing search matches;
+the file view displays those matches using its normal sort order.
 
 Choose **Find File Contents…** in Ctrl+K, or begin the search with `content:`, to
-find literal text inside files. Each matching file appears once, with the first
-matching line number and a short excerpt. Content matching is case-sensitive;
-`case:fold` ignores ASCII letter case. Plain filename text remains fuzzy.
+find literal text inside files. Each matching file appears once in the current
+file view. Content matching is case-sensitive; `case:fold` ignores ASCII letter
+case. Plain filename text remains fuzzy. File pickers retain their compact finder.
 
 Filename patterns containing `*`, `?` or brackets use whole-name glob matching:
 `*.zip` or `name:*.zip` finds ZIP names throughout the selected folder tree,
@@ -413,8 +414,8 @@ reading. PDF, office documents and archives are not decoded for content search;
 UTF-16 and legacy encodings are not converted. No external tool or persistent
 content index is required. Each query reads at most 512 MiB across all workers;
 the status reports that limit and counts unreadable, changed, non-text and oversized
-files. Results can arrive while matching continues. Press Escape to close and
-cancel pending scanning and reads. Filesystem calls already in progress may finish
+files. Results can arrive while matching continues. Press Ctrl+F, then Escape to
+close the search and cancel pending scanning and reads. Filesystem calls already in progress may finish
 before cancellation takes effect.
 
 Search excludes hidden entries unless shown, does not follow symlink directories
@@ -427,45 +428,41 @@ is separate future work; current searches operate directly on the filesystem.
 
 ### Managing and saving search results
 
-Normal **Ctrl+F** search already opens **Search Results**. You can also choose
-**View → Search Results…** or find that command in Ctrl+K.
-The view shows each result's name and parent folder, plus the matching line and
-excerpt for content searches. The query uses the same filters described above.
+Search results use the same file views and selection controls as folders. Click a
+result to select it, Ctrl-click to toggle it, and Shift-click to select a range.
+Enter or Tab moves from the query into the results; Ctrl+A then selects displayed
+results. The usual arrows, Page Up/Down and file-view shortcuts apply. Enter opens
+a selected result and Space opens Quick Look. The query field retains normal text
+editing and clipboard shortcuts. Ctrl+F returns focus to it.
 
-Click a result to select it, Ctrl-click to toggle it, and Shift-click to select a
-range. Down moves from the query into the list; there, Ctrl+A selects all displayed
-results, arrows and Page Up/Down navigate, Enter opens one result, Shift+Enter
-reveals it in its folder, and Space opens Quick Look without closing the search.
-Tab visits the query, toolbar and list. In the query field, the usual text editing
-and clipboard shortcuts apply. In the list:
+- **Ctrl+C / Copy** and **Ctrl+X / Cut** collect selected paths across their parent
+  folders. Navigate to a destination using the existing sidebar or breadcrumbs,
+  then paste with Ctrl+V.
+- **Delete / Move to Trash** uses the normal file-operation and Undo behavior.
+- **F2 / Rename…** renames one selected result; mixed-folder selections are not
+  silently narrowed to a single target.
+- **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo supported file operations while
+  results have focus.
 
-- **Ctrl+C / Copy** and **Ctrl+X / Cut** collect selected paths across all their parent
-  folders. Close the view, navigate to a destination, then paste with Ctrl+V.
-- **Delete / Move to Trash** trashes the selection across folders. These operations
-  use the normal conflict, darktable-sidecar and Undo behavior as one operation.
-- **F2 / Rename…** renames one selected result. Rename is unavailable for multiple
-  effective targets; other operations do not silently narrow a mixed-folder selection.
-- **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo supported file operations while the list
-  has focus. A selected directory includes its children, so descendants selected
-  with it are not processed twice.
+The regular context menu supplies file actions, including **Show in Folder**.
+Search-specific **Save Search…**, **Stop**, **Refresh** and **Copy Search Details**
+are available through Ctrl+K. Stop keeps results already delivered; Refresh reruns
+the search. Completed file operations refresh the results. External changes are
+picked up by Refresh; a file removed or moved meanwhile may fail an action and is
+reported, with completed parts of a multi-file operation still eligible for Undo.
+The ordinary status bar reports search progress and the shown/total count, including
+the 200-result cap. Copy Search Details copies the full scope, query and status,
+including limits or errors shortened on screen. Escape while editing the query
+closes the search and returns to the folder; Back also returns to the previous
+location. These actions cancel pending work and release the in-memory index.
 
-Results remain interactive while scanning and matching. Selection follows paths
-when rows reorder. **Stop** keeps results already delivered; **Refresh / F5** reruns
-the search. Completed file operations refresh the list. External changes are picked
-up by Refresh; a file removed or moved meanwhile may fail an action and is reported,
-with completed parts of a multi-file operation still eligible for Undo. The shown/
-total count makes the 200-result cap explicit. **Copy Search Details** copies the
-full scope, query and status, including any limits or errors shortened on screen.
-Escape or **Close** cancels work and releases the in-memory index.
-
-**Save Search… / Ctrl+S** stores a unique name, root folder, query and filters,
-including the hidden-file default used for that search. **Saved Searches…** is
-available from View, Ctrl+K, the results toolbar (Ctrl+Shift+S), and the sidebar
-once a search has been saved. Choosing a saved search reruns it against the current
-filesystem. Its remove command deletes only the definition, never files.
-Up to 64 definitions are kept in the normal saved state across restarts. Match
-lists, selections and previews are not persisted. Search results are not offered
-inside the file picker.
+**Save Search…** stores a unique name, root folder, query and filters, including
+the hidden-file default used for that search. **Saved Searches…** is available
+from View, Ctrl+K and the sidebar once a search has been saved. Choosing a saved
+search reruns it in the existing browser against the current filesystem. Its remove
+command deletes only the definition, never files. Up to 64 definitions are kept in
+the normal saved state across restarts. Match lists, selections and previews are
+not persisted. Saved search collections are not offered inside the file picker.
 
 ## Expandable sidebar
 
@@ -608,14 +605,12 @@ remembered across restarts and applies to Columns in all tabs of this window.
 
 ### Returning to search results
 
-Opening or revealing a Search Results item, or choosing a result in the optional
-Quick File Finder, records the search in that tab's Back history. Finder searches return in
-the full Search Results view. Back restores its root, query (including filters), hidden-file setting,
-selected paths and scroll position. Results are rescanned asynchronously, so removed
-or inaccessible items disappear rather than becoming stale operation targets.
-Forward returns to the opened location. Parent-folder navigation still follows the
-filesystem hierarchy. Each tab and pane owns its own results session; searches are
-not restored after restarting Rummage unless saved explicitly.
+Search is a location in the current tab's Back/Forward history. Opening a result
+or using **Show in Folder** lets Back return to the search scope and query in the
+normal file view. Results are rescanned asynchronously, so removed or inaccessible
+items disappear. Forward returns to the opened location. Each tab and pane owns
+its own search session; searches are not restored after restarting Rummage unless
+saved explicitly.
 
 ### Opening archives from the desktop or command line
 

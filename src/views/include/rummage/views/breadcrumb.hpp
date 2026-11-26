@@ -55,7 +55,7 @@ public:
     [[nodiscard]] bool completing() const { return completing_; }
 
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons, const Folder& folder);
+              ui::IconSet& icons, const Folder& folder, std::filesystem::path search_scope = {});
 
     // The pointer at (x, y) is over the bar as last drawn.
     [[nodiscard]] bool claims(float x, float y) const;

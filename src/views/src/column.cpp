@@ -110,7 +110,7 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         if (cursor == i)
             motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(bounds);
         float name_right = bounds.right() - kRightPadding;
-        if (entry.is_directory() && !folder_->is_collection()) {
+        if (entry.is_directory() && !folder_->is_external_collection()) {
             name_right -= kChevronSize + 6.0F;
             icons.draw(renderer, "chevron-right", bounds.right() - kRightPadding - kChevronSize,
                        y + ((size_.row - kChevronSize) / 2.0F), kChevronSize, style.chevron);
@@ -141,7 +141,9 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
                       palette.error);
     } else if (entries.empty() && !folder_->loading()) {
         draw_centered(renderer,
-                      folder_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      folder_->is_external_collection()
+                          ? i18n::tr("No results")
+                          : i18n::tr(folder_->is_search() ? "Find Files…" : "Empty folder"),
                       bounds, bounds.y + 24.0F, size_.text, palette.on_surface_variant);
     }
 

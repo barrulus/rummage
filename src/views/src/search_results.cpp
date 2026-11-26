@@ -29,14 +29,22 @@ SearchResults::SearchResults(core::WorkerPool& pool, std::function<void()> redra
                              std::function<void(Action)> action)
     : pool_{pool}, redraw_{std::move(redraw)}, action_{std::move(action)} {}
 
-void SearchResults::open(const std::filesystem::path& root, std::string query, bool hidden) {
+void SearchResults::open(const std::filesystem::path& root, std::string query, bool hidden,
+                         bool defer_empty) {
     close();
     open_ = true;
+    defer_empty_ = defer_empty;
+    search_root_ = root;
+    search_hidden_ = hidden;
     focus_ = -1;
     first_ = 0;
     query_.set_text(std::move(query));
     finder_ = std::make_unique<FileFinder>(pool_, [this] { updated(); });
     finder_->set_query(query_.text());
+    if (defer_empty_ && query_.text().empty()) {
+        redraw_();
+        return;
+    }
     if (root == "rummage:recent")
         finder_->start_recent();
     else
@@ -47,11 +55,9 @@ void SearchResults::open(const std::filesystem::path& root, std::string query, b
 SearchResults::Snapshot SearchResults::snapshot() const {
     if (restoring_)
         return *restoring_;
-    return {.root = finder_ ? (finder_->recent() ? std::filesystem::path{"rummage:recent"}
-                                                 : finder_->root())
-                            : std::filesystem::path{},
+    return {.root = search_root_,
             .query = query_.text(),
-            .hidden = finder_ && finder_->hidden(),
+            .hidden = search_hidden_,
             .selected = selected_,
             .cursor = cursor_,
             .anchor = anchor_,
@@ -83,7 +89,8 @@ void SearchResults::refresh() {
     cursor_.clear();
     anchor_.clear();
     first_ = 0;
-    finder_->refresh();
+    if (!defer_empty_ || !query_.text().empty())
+        finder_->refresh();
     redraw_();
 }
 
@@ -94,8 +101,15 @@ void SearchResults::set_query(std::string query) {
     anchor_.clear();
     first_ = 0;
     message_.clear();
-    if (finder_)
-        finder_->set_query(query_.text());
+    if (finder_) {
+        if (defer_empty_ && query_.text().empty()) {
+            finder_ = std::make_unique<FileFinder>(pool_, [this] { updated(); });
+        } else if (defer_empty_ && finder_->root().empty()) {
+            finder_->set_query(query_.text());
+            finder_->start(search_root_, search_hidden_);
+        } else
+            finder_->set_query(query_.text());
+    }
     redraw_();
 }
 

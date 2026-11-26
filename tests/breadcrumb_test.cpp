@@ -544,3 +544,46 @@ TEST_CASE("columns: vertical hierarchy keeps independent lists and hit targets")
     columns.set_vertical(false);
     CHECK(columns.focused_folder() == focused);
 }
+
+TEST_CASE("breadcrumb: native search keeps its scope clickable in the normal browser") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settled());
+    f.browser.open_search_results(f.root, "type:folder", false);
+    REQUIRE(f.settled());
+    rummage::ui::Offscreen surface{1200, 800};
+    FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(1200, 800, 1, {});
+    f.browser.draw(renderer, {0, 0, 1200, 800}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    auto& crumb = f.browser.breadcrumb();
+    REQUIRE_FALSE(crumb.shown().empty());
+    CHECK(crumb.shown().back() == "Search Results");
+    std::optional<std::pair<float, float>> scope;
+    for (float y = 0; y < 160 && !scope; y += 2)
+        for (float x = 0; x < 1200; x += 2)
+            if (crumb.path_at(x, y) == f.root) {
+                scope = {x, y};
+                break;
+            }
+    REQUIRE(scope);
+    f.browser.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                       .x = scope->first,
+                       .y = scope->second,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = rummage::ui::PointerEvent::Kind::release,
+                       .x = scope->first,
+                       .y = scope->second,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    REQUIRE(f.settled());
+    CHECK_FALSE(f.browser.searching_results());
+    CHECK(f.browser.picker_folder()->path() == f.root);
+    f.browser.back();
+    REQUIRE(f.settled());
+    CHECK(f.browser.searching_results());
+    CHECK(f.browser.name_filter() == "type:folder");
+}

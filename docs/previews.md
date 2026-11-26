@@ -361,11 +361,12 @@ Source builds can enable `-DRUMMAGE_FONT=ON` to build `rummage-font`, which depe
 FreeType. Build target `rummage-font`, then install CMake component `font` alongside
 the matching application. The helper and `font.toml` manifest use the normal
 `libexec/rummage` and `share/rummage/engines` locations. Restart after installation.
-The native package recipes also provide a separate `rummage-font` package; the
-`rummage-previews` convenience package includes it. With Nix, use
+The native package recipes also provide a separate `rummage-font` package. With Nix, use
 `nix build .#rummage-with-font` for the application with the registered helper, or
-`.#rummage-font` for the helper output alone. `.#rummage-with-previews` includes
-media, PDF, font and model helpers.
+`.#rummage-font` for the helper output alone. To enable font and model helpers together,
+use `rummage.override { withFont = true; withModel = true; }` in your Nix
+configuration; add `withPhotos = true;` for Photo Library. Media and PDF helpers
+are included in the base package.
 
 Font parsing and rasterization run inside the same isolated preview helper cage.
 Input is limited to 32 MiB, output to 1024 pixels per side; the ordinary helper pool,
@@ -405,7 +406,7 @@ renderer execution from the preview path.
 
 ### Audio and video playback
 
-With `rummage-media` installed, Quick Look opens local audio/video files paused.
+The standard package includes media playback. Quick Look opens local audio/video files paused.
 Click **Play** or press **P** to start or pause. Click the progress bar or press
 **J/L** to seek backward/forward five seconds; **Home** returns to the start.
 **+/-** changes volume in ten-percent steps, including mute at zero. The current

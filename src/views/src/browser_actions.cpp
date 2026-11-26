@@ -30,7 +30,7 @@ void Browser::set_actions(std::span<const core::Action> custom) {
 core::ActionContext Browser::action_context(const std::shared_ptr<Folder>& folder,
                                             bool background) const {
     core::ActionContext context;
-    if (!folder || folder->is_archive() || folder->is_collection() || folder->is_recent()) {
+    if (!folder || folder->is_archive() || folder->is_collection()) {
         return context;
     }
     std::error_code error;

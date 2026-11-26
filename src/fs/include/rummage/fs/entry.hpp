@@ -81,7 +81,9 @@ struct Entry {
         return identity.empty() ? name : identity;
     }
 
-    [[nodiscard]] bool hidden() const noexcept { return !name.empty() && name.front() == '.'; }
+    [[nodiscard]] bool hidden() const noexcept {
+        return !label().empty() && label().front() == '.';
+    }
 
     [[nodiscard]] bool is_directory() const noexcept { return kind == EntryKind::directory; }
 };
