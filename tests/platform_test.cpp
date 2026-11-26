@@ -692,3 +692,38 @@ TEST_CASE(
     CHECK(text.find("[Custom]\nuntouched=yes\n") != std::string::npos);
     CHECK(text.find("image/x-targa=") == std::string::npos);
 }
+
+TEST_CASE("opener: save default then launch using the existing desktop argument expansion") {
+    System sys;
+    const auto log = sys.dir.path / "launched";
+    sys.program("viewer", "printf '%s\\n' \"$@\" > " + log.string() + "\n");
+    sys.app("share", "viewer.desktop", "viewer");
+    const auto file = sys.dir.write("space name.txt", "text");
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    std::vector<std::pair<std::string, bool>> reports;
+    Opener opener{loop, pool, sys.mime, sys.environment, [&](std::string message, bool error) {
+                      reports.emplace_back(std::move(message), error);
+                  }};
+    opener.set_default_and_open(sys.dir.path,
+                                {{.name = "space name.txt", .mime = sys.mime->find("text/plain")}},
+                                "viewer.desktop");
+    REQUIRE(
+        run_until(loop, [&] { return !opener.planning() && opener.launcher().running() == 0; }));
+    REQUIRE(reports.size() == 1);
+    CHECK_FALSE(reports.front().second);
+    CHECK(sys.default_for("text/plain") == "viewer.desktop");
+    CHECK(read_file(log) == file.string() + "\n");
+    std::vector<platform::AppChoice> choices;
+    bool done = false;
+    opener.choices(
+        sys.dir.path, {.name = "space name.txt", .mime = sys.mime->find("text/plain")},
+        [&](auto value) {
+            choices = std::move(value);
+            done = true;
+        },
+        true);
+    REQUIRE(run_until(loop, [&] { return done; }));
+    REQUIRE(choices.size() == 1);
+    CHECK(choices.front().is_default);
+}

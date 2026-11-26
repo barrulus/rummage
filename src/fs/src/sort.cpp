@@ -119,6 +119,9 @@ bool SortOrder::operator()(const Entry& a, const Entry& b) const noexcept {
         case SortKey::permissions:
             result = natural_compare(a.permissions, b.permissions);
             break;
+        case SortKey::rating:
+            result = three_way(a.rating, b.rating);
+            break;
         case SortKey::link_target:
             result = natural_compare(a.link_target, b.link_target);
             break;

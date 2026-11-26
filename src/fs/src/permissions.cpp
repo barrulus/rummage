@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <format>
 #include <grp.h>
+#include <map>
 #include <memory>
 #include <pwd.h>
 #include <set>
@@ -111,6 +112,7 @@ PermissionResult apply_permissions(const std::vector<PermissionTarget>& roots,
         return result;
     }
     std::set<std::pair<std::uint64_t, std::uint64_t>> visited, stale;
+    std::map<std::pair<std::uint64_t, std::uint64_t>, std::pair<struct stat, struct stat>> applied;
     std::size_t inspected{};
     bool stopped = false;
     const auto visit = [&](const auto& self, int fd, const std::filesystem::path& path,
@@ -198,6 +200,9 @@ PermissionResult apply_permissions(const std::vector<PermissionTarget>& roots,
         }
         if (changed)
             ++result.changed;
+        struct stat after{};
+        if (::fstat(fd, &after) == 0)
+            applied[{before.st_dev, before.st_ino}] = {before, after};
     };
     for (const auto& root : roots) {
         if (stopped)
@@ -212,11 +217,23 @@ PermissionResult apply_permissions(const std::vector<PermissionTarget>& roots,
             continue;
         }
         struct stat current{};
+        auto expected = root;
+        // A selected ancestor or hard link may already have changed this exact inode.
+        // Accept only the state this operation observed and produced, never external edits.
+        if (const auto prior = applied.find({root.device, root.inode}); prior != applied.end()) {
+            const auto& [before, after] = prior->second;
+            if (root.mode == (before.st_mode & 07777) && root.owner == before.st_uid &&
+                root.group == before.st_gid) {
+                expected.mode = static_cast<std::uint16_t>(after.st_mode & 07777);
+                expected.owner = after.st_uid;
+                expected.group = after.st_gid;
+            }
+        }
         if (::fstat(fd, &current) != 0)
             result.errors.push_back(error_text(root.path, errno));
         else if (current.st_dev != root.device || current.st_ino != root.inode ||
-                 current.st_uid != root.owner || current.st_gid != root.group ||
-                 (current.st_mode & 07777) != root.mode)
+                 current.st_uid != expected.owner || current.st_gid != expected.group ||
+                 (current.st_mode & 07777) != expected.mode)
             result.errors.push_back(root.path.string() +
                                     ": changed since Properties opened; reopen it");
         else {

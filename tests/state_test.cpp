@@ -34,6 +34,16 @@ using namespace std::chrono_literals;
 
 namespace {
 
+rummage::views::DetailsWidths property_widths(float size, float modified, float type,
+                                              float name = 0) {
+    auto result = rummage::views::kDetailsWidths;
+    result[0] = size;
+    result[1] = modified;
+    result[2] = type;
+    result.back() = name;
+    return result;
+}
+
 StateResult parse(std::string_view text) { return parse_state(text, "state.toml"); }
 
 bool run_until(EventLoop& loop, const std::function<bool()>& done) {
@@ -533,7 +543,7 @@ TEST_CASE("state: column layouts round trip globally, per folder and per tab") {
     state.details_widths[7] = 180;
     state.sort_key = SortKey::created;
     State::FolderSettings folder;
-    folder.details_columns = {SortKey::name, SortKey::bitrate, SortKey::audio_codec};
+    folder.details_columns = {SortKey::name, SortKey::bitrate, SortKey::audio_codec, SortKey::rating};
     folder.sort_key = SortKey::bitrate;
     state.folders.remember("/tmp/columns", folder);
     State::Tab tab;

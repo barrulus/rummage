@@ -33,7 +33,8 @@ enum class SortKey : std::uint8_t {
     duration,
     bitrate,
     video_codec,
-    audio_codec
+    audio_codec,
+    rating
 };
 
 struct SortOrder {

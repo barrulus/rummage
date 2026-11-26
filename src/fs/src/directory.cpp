@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "rummage/fs/annotations.hpp"
 #include "rummage/fs/folder_icon.hpp"
 
 namespace rummage::fs {
@@ -172,6 +173,13 @@ bool stat_entry(int dir_fd, Entry& entry, Identities& identities) {
         if (stat_info(dir_fd, entry.name.c_str(), 0, target))
             info = target;
         // A dangling link keeps its own metadata.
+    }
+    if (!entry.is_link && (S_ISREG(info.stx_mode) || S_ISDIR(info.stx_mode))) {
+        const int fd = ::openat(dir_fd, entry.name.c_str(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
+        if (fd >= 0) {
+            entry.rating = read_rating(fd);
+            ::close(fd);
+        }
     }
     identities.fill(entry, info);
     if ((info.stx_mask & STATX_BTIME) != 0) {

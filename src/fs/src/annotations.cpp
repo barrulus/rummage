@@ -44,6 +44,19 @@ std::error_code set(const std::string& path, const char* key, const std::string&
 }
 }  // namespace
 
+std::optional<unsigned> read_rating(int fd) {
+    struct stat info{};
+    if (::fstat(fd, &info) != 0 || (!S_ISREG(info.st_mode) && !S_ISDIR(info.st_mode)))
+        return std::nullopt;
+    char value{};
+    const auto size = ::getxattr(pinned(fd).c_str(), kNames[1], &value, 1);
+    if (size == 0 || (size < 0 && errno == ENODATA))
+        return 0;
+    if (size == 1 && value >= '0' && value <= '5')
+        return static_cast<unsigned>(value - '0');
+    return std::nullopt;
+}
+
 Annotations read_annotations(int fd) {
     Annotations result;
     struct stat info{};

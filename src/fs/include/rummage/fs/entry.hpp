@@ -47,6 +47,7 @@ struct Entry {
     std::string link_target{};
     // Absent: not requested/pending. Present but empty: unsupported or unavailable.
     std::shared_ptr<const MediaMetadata> media{};
+    std::optional<unsigned> rating{};  // General file rating, distinct from photo metadata.
 
     // Collection rows keep a stable key independently of their displayed filename. An empty
     // identity preserves ordinary directory semantics. location is always a real original path,

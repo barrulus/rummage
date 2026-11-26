@@ -432,7 +432,7 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
                                       "sort:created", "sort:accessed", "sort:owner", "sort:group",
                                       "sort:permissions", "sort:location", "sort:link_target",
                                       "sort:dimensions", "sort:duration", "sort:bitrate",
-                                      "sort:video_codec", "sort:audio_codec", "sort:ascending",
+                                      "sort:video_codec", "sort:audio_codec", "sort:rating", "sort:ascending",
                                       "sort:descending", "reset_folder_view"});
     const auto checked = [](const MenuItem& submenu) {
         Names out;
@@ -2587,6 +2587,51 @@ TEST_CASE("properties: multiple items stage annotations and permissions together
     REQUIRE(dialog.can_edit_annotations());
     dialog.set_permissions(0600);
     dialog.set_annotations("project, favorite", "4", "reviewed");
+    rummage::ui::Offscreen surface{800, 1200};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(800, 1200, 1, {});
+    dialog.draw(renderer, {0, 0, 800, 1200}, rummage::theme::Palette{}, icons);
+    renderer.end_frame();
+    CHECK_FALSE(dialog.control_bounds("recursive").empty());
+    CHECK_FALSE(dialog.control_bounds("clear_annotations").empty());
+    if (const char* snapshot = std::getenv("RUMMAGE_PROPERTIES_SNAPSHOT")) {
+        const auto capture = [&](const std::string& path, int width, int height) {
+            std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width * height * 4));
+            glReadPixels(0, 1200 - height, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            const auto stride = static_cast<std::size_t>(width * 4);
+            for (std::size_t y = 0; y < static_cast<std::size_t>(height / 2); ++y)
+                std::swap_ranges(
+                    pixels.begin() + static_cast<std::ptrdiff_t>(y * stride),
+                    pixels.begin() + static_cast<std::ptrdiff_t>((y + 1) * stride),
+                    pixels.begin() + static_cast<std::ptrdiff_t>(
+                                         (static_cast<std::size_t>(height) - 1 - y) * stride));
+            const auto png =
+                rummage::picture::encode_png({.width = static_cast<std::uint32_t>(width),
+                                              .height = static_cast<std::uint32_t>(height),
+                                              .rgba = std::move(pixels)});
+            std::ofstream output{path, std::ios::binary};
+            output.write(reinterpret_cast<const char*>(png.data()),
+                         static_cast<std::streamsize>(png.size()));
+            REQUIRE(output.good());
+        };
+        capture(snapshot, 800, 1200);
+        const auto narrow = [&] {
+            renderer.begin_frame(800, 1200, 1, {});
+            dialog.draw(renderer, {0, 0, 360, 640}, rummage::theme::Palette{}, icons);
+            renderer.end_frame();
+        };
+        narrow();
+        capture(std::string{snapshot} + "-narrow.png", 360, 640);
+        dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::scroll,
+                        .x = 180,
+                        .y = 300,
+                        .wheel_y = 10000});
+        narrow();
+        capture(std::string{snapshot} + "-narrow-bottom.png", 360, 640);
+    }
+
     dialog.apply();
     REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
     REQUIRE_MESSAGE(!dialog.is_open(), dialog.error());

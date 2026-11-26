@@ -44,6 +44,16 @@ namespace fs = std::filesystem;
 
 namespace {
 
+rummage::views::DetailsWidths property_widths(float size, float modified, float type,
+                                              float name = 0) {
+    auto result = rummage::views::kDetailsWidths;
+    result[0] = size;
+    result[1] = modified;
+    result[2] = type;
+    result.back() = name;
+    return result;
+}
+
 using Names = std::vector<std::string>;
 
 constexpr std::int32_t kWidth = 1000;
@@ -560,14 +570,14 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     f.browser.set_sort(rummage::fs::SortKey::modified, true);
     f.browser.set_grid_size(4);
     f.browser.set_list_size(3);
-    f.browser.details().set_widths({80, 170, 240, 150, 150, 110, 110, 130, 220, 220});
+    f.browser.details().set_widths(property_widths(80, 170, 240));
     f.browser.open(f.b);
     REQUIRE(f.settle());
     f.browser.set_mode(Browser::Mode::details);
     f.browser.set_sort(rummage::fs::SortKey::size, false);
     f.browser.set_grid_size(0);
     f.browser.set_list_size(0);
-    f.browser.details().set_widths({90, 180, 250, 150, 150, 110, 110, 130, 220, 220});
+    f.browser.details().set_widths(property_widths(90, 180, 250));
     f.browser.back();
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::grid);
@@ -575,8 +585,7 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     CHECK(f.browser.sort_order().descending);
     CHECK(f.browser.grid().size_index() == 4);
     CHECK(f.browser.details().list_size() == 3);
-    CHECK(f.browser.details().widths() ==
-          rummage::views::DetailsWidths{80, 170, 240, 150, 150, 110, 110, 130, 220, 220});
+    CHECK(f.browser.details().widths() == property_widths(80, 170, 240));
     f.browser.forward();
     REQUIRE(f.settle());
     CHECK(f.browser.mode() == Browser::Mode::details);
@@ -584,8 +593,7 @@ TEST_CASE("folders: view, sort, zoom and widths follow navigation and survive re
     CHECK_FALSE(f.browser.sort_order().descending);
     CHECK(f.browser.grid().size_index() == 0);
     CHECK(f.browser.details().list_size() == 0);
-    CHECK(f.browser.details().widths() ==
-          rummage::views::DetailsWidths{90, 180, 250, 150, 150, 110, 110, 130, 220, 220});
+    CHECK(f.browser.details().widths() == property_widths(90, 180, 250));
     const auto saved =
         rummage::views::parse_state(rummage::views::format_state(f.browser.state()), "state.toml");
     REQUIRE(saved.problems.empty());
