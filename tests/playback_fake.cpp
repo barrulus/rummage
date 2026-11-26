@@ -1,7 +1,10 @@
 #include <array>
+#include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <span>
 #include <sys/mman.h>
+#include <thread>
 #include <unistd.h>
 
 #include "playback_protocol.hpp"
@@ -12,11 +15,25 @@ int main(int argc, char** argv) {
     namespace protocol = rummage::isolate::protocol;
     if (argc < 1)
         return 1;
+    const auto mode = std::filesystem::path{argv[0]}.filename();
+    if (mode == "hang-audio") {
+        while (true)
+            ::pause();
+    }
+    if (mode == "slow-audio") {
+        // A real sound server may not consume PCM immediately after the stream opens.
+        std::this_thread::sleep_for(std::chrono::seconds{2});
+        std::ofstream capture{std::string{argv[0]} + ".pcm", std::ios::binary};
+        std::array<char, 4096> bytes{};
+        ssize_t count = 0;
+        while ((count = ::read(0, bytes.data(), bytes.size())) > 0)
+            capture.write(bytes.data(), count);
+        return capture ? 0 : 1;
+    }
     auto packet = protocol::receive_packet(3);
     if (!packet)
         return 1;
     packet->close_fds();
-    const auto mode = std::filesystem::path{argv[0]}.filename();
     if (mode == "hang") {
         while (true)
             ::pause();

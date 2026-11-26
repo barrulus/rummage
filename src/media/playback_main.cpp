@@ -198,11 +198,20 @@ struct Session {
     bool ready(const Track& track, double target) const {
         if (!track.stream || track.end_ms >= target)
             return true;
+        const double start = track.stream->start_time == AV_NOPTS_VALUE
+                                 ? 0
+                                 : static_cast<double>(track.stream->start_time) *
+                                           av_q2d(track.stream->time_base) * 1000 -
+                                       origin();
+        // MP4 edit lists can delay a track. Do not decode seconds of video ahead just to
+        // find its first audio packet: that overflows the bounded video queue on valid files.
+        if (track.end_ms < 0 && target <= start)
+            return true;
         const auto track_duration = track.stream->duration;
         if (track_duration <= 0 || track_duration == AV_NOPTS_VALUE)
             return false;
         const double end =
-            static_cast<double>(track_duration) * av_q2d(track.stream->time_base) * 1000;
+            start + static_cast<double>(track_duration) * av_q2d(track.stream->time_base) * 1000;
         return track.end_ms >= end - 1.0;
     }
 

@@ -22,6 +22,13 @@ run('-f', 'lavfi', '-i', 'color=c=blue:s=96x48:r=10:d=0.5',
     '-metadata', 'title=Metadata sample', '-metadata', 'artist=Rummage tests',
     str(root / 'metadata.mp4'))
 
+# MP4 edit list: video starts at zero; AAC begins two seconds later. HD frames expose
+# accidental read-ahead beyond the decoder's bounded video queue.
+run('-f', 'lavfi', '-i', 'color=red:size=1280x720:rate=30',
+    '-itsoffset', '2', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+    '-t', '5', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
+    str(root / 'delayed-audio.mp4'))
+
 # Audio-only metadata fixture, independent of FFmpeg's encoder defaults.
 import wave
 with wave.open(str(root / 'silence.wav'), 'wb') as out:

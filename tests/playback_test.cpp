@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <thread>
 
 #include <doctest/doctest.h>
@@ -138,4 +139,74 @@ TEST_CASE("playback: rapid seeks display the latest requested position and frame
     CHECK(state.error.empty());
     REQUIRE(state.image);
     CHECK(state.image->rgba[0] > 220);
+}
+
+TEST_CASE("playback: delayed MP4 audio does not overflow the bounded video queue") {
+    Playback value{data / "delayed-audio.mp4", helpers()};
+    REQUIRE(until([&] { return !value.snapshot().loading; }));
+    REQUIRE(value.snapshot().error.empty());
+    REQUIRE(value.snapshot().image);
+    CHECK(value.snapshot().image->width == 1280);
+    CHECK(value.snapshot().image->height == 720);
+    CHECK(value.snapshot().duration_ms >= 5000);
+    CHECK(value.snapshot().duration_ms <= 5025);  // AAC's final padded frame
+    value.seek(3000);
+    REQUIRE(until([&] { return !value.snapshot().loading; }));
+    CHECK(value.snapshot().error.empty());
+    CHECK(value.snapshot().position_ms == 3000);
+    CHECK(value.snapshot().paused);
+}
+
+TEST_CASE("playback: a cold audio sink receives the complete sustained PCM stream") {
+    rummage::test::TempDir dir;
+    const auto wave = dir.path / "tone.wav";
+    constexpr std::uint32_t frames = 48000 * 4;
+    std::string pcm;
+    pcm.reserve(frames * 4);
+    for (std::uint32_t i = 0; i < frames; ++i)
+        pcm.append("\xe8\x03\x18\xfc", 4);  // stereo +1000/-1000
+    {
+        std::ofstream file{wave, std::ios::binary};
+        const auto little = [&](std::uint32_t value, int bytes) {
+            for (int i = 0; i < bytes; ++i)
+                file.put(static_cast<char>((value >> (i * 8)) & 255U));
+        };
+        file << "RIFF";
+        little(36 + frames * 4, 4);
+        file << "WAVEfmt ";
+        little(16, 4);
+        little(1, 2);
+        little(2, 2);
+        little(48000, 4);
+        little(192000, 4);
+        little(4, 2);
+        little(16, 2);
+        file << "data";
+        little(frames * 4, 4);
+        file.write(pcm.data(), static_cast<std::streamsize>(pcm.size()));
+    }
+    const auto sink = dir.path / "slow-audio";
+    std::filesystem::create_symlink(RUMMAGE_FAKE_PLAYBACK, sink);
+    Playback value{wave, {.decoder = RUMMAGE_PLAYBACK_HELPER, .audio = sink}};
+    value.volume(100);
+    value.pause(false);
+    const auto deadline = std::chrono::steady_clock::now() + 10s;
+    while (std::chrono::steady_clock::now() < deadline && !value.snapshot().paused)
+        std::this_thread::sleep_for(10ms);
+    const auto state = value.snapshot();
+    CHECK(state.error.empty());
+    REQUIRE(state.ended);
+    REQUIRE(state.paused);
+    std::ifstream captured{sink.string() + ".pcm", std::ios::binary};
+    const std::string received{std::istreambuf_iterator<char>{captured}, {}};
+    CHECK(received == pcm);  // catches missing first/last chunks, duplication and early teardown
+    const auto hanging = dir.path / "hang-audio";
+    std::filesystem::create_symlink(RUMMAGE_FAKE_PLAYBACK, hanging);
+    auto blocked = std::make_unique<Playback>(
+        wave, Playback::Programs{.decoder = RUMMAGE_PLAYBACK_HELPER, .audio = hanging});
+    blocked->pause(false);
+    std::this_thread::sleep_for(600ms);  // enough PCM to fill the bounded socket queue
+    const auto close_started = std::chrono::steady_clock::now();
+    blocked.reset();
+    CHECK(std::chrono::steady_clock::now() - close_started < 300ms);
 }

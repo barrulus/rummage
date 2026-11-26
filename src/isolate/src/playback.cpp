@@ -48,7 +48,7 @@ struct Child {
         if (pid < 0)
             return true;
         ::shutdown(socket, SHUT_WR);
-        const auto deadline = Clock::now() + std::chrono::milliseconds{500};
+        const auto deadline = Clock::now() + std::chrono::seconds{3};
         while (!stop_token.stop_requested() && !paused.load() && seeking.load() < 0 &&
                Clock::now() < deadline) {
             int status = 0;
@@ -60,8 +60,10 @@ struct Child {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds{5});
         }
+        const bool interrupted =
+            stop_token.stop_requested() || paused.load() || seeking.load() >= 0;
         stop();
-        return true;
+        return interrupted;
     }
 
     bool start(const std::filesystem::path& program, bool audio = false) {
@@ -99,6 +101,12 @@ struct Child {
             return false;
         }
         socket = pair[0];
+        if (audio) {
+            // Bound queued PCM to a few playback steps so audio cannot lag video by an
+            // entire default socket buffer. Backpressure paces the worker instead.
+            const int bytes = 4 * static_cast<int>(wire::kStepMs) * 48 * 4;
+            ::setsockopt(socket, SOL_SOCKET, SO_SNDBUF, &bytes, sizeof(bytes));
+        }
         ::fcntl(socket, F_SETFL, ::fcntl(socket, F_GETFL) | O_NONBLOCK);
         return true;
     }
@@ -302,7 +310,10 @@ void Playback::run(std::stop_token stop, const std::filesystem::path& path,
             for (auto& sample : decoded->samples)
                 sample = static_cast<std::int16_t>(static_cast<int>(sample) * volume_.load() / 100);
             auto bytes = std::as_bytes(std::span{decoded->samples});
-            const auto deadline = Clock::now() + std::chrono::milliseconds{250};
+            // A cold sound server/device can take seconds to start consuming PCM. Socket
+            // backpressure is not a decoder failure; keep the wait bounded and interruptible
+            // on pause/seek/close rather than permanently disabling sound after 250 ms.
+            const auto deadline = Clock::now() + std::chrono::seconds{3};
             while (!audio_failed && !bytes.empty() && !stop.stop_requested() && !paused_.load() &&
                    seek_.load() < 0) {
                 const auto wrote = ::send(audio.socket, bytes.data(), bytes.size(), MSG_NOSIGNAL);
