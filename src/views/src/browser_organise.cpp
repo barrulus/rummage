@@ -227,6 +227,15 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
     if (Sidebar::separator(place))
         return sidebar_organization_items(place);
     std::vector<MenuItem> items;
+    if (place.uri == "rummage:photos" || place.uri.starts_with("rummage:photos/")) {
+        MenuItem item;
+        item.id = "open";
+        item.label = i18n::tr("Open");
+        item.keys = keys_for(Command::open_selected);
+        item.action = [this, place] { open_place(place); };
+        items.push_back(std::move(item));
+        return items;
+    }
     if (place.uri == "rummage:saved-searches") {
         MenuItem item;
         item.id = "saved_searches";

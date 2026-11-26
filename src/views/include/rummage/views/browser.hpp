@@ -1258,6 +1258,7 @@ private:
     std::vector<std::string> palette_recent_;
     std::unique_ptr<SearchResults> search_results_;
     std::unique_ptr<PhotoLibrary> photo_library_;
+    nlohmann::json photo_navigation_ = nlohmann::json::object();
     void photo_operation(const nlohmann::json& request);
     void photo_transfer_done(const fs::TransferRequest&, const fs::TransferResult&);
     void photo_reconcile(const FileOperation&);

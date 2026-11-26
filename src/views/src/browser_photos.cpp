@@ -43,6 +43,7 @@ void Browser::set_photos_enabled(bool enabled) {
         }
         context_area_ = context;
         photo_library_.reset();
+        photo_navigation_ = nlohmann::json::object();
         info_pane_.set_photo_properties(std::nullopt);
     }
     show_places();
@@ -103,6 +104,10 @@ void Browser::prepare_photo_library() {
     if (!photo_library_) {
         photo_library_ = std::make_unique<PhotoLibrary>(loop_, pool_, watcher_, mime_, redraw_);
         photo_library_->set_changed_handler([this] { sync_photo_view(); });
+        photo_library_->set_navigation_handler([this](nlohmann::json navigation) {
+            photo_navigation_ = std::move(navigation);
+            show_places();
+        });
         photo_library_->set_folder_chooser([this](const auto& start, auto chosen) {
             if (folder_chooser_)
                 folder_chooser_(start.empty() ? photo_home() : start, std::move(chosen));

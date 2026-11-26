@@ -628,7 +628,7 @@ TEST_CASE(
         REQUIRE(library->rows().empty());
         draw("native-empty-album");
         if (std::string_view{route} == "sidebar") {
-            const auto bounds = browser.sidebar().place_icon_rect({});
+            const auto bounds = browser.sidebar().place_icon_rect_for_uri("rummage:photos");
             REQUIRE(bounds);
             for (auto kind :
                  {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
@@ -793,5 +793,230 @@ TEST_CASE(
         CHECK_FALSE(item->enabled);
     }
     draw("native-add-to-album-complete");
+}
+
+TEST_CASE(
+    "photo workspace: native sidebar hierarchy opens albums and saved searches without filesystem "
+    "paths") {
+    rummage::ui::Offscreen offscreen{1100, 820};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Sidebar pictures";
+    for (const auto* name : {"Blue.png", "Green.png", "Red.png"})
+        fixture(source / name);
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    const auto cache =
+        std::make_shared<rummage::thumbs::Cache>(directory.path / "cache", "sidebar-photo-test");
+    Browser browser{loop, pool, watcher, mime, [] {}, [](auto) {}, cache};
+    const std::vector<rummage::fs::Place> places{
+        {.label = "Home", .path = directory.path, .icon = "home"},
+        {.label = "Pictures", .path = source, .icon = "photo"}};
+    browser.set_places(places);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&](const std::string& name = "") {
+        const auto frame = [&] {
+            const rummage::theme::Palette palette;
+            renderer.begin_frame(1100, 820, 1, palette.surface);
+            browser.draw(renderer, {0, 0, 1100, 820}, palette, icons, Browser::Clock::now());
+            renderer.end_frame();
+        };
+        frame();
+        if (!name.empty())
+            REQUIRE(settle_photos(loop, [&] {
+                frame();
+                return !browser.animating();
+            }));
+        capture(name, 1100, 820);
+    };
+    const auto press = [&](KeyEvent key) { REQUIRE(browser.key(key, Browser::Clock::now())); };
+    const auto click = [&](const rummage::ui::Rect& bounds) {
+        for (auto kind :
+             {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
+            browser.pointer({.kind = kind,
+                             .x = bounds.x + bounds.width / 2,
+                             .y = bounds.y + bounds.height / 2,
+                             .button = rummage::ui::PointerButton::left},
+                            Browser::Clock::now());
+    };
+    const auto click_uri = [&](std::string_view uri) {
+        draw();
+        const auto bounds = browser.sidebar().place_icon_rect_for_uri(uri);
+        REQUIRE(bounds);
+        click(*bounds);
+        REQUIRE(settle_photos(
+            loop, [&] { return browser.photo_library() && !browser.photo_library()->loading(); }));
+        draw();
+        const auto* current = browser.sidebar().current_place();
+        REQUIRE(current);
+        CHECK(current->uri == uri);
+    };
+    browser.open(source);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    draw();
+    CHECK(browser.sidebar().place_icon_rect_for_uri("rummage:photos"));
+    CHECK(browser.sidebar().place_icon_rect_for_uri("rummage:photos/albums"));
+    const auto catalog = directory.path / "data/rummage/photos/catalog.sqlite3";
+    CHECK_FALSE(std::filesystem::exists(catalog));
+    CHECK(browser.photo_library() == nullptr);
+    {
+        Browser picker{loop, pool, watcher, mime, [] {}, [](auto) {}};
+        picker.set_picker_mode(true);
+        picker.set_places(places);
+        CHECK(std::ranges::none_of(picker.sidebar().sources(), [](const auto& place) {
+            return place.uri.starts_with("rummage:photos");
+        }));
+        CHECK(picker.sidebar().sources().size() == places.size());
+        CHECK(picker.photo_library() == nullptr);
+    }
+    CHECK_FALSE(std::filesystem::exists(catalog));
+    click_uri("rummage:photos");
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    library->add_folder(source);
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 3 && !library->loading(); }));
+    const auto target =
+        library->client()->request({{"op", "create_album"}, {"name", "Target album"}});
+    REQUIRE(target.value("ok", false));
+    library->refresh_navigation();
+    browser.set_mode(Browser::Mode::details);
+    draw();
+    press(photo_key(XKB_KEY_F6, {.shift = true}));
+    press(photo_key(XKB_KEY_Home));
+    press(photo_key(XKB_KEY_Down, {.shift = true}));
+    const auto selected = library->selected_ids();
+    REQUIRE(selected.size() == 2);
+    invoke(library->menu_items(), "photos:create-album");
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Weekend"));
+    press(photo_key(XKB_KEY_Return));
+    const auto record_id = [&](std::string_view collection, std::string_view name) {
+        const auto records =
+            library->navigation().value(std::string{collection}, nlohmann::json::array());
+        for (const auto& record : records)
+            if (record.value("name", "") == name)
+                return record.value("id", PhotoLibrary::Id{});
+        return PhotoLibrary::Id{};
+    };
+    REQUIRE(settle_photos(
+        loop, [&] { return record_id("albums", "Weekend") > 0 && !library->loading(); }));
+    const auto weekend_uri =
+        "rummage:photos/albums/" + std::to_string(record_id("albums", "Weekend"));
+    const auto target_uri = "rummage:photos/albums/" + target.at("id").dump();
+    click_uri("rummage:photos/albums");
+    CHECK(library->destination() == PhotoLibrary::Destination::albums);
+    CHECK(library->selected_ids() == selected);
+    press(photo_key(XKB_KEY_F6));
+    press(photo_key(XKB_KEY_Right));
+    draw();
+    REQUIRE(browser.sidebar().place_icon_rect_for_uri(weekend_uri));
+    REQUIRE(browser.sidebar().place_icon_rect_for_uri(target_uri));
+    press(photo_key(XKB_KEY_F6, {.shift = true}));
+    const auto& album_entries = library->folder()->entries();
+    const auto target_row =
+        std::ranges::find(album_entries, "Target album", &rummage::fs::Entry::name);
+    REQUIRE(target_row != album_entries.end());
+    press(photo_key(XKB_KEY_Home));
+    for (auto it = album_entries.begin(); it != target_row; ++it)
+        press(photo_key(XKB_KEY_Down));
+    invoke(library->context_menu_items(), "photos:album-add");
+    REQUIRE(settle_photos(loop, [&] {
+        const auto response =
+            library->client()->request({{"op", "query"}, {"album_id", target.at("id")}});
+        return response.value("total", 0) == 2 && !library->loading();
+    }));
+    CHECK(library->selected_ids() == selected);
+    draw("native-sidebar-albums");
+    click_uri(weekend_uri);
+    CHECK(library->rows().size() == 2);
+    CHECK(library->selected_ids() == selected);
+    CHECK(library->title().find("Weekend") != std::string::npos);
+    draw("native-sidebar-album-collection");
+    // Navigate and collapse the hierarchy with the existing sidebar keyboard behavior.
+    press(photo_key(XKB_KEY_F6));
+    press(photo_key(XKB_KEY_Left));
+    press(photo_key(XKB_KEY_Left));
+    draw();
+    CHECK_FALSE(browser.sidebar().place_icon_rect_for_uri(weekend_uri));
+    REQUIRE(browser.sidebar().current_place());
+    CHECK(browser.sidebar().current_place()->uri == "rummage:photos/albums");
+    press(photo_key(XKB_KEY_Right));
+    press(photo_key(XKB_KEY_Right));
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 2 && !library->loading(); }));
+    draw();
+    REQUIRE(browser.sidebar().current_place());
+    const auto* active_album = browser.sidebar().current_place();
+    CHECK((active_album && active_album->uri.starts_with("rummage:photos/albums/")));
+    click_uri("rummage:photos");
+    CHECK(library->at_all_photos());
+    CHECK(library->rows().size() == 3);
+    library->set_query("Blue");
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 1 && !library->loading(); }));
+    invoke(library->menu_items(), "photos:save-search");
+    press(photo_key(XKB_KEY_NoSymbol, {}, "Blue sky"));
+    press(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(
+        loop, [&] { return record_id("filters", "Blue sky") > 0 && !library->loading(); }));
+    const auto search_uri =
+        "rummage:photos/searches/" + std::to_string(record_id("filters", "Blue sky"));
+    click_uri("rummage:photos");
+    click_uri("rummage:photos/searches");
+    CHECK(library->destination() == PhotoLibrary::Destination::filters);
+    press(photo_key(XKB_KEY_F6));
+    press(photo_key(XKB_KEY_Right));
+    draw();
+    REQUIRE(browser.sidebar().place_icon_rect_for_uri(search_uri));
+    press(photo_key(XKB_KEY_F6, {.shift = true}));
+    click_uri(search_uri);
+    REQUIRE(library->rows().size() == 1);
+    CHECK(library->rows().front().value("filename", "") == "Blue.png");
+    CHECK(library->query_text() == "Blue");
+    draw("native-sidebar-saved-search");
+    click_uri("rummage:photos");
+    for (const auto& [uri, destination] :
+         std::array{std::pair{"rummage:photos/sources", PhotoLibrary::Destination::sources},
+                    std::pair{"rummage:photos/review", PhotoLibrary::Destination::review},
+                    std::pair{"rummage:photos/activity", PhotoLibrary::Destination::activity}}) {
+        click_uri(uri);
+        CHECK(library->destination() == destination);
+        CHECK(library->folder()->is_collection());
+        CHECK(library->folder()->path().empty());
+        for (const auto& entry : library->folder()->entries()) {
+            CHECK(entry.location.empty());
+            CHECK_FALSE(entry.is_directory());
+        }
+    }
+    click_uri("rummage:photos");
+    press(photo_key(XKB_KEY_F6));
+    press(photo_key(XKB_KEY_Left));
+    draw();
+    CHECK_FALSE(browser.sidebar().place_icon_rect_for_uri("rummage:photos/albums"));
+    CHECK(browser.sidebar().place_icon_rect_for_uri("rummage:photos"));
+    press(photo_key(XKB_KEY_Right));
+    draw("native-sidebar-expanded");
+    CHECK(browser.sidebar().place_icon_rect_for_uri(weekend_uri));
+    CHECK(browser.sidebar().place_icon_rect_for_uri(search_uri));
+    for (const auto& place : browser.sidebar().places())
+        if (place.uri.starts_with("rummage:photos"))
+            CHECK(place.path.empty());
+    press(photo_key(XKB_KEY_F6, {.shift = true}));
+    const auto home = browser.sidebar().place_icon_rect(directory.path);
+    REQUIRE(home);
+    click(*home);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    CHECK_FALSE(browser.showing_photos());
+    CHECK(browser.picker_folder()->path() == directory.path);
+    click_uri("rummage:photos");
+    CHECK(library->at_all_photos());
+    CHECK(library->rows().size() == 3);
 }
 #endif

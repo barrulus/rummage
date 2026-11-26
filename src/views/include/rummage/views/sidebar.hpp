@@ -63,6 +63,26 @@ public:
 
     void set_current_uri(std::string uri) { current_uri_ = std::move(uri); }
 
+    [[nodiscard]] const std::string& current_uri() const { return current_uri_; }
+
+    [[nodiscard]] const fs::Place* current_place() const {
+        return current_ && *current_ < places_.size() ? &places_[*current_] : nullptr;
+    }
+
+    // Logical URI groups share the ordinary tree rows without opening filesystem models.
+    // Register an empty group to retain its disclosure while its children load lazily.
+    struct LogicalGroup {
+        std::vector<fs::Place> children;
+        bool expanded_by_default{false};
+    };
+
+    using LogicalGroups = std::map<std::string, LogicalGroup>;
+    void set_logical_groups(LogicalGroups groups);
+
+    void set_logical_expand_handler(std::function<void(std::string)> handler) {
+        logical_expand_ = std::move(handler);
+    }
+
     void toggle_folder(const std::filesystem::path& path, std::string_view root = {});
 
     static bool child(const fs::Place& place) { return place.icon_key == "sidebar_child"; }
@@ -116,6 +136,7 @@ public:
     [[nodiscard]] const std::vector<fs::Place>& places() const noexcept { return places_; }
 
     [[nodiscard]] std::optional<ui::Rect> place_icon_rect(const std::filesystem::path& path) const;
+    [[nodiscard]] std::optional<ui::Rect> place_icon_rect_for_uri(std::string_view uri) const;
 
     // current: the folder shown, whose place is marked.
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
@@ -246,8 +267,10 @@ private:
 
     void rebuild();
     using NodeId = std::pair<std::string, std::filesystem::path>;
-    void append_tree(fs::Place place, std::size_t depth, const std::string& root,
-                     bool link = false);
+    void append_tree(fs::Place place, std::size_t depth, const std::string& root, bool link = false,
+                     bool logical = false);
+    [[nodiscard]] bool row_expanded(std::size_t row) const;
+    [[nodiscard]] bool logical_expanded(std::string_view uri) const;
     void toggle_row(std::size_t index);
     void release_models();
     void expand_folder(const std::filesystem::path& path);
@@ -255,6 +278,8 @@ private:
     std::map<std::filesystem::path, std::unique_ptr<fs::DirectoryModel>> models_;
     std::unique_ptr<fs::Subfolders> subfolders_;
     std::set<NodeId> expanded_;
+    LogicalGroups logical_groups_;
+    std::function<void(std::string)> logical_expand_;
     std::vector<NodeId> node_ids_;
     std::vector<std::size_t> depths_;
     std::vector<bool> links_;

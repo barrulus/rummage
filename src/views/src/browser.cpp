@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <system_error>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -123,6 +124,12 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
     });
     sidebar_.enable_tree(loop_, pool_, watcher_, mime_);
     sidebar_.set_close_handler([this] { set_sidebar_visible(false); });
+    sidebar_.set_logical_expand_handler([this](const std::string& uri) {
+        if (!photos_available() || !uri.starts_with("rummage:photos"))
+            return;
+        prepare_photo_library();
+        photo_library_->refresh_navigation();
+    });
     sidebar_.set_background_menu(
         [this](float x, float y) { menu_.open(x, y, sidebar_menu(), false); });
     sidebar_.set_eject_handler([this](const fs::Place& place) { eject_place(place); });
@@ -1480,6 +1487,7 @@ void Browser::set_places(std::vector<fs::Place> places) {
 
 void Browser::show_places() {
     std::vector<fs::Place> places = places_;
+    Sidebar::LogicalGroups photo_groups;
     for (fs::Place& place : places) {
         if (fs::is_trash(place.path)) {
             place.icon = trash_full_ ? "trash-filled" : "trash";
@@ -1502,7 +1510,38 @@ void Browser::show_places() {
                                             .path = {},
                                             .icon = "photo",
                                             .uri = "rummage:photos"});
+        const auto logical = [](std::string label, std::string_view icon, std::string uri) {
+            return fs::Place{.section = fs::Place::Section::places,
+                             .label = std::move(label),
+                             .path = {},
+                             .icon = icon,
+                             .uri = std::move(uri)};
+        };
+        photo_groups["rummage:photos"] = {
+            .children = {logical("Albums", "folder", "rummage:photos/albums"),
+                         logical("Sources", "folder", "rummage:photos/sources"),
+                         logical("Saved searches", "bookmark", "rummage:photos/searches"),
+                         logical("Review duplicates", "files", "rummage:photos/review"),
+                         logical("Activity", "list-details", "rummage:photos/activity")},
+            .expanded_by_default = true};
+        for (const auto& [key, uri, icon] :
+             {std::tuple{"albums", "rummage:photos/albums", "photo"},
+              std::tuple{"sources", "rummage:photos/sources", "folder"},
+              std::tuple{"filters", "rummage:photos/searches", "bookmark"}}) {
+            auto& group = photo_groups[uri];
+            for (const auto& record : photo_navigation_.value(key, nlohmann::json::array())) {
+                auto label = record.value("name", "");
+                if (std::string_view{key} == "sources") {
+                    const std::filesystem::path path{record.value("path", "")};
+                    label = path.filename().empty() ? path.string() : path.filename().string();
+                }
+                group.children.push_back(logical(
+                    std::move(label), icon,
+                    std::string{uri} + "/" + std::to_string(record.value("id", std::int64_t{}))));
+            }
+        }
     }
+    sidebar_.set_logical_groups(std::move(photo_groups));
     sidebar_.set_places(std::move(places));
 }
 
@@ -4155,7 +4194,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     status_bar_.set_collection_status(showing_photos() ? photo_library_->status() + " · " +
                                                              photo_library_->background_status()
                                                        : std::string{});
-    sidebar_.set_current_uri(showing_photos() ? "rummage:photos" : "");
+    sidebar_.set_current_uri(showing_photos() ? photo_library_->navigation_uri() : "");
     if (sidebar_drawn_) {
         float places_height = bounds.height;
         if (preview_below_places_) {
@@ -5785,9 +5824,45 @@ void Browser::next_bookmark_change() {
 void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
     if (Sidebar::separator(place))
         return;
-    if (place.uri == "rummage:photos") {
-        if (destination == PlaceDestination::current)
-            open_photo_library();
+    if (place.uri == "rummage:photos" || place.uri.starts_with("rummage:photos/")) {
+        if (destination != PlaceDestination::current || !photos_available())
+            return;
+        sidebar_.set_focused(false);
+        open_photo_library();
+        if (place.uri == "rummage:photos")
+            return;
+        for (const auto& [uri, target] :
+             {std::pair{"rummage:photos/albums", PhotoLibrary::Destination::albums},
+              std::pair{"rummage:photos/sources", PhotoLibrary::Destination::sources},
+              std::pair{"rummage:photos/searches", PhotoLibrary::Destination::filters},
+              std::pair{"rummage:photos/review", PhotoLibrary::Destination::review},
+              std::pair{"rummage:photos/activity", PhotoLibrary::Destination::activity}}) {
+            if (place.uri == uri) {
+                photo_library_->show(target);
+                return;
+            }
+        }
+        for (const auto& [key, prefix] : {std::pair{"albums", "rummage:photos/albums/"},
+                                          std::pair{"sources", "rummage:photos/sources/"},
+                                          std::pair{"filters", "rummage:photos/searches/"}}) {
+            if (!place.uri.starts_with(prefix))
+                continue;
+            for (const auto& record : photo_navigation_.value(key, nlohmann::json::array())) {
+                const auto id = record.value("id", std::int64_t{});
+                if (place.uri != std::string{prefix} + std::to_string(id))
+                    continue;
+                if (std::string_view{key} == "albums")
+                    photo_library_->open_album(id, record.value("name", ""));
+                else if (std::string_view{key} == "sources")
+                    photo_library_->open_source(id, record.value("path", ""));
+                else
+                    photo_library_->open_saved_search(record);
+                return;
+            }
+            show_message("This Photo Library entry is no longer available", false);
+            photo_library_->refresh_navigation();
+            return;
+        }
         return;
     }
     if (place.uri == "rummage:saved-searches") {

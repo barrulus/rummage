@@ -15,6 +15,13 @@ has **Add to Photo Library…**. Photo Library opens in a normal browser tab alo
 folder tabs, with the same sidebar, navigation, view controls and status bar. Picker and portal
 windows do not expose the library.
 
+**Photo Library** opens expanded in the sidebar, with **Albums**, **Sources**, **Saved searches**,
+**Review duplicates** and **Activity** beneath it. Expand Albums or Saved searches to select an
+individual album or saved query directly; Sources also expands to its registered folders. Click
+a group’s label to browse its list in the main pane. Click Photo Library to return to all photos.
+The sidebar remembers which groups you expand or collapse and highlights the current location.
+New albums and saved searches appear there after they are saved.
+
 Open the toolbar’s **Photo Library** menu and choose **Add folder…**. Select the folder in
 Rummage’s own folder picker, then review **Include subfolders** and optional source-relative
 exclusions. The review shows the chosen location; no path typing is required. Adding a folder

@@ -77,6 +77,8 @@ Sidebar::Sidebar(std::function<void()> redraw, std::function<void(ui::CursorShap
 std::string Sidebar::place_key(const fs::Place& place) {
     if (separator(place))
         return place.uri;
+    if (child(place) && !place.uri.empty())
+        return "uri:" + place.uri;
     if (place.section == fs::Place::Section::devices && !place.disk.identity.empty())
         return "uuid:" + place.disk.identity;
     if (place.section == fs::Place::Section::devices)
@@ -85,6 +87,34 @@ std::string Sidebar::place_key(const fs::Place& place) {
     if (place.section == fs::Place::Section::places && !place.icon_key.empty())
         return "place:" + std::string{place.icon_key};
     return place.uri.empty() ? "path:" + place.path.string() : "uri:" + place.uri;
+}
+
+void Sidebar::set_logical_groups(LogicalGroups groups) {
+    groups.erase("");
+    for (auto& [uri, group] : groups)
+        std::erase_if(group.children, [](const fs::Place& child) {
+            return child.uri.empty() || !child.path.empty();
+        });
+    logical_groups_ = std::move(groups);
+    rebuild();
+}
+
+bool Sidebar::logical_expanded(std::string_view uri) const {
+    const auto group = logical_groups_.find(std::string{uri});
+    if (group == logical_groups_.end())
+        return false;
+    if (std::ranges::find(collapsed_, "logical-closed:" + std::string{uri}) != collapsed_.end())
+        return false;
+    if (std::ranges::find(collapsed_, "logical-open:" + std::string{uri}) != collapsed_.end())
+        return true;
+    return group->second.expanded_by_default;
+}
+
+bool Sidebar::row_expanded(std::size_t row) const {
+    if (row >= places_.size())
+        return false;
+    return logical_groups_.contains(places_[row].uri) ? logical_expanded(places_[row].uri)
+                                                      : expanded_.contains(node_ids_[row]);
 }
 
 void Sidebar::set_organization(std::vector<std::string> order, std::vector<std::string> hidden,
@@ -178,6 +208,8 @@ bool Sidebar::loading() const {
 bool Sidebar::expandable(std::size_t row) const {
     if (row >= places_.size() || links_[row])
         return false;
+    if (logical_groups_.contains(places_[row].uri))
+        return true;
     return subfolders_ && subfolders_->contains(places_[row].path, tree_hidden_).value_or(false);
 }
 
@@ -220,6 +252,8 @@ void Sidebar::release_models() {
 }
 
 void Sidebar::toggle_folder(const std::filesystem::path& path, std::string_view root) {
+    if (path.empty())
+        return;
     for (std::size_t i = 0; i < places_.size(); ++i) {
         if (places_[i].path == path && (root.empty() || node_ids_[i].first == root)) {
             toggle_row(i);
@@ -231,6 +265,24 @@ void Sidebar::toggle_folder(const std::filesystem::path& path, std::string_view 
 void Sidebar::toggle_row(std::size_t index) {
     if (index >= places_.size() || links_[index])
         return;
+    if (logical_groups_.contains(places_[index].uri)) {
+        const auto uri = places_[index].uri;
+        const bool was_open = logical_expanded(uri);
+        std::erase(collapsed_, "logical-open:" + uri);
+        std::erase(collapsed_, "logical-closed:" + uri);
+        collapsed_.push_back((was_open ? "logical-closed:" : "logical-open:") + uri);
+        if (was_open && cursor_) {
+            auto end = index + 1;
+            while (end < places_.size() && depths_[end] > depths_[index])
+                ++end;
+            if (*cursor_ >= index && *cursor_ < end)
+                cursor_ = index;
+        }
+        rebuild();
+        if (!was_open && logical_expand_)
+            logical_expand_(uri);
+        return;
+    }
     const auto id = node_ids_[index];
     if (expanded_.contains(id)) {
         std::erase_if(expanded_, [&](const auto& other) {
@@ -253,9 +305,29 @@ void Sidebar::set_show_hidden(bool hidden) {
     rebuild();
 }
 
-void Sidebar::append_tree(fs::Place place, std::size_t depth, const std::string& root, bool link) {
+void Sidebar::append_tree(fs::Place place, std::size_t depth, const std::string& root, bool link,
+                          bool logical) {
     if (depth > 64)
         return;
+    const auto group = logical_groups_.find(place.uri);
+    logical = logical || group != logical_groups_.end();
+    if (logical) {
+        place.path.clear();
+        const auto uri = place.uri;
+        const auto section = place.section;
+        places_.push_back(std::move(place));
+        depths_.push_back(depth);
+        links_.push_back(group == logical_groups_.end() || depth == 64);
+        node_ids_.emplace_back("uri:" + uri, std::filesystem::path{});
+        if (group != logical_groups_.end() && logical_expanded(uri)) {
+            for (auto child : group->second.children) {
+                child.section = section;
+                child.icon_key = "sidebar_child";
+                append_tree(std::move(child), depth + 1, root, false, true);
+            }
+        }
+        return;
+    }
     const auto path = place.path;
     link = link || separator(place) || !place.disk.mounted || !path.is_absolute() ||
            place.uri.starts_with("rummage:") || depth == 64;
@@ -383,6 +455,23 @@ std::optional<ui::Rect> Sidebar::place_icon_rect(const std::filesystem::path& pa
     return std::nullopt;
 }
 
+std::optional<ui::Rect> Sidebar::place_icon_rect_for_uri(std::string_view uri) const {
+    if (bounds_.empty() || uri.empty())
+        return std::nullopt;
+    for (const auto& row : rows_) {
+        if (row.place && places_[*row.place].uri == uri) {
+            const float y = bounds_.y + row.top - scroller_.offset();
+            const float size = kRowHeight * scale();
+            if (y >= bounds_.y && y + size <= bounds_.bottom())
+                return ui::Rect{bounds_.x + (kIconLeft + 14) * scale() +
+                                    std::min(static_cast<float>(depths_[*row.place]) * 14 * scale(),
+                                             std::max(0.0F, bounds_.width - 110.0F)),
+                                y, size, size};
+        }
+    }
+    return std::nullopt;
+}
+
 void Sidebar::layout() {
     rows_.clear();
     float y = kTop * scale();
@@ -454,11 +543,17 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     current_ = place_holding(places_, current);
     if (!current_uri_.empty()) {
         current_.reset();
-        for (std::size_t i = 0; i < places_.size(); ++i)
-            if (places_[i].uri == current_uri_) {
+        for (std::size_t i = 0; i < places_.size(); ++i) {
+            const auto& uri = places_[i].uri;
+            if (uri == current_uri_) {
                 current_ = i;
                 break;
             }
+            // A hidden destination keeps its nearest visible logical ancestor highlighted.
+            if (logical_groups_.contains(uri) && current_uri_.starts_with(uri + "/") &&
+                (!current_ || uri.size() > places_[*current_].uri.size()))
+                current_ = i;
+        }
     }
     renderer.fill_background(bounds, palette.surface_container_low);
     scroller_.set_extent(content_height_, bounds.height);
@@ -471,8 +566,8 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     if (subfolders_) {
         std::vector<std::filesystem::path> visible;
         for (const auto& row : rows_)
-            if (row.place && !links_[*row.place] && row.top + kRowHeight * scale() >= offset &&
-                row.top <= offset + bounds.height)
+            if (row.place && !links_[*row.place] && places_[*row.place].path.is_absolute() &&
+                row.top + kRowHeight * scale() >= offset && row.top <= offset + bounds.height)
                 visible.push_back(places_[*row.place].path);
         subfolders_->retain(visible);
     }
@@ -539,15 +634,16 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
                                .border = palette.primary});
         }
         if (expandable(i))
-            icons.draw(renderer,
-                       expanded_.contains(node_ids_[i]) ? "chevron-down" : "chevron-right",
+            icons.draw(renderer, row_expanded(i) ? "chevron-down" : "chevron-right",
                        bounds.x + indent - 8, y + 8 * scale(), 12, text);
         const auto icon_key = place.icon_key == "trash" && place.icon == "trash-filled"
                                   ? std::string_view{"trash_full"}
                                   : place.icon_key;
         const float icon_x = bounds.x + (kIconLeft * scale()) + indent;
         const float icon_y = y + (((kRowHeight * scale()) - (kIconSize * scale())) / 2.0F);
-        if (place.section == fs::Place::Section::bookmarks || child(place)) {
+        if (logical_groups_.contains(place.uri) || (child(place) && !place.uri.empty())) {
+            icons.draw(renderer, place.icon, icon_x, icon_y, (kIconSize * scale()), icon);
+        } else if (place.section == fs::Place::Section::bookmarks || child(place)) {
             icons.draw_file(renderer, "inode/directory", place.icon, icon_x, icon_y,
                             (kIconSize * scale()), icon, place.folder_icon);
         } else {
@@ -577,7 +673,7 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
             continue;
         }
         std::string label = place.label;
-        if (expanded_.contains(node_ids_[i])) {
+        if (row_expanded(i) && !logical_groups_.contains(place.uri)) {
             const auto model = models_.find(place.path);
             if (model != models_.end()) {
                 if (model->second->loading())
@@ -1058,13 +1154,13 @@ bool Sidebar::key(const ui::KeyEvent& event) {
             cursor_ = last;
             break;
         case XKB_KEY_Right:
-            if (!expanded_.contains(node_ids_[at]))
+            if (!row_expanded(at))
                 toggle_row(at);
             else if (at < last && depths_[at + 1] > depths_[at])
                 cursor_ = at + 1;
             break;
         case XKB_KEY_Left:
-            if (expanded_.contains(node_ids_[at]))
+            if (row_expanded(at))
                 toggle_row(at);
             else if (depths_[at] > 0) {
                 for (std::size_t parent = at; parent-- > 0;) {

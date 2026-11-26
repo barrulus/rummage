@@ -739,3 +739,138 @@ TEST_CASE("sidebar: disclosures follow visible subfolders and update when a leaf
     fs::remove(dir.path / "branch" / "leaf" / "new");
     REQUIRE(run_until(loop, [&] { return !sidebar.expandable(4); }));
 }
+
+TEST_CASE("sidebar: logical groups expand recursively with stable URI keys and persisted state") {
+    using Sidebar = rummage::views::Sidebar;
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    std::string opened;
+    std::vector<std::string> expanded;
+    Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {},
+                    [&](const Place& place) { opened = place.uri; }};
+    sidebar.enable_tree(loop, pool, watcher, rummage::fs::MimeDatabase::load());
+    const Place root{
+        .label = "Photo Library", .path = {}, .icon = "photo", .uri = "rummage:photos"};
+    const Place albums{
+        .label = "Albums", .path = {}, .icon = "album", .uri = "rummage:photos/albums"};
+    const Place sources{
+        .label = "Sources", .path = {}, .icon = "folders", .uri = "rummage:photos/sources"};
+    const Place searches{
+        .label = "Saved searches", .path = {}, .icon = "search", .uri = "rummage:photos/searches"};
+    const Place first{
+        .label = "Same name", .path = {}, .icon = "album", .uri = "rummage:photos/albums/10"};
+    const Place second{
+        .label = "Same name", .path = {}, .icon = "album", .uri = "rummage:photos/albums/11"};
+    Sidebar::LogicalGroups groups{{root.uri, {{albums, sources, searches}, true}},
+                                  {albums.uri, {{first, second}, false}},
+                                  {sources.uri, {{}, false}},
+                                  {searches.uri, {{}, false}}};
+    sidebar.set_logical_groups(groups);
+    sidebar.set_logical_expand_handler(
+        [&](std::string uri) { expanded.push_back(std::move(uri)); });
+    sidebar.set_places({root});
+    CHECK(labels(sidebar.places()) ==
+          std::vector<std::string>{"Photo Library", "Albums", "Sources", "Saved searches"});
+    CHECK_FALSE(sidebar.loading());
+    CHECK(sidebar.expandable(0));
+    CHECK(sidebar.expandable(2));  // An empty logical group still offers lazy expansion.
+    sidebar.set_focused(true);
+    CHECK(sidebar.key(key(XKB_KEY_Right)));  // Expanded root -> Albums.
+    REQUIRE(sidebar.cursor_place());
+    CHECK(sidebar.cursor_place()->uri == albums.uri);
+    CHECK(sidebar.key(key(XKB_KEY_Right)));  // Expand Albums, do not navigate.
+    CHECK(opened.empty());
+    CHECK(expanded == std::vector<std::string>{albums.uri});
+    REQUIRE(sidebar.places().size() == 6);
+    CHECK(Sidebar::child(sidebar.places()[2]));
+    CHECK(Sidebar::place_key(sidebar.places()[2]) != Sidebar::place_key(sidebar.places()[3]));
+    CHECK_FALSE(sidebar.expandable(2));
+    CHECK(sidebar.key(key(XKB_KEY_Right)));  // First album.
+    CHECK(sidebar.key(key(XKB_KEY_Return)));
+    CHECK(opened == first.uri);
+    sidebar.set_focused(true);
+    sidebar.key(key(XKB_KEY_Home));
+    sidebar.key(key(XKB_KEY_Right));
+    sidebar.key(key(XKB_KEY_Left));  // Collapse Albums.
+    sidebar.key(key(XKB_KEY_Left));  // Parent Photo Library.
+    sidebar.key(key(XKB_KEY_Left));  // Collapse root.
+    CHECK(sidebar.places().size() == 1);
+    const auto persisted = sidebar.collapsed();
+    Sidebar restored{[] {}, [](rummage::ui::CursorShape) {}, [](const Place&) {}};
+    restored.set_organization({}, {}, persisted);
+    restored.set_logical_groups(groups);
+    restored.set_places({root});
+    CHECK(restored.places().size() == 1);
+    sidebar.key(key(XKB_KEY_Right));  // Root.
+    CHECK(sidebar.places().size() == 4);
+    sidebar.key(key(XKB_KEY_Right));  // Albums remains collapsed.
+    sidebar.key(key(XKB_KEY_Down));   // Sources.
+    sidebar.key(key(XKB_KEY_Right));  // Empty group requests children.
+    CHECK(expanded.back() == sources.uri);
+    CHECK_FALSE(sidebar.loading());
+    groups.at(sources.uri)
+        .children.push_back(
+            {.label = "Pictures", .path = {}, .icon = "photo", .uri = "rummage:photos/sources/8"});
+    sidebar.set_logical_groups(groups);
+    REQUIRE(sidebar.cursor_place());
+    CHECK(sidebar.cursor_place()->uri == sources.uri);
+    CHECK(sidebar.places().size() == 5);
+    for (const auto& place : sidebar.places())
+        CHECK(place.path.empty());
+    CHECK_FALSE(sidebar.loading());
+    sidebar.toggle_folder({});  // Empty paths never alias logical rows.
+    CHECK(sidebar.places().size() == 5);
+}
+
+TEST_CASE("sidebar: collapsed logical groups highlight the closest visible ancestor") {
+    using Sidebar = rummage::views::Sidebar;
+    rummage::ui::Offscreen gl{260, 420};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {}, [](const Place&) {}};
+    sidebar.enable_tree(loop, pool, watcher, rummage::fs::MimeDatabase::load());
+    const Place root{
+        .label = "Photo Library", .path = {}, .icon = "photo", .uri = "rummage:photos"};
+    const Place albums{
+        .label = "Albums", .path = {}, .icon = "album", .uri = "rummage:photos/albums"};
+    const Place album{
+        .label = "Summer", .path = {}, .icon = "album", .uri = "rummage:photos/albums/3"};
+    sidebar.set_logical_groups({{root.uri, {{albums}, true}}, {albums.uri, {{album}, false}}});
+    sidebar.set_places({root});
+    sidebar.set_current_uri(album.uri);
+    const auto draw = [&] {
+        renderer.begin_frame(260, 420, 1, {});
+        sidebar.draw(renderer, {0, 0, 260, 420}, {}, icons, {}, Sidebar::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    REQUIRE(sidebar.current_place());
+    CHECK(sidebar.current_place()->uri == albums.uri);
+    CHECK(sidebar.current_uri() == album.uri);
+    REQUIRE(sidebar.place_icon_rect_for_uri(root.uri));
+    REQUIRE(sidebar.place_icon_rect_for_uri(albums.uri));
+    CHECK_FALSE(sidebar.place_icon_rect_for_uri(album.uri));
+    sidebar.set_focused(true);
+    sidebar.key(key(XKB_KEY_Right));  // Open highlighted Albums.
+    draw();
+    REQUIRE(sidebar.current_place());
+    CHECK(sidebar.current_place()->uri == album.uri);
+    const auto parent = sidebar.place_icon_rect_for_uri(albums.uri);
+    const auto leaf = sidebar.place_icon_rect_for_uri(album.uri);
+    REQUIRE(parent);
+    REQUIRE(leaf);
+    CHECK(leaf->x > parent->x);
+    CHECK_FALSE(sidebar.loading());  // Drawing logical rows never probes subfolders.
+    sidebar.key(key(XKB_KEY_Home));
+    sidebar.key(key(XKB_KEY_Left));
+    draw();
+    REQUIRE(sidebar.current_place());
+    CHECK(sidebar.current_place()->uri == root.uri);
+    CHECK_FALSE(sidebar.place_icon_rect_for_uri(albums.uri));
+    CHECK_FALSE(sidebar.loading());
+}

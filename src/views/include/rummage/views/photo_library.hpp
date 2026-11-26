@@ -48,6 +48,21 @@ public:
     [[nodiscard]] bool at_all_photos() const;
     void add_folder(std::filesystem::path initial = {});
 
+    // Sidebar lists are independent of the current result page. Construction and subscription
+    // are inert; only explicit activation/expansion calls refresh_navigation().
+    void set_navigation_handler(std::function<void(Json)> handler) {
+        navigation_changed_ = std::move(handler);
+    }
+
+    void refresh_navigation();
+
+    [[nodiscard]] const Json& navigation() const { return navigation_; }
+
+    [[nodiscard]] std::string navigation_uri() const;
+    void open_album(Id id, std::string name);
+    void open_source(Id id, std::string path);
+    void open_saved_search(Json record);
+
     [[nodiscard]] const std::shared_ptr<Folder>& folder() const { return folder_; }
 
     [[nodiscard]] bool is_open() const { return open_; }
@@ -173,6 +188,12 @@ private:
     PathChooser choose_path_;
     std::function<void(std::filesystem::path)> reveal_;
     std::function<void(Json)> file_action_;
+    std::function<void(Json)> navigation_changed_;
+    Json navigation_{
+        {"albums", Json::array()}, {"filters", Json::array()}, {"sources", Json::array()}};
+    std::uint64_t navigation_generation_{};
+    bool navigation_loading_{false}, navigation_again_{false}, navigation_ready_{false};
+    Id active_saved_search_{};
     std::shared_ptr<photos::Client> client_;
     std::shared_ptr<Folder> folder_;
     std::unique_ptr<photos::SourceWatcher> source_watcher_;
