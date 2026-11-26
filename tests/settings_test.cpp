@@ -367,6 +367,22 @@ TEST_CASE("settings: interface size, terminal arguments and program opening pers
     CHECK(core::load_config(f.path).config.terminal.program.empty());
 }
 
+TEST_CASE("settings: language choice persists and reset follows the session after restart") {
+    Fixture f;
+    f.open();
+    const auto active = std::string{rummage::i18n::language()};
+    REQUIRE(f.dialog.edit("interface", "language", "de"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.error().empty());
+    CHECK(core::load_config(f.path).config.interface.language == "de");
+    CHECK(rummage::i18n::language() == active);
+    f.open();
+    REQUIRE(f.dialog.reset_setting("interface", "language"));
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.interface.language == "system");
+}
+
 TEST_CASE("settings: keyboard choices open a list and save the selected value") {
     Fixture f;
     f.open();

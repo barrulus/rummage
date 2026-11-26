@@ -9,7 +9,7 @@ use the embedded dialog. Only one separate Settings window is open at a time.
 Open **Settings** with the bottom-right cog, **View → Settings**, **Ctrl+,**, or the
 command palette. Categories appear in a sidebar, or a category selector in narrow windows:
 
-- **General:** startup/session behavior, keyboard browsing, executable opening, double-click timing, terminal, preview switches and Photo Library.
+- **General:** interface language, startup/session behavior, keyboard browsing, executable opening, double-click timing, terminal, preview switches and Photo Library.
 - **Appearance:** palette source, colour mode, icon theme, opacity, fonts, preview placement.
 - **Keyboard shortcuts:** search commands, record a chord, reset a binding to its default,
   or disable it. Conflicting chords are rejected before saving. Folder shortcuts accept
@@ -34,7 +34,9 @@ selected filenames, including extensions, with newlines between multiple names.
 number fields commit on Enter or when focus leaves them. Numeric controls also support
 plus/minus buttons and Up/Down while the field is focused. Settings stays open after saving.
 The header reports saving, saved, editing or changes needing attention. Font family changes
-require a restart; font size changes apply immediately.
+require a restart; font size changes apply immediately. `interface.language` also requires
+a restart of all browser windows. Choose `system` (default) or an available catalog in
+its own language. See [language selection](translations.md#choosing-the-language).
 
 Invalid input stays in its field with an error and **Details** for the complete message.
 The last valid value remains active. New actions and shortcuts stay drafts until their

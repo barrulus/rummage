@@ -15,6 +15,7 @@
 
 #include "config_template.hpp"
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 
 namespace rummage::core {
 namespace {
@@ -478,6 +479,21 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                                   entry, path + "." + std::string{name.str()}, 0, 2000,
                                   motion.durations_ms[static_cast<std::size_t>(*event)]);
                       }
+                  }}});
+        } else if (key.str() == "interface") {
+            reader.read_section(
+                node, "interface",
+                {{"language", [&](const toml::node& value, const std::string& path) {
+                      const auto code = value.value<std::string>();
+                      const auto languages = i18n::languages();
+                      if (code && (*code == "system" ||
+                                   std::ranges::find(languages, *code) != languages.end()))
+                          config.interface.language = *code;
+                      else
+                          reader.report(value.source(),
+                                        path +
+                                            " must be system or an available catalog code; "
+                                            "using system");
                   }}});
         } else if (key.str() == "startup") {
             reader.read_section(

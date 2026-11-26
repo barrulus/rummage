@@ -221,6 +221,7 @@ void check_defaults(const Config& config) {
     const Config defaults;
     CHECK(config.previews.media == defaults.previews.media);
     CHECK(config.previews.pdf == defaults.previews.pdf);
+    CHECK(config.interface.language == defaults.interface.language);
     CHECK(config.windows.reuse == defaults.windows.reuse);
     CHECK(config.windows.separate_settings == defaults.windows.separate_settings);
     CHECK(config.keyboard.type_to_jump == defaults.keyboard.type_to_jump);
@@ -480,6 +481,19 @@ TEST_CASE("the example config parses clean and matches the defaults") {
     CHECK(result.problems.empty());
     check_defaults(result.config);
     CHECK(result.config.animations == rummage::core::MotionConfig{});
+}
+
+TEST_CASE("interface language validates available catalogs without changing active language") {
+    for (const auto* code : {"system", "en", "de", "pt_BR", "zh_CN"}) {
+        const auto result = parse(std::string{"[interface]\nlanguage = '"} + code + "'\n");
+        REQUIRE(result.problems.empty());
+        CHECK(result.config.interface.language == code);
+    }
+    for (const auto* value : {"42", "''", "'unavailable'", "'de_DE.UTF-8'"}) {
+        const auto result = parse(std::string{"[interface]\nlanguage = "} + value + "\n");
+        CHECK_FALSE(result.problems.empty());
+        CHECK(result.config.interface.language == "system");
+    }
 }
 
 TEST_CASE("default_config_path follows XDG_CONFIG_HOME, then HOME") {

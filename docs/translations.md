@@ -6,7 +6,19 @@ complete a translation.
 
 ## Choosing the language
 
-The language comes from the environment once, at start, the way other programs
+Choose **Settings → General → Interface language** to override the session language
+for Rummage. Choices use each language's own name. The equivalent configuration is
+`[interface] language = "de"` (on separate lines in TOML); `"system"` is the default
+and `"en"` explicitly selects English. Restart all Rummage browser windows after a
+change: opening another window in the existing process retains that process's language.
+New file-picker processes read the setting independently, using their selected config.
+This setting takes precedence over all message-language environment variables and
+does not change the system locale, environment or external applications. Rummage's
+translated shortcut labels and decimal formatting follow the chosen catalog; shortcut
+bindings remain unchanged. An unavailable catalog is reported as a configuration
+problem and falls back to `system`.
+
+With `system`, the language comes from the environment once, at start, the way other programs
 choose their message language: `LANGUAGE` (a list such as `de:en`), then `LC_ALL`,
 `LC_MESSAGES` and `LANG`. A locale with a region uses that region's translation when
 there is one (`pt_BR`) and otherwise the language's (`pt`). The encoding and modifier

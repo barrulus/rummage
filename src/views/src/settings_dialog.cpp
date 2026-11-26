@@ -203,6 +203,12 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
         field.number = number;
         fields_.push_back(std::move(field));
     };
+    std::vector<std::string> languages{"system"};
+    for (const auto code : i18n::languages())
+        languages.emplace_back(code);
+    add(0, i18n::mark("Language"), "interface", "language", i18n::mark("Interface language"),
+        i18n::mark("Restart Rummage to apply; System follows your session language"),
+        config.interface.language, false, std::move(languages));
     const auto mode = config.startup.mode;
     add(0, "Startup", "startup", "mode", "When Rummage starts", "Applies to the next launch",
         mode == core::Config::Startup::Mode::home     ? "home"
@@ -938,6 +944,8 @@ void SettingsDialog::reveal_focus() {
 }
 
 std::string SettingsDialog::choice_label(const Field& field, std::string_view value) {
+    if (field.table == "interface" && field.key == "language")
+        return std::string{value == "system" ? i18n::tr("System") : i18n::language_name(value)};
     if (field.table == "icon" && field.key == "theme") {
         if (value == "system")
             return std::string{i18n::tr("System")};

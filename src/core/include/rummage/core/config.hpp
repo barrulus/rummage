@@ -18,6 +18,10 @@
 namespace rummage::core {
 
 struct Config {
+    struct Interface {
+        std::string language{"system"};  // Compiled catalog code; applied at process startup.
+    };
+
     struct Startup {
         enum class Mode { home, folder, last, session };
         Mode mode{Mode::session};
@@ -101,6 +105,7 @@ struct Config {
     MenuLayout context_menu;
 
     Appearance appearance;
+    Interface interface;
     Sidebar sidebar;
     MotionConfig animations;
     Startup startup;

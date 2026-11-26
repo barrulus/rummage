@@ -14,6 +14,7 @@
 #include "rummage/views/format.hpp"
 #include "rummage/views/media_details.hpp"
 #include "rummage/views/shortcuts.hpp"
+#include "scoped_env.hpp"
 
 namespace i18n = rummage::i18n;
 
@@ -68,6 +69,27 @@ TEST_CASE("i18n: the language of a locale") {
     CHECK(i18n::language_of("xx:de:en") == "de");     // the first with a catalog
     CHECK(i18n::language_of("en:de") == "en");
     CHECK(i18n::language_of("de_XX") == "de");  // the language without the region
+}
+
+TEST_CASE("i18n: configured language overrides the environment without changing it") {
+    const rummage::test::ScopedEnv all{"LC_ALL", "C"};
+    const rummage::test::ScopedEnv messages{"LC_MESSAGES", "fr_FR.UTF-8"};
+    const rummage::test::ScopedEnv lang{"LANG", "fr_FR.UTF-8"};
+    const rummage::test::ScopedEnv list{"LANGUAGE", "fr:en"};
+    Speaking restore{"en"};
+    i18n::configure_language("de");
+    CHECK(i18n::language() == "de");
+    CHECK(i18n::decimal("1.5") == "1,5");
+    CHECK(i18n::keys("Ctrl+Z") == "Strg+Z");
+    CHECK(std::string{std::getenv("LC_ALL")} == "C");
+    CHECK(std::string{std::getenv("LANGUAGE")} == "fr:en");
+    i18n::configure_language("system");
+    CHECK(i18n::language() == "en");
+    const rummage::test::ScopedEnv normal{"LC_ALL", "fr_FR.UTF-8"};
+    i18n::configure_language("system");
+    CHECK(i18n::language() == "fr");
+    i18n::configure_language("missing");
+    CHECK(i18n::language() == "en");
 }
 
 TEST_CASE("i18n: the compiled-in languages") {

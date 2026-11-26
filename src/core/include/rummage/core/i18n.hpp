@@ -31,6 +31,10 @@ struct Entry {
 // Overrides the environment's choice (tests, a setting). A code without a catalog is English.
 void set_language(std::string_view code);
 
+// Apply a configured catalog at startup; "system" restores environment selection.
+// Does not change locale environment variables or the process C locale.
+void configure_language(std::string_view code);
+
 // The language of a POSIX locale or LANGUAGE list ("de_DE.UTF-8", "de:en"): the first entry
 // with a catalog, region first ("pt_BR", then "pt"). "en" when none has one; "C" and "POSIX"
 // are English.

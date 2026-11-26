@@ -613,6 +613,7 @@ int main(int argc, char** argv) {
         }
     }
     core::ConfigResult config_result = core::load_config(config_path);
+    i18n::configure_language(config_result.config.interface.language);
     auto configured_actions = config_result.config.actions;
     const auto binding_problems =
         views::configure_shortcuts(config_result.config.keybindings, configured_actions);

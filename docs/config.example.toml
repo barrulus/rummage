@@ -10,6 +10,11 @@
 # View → Show thumbnail and file-extension visibility are saved in state.toml,
 # as view.show_thumbnails and view.show_extensions (both default to true).
 
+[interface]
+# Restart all browser windows to apply. New picker processes read this independently.
+# "system" follows the session; alternatives are en, de, es, fr, ja, pt_BR, ru, zh_CN.
+language = "system"
+
 # Optional sidebar organization overrides. Omit lists to use remembered UI choices.
 # Lists apply at startup and when changed; [] explicitly clears that list.
 # Built-ins: place:home, place:downloads, place:music, place:filesystem, place:trash.

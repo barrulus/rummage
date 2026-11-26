@@ -212,6 +212,10 @@ std::string_view language() {
 
 void set_language(std::string_view code) { current().store(find(code), std::memory_order_relaxed); }
 
+void configure_language(std::string_view code) {
+    set_language(code == "system" ? from_environment() : code);
+}
+
 std::string language_of(std::string_view locales) {
     while (!locales.empty()) {
         const auto colon = locales.find(':');
