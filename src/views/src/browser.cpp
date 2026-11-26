@@ -4265,15 +4265,16 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     pane().filter_field.draw(
         renderer, filter_bounds_, 14,
         {.background = palette.surface,
-         .border = !pane().filter_error.empty()                         ? palette.error
-                   : (filter_focused_ && context_area_ == active_area_) ? palette.primary
-                                                                        : palette.outline_variant,
+         .border = !pane().filter_error.empty() ? palette.error
+                   : (filter_focused_ && !terminal_focused() && context_area_ == active_area_)
+                       ? palette.primary
+                       : palette.outline_variant,
          .text = palette.on_surface,
          .selection = palette.primary_container,
-         .caret = (filter_focused_ && context_area_ == active_area_)
+         .caret = (filter_focused_ && !terminal_focused() && context_area_ == active_area_)
                       ? palette.primary
                       : palette.primary.with_alpha(0)});
-    if (name_filter().empty() && !filter_focused_) {
+    if (name_filter().empty() && (!filter_focused_ || terminal_focused())) {
         text_in(
             showing_photos() ? std::string{i18n::tr("Search photos…")} : i18n::tr("Filter names…"),
             {filter_bounds_.x + 6, filter_bounds_.y, filter_bounds_.width - 12,
@@ -4570,7 +4571,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         auto results_bounds = bounds;
         if (embedded_terminal_.visible())
             results_bounds.height = std::max(0.0F, embedded_terminal_.bounds().y - bounds.y);
-        pane().search_results->draw(renderer, results_bounds, palette);
+        pane().search_results->draw(renderer, results_bounds, palette, !terminal_focused());
     }
     if (quick_look_.is_open())
         quick_look_.follow(searching_results() && search_preview_ ? search_preview_
