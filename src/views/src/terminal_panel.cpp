@@ -30,6 +30,7 @@ void TerminalPanel::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                               .width /
                                           renderer.scale());
     const auto area = ui::Rect{bounds.x + 6, bounds.y + 34, bounds.width - 12, bounds.height - 38};
+    session_.resize(static_cast<int>(area.height / row), static_cast<int>(area.width / cell));
     if (ui::AccessibleFrame::current()) {
         core::AccessibleNode node;
         node.id = "terminal";
@@ -39,7 +40,6 @@ void TerminalPanel::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         node.focused = focused_;
         renderer.accessible(std::move(node), area);
     }
-    session_.resize(static_cast<int>(area.height / row), static_cast<int>(area.width / cell));
     const auto state = session_.screen();
     renderer.push_clip(area);
     for (int y = 0; y < state.rows; ++y)

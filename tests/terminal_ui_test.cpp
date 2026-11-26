@@ -339,6 +339,52 @@ TEST_CASE("terminal UI: focused shell receives input while a virtual search view
     CHECK_FALSE(f.browser.terminal_panel().visible());
 }
 
+TEST_CASE("terminal UI: IME and accessible focus follow terminal and modal ownership") {
+    namespace ui = rummage::ui;
+    Fixture f;
+    f.start();
+    REQUIRE(f.browser.terminal_focused());
+    CHECK_FALSE(f.browser.input_field());
+    f.browser.terminal_workflow(3);
+    REQUIRE(f.browser.confirm_dialog().is_open());
+    CHECK(f.browser.input_field() != nullptr);
+    CHECK(f.press(XKB_KEY_Escape));
+    CHECK_FALSE(f.browser.input_field());
+
+    f.browser.open_search_results(f.temp.path, "needle", false);
+    CHECK_FALSE(f.browser.input_field());
+    ui::Offscreen surface{800, 600};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    ui::AccessibleFrame frame;
+    ui::TextField::focus_input(f.browser.input_field());
+    const auto draw = [&] {
+        frame.nodes.clear();
+        renderer.begin_frame(800, 600, 1, {});
+        f.browser.draw(renderer, {0, 0, 800, 600}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    const auto terminal =
+        std::ranges::find(frame.nodes, "terminal", &rummage::core::AccessibleNode::id);
+    REQUIRE(terminal != frame.nodes.end());
+    CHECK(terminal->focused);
+    CHECK(terminal->text == f.terminal().text());
+    CHECK(std::ranges::none_of(frame.nodes,
+                               [](const auto& node) { return node.editable && node.focused; }));
+    f.browser.extension_output().push("Git diff output");
+    CHECK_FALSE(f.browser.input_field());
+    draw();
+    CHECK(
+        std::ranges::none_of(frame.nodes, [](const auto& node) { return node.id == "terminal"; }));
+    CHECK(f.press(XKB_KEY_Escape));
+    f.browser.focus_terminal();
+    f.browser.search_results()->focus_query();
+    CHECK(f.browser.input_field() != nullptr);
+    ui::TextField::focus_input(nullptr);
+}
+
 TEST_CASE("terminal UI: focus styling yields the filter caret and border to the shell") {
     Fixture f;
     f.start();

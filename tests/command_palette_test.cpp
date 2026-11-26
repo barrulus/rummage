@@ -24,6 +24,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/file_clipboard.hpp"
@@ -917,12 +918,31 @@ TEST_CASE("extensions: Git palette action opens a modal and disabling clears bad
     staged->action();
     REQUIRE(run_until(f.loop, [&] { return f.browser.extension_output().is_open(); }));
     CHECK(f.browser.extension_output().detail().find("+1") != std::string::npos);
+    CHECK_FALSE(f.browser.input_field());
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.browser.extension_output().is_open());
     const auto folder = f.browser.picker_folder();
     REQUIRE(folder);
     REQUIRE(std::ranges::any_of(folder->entries(),
                                 [](const auto& entry) { return bool(entry.decoration); }));
+    {
+        rummage::ui::Offscreen surface{900, 700};
+        rummage::ui::FontSystem fonts;
+        rummage::ui::Renderer renderer{fonts};
+        rummage::ui::IconSet icons{fonts};
+        rummage::ui::AccessibleFrame frame;
+        renderer.begin_frame(900, 700, 1, {});
+        f.browser.draw(renderer, {0, 0, 900, 700}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+        const auto entry =
+            std::ranges::find(folder->entries(), "one.txt", &rummage::fs::Entry::name);
+        REQUIRE(entry != folder->entries().end());
+        REQUIRE(entry->decoration);
+        CHECK(std::ranges::any_of(frame.nodes, [&](const auto& node) {
+            return node.name == entry->name &&
+                   node.description.find(entry->decoration->label) != std::string::npos;
+        }));
+    }
     f.browser.set_extensions({});
     REQUIRE(run_until(f.loop, [&] {
         return std::ranges::none_of(folder->entries(),
