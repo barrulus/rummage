@@ -16,6 +16,9 @@ In normal builds the helper applies:
 
 - A seccomp syscall allowlist. File opens fail with `EACCES`; unexpected calls
   normally kill the helper. The helper exits if seccomp setup fails.
+  Decoders may read the calling thread's CPU affinity (`sched_getaffinity` with
+  pid 0); queries for other processes, affinity changes and new threads/processes
+  remain forbidden. FFmpeg decoding remains limited to one thread.
 - Landlock restrictions when supported by the running kernel. Filesystem access
   is denied; network and cross-process restrictions depend on the available ABI.
   Landlock is additional protection, not a requirement for the helper to start.

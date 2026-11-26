@@ -21,7 +21,7 @@ bool dark(const picture::Image& image) {
 
 void warm_up() {
     av_log_set_level(AV_LOG_QUIET);
-    // Cache CPU detection before filesystem access and affinity queries are forbidden.
+    // Cache FFmpeg CPU detection and prevent automatic threading before sandboxing.
     static_cast<void>(av_get_cpu_flags());
     av_cpu_force_count(1);
 }

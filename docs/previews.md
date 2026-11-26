@@ -432,6 +432,9 @@ independent of the thumbnail pool.
 
 Playback supports the installed FFmpeg decoders in MP4/MOV, Matroska/WebM, AVI,
 MPEG/transport streams, Ogg, FLV, ASF, MJPEG, YUV4MPEG, MP3, FLAC, WAV and AAC.
+Codec availability depends on the distribution's FFmpeg build. For example, Fedora's
+`ffmpeg-free` can provide H.264 through OpenH264 while omitting HEVC; an unsupported
+codec produces the inline playback error instead of falling back to an external decoder.
 Playlists, network URLs, external-resource containers and DRM are not supported.
 Preview output is limited to a 1280×720 box (upright after rotation), updates at
 20 frames per second, and uses software decoding. Each reply contains at most

@@ -10,10 +10,12 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <netinet/in.h>
+#include <sched.h>
 #include <string_view>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <system_error>
 #include <thread>
 #include <unistd.h>
@@ -122,6 +124,20 @@ int main(int argc, char** argv) {
         say("returned");
     } else if (what == "fork") {
         say_errno(::fork());  // killed
+    } else if (what == "clone") {
+        // Zero flags/stack would create a process if this syscall escaped the filter.
+        static_cast<void>(::syscall(__NR_clone, 0, nullptr, nullptr, nullptr, 0));
+        std::_Exit(2);
+    } else if (what == "clone3") {
+        static_cast<void>(::syscall(__NR_clone3, nullptr, 0));  // killed, not EINVAL
+        std::_Exit(2);
+    } else if (what == "affinity" || what == "affinity-other" || what == "affinity-negative") {
+        cpu_set_t cpus{};
+        const pid_t pid = what == "affinity" ? 0 : (what == "affinity-other" ? 1 : -1);
+        say_errno(::sched_getaffinity(pid, sizeof(cpus), &cpus));
+    } else if (what == "set-affinity") {
+        cpu_set_t cpus{};
+        say_errno(::sched_setaffinity(0, sizeof(cpus), &cpus));  // killed, not EINVAL
     } else if (what == "memory") {
         void* huge = ::mmap(nullptr, std::size_t{5} << 30, PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);

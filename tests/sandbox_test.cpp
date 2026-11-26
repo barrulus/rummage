@@ -68,7 +68,20 @@ TEST_CASE("sandbox: no file can be opened, no path looked at") {
 }
 
 TEST_CASE("sandbox: no network, no programs, no new processes") {
-    for (const char* what : {"socket", "exec", "fork"}) {
+    for (const char* what : {"socket", "exec", "fork", "clone", "clone3"}) {
+        INFO(what);
+        const Probed probed = probe(what);
+        CHECK(killed_by_seccomp(probed));
+        CHECK(probed.out.empty());
+    }
+}
+
+TEST_CASE("sandbox: CPU affinity can only be read for the calling thread") {
+    const Probed self = probe("affinity");
+    CHECK(self.out == "ok\n");
+    CHECK(WIFEXITED(self.status));
+    CHECK(WEXITSTATUS(self.status) == 0);
+    for (const char* what : {"affinity-other", "affinity-negative", "set-affinity"}) {
         INFO(what);
         const Probed probed = probe(what);
         CHECK(killed_by_seccomp(probed));
