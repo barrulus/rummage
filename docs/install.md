@@ -22,6 +22,7 @@ programs enable particular features:
 | xdg-desktop-portal with rummage selected for FileChooser | Application Open/Save dialogs |
 | A desktop notification service | Custom-action completion popups |
 | A terminal emulator or `xdg-terminal-exec` | F4 and terminal desktop applications |
+| `fzf`, `find`, `zoxide` | Optional [shell navigation workflows](terminal.md#navigate-with-fzf-or-zoxide) |
 | unrar, 7zz/7z, File Roller, unzip, gzip or tar | Archive extraction, depending on format |
 | Programs named in your custom actions | Those actions only |
 
@@ -360,6 +361,7 @@ Ninja (for the examples), and pkg-config. Required library/module names are:
 | SVG theme icons and file previews | `librsvg-2.0 >= 2.52`, `pangocairo`, `pangoft2`, Cairo |
 | Desktop services | `sdbus-c++` |
 | Media helper | FFmpeg 6.1+ development libraries: `libavformat`, `libavcodec`, `libavutil`, `libswscale`, `libswresample` and `libpulse-simple`; `RUMMAGE_MEDIA` defaults to ON |
+| Embedded terminal (enabled by default) | Paul Evans libvterm, pkg-config `vterm >= 0.3`; disable with `RUMMAGE_TERMINAL=OFF` |
 | Tests | `doctest`; `dbus-run-session` for portal/notification integration tests |
 
 librsvg is implemented partly in Rust, but rummage links its packaged C API;

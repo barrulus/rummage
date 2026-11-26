@@ -58,6 +58,7 @@
 #include "rummage/views/state.hpp"
 #include "rummage/views/status_bar.hpp"
 #include "rummage/views/tab_bar.hpp"
+#include "rummage/views/terminal_panel.hpp"
 #include "rummage/views/thumbnails.hpp"
 #include "rummage/views/undo.hpp"
 
@@ -165,6 +166,16 @@ public:
             std::function<void(ui::CursorShape)> set_cursor,
             std::shared_ptr<const thumbs::Cache> thumbnails = nullptr);
     ~Browser();
+    void toggle_terminal();
+    void focus_terminal();
+
+    [[nodiscard]] bool terminal_focused() const {
+        return embedded_terminal_.visible() && embedded_terminal_.focused();
+    }
+
+    [[nodiscard]] TerminalPanel& terminal_panel() { return embedded_terminal_; }
+
+    void terminal_workflow(int kind);
 
     Browser(const Browser&) = delete;
     Browser& operator=(const Browser&) = delete;
@@ -1254,6 +1265,17 @@ private:
     std::optional<std::size_t> area_at(float x, float y) const;
     std::shared_ptr<Folder> other_folder() const;
     QuickLook quick_look_;
+    TerminalPanel embedded_terminal_;
+    core::EventLoop::SourceId terminal_timer_{};
+    std::filesystem::path terminal_browser_path_, terminal_seen_path_, terminal_result_,
+        terminal_result_root_, terminal_sync_target_;
+    bool terminal_result_zero_{false}, terminal_result_reading_{false};
+    std::uint64_t terminal_generation_{};
+    std::string terminal_script_;
+    bool start_terminal();
+    void terminal_tick();
+    void terminal_paste();
+
     Sidebar sidebar_;
     std::function<void(const std::filesystem::path&)> new_window_;
     std::function<void()> settings_window_;

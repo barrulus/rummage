@@ -21,6 +21,9 @@
   sqlite,
   assimp,
   libpulseaudio,
+  libvterm-neovim,
+  bashInteractive,
+  zsh,
   callPackage,
   libjxl,
   libheif,
@@ -46,6 +49,7 @@
   withPhotos ? false,
   withFont ? false,
   withModel ? false,
+  withTerminal ? true,
   rummage-pdfium ? callPackage ./pdfium.nix { },
 }:
 
@@ -86,6 +90,8 @@ stdenv.mkDerivation {
   ++ lib.optionals withTests [
     doctest
     python3
+    bashInteractive
+    zsh
     (writeShellScriptBin "dbus-run-session" ''
       exec ${dbus}/bin/dbus-run-session --dbus-daemon=${dbus}/bin/dbus-daemon --config-file=${dbus}/share/dbus-1/session.conf "$@"
     '')
@@ -114,6 +120,7 @@ stdenv.mkDerivation {
     re2
     sdbus-cpp_2
   ]
+  ++ lib.optional withTerminal libvterm-neovim
   ++ lib.optional withTests shared-mime-info
   ++ [
     ffmpeg
@@ -125,6 +132,7 @@ stdenv.mkDerivation {
 
   cmakeFlags = [
     "-DRUMMAGE_WERROR=OFF"
+    "-DRUMMAGE_TERMINAL=${if withTerminal then "ON" else "OFF"}"
     "-DRUMMAGE_MEDIA=ON"
     "-DRUMMAGE_PDF=ON"
     "-DRUMMAGE_PHOTOS=${if withPhotos then "ON" else "OFF"}"

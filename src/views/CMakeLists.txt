@@ -21,6 +21,8 @@ add_library(rummage_views
     src/browser_organise.cpp
     src/browser_archive.cpp
     src/archive_text.cpp
+    src/browser_terminal.cpp
+    src/terminal_panel.cpp
     src/browser.cpp
     src/browser_motion.cpp
     src/browser_palette.cpp

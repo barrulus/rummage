@@ -5,7 +5,7 @@ Maintainer: rummage fork maintainers <barrulus@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, python3, patch,
  libglib2.0-dev, libjpeg-dev, libpng-dev, libtiff-dev,
  libwayland-dev, wayland-protocols, libegl-dev, libgles-dev, libxkbcommon-dev,
- libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev, nlohmann-json3-dev,
+ libvterm-dev, libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev, nlohmann-json3-dev,
  libassimp-dev, libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev, libswresample-dev, libpulse-dev,
  libwebp-dev, libjxl-dev, libheif-dev (>= 1.23), liblcms2-dev,
  librsvg2-dev (>= 2.52), libpango1.0-dev,

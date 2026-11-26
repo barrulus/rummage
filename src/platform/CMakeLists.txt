@@ -14,6 +14,7 @@ add_library(rummage_platform
     src/file_manager.cpp
     src/file_manager_config.cpp
     src/file_picker_portal.cpp
+    src/embedded_terminal.cpp
     src/terminal_navigation.cpp
     src/launcher.cpp
     src/notifications.cpp
@@ -32,4 +33,16 @@ target_link_libraries(rummage_platform
 
 if(TOKEI_EXECUTABLE)
     target_compile_definitions(rummage_platform PRIVATE RUMMAGE_TOKEI_PROGRAM="${TOKEI_EXECUTABLE}")
+endif()
+
+option(RUMMAGE_TERMINAL "Build the optional native embedded terminal (libvterm)" ON)
+if(RUMMAGE_TERMINAL)
+    pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
+    target_link_libraries(rummage_platform PRIVATE PkgConfig::VTERM)
+    target_compile_definitions(rummage_platform PRIVATE RUMMAGE_TERMINAL=1)
+    add_executable(rummage-terminal src/terminal_main.cpp)
+    target_link_libraries(rummage-terminal PRIVATE rummage::warnings)
+    set_target_properties(rummage-terminal PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+    add_dependencies(rummage_platform rummage-terminal)
+    install(TARGETS rummage-terminal RUNTIME DESTINATION libexec/rummage)
 endif()

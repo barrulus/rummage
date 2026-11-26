@@ -32,6 +32,7 @@ def configure(profile, build):
             "-DRUMMAGE_MEDIA=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_PDF=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_MODEL=" + ("ON" if profile == "asan" else "OFF"),
+            "-DRUMMAGE_TERMINAL=" + ("ON" if profile == "asan" else "OFF"),
             "-DRUMMAGE_FONT=" + ("ON" if profile == "asan" else "OFF"),
             *( ["-DRUMMAGE_FUZZ=ON"] if profile == "fuzz" else
                ["-DRUMMAGE_SANITIZER=" + ("address,undefined" if profile == "asan" else "thread")])]

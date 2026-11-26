@@ -20,6 +20,35 @@ constexpr ui::Modifiers kCtrlShift{.ctrl = true, .shift = true};
 constexpr std::array kShortcuts{
     // General
     Shortcut{.group = i18n::mark("General"),
+             .keys = "Shift+F4",
+             .action = i18n::mark("Toggle Terminal"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kShift,
+             .keysyms = {XKB_KEY_F4},
+             .command = Command::toggle_terminal},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "Ctrl+`",
+             .action = i18n::mark("Focus Terminal or Files"),
+             .scope = scope::kViews | scope::kSidebar,
+             .modifiers = kCtrl,
+             .keysyms = {XKB_KEY_grave, XKB_KEY_asciitilde},
+             .command = Command::focus_terminal},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Navigate with fzf…"),
+             .scope = scope::kViews,
+             .command = Command::fzf_navigate},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Jump with zoxide…"),
+             .scope = scope::kViews,
+             .command = Command::zoxide_jump},
+    Shortcut{.group = i18n::mark("General"),
+             .keys = "",
+             .action = i18n::mark("Run Shell Command…"),
+             .scope = scope::kViews,
+             .command = Command::shell_command},
+    Shortcut{.group = i18n::mark("General"),
              .keys = "Ctrl+1",
              .action = i18n::mark("Columns"),
              .scope = scope::kViews | scope::kSidebar | scope::kQuickLook,
@@ -853,6 +882,16 @@ std::optional<std::size_t> binding_index(std::string_view name) {
         command = Command::toggle_hidden;
     if (name == "add_bookmark")
         command = Command::add_bookmark;
+    if (name == "toggle_terminal")
+        command = Command::toggle_terminal;
+    if (name == "focus_terminal")
+        command = Command::focus_terminal;
+    if (name == "fzf_navigate")
+        command = Command::fzf_navigate;
+    if (name == "zoxide_jump")
+        command = Command::zoxide_jump;
+    if (name == "shell_command")
+        command = Command::shell_command;
     if (name == "open_terminal")
         command = Command::open_terminal;
     if (name == "new_tab")
@@ -1164,6 +1203,11 @@ std::vector<std::pair<std::string, std::string>> binding_settings() {
                              "toggle_extensions",
                              "add_bookmark",
                              "open_terminal",
+                             "toggle_terminal",
+                             "focus_terminal",
+                             "fzf_navigate",
+                             "zoxide_jump",
+                             "shell_command",
                              "new_tab",
                              "new_window",
                              "close_tab",
