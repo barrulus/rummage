@@ -384,6 +384,19 @@ TEST_CASE("columns: reset root keeps focused folder selection and descendants") 
     CHECK(cursor_name(*focused) == name);
     columns.reset_root();
     CHECK(columns.focused_folder() == focused);
+    for (const auto key : {XKB_KEY_BackSpace, XKB_KEY_Left}) {
+        f.browser.key({.keysym = static_cast<xkb_keysym_t>(key), .text = {}, .modifiers = {}},
+                      Browser::Clock::now());
+        REQUIRE(f.settled());
+        CHECK(columns.focused_folder() == focused);
+        CHECK(columns.focus() == 0);
+    }
+    f.browser.open(f.root);
+    REQUIRE(f.settled());
+    f.browser.key({.keysym = XKB_KEY_BackSpace, .text = {}, .modifiers = {}},
+                  Browser::Clock::now());
+    REQUIRE(f.settled());
+    CHECK(columns.focused_folder()->path() == f.root.parent_path());
 }
 
 TEST_CASE("columns: reset root inside an archive preserves selection settings and Back") {

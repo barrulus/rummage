@@ -195,6 +195,16 @@ void Browser::terminal_paste() {
     }
 }
 
+bool Browser::terminal_workflow_available(int kind) {
+    if (!platform::EmbeddedTerminal::available() || tool("sh").empty())
+        return false;
+    if (kind == 1)
+        return !tool("fzf").empty() && !tool("find").empty();
+    if (kind == 2)
+        return !tool("zoxide").empty();
+    return kind == 3;
+}
+
 void Browser::terminal_workflow(int kind) {
     const auto folder = current_folder();
     if (!folder || folder->is_archive() || folder->is_trash() || searching_results() ||

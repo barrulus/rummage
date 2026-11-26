@@ -94,6 +94,7 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
     applied_ = std::move(applied);
     open_ = busy_ = true;
     valid_ = saved_ = close_requested_ = discard_prompt_ = false;
+    language_restart_required_ = false;
     error_.clear();
     write_error_.clear();
     original_.clear();
@@ -122,6 +123,9 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
                     write_error_ = parsed.validation_errors.front();
                 else {
                     valid_ = true;
+                    language_restart_required_ =
+                        parsed.config.interface.language != "system" &&
+                        parsed.config.interface.language != i18n::language();
                     icon_themes_ = std::move(icon_themes);
                     populate(parsed);
                     refresh_editability();
@@ -804,6 +808,11 @@ void SettingsDialog::flush() {
             write_error_ = std::move(error);
             refresh_editability();
             if (write_error_.empty()) {
+                const auto previous = core::parse_config(original_, path_.string());
+                const auto& language = parsed.config.interface.language;
+                if (language != previous.config.interface.language)
+                    language_restart_required_ =
+                        language == "system" || language != i18n::language();
                 original_ = replacement;
                 existed_ = saved_ = true;
                 if (applied_)
@@ -1594,11 +1603,13 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     if (discard_prompt_ || compact_retry)
         frame = fit(104);
     const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
-                               : !error_.empty()          ? "Changes need attention"
-                               : busy_                    ? (valid_ ? "Saving…" : "Loading…")
-                               : has_drafts()             ? "Editing…"
-                               : saved_                   ? "Saved"
-                                                          : "Changes save automatically";
+                                    : !error_.empty()          ? "Changes need attention"
+                                    : busy_                    ? (valid_ ? "Saving…" : "Loading…")
+                                    : has_drafts()             ? "Editing…"
+                                    : language_restart_required_
+                                        ? i18n::mark("Saved — restart Rummage to apply language")
+                                    : saved_ ? "Saved"
+                                             : "Changes save automatically";
     const float title_width = text_width(renderer, i18n::tr("Settings"), 18);
     const float desired_status_width =
         text_width(renderer, i18n::tr(status),

@@ -395,7 +395,8 @@ to look like executables; a filesystem mounted `noexec` reports why running is u
 
 ## Choosing applications
 
-**Open With…** in the command palette lists installed, launchable applications,
+**Open With → Choose another application…** in the context menu, or **Open With…**
+in the command palette, lists installed, launchable applications,
 including applications without an existing association for the selected type. Choose
 an application, then **Open once** or **Set as default and open**. Mixed-type selections
 can be opened once; setting a default requires files of one known MIME type.

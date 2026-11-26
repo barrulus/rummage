@@ -395,9 +395,12 @@ std::vector<PaletteItem> Browser::palette_items() {
                 std::string{i18n::mark("Toggle Terminal")});
         command(Command::focus_terminal, "focus_terminal",
                 std::string{i18n::mark("Focus Terminal or Files")});
-        command(Command::fzf_navigate, "fzf_navigate",
-                std::string{i18n::mark("Navigate with fzf…")});
-        command(Command::zoxide_jump, "zoxide_jump", std::string{i18n::mark("Jump with zoxide…")});
+        if (terminal_workflow_available(1))
+            command(Command::fzf_navigate, "fzf_navigate",
+                    std::string{i18n::mark("Navigate with fzf…")});
+        if (terminal_workflow_available(2))
+            command(Command::zoxide_jump, "zoxide_jump",
+                    std::string{i18n::mark("Jump with zoxide…")});
         command(Command::shell_command, "shell_command",
                 std::string{i18n::mark("Run Shell Command…")});
     }

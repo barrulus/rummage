@@ -1209,8 +1209,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float photo_controls_height = 330 + photo_help_height + photo_date_help_height + 16;
     const float natural_height = picking_
                                      ? 550.0F
-                                     : rows_top + rows_height + (permission_controls ? 310 : 0) +
-                                           (annotation_controls ? 230 : 0) +
+                                     : rows_top + rows_height + (permission_controls ? 390 : 0) +
+                                           (annotation_controls ? 270 : 0) +
                                            (photo_controls ? photo_controls_height : 0) +
                                            (folder_controls ? 40 + icon_height + 8 : 0) +
                                            (folder_hint ? hint_height + 8 : 0) +
@@ -1396,7 +1396,14 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             selectable("photo-date-help", photo_date_help, left, y, 12, room, true);
             y += photo_date_help_height + 8;
         }
+        const auto section = [&](std::string_view title) {
+            renderer.fill_background({left - 8, y, room + 16, 28},
+                                     palette.surface_container_highest);
+            text(i18n::tr(title), left, y + 6, 13, room);
+            y += 40;
+        };
         if (permission_controls) {
+            section(i18n::mark("File permissions"));
             const float label_space = std::min(90.0F, room * 0.28F);
             const float cell = (room - label_space) / 3;
             const std::array<std::string_view, 3> labels{"Read", "Write", "Execute"};
@@ -1423,6 +1430,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             text(i18n::tr("Folders: read lists, write changes contents, execute enters"), left, y,
                  11, room);
             y += 24;
+            section(i18n::mark("Ownership"));
             text(i18n::tr("Owner (name or ID; empty keeps current)"), left, y, 11, room);
             y += 18;
             owner_.draw(renderer, {left, y, room, 28}, 13, field_colors(focus_ == "owner"));
@@ -1438,6 +1446,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             y += 38;
         }
         if (annotation_controls) {
+            section(i18n::mark("Tags, rating and comment"));
             text(i18n::tr("Mixed annotations stay unchanged until edited"), left, y, 11, room);
             y += 24;
             const auto annotation = [&](const char* id, std::string_view label,

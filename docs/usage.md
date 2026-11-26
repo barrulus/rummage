@@ -567,8 +567,10 @@ to copy selected paths, and **Copy Name** continues to copy filenames.
 In Columns, choose **Make Focused Folder Column Root** from the View menu or
 command palette to remove ancestor columns. The current folder, selection,
 descendant columns and view settings stay in place. This is a layout change:
-Back continues to follow location history, while Alt+Up can reveal the parent
-again. It does not clear descendant columns.
+Back continues to follow location history. Backspace, Left and Alt+Up stop at the
+chosen root; use a breadcrumb or explicit location/history navigation to leave
+that tree. If the root itself is removed, parent navigation remains available for
+recovery. It does not clear descendant columns.
 
 ### Gallery display
 

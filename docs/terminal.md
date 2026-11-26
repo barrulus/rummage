@@ -49,14 +49,16 @@ continues to use its separate external-terminal handoff.
 
 Choose **Navigate with fzf…** from the command palette to search files and folders
 below the current directory in the embedded terminal. It requires `fzf` and
-`find` on `PATH`; traversal includes hidden entries, does not follow symlinked
+`find` on `PATH`; this command is hidden when either is unavailable. Traversal
+includes hidden entries, does not follow symlinked
 directories and stops at 64 levels. Enter opens the selected folder or reveals
 the selected file; cancelling leaves the browser in place. The NUL-delimited
 handoff preserves spaces, Unicode, quotes and newlines in filenames.
 
 Choose **Jump with zoxide…** and enter a directory query to open the best match
 from your zoxide database. Install `zoxide` and initialize/populate its database
-in your shell first. Query text is passed as one literal argument. Zoxide's
+in your shell first; the command is hidden until `zoxide` is available on `PATH`.
+Query text is passed as one literal argument. Zoxide's
 newline-delimited output cannot safely represent a directory containing a
 newline; such results are rejected. Both workflows report missing commands and
 leave ordinary browsing available.

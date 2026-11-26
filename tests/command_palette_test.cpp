@@ -537,6 +537,14 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         }
         const std::string id = std::string{"command:"} + it->second;
         CAPTURE(id);
+        if (shortcut.command == Command::fzf_navigate && !Browser::terminal_workflow_available(1)) {
+            CHECK_FALSE(seen.contains(id));
+            continue;
+        }
+        if (shortcut.command == Command::zoxide_jump && !Browser::terminal_workflow_available(2)) {
+            CHECK_FALSE(seen.contains(id));
+            continue;
+        }
         CHECK(seen.contains(id));
     }
     for (const char* id : {"sort:size", "sort:descending", "view:zoom_in", "view:select_all",

@@ -279,6 +279,31 @@ TEST_CASE("terminal UI: installed fzf and zoxide navigate disposable Unicode pat
     REQUIRE(until(f.loop, [&] { return f.browser.details().folder()->path() == destination; }));
 }
 
+TEST_CASE("terminal UI: navigation tools appear only when their executables are available") {
+    Fixture f;
+    const auto bin = f.temp.path / "bin";
+    fs::create_directory(bin);
+    f.environment.set("PATH", bin.string());
+    const auto offered = [&](std::string_view id) {
+        f.browser.open_palette();
+        const auto& rows = f.browser.command_palette().items();
+        const bool found = std::ranges::any_of(rows, [&](const auto& row) { return row.id == id; });
+        f.browser.command_palette().close();
+        return found;
+    };
+    CHECK_FALSE(offered("command:fzf_navigate"));
+    CHECK_FALSE(offered("command:zoxide_jump"));
+    for (const char* name : {"sh", "find", "fzf", "zoxide"}) {
+        std::ofstream{bin / name} << "#!/bin/sh\nexit 0\n";
+        REQUIRE(::chmod((bin / name).c_str(), 0700) == 0);
+    }
+    CHECK(offered("command:fzf_navigate"));
+    CHECK(offered("command:zoxide_jump"));
+    fs::remove(bin / "fzf");
+    CHECK_FALSE(offered("command:fzf_navigate"));
+    CHECK(offered("command:zoxide_jump"));
+}
+
 TEST_CASE("terminal UI: focused shell receives input while a virtual search view is active") {
     Fixture f;
     f.start();

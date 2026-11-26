@@ -179,6 +179,7 @@ public:
     [[nodiscard]] TerminalPanel& terminal_panel() { return embedded_terminal_; }
 
     void terminal_workflow(int kind);
+    static bool terminal_workflow_available(int kind);
 
     Browser(const Browser&) = delete;
     Browser& operator=(const Browser&) = delete;
@@ -270,6 +271,8 @@ public:
     }
 
     [[nodiscard]] const ui::Rect& filter_bounds() const { return filter_bounds_; }
+
+    [[nodiscard]] const ui::Rect& search_button_bounds() const { return search_button_bounds_; }
 
     [[nodiscard]] const ui::Rect& new_folder_bounds() const { return new_folder_bounds_; }
 
@@ -1204,6 +1207,7 @@ private:
 
     // Shared controls address the active pane; each tab retains its own filter and view state.
     ui::Rect toolbar_bounds_{}, filter_bounds_{}, clear_filter_bounds_{}, new_folder_bounds_{};
+    ui::Rect search_button_bounds_{};
     ui::Rect view_menu_bounds_{}, insights_bounds_{}, sort_bounds_{}, sidebar_toggle_bounds_{};
     State::Folders folder_settings_;
     core::CancelToken drive_hover_job_;

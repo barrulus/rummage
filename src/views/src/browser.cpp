@@ -2680,6 +2680,15 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
                              none.enabled = false;
                              children.push_back(std::move(none));
                          }
+                         MenuItem choose;
+                         choose.id = "choose_application";
+                         choose.label = i18n::tr("Choose another application…");
+                         choose.separator = true;
+                         choose.action = [this] {
+                             menu_.close();
+                             open_with_palette();
+                         };
+                         children.push_back(std::move(choose));
                          menu_.set_submenu("open_with", std::move(children));
                      });
         });
@@ -4223,6 +4232,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
     sidebar_toggle_bounds_ = {};
     filter_bounds_ = clear_filter_bounds_ = new_folder_bounds_ = {};
     view_menu_bounds_ = insights_bounds_ = sort_bounds_ = {};
+    search_button_bounds_ = {};
     if (bounds.height < 40 || bounds.width < 180) {
         return;
     }
@@ -4244,6 +4254,8 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         field_right = rect.x - gap;
     };
     reserve(view_menu_bounds_);
+    if (!picker_mode_)
+        reserve(search_button_bounds_);
     const auto folder = current_folder();
     if ((panes_enabled_ || showing_photos()) && !picker_mode_ && folder && !folder->is_archive() &&
         !folder->is_trash())
@@ -4296,6 +4308,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         for (const auto& [rect, label] :
              {std::pair{sidebar_toggle_bounds_, i18n::tr("Places sidebar")},
               std::pair{view_menu_bounds_, i18n::tr("View")},
+              std::pair{search_button_bounds_, i18n::tr("Find Files…")},
               std::pair{insights_bounds_, i18n::tr("Insights")},
               std::pair{sort_bounds_, i18n::tr("Sort By")},
               std::pair{clear_filter_bounds_, i18n::tr("Clear")},
@@ -4313,6 +4326,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                            : pane().mode == Mode::grid  ? "layout-grid"
                                                         : "list-details";
     button(view_menu_bounds_, view_icon);
+    button(search_button_bounds_, "search");
     // A small disclosure mark distinguishes the view menu from a mode toggle.
     if (!view_menu_bounds_.empty())
         icons.draw(renderer, "chevron-down", view_menu_bounds_.right() - 9,
@@ -4347,6 +4361,7 @@ std::pair<ui::Rect, std::string> Browser::control_hint_at(float x, float y) cons
           {new_folder_bounds_, i18n::mark("New Folder")},
           {sort_bounds_, i18n::mark("Sort By")},
           {view_menu_bounds_, i18n::mark("View")},
+          {search_button_bounds_, i18n::mark("Find Files…")},
           {insights_bounds_, i18n::mark("Insights")},
           {clear_filter_bounds_, i18n::mark("Clear")}}) {
         if (rect.contains(x, y))
@@ -4417,6 +4432,8 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
     } else if (sort_bounds_.contains(event.x, event.y)) {
         filter_focused_ = false;
         menu_.open(sort_bounds_.x, sort_bounds_.bottom(), sort_menu().children, false);
+    } else if (search_button_bounds_.contains(event.x, event.y)) {
+        open_finder();
     } else if (insights_bounds_.contains(event.x, event.y)) {
         if (showing_photos())
             open_photo_menu(insights_bounds_.x, insights_bounds_.bottom(), false);
@@ -4896,7 +4913,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
         return Shape::text;
     if (clear_filter_bounds_.contains(x, y) || new_folder_bounds_.contains(x, y) ||
         view_menu_bounds_.contains(x, y) || sort_bounds_.contains(x, y) ||
-        sidebar_toggle_bounds_.contains(x, y) || insights_bounds_.contains(x, y))
+        sidebar_toggle_bounds_.contains(x, y) || insights_bounds_.contains(x, y) ||
+        search_button_bounds_.contains(x, y))
         return Shape::pointer;
     if (const auto index = area_at(x, y)) {
         const auto& owner = *areas_[*index];

@@ -78,6 +78,8 @@ public:
 
     const core::ConfigResult& accepted_config() const { return accepted_config_; }
 
+    bool language_restart_required() const { return language_restart_required_; }
+
     bool editable() const { return valid_ && read_only_reason_.empty(); }
 
     const std::string& read_only_reason() const { return read_only_reason_; }
@@ -164,6 +166,7 @@ private:
     // original_ is the last disk snapshot; staged_ includes validated edits queued behind a write.
     std::string original_, staged_, error_, write_error_, read_only_reason_;
     core::ConfigResult accepted_config_;
+    bool language_restart_required_{false};
     ui::TextField search_;
     ui::Rect search_bounds_{};
     bool open_{false}, busy_{false}, existed_{false}, valid_{false}, saved_{false};

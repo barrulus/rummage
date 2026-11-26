@@ -378,10 +378,13 @@ TEST_CASE("settings: language choice persists and reset follows the session afte
     REQUIRE(f.dialog.error().empty());
     CHECK(core::load_config(f.path).config.interface.language == "de");
     CHECK(rummage::i18n::language() == active);
+    CHECK(f.dialog.language_restart_required() == (active != "de"));
     f.open();
+    CHECK(f.dialog.language_restart_required() == (active != "de"));
     REQUIRE(f.dialog.reset_setting("interface", "language"));
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(core::load_config(f.path).config.interface.language == "system");
+    CHECK(f.dialog.language_restart_required());
 }
 
 TEST_CASE("settings: keyboard choices open a list and save the selected value") {

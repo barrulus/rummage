@@ -18,6 +18,7 @@ namespace rummage::views {
 namespace {
 
 constexpr float kDividerGrab = 4.0F;  // either side of a column edge
+constexpr float kVerticalDivider = 8.0F;
 
 }  // namespace
 
@@ -121,6 +122,7 @@ void ColumnView::open(const std::filesystem::path& directory) {
     reveal_.clear();
     adopt_.reset();
     suspended_ = false;
+    root_locked_ = false;
     columns_.clear();
     focus_ = 0;
     resizing_.reset();
@@ -149,8 +151,9 @@ void ColumnView::set_vertical(bool vertical) {
 }
 
 void ColumnView::reset_root() {
-    if (columns_.empty() || focus_ == 0)
+    if (columns_.empty())
         return;
+    root_locked_ = true;
     for (std::size_t i = 0; i < focus_; ++i)
         columns_[i].column->folder().set_changed_handler(nullptr);
     columns_.erase(columns_.begin(), columns_.begin() + static_cast<std::ptrdiff_t>(focus_));
@@ -378,6 +381,10 @@ void ColumnView::go_left() {
         focus_on(focus_ - 1);
         return;
     }
+    if (root_locked_ &&
+        columns_.front().column->folder().model().error() != std::errc::no_such_file_or_directory)
+        return;
+    root_locked_ = false;  // A removed root must still permit recovery to its parent.
     // From the first column: its parent becomes the new first column.
     const std::filesystem::path current = columns_.front().column->path();
     const std::filesystem::path parent = current.parent_path();
@@ -492,7 +499,8 @@ std::optional<std::size_t> ColumnView::divider_at(float x, float y) const {
     for (std::size_t i = 0; i < columns_.size(); ++i) {
         const float edge = (vertical_ ? area_.y : area_.x) + columns_[i].x + columns_[i].width -
                            scroller_.offset();
-        if (std::abs((vertical_ ? y : x) - edge) <= kDividerGrab) {
+        if (vertical_ ? y >= edge - kVerticalDivider && y <= edge + kDividerGrab
+                      : std::abs(x - edge) <= kDividerGrab) {
             return i;
         }
     }
@@ -573,7 +581,8 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
             continue;
         }
         const ui::Rect column_bounds =
-            vertical_ ? ui::Rect{area_.x, left, std::max(1.0F, area_.width - 12.0F), slot.width}
+            vertical_ ? ui::Rect{area_.x, left, std::max(1.0F, area_.width - 12.0F),
+                                 std::max(1.0F, slot.width - kVerticalDivider)}
                       : ui::Rect{left, area_.y, slot.width, area_.height};
         slot.column->draw(renderer, column_bounds, palette, icons, i == focus_, now, edit_, cut_,
                           drop_, show_extensions_, show_thumbnails_ ? thumbnails_ : nullptr);
@@ -585,6 +594,15 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
         }
         const bool grabbed =
             resizing_ == i || (over_divider_ && divider_at(pointer_x_, pointer_y_) == i);
+        if (vertical_) {
+            const ui::Rect divider{area_.x, left + slot.width - kVerticalDivider,
+                                   area_.width - 12.0F, kVerticalDivider};
+            renderer.fill_background(divider, palette.surface_container_highest);
+            renderer.fill_rect(divider, palette.primary.with_alpha(grabbed ? 0.24F : 0.10F));
+            renderer.fill_rect({divider.x + (divider.width - 36.0F) / 2, divider.y + 3, 36, 2},
+                               grabbed ? palette.primary : palette.outline);
+            continue;
+        }
         const float line = grabbed ? 2.0F : 1.0F / renderer.scale();
         renderer.fill_rect(vertical_
                                ? ui::Rect{area_.x, left + slot.width - line, area_.width, line}

@@ -86,7 +86,8 @@ public:
     // One column showing directory, focused, no cursor.
     void open(const std::filesystem::path& directory);
 
-    // Keep the focused folder, its selection and descendants; discard ancestor columns.
+    // Keep the focused folder, selection and descendants; parent navigation stops here
+    // until an explicit location/history navigation opens another column tree.
     void reset_root();
     void set_vertical(bool vertical);
 
@@ -244,6 +245,7 @@ private:
     std::filesystem::path reveal_;   // where reveal() is heading; empty when done
     std::shared_ptr<Folder> adopt_;  // the folder show() unfolds to, used as its column
     bool suspended_{false};
+    bool root_locked_{false};
     fs::Listing::Predicate entry_filter_;
     bool show_hidden_{false};
     fs::SortOrder order_;

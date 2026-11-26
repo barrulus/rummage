@@ -410,6 +410,28 @@ TEST_CASE("toolbar: filter and New Folder buttons work in each view") {
     }
 }
 
+TEST_CASE("toolbar: search button opens recursive file search instead of filtering names") {
+    Fixture f;
+    REQUIRE(f.gl);
+    f.browser.open(f.photos);
+    REQUIRE(f.settle());
+    const auto button = f.browser.search_button_bounds();
+    REQUIRE_FALSE(button.empty());
+    CHECK(f.browser.cursor_at(button.x + 4, button.y + 4) == CursorShape::pointer);
+    f.browser.pointer({.kind = PointerEvent::Kind::press,
+                       .x = button.x + 4,
+                       .y = button.y + 4,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    f.browser.pointer({.kind = PointerEvent::Kind::release,
+                       .x = button.x + 4,
+                       .y = button.y + 4,
+                       .button = rummage::ui::PointerButton::left},
+                      Browser::Clock::now());
+    CHECK(f.browser.command_palette().is_open());
+    CHECK_FALSE(f.browser.filtering());
+}
+
 TEST_CASE("toolbar: compact icons leave usable filter fields at every scale") {
     for (const auto* family : {"sans-serif", "monospace"}) {
         Fixture f{family};

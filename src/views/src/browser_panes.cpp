@@ -235,6 +235,12 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
     items.push_back(sort_menu());
     items.push_back(name_filter_menu());
     if (!picker_mode_) {
+        MenuItem find;
+        find.id = "find_files";
+        find.label = i18n::tr("Find Files…");
+        find.keys = keys_for(Command::find_files);
+        find.action = [this] { open_finder(); };
+        items.push_back(std::move(find));
         MenuItem results;
         results.id = "search_results";
         results.label = i18n::tr("Search Results…");

@@ -505,9 +505,10 @@ TEST_CASE("context menu: Open With lists the applications and opens the selectio
     CHECK(f.asked_type == cursor);  // the applications of the cursor's file
     const MenuItem& with = f.menu().items()[1];
     REQUIRE(with.id == "open_with");
-    REQUIRE(with.children.size() == 2);
+    REQUIRE(with.children.size() == 3);
     CHECK(with.children[0].label == "Viewer (default)");
     CHECK(with.children[1].label == "Editor");
+    CHECK(with.children[2].id == "choose_application");
     CHECK(f.press(key(XKB_KEY_Down)));
     CHECK(f.press(key(XKB_KEY_Right)));
     CHECK(f.press(key(XKB_KEY_Down)));
@@ -519,9 +520,31 @@ TEST_CASE("context menu: Open With lists the applications and opens the selectio
     // No applications: a dimmed line says so.
     f.apps.clear();
     CHECK(f.press(key(XKB_KEY_Menu)));
-    REQUIRE(f.menu().items()[1].children.size() == 1);
+    REQUIRE(f.menu().items()[1].children.size() == 2);
     CHECK(f.menu().items()[1].children[0].label == "No applications");
     CHECK_FALSE(f.menu().items()[1].children[0].enabled);
+}
+
+TEST_CASE("context menu: choose another application opens the full installed-app chooser") {
+    Fixture f;
+    bool asked_all = false;
+    f.browser.set_application_chooser_handlers(
+        [&](const fs::path&, const rummage::fs::Entry&,
+            const std::function<void(std::vector<Browser::AppChoice>)>& done) {
+            asked_all = true;
+            done({{.id = "unassociated.desktop", .name = "Another application"}});
+        },
+        {});
+    f.select({"a.txt"});
+    REQUIRE(f.press(key(XKB_KEY_Menu)));
+    auto choose = f.menu().items()[1].children.back().action;
+    REQUIRE(choose);
+    choose();
+    CHECK(asked_all);
+    REQUIRE(f.browser.command_palette().is_open());
+    CHECK(f.press(key(XKB_KEY_Return)));
+    CHECK(f.opened_with == "unassociated.desktop");
+    CHECK(f.opened == Names{"a.txt"});
 }
 
 TEST_CASE("context menu: F4 and Open in Terminal: the cursor's folder, else the one shown") {
@@ -1013,7 +1036,8 @@ sidebar = []
     CHECK(external.label == "External");
     REQUIRE(external.children.size() == 2);
     CHECK(external.children[1].id == "open_with");
-    CHECK(external.children[1].children.size() == 2);  // async loader found its nested group
+    CHECK(external.children[1].children.size() == 3);  // apps plus the full chooser
+    CHECK(external.children[1].children.back().id == "choose_application");
     CHECK(items[1].id == "copy");
     CHECK(items[1].keys == "Ctrl+C");
     CHECK(items[1].separator);
