@@ -1001,3 +1001,126 @@ TEST_CASE("recent files: collection filters restores and acts on actual source p
     CHECK(results->finder()->status() == "Recent history is disabled");
     REQUIRE(history.set_enabled(true).empty());
 }
+
+TEST_CASE("recursive filename globs: basename patterns compose with metadata and path scope") {
+    const TempDir dir;
+    for (const auto* path : {"first.zip", "nested/second.ZIP", "nested/deep/third.zip",
+                             "nested/notes.txt", "not-a-zip.zip.txt", ".hidden/fourth.zip"})
+        touch(dir.path / path);
+    fs::create_directory(dir.path / "bundles.zip");
+    const auto paths = [&](const std::string& query) {
+        std::vector<std::string> found;
+        for (const auto& file : search_tree(dir.path, query).files)
+            found.push_back(file.path);
+        std::ranges::sort(found);
+        return found;
+    };
+    const std::vector<std::string> zip_files{"first.zip", "nested/deep/third.zip",
+                                             "nested/second.ZIP"};
+    CHECK(paths("*.zip type:file") == zip_files);
+    CHECK(paths("name:*.zip ext:ZIP type:file") == zip_files);
+    CHECK(paths("*.zip type:folder") == std::vector<std::string>{"bundles.zip"});
+    CHECK(paths("*.zip").size() == 4);
+    CHECK(paths("*.zip hidden:yes type:file").size() == 4);
+    CHECK(paths("*.zip exclude:nested type:file") == std::vector<std::string>{"first.zip"});
+    CHECK(paths("nested/*.zip") == std::vector<std::string>{"nested/second.ZIP"});
+    CHECK(paths("nested/**/*.zip") ==
+          std::vector<std::string>{"nested/deep/third.zip", "nested/second.ZIP"});
+    CHECK(paths("./nested/**/*.zip") == paths("nested/**/*.zip"));
+    CHECK(paths("**/*.zip type:file") == zip_files);
+    CHECK(paths("nested/*/*.zip") == std::vector<std::string>{"nested/deep/third.zip"});
+    CHECK(paths("*/third.zip").empty());
+    CHECK(paths("fstzp") == std::vector<std::string>{"first.zip"});  // plain fuzzy unchanged
+    for (const auto* invalid : {"/*.zip", "nested//*.zip", "nested/*.zip/"})
+        CHECK_FALSE(rummage::views::parse_search_query(invalid).error.empty());
+    CHECK_FALSE(rummage::views::parse_search_query("name:broken[").error.empty());
+    CHECK_FALSE(rummage::views::parse_search_query(std::string(1024, '*')).error.empty());
+    CHECK(rummage::views::parse_search_query("content:broken[").error.empty());
+
+    std::ofstream{dir.path / "nested/notes.txt"} << "The literal *.zip and [broken characters.\n";
+    CHECK(paths("content:\"*.zip\" ext:txt") == std::vector<std::string>{"nested/notes.txt"});
+    CHECK(paths("content:[broken") == std::vector<std::string>{"nested/notes.txt"});
+    CHECK(paths("content:*.tar").empty());
+}
+
+TEST_CASE("filename glob matcher: escapes ranges unusual names ranking and cancellation") {
+    auto batch = std::make_shared<PathBatch>();
+    for (const auto* path : {"first.zip", "nested/second.zip", "nested/deep/third.zip",
+                             "literal*.zip", "line\nbreak.zip", "zip-folder/notes.txt"})
+        batch->add(path, false);
+    auto matches = match_paths({batch}, "*.zip", 200, {});
+    REQUIRE(matches.size() == 5);
+    CHECK(matches.front().path == "first.zip");
+    CHECK(match_paths({batch}, "[fl]*.zip", 200, {}).size() == 3);
+    matches = match_paths({batch}, R"(literal\*.zip)", 200, {});
+    REQUIRE(matches.size() == 1);
+    CHECK(matches.front().path == "literal*.zip");
+    CHECK(match_paths({batch}, "?????.zip", 200, {}).size() == 2);
+    CHECK(match_paths({batch}, "*.zip", 2, {}).size() == 2);
+    CHECK(match_paths({batch}, "broken[", 200, {}).empty());
+    CancelToken cancelled;
+    cancelled.cancel();
+    CHECK(match_paths({batch}, "**/*.zip", 200, cancelled).empty());
+}
+
+TEST_CASE("file finder: asynchronous glob query changes retain all matching nested archives") {
+    const TempDir dir;
+    for (const auto* path :
+         {"first.zip", "nested/second.zip", "nested/deep/third.zip", "notes.txt"})
+        touch(dir.path / path);
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    FileFinder finder{pool, [] {}, {.batch = 1}};
+    finder.set_query("*.zip");
+    finder.start(dir.path, false);
+    finder.set_query("name:*.txt type:file");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    REQUIRE(finder.results().size() == 1);
+    CHECK(finder.results().front().path == "notes.txt");
+    finder.set_query("name:*.zip ext:zip type:file");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    CHECK(finder.results().size() == 3);
+    CHECK(finder.stats().matches == 3);
+    finder.set_query("*.zip[");
+    CHECK_FALSE(finder.specification().error.empty());
+    CHECK(finder.results().empty());
+    finder.set_query("**/*.zip");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    CHECK(finder.specification().error.empty());
+    CHECK(finder.results().size() == 3);
+    finder.set_query("nested/*.zip");
+    finder.set_query("*.zip");
+    REQUIRE(run_until(loop, [&] { return !finder.scanning() && !finder.matching(); }));
+    CHECK(finder.results().size() == 3);
+}
+
+TEST_CASE("find files: wildcard archive queries populate quick finder and persistent results") {
+    Fixture f;
+    for (const auto* path : {"first.zip", "nested/second.zip", "nested/deep/third.zip"})
+        touch(f.a / path);
+    // Call the explicit quick finder: Ctrl+F may independently choose the persistent UI.
+    f.browser.open_finder();
+    auto& palette = f.browser.command_palette();
+    palette.set_query("*.zip");
+    REQUIRE(run_until(f.loop, [&] {
+        const auto* finder = f.browser.file_finder();
+        return finder && !finder->scanning() && !finder->matching();
+    }));
+    REQUIRE(f.browser.file_finder()->results().size() == 3);
+    REQUIRE(palette.shown().size() == 3);
+    REQUIRE(f.press(key(XKB_KEY_Return, kCtrl)));
+    auto* results = f.browser.search_results();
+    REQUIRE(results);
+    REQUIRE(f.settle());
+    REQUIRE(results->rows().size() == 3);
+    results->select_all();
+    CHECK(results->chosen().size() == 3);
+    results->set_query("name:nested/*.zip type:file");
+    REQUIRE(f.settle());
+    REQUIRE(results->rows().size() == 1);
+    CHECK(results->rows().front().path == "nested/second.zip");
+    results->set_query("name:*.zip ext:zip");
+    REQUIRE(f.settle());
+    REQUIRE(results->rows().size() == 3);
+    CHECK(results->finder()->specification().error.empty());
+}

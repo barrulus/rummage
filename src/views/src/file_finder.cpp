@@ -13,6 +13,7 @@
 
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/annotations.hpp"
+#include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/recent.hpp"
 #include "rummage/views/fuzzy.hpp"
 
@@ -100,6 +101,97 @@ bool search_text(std::string_view text) {
     }
     return true;
 }
+
+// Plain search text keeps fuzzy path ranking. A wildcard expression instead matches
+// a whole basename at any depth, or a root-relative path when it contains '/'.
+// Every component uses the existing bounded NamePattern engine; ** consumes zero or
+// more complete path components, while ordinary * and ? cannot cross a separator.
+class FilenameQuery {
+public:
+    explicit FilenameQuery(const std::string& text) : fuzzy_{text} {
+        if (text.find_first_of("*?[") == std::string::npos)
+            return;
+        pattern_.emplace("glob:" + text);
+        error_ = pattern_->error();
+        path_ = text.find('/') != std::string::npos;
+        if (!path_ || !error_.empty())
+            return;
+        std::string_view remaining{text};
+        if (remaining.starts_with("./"))
+            remaining.remove_prefix(2);
+        while (!remaining.empty()) {
+            const auto slash = remaining.find('/');
+            const auto component = remaining.substr(0, slash);
+            if (component.empty()) {
+                error_ = i18n::trf("Invalid search filter: {}", text);
+                return;
+            }
+            if (component == "**")
+                components_.emplace_back();
+            else {
+                components_.emplace_back("glob:" + std::string{component});
+                if (!components_.back()->error().empty())
+                    error_ = components_.back()->error();
+            }
+            if (slash == std::string_view::npos)
+                break;
+            remaining.remove_prefix(slash + 1);
+            if (remaining.empty()) {
+                error_ = i18n::trf("Invalid search filter: {}", text);
+                return;
+            }
+        }
+    }
+
+    [[nodiscard]] const std::string& error() const { return error_; }
+
+    std::optional<PathRank> rank(std::string_view relative) {
+        if (!error_.empty())
+            return {};
+        if (!pattern_)
+            return fuzzy_.path_rank(relative);
+        if (!path_) {
+            const auto slash = relative.rfind('/');
+            const auto name = relative.substr(slash == std::string_view::npos ? 0 : slash + 1);
+            if (!pattern_->matches(std::string{name}))
+                return {};
+        } else {
+            std::vector<std::string> parts;
+            auto remaining = relative;
+            while (!remaining.empty()) {
+                const auto slash = remaining.find('/');
+                parts.emplace_back(remaining.substr(0, slash));
+                if (slash == std::string_view::npos)
+                    break;
+                remaining.remove_prefix(slash + 1);
+            }
+            std::vector<bool> matches(parts.size() + 1, false);
+            matches[0] = true;
+            for (const auto& component : components_) {
+                if (!component) {
+                    for (std::size_t i = 1; i < matches.size(); ++i)
+                        matches[i] = matches[i] || matches[i - 1];
+                } else {
+                    for (std::size_t i = parts.size(); i > 0; --i)
+                        matches[i] = matches[i - 1] && component->matches(parts[i - 1]);
+                    matches[0] = false;
+                }
+            }
+            if (!matches.back())
+                return {};
+        }
+        return PathRank{.tier = PathRank::Tier::equal,
+                        .depth = static_cast<std::size_t>(std::ranges::count(relative, '/')),
+                        .score = 0};
+    }
+
+private:
+    FuzzyQuery fuzzy_;
+    std::optional<fs::NamePattern> pattern_;
+    std::vector<std::optional<fs::NamePattern>> components_;
+    std::string error_;
+    bool path_{false};
+};
 
 struct SearchFd {
     int fd{-1};
@@ -222,6 +314,8 @@ SearchQuery parse_search_query(std::string_view input, bool hidden) {
     }
     if (result.after && result.before && *result.after >= *result.before)
         result.error = i18n::tr("The after date must precede the before date");
+    if (result.error.empty() && !result.content)
+        result.error = FilenameQuery{result.text}.error();
     return result;
 }
 
@@ -232,7 +326,7 @@ SearchMatches match_files(const std::filesystem::path& root,
     SearchMatches result;
     if (limit == 0 || !query.error.empty() || (query.content && query.text.empty()))
         return result;
-    FuzzyQuery fuzzy{query.text};
+    FilenameQuery names{query.text};
     const std::string needle = query.fold_case ? ascii_lower(query.text) : query.text;
     const SearchFd root_fd{
         query.metadata() ? ::open(root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC) : -1};
@@ -258,7 +352,7 @@ SearchMatches match_files(const std::filesystem::path& root,
                 return {};
             const auto relative = batch->path(i);
             const auto rank =
-                query.content ? std::optional<PathRank>{PathRank{}} : fuzzy.path_rank(relative);
+                query.content ? std::optional<PathRank>{PathRank{}} : names.rank(relative);
             if (!rank)
                 continue;
             if (!query.extension.empty()) {
@@ -409,7 +503,7 @@ std::vector<FoundFile> match_paths(const std::vector<std::shared_ptr<const fs::P
                                    const core::CancelToken& token) {
     if (limit == 0)
         return {};
-    FuzzyQuery fuzzy{query};
+    FilenameQuery names{query};
     std::vector<FoundFile> best;  // a heap: the worst kept on top
     const auto worse = [](const FoundFile& a, const FoundFile& b) { return better(a, b); };
     for (const std::shared_ptr<const fs::PathBatch>& batch : batches) {
@@ -418,7 +512,7 @@ std::vector<FoundFile> match_paths(const std::vector<std::shared_ptr<const fs::P
         }
         for (std::size_t i = 0; i < batch->size(); ++i) {
             const std::string_view path = batch->path(i);
-            const std::optional<PathRank> rank = fuzzy.path_rank(path);
+            const std::optional<PathRank> rank = names.rank(path);
             if (!rank) {
                 continue;
             }

@@ -378,7 +378,16 @@ persistent results list with the same query.
 Choose **Find File Contents…** in Ctrl+K, or begin the search with `content:`, to
 find literal text inside files. Each matching file appears once, with the first
 matching line number and a short excerpt. Content matching is case-sensitive;
-`case:fold` ignores ASCII letter case. Filename matching remains fuzzy.
+`case:fold` ignores ASCII letter case. Plain filename text remains fuzzy.
+
+Filename patterns containing `*`, `?` or brackets use whole-name glob matching:
+`*.zip` or `name:*.zip` finds ZIP names throughout the selected folder tree,
+ignoring case. `nested/*.zip` matches only immediate children of `nested`;
+`nested/**/*.zip` also matches its descendants (`**` is zero or more directories).
+Path patterns are relative to the search root. Use a backslash to escape a literal
+wildcard. Patterns use the same bounded matcher as the folder name filter; malformed
+or oversized patterns display an error. These characters stay literal in `content:`
+queries. For example, `name:*.zip type:file ext:zip` combines a glob with metadata.
 
 These filters work in either mode; quote values containing spaces:
 
