@@ -931,15 +931,16 @@ void SettingsDialog::reveal_focus() {
             (focus_ != "f" + id && focus_ != "minus" + id && focus_ != "plus" + id &&
              focus_ != "error" + id && focus_ != "reset" + id))
             continue;
+        const bool auxiliary = focus_ == "reset" + id || focus_ == "error" + id;
         const float top = field.top + (focus_ == "reset" + id
                                            ? field.height - (field.error.empty() ? 34.0F : 74.0F)
-                                       : focus_ == "error" + id  ? field.height - 38
-                                       : list_.width - 44 >= 500 ? 5.0F
-                                                                 : 44.0F);
+                                       : focus_ == "error" + id ? field.height - 38
+                                                                : field.layout.control.y);
+        const float height = auxiliary ? 32.0F : std::max(32.0F, field.layout.control.height);
         if (top < scroller_.offset())
             scroller_.jump_to(top);
-        else if (top + 32 > scroller_.offset() + list_.height)
-            scroller_.jump_to(top + 32 - list_.height);
+        else if (top + height > scroller_.offset() + list_.height)
+            scroller_.jump_to(top + height - list_.height);
         return;
     }
 }
@@ -1744,6 +1745,9 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             preview_motion_.cancel_all();
         }
     }
+    // Returning from search restores category controls that can shrink this viewport
+    // without resizing the dialog or changing any measured row heights.
+    const bool viewport_changed = list_.width != content.width || list_.height != content.height;
     list_ = content;
     editor_bounds_ = {};
     const bool embedded = section_ >= 2 && section_ < kEffects && search_.text().empty();
@@ -1784,7 +1788,7 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         field.layout = layout;
     }
     layout_rows();
-    if (resized || rows_changed)
+    if (resized || rows_changed || viewport_changed)
         reveal_focus();
     scrollbar_.layout(list_);
     renderer.push_clip(list_);
