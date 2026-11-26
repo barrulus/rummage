@@ -34,6 +34,12 @@ and malformed replies are treated as preview failures. Returned pixel dimensions
 and overflow-checked buffer sizes are validated before pixels enter the application.
 The browser does not fall back to decoding the same unsupported input in-process.
 
+Video playback bounds interleaved lookahead to 512 compressed packets and 32 MiB,
+including packet side data. Decoded video remains limited to 32 frames / 64 MiB;
+queued stereo PCM is limited to one second. Timestamp gaps produce bounded silence
+windows rather than unbounded allocations. Exceeding these limits fails the preview
+without relaxing the helper's filesystem, syscall, memory or request-time restrictions.
+
 SVG file previews run in the base helper using librsvg's default parsing limits,
 the helper's process memory ceiling and request deadline. The adapter reads at most 8 MiB and
 caps the rendered side at 1024 pixels. It reads only the supplied descriptor;

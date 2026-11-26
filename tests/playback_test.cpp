@@ -1,5 +1,6 @@
 #include "rummage/isolate/playback.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -209,4 +210,39 @@ TEST_CASE("playback: a cold audio sink receives the complete sustained PCM strea
     const auto close_started = std::chrono::steady_clock::now();
     blocked.reset();
     CHECK(std::chrono::steady_clock::now() - close_started < 300ms);
+}
+
+TEST_CASE("playback: chunked phone MP4s preserve audio timestamp gaps and the complete tail") {
+    rummage::test::TempDir dir;
+    const auto sink = dir.path / "slow-audio";
+    std::filesystem::create_symlink(RUMMAGE_FAKE_PLAYBACK, sink);
+    Playback value{data / "chunked-gap.mp4", {.decoder = RUMMAGE_PLAYBACK_HELPER, .audio = sink}};
+    value.volume(100);
+    value.pause(false);
+    const auto deadline = std::chrono::steady_clock::now() + 10s;
+    while (std::chrono::steady_clock::now() < deadline && !value.snapshot().paused)
+        std::this_thread::sleep_for(10ms);
+    REQUIRE(value.snapshot().error.empty());
+    REQUIRE(value.snapshot().ended);
+    REQUIRE(value.snapshot().image);
+    CHECK(value.snapshot().image->width == 1280);
+    std::ifstream captured{sink.string() + ".pcm", std::ios::binary};
+    const std::string pcm{std::istreambuf_iterator<char>{captured}, {}};
+    REQUIRE(pcm.size() >= 689280);  // at least 3.59 seconds
+    CHECK(pcm.size() <= 700800);    // at most 3.65 seconds including AAC padding
+    const auto silence = std::string_view{pcm}.substr(19200, 76800);  // 100–500 ms gap
+    CHECK(std::ranges::all_of(silence, [](char sample) { return sample == 0; }));
+    const auto tone = std::string_view{pcm}.substr(192000, 19200);  // tone resumes after the gap
+    CHECK(std::ranges::any_of(tone, [](char sample) { return sample != 0; }));
+    value.seek(1000);
+    REQUIRE(until([&] { return !value.snapshot().loading; }));
+    CHECK(value.snapshot().error.empty());
+    CHECK(value.snapshot().position_ms == 1000);
+}
+
+TEST_CASE("playback: excessive stream interleaving fails within the compressed packet budget") {
+    Playback value{data / "oversized-interleave.mp4", helpers()};
+    REQUIRE(until([&] { return !value.snapshot().loading; }));
+    CHECK(value.snapshot().failed);
+    CHECK(value.snapshot().error == "Unsupported or damaged media");
 }

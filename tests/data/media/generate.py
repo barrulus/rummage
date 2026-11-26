@@ -29,6 +29,18 @@ run('-f', 'lavfi', '-i', 'color=red:size=1280x720:rate=30',
     '-t', '5', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
     str(root / 'delayed-audio.mp4'))
 
+# Phone-style packet chunks and an initial discontinuity after the first AAC frame.
+run('-f', 'lavfi', '-i', 'color=blue:size=1280x720:rate=30:duration=3.6',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=3',
+    '-af', r'asetpts=PTS+gte(N\,1024)*0.6/TB', '-c:v', 'libx264', '-threads', '1',
+    '-bf', '0', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-chunk_duration', '1000000',
+    str(root / 'chunked-gap.mp4'))
+# Deliberately exceeds the 512-packet lookahead budget before the first audio chunk.
+run('-f', 'lavfi', '-i', 'color=blue:size=96x48:rate=600:duration=2',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=2',
+    '-c:v', 'libx264', '-threads', '1', '-bf', '0', '-c:a', 'aac',
+    '-chunk_duration', '1000000', str(root / 'oversized-interleave.mp4'))
+
 # Audio-only metadata fixture, independent of FFmpeg's encoder defaults.
 import wave
 with wave.open(str(root / 'silence.wav'), 'wb') as out:
