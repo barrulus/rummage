@@ -1,4 +1,4 @@
-# The only target that links FFmpeg. Bundled in the standard package, with runtime UI controls.
+# FFmpeg stays in bundled still/stream decoder helpers, outside the application process.
 add_executable(rummage-media backend.cpp
     ../isolate/src/helper_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp)
 target_include_directories(rummage-media PRIVATE ../isolate/src)
