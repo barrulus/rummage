@@ -363,14 +363,17 @@ shortcuts, and lists recently used commands first when the query is empty.
 Only applicable commands appear. Use arrows or Page Up/Down, Enter to run, and
 Escape or Ctrl+K to close. Open With opens an application list within the palette.
 
-**Ctrl+F** searches filenames and paths recursively under the current folder.
-Names rank by exact match, prefix, substring, then scattered letters, ahead of
-matches requiring parent folders. Within each group, shallower paths come first.
-Spaces separate terms that must all match, in any order, in both file search and
-the command palette. Long result labels keep their highlighted match visible.
-Enter reveals a result; Shift+Enter opens its default application. Space inserts a
-space while typing. After Up/Down or Page Up/Down moves into the results, Space
-opens Quick Look; Shift+Space always inserts a space.
+**Ctrl+F**, the magnifying-glass toolbar button and **View → Find Files…** open
+persistent **Search Results**, searching the current folder and its subfolders.
+The separate **Filter this folder…** field only narrows the current folder listing;
+it does not limit recursive search. Ctrl+F inside results returns focus to the query
+without losing the results or search scope.
+
+Plain filename text ranks exact matches, prefixes and substrings ahead of scattered
+letters and parent-path matches. Within each group, shallower paths come first.
+The optional **Quick File Finder…** command in Ctrl+K retains the compact picker for
+jumping straight to one result. Ctrl+Enter or Ctrl+F promotes that picker to the
+persistent results list with the same query.
 
 Choose **Find File Contents…** in Ctrl+K, or begin the search with `content:`, to
 find literal text inside files. Each matching file appears once, with the first
@@ -415,8 +418,8 @@ is separate future work; current searches operate directly on the filesystem.
 
 ### Managing and saving search results
 
-Press **Ctrl+Enter** from Ctrl+F to open the current query in **Search Results**.
-You can also choose **View → Search Results…** or find that command in Ctrl+K.
+Normal **Ctrl+F** search already opens **Search Results**. You can also choose
+**View → Search Results…** or find that command in Ctrl+K.
 The view shows each result's name and parent folder, plus the matching line and
 excerpt for content searches. The query uses the same filters described above.
 
@@ -596,8 +599,8 @@ remembered across restarts and applies to Columns in all tabs of this window.
 
 ### Returning to search results
 
-Opening or revealing a Search Results item, or choosing a result in the Ctrl+F
-finder, records the search in that tab's Back history. Finder searches return in
+Opening or revealing a Search Results item, or choosing a result in the optional
+Quick File Finder, records the search in that tab's Back history. Finder searches return in
 the full Search Results view. Back restores its root, query (including filters), hidden-file setting,
 selected paths and scroll position. Results are rescanned asynchronously, so removed
 or inaccessible items disappear rather than becoming stale operation targets.

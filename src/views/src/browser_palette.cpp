@@ -457,10 +457,15 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (folder && !in_trash) {
         command(Command::filter_names, "filter_names", "Filter Names…");
         command(Command::find_files, "find_files", "Find Files…");
+        add("command:quick_finder", std::string{i18n::mark("Quick File Finder…")}, "",
+            [this] { open_finder(); });
         add("command:find_contents", std::string{i18n::mark("Find File Contents…")}, "", [this] {
-            open_finder();
-            if (finder_)
-                palette_.set_query("content: ");
+            if (picker_mode_) {
+                open_finder();
+                if (finder_)
+                    palette_.set_query("content: ");
+            } else
+                open_search_results({}, "content: ");
         });
     }
     command(Command::show_shortcuts, "show_shortcuts", "Keyboard Shortcuts");

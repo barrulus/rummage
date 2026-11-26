@@ -764,7 +764,7 @@ public:
         return palette_recent_;
     }
 
-    // Ctrl+F (ROADMAP 8b): the palette finds files under the folder shown, matched by their paths.
+    // Optional quick finder: a palette for jumping to a result. Ctrl+F opens Search Results.
     void open_finder();
     void open_search_results(std::filesystem::path root = {}, std::string query = {},
                              std::optional<bool> hidden = {});

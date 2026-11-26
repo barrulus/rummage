@@ -4399,7 +4399,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         const float height = (line.ascent + line.descent) / renderer.scale();
         renderer.draw_layout(line, rect.x, rect.y + (rect.height - height) / 2, color);
     };
-    pane().filter_field.set_accessible_name(std::string{i18n::tr("Filter names…")});
+    pane().filter_field.set_accessible_name(std::string{i18n::tr("Filter this folder…")});
     pane().filter_field.draw(
         renderer, filter_bounds_, 14,
         {.background = palette.surface,
@@ -4414,7 +4414,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                       : palette.primary.with_alpha(0)});
     if (name_filter().empty() && (!filter_focused_ || terminal_focused())) {
         text_in(
-            showing_photos() ? std::string{i18n::tr("Search photos…")} : i18n::tr("Filter names…"),
+            showing_photos() ? std::string{i18n::tr("Search photos…")} : i18n::tr("Filter this folder…"),
             {filter_bounds_.x + 6, filter_bounds_.y, filter_bounds_.width - 12,
              filter_bounds_.height},
             palette.on_surface_variant);
@@ -4559,7 +4559,7 @@ void Browser::toolbar_pointer(const ui::PointerEvent& event) {
         filter_focused_ = false;
         menu_.open(sort_bounds_.x, sort_bounds_.bottom(), sort_menu().children, false);
     } else if (search_button_bounds_.contains(event.x, event.y)) {
-        open_finder();
+        open_search_results();
     } else if (insights_bounds_.contains(event.x, event.y)) {
         if (showing_photos())
             open_photo_menu(insights_bounds_.x, insights_bounds_.bottom(), false);
@@ -6876,8 +6876,9 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
     }
     found_after_.reset();  // a key while a file found is on its way: it stays shown, no more
     if (palette_.is_open()) {
-        if (palette_use_ == PaletteUse::files && finder_ && event.keysym == XKB_KEY_Return &&
-            event.modifiers == ui::Modifiers{.ctrl = true}) {
+        if (palette_use_ == PaletteUse::files && finder_ && !picker_mode_ &&
+            ((event.keysym == XKB_KEY_Return && event.modifiers == ui::Modifiers{.ctrl = true}) ||
+             command_for(event) == Command::find_files)) {
             const auto root = finder_->root();
             const auto query = finder_->query();
             const bool hidden = finder_->hidden();
@@ -6891,7 +6892,7 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             const PaletteUse was = palette_use_;
             palette_.close();
             if (command == Command::find_files && was != PaletteUse::files) {
-                open_finder();
+                run(Command::find_files, now);
             } else if (command == Command::command_palette && was != PaletteUse::commands) {
                 open_palette();
             } else if (command == Command::select_pattern && was != PaletteUse::pattern) {
@@ -7500,7 +7501,10 @@ void Browser::run(Command command, Clock::time_point now) {
             open_pattern();
             break;
         case Command::find_files:
-            open_finder();
+            if (picker_mode_)
+                open_finder();
+            else
+                open_search_results();
             break;
         case Command::go_to:
             open_location();

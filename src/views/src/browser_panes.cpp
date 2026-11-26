@@ -239,7 +239,7 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
         find.id = "find_files";
         find.label = i18n::tr("Find Files…");
         find.keys = keys_for(Command::find_files);
-        find.action = [this] { open_finder(); };
+        find.action = [this] { open_search_results(); };
         items.push_back(std::move(find));
         MenuItem results;
         results.id = "search_results";

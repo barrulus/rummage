@@ -314,9 +314,9 @@ struct Fixture {
 
     bool press(const KeyEvent& event) { return browser.key(event, Browser::Clock::now()); }
 
-    // Ctrl+F, query typed, the list filled.
+    // The optional quick finder, query typed, the list filled.
     void find(const std::string& query) {
-        REQUIRE(press(key(XKB_KEY_f, kCtrl)));
+        browser.open_finder();
         REQUIRE(browser.command_palette().external());
         REQUIRE(browser.file_finder() != nullptr);
         browser.command_palette().set_query(query);
@@ -339,7 +339,7 @@ struct Fixture {
 
 }  // namespace
 
-TEST_CASE("find files: Ctrl+F lists the folder, Enter shows the file in the view") {
+TEST_CASE("find files: quick finder lists the folder, Enter shows the file in the view") {
     Fixture f;
     f.find("far");
     const auto& palette = f.browser.command_palette();
@@ -402,25 +402,44 @@ TEST_CASE("find files: Space is a space in the field, Quick Look in the list (is
     CHECK(palette.items()[palette.shown().front()].keys == "Folder");
 }
 
-TEST_CASE("find files: Ctrl+F again closes, Ctrl+K switches, the palette offers it") {
+TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses their query") {
     Fixture f;
+    touch(f.a / "one.zip");
+    touch(f.a / "photos" / "another.zip");
+    touch(f.a / "photos" / "deep" / "third.zip");
+    f.browser.set_name_filter("one.txt");
     REQUIRE(f.press(key(XKB_KEY_f, kCtrl)));
-    REQUIRE(f.browser.command_palette().external());
-    f.press(key(XKB_KEY_k, kCtrl));
-    CHECK(f.browser.command_palette().is_open());
-    CHECK_FALSE(f.browser.command_palette().external());
-    CHECK(f.browser.file_finder() == nullptr);
-    f.press(key(XKB_KEY_f, kCtrl));
-    CHECK(f.browser.command_palette().external());
-    f.press(key(XKB_KEY_f, kCtrl));
+    REQUIRE(f.browser.searching_results());
     CHECK_FALSE(f.browser.command_palette().is_open());
-    // From the command palette, "Find Files…".
+    auto* results = f.browser.search_results();
+    results->set_query("ext:zip");
+    REQUIRE(f.settle());
+    CHECK(results->finder()->root() == f.a);
+    REQUIRE(results->rows().size() == 3);
+    results->select_all();
+    CHECK(results->chosen().size() == 3);
+    REQUIRE(f.press(key(XKB_KEY_f, kCtrl)));
+    CHECK(results->editing());
+    CHECK(results->finder()->query() == "ext:zip");
+    CHECK(results->rows().size() == 3);
+    f.browser.search_action(rummage::views::SearchResults::Action::close);
     f.browser.open_palette();
     f.browser.command_palette().set_query("find files");
     f.press(key(XKB_KEY_Return));
-    CHECK(f.browser.command_palette().external());
-    f.press(key(XKB_KEY_Escape));
-    CHECK_FALSE(f.browser.command_palette().is_open());
+    CHECK(f.browser.searching_results());
+    f.browser.search_action(rummage::views::SearchResults::Action::close);
+    f.browser.open_palette();
+    f.browser.command_palette().set_query("quick file finder");
+    f.press(key(XKB_KEY_Return));
+    REQUIRE(f.browser.command_palette().external());
+    f.browser.command_palette().set_query("ext:zip");
+    REQUIRE(f.settle());
+    // Ctrl+F promotes an optional quick search without discarding its scope/query.
+    f.press(key(XKB_KEY_f, kCtrl));
+    REQUIRE(f.browser.searching_results());
+    REQUIRE(f.settle());
+    CHECK(f.browser.search_results()->finder()->query() == "ext:zip");
+    CHECK(f.browser.search_results()->rows().size() == 3);
 }
 
 TEST_CASE("find files: in the columns, the way down from the first column stays") {
