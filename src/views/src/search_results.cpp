@@ -420,7 +420,8 @@ ui::CursorShape SearchResults::cursor_at(float x, float y) const {
     return ui::CursorShape::standard;
 }
 
-void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::Palette& palette) {
+void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::Palette& palette,
+                         bool focused) {
     if (!open_ || !finder_)
         return;
     renderer.fill_rect(bounds, palette.surface);
@@ -432,10 +433,10 @@ void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::P
                        palette.on_surface_variant, width);
     query_.draw(renderer, {left, bounds.y + 60, width, 34}, 14,
                 {.background = palette.surface_container,
-                 .border = editing() ? palette.primary : palette.outline_variant,
+                 .border = focused && editing() ? palette.primary : palette.outline_variant,
                  .text = palette.on_surface,
                  .selection = palette.primary_container,
-                 .caret = editing() ? palette.primary : palette.primary.with_alpha(0)});
+                 .caret = focused && editing() ? palette.primary : palette.primary.with_alpha(0)});
     controls_.clear();
     float x = left, y = bounds.y + 102;
     for (std::size_t i = 0; i < toolbar.size(); ++i) {
@@ -451,10 +452,11 @@ void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::P
         }
         const ui::Rect rect{x, y, w, 28};
         const bool available = enabled(action);
-        renderer.draw_box(rect, {.fill = palette.surface_container_highest,
-                                 .radius = {},
-                                 .border_width = focus_ == static_cast<int>(i) ? 2.0F : 0.0F,
-                                 .border = palette.primary});
+        renderer.draw_box(rect,
+                          {.fill = palette.surface_container_highest,
+                           .radius = {},
+                           .border_width = focused && focus_ == static_cast<int>(i) ? 2.0F : 0.0F,
+                           .border = palette.primary});
         renderer.draw_text(
             translated, x + 10, y + 6, 12,
             available ? palette.on_surface : palette.on_surface_variant.with_alpha(0.45F), w - 20);
@@ -476,7 +478,7 @@ void SearchResults::draw(ui::Renderer& renderer, ui::Rect bounds, const theme::P
             renderer.fill_rect(rect, palette.primary_container);
         else if (i % 2 == 0)
             renderer.fill_rect(rect, palette.surface_container);
-        if (row.path == cursor_ && focus_ == -2)
+        if (focused && row.path == cursor_ && focus_ == -2)
             renderer.draw_box(rect, {.fill = palette.surface.with_alpha(0),
                                      .radius = {},
                                      .border_width = 1,

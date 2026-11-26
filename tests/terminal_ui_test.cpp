@@ -305,6 +305,12 @@ TEST_CASE("terminal UI: focused shell receives input while a virtual search view
     renderer.end_frame();
     CHECK(f.browser.search_results()->list_bounds().bottom() <=
           f.browser.terminal_panel().bounds().y);
+    const auto query_border = [&] {
+        std::array<std::uint8_t, 4> pixel{};
+        glReadPixels(16, 529, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        return pixel;
+    };
+    const auto inactive_query_border = query_border();
     if (const char* snapshot = std::getenv("RUMMAGE_TERMINAL_SNAPSHOT")) {
         std::vector<std::uint8_t> pixels(800 * 600 * 4), flipped(pixels.size());
         glReadPixels(0, 0, 800, 600, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
@@ -319,8 +325,44 @@ TEST_CASE("terminal UI: focused shell receives input while a virtual search view
     }
     CHECK(f.press(XKB_KEY_grave, {.ctrl = true}));
     CHECK_FALSE(f.browser.terminal_focused());
+    renderer.begin_frame(800, 600, 1, {});
+    f.browser.draw(renderer, {0, 0, 800, 600}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    CHECK(query_border() != inactive_query_border);
     CHECK(f.press(XKB_KEY_grave, {.ctrl = true}));
     CHECK(f.browser.terminal_focused());
+    renderer.begin_frame(800, 600, 1, {});
+    f.browser.draw(renderer, {0, 0, 800, 600}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    CHECK(query_border() == inactive_query_border);
     CHECK(f.press(XKB_KEY_F4, {.shift = true}));
     CHECK_FALSE(f.browser.terminal_panel().visible());
+}
+
+TEST_CASE("terminal UI: focus styling yields the filter caret and border to the shell") {
+    Fixture f;
+    f.start();
+    f.browser.focus_terminal();
+    CHECK(f.press(XKB_KEY_f, {.ctrl = true, .shift = true}));
+    REQUIRE(f.browser.filtering());
+    rummage::ui::Offscreen surface{800, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw_border = [&] {
+        renderer.begin_frame(800, 600, 1, {});
+        f.browser.draw(renderer, {0, 0, 800, 600}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+        const auto bounds = f.browser.filter_bounds();
+        std::array<std::uint8_t, 4> pixel{};
+        glReadPixels(static_cast<int>(bounds.x), 599 - static_cast<int>(bounds.y + 5), 1, 1,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        return pixel;
+    };
+    const auto focused = draw_border();
+    f.browser.focus_terminal();
+    REQUIRE(f.browser.terminal_focused());
+    CHECK(draw_border() != focused);
+    f.browser.focus_terminal();
+    CHECK(draw_border() == focused);
 }

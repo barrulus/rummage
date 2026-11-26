@@ -57,7 +57,8 @@ public:
     void key(const ui::KeyEvent& event);
     void pointer(const ui::PointerEvent& event);
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
-    void draw(ui::Renderer& renderer, ui::Rect bounds, const theme::Palette& palette);
+    void draw(ui::Renderer& renderer, ui::Rect bounds, const theme::Palette& palette,
+              bool focused = true);
 
     void focus_query() {
         focus_ = -1;
