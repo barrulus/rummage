@@ -362,7 +362,8 @@ the matching application. The helper and `font.toml` manifest use the normal
 The native package recipes also provide a separate `rummage-font` package; the
 `rummage-previews` convenience package includes it. With Nix, use
 `nix build .#rummage-with-font` for the application with the registered helper, or
-`.#rummage-font` for the helper output alone. `.#rummage-with-previews` includes media, PDF and font helpers.
+`.#rummage-font` for the helper output alone. `.#rummage-with-previews` includes
+media, PDF, font and model helpers.
 
 Font parsing and rasterization run inside the same isolated preview helper cage.
 Input is limited to 32 MiB, output to 1024 pixels per side; the ordinary helper pool,

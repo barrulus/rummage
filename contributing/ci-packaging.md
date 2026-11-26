@@ -554,7 +554,8 @@ signing-key fingerprint, then test `dnf copr enable OWNER/PROJECT` in a clean
 Fedora environment. `OWNER/PROJECT` is a placeholder, not an available repository.
 Document who controls that signing key and that enabling a third-party
 repository trusts its package updates. Test base-only, `rummage-media`,
-`rummage-pdf` and `rummage-previews` installs, exact-version dependencies, helper
+`rummage-pdf`, `rummage-font`, `rummage-model` and `rummage-previews` installs,
+exact-version dependencies, helper
 isolation, upgrade from the previous release, downgrade/channel switching and
 removal. Use `scripts/ci/native.sh rpm` for the existing container package check;
 a successful local RPM build does not establish COPR service or repository
