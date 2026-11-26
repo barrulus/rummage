@@ -41,7 +41,7 @@ struct Lock {
 
 std::vector<RecentFile> read(const std::filesystem::path& path) {
     std::vector<RecentFile> result;
-    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (fd < 0)
         return result;
     struct stat st{};
@@ -53,6 +53,8 @@ std::vector<RecentFile> read(const std::filesystem::path& path) {
     std::array<char, 4096> buffer{};
     while (text.size() < kBytes) {
         const auto n = ::read(fd, buffer.data(), buffer.size());
+        if (n < 0 && errno == EINTR)
+            continue;
         if (n <= 0)
             break;
         text.append(buffer.data(), static_cast<std::size_t>(n));

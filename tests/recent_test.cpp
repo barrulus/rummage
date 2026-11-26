@@ -131,3 +131,11 @@ TEST_CASE("recent files: disabling serializes with queued writers and stale inst
     REQUIRE(writer.load().size() == 1);
     CHECK(writer.load()[0].path == file);
 }
+
+TEST_CASE("recent files: unexpected FIFO state is rejected without waiting for a writer") {
+    TempDir dir;
+    const auto location = dir.path / "history";
+    std::filesystem::create_directory(location);
+    REQUIRE(::mkfifo((location / "recent-files").c_str(), 0600) == 0);
+    CHECK(RecentFiles{location}.load().empty());
+}
