@@ -296,17 +296,13 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
-                                               "create_link",
-                                               "create_relative_link",
-                                               "create_hard_link",
                                                "move_into_folder",
+                                               "link_actions",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
                                                "|",
-                                               "compress_zip",
-                                               "compress_tar",
-                                               "advanced_archive",
+                                               "archive_actions",
                                                "|",
                                                "trash",
                                                "erase",
@@ -319,6 +315,13 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
     const auto trash = std::ranges::find(f.menu().items(), "trash", &MenuItem::id);
     REQUIRE(trash != f.menu().items().end());
     CHECK(trash->keys == "Delete");
+    const auto archives = std::ranges::find(f.menu().items(), "archive_actions", &MenuItem::id);
+    REQUIRE(archives != f.menu().items().end());
+    CHECK(archives->label == "Archives");
+    CHECK(ids(archives->children) == Names{"compress_zip", "compress_tar", "advanced_archive"});
+    const auto links = std::ranges::find(f.menu().items(), "link_actions", &MenuItem::id);
+    REQUIRE(links != f.menu().items().end());
+    CHECK(ids(links->children) == Names{"create_link", "create_relative_link", "create_hard_link"});
     CHECK(f.press(key(XKB_KEY_Escape)));
     CHECK_FALSE(f.menu().is_open());
 
@@ -332,17 +335,13 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
-                                               "create_link",
-                                               "create_relative_link",
-                                               "create_hard_link",
                                                "move_into_folder",
+                                               "link_actions",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
                                                "|",
-                                               "compress_zip",
-                                               "compress_tar",
-                                               "advanced_archive",
+                                               "archive_actions",
                                                "|",
                                                "trash",
                                                "erase",
@@ -363,17 +362,13 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "copy",
                                                "-paste",
                                                "rename",
-                                               "create_link",
-                                               "create_relative_link",
-                                               "create_hard_link",
                                                "move_into_folder",
+                                               "link_actions",
                                                "|",
                                                "action:copy_name",
                                                "action:copy_location",
                                                "|",
-                                               "compress_zip",
-                                               "compress_tar",
-                                               "advanced_archive",
+                                               "archive_actions",
                                                "|",
                                                "add_bookmark",
                                                "|",
@@ -2206,7 +2201,8 @@ TEST_CASE("context menu: Create Link makes a link next to each item, and selects
     Fixture f;
     f.select({"a.txt", "sub"});
     CHECK(f.press(key(XKB_KEY_Menu)));
-    f.choose("create_link");
+    f.choose("link_actions");
+    CHECK(f.press(key(XKB_KEY_Return)));  // first child: absolute link
     REQUIRE(f.settle());
     CHECK(fs::read_symlink(f.photos / "Link to a.txt") == f.photos / "a.txt");
     CHECK(fs::read_symlink(f.photos / "Link to sub") == f.photos / "sub");

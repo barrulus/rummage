@@ -31,6 +31,7 @@ constexpr std::array commands{
     CommandLabel{"copy_path", "Copy Path", entry | background | sidebar},
     CommandLabel{"compress_zip", "Compress to ZIP…", entry},
     CommandLabel{"compress_tar", "Compress to tar.gz…", entry},
+    CommandLabel{"advanced_archive", "Advanced archive options", entry},
     CommandLabel{"add_bookmark", "Add to Sidebar", entry | background},
     CommandLabel{"copy", "Copy", entry},
     CommandLabel{"cut", "Cut", entry},

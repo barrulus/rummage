@@ -235,7 +235,7 @@ TEST_CASE("menu editor: complete picker catalog uses names and valid command ref
         if (!command.id.starts_with("action:"))
             ++builtins;
     }
-    CHECK(builtins == 76);
+    CHECK(builtins == 77);
     const auto parsed = core::parse_config(
         "[context_menu]\nitems=" + views::MenuEditor::serialize(nodes), "test.toml");
     CHECK(parsed.context_menu_valid);

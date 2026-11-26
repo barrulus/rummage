@@ -3015,6 +3015,23 @@ namespace {
 std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool background,
                                            bool trash) {
     std::vector<core::MenuNode> layout;
+    const auto submenu = [&](std::string id, std::string_view label,
+                             std::initializer_list<std::string_view> ids) {
+        MenuItem parent;
+        parent.id = std::move(id);
+        parent.label = i18n::tr(label);
+        parent.submenu = true;
+        for (const auto child : ids) {
+            const auto found = std::ranges::find(items, child, &MenuItem::id);
+            if (found == items.end())
+                continue;
+            found->separator = false;
+            parent.children.push_back(std::move(*found));
+            items.erase(found);
+        }
+        if (!parent.children.empty())
+            items.push_back(std::move(parent));
+    };
     const auto group = [&](std::initializer_list<std::string_view> ids) {
         layout.push_back({.separator = true});
         for (const auto id : ids) {
@@ -3046,13 +3063,16 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
         group({"open_terminal", "add_bookmark", "photos_add_folder"});
         extensions();
     } else {
+        submenu("link_actions", i18n::mark("Create Link"),
+                {"create_link", "create_relative_link", "create_hard_link"});
+        submenu("archive_actions", i18n::mark("Archives"),
+                {"action:extract_here", "action:extract_to", "compress_zip", "compress_tar",
+                 "advanced_archive"});
         group({"open", "open_with", "open_tab", "open_window", "open_terminal",
                "reveal_link_target"});
-        group({"cut", "copy", "paste", "rename", "create_link", "create_relative_link",
-               "create_hard_link", "move_into_folder"});
+        group({"cut", "copy", "paste", "rename", "move_into_folder", "link_actions"});
         group({"action:copy_name", "action:copy_location"});
-        group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar",
-               "advanced_archive"});
+        group({"archive_actions"});
         group({"add_bookmark", "photos_add_folder", "running"});
         extensions();
         group({"trash", "erase"});

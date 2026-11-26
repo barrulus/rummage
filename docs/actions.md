@@ -306,7 +306,7 @@ whether it is mounted.
 
 ### Advanced 7z creation and integrity checks
 
-The selection context menu's **Advanced archive options** area leaves the simple
+The selection context menu's **Archives → Advanced archive options** area leaves the simple
 ZIP and tar.gz commands unchanged. **Create 7z…** uses installed `7zz` or `7z`;
 missing dependencies are reported before asking for a name. Choose Store, Fast,
 Normal or Maximum compression, enable password protection and optionally filename
