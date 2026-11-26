@@ -166,6 +166,8 @@ closure; copying only the executable omits its `/nix/store` dependencies.
 The `Void glibc package and clean install` job uses Docker and Void's `xbps-src`. It packages
 **the exact committed checkout**, either the main push or manually selected branch head.
 It does not fetch upstream's v0.5.0 and mistake that build for a test of this fork.
+The template uses Void's `libassimp-devel` for model previews and `libvterm-devel`
+for the embedded terminal.
 
 From a clean, committed checkout, with Nix, Docker, Git, Bash, Python 3, tar/gzip tools and
 coreutils available:
