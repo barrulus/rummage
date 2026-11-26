@@ -10,7 +10,12 @@ file(GLOB RUMMAGE_CATALOG_FILES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/data/i1
 list(SORT RUMMAGE_CATALOG_FILES)
 set(RUMMAGE_CATALOGS_CPP "// Generated from data/i18n/*.toml by src/core/CMakeLists.txt.\n")
 string(APPEND RUMMAGE_CATALOGS_CPP "// NOLINTBEGIN\n#include <array>\n\n#include \"i18n_catalogs.hpp\"\n\n")
-string(APPEND RUMMAGE_CATALOGS_CPP "namespace rummage::i18n::detail {\n\n")
+string(APPEND RUMMAGE_CATALOGS_CPP
+    "namespace rummage::i18n::detail {\n\n"
+    "using namespace std::string_view_literals;\n\n"
+    "// Catalogs intentionally exceed the standard minimum supported literal length.\n"
+    "#if defined(__clang__)\n#pragma clang diagnostic push\n"
+    "#pragma clang diagnostic ignored \"-Woverlength-strings\"\n#endif\n")
 string(APPEND RUMMAGE_CATALOGS_CPP "std::span<const Catalog> catalogs() {\n")
 set(RUMMAGE_CATALOG_ENTRIES "")
 set(RUMMAGE_CATALOG_COUNT 0)
@@ -25,13 +30,16 @@ foreach(catalog IN LISTS RUMMAGE_CATALOG_FILES)
     if(NOT clash EQUAL -1)
         message(FATAL_ERROR "${catalog} holds the text \")rummage_i18n\"")
     endif()
+    # The sv suffix supplies the byte count directly, avoiding constexpr strlen scans of
+    # large catalogs (which exceed Clang's default constant-evaluation step budget).
     string(APPEND RUMMAGE_CATALOG_ENTRIES
-        "        Catalog{\"${code}\", R\"rummage_i18n(${text})rummage_i18n\"},\n")
+        "        Catalog{\"${code}\"sv, R\"rummage_i18n(${text})rummage_i18n\"sv},\n")
     math(EXPR RUMMAGE_CATALOG_COUNT "${RUMMAGE_CATALOG_COUNT} + 1")
 endforeach()
 string(APPEND RUMMAGE_CATALOGS_CPP
     "    static constexpr std::array<Catalog, ${RUMMAGE_CATALOG_COUNT}> kCatalogs{\n"
     "${RUMMAGE_CATALOG_ENTRIES}    };\n    return kCatalogs;\n}\n\n"
+    "#if defined(__clang__)\n#pragma clang diagnostic pop\n#endif\n\n"
     "}  // namespace rummage::i18n::detail\n// NOLINTEND\n")
 # Rewritten only when it changes, so a reconfigure does not rebuild it.
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_catalogs.cpp.new" "${RUMMAGE_CATALOGS_CPP}")
