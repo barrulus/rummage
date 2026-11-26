@@ -1067,7 +1067,7 @@ void Browser::paste_text() {
 ui::TextField* Browser::input_field() {
     if (password_.is_open())
         return password_.input_field();
-    if (errors_.is_open() || conflict_.is_open())
+    if (errors_.is_open() || extension_output_.is_open() || conflict_.is_open())
         return nullptr;
     if (confirm_.is_open())
         return confirm_.input_field();
@@ -1081,16 +1081,18 @@ ui::TextField* Browser::input_field() {
         return settings_.input_field();
     if (properties_.is_open())
         return properties_.input_field();
-    if (menu_.is_open() || quick_look_.is_open())
+    if (menu_.is_open() || quick_look_.is_open() || shortcuts_.is_open())
         return nullptr;
     if (palette_.is_open())
         return palette_.input_field();
-    if (searching_results())
+    if (searching_results() && !terminal_focused())
         return pane().search_results->input_field();
     if (editor_.active())
         return editor_.input_field();
     if (sidebar_.renaming())
         return sidebar_.input_field();
+    if (terminal_focused())
+        return nullptr;
     if (area().breadcrumb.editing())
         return area().breadcrumb.input_field();
     return filter_focused_ && !shortcuts_.is_open() ? &pane().filter_field : nullptr;

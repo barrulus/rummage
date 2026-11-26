@@ -104,7 +104,7 @@ def main(argv=None):
                 ["ctest", "--test-dir", str(build), "--show-only=json-v1"], text=True)
             names = {x["name"] for x in json.loads(listing)["tests"]}
             required = {"rummage-tests", "i18n-runtime", "media-tests", "pdf-tests", "font-tests", "model-tests",
-                        "file-picker-portal", "action-notifications"}
+                        "file-picker-portal", "action-notifications", "accessibility", "terminal-tests"}
             if not required <= names:
                 raise RuntimeError(f"missing required tests: {sorted(required - names)}")
             report["excluded"] = {"memory-tests": "allocator accounting is changed by ASan"}

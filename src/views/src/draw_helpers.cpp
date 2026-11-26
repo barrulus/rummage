@@ -59,6 +59,8 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
         node.id = group + ":file:" + entry.name;
         node.name = entry.name;
         node.description = entry.is_directory() ? i18n::tr("Folder") : i18n::tr("File");
+        if (entry.decoration && !entry.decoration->label.empty())
+            node.description += "; " + entry.decoration->label;
         node.role = core::AccessibleRole::list_item;
         node.selected = folder.is_selected(entry.name);
         node.focused = folder.cursor_entry() && folder.cursor_entry()->name == entry.name;
