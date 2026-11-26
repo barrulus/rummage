@@ -1,9 +1,11 @@
 #include "rummage/views/breadcrumb.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -14,6 +16,7 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/archive_folder.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -381,6 +384,124 @@ TEST_CASE("columns: reset root keeps focused folder selection and descendants") 
     CHECK(cursor_name(*focused) == name);
     columns.reset_root();
     CHECK(columns.focused_folder() == focused);
+}
+
+TEST_CASE("columns: reset root inside an archive preserves selection settings and Back") {
+    Fixture f;
+    const auto archive = f.root / "basic.zip";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archive" / "basic.zip", archive);
+    rummage::fs::forget_archive_trees();
+    f.browser.open(archive);
+    REQUIRE(f.settled());
+    auto& columns = f.browser.columns();
+    columns.focused_folder()->select_name("docs");
+    rummage::ui::KeyEvent right;
+    right.keysym = XKB_KEY_Right;
+    f.browser.key(right, Browser::Clock::now());
+    REQUIRE(f.settled());
+    const auto focused = columns.focused_folder();
+    REQUIRE(focused);
+    REQUIRE(columns.focus() > 0);
+    REQUIRE(focused->is_archive());
+    REQUIRE(focused->path() == archive / "docs");
+    focused->select_name("b.txt");
+    f.browser.set_sort(rummage::fs::SortKey::size, true);
+    f.browser.set_list_size(2);
+    const auto order = focused->order();
+    const auto history_size = f.browser.history().size();
+    const auto history_index = f.browser.history_index();
+    columns.reset_root();
+    REQUIRE(columns.column_count() == 1);
+    CHECK(columns.focus() == 0);
+    CHECK(columns.focused_folder() == focused);
+    CHECK(focused->model().archive_location().archive == archive);
+    CHECK(focused->model().archive_location().inner == "docs");
+    CHECK(cursor_name(*focused) == "b.txt");
+    CHECK(focused->selected_count() == 1);
+    CHECK(focused->order() == order);
+    CHECK(columns.list_size() == 2);
+    CHECK(f.browser.history().size() == history_size);
+    CHECK(f.browser.history_index() == history_index);
+
+    // The new root remains a usable hit target even when one column is wider than the view.
+    rummage::ui::Offscreen surface{180, 320};
+    FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    columns.set_info_visible(false);
+    renderer.begin_frame(180, 320, 1, {});
+    columns.draw(renderer, {0, 0, 180, 320}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    const auto area = columns.column(0).rows_area();
+    const auto hit = columns.hit(20, area.y + 10);
+    REQUIRE(hit);
+    CHECK(hit->folder == focused);
+
+    // Resetting the columns is not a navigation step. Back still returns to the archive root.
+    f.browser.back();
+    REQUIRE(f.settled());
+    REQUIRE(columns.focused_folder());
+    CHECK(columns.focused_folder()->path() == archive);
+    CHECK(columns.focused_folder()->is_archive());
+    CHECK(cursor_name(*columns.focused_folder()) == "docs");
+}
+
+TEST_CASE("columns: reset root survives removal while the focused folder is loading") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settled());
+    auto& columns = f.browser.columns();
+    const auto started = std::make_shared<std::atomic<unsigned>>(0);
+    std::promise<void> release;
+    const auto ready = release.get_future().share();
+    // Both readers wait here, so the selected child's load cannot race its removal. Destroying
+    // the promise on an assertion failure also releases the waits before Fixture joins workers.
+    for (int i = 0; i < 2; ++i) {
+        f.pool.submit(
+            rummage::core::Priority::visible,
+            [started, ready](const rummage::core::CancelToken&) {
+                started->fetch_add(1);
+                ready.wait();
+                return 0;
+            },
+            [](int) {});
+    }
+    REQUIRE(run_until(f.loop, [&] { return started->load() == 2; }));
+    columns.focused_folder()->select_name("a");
+    rummage::ui::KeyEvent right;
+    right.keysym = XKB_KEY_Right;
+    f.browser.key(right, Browser::Clock::now());
+    const auto focused = columns.focused_folder();
+    REQUIRE(focused);
+    REQUIRE(columns.focus() == 1);
+    REQUIRE(focused->path() == f.root / "a");
+    REQUIRE(focused->model().loading());
+    fs::remove_all(f.root / "a");
+    columns.reset_root();
+    CHECK(columns.focus() == 0);
+    CHECK(columns.focused_folder() == focused);
+    release.set_value();
+    REQUIRE(
+        run_until(f.loop, [&] { return focused->model().error() && !focused->model().loading(); }));
+    CHECK(focused->model().error() == std::errc::no_such_file_or_directory);
+    CHECK(focused->entries().empty());
+    CHECK_FALSE(focused->cursor());
+    CHECK(columns.column_count() == 1);
+    columns.reset_root();
+    CHECK(columns.focused_folder() == focused);
+
+    // The removed root remains recoverable through normal parent navigation. Its late worker
+    // completion must not reinsert it or leave an invalid focus index after the parent loads.
+    rummage::ui::KeyEvent up;
+    up.keysym = XKB_KEY_BackSpace;
+    f.browser.key(up, Browser::Clock::now());
+    REQUIRE(f.settled());
+    REQUIRE(columns.focused_folder());
+    CHECK(columns.focused_folder()->path() == f.root);
+    CHECK_FALSE(columns.focused_folder()->model().error());
+    CHECK(columns.focus() == 0);
+    CHECK(columns.column_count() == 1);
+    CHECK(columns.focused_folder()->entries().empty());
 }
 
 TEST_CASE("columns: vertical hierarchy keeps independent lists and hit targets") {
