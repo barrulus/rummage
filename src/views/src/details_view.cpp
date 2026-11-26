@@ -712,6 +712,8 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (layout_.shown.at(index(Field::location)))
             cell(Field::location, owner->path_of(entry).parent_path().string(), false);
         cell(Field::link_target, entry.link_target, false);
+        if (layout_.shown.at(index(Field::rating)))
+            cell(Field::rating, entry.rating ? std::to_string(*entry.rating) : "—", true);
         cell(Field::type,
              child != expanded_.end() && child->second->model().error()
                  ? child->second->model().error().message()

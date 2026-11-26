@@ -38,6 +38,7 @@ struct Entry {
     std::string group{};
     std::string permissions{};
     std::string link_target{};
+    std::optional<unsigned> rating{};  // General file rating, distinct from photo metadata.
 
     // Collection rows keep a stable key independently of their displayed filename. An empty
     // identity preserves ordinary directory semantics. location is always a real original path,

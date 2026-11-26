@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <system_error>
 
@@ -19,6 +20,9 @@ inline constexpr unsigned kAnnotationTags = 1, kAnnotationRating = 2, kAnnotatio
 // Blocking, bounded reads. fd may be O_PATH; links/special files are rejected.
 [[nodiscard]] Annotations read_annotations(int fd);
 [[nodiscard]] Annotations read_annotations(const std::filesystem::path& path);
+// Directory workers read just the rating for browsing; absent ratings are zero, unavailable
+// or malformed ratings are null. No filesystem access is needed while rendering or sorting.
+[[nodiscard]] std::optional<unsigned> read_rating(int fd);
 // Only selected fields change. Refuse replacement roots and changed selected annotations.
 // No links, elevated privileges, sidecar files, or hidden fallback database.
 [[nodiscard]] std::string write_annotations(const PermissionTarget& target,

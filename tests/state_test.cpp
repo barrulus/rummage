@@ -34,6 +34,16 @@ using namespace std::chrono_literals;
 
 namespace {
 
+rummage::views::DetailsWidths property_widths(float size, float modified, float type,
+                                              float name = 0) {
+    auto result = rummage::views::kDetailsWidths;
+    result[0] = size;
+    result[1] = modified;
+    result[2] = type;
+    result.back() = name;
+    return result;
+}
+
 StateResult parse(std::string_view text) { return parse_state(text, "state.toml"); }
 
 bool run_until(EventLoop& loop, const std::function<bool()>& done) {
@@ -67,7 +77,7 @@ State changed() {
     s.info_expanded = true;
     s.sort_key = SortKey::modified;
     s.sort_descending = true;
-    s.details_widths = {80.0F, 170.0F, 240.0F, 150, 150, 110, 110, 130, 220, 220, 950};
+    s.details_widths = property_widths(80, 170, 240, 950);
     s.list_size = 3;
     s.grid_icon = 192;
     s.window_width = 1400;
@@ -174,7 +184,7 @@ TEST_CASE("state: the browser gives back what it was given") {
 
     // Narrower than a column's minimum: the view keeps its minimum.
     State narrow = wanted;
-    narrow.details_widths = {10.0F, 10.0F, 10.0F, 150, 150, 110, 110, 130, 220, 220, 10};
+    narrow.details_widths = property_widths(10, 10, 10, 10);
     browser.apply(narrow);
     for (const float width : browser.state().details_widths) {
         CHECK(width >= 64.0F);
@@ -436,13 +446,12 @@ TEST_CASE("state: sidebar zoom defaults and validation are independent of the vi
 
 TEST_CASE("state: folder preferences round trip, stay bounded and share unchanged snapshots") {
     State state;
-    State::FolderSettings settings{
-        .mode = State::Mode::grid,
-        .sort_key = SortKey::modified,
-        .sort_descending = true,
-        .details_widths = {80, 170, 240, 150, 150, 110, 110, 130, 220, 220},
-        .list_size = 3,
-        .grid_icon = 192};
+    State::FolderSettings settings{.mode = State::Mode::grid,
+                                   .sort_key = SortKey::modified,
+                                   .sort_descending = true,
+                                   .details_widths = property_widths(80, 170, 240),
+                                   .list_size = 3,
+                                   .grid_icon = 192};
     state.last_folder = "/folder with \"quotes\"/é";
     state.folders.remember(state.last_folder, settings);
     const State snapshot = state;
@@ -529,8 +538,8 @@ TEST_CASE("state: column layouts round trip globally, per folder and per tab") {
     state.details_widths[7] = 180;
     state.sort_key = SortKey::created;
     State::FolderSettings folder;
-    folder.details_columns = {SortKey::name, SortKey::link_target};
-    folder.sort_key = SortKey::link_target;
+    folder.details_columns = {SortKey::name, SortKey::link_target, SortKey::rating};
+    folder.sort_key = SortKey::rating;
     state.folders.remember("/tmp/columns", folder);
     State::Tab tab;
     tab.folder = "/tmp/columns";

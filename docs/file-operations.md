@@ -446,7 +446,8 @@ case. A missing rating matches `rating:0`.
 Annotations live on the file or folder inode in `user.xdg.tags`, `user.rummage.rating`, and
 `user.xdg.comment` extended attributes. Each value is limited to 4096 bytes. Rummage does not
 modify photo sidecars or embedded media metadata. Filesystems without user attributes show a
-clear unavailable/error state rather than storing invisible alternate copies. External tools can
+clear unavailable/error state rather than storing invisible alternate copies. Read-only files
+and locations remain readable where permitted; saving reports the filesystem permission error. External tools can
 read/write the same attributes; reopen Properties or refresh search to see external changes.
 Selected fields changed externally are rejected when saving a stale dialog.
 
@@ -454,3 +455,7 @@ Renames, same-filesystem moves, trash and restore keep inode attributes. Rummage
 three attributes with files and directories, including moves implemented by copy-and-delete;
 if an annotated destination cannot store them, the copy fails and the original is retained.
 Hard links share annotations. External copy/archive tools may discard extended attributes.
+
+The optional Details “File rating” column displays and sorts general ratings. Zero is unrated;
+a dash means unavailable or malformed storage. Ratings are read on directory workers and refreshed
+with filesystem attribute changes. This sort is independent of photo star ratings in sidecars.

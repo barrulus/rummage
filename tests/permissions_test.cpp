@@ -187,3 +187,37 @@ TEST_CASE(
                                                        .recursive = false});
     CHECK(own.errors.empty());
 }
+
+TEST_CASE("batch permissions: overlapping recursive roots and hard links change once") {
+    using namespace rummage::fs;
+    const TempDir dir;
+    fs::create_directory(dir.path / "folder");
+    const auto file = dir.write("folder/file", "data");
+    REQUIRE(::chmod(file.c_str(), 0600) == 0);
+    fs::create_hard_link(file, dir.path / "alias");
+    const auto result = apply_permissions(
+        {permission_target(dir.path / "folder"), permission_target(file),
+         permission_target(dir.path / "alias")},
+        {.mask = 0020, .values = 0020, .owner = {}, .group = {}, .recursive = true});
+    CHECK(result.errors.empty());
+    CHECK(result.refreshed.size() == 3);
+    CHECK(mode_of(file) == 0620);
+}
+
+TEST_CASE(
+    "batch permissions: denied ownership reports partial mode success and real refreshed state") {
+    if (::geteuid() == 0)
+        return;  // This check needs ordinary user credentials.
+    using namespace rummage::fs;
+    const TempDir dir;
+    const auto file = dir.write("file", "data");
+    REQUIRE(::chmod(file.c_str(), 0600) == 0);
+    const auto result = apply_permissions(
+        {permission_target(file)},
+        {.mask = 0100, .values = 0100, .owner = "0", .group = {}, .recursive = false});
+    CHECK_FALSE(result.errors.empty());
+    CHECK(result.changed == 1);
+    REQUIRE(result.refreshed.size() == 1);
+    CHECK(result.refreshed[0].mode == 0700);
+    CHECK(result.refreshed[0].owner == ::geteuid());
+}

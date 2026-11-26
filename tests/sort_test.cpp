@@ -192,3 +192,17 @@ TEST_CASE("sort: filesystem properties compare values then names in both directi
     CHECK(SortOrder{.key = SortKey::created, .descending = true}(a, unknown));
     CHECK(SortOrder{.key = SortKey::location}(b, a));
 }
+
+TEST_CASE("rating sort: numeric scores unavailable values and name ties") {
+    auto a = file("a"), b = file("b"), c = file("c"), d = file("d");
+    a.rating = 4;
+    b.rating = 0;
+    c.rating = 4;
+    std::vector<Entry> entries{c, a, d, b};
+    SortOrder order{.key = SortKey::rating};
+    std::ranges::sort(entries, order);
+    CHECK(names(entries) == std::vector<std::string>{"d", "b", "a", "c"});
+    order.descending = true;
+    std::ranges::sort(entries, order);
+    CHECK(names(entries) == std::vector<std::string>{"c", "a", "b", "d"});
+}

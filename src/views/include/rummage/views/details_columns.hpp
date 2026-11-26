@@ -30,7 +30,8 @@ inline constexpr std::array kDetailsColumns{
                   110.0F},
     DetailsColumn{fs::SortKey::location, "location", i18n::mark("Location"), 220.0F, 100.0F},
     DetailsColumn{fs::SortKey::link_target, "link_target", i18n::mark("Link target"), 220.0F,
-                  100.0F}};
+                  100.0F},
+    DetailsColumn{fs::SortKey::rating, "rating", i18n::mark("File rating"), 96.0F, 64.0F}};
 inline constexpr std::size_t kDetailsColumnCount = kDetailsColumns.size();
 // Existing property widths keep their indices; the last slot is Name (0 = automatic).
 using DetailsWidths = std::array<float, kDetailsColumnCount>;

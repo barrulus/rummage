@@ -1,7 +1,9 @@
 #include "rummage/fs/annotations.hpp"
 
 #include <filesystem>
+#include <sys/stat.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #include <doctest/doctest.h>
 
@@ -45,4 +47,16 @@ TEST_CASE("annotations: native attributes survive rename and reject links and re
     CHECK_FALSE(read_annotations(dir.path / "link/").error.empty());
     CHECK_FALSE(write_annotations(permission_target(dir.path / "link"), {}, {}, 7).empty());
     CHECK(read_annotations(dir.path / "renamed").tags == "external");
+}
+
+TEST_CASE("annotations: read-only item reports a write failure without inventing persistence") {
+    if (::geteuid() == 0)
+        return;
+    const TempDir dir;
+    const auto file = dir.write("file", "data");
+    REQUIRE(::chmod(file.c_str(), 0400) == 0);
+    CHECK_FALSE(write_annotations(permission_target(file), {},
+                                  {.tags = "denied", .rating = {}, .comment = {}, .error = {}}, 1)
+                    .empty());
+    CHECK(read_annotations(file).tags.empty());
 }
