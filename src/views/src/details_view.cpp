@@ -732,7 +732,10 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         cell(Field::group, entry.group, false);
         cell(Field::permissions, entry.permissions, false);
         if (layout_.shown.at(index(Field::location)))
-            cell(Field::location, owner->path_of(entry).parent_path().string(), false);
+            cell(Field::location,
+                 (owner->is_collection() ? owner->path_of(entry).parent_path() : owner->path())
+                     .string(),
+                 false);
         cell(Field::link_target, entry.link_target, false);
         const auto* media = entry.media.get();
         const auto mime_name = mime_->name(typed.mime);
