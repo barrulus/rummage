@@ -713,6 +713,8 @@ TEST_CASE("quick look: PDF page requests, boundaries, zoom and cancelled navigat
                         .height = 32,
                         .rgba = std::vector<std::uint8_t>((64 + request.page) * 32 * 4, 255)};
         result.pages = 3;
+        result.full_width = 640;
+        result.full_height = 320;
         return result;
     });
     rummage::test::TempDir dir;
@@ -734,6 +736,51 @@ TEST_CASE("quick look: PDF page requests, boundaries, zoom and cancelled navigat
     REQUIRE(run_until(loop, [&] { return !look.loading(); }));
     CHECK(look.document_page() == 0);
     CHECK(look.document_pages() == 3);
+    rummage::ui::Offscreen surface{800, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(800, 600, 1, {});
+        look.draw(renderer, {0, 0, 800, 600}, rummage::theme::Palette{}, icons,
+                  QuickLook::Clock::now() + std::chrono::seconds{1});
+        renderer.end_frame();
+    };
+    draw();
+    const auto old_texture = look.usage().texture_bytes;
+    REQUIRE(old_texture > 0);
+    const auto page_pixels = [] {
+        std::array<std::uint8_t, 16 * 16 * 4> pixels{};
+        glReadPixels(392, 288, 16, 16, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        return pixels;
+    };
+    const auto previous_pixels = page_pixels();
+    CHECK(std::ranges::all_of(previous_pixels, [](auto value) { return value == 255; }));
+    const auto next = look.next_page_button();
+    CHECK(look.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = next.x + next.width / 2,
+                        .y = next.y + next.height / 2,
+                        .button = rummage::ui::PointerButton::left},
+                       QuickLook::Clock::now()));
+    CHECK(look.document_page() == 1);
+    CHECK(look.loading());
+    REQUIRE(look.content());
+    draw();  // The worker result is not dispatched yet: the previous page must remain visible.
+    CHECK(look.usage().texture_bytes == old_texture);
+    CHECK(page_pixels() == previous_pixels);
+    if (const char* output = std::getenv("RUMMAGE_PDF_SNAPSHOT")) {
+        rummage::picture::Image capture{
+            .width = 800, .height = 600, .rgba = std::vector<std::uint8_t>(800 * 600 * 4)};
+        std::vector<std::uint8_t> pixels(capture.rgba.size());
+        glReadPixels(0, 0, 800, 600, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        for (std::size_t row = 0; row < 600; ++row)
+            std::copy_n(pixels.data() + (599 - row) * 800 * 4, 800 * 4,
+                        capture.rgba.data() + row * 800 * 4);
+        const auto png = rummage::picture::encode_png(capture);
+        std::ofstream file{output, std::ios::binary};
+        file.write(reinterpret_cast<const char*>(png.data()),
+                   static_cast<std::streamsize>(png.size()));
+    }
     look.set_document_page(1);
     look.set_document_page(2);
     look.set_document_page(1);  // old requests must never replace the latest page
@@ -752,6 +799,22 @@ TEST_CASE("quick look: PDF page requests, boundaries, zoom and cancelled navigat
     CHECK(key(XKB_KEY_Page_Down));
     CHECK(look.document_page() == 2);
     CHECK(key(XKB_KEY_Home));
+    CHECK(look.document_page() == 0);
+    CHECK(key(XKB_KEY_Right));
+    CHECK(look.document_page() == 1);
+    CHECK(key(XKB_KEY_Left));
+    CHECK(look.document_page() == 0);
+    draw();
+    CHECK(look.pointer(
+        {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 400, .y = 300, .wheel_y = 1},
+        QuickLook::Clock::now()));
+    CHECK(look.document_page() == 1);
+    const auto previous = look.previous_page_button();
+    CHECK(look.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                        .x = previous.x + previous.width / 2,
+                        .y = previous.y + previous.height / 2,
+                        .button = rummage::ui::PointerButton::left},
+                       QuickLook::Clock::now()));
     CHECK(look.document_page() == 0);
     for (int i = 0; i < 20; ++i)
         CHECK(key(XKB_KEY_equal));

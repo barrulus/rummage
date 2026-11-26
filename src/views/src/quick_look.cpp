@@ -300,7 +300,7 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                 }
             });
     }
-    if (entry.can_preview() && !slot.path.empty() && !slot.content && !slot.content_job) {
+    if (entry.can_preview() && !slot.path.empty() && (!slot.content || slot.content_page != slot.page) && !slot.content_job) {
         slot.requested = Clock::now();
         slot.in_advance = !current;
         const auto request_id = ++slot.request_id;
@@ -323,7 +323,8 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                     source ? load_from_archive(provider, request, *source, token)
                            : provider.load(request, token));
             },
-            [this, alive = alive_, key, request_id](std::shared_ptr<preview::Content> content) {
+            [this, alive = alive_, key, request_id,
+             page = slot.page](std::shared_ptr<preview::Content> content) {
                 if (!*alive) {
                     return;
                 }
@@ -334,7 +335,13 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                 if (const auto* image = std::get_if<picture::Loaded>(content.get());
                     image && image->pages > 0)
                     it->second.pages = image->pages;
+                // Keep the previous page on screen until its replacement has arrived.
+                // Texture deletion waits for a draw with the GL context current.
+                for (auto* texture : {&it->second.image_texture, &it->second.thumbnail_texture})
+                    if (*texture)
+                        retired_.push_back(std::move(*texture));
                 it->second.content_job.reset();
+                it->second.content_page = page;
                 it->second.content = std::move(content);
                 redraw_();
             });
@@ -460,11 +467,13 @@ void QuickLook::set_document_page(std::uint32_t page) {
     if (!is_document() || it == slots_.end() || page >= it->second.pages || page == it->second.page)
         return;
     auto& slot = it->second;
-    drop(slot);
+    for (auto* job : {&slot.content_job, &slot.thumbnail_job})
+        if (*job) {
+            (*job)->cancel();
+            job->reset();
+        }
     ++slot.request_id;
     slot.page = page;
-    slot.content.reset();
-    slot.thumbnail_pixels.reset();
     text_scroller_.jump_to(0);
     text_sideways_.jump_to(0);
     ensure(*folder_->cursor_entry(), true);
@@ -551,6 +560,13 @@ bool QuickLook::pointer(const ui::PointerEvent& event, Clock::time_point now) {
                     zoom_document(document_zoom_ + (delta < 0 ? 0.25F : -0.25F));
             } else {
                 auto& scroll = event.modifiers.shift ? text_sideways_ : text_scroller_;
+                if (document_zoom_ == 1 && event.wheel_y != 0 && !event.modifiers.shift) {
+                    if (event.wheel_y > 0)
+                        set_document_page(document_page() + 1);
+                    else if (document_page() > 0)
+                        set_document_page(document_page() - 1);
+                    return true;
+                }
                 if (event.wheel_y != 0)
                     scroll.wheel(event.wheel_y, now);
                 else
@@ -739,9 +755,11 @@ bool QuickLook::text_key(const ui::KeyEvent& event, Clock::time_point now) {
          (event.keysym == XKB_KEY_plus && event.modifiers == ui::Modifiers{.shift = true}))) {
         switch (event.keysym) {
             case XKB_KEY_Page_Down:
+            case XKB_KEY_Right:
                 set_document_page(document_page() + 1);
                 return true;
             case XKB_KEY_Page_Up:
+            case XKB_KEY_Left:
                 if (document_page() > 0)
                     set_document_page(document_page() - 1);
                 return true;
@@ -952,12 +970,11 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
             renderer.draw_box(rect, {.fill = palette.surface_container_high, .radius = {}});
             renderer.draw_text(label, rect.x + 12, rect.y + 4, 16, palette.on_surface);
         }
-        const auto label =
-            slot.pages > 0
-                ? i18n::trf("Page {} of {} · {}%", slot.page + 1, slot.pages,
-                            static_cast<int>(document_zoom_ * 100))
-                : std::string{slot.content_job ? i18n::tr("Loading document…")
-                                               : i18n::tr("Document preview unavailable")};
+        const auto label = slot.content_job ? std::string{i18n::tr("Loading document…")}
+                           : slot.pages > 0
+                               ? i18n::trf("Page {} of {} · {}%", slot.page + 1, slot.pages,
+                                           static_cast<int>(document_zoom_ * 100))
+                               : std::string{i18n::tr("Document preview unavailable")};
         renderer.draw_text(label, area.x + 84, y + 6, 13, palette.on_surface,
                            std::max(1.0F, area.width - 168));
         area.y += 36;

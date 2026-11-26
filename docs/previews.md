@@ -228,17 +228,19 @@ for CMake, Nix and `RUMMAGE_ENGINE_PATH` registration.
 PDF thumbnails and Quick Look are included in the standard package. Toggle **PDF previews** in General settings. The
 information pane and thumbnail cache continue to use page one. In Quick Look:
 
-- Click **‹ / ›** or press **Page Up / Page Down** to change page; **Home / End**
-  goes to the first / last page. The toolbar shows the current page and total.
+- Click **‹ / ›**, press **Left / Right** or **Page Up / Page Down**, or use the
+  wheel at fit zoom to change page; **Home / End** goes to the first / last page.
+  The toolbar shows the current page and total.
 - Click **− / +**, press **− / +** (or **=**), or use **Ctrl+wheel** to zoom from
   fit to 400%. **0** resets to fit. Wheel scrolls vertically; **Shift+wheel** pans
   horizontally when the zoomed page extends outside the preview.
-- Arrows still change files; Space/Escape closes Quick Look. Enter opens the default
+- Up/Down still change files; Space/Escape closes Quick Look. Enter opens the default
   application.
 
-Pages load on demand. Changing page cancels the superseded request and retains only
-one page per cached file; the existing bounded neighbour-file cache is shared with
-other previews. The raster is limited to 2048 pixels per side, including at high zoom.
+Pages load on demand. Changing page cancels the superseded request and keeps the
+previous page visible until its replacement arrives; the bounded neighbour-file
+cache is shared with other previews. The raster is limited to 2048 pixels per side,
+including at high zoom.
 This preview does not edit documents, select PDF text, follow links, search, fill
 forms, or unlock password-protected documents.
 

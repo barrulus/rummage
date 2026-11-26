@@ -68,6 +68,10 @@ public:
 
     [[nodiscard]] float document_zoom() const { return document_zoom_; }
 
+    [[nodiscard]] ui::Rect previous_page_button() const { return previous_page_; }
+
+    [[nodiscard]] ui::Rect next_page_button() const { return next_page_; }
+
     [[nodiscard]] bool markdown_rendered() const;
 
     [[nodiscard]] ui::Rect markdown_button() const { return markdown_button_; }
@@ -168,7 +172,7 @@ private:
 
     struct Slot {
         std::filesystem::path path;
-        std::uint32_t page{0}, pages{0};
+        std::uint32_t page{0}, pages{0}, content_page{0};
         std::uint64_t request_id{0};
         preview::Kind kind{preview::Kind::info};
         std::optional<core::CancelToken> thumbnail_job;
