@@ -178,6 +178,21 @@ Encrypted-device unlocking is not implemented. Close applications using a device
 before retrying an unmount/eject. For unexpected restored tabs or layout, reset
 only the [saved state](configuration.md#saved-state) after closing rummage.
 
+## File-watcher and glyph memory usage
+
+Configuration and theme-file watchers share one inotify instance per event loop.
+Watching the same directory from several windows does not add duplicate kernel
+watches. Folder-content monitoring has separate ownership. If the system-wide
+user limit is already exhausted by other applications, a new event loop can still
+fail to create its first inotify instance; the terminal log reports that failure.
+
+The memory report's `glyph atlases` line shows allocated texture storage across
+all live renderers in the process. A renderer allocates its 1 MiB coverage atlas
+on the first text glyph, growing to 4 MiB when necessary. Its 16 MiB colour atlas
+is allocated only when it draws a colour glyph, such as an emoji. These figures
+count texture pixels and exclude graphics-driver bookkeeping. Closing a window
+releases its renderer's atlas storage.
+
 ## Prepare a useful report
 
 Include the exact reproduction steps, expected and actual result, view/mode,

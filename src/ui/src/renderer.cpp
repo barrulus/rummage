@@ -3,6 +3,7 @@
 #include <GLES3/gl3.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <cmath>
 #include <cstddef>
@@ -226,6 +227,8 @@ void main() {
 
 constexpr std::size_t kMaxInstancesPerDraw = 4096;
 constexpr std::int32_t kAtlasSize = 2048;
+constexpr std::int32_t kInitialCoverageSize = 1024;
+std::atomic<std::size_t> allocated_atlas_bytes{0};
 // Glyphs are placed in quarter pixels (subpixel positioning) and cached per quarter.
 constexpr float kSubpixelSteps = 4.0F;
 constexpr std::int32_t kAtlasPadding = 1;  // keeps linear filtering from bleeding neighbours
@@ -350,18 +353,13 @@ private:
 // One texture packed with glyph bitmaps in shelves (rows of the height of their tallest glyph).
 class Atlas {
 public:
-    Atlas(GLint internal_format, GLenum format) : format_{format} {
-        glGenTextures(1, &texture_);
-        glBindTexture(GL_TEXTURE_2D, texture_);
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, kAtlasSize, kAtlasSize, 0, format,
-                     GL_UNSIGNED_BYTE, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
+    Atlas(GLint internal_format, GLenum format, std::int32_t initial_size)
+        : internal_format_{internal_format}, format_{format}, size_{initial_size} {}
 
-    ~Atlas() { glDeleteTextures(1, &texture_); }
+    ~Atlas() {
+        allocated_atlas_bytes.fetch_sub(bytes(), std::memory_order_relaxed);
+        glDeleteTextures(1, &texture_);
+    }
 
     Atlas(const Atlas&) = delete;
     Atlas& operator=(const Atlas&) = delete;
@@ -370,20 +368,40 @@ public:
 
     [[nodiscard]] GLuint texture() const noexcept { return texture_; }
 
+    [[nodiscard]] std::int32_t size() const noexcept { return size_; }
+
+    [[nodiscard]] std::size_t bytes() const noexcept {
+        return texture_ == 0 ? 0
+                             : static_cast<std::size_t>(size_) * static_cast<std::size_t>(size_) *
+                                   (format_ == GL_RED ? 1U : 4U);
+    }
+
+    // The caller flushes queued draws and invalidates UVs before replacing storage.
+    void grow() {
+        if (size_ == kAtlasSize)
+            return;
+        allocated_atlas_bytes.fetch_sub(bytes(), std::memory_order_relaxed);
+        glDeleteTextures(1, &texture_);
+        texture_ = 0;
+        size_ = kAtlasSize;
+        clear();
+    }
+
     // Uploads the bitmap and returns its top-left texel, or false when the atlas is full.
     bool insert(std::int32_t width, std::int32_t height, const std::uint8_t* pixels,
                 std::int32_t& out_x, std::int32_t& out_y) {
-        if (width + kAtlasPadding > kAtlasSize || height + kAtlasPadding > kAtlasSize) {
+        if (width + kAtlasPadding > size_ || height + kAtlasPadding > size_) {
             return false;
         }
-        if (cursor_x_ + width + kAtlasPadding > kAtlasSize) {
+        if (cursor_x_ + width + kAtlasPadding > size_) {
             cursor_x_ = 0;
             cursor_y_ += shelf_height_ + kAtlasPadding;
             shelf_height_ = 0;
         }
-        if (cursor_y_ + height + kAtlasPadding > kAtlasSize) {
+        if (cursor_y_ + height + kAtlasPadding > size_) {
             return false;
         }
+        allocate();
         out_x = cursor_x_;
         out_y = cursor_y_;
         glBindTexture(GL_TEXTURE_2D, texture_);
@@ -402,8 +420,24 @@ public:
     }
 
 private:
+    void allocate() {
+        if (texture_ != 0)
+            return;
+        glGenTextures(1, &texture_);
+        glBindTexture(GL_TEXTURE_2D, texture_);
+        glTexImage2D(GL_TEXTURE_2D, 0, internal_format_, size_, size_, 0, format_, GL_UNSIGNED_BYTE,
+                     nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        allocated_atlas_bytes.fetch_add(bytes(), std::memory_order_relaxed);
+    }
+
     GLuint texture_{0};
+    GLint internal_format_;
     GLenum format_;
+    std::int32_t size_;
     std::int32_t cursor_x_{0};
     std::int32_t cursor_y_{0};
     std::int32_t shelf_height_{0};
@@ -490,8 +524,8 @@ struct Renderer::Gl {
                     sizeof(ImageInstance)};
     Pipeline glyphs{kGlyphVertexShader, kGlyphFragmentShader, kGlyphAttributes,
                     sizeof(GlyphInstance)};
-    Atlas coverage_atlas{GL_R8, GL_RED};
-    Atlas color_atlas{GL_RGBA8, GL_RGBA};
+    Atlas coverage_atlas{GL_R8, GL_RED, kInitialCoverageSize};
+    Atlas color_atlas{GL_RGBA8, GL_RGBA, kAtlasSize};
     std::unordered_map<GlyphKey, GlyphEntry, GlyphKeyHash> entries;
 
     Gl() {
@@ -1053,7 +1087,8 @@ void Renderer::draw_layout(const TextLayout& layout, float x, float y, Color col
 }
 
 // Rasterizes a glyph into its atlas. When an atlas is full, pending glyphs are drawn and the
-// whole cache starts over: simple, and rare with 2048x2048 atlases.
+// whole cache starts over. Coverage grows once from 1024 to 2048; invalidating the cache
+// avoids retaining UVs normalized against the old texture size.
 Renderer::GlyphEntry Renderer::rasterize(const ShapedGlyph& glyph, float pixel_size,
                                          float x_offset) {
     const GlyphBitmap bitmap = fonts_.rasterize(glyph.font, glyph.glyph, pixel_size, x_offset);
@@ -1069,13 +1104,14 @@ Renderer::GlyphEntry Renderer::rasterize(const ShapedGlyph& glyph, float pixel_s
         log::debug("glyph atlas full: flushing and starting over");
         flush();
         gl_->entries.clear();
+        atlas.grow();
         gl_->coverage_atlas.clear();
         gl_->color_atlas.clear();
         if (!atlas.insert(bitmap.width, bitmap.height, bitmap.pixels.data(), x, y)) {
             return entry;  // larger than the whole atlas
         }
     }
-    constexpr auto atlas_size = static_cast<float>(kAtlasSize);
+    const auto atlas_size = static_cast<float>(atlas.size());
     entry.width = bitmap.width;
     entry.height = bitmap.height;
     entry.uv = {static_cast<float>(x) / atlas_size, static_cast<float>(y) / atlas_size,
@@ -1154,8 +1190,7 @@ void Renderer::flush() {
 }
 
 std::size_t Renderer::atlas_bytes() noexcept {
-    constexpr auto texels = static_cast<std::size_t>(kAtlasSize) * kAtlasSize;
-    return texels * (1 + 4);  // R8 coverage, RGBA8 color
+    return allocated_atlas_bytes.load(std::memory_order_relaxed);
 }
 
 }  // namespace rummage::ui
