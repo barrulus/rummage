@@ -415,7 +415,7 @@ TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses t
     CHECK_FALSE(f.browser.filtering());
     CHECK_FALSE(f.browser.command_palette().is_open());
     auto* results = f.browser.search_results();
-    results->set_query("ext:zip");
+    results->set_query("*.zip");
     REQUIRE(f.settle());
     CHECK(results->finder()->root() == f.a);
     REQUIRE(results->rows().size() == 3);
@@ -423,7 +423,7 @@ TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses t
     CHECK(results->chosen().size() == 3);
     REQUIRE(f.press(key(XKB_KEY_f, kCtrl)));
     CHECK(results->editing());
-    CHECK(results->finder()->query() == "ext:zip");
+    CHECK(results->finder()->query() == "*.zip");
     CHECK(results->rows().size() == 3);
     f.browser.search_action(rummage::views::SearchResults::Action::close);
     f.browser.open_palette();
@@ -435,13 +435,13 @@ TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses t
     f.browser.command_palette().set_query("quick file finder");
     f.press(key(XKB_KEY_Return));
     REQUIRE(f.browser.command_palette().external());
-    f.browser.command_palette().set_query("ext:zip");
+    f.browser.command_palette().set_query("*.zip");
     REQUIRE(f.settle());
     // Ctrl+F promotes an optional quick search without discarding its scope/query.
     f.press(key(XKB_KEY_f, kCtrl));
     REQUIRE(f.browser.searching_results());
     REQUIRE(f.settle());
-    CHECK(f.browser.search_results()->finder()->query() == "ext:zip");
+    CHECK(f.browser.search_results()->finder()->query() == "*.zip");
     CHECK(f.browser.search_results()->rows().size() == 3);
 }
 
