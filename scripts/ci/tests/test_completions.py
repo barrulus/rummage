@@ -1,4 +1,4 @@
-"""Keep completions aligned with the public CLI and exercise bash argument parsing."""
+"""Keep completions aligned with the public CLI and exercise shell argument parsing."""
 import re
 import shutil
 import subprocess
@@ -53,6 +53,63 @@ class CompletionsTest(unittest.TestCase):
             self.assertNotIn("--multiple", self.complete(root, "--config", "--pick", "--"))
             self.assertEqual(self.complete(root, "--", "--config"), {"--config-file"})
             self.assertEqual(self.complete(root, "--", "--reveal", "file"), set())
+
+    def test_bash_launch_modes_are_exclusive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for mode in ("--pick", "--pick-directory", "--save-file", "--reveal", "--portal"):
+                options = self.complete(directory, mode, "--")
+                self.assertNotIn("--pick", options)
+                self.assertNotIn("--portal", options)
+                self.assertNotIn("--new-window", options)
+            self.assertIn("--new-window", self.complete(directory, "--open-folders", "--"))
+            self.assertIn("--pick", self.complete(directory, "--config", "--portal", "--"))
+
+    def zsh_arguments(self, *words):
+        if not shutil.which("zsh"):
+            self.skipTest("zsh unavailable")
+        result = subprocess.run(
+            ["zsh", "-f", "-c",
+             'completion=$1; shift; words=("$@"); CURRENT=${#words}; '
+             'function _arguments() { printf "%s\\n" "$@"; }; source "$completion"',
+             "completion-test", str(COMPLETIONS / "_rummage"), "rummage", *words],
+            text=True, capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout.splitlines()
+
+    def test_zsh_launch_modes_and_flag_like_values(self):
+        self.assertTrue(any(")--pick[" in x for x in self.zsh_arguments("--")))
+        picked = self.zsh_arguments("--pick", "--")
+        mode_spec = next(x for x in picked if ")--pick[" in x)
+        self.assertIn("--portal", mode_spec.split(")", 1)[0])
+        self.assertIn("--pick-directory", mode_spec.split(")", 1)[0])
+        self.assertIn("--multiple[Choose multiple files]", picked)
+        values = self.zsh_arguments("--config", "--pick", "--")
+        self.assertNotIn("--multiple[Choose multiple files]", values)
+        self.assertIn("*:folder:_files -/", self.zsh_arguments("--", "--reveal", ""))
+        self.assertIn("*:path:_files", self.zsh_arguments("--reveal", "folder with spaces"))
+
+    def fish_complete(self, directory, command):
+        if not shutil.which("fish"):
+            self.skipTest("fish unavailable")
+        result = subprocess.run(
+            ["fish", "--no-config", "-c", 'source $argv[1]; complete -C $argv[2]',
+             str(COMPLETIONS / "rummage.fish"), command],
+            cwd=directory, text=True, capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return {line.split("\t")[0] for line in result.stdout.splitlines()}
+
+    def test_fish_context_and_escaped_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "folder with spaces").mkdir()
+            (root / "file.txt").touch()
+            self.assertNotIn("--pick", self.fish_complete(root, "rummage --pick --"))
+            self.assertIn("--multiple", self.fish_complete(root, "rummage --pick --"))
+            self.assertNotIn("--multiple", self.fish_complete(root, "rummage --config --pick --"))
+            self.assertIn("file.txt", self.fish_complete(root, "rummage --reveal file"))
+            self.assertNotIn("file.txt", self.fish_complete(root, "rummage file"))
+            paths = self.fish_complete(root, "rummage folder")
+            self.assertTrue(any("folder" in p and "spaces" in p for p in paths), paths)
 
 
 if __name__ == "__main__":

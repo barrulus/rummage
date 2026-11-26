@@ -66,6 +66,32 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
+          instrumentation = (pkgs.mkShell.override { stdenv = pkgs.clangStdenv; }) {
+            inputsFrom = [
+              (self.packages.${system}.rummage.override {
+                stdenv = pkgs.clangStdenv;
+                withTests = true;
+                withMedia = true;
+                withPdf = true;
+              })
+            ];
+            packages = with pkgs; [
+              python3
+              doctest
+              dbus
+              shared-mime-info
+              _7zz
+              unzip
+              (writeShellScriptBin "7z" ''exec ${_7zz}/bin/7zz "$@"'')
+            ];
+            dontUseCmakeConfigure = true;
+            FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+            XDG_DATA_DIRS = "${pkgs.shared-mime-info}/share:${pkgs.hicolor-icon-theme}/share";
+            LIBGL_ALWAYS_SOFTWARE = "1";
+            EGL_PLATFORM = "surfaceless";
+            __EGL_VENDOR_LIBRARY_FILENAMES = "${pkgs.mesa}/share/glvnd/egl_vendor.d/50_mesa.json";
+            LIBGL_DRIVERS_PATH = "${pkgs.mesa}/lib/dri";
+          };
           default = pkgs.mkShell {
             inputsFrom = [ self.packages.${system}.rummage ];
             packages = with pkgs; [

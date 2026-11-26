@@ -86,9 +86,41 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/ci/reuse-build.py
 
+  instrumentation:
+    name: Sanitizers and fuzz (${{ matrix.profile }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [asan, tsan, fuzz]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+      - name: Run instrumented tests with pinned dependencies
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py "$PROFILE" "$RUNNER_TEMP/instrumentation" --jobs 2 --fuzz-seconds 15
+      - name: Retain test logs and reproducing inputs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: instrumentation-${{ matrix.profile }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/instrumentation/*.json
+            ${{ runner.temp }}/instrumentation/*.log
+            ${{ runner.temp }}/instrumentation/*.xml
+            ${{ runner.temp }}/instrumentation/failures/
+            ${{ runner.temp }}/instrumentation/corpus/
+            ${{ runner.temp }}/instrumentation/build/Testing/Temporary/
+          retention-days: 14
+          if-no-files-found: error
+
   tests:
     name: Tests and lint
-    needs: [reuse, website]
+    needs: [reuse, website, instrumentation]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
