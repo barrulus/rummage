@@ -30,7 +30,9 @@ runCommand "rummage-installed-smoke"
     LIBGL_DRIVERS_PATH = "${mesa}/lib/dri";
   }
   ''
-    bash ${../scripts/ci}/check-installed.sh ${package} ${package.version}
+    bash ${../scripts/ci}/check-installed.sh ${package} ${package.version} "" ${
+      if package.terminalEnabled or true then "on" else "off"
+    }
     python3 ${../scripts/ci}/check-photos-installed.py ${package}/bin/rummage \
       ${lib.optionalString (
         package ? photos

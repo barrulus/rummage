@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-prefix=${1:?usage: check-installed.sh PREFIX VERSION}
-version=${2:?usage: check-installed.sh PREFIX VERSION}
+prefix=${1:?usage: check-installed.sh PREFIX VERSION [LICENSE [TERMINAL_MODE]]}
+version=${2:?usage: check-installed.sh PREFIX VERSION [LICENSE [TERMINAL_MODE]]}
+terminal_mode=${4:-on}
+case "$terminal_mode" in
+    on|off) ;;
+    *) echo "terminal mode must be on or off" >&2; exit 2 ;;
+esac
 test -s "${3:-$prefix/share/licenses/rummage/LICENSE}"
 app="$prefix/bin/rummage"
 "$app" --version | grep -Fx "rummage $version"
@@ -56,4 +61,8 @@ entry = [{ id = "action:compress" }, { remaining = true }]
 TOML
 "$app" --config "$config" --check-config
 
-test -x "$prefix/libexec/rummage/rummage-terminal"
+if [[ "$terminal_mode" == on ]]; then
+    test -x "$prefix/libexec/rummage/rummage-terminal"
+else
+    test ! -e "$prefix/libexec/rummage/rummage-terminal"
+fi

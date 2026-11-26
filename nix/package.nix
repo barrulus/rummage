@@ -93,6 +93,7 @@ stdenv.mkDerivation {
     python3
     bashInteractive
     zsh
+    dbus # dbus-send is needed to register the file-manager activation integration test.
     (writeShellScriptBin "dbus-run-session" ''
       exec ${dbus}/bin/dbus-run-session --dbus-daemon=${dbus}/bin/dbus-daemon --config-file=${dbus}/share/dbus-1/session.conf "$@"
     '')
@@ -171,6 +172,7 @@ stdenv.mkDerivation {
     export LIBGL_DRIVERS_PATH=${mesa}/lib/dri
     ctest --show-only | grep -F file-picker-portal
     ctest --show-only | grep -F action-notifications
+    ctest --show-only | grep -F file-manager-activation
     ctest --output-on-failure --timeout 180
     runHook postCheck
   '';
@@ -204,6 +206,8 @@ stdenv.mkDerivation {
           ]
         }"
     '';
+
+  passthru.terminalEnabled = withTerminal;
 
   meta = {
     description = "Native file manager for Wayland";
