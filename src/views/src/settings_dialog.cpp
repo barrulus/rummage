@@ -245,18 +245,18 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(0, "Previews", "previews", "pdf", "PDF previews",
         "Enable PDF thumbnails and first-page previews", config.previews.pdf ? "true" : "false",
         true, {"true", "false"});
-    add(0, "Terminal", "terminal", "program", "Terminal program",
-        "Leave empty for automatic discovery", config.terminal.program);
-    add(0, "Terminal", "terminal", "args", "Terminal arguments",
-        "Literal argument array, e.g. [\"--title\", \"Files\"]", arguments(config.terminal.args),
-        true);
-
     std::vector<std::string> languages{"system"};
     for (const auto code : i18n::languages())
         languages.emplace_back(code);
     add(0, i18n::mark("Language"), "interface", "language", i18n::mark("Interface language"),
         i18n::mark("Restart Rummage to apply; System follows your session language"),
         config.interface.language, false, std::move(languages));
+
+    add(0, "Terminal", "terminal", "program", "Terminal program",
+        "Leave empty for automatic discovery", config.terminal.program);
+    add(0, "Terminal", "terminal", "args", "Terminal arguments",
+        "Literal argument array, e.g. [\"--title\", \"Files\"]", arguments(config.terminal.args),
+        true);
 
     add(1, "Theme", "appearance", "palette_source", "Palette source",
         "Automatic, Desktop, Palette file, Built-in or KDE", config.appearance.palette_source,
