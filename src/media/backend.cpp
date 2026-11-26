@@ -114,7 +114,8 @@ bool open_input(Input& input, Source& source) {
     input.format->max_analyze_duration = AV_TIME_BASE;
     AVDictionary* options = nullptr;
     av_dict_set(&options, "format_whitelist",
-                "mov,matroska,webm,avi,mpeg,mpegts,ogg,flv,asf,mjpeg,yuv4mpegpipe", 0);
+                "mov,matroska,webm,avi,mpeg,mpegts,ogg,flv,asf,mjpeg,yuv4mpegpipe,mp3,flac,wav,aac",
+                0);
     const int opened = avformat_open_input(&input.format, nullptr, nullptr, &options);
     av_dict_free(&options);
     if (opened < 0) {
@@ -230,7 +231,10 @@ void warm_up() {
     av_cpu_force_count(1);
 }
 
-picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) {
+picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height,
+                             std::uint32_t page) {
+    if (page != 0)
+        return failure(picture::Failure::unknown_format, "video previews do not have pages");
     if (width == 0 || height == 0) {
         return failure(picture::Failure::too_large, "empty video preview size");
     }
@@ -370,12 +374,12 @@ picture::PhotoInfo photo_info(int fd) {
         if (!audio && stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
             audio = stream;
     }
-    if (!video)
+    if (!video && !audio)
         return info;
     const auto tag = [&](const char* key) {
         const AVDictionaryEntry* value = av_dict_get(input.format->metadata, key, nullptr, 0);
         if (!value)
-            value = av_dict_get(video->metadata, key, nullptr, 0);
+            value = av_dict_get((video ? video : audio)->metadata, key, nullptr, 0);
         std::string text;
         if (value && value->value) {
             for (const char* at = value->value; *at && text.size() < 240; ++at)
@@ -388,32 +392,38 @@ picture::PhotoInfo photo_info(int fd) {
                                                       : input.format->iformat->name;
     if (input.format->duration > 0) {
         const auto milliseconds = input.format->duration / (AV_TIME_BASE / 1000);
+        info.duration_ms = static_cast<std::uint64_t>(milliseconds);
         const auto seconds = milliseconds / 1000;
         info.duration = std::format("{}:{:02}:{:02}.{:03}", seconds / 3600, seconds / 60 % 60,
                                     seconds % 60, milliseconds % 1000);
     }
     if (input.format->bit_rate > 0)
+        info.bitrate_bps = static_cast<std::uint64_t>(input.format->bit_rate);
+    if (input.format->bit_rate > 0)
         info.bitrate =
             std::format("{:.0f} kbit/s", static_cast<double>(input.format->bit_rate) / 1000.0);
-    info.video_codec = avcodec_get_name(video->codecpar->codec_id);
-    info.width = static_cast<std::uint32_t>(std::max(0, video->codecpar->width));
-    info.height = static_cast<std::uint32_t>(std::max(0, video->codecpar->height));
-    const auto rate = video->avg_frame_rate;
-    if (rate.num > 0 && rate.den > 0)
-        info.frame_rate = std::format("{:.3f} fps", av_q2d(rate));
-    if (const char* name = av_get_pix_fmt_name(static_cast<AVPixelFormat>(video->codecpar->format)))
-        info.pixel_format = name;
-    if (const auto* matrix =
-            av_packet_side_data_get(video->codecpar->coded_side_data,
-                                    video->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
-        matrix && matrix->size >= 9 * sizeof(std::int32_t)) {
-        const double angle =
-            av_display_rotation_get(reinterpret_cast<const std::int32_t*>(matrix->data));
-        if (std::isfinite(angle)) {
-            info.rotation = std::format("{:.0f}°", -angle);
-            const int turn = (static_cast<int>(std::lround(-angle / 90.0)) % 4 + 4) % 4;
-            if (turn == 1 || turn == 3)
-                std::swap(info.width, info.height);
+    if (video) {
+        info.video_codec = avcodec_get_name(video->codecpar->codec_id);
+        info.width = static_cast<std::uint32_t>(std::max(0, video->codecpar->width));
+        info.height = static_cast<std::uint32_t>(std::max(0, video->codecpar->height));
+        const auto rate = video->avg_frame_rate;
+        if (rate.num > 0 && rate.den > 0)
+            info.frame_rate = std::format("{:.3f} fps", av_q2d(rate));
+        if (const char* name =
+                av_get_pix_fmt_name(static_cast<AVPixelFormat>(video->codecpar->format)))
+            info.pixel_format = name;
+        if (const auto* matrix = av_packet_side_data_get(video->codecpar->coded_side_data,
+                                                         video->codecpar->nb_coded_side_data,
+                                                         AV_PKT_DATA_DISPLAYMATRIX);
+            matrix && matrix->size >= 9 * sizeof(std::int32_t)) {
+            const double angle =
+                av_display_rotation_get(reinterpret_cast<const std::int32_t*>(matrix->data));
+            if (std::isfinite(angle)) {
+                info.rotation = std::format("{:.0f}°", -angle);
+                const int turn = (static_cast<int>(std::lround(-angle / 90.0)) % 4 + 4) % 4;
+                if (turn == 1 || turn == 3)
+                    std::swap(info.width, info.height);
+            }
         }
     }
     if (audio) {

@@ -484,3 +484,33 @@ TEST_CASE(
         CHECK_FALSE(probes.loading());
     }
 }
+
+TEST_CASE(
+    "model: arriving media metadata resorts, retains file fields, and rejects stale identity") {
+    Fixture f;
+    f.dir.write("a.png", "a");
+    f.dir.write("b.mp4", "b");
+    f.dir.write("c.txt", "c");
+    f.open();
+    f.model.set_order({.key = rummage::fs::SortKey::duration});
+    Entry a = *find(f.model, "a.png"), b = *find(f.model, "b.mp4");
+    a.media = std::make_shared<rummage::fs::MediaMetadata>(
+        rummage::fs::MediaMetadata{.duration_ms = 2000});
+    b.media = std::make_shared<rummage::fs::MediaMetadata>(
+        rummage::fs::MediaMetadata{.duration_ms = 1000});
+    // First response arrives while others are still pending.
+    f.model.apply_media({a});
+    CHECK(names(f.model) == std::vector<std::string>{"a.png", "b.mp4", "c.txt"});
+    REQUIRE_FALSE(f.changes.empty());
+    CHECK(f.changes.back().metadata_only);
+    f.model.apply_media({b});
+    CHECK(names(f.model) == std::vector<std::string>{"b.mp4", "a.png", "c.txt"});
+    CHECK(find(f.model, "a.png")->permissions == a.permissions);
+    f.model.set_order({.key = rummage::fs::SortKey::duration, .descending = true});
+    CHECK(names(f.model) == std::vector<std::string>{"a.png", "b.mp4", "c.txt"});
+    f.dir.write("a.png", "changed contents");
+    f.settle([&] { return find(f.model, "a.png")->size != a.size; });
+    CHECK_FALSE(find(f.model, "a.png")->media);
+    f.model.apply_media({a});
+    CHECK_FALSE(find(f.model, "a.png")->media);
+}

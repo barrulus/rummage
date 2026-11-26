@@ -475,6 +475,29 @@ void DirectoryModel::apply(const std::vector<std::string>& names,
     }
 }
 
+void DirectoryModel::apply_media(const std::vector<Entry>& results) {
+    std::unordered_map<std::string, const Entry*> by_name;
+    for (const auto& result : results)
+        by_name.emplace(result.name, &result);
+    std::vector<Entry> changed;
+    ModelChange change;
+    change.metadata_only = true;
+    for (const auto& entry : listing_.entries()) {
+        const auto it = by_name.find(entry.name);
+        if (it == by_name.end() || entry.size != it->second->size ||
+            entry.modified_ns != it->second->modified_ns)
+            continue;
+        auto value = entry;
+        value.media = it->second->media;
+        changed.push_back(std::move(value));
+        change.updated.push_back(entry.name);
+    }
+    if (!changed.empty()) {
+        listing_.replace({}, std::move(changed));
+        notify(change);
+    }
+}
+
 void DirectoryModel::notify(const ModelChange& change) {
     ++revision_;
     if (change_handler_) {

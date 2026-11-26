@@ -26,12 +26,14 @@ public:
                                                         .max_width = request.width,
                                                         .max_height = request.height,
                                                         .mime = request.mime,
+                                                        .page = request.page,
                                                         .cancel = &cancel});
         if (loaded.failure != picture::Failure::none) {
             log::debug("preview: {}: {} ({})", request.path.string(), loaded.error(),
                        loaded.detail);
         }
-        if (request.mime.starts_with("video/") && loaded.failure != picture::Failure::none) {
+        if ((request.mime.starts_with("video/") || request.mime.starts_with("audio/")) &&
+            loaded.failure != picture::Failure::none) {
             return read_info(request.path, cancel);
         }
         return loaded;

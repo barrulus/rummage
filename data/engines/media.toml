@@ -1,7 +1,7 @@
 [engine]
 name = "media"
 program = "rummage-media"
-protocol = 7
+protocol = 8
 
 [[family]]
 name = "video"
@@ -13,3 +13,12 @@ mime = ["video/mp4", "video/quicktime", "video/x-matroska", "video/webm",
         "video/x-msvideo", "video/mpeg", "video/mp2t", "video/ogg", "video/x-flv",
         "video/x-ms-wmv", "video/x-ms-asf", "video/3gpp", "video/3gpp2",
         "video/x-mjpeg", "video/x-yuv4mpeg"]
+
+# Metadata for audio files; this family does not generate thumbnails or imply playback.
+[[family]]
+name = "audio"
+shows = "picture"
+info = true
+thumbnails = false
+subclasses = true
+mime = ["audio/mpeg", "audio/flac", "audio/ogg", "audio/x-wav", "audio/mp4", "audio/aac", "audio/opus"]

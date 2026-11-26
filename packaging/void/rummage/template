@@ -6,7 +6,7 @@ version=0.7.0
 revision=1
 build_style=cmake
 # RUMMAGE_WERROR: a newer compiler's new warning must not break the package
-configure_args="-DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
+configure_args="-DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF"
 hostmakedepends="pkgconf wayland-devel python3 patch"
 makedepends="wayland-devel wayland-protocols libglvnd-devel libxkbcommon-devel
  harfbuzz-devel freetype-devel fontconfig-devel tomlplusplus-devel json-c++
@@ -33,6 +33,16 @@ rummage-photos_package() {
     short_desc="rummage Photo Library"
     pkg_install() {
         vmove usr/libexec/rummage/librummage-photos.so
+        vlicense LICENSE
+    }
+}
+
+rummage-font_package() {
+    depends="rummage-${version}_${revision}"
+    short_desc="rummage optional scalable font specimens"
+    pkg_install() {
+        vmove usr/libexec/rummage/rummage-font
+        vmove usr/share/rummage/engines/font.toml
         vlicense LICENSE
     }
 }

@@ -330,3 +330,15 @@ endif()
 if(TOKEI_EXECUTABLE)
     target_compile_definitions(rummage-tests PRIVATE RUMMAGE_TEST_TOKEI="${TOKEI_EXECUTABLE}")
 endif()
+
+if(RUMMAGE_FONT)
+    add_executable(rummage-font-tests font_test.cpp)
+    target_link_libraries(rummage-font-tests PRIVATE doctest::doctest rummage::isolate
+        rummage::thumbs PkgConfig::FONTCONFIG rummage::warnings)
+    target_compile_definitions(rummage-font-tests PRIVATE
+        RUMMAGE_FONT_HELPER="$<TARGET_FILE:rummage-font>"
+        RUMMAGE_ENGINE_DATA="${PROJECT_SOURCE_DIR}/data/engines")
+    add_dependencies(rummage-font-tests rummage-font)
+    add_test(NAME font-tests COMMAND rummage-font-tests)
+    set_tests_properties(font-tests PROPERTIES TIMEOUT 60)
+endif()

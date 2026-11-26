@@ -182,7 +182,7 @@ installed engines.
 
 ## Optional PDF previews
 
-PDF thumbnails and first-page stills are included in the standard package and
+PDF thumbnails and navigable Quick Look pages are included in the standard package and
 controlled by `previews.pdf` (default `true`) or **PDF previews** in Settings.
 Password-protected PDFs get a lock on their icon, damaged ones a cross; see
 [previews](previews.md#optional-pdf-previews). Enter opens the default document viewer.

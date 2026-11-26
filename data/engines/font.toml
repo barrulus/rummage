@@ -1,0 +1,12 @@
+[engine]
+name = "font"
+program = "rummage-font"
+protocol = 8
+
+[[family]]
+name = "font"
+shows = "picture"
+info = false
+thumbnails = true
+subclasses = true
+mime = ["font/ttf", "font/otf", "font/collection", "application/x-font-ttf", "application/x-font-otf"]

@@ -27,6 +27,7 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/log.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/engines/engines.hpp"
 #include "rummage/formats/image/load.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
@@ -678,4 +679,86 @@ TEST_CASE(
     folder->replace_collection({entry}, "Photos", 1);
     look.follow(folder);
     CHECK(look.content() == nullptr);
+}
+
+TEST_CASE("quick look: PDF page requests, boundaries, zoom and cancelled navigation") {
+    namespace picture = rummage::picture;
+    namespace engines = rummage::engines;
+    const auto original = engines::installed();
+
+    struct Restore {
+        std::shared_ptr<const engines::Registry> registry;
+
+        ~Restore() {
+            engines::set_installed(registry);
+            picture::set_loader([](const picture::LoadRequest& request) {
+                return rummage::formats::image::load(request);
+            });
+        }
+    } restore{original};
+
+    auto registry = std::make_shared<engines::Registry>(*original);
+    REQUIRE(registry->add({.manifest = {.name = "pdf",
+                                        .program = "rummage-pdf",
+                                        .families = {{.name = "pdf",
+                                                      .shows = engines::Shows::picture,
+                                                      .mime = {"application/pdf"}}}},
+                           .program = "rummage-pdf",
+                           .manifest_path = {}}));
+    engines::set_installed(registry);
+    picture::set_loader([](const picture::LoadRequest& request) {
+        picture::Loaded result;
+        result.image = {.width = 64 + request.page,
+                        .height = 32,
+                        .rgba = std::vector<std::uint8_t>((64 + request.page) * 32 * 4, 255)};
+        result.pages = 3;
+        return result;
+    });
+    rummage::test::TempDir dir;
+    dir.write("paper.pdf", "%PDF-1.4");
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder =
+        std::make_shared<rummage::views::Folder>(loop, pool, watcher, mime, dir.path, [] {});
+    REQUIRE(run_until(loop, [&] { return folder->entries().size() == 1; }));
+    folder->sniff(0, 1);
+    REQUIRE(run_until(loop, [&] {
+        return mime->name(folder->mime_of(folder->entries()[0])) == "application/pdf";
+    }));
+    folder->select_name("paper.pdf");
+    QuickLook look{pool, mime, {}, [] {}};
+    look.open(folder, QuickLook::Clock::now());
+    REQUIRE(run_until(loop, [&] { return !look.loading(); }));
+    CHECK(look.document_page() == 0);
+    CHECK(look.document_pages() == 3);
+    look.set_document_page(1);
+    look.set_document_page(2);
+    look.set_document_page(1);  // old requests must never replace the latest page
+    REQUIRE(run_until(loop, [&] { return !look.loading(); }));
+    REQUIRE(look.image_size());
+    CHECK(look.image_size()->first == 65);
+    look.set_document_page(3);
+    CHECK(look.document_page() == 1);
+    const auto key = [&](xkb_keysym_t symbol) {
+        rummage::ui::KeyEvent event;
+        event.keysym = symbol;
+        return look.text_key(event, QuickLook::Clock::now());
+    };
+    CHECK(key(XKB_KEY_End));
+    CHECK(look.document_page() == 2);
+    CHECK(key(XKB_KEY_Page_Down));
+    CHECK(look.document_page() == 2);
+    CHECK(key(XKB_KEY_Home));
+    CHECK(look.document_page() == 0);
+    for (int i = 0; i < 20; ++i)
+        CHECK(key(XKB_KEY_equal));
+    CHECK(look.document_zoom() == 4);
+    CHECK(key(XKB_KEY_0));
+    CHECK(look.document_zoom() == 1);
+    CHECK(key(XKB_KEY_minus));
+    CHECK(look.document_zoom() == 1);
+    look.close();
+    CHECK_FALSE(look.loading());
 }

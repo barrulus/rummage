@@ -41,14 +41,15 @@ for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview /usr/lib
     printf '%s\n' "$libraries"
     if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 done
-# Previews belong to the standard package. Only photos is an add-on.
+# Media/PDF belong to the standard package. Photos and font are add-ons.
+test ! -e /usr/libexec/rummage/rummage-font
 test ! -e /usr/libexec/rummage/librummage-photos.so
 /usr/bin/rummage --about
 case "$format" in
-    deb) apt-get install -y --no-install-recommends /packages/rummage-photos_*.deb ;;
-    rpm) dnf install -y /packages/rummage-photos-[0-9]*.x86_64.rpm ;;
-    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-photos-[0-9]*.x86_64.rpm ;;
-    arch) pacman -U --noconfirm /packages/rummage-photos-[0-9]*-x86_64.pkg.tar.zst ;;
+    deb) apt-get install -y --no-install-recommends /packages/rummage-photos_*.deb /packages/rummage-font_*.deb ;;
+    rpm) dnf install -y /packages/rummage-photos-[0-9]*.x86_64.rpm /packages/rummage-font-[0-9]*.x86_64.rpm ;;
+    tumbleweed) zypper --non-interactive install --no-recommends --allow-unsigned-rpm /packages/rummage-photos-[0-9]*.x86_64.rpm /packages/rummage-font-[0-9]*.x86_64.rpm ;;
+    arch) pacman -U --noconfirm /packages/rummage-photos-[0-9]*-x86_64.pkg.tar.zst /packages/rummage-font-[0-9]*-x86_64.pkg.tar.zst ;;
 esac
 libraries=$(ldd /usr/libexec/rummage/librummage-photos.so)
 printf '%s\n' "$libraries"
@@ -82,7 +83,7 @@ case "$format" in
 esac
 bash /source/scripts/ci/check-wayland.sh /usr
 
-# Removing the only add-on leaves the launcher and all previews intact.
+# Removing Photo Library leaves the launcher and previews intact.
 case "$format" in
     deb) apt-get remove -y rummage-photos ;;
     rpm) dnf remove -y rummage-photos ;;
@@ -93,3 +94,8 @@ test ! -e /usr/libexec/rummage/librummage-photos.so
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage
 test -x /usr/libexec/rummage/rummage-media
 test -x /usr/libexec/rummage/rummage-pdf
+
+libraries=$(ldd /usr/libexec/rummage/rummage-font)
+if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+test -s /usr/share/rummage/engines/font.toml
+python3 /source/scripts/ci/check-font.py /usr/libexec/rummage/rummage-font "$(fc-match -f '%{file}' sans)"

@@ -67,7 +67,11 @@ State changed() {
     s.info_expanded = true;
     s.sort_key = SortKey::modified;
     s.sort_descending = true;
-    s.details_widths = {80.0F, 170.0F, 240.0F, 150, 150, 110, 110, 130, 220, 220, 950};
+    s.details_widths = rummage::views::kDetailsWidths;
+    s.details_widths[0] = 80;
+    s.details_widths[1] = 170;
+    s.details_widths[2] = 240;
+    s.details_widths.back() = 950;
     s.list_size = 3;
     s.grid_icon = 192;
     s.window_width = 1400;
@@ -174,7 +178,7 @@ TEST_CASE("state: the browser gives back what it was given") {
 
     // Narrower than a column's minimum: the view keeps its minimum.
     State narrow = wanted;
-    narrow.details_widths = {10.0F, 10.0F, 10.0F, 150, 150, 110, 110, 130, 220, 220, 10};
+    narrow.details_widths.fill(10);
     browser.apply(narrow);
     for (const float width : browser.state().details_widths) {
         CHECK(width >= 64.0F);
@@ -436,13 +440,12 @@ TEST_CASE("state: sidebar zoom defaults and validation are independent of the vi
 
 TEST_CASE("state: folder preferences round trip, stay bounded and share unchanged snapshots") {
     State state;
-    State::FolderSettings settings{
-        .mode = State::Mode::grid,
-        .sort_key = SortKey::modified,
-        .sort_descending = true,
-        .details_widths = {80, 170, 240, 150, 150, 110, 110, 130, 220, 220},
-        .list_size = 3,
-        .grid_icon = 192};
+    State::FolderSettings settings{.mode = State::Mode::grid,
+                                   .sort_key = SortKey::modified,
+                                   .sort_descending = true,
+                                   .details_widths = rummage::views::kDetailsWidths,
+                                   .list_size = 3,
+                                   .grid_icon = 192};
     state.last_folder = "/folder with \"quotes\"/é";
     state.folders.remember(state.last_folder, settings);
     const State snapshot = state;
@@ -525,16 +528,17 @@ TEST_CASE("state: startup selection honors explicit folders, modes and vanished 
 
 TEST_CASE("state: column layouts round trip globally, per folder and per tab") {
     State state;
-    state.details_columns = {SortKey::name, SortKey::permissions, SortKey::owner};
+    state.details_columns = {SortKey::name, SortKey::permissions, SortKey::dimensions,
+                             SortKey::duration};
     state.details_widths[7] = 180;
     state.sort_key = SortKey::created;
     State::FolderSettings folder;
-    folder.details_columns = {SortKey::name, SortKey::link_target};
-    folder.sort_key = SortKey::link_target;
+    folder.details_columns = {SortKey::name, SortKey::bitrate, SortKey::audio_codec};
+    folder.sort_key = SortKey::bitrate;
     state.folders.remember("/tmp/columns", folder);
     State::Tab tab;
     tab.folder = "/tmp/columns";
-    tab.details_columns = std::vector{SortKey::name, SortKey::accessed, SortKey::group};
+    tab.details_columns = std::vector{SortKey::name, SortKey::video_codec, SortKey::group};
     tab.details_widths = rummage::views::kDetailsWidths;
     state.tabs.push_back(tab);
     const auto result = parse(format_state(state));

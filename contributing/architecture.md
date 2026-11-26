@@ -91,7 +91,7 @@ prefix’s `libexec/rummage`. Custom helper installations can configure this pat
 | --- | --- |
 | `engine.name` | Engine identifier |
 | `engine.program` | Plain executable filename, resolved in the helper locations |
-| `engine.protocol` | Must match the current protocol version (7) |
+| `engine.protocol` | Must match the current protocol version (8) |
 | `family.name` | Reader-family identifier |
 | `family.shows` | `picture`, `text` or `archive` |
 | `family.info`, `family.thumbnails` | Advertised capabilities |

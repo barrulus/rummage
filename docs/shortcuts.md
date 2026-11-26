@@ -117,6 +117,7 @@ Copy Name copies plain text, with multiple names separated by newlines. Its
 | --- | --- |
 | Quick Look | Space/Escape closes; arrows change file |
 | Text Quick Look | Home/End, Page Up/Down scroll; Ctrl+A selects text; Ctrl+C copies selection; Shift+wheel scrolls horizontally |
+| PDF Quick Look | Page Up/Down changes page; Home/End goes first/last; +/− or Ctrl+wheel zooms; 0 fits; wheel pans vertically, Shift+wheel horizontally |
 | Markdown Quick Look | M switches between rendered text and source |
 | Palette/search | Arrows/Page Up/Down choose; Enter runs/reveals; Escape closes |
 | File search | Space types a space while editing; after arrow-key navigation it previews; Shift+Space always types a space; Shift+Enter opens in application |

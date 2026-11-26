@@ -403,7 +403,8 @@ picture::Loaded Helpers::load(const picture::LoadRequest& request) {
     const protocol::Request message{.magic = protocol::kRequestMagic,
                                     .kind = protocol::Kind::picture,
                                     .max_width = request.max_width,
-                                    .max_height = request.max_height};
+                                    .max_height = request.max_height,
+                                    .page = request.page};
     picture::Loaded result;
     const auto accept = [&](protocol::Packet& reply, std::string& why) {
         protocol::Response response;
@@ -423,6 +424,12 @@ picture::Loaded Helpers::load(const picture::LoadRequest& request) {
         result.from_preview = response.from_preview != 0;
         result.full_width = response.full_width;
         result.full_height = response.full_height;
+        result.pages = response.pages;
+        if (response.failure == 0 && ((response.pages == 0 && request.page != 0) ||
+                                      (response.pages != 0 && request.page >= response.pages))) {
+            why = "the preview helper returned an invalid page count";
+            return false;
+        }
         result.detail.assign(reinterpret_cast<const char*>(  // NOLINT: bytes to chars
                                  reply.bytes.data() + sizeof(response)),
                              response.detail_length);

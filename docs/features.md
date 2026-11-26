@@ -74,7 +74,7 @@ Archive contents are read-only; extract files before changing them.
 - Rendered Markdown in Quick Look, with a source toggle, headings, lists, tables,
   emphasis and highlighted code blocks.
 - Optional isolated FFmpeg video thumbnails and Quick Look stills.
-- Optional isolated PDFium first-page thumbnails and Quick Look stills for PDFs, with lock and
+- Optional isolated PDFium first-page thumbnails and Quick Look page navigation/zoom for PDFs, with lock and
   damage badges.
 
 See [previews and formats](previews.md) for decoder limits. Video playback and

@@ -39,7 +39,8 @@ struct LoadRequest {
     // vectors rendered at the requested size within their reader's limits).
     std::uint32_t max_width{0};
     std::uint32_t max_height{0};
-    std::string mime{};  // Empty retains the default image engine for existing callers.
+    std::string mime{};     // Empty retains the default image engine for existing callers.
+    std::uint32_t page{0};  // Zero-based document page; images and thumbnails use zero.
     const core::CancelToken* cancel{nullptr};  // Valid for the blocking load call.
 };
 
@@ -49,6 +50,7 @@ struct Loaded {
     // file does not say).
     std::uint32_t full_width{0};
     std::uint32_t full_height{0};
+    std::uint32_t pages{0};    // Document page count; zero for ordinary images.
     bool from_preview{false};  // made from a preview stored in the file, not the whole image
     Failure failure{Failure::none};
     std::string detail;  // the technical reason of a failure, for the log

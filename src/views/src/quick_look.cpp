@@ -1,6 +1,7 @@
 #include "rummage/views/quick_look.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <fcntl.h>
@@ -242,6 +243,8 @@ void QuickLook::open(std::shared_ptr<Folder> folder, Clock::time_point now) {
 }
 
 void QuickLook::close() {
+    document_zoom_ = 1;
+    previous_page_ = next_page_ = zoom_out_ = zoom_in_ = document_area_ = {};
     for (auto& [key, slot] : slots_) {
         drop(slot);
     }
@@ -299,26 +302,37 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     if (entry.can_preview() && !slot.path.empty() && !slot.content && !slot.content_job) {
         slot.requested = Clock::now();
         slot.in_advance = !current;
+        const auto request_id = ++slot.request_id;
         slot.content_job = pool_.submit(
             current ? core::Priority::visible : core::Priority::nearby,
             [&provider, source = std::move(source),
-             request = preview::Request{.path = slot.path,
-                                        .mime = std::string{mime_->name(folder_->mime_of(entry))},
-                                        .width = target_width_,
-                                        .height = target_height_,
-                                        .types = mime_}](const core::CancelToken& token) {
+             request =
+                 preview::Request{
+                     .path = slot.path,
+                     .mime = std::string{mime_->name(folder_->mime_of(entry))},
+                     .width = mime_->name(folder_->mime_of(entry)) == "application/pdf"
+                                  ? 2048U
+                                  : target_width_,
+                     .height = mime_->name(folder_->mime_of(entry)) == "application/pdf"
+                                   ? 2048U
+                                   : target_height_,
+                     .types = mime_,
+                     .page = slot.page}](const core::CancelToken& token) {
                 return std::make_shared<preview::Content>(
                     source ? load_from_archive(provider, request, *source, token)
                            : provider.load(request, token));
             },
-            [this, alive = alive_, key](std::shared_ptr<preview::Content> content) {
+            [this, alive = alive_, key, request_id](std::shared_ptr<preview::Content> content) {
                 if (!*alive) {
                     return;
                 }
                 const auto it = slots_.find(key);
-                if (it == slots_.end()) {
+                if (it == slots_.end() || it->second.request_id != request_id) {
                     return;
                 }
+                if (const auto* image = std::get_if<picture::Loaded>(content.get());
+                    image && image->pages > 0)
+                    it->second.pages = image->pages;
                 it->second.content_job.reset();
                 it->second.content = std::move(content);
                 redraw_();
@@ -326,7 +340,7 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     }
     // The first stage of an image, while the sharp one is made: the thumbnail, usually cached
     // already.
-    if (current && !slot.path.empty() && slot.kind == preview::Kind::image && thumbnails_ &&
+    if (current && slot.page == 0 && !slot.path.empty() && slot.kind == preview::Kind::image && thumbnails_ &&
         !folder_->is_archive() && !slot.content && !slot.thumbnail_job && !slot.thumbnail_pixels &&
         !slot.thumbnail_texture && !slot.offline_thumbnail_tried) {
         slot.offline_thumbnail_tried = !entry.can_preview();
@@ -385,6 +399,8 @@ void QuickLook::follow(std::shared_ptr<Folder> folder) {
     const std::vector<fs::Entry>& entries = folder_->entries();
     const std::size_t index = *cursor;
     if (moved) {
+        document_zoom_ = 1;
+        previous_page_ = next_page_ = zoom_out_ = zoom_in_ = document_area_ = {};
         markdown_.reset();
         markdown_button_ = {};
         metadata_.reset();
@@ -418,6 +434,44 @@ void QuickLook::follow(std::shared_ptr<Folder> folder) {
     }
 }
 
+bool QuickLook::is_document() const {
+    const auto* entry = folder_ ? folder_->cursor_entry() : nullptr;
+    return entry && mime_->name(folder_->mime_of(*entry)) == "application/pdf";
+}
+
+std::uint32_t QuickLook::document_page() const {
+    const auto it = slots_.find(shown_key_);
+    return it == slots_.end() ? 0 : it->second.page;
+}
+
+std::uint32_t QuickLook::document_pages() const {
+    const auto it = slots_.find(shown_key_);
+    return it == slots_.end() ? 0 : it->second.pages;
+}
+
+void QuickLook::set_document_page(std::uint32_t page) {
+    const auto it = slots_.find(shown_key_);
+    if (!is_document() || it == slots_.end() || page >= it->second.pages || page == it->second.page)
+        return;
+    auto& slot = it->second;
+    drop(slot);
+    ++slot.request_id;
+    slot.page = page;
+    slot.content.reset();
+    slot.thumbnail_pixels.reset();
+    text_scroller_.jump_to(0);
+    text_sideways_.jump_to(0);
+    ensure(*folder_->cursor_entry(), true);
+    redraw_();
+}
+
+void QuickLook::zoom_document(float zoom) {
+    document_zoom_ = std::clamp(zoom, 1.0F, 4.0F);
+    text_scroller_.jump_to(0);
+    text_sideways_.jump_to(0);
+    redraw_();
+}
+
 const preview::Text* QuickLook::shown_text() const {
     const preview::Content* const shown = content();
     return shown == nullptr ? nullptr : std::get_if<preview::Text>(shown);
@@ -443,6 +497,47 @@ void QuickLook::toggle_markdown() {
 }
 
 bool QuickLook::pointer(const ui::PointerEvent& event, Clock::time_point now) {
+    if (is_document()) {
+        if (event.kind == ui::PointerEvent::Kind::press &&
+            event.button == ui::PointerButton::left) {
+            if (previous_page_.contains(event.x, event.y)) {
+                if (document_page() > 0)
+                    set_document_page(document_page() - 1);
+                return true;
+            }
+            if (next_page_.contains(event.x, event.y)) {
+                set_document_page(document_page() + 1);
+                return true;
+            }
+            if (zoom_out_.contains(event.x, event.y) || zoom_in_.contains(event.x, event.y)) {
+                zoom_document(document_zoom_ +
+                              (zoom_in_.contains(event.x, event.y) ? 0.25F : -0.25F));
+                return true;
+            }
+        }
+        if (document_area_.contains(event.x, event.y) &&
+            event.kind == ui::PointerEvent::Kind::scroll) {
+            if (event.modifiers.ctrl) {
+                const float delta = event.wheel_y != 0 ? event.wheel_y : event.scroll_y;
+                if (delta != 0)
+                    zoom_document(document_zoom_ + (delta < 0 ? 0.25F : -0.25F));
+            } else {
+                auto& scroll = event.modifiers.shift ? text_sideways_ : text_scroller_;
+                if (event.wheel_y != 0)
+                    scroll.wheel(event.wheel_y, now);
+                else
+                    scroll.finger(event.scroll_y, now);
+                if (event.scroll_x != 0)
+                    text_sideways_.finger(event.scroll_x, now);
+                if (event.scroll_stop) {
+                    text_scroller_.release(now);
+                    text_sideways_.release(now);
+                }
+            }
+            redraw_();
+            return true;
+        }
+    }
     if (event.kind == ui::PointerEvent::Kind::press && event.button == ui::PointerButton::left &&
         markdown_button_.contains(event.x, event.y)) {
         toggle_markdown();
@@ -578,6 +673,38 @@ bool QuickLook::autoscrolling() const {
 }
 
 bool QuickLook::text_key(const ui::KeyEvent& event, Clock::time_point now) {
+    if (is_document() &&
+        (event.modifiers == ui::Modifiers{} ||
+         (event.keysym == XKB_KEY_plus && event.modifiers == ui::Modifiers{.shift = true}))) {
+        switch (event.keysym) {
+            case XKB_KEY_Page_Down:
+                set_document_page(document_page() + 1);
+                return true;
+            case XKB_KEY_Page_Up:
+                if (document_page() > 0)
+                    set_document_page(document_page() - 1);
+                return true;
+            case XKB_KEY_Home:
+                set_document_page(0);
+                return true;
+            case XKB_KEY_End:
+                if (document_pages() > 0)
+                    set_document_page(document_pages() - 1);
+                return true;
+            case XKB_KEY_plus:
+            case XKB_KEY_equal:
+                zoom_document(document_zoom_ + 0.25F);
+                return true;
+            case XKB_KEY_minus:
+                zoom_document(document_zoom_ - 0.25F);
+                return true;
+            case XKB_KEY_0:
+                zoom_document(1);
+                return true;
+            default:
+                break;
+        }
+    }
     if (event.modifiers == ui::Modifiers{} &&
         (event.keysym == XKB_KEY_m || event.keysym == XKB_KEY_M)) {
         const auto* text = shown_text();
@@ -747,6 +874,30 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
             area.height = std::max(1.0F, area.height - height - 16.0F);
         }
         draw_details(renderer, palette, now);
+    }
+    previous_page_ = next_page_ = zoom_out_ = zoom_in_ = {};
+    if (is_document()) {
+        const float y = area.y;
+        previous_page_ = {area.x, y, 36, 28};
+        next_page_ = {area.x + 40, y, 36, 28};
+        zoom_out_ = {area.right() - 76, y, 36, 28};
+        zoom_in_ = {area.right() - 36, y, 36, 28};
+        for (const auto& [rect, label] : std::array<std::pair<ui::Rect, const char*>, 4>{
+                 {{previous_page_, "‹"}, {next_page_, "›"}, {zoom_out_, "−"}, {zoom_in_, "+"}}}) {
+            renderer.draw_box(rect, {.fill = palette.surface_container_high, .radius = {}});
+            renderer.draw_text(label, rect.x + 12, rect.y + 4, 16, palette.on_surface);
+        }
+        const auto label =
+            slot.pages > 0
+                ? i18n::trf("Page {} of {} · {}%", slot.page + 1, slot.pages,
+                            static_cast<int>(document_zoom_ * 100))
+                : std::string{slot.content_job ? i18n::tr("Loading document…")
+                                               : i18n::tr("Document preview unavailable")};
+        renderer.draw_text(label, area.x + 84, y + 6, 13, palette.on_surface,
+                           std::max(1.0F, area.width - 168));
+        area.y += 36;
+        area.height = std::max(1.0F, area.height - 36);
+        document_area_ = area;
     }
     // Images are made for this area, in physical pixels (from the next one on).
     target_width_ = static_cast<std::uint32_t>(std::max(1.0F, area.width * renderer.scale()));
@@ -935,15 +1086,30 @@ void QuickLook::draw_image(ui::Renderer& renderer, const ui::Rect& area,
             } else if (sharp) {
                 fit = std::min(fit, 1.0F / renderer.scale());
             }
+            if (is_document())
+                fit *= document_zoom_;
             const float shown_width = texture_width * fit;
             const float shown_height = texture_height * fit;
+            if (is_document()) {
+                text_scroller_.set_extent(shown_height, area.height);
+                text_sideways_.set_extent(shown_width, area.width);
+                text_scroller_.advance(Clock::now());
+                text_sideways_.advance(Clock::now());
+                return ui::Rect{area.x + std::max(0.0F, (area.width - shown_width) / 2) -
+                                    text_sideways_.offset(),
+                                area.y + std::max(0.0F, (area.height - shown_height) / 2) -
+                                    text_scroller_.offset(),
+                                shown_width, shown_height};
+            }
             return ui::Rect{area.x + ((area.width - shown_width) / 2.0F),
                             area.y + ((area.height - shown_height) / 2.0F), shown_width,
                             shown_height};
         };
         const ui::Rect rect = place(*texture);
         renderer.draw_shadow(shifted_down(rect), {}, 18.0F, palette.shadow.with_alpha(0.6F * fade));
+        renderer.push_clip(area);
         renderer.draw_image(*texture, rect, {}, fade);
+        renderer.pop_clip();
     }
     draw_caption(renderer, area, palette, caption, fade);
 }

@@ -30,6 +30,8 @@ struct PhotoInfo {
     std::string software;       // "Version 1.9"
     // Video fields, supplied only by the optional media helper. Empty means unavailable.
     std::string container;
+    std::uint64_t duration_ms{0};  // Numeric values for ordering; zero means unavailable.
+    std::uint64_t bitrate_bps{0};
     std::string duration;
     std::string video_codec;
     std::string frame_rate;

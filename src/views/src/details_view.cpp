@@ -583,6 +583,19 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     scroller_.advance(now);
     const float offset = scroller_.offset();
     const RowRange range = visible_rows(entries.size(), size_.row, offset, rows_.height);
+    const bool media_columns = std::ranges::any_of(columns_, [](Field field) {
+        return field >= Field::dimensions && field <= Field::audio_codec;
+    });
+    if (order_.key >= Field::dimensions && order_.key <= Field::audio_codec) {
+        root_->request_media(0, root_->entries().size());
+        for (const auto& [path, folder] : expanded_) {
+            (void)path;
+            folder->request_media(0, folder->entries().size());
+        }
+    } else if (media_columns) {
+        for (std::size_t i = range.first; i < range.last; ++i)
+            entries[i].folder->request_media(entries[i].entry, entries[i].entry + 1);
+    }
 
     std::vector<std::filesystem::path> visible;
     for (std::size_t i = range.first; i < range.last; ++i) {
@@ -712,6 +725,34 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (layout_.shown.at(index(Field::location)))
             cell(Field::location, owner->path_of(entry).parent_path().string(), false);
         cell(Field::link_target, entry.link_target, false);
+        const auto* media = entry.media.get();
+        const auto mime_name = mime_->name(typed.mime);
+        const std::string missing =
+            !media && !owner->is_archive() &&
+                    (mime_name.starts_with("image/") || mime_name.starts_with("video/") ||
+                     mime_name.starts_with("audio/"))
+                ? "…"
+                : "—";
+        cell(Field::dimensions,
+             media && media->width && media->height
+                 ? std::format("{} × {}", media->width, media->height)
+                 : missing,
+             false);
+        cell(Field::duration,
+             media && media->duration_ms
+                 ? std::format("{}:{:02}:{:02}.{:03}", media->duration_ms / 3600000,
+                               media->duration_ms / 60000 % 60, media->duration_ms / 1000 % 60,
+                               media->duration_ms % 1000)
+                 : missing,
+             false);
+        cell(Field::bitrate,
+             media && media->bitrate_bps ? std::format("{} kbit/s", media->bitrate_bps / 1000)
+                                         : missing,
+             false);
+        cell(Field::video_codec,
+             media && !media->video_codec.empty() ? media->video_codec : missing, false);
+        cell(Field::audio_codec,
+             media && !media->audio_codec.empty() ? media->audio_codec : missing, false);
         cell(Field::type,
              child != expanded_.end() && child->second->model().error()
                  ? child->second->model().error().message()

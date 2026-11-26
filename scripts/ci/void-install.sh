@@ -17,9 +17,10 @@ bash /source/scripts/ci/check-installed.sh /usr "$1"
 xbps-install -y weston mesa-dri dbus dejavu-fonts-ttf python3
 bash /source/scripts/ci/check-wayland.sh /usr
 
-# The photo module is the only optional sibling and owns no launcher.
+# Optional siblings own no launcher.
+test ! -e /usr/libexec/rummage/rummage-font
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage
-xbps-install -y -R /packages rummage-photos
+xbps-install -y -R /packages rummage-photos rummage-font
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage --module /usr/libexec/rummage/librummage-photos.so
 libraries=$(ldd /usr/libexec/rummage/librummage-photos.so)
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
@@ -36,3 +37,8 @@ test ! -e /usr/libexec/rummage/librummage-photos.so
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage
 test -x /usr/libexec/rummage/rummage-media
 test -x /usr/libexec/rummage/rummage-pdf
+
+libraries=$(ldd /usr/libexec/rummage/rummage-font)
+if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+test -s /usr/share/rummage/engines/font.toml
+python3 /source/scripts/ci/check-font.py /usr/libexec/rummage/rummage-font "$(fc-match -f '%{file}' sans)"

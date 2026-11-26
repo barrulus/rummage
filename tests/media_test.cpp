@@ -166,6 +166,8 @@ TEST_CASE("media: sandboxed metadata includes video dimensions, duration, codec 
     CHECK(info.height == 48);
     CHECK(info.video_codec == "h264");
     CHECK_FALSE(info.duration.empty());
+    CHECK(info.duration_ms > 0);
+    CHECK(info.bitrate_bps > 0);
     CHECK_FALSE(info.frame_rate.empty());
     CHECK_FALSE(info.container.empty());
     CHECK_FALSE(info.bitrate.empty());
@@ -209,4 +211,21 @@ TEST_CASE("media: summary routes metadata to media and clears it when the helper
     REQUIRE(summary.photo);
     CHECK(summary.photo->video_codec.empty());
     isolate::use_engines(registry);
+}
+
+TEST_CASE("media: audio-only metadata is isolated and contains numeric sortable values") {
+    isolate::Helpers helpers{{.program = RUMMAGE_MEDIA_HELPER, .args = {}}};
+    const auto info = helpers.photo_info(fixtures / "silence.wav");
+    CHECK(info.duration_ms == 1000);
+    CHECK(info.bitrate_bps >= 128000);
+    CHECK(info.audio_codec == "pcm_s16le");
+    CHECK(info.width == 0);
+    CHECK(info.height == 0);
+    CHECK(info.video_codec.empty());
+    const auto registry = engines::Registry::load(RUMMAGE_ENGINE_DATA, [](std::string_view name) {
+        return name == "rummage-media" ? fs::path{RUMMAGE_MEDIA_HELPER} : fs::path{};
+    });
+    isolate::use_engines(registry);
+    CHECK(picture::load_photo_info(fixtures / "silence.wav", "audio/x-wav").audio_codec ==
+          "pcm_s16le");
 }

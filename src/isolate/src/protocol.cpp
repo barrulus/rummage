@@ -148,6 +148,8 @@ struct InfoHeader {
     std::uint32_t magic{kInfoMagic};
     std::uint32_t width{0};
     std::uint32_t height{0};
+    std::uint64_t duration_ms{0};
+    std::uint64_t bitrate_bps{0};
     std::int8_t rating{0};
     std::uint8_t has_rating{0};
     std::uint16_t detail_count{0};
@@ -161,6 +163,8 @@ std::vector<std::byte> encode_info(const picture::PhotoInfo& info) {
     InfoHeader header;
     header.width = info.width;
     header.height = info.height;
+    header.duration_ms = info.duration_ms;
+    header.bitrate_bps = info.bitrate_bps;
     header.has_rating = info.rating ? 1 : 0;
     header.rating = static_cast<std::int8_t>(info.rating.value_or(0));
     std::vector<std::byte> out(sizeof(header));
@@ -212,6 +216,8 @@ std::optional<picture::PhotoInfo> decode_info(std::span<const std::byte> bytes) 
     picture::PhotoInfo info;
     info.width = header.width;
     info.height = header.height;
+    info.duration_ms = header.duration_ms;
+    info.bitrate_bps = header.bitrate_bps;
     if (header.has_rating == 1) {
         info.rating = header.rating;
     }
