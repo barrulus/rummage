@@ -177,7 +177,7 @@ const fs::path kAttacks = fixtures / "attack";
 // Seconds a check may take: sanitizer builds run decoders, and Helpers' timeouts, five times
 // slower (Helpers::Helpers).
 double seconds(double plain) {
-#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#if defined(RUMMAGE_ADDRESS_SANITIZER) || defined(RUMMAGE_THREAD_SANITIZER)
     return plain * 5.0;
 #else
     return plain;

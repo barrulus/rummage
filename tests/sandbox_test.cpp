@@ -12,7 +12,7 @@ extern char** environ;  // NOLINT(readability-redundant-declaration): POSIX, not
 
 namespace {
 
-#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#if defined(RUMMAGE_ADDRESS_SANITIZER) || defined(RUMMAGE_THREAD_SANITIZER)
 constexpr bool kSanitized = true;
 #else
 constexpr bool kSanitized = false;

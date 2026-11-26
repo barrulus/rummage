@@ -39,6 +39,14 @@ if(RUMMAGE_SANITIZER)
     target_compile_options(rummage_warnings INTERFACE
         -fsanitize=${RUMMAGE_SANITIZER} -fno-omit-frame-pointer)
     target_link_options(rummage_warnings INTERFACE -fsanitize=${RUMMAGE_SANITIZER})
+    # GCC and Clang expose different feature macros; use the requested CMake profile
+    # consistently for sandbox limits, helper timeouts and sanitizer-aware tests.
+    if(RUMMAGE_SANITIZER MATCHES "(^|,)address(,|$)")
+        target_compile_definitions(rummage_warnings INTERFACE RUMMAGE_ADDRESS_SANITIZER=1)
+    endif()
+    if(RUMMAGE_SANITIZER MATCHES "(^|,)thread(,|$)")
+        target_compile_definitions(rummage_warnings INTERFACE RUMMAGE_THREAD_SANITIZER=1)
+    endif()
 endif()
 
 # Fuzzing (ROADMAP 2c), development only, clang only, in its own directory:

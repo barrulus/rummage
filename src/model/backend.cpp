@@ -114,7 +114,8 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height,
                 if (face.mIndices[c] >= mesh.mNumVertices)
                     return failed(picture::Failure::damaged, "model index is outside mesh");
                 const auto& v = mesh.mVertices[face.mIndices[c]];
-                Point p{v.x, v.y, v.z};
+                Point p{static_cast<double>(v.x), static_cast<double>(v.y),
+                        static_cast<double>(v.z)};
                 if (!finite(p))
                     return failed(picture::Failure::damaged, "non-finite model coordinates");
                 // Fixed isometric camera, with no scene scripts, lights, textures or animation.

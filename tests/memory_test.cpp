@@ -46,7 +46,7 @@ TEST_CASE("memory report: the process, malloc and the lines for the log") {
     std::vector<std::uint8_t> block(size, 1);
     asm volatile("" : : "r"(block.data()) : "memory");  // NOLINT(hicpp-no-assembler)
     const rummage::core::MemoryReport during = rummage::core::read_memory_report();
-#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
+#if !defined(RUMMAGE_ADDRESS_SANITIZER) && !defined(RUMMAGE_THREAD_SANITIZER)
     // Under a sanitizer malloc is the sanitizer's: glibc's mallinfo2 reports nothing.
     CHECK(during.heap_in_use >= before.heap_in_use + size);
 #endif
@@ -63,7 +63,7 @@ TEST_CASE("memory report: the process, malloc and the lines for the log") {
     INFO("anonymous " << unmapped.anonymous << " before the mapping, " << touched.anonymous
                       << " with it; malloc's arena " << during.heap_arena << ", mmapped "
                       << during.heap_mmapped << "; " << swap_line());
-#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
+#if !defined(RUMMAGE_ADDRESS_SANITIZER) && !defined(RUMMAGE_THREAD_SANITIZER)
     // Other threads (earlier tests' pools, malloc's arenas) may give pages back between the two
     // reads (124 KB short of the block once in the CI): a margin.
     constexpr std::size_t margin = std::size_t{4} << 20U;
@@ -84,7 +84,7 @@ TEST_CASE("memory report: the process, malloc and the lines for the log") {
 }
 
 TEST_CASE("memory: large blocks go back to the system once freed") {
-#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
+#if !defined(RUMMAGE_ADDRESS_SANITIZER) && !defined(RUMMAGE_THREAD_SANITIZER)
     rummage::core::give_back_large_blocks();
     const rummage::core::MemoryReport before = rummage::core::read_memory_report();
     for (int i = 0; i < 8; ++i) {

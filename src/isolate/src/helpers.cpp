@@ -144,7 +144,7 @@ int end(pid_t pid, int socket) {
 }  // namespace
 
 Helpers::Helpers(HelperOptions options) : options_{std::move(options)} {
-#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#if defined(RUMMAGE_ADDRESS_SANITIZER) || defined(RUMMAGE_THREAD_SANITIZER)
     // Sanitizer builds (tests, snapshots) decode several times slower.
     options_.timeout *= 5;
 #endif

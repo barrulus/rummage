@@ -33,7 +33,7 @@ constexpr std::uint32_t kArch = AUDIT_ARCH_AARCH64;
 #  error "the preview helper's seccomp filter knows x86_64 and aarch64 only"
 #endif
 
-#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#if defined(RUMMAGE_ADDRESS_SANITIZER) || defined(RUMMAGE_THREAD_SANITIZER)
 constexpr bool kSanitized = true;
 #else
 constexpr bool kSanitized = false;
@@ -41,7 +41,7 @@ constexpr bool kSanitized = false;
 
 }  // namespace
 
-#if defined(__SANITIZE_ADDRESS__)
+#if defined(RUMMAGE_ADDRESS_SANITIZER)
 // LeakSanitizer checks at exit with a tracer (clone and ptrace): the cage forbids both, so the
 // processes that live in it (the helper, the test probe) leave the leak check to rummage's own.
 extern "C" int __lsan_is_turned_off() { return 1; }  // NOLINT(readability-identifier-naming)
