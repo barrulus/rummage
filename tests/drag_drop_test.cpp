@@ -1457,7 +1457,12 @@ TEST_CASE("drop: archive window and advanced menu workflows preserve the source 
     REQUIRE(f.settle());
     f.browser.open_menu_from_keyboard();
     const auto open = item("open_window").action;
-    const auto advanced = item("advanced_archive");
+    const auto archives = item("archive_actions");
+    REQUIRE(archives.submenu);
+    const auto advanced_item =
+        std::ranges::find(archives.children, "advanced_archive", &rummage::views::MenuItem::id);
+    REQUIRE(advanced_item != archives.children.end());
+    const auto& advanced = *advanced_item;
     CHECK(advanced.submenu);
     const auto create =
         std::ranges::find(advanced.children, "create_7z", &rummage::views::MenuItem::id);

@@ -195,11 +195,20 @@ struct Fixture {
         }
     }
 
-    // Down until the item called id is highlighted, then Enter.
+    // Down until the item called id is highlighted in the active submenu, then Enter.
     void choose(const std::string& id) {
-        for (std::size_t i = 0; i < 20; ++i) {
-            const std::optional<std::size_t> at = menu().highlighted();
-            if (at && menu().items()[*at].id == id) {
+        REQUIRE(menu().is_open());
+        const auto depth = menu().open_levels() - 1;
+        const auto* items = &menu().items();
+        for (std::size_t level = 0; level < depth; ++level) {
+            const auto parent = menu().highlighted(level);
+            REQUIRE(parent);
+            REQUIRE(*parent < items->size());
+            items = &(*items)[*parent].children;
+        }
+        for (std::size_t i = 0; i <= items->size(); ++i) {
+            const std::optional<std::size_t> at = menu().highlighted(depth);
+            if (at && (*items)[*at].id == id) {
                 CHECK(press(key(XKB_KEY_Return)));
                 return;
             }
@@ -890,9 +899,14 @@ TEST_CASE("actions: archive presets appear in menu and palette and hand off lite
         },
         [](const auto&, const auto&) { return true; });
     f.browser.open_menu(100, 100, false);
-    const auto here = std::ranges::find(f.menu().items(), "action:extract_here", &MenuItem::id);
-    REQUIRE(here != f.menu().items().end());
+    const auto archives = std::ranges::find(f.menu().items(), "archive_actions", &MenuItem::id);
+    REQUIRE(archives != f.menu().items().end());
+    REQUIRE(archives->submenu);
+    const auto here = std::ranges::find(archives->children, "action:extract_here", &MenuItem::id);
+    REQUIRE(here != archives->children.end());
     REQUIRE(here->enabled);
+    f.choose("archive_actions");
+    REQUIRE(f.menu().submenu_open());
     f.choose("action:extract_here");
     CHECK(launched == std::vector<std::string>{"extract_here", archive.string()});
     const auto items = f.browser.palette_items();
@@ -1398,10 +1412,15 @@ TEST_CASE("actions: missing archive tools remain actionable to explain installat
     f.browser.set_action_handoff([&](const auto&, const auto&) { ++launched; },
                                  [](const auto&, const auto&) { return false; });
     f.browser.open_menu(100, 100, false);
-    const auto item = std::ranges::find(f.menu().items(), "action:extract_here", &MenuItem::id);
-    REQUIRE(item != f.menu().items().end());
+    const auto archives = std::ranges::find(f.menu().items(), "archive_actions", &MenuItem::id);
+    REQUIRE(archives != f.menu().items().end());
+    REQUIRE(archives->submenu);
+    const auto item = std::ranges::find(archives->children, "action:extract_here", &MenuItem::id);
+    REQUIRE(item != archives->children.end());
     CHECK(item->enabled);
     CHECK(item->label.find("setup required") != std::string::npos);
+    f.choose("archive_actions");
+    REQUIRE(f.menu().submenu_open());
     f.choose("action:extract_here");
     CHECK(launched == 1);
     const auto items = f.browser.palette_items();
