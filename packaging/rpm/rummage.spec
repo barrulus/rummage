@@ -33,6 +33,7 @@ BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(harfbuzz)
 BuildRequires:  pkgconfig(freetype2)
 BuildRequires:  pkgconfig(fontconfig)
+BuildRequires:  pkgconfig(vterm) >= 0.3
 BuildRequires:  pkgconfig(tomlplusplus)
 BuildRequires:  cmake(nlohmann_json)
 BuildRequires:  pkgconfig(re2)
@@ -102,11 +103,11 @@ Isolated standalone geometry previews using system Assimp.
 %if 0%{?suse_version}
 %define __builder ninja
 %endif
-%cmake -G Ninja -DRUMMAGE_MODEL=ON -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+%cmake -G Ninja -DRUMMAGE_TERMINAL=ON -DRUMMAGE_MODEL=ON -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
 %if 0%{?suse_version}
-%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage-playback rummage-audio rummage-font rummage-model rummage_photos
+%cmake_build rummage rummage-preview rummage-terminal rummage-media rummage-pdf rummage-playback rummage-audio rummage-font rummage-model rummage_photos
 %else
-%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage-playback rummage-audio rummage-font rummage-model rummage_photos
+%cmake_build --target rummage rummage-preview rummage-terminal rummage-media rummage-pdf rummage-playback rummage-audio rummage-font rummage-model rummage_photos
 %endif
 
 %install
@@ -124,6 +125,7 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_bindir}/rummage
 %dir %{_libexecdir}/rummage
 %{_libexecdir}/rummage/rummage-preview
+%{_libexecdir}/rummage/rummage-terminal
 %{_libexecdir}/rummage/rummage-media
 %{_libexecdir}/rummage/rummage-playback
 %{_libexecdir}/rummage/rummage-audio

@@ -35,6 +35,7 @@ working EGL/GLES and fonts even without a compositor. CMake generates
 | `RUMMAGE_MEDIA` | `ON` | Build the bundled sandboxed FFmpeg helper |
 | `RUMMAGE_PDF` | `ON` | Build the bundled sandboxed PDFium helper |
 | `RUMMAGE_PHOTOS` | `OFF` | Build the optional SQLite photo module |
+| `RUMMAGE_TERMINAL` | `ON` | Native libvterm panel and PTY helper; tests use Bash and optional zsh |
 | `RUMMAGE_FUZZ` | `OFF` | Build libFuzzer targets; requires Clang |
 
 Hardening applies to all project targets, including the C decoder. Fortify level 3

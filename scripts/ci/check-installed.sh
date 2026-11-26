@@ -55,3 +55,5 @@ notify_on_completion = true
 entry = [{ id = "action:compress" }, { remaining = true }]
 TOML
 "$app" --config "$config" --check-config
+
+test -x "$prefix/libexec/rummage/rummage-terminal"

@@ -390,6 +390,17 @@ std::vector<PaletteItem> Browser::palette_items() {
         view_command("zoom_reset", "Usual Size", "Ctrl+0", XKB_KEY_0, {.ctrl = true});
     }
 
+    if (!picker_mode_) {
+        command(Command::toggle_terminal, "toggle_terminal",
+                std::string{i18n::mark("Toggle Terminal")});
+        command(Command::focus_terminal, "focus_terminal",
+                std::string{i18n::mark("Focus Terminal or Files")});
+        command(Command::fzf_navigate, "fzf_navigate",
+                std::string{i18n::mark("Navigate with fzf…")});
+        command(Command::zoxide_jump, "zoxide_jump", std::string{i18n::mark("Jump with zoxide…")});
+        command(Command::shell_command, "shell_command",
+                std::string{i18n::mark("Run Shell Command…")});
+    }
     // Tabs.
     command(Command::new_tab, "new_tab", "New Tab");
     if (!picker_mode_ && new_window_)

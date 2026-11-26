@@ -104,7 +104,9 @@ palette. **Alt+D** edits the breadcrumb path; **Alt+Up** goes to the parent.
 | Shift+Delete | Delete permanently with confirmation | `erase` |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo | `undo`, `redo` |
 | Shift+Escape | Stop the active transfer, extraction, compression or delete | `stop_transfer` |
-| F4 | Open terminal in folder | `open_terminal` |
+| F4 | Open external terminal in folder | `open_terminal` |
+| Shift+F4 | Show or hide embedded terminal | `toggle_terminal` |
+| Ctrl+` | Focus terminal or files | `focus_terminal` |
 
 Copy Location, Extract Here and Extract To have no default shortcuts. Bind their
 IDs `copy_location`, `extract_here`, `extract_to` or `action:<id>` explicitly.
@@ -291,3 +293,6 @@ in the View menu and command palette.
 In an audio/video Quick Look preview, **P** toggles playback, **J/L** seeks five
 seconds, **Home** returns to the beginning, and **+/-** changes volume. Space and
 Escape still close the preview; arrows still select another file.
+
+The [embedded terminal](terminal.md) consumes ordinary browsing shortcuts while focused.
+`fzf_navigate`, `zoxide_jump` and `shell_command` are palette commands with no default binding.

@@ -45,6 +45,7 @@
             withPhotos = true;
             withFont = true;
             withModel = true;
+            withTerminal = true;
           }).overrideAttrs
             {
               pname = "rummage-tests";
@@ -112,6 +113,7 @@
                 withPhotos = true;
                 withFont = true;
                 withModel = true;
+                withTerminal = true;
               })
             ];
             packages = with pkgs; [
@@ -134,6 +136,9 @@
           default = pkgs.mkShell {
             inputsFrom = [ self.packages.${system}.rummage ];
             packages = with pkgs; [
+              libvterm-neovim
+              bashInteractive
+              zsh
               clang-tools
               assimp
               doctest

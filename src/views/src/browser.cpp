@@ -68,6 +68,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       watcher_{watcher},
       mime_{mime},
       quick_look_{pool, mime, std::move(thumbnails), redraw},
+      embedded_terminal_{loop, redraw},
       sidebar_{redraw, resize_cursor(), [this](const fs::Place& place) { open_place(place); }},
       status_bar_{loop, pool, redraw, [this] { open_settings(); }, [this] { shortcuts_.open(); }},
       shortcuts_{redraw},
@@ -2447,6 +2448,7 @@ Browser::~Browser() {
     photo_copy_job_.cancel();
     extension_job_.cancel();
     network_job_.cancel();
+    loop_.remove(terminal_timer_);
     for (const auto& [id, token] : content_jobs_)
         token.cancel();
     loop_.remove(type_jump_timer_);
@@ -4496,6 +4498,14 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
             content.width -= width;
         }
     }
+    if (embedded_terminal_.visible()) {
+        const float terminal_height = embedded_terminal_.height(content.height);
+        embedded_terminal_.draw(
+            renderer,
+            {content.x, content.bottom() - terminal_height, content.width, terminal_height},
+            palette);
+        content.height -= terminal_height;
+    }
     split_bounds_ = content;
     divider_ = {};
     for (auto& owner : areas_)
@@ -4554,8 +4564,12 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     editor_.draw(renderer, palette);
     if (showing_photos() && photo_library_->has_dialog())
         photo_library_->draw_dialogs(renderer, bounds, palette);
-    if (searching_results())
-        pane().search_results->draw(renderer, bounds, palette);
+    if (searching_results()) {
+        auto results_bounds = bounds;
+        if (embedded_terminal_.visible())
+            results_bounds.height = std::max(0.0F, embedded_terminal_.bounds().y - bounds.y);
+        pane().search_results->draw(renderer, results_bounds, palette);
+    }
     if (quick_look_.is_open())
         quick_look_.follow(searching_results() && search_preview_ ? search_preview_
                                                                   : current_folder());
@@ -4996,6 +5010,8 @@ void Browser::take_pointer(const ui::PointerEvent& event, Clock::time_point now)
         photo_library_->pointer_dialog(event);
         return;
     }
+    if (!quick_look_.is_open() && !shortcuts_.is_open() && embedded_terminal_.pointer(event))
+        return;
     if (searching_results()) {
         if (!quick_look_.is_open() && event.kind == ui::PointerEvent::Kind::press &&
             (event.button == ui::PointerButton::back ||
@@ -6660,7 +6676,15 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             photo_library_->key_dialog(event);
         return true;
     }
-    if (searching_results() && !palette_.is_open() && !menu_.is_open()) {
+    if (searching_results() && !palette_.is_open() && !menu_.is_open() &&
+        (!terminal_focused() || quick_look_.is_open() || shortcuts_.is_open())) {
+        if (embedded_terminal_.visible() && !quick_look_.is_open() && !shortcuts_.is_open()) {
+            const auto command = command_for(event);
+            if (command == Command::toggle_terminal || command == Command::focus_terminal) {
+                run(command, now);
+                return true;
+            }
+        }
         if (!quick_look_.is_open() && event.modifiers.alt &&
             (event.keysym == XKB_KEY_Left || event.keysym == XKB_KEY_Right)) {
             travel(event.keysym == XKB_KEY_Left ? -1 : 1);
@@ -6730,6 +6754,20 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
             return true;
         }
         return sidebar_.rename_key(event);  // every key is the bookmark's label meanwhile
+    }
+    if (terminal_focused() && !shortcuts_.is_open() && !quick_look_.is_open()) {
+        const auto command = command_for(event);
+        if (command == Command::toggle_terminal || command == Command::focus_terminal)
+            run(command, now);
+        else if (event.modifiers == ui::Modifiers{.ctrl = true, .shift = true} &&
+                 (event.keysym == XKB_KEY_V || event.keysym == XKB_KEY_v))
+            terminal_paste();
+        else if (event.modifiers == ui::Modifiers{.ctrl = true, .shift = true} &&
+                 (event.keysym == XKB_KEY_C || event.keysym == XKB_KEY_c))
+            copy_text(embedded_terminal_.session().text());
+        else
+            embedded_terminal_.key(event);
+        return true;
     }
     const auto focus_command = command_for(event);
     if (focus_command == Command::focus_files || focus_command == Command::focus_places ||
@@ -7252,6 +7290,21 @@ void Browser::run(Command command, Clock::time_point now) {
                 add_to_sidebar({shown->path()});
             }
             break;
+        case Command::toggle_terminal:
+            toggle_terminal();
+            return;
+        case Command::focus_terminal:
+            focus_terminal();
+            return;
+        case Command::fzf_navigate:
+            terminal_workflow(1);
+            return;
+        case Command::zoxide_jump:
+            terminal_workflow(2);
+            return;
+        case Command::shell_command:
+            terminal_workflow(3);
+            return;
         case Command::open_terminal:
             open_terminal();
             break;

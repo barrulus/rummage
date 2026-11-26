@@ -24,3 +24,9 @@ components' notices under `/usr/share/licenses/rummage-pdf`, including PDFium's
 nested third-party notices. Build tools and test dependencies are not installed
 in the runtime package. The source build and private library layout are described
 in [native PDF packaging](contributing/ci-packaging.md#native-pdf-previews).
+
+## libvterm (optional system library)
+
+The embedded terminal links [Paul Evans’ libvterm](https://www.leonerd.org.uk/code/libvterm/),
+MIT licensed, through its `vterm` pkg-config API. Source is not bundled. The Nix
+dependency is named `libvterm-neovim` to distinguish it from an unrelated library.

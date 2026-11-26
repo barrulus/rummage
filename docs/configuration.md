@@ -320,7 +320,11 @@ update old executable names yourself. See [migration details](install.md#upgradi
 
 ## Terminal and program opening
 
-Settings → General includes the terminal program and its argument list. `[terminal]`
+The [embedded terminal and shell workflows](terminal.md) use `$SHELL`; their
+`toggle_terminal`, `focus_terminal`, `fzf_navigate`, `zoxide_jump` and `shell_command`
+commands are configurable in `[keybindings]`.
+
+Settings → General includes the external terminal program and its argument list. `[terminal]`
 `program = "kitty"` and `args = ["--title", "Files"]` take precedence over `$TERMINAL`.
 Leave the program empty for automatic discovery. Arguments are passed literally, without a shell;
 Rummage adds the terminal's command-launch syntax. Changes apply immediately.

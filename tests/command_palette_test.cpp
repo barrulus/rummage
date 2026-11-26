@@ -501,6 +501,7 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::find_files, "find_files"},
         {Command::select_pattern, "select_pattern"},
         {Command::reset_folder_view, "reset_folder_view"},
+        {Command::reset_column_root, "reset_column_root"},
         {Command::filter_names, "filter_names"},
         {Command::toggle_split, "toggle_split"},
         {Command::switch_pane, "switch_pane"},
@@ -511,6 +512,11 @@ TEST_CASE("palette in the browser: every command is offered where it can be used
         {Command::copy_other_pane, "copy_other_pane"},
         {Command::move_other_pane, "move_other_pane"},
         {Command::go_to, "go_to"},
+        {Command::toggle_terminal, "toggle_terminal"},
+        {Command::focus_terminal, "focus_terminal"},
+        {Command::fzf_navigate, "fzf_navigate"},
+        {Command::zoxide_jump, "zoxide_jump"},
+        {Command::shell_command, "shell_command"},
     };
     for (const rummage::views::Shortcut& shortcut : rummage::views::shortcuts()) {
         if (shortcut.command == Command::parent_folder) {

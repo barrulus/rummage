@@ -19,3 +19,4 @@ usr/share/rummage/engines/pdf.toml
 usr/share/licenses/rummage-pdf/*
 usr/libexec/rummage/rummage-playback
 usr/libexec/rummage/rummage-audio
+usr/libexec/rummage/rummage-terminal

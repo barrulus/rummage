@@ -240,7 +240,12 @@ follow_accent = true
 # context_menu = "Menu"         # Also F10/Shift+F10 by default (Shift is ignored)
 # properties = "Alt+Return"     # File/folder properties and folder icon selection
 # copy_path = "Ctrl+Shift+c"   # Copy the folder's path
-# open_terminal = "F4"          # Open in a terminal
+# open_terminal = "F4"          # Open in an external terminal
+# toggle_terminal = "Shift+F4"   # Embedded terminal panel
+# focus_terminal = "Ctrl+grave" # Focus terminal or files
+# fzf_navigate = ""             # Palette: Navigate with fzf…
+# zoxide_jump = ""              # Palette: Jump with zoxide…
+# shell_command = ""            # Palette: Run Shell Command…
 
 # Folder history
 # back = "Alt+Left"             # Previous location

@@ -49,3 +49,5 @@ are separate from these application guides; start with [Contributing](../CONTRIB
 ## Support development
 
 If you find rummage useful, you can [support its development on Ko-fi](https://ko-fi.com/barrulus).
+
+- [Terminal and shell workflows](terminal.md): embedded panel, cwd synchronization, fzf, zoxide and commands.
