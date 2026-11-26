@@ -247,10 +247,17 @@ void Browser::terminal_workflow(int kind) {
                           quote(terminal_result_.string());
         } else {
             script += quote(sh.string()) + " -c " + quote(command) + " rummage";
-            for (const auto& file : files)
+            for (const auto& file : files) {
                 script += " " + quote(file.string());
+                if (script.size() > 59900)
+                    return std::string{i18n::tr("Command is too long")};
+            }
         }
         script += "; printf '\\n[exit %s]\\n' \"$?\"";
+        if (script.size() > 60000) {
+            terminal_result_.clear();
+            return std::string{i18n::tr("Command is too long")};
+        }
         terminal_script_ = std::move(script);
         return {};
     };
