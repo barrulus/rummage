@@ -22,6 +22,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/platform/opener.hpp"
 #include "temp_dir.hpp"
+#include "xattr_support.hpp"
 
 using rummage::core::EventLoop;
 using rummage::core::WorkerPool;
@@ -282,6 +283,7 @@ TEST_CASE(
     const auto tool = dir.path / "tool";
     fs::copy_file(harmless_program(), tool);
     fs::permissions(tool, fs::perms::owner_all);
+    const bool xattrs = rummage::test::user_xattrs_available(tool);
     int fd = ::open(tool.c_str(), O_RDONLY | O_CLOEXEC);
     REQUIRE(fd >= 0);
     REQUIRE_FALSE(rummage::fs::mark_archive_origin(fd, "archive"));
@@ -309,7 +311,10 @@ TEST_CASE(
     REQUIRE(
         run_until(loop, [&] { return !opener.planning() && opener.launcher().running() == 0; }));
     CHECK(reports == std::vector<std::pair<std::string, bool>>{{"Starting tool…", false}});
-    CHECK(rummage::fs::archive_confirmation_required(tool));
+    CHECK(rummage::fs::archive_confirmation_required(tool) == xattrs);
+    if (!xattrs)
+        CHECK((fs::status(tool).permissions() & (fs::perms::owner_exec | fs::perms::group_exec |
+                                                 fs::perms::others_exec)) == fs::perms::none);
     CHECK_FALSE(rummage::fs::archive_confirmation_required(dir.path / "selected"));
 }
 
@@ -318,6 +323,7 @@ TEST_CASE("opener: automatic program launch retains checked inode while activati
     const auto tool = dir.path / "tool";
     fs::copy_file(harmless_program(), tool);
     fs::permissions(tool, fs::perms::owner_all);
+    const bool xattrs = rummage::test::user_xattrs_available(tool);
     EventLoop loop;
     WorkerPool pool{loop, 1};
     std::function<void(std::string)> activate;
@@ -347,5 +353,8 @@ TEST_CASE("opener: automatic program launch retains checked inode while activati
     // The originally checked ELF exits0; running the marked replacement would exit23.
     CHECK(reports == std::vector<std::pair<std::string, bool>>{{"Starting tool…", false}});
     CHECK_FALSE(asked);
-    CHECK(rummage::fs::archive_confirmation_required(tool));
+    CHECK(rummage::fs::archive_confirmation_required(tool) == xattrs);
+    if (!xattrs)
+        CHECK((fs::status(tool).permissions() & (fs::perms::owner_exec | fs::perms::group_exec |
+                                                 fs::perms::others_exec)) == fs::perms::none);
 }

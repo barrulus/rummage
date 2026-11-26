@@ -26,6 +26,7 @@
 #include "rummage/fs/transfer.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
+#include "xattr_support.hpp"
 
 using rummage::fs::run_extract;
 using rummage::fs::TransferCallbacks;
@@ -180,6 +181,7 @@ TEST_CASE("extract: tar.gz, times and modes kept, setuid dropped") {
     std::string tar = tar_member("run.sh", "#!/bin/sh\n", '0', {}, 04755) +
                       tar_member("secret", "x", '0', {}, 0) + tar_end();
     dir.write("modes.tar", tar);
+    const bool xattrs = rummage::test::user_xattrs_available(dir.path / "modes.tar");
     const TransferResult gz = extract(dir.path / "pax.tar.gz", {"a.txt", "docs"}, dir.path);
     CHECK(gz.errors.empty());
     CHECK(gz.placed == std::vector<std::string>{"a.txt", "docs"});
@@ -191,7 +193,8 @@ TEST_CASE("extract: tar.gz, times and modes kept, setuid dropped") {
     const TransferResult modes = extract(dir.path / "modes.tar", {"run.sh", "secret"}, dir.path);
     CHECK(modes.errors.empty());
     REQUIRE(::stat((dir.path / "run.sh").c_str(), &info) == 0);
-    CHECK((info.st_mode & 07777) == 0755);  // no setuid
+    // Without provenance storage extraction must also remove all execute bits.
+    CHECK((info.st_mode & 07777) == (xattrs ? 0755 : 0644));  // always no setuid
     REQUIRE(::stat((dir.path / "secret").c_str(), &info) == 0);
     CHECK((info.st_mode & 0400) != 0);  // readable by its owner
 }
@@ -329,6 +332,7 @@ TEST_CASE("extract: ZIP and tar.gz executable members retain provenance before p
     for (const bool tar_gz : {false, true}) {
         TempDir dir;
         const auto file = dir.write("program", "ELF fixture");
+        const bool xattrs = rummage::test::user_xattrs_available(file);
         fs::permissions(file, fs::perms::owner_all);
         const auto made =
             rummage::fs::run_compress({.kind = TransferKind::compress,
@@ -343,8 +347,10 @@ TEST_CASE("extract: ZIP and tar.gz executable members retain provenance before p
         const auto unpacked =
             extract(dir.path / made.placed.front(), {"program"}, dir.path / "out");
         CHECK(unpacked.errors.empty());
-        CHECK(rummage::fs::archive_confirmation_required(dir.path / "out/program"));
-        CHECK((fs::status(dir.path / "out/program").permissions() & fs::perms::owner_exec) !=
-              fs::perms::none);
+        CHECK(rummage::fs::archive_confirmation_required(dir.path / "out/program") == xattrs);
+        const auto execute =
+            fs::status(dir.path / "out/program").permissions() &
+            (fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec);
+        CHECK(execute == (xattrs ? fs::perms::owner_exec : fs::perms::none));
     }
 }

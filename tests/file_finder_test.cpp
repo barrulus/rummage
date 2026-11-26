@@ -33,6 +33,7 @@
 #include "rummage/views/command_palette.hpp"
 #include "rummage/views/fuzzy.hpp"
 #include "temp_dir.hpp"
+#include "xattr_support.hpp"
 
 using rummage::core::CancelToken;
 using rummage::core::EventLoop;
@@ -908,11 +909,15 @@ TEST_CASE("annotation search: exact tags rating and comment predicates") {
     const auto file = dir.write("notes.txt", "data");
     const rummage::fs::Annotations values{
         .tags = "Travel, blue", .rating = "4", .comment = "A great trip", .error = {}};
-    REQUIRE(rummage::fs::write_annotations(rummage::fs::permission_target(file), {}, values, 7)
-                .empty());
-    CHECK(search_tree(dir.path, "tag:Travel").files.size() == 1);
+    const bool xattrs = rummage::test::user_xattrs_available(file);
+    const auto error =
+        rummage::fs::write_annotations(rummage::fs::permission_target(file), {}, values, 7);
+    REQUIRE(error.empty() == xattrs);
+    CHECK(search_tree(dir.path, "notes.txt").files.size() == 1);
+    CHECK(search_tree(dir.path, "tag:Travel").files.size() == (xattrs ? 1 : 0));
     CHECK(search_tree(dir.path, "tag:Tra").files.empty());
-    CHECK(search_tree(dir.path, "tag:travel case:fold rating:4 comment:trip").files.size() == 1);
+    CHECK(search_tree(dir.path, "tag:travel case:fold rating:4 comment:trip").files.size() ==
+          (xattrs ? 1 : 0));
     CHECK(search_tree(dir.path, "rating:3").files.empty());
     CHECK_FALSE(rummage::views::parse_search_query("rating:6").error.empty());
 }
