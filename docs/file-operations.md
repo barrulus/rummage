@@ -402,3 +402,55 @@ only that item, not its children, and uses your current user permissions without
 elevation. Symbolic links and read-only archive items do not offer permission edits.
 Ownership and special permission bits are not editable. Filesystem errors and
 changes made externally while Properties was open leave the dialog open with an error.
+
+
+## Choosing applications
+
+**Open With…** in the command palette lists installed, launchable applications,
+including applications without an existing association for the selected type. Choose
+an application, then **Open once** or **Set as default and open**. Mixed-type selections
+can be opened once; setting a default requires files of one known MIME type.
+Applications receive the selection through the normal desktop-entry argument and
+terminal-launch handling. A missing application or early launch failure is reported.
+
+Defaults are saved in your user `mimeapps.list`; unrelated types and comments are
+preserved. Existing current-desktop overrides for the selected type are updated too.
+The associated-applications context submenu reflects the choice on its next opening.
+Read-only configuration and concurrent edits detected during saving are reported.
+If saving several override files partially fails, retry after correcting the error;
+successfully written associations remain saved. No system-wide MIME files are changed.
+
+### Permissions and ownership
+
+Properties accepts multiple selected files and folders. Mixed read/write/execute bits are shown
+as mixed; only bits you edit apply to every selected item. Owner and group accept an account name
+or numeric ID; empty fields leave them unchanged. Changes use your existing privileges and report
+permission failures. For folders, read lists names, write changes contents, and execute permits
+entering/searching the folder.
+
+“Include folder contents” defaults to no. Enabling it applies the same edited fields recursively,
+without following symlinks or crossing filesystems, with bounded traversal. Special mode bits are
+retained unless the kernel clears them after an ownership change. Partial successes remain applied;
+errors name failed items. Retry retains your draft and refreshes successfully validated targets;
+externally changed or replaced targets require reopening Properties. Permission/ownership edits
+are immediate filesystem metadata changes and are not part of file-operation Undo.
+
+### Tags, ratings and comments
+
+Properties edits comma-separated tags, a rating from 0 to 5, and a comment. Multiple selections
+keep mixed fields unchanged until edited. Empty edits remove the corresponding value. The info
+pane displays saved annotations. Search accepts `tag:travel`, `rating:4`, and `comment:trip`;
+tags match whole comma-separated labels, comments match substrings, and `case:fold` ignores ASCII
+case. A missing rating matches `rating:0`.
+
+Annotations live on the file or folder inode in `user.xdg.tags`, `user.rummage.rating`, and
+`user.xdg.comment` extended attributes. Each value is limited to 4096 bytes. Rummage does not
+modify photo sidecars or embedded media metadata. Filesystems without user attributes show a
+clear unavailable/error state rather than storing invisible alternate copies. External tools can
+read/write the same attributes; reopen Properties or refresh search to see external changes.
+Selected fields changed externally are rejected when saving a stale dialog.
+
+Renames, same-filesystem moves, trash and restore keep inode attributes. Rummage copies these
+three attributes with files and directories, including moves implemented by copy-and-delete;
+if an annotated destination cannot store them, the copy fails and the original is retained.
+Hard links share annotations. External copy/archive tools may discard extended attributes.

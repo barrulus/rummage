@@ -11,8 +11,10 @@
 #include <vector>
 
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/annotations.hpp"
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/filesystem.hpp"
+#include "rummage/fs/permissions.hpp"
 #include "rummage/preview/preview.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
@@ -36,6 +38,25 @@ public:
     void open_photo(PhotoProperties properties, PhotoSave save, std::function<void()> changed = {});
     // The first three fields have explicit apply switches, including clearing mixed values.
     void set_photo_field(std::size_t index, std::string value, bool apply = true);
+
+    void open_many(std::vector<std::filesystem::path> paths, std::function<void()> changed,
+                   bool editable = true);
+
+    void set_annotations(std::string tags, std::string rating, std::string comment) {
+        tags_.set_text(std::move(tags));
+        rating_.set_text(std::move(rating));
+        comment_.set_text(std::move(comment));
+        annotation_mask_ = 7;
+    }
+
+    [[nodiscard]] bool can_edit_annotations() const;
+
+    void set_recursive(bool value) { recursive_ = value; }
+
+    void set_owner_group(std::string owner, std::string group) {
+        owner_.set_text(std::move(owner));
+        group_.set_text(std::move(group));
+    }
 
     void open_drive(const std::filesystem::path& path, std::string label) {
         open(path, {}, false, true, std::move(label));
@@ -97,7 +118,8 @@ public:
         if (photo_)
             return photo_apply_[0] || photo_apply_[1] || photo_apply_[2] ||
                    !photo_fields_[3].text().empty() || !photo_fields_[4].text().empty();
-        return draft_ != original_ || permissions_ != (data_.mode & 0777);
+        return annotation_mask_ != 0 || draft_ != original_ || permission_mask_ != 0 ||
+               !owner_.text().empty() || !group_.text().empty();
     }
 
     // Also used by keyboard interaction/tests; choosing only changes the draft.
@@ -114,6 +136,8 @@ public:
 private:
     struct Data {
         fs::Entry entry;
+        std::vector<fs::PermissionTarget> targets;
+        std::vector<fs::Annotations> annotations;
         fs::FilesystemFacts filesystem;
         preview::Info info;
         preview::Summary summary;
@@ -124,6 +148,10 @@ private:
         std::uint16_t mode{0};
         bool owned{false};
     };
+
+    void open_selection(std::vector<std::filesystem::path> paths, std::function<void()> changed,
+                        bool editable, bool drive, std::string label);
+    [[nodiscard]] ui::TextField* editing_field();
 
     struct Control {
         std::string id;
@@ -151,8 +179,12 @@ private:
     std::string drive_label_;
     bool details_expanded_{false}, copy_hovered_{false}, copied_{false};
     std::filesystem::path path_;
+    std::vector<std::filesystem::path> paths_;
     Data data_;
-    std::uint16_t permissions_{0};
+    std::uint16_t permissions_{0}, permission_mask_{0}, mixed_permissions_{0};
+    bool recursive_{false};
+    ui::TextField owner_, group_, tags_, rating_, comment_;
+    unsigned annotation_mask_{0};
     std::string original_, draft_, error_, focus_{"close"};
     std::optional<std::string> catalogue_theme_;
     std::string resolved_theme_{"hicolor"};

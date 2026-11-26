@@ -72,6 +72,14 @@ public:
     // an Exec line whose program (and TryExec) is in the PATH. nullptr otherwise.
     [[nodiscard]] const DesktopEntry* find(std::string_view id) const;
 
+    // Every installed, launchable application, including those not associated with a type.
+    [[nodiscard]] std::vector<const DesktopEntry*> installed() const;
+
+    // Update only the user's MIME configuration, preserving unrelated entries. Blocking.
+    [[nodiscard]] static std::string set_default(const Environment& environment,
+                                                 const fs::MimeDatabase& database,
+                                                 std::string_view mime, std::string_view app_id);
+
     [[nodiscard]] std::size_t entry_count() const noexcept;
 
     // Every type that some mimeapps.list or mimeinfo.cache names, canonical (rummage-open's

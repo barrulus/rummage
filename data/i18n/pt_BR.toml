@@ -1702,5 +1702,25 @@ moves = "mover"
 "Video" = "Vídeo"
 "{} items · Select a row to explore" = "{} itens · Selecione uma linha para explorar"
 
+
+# File metadata and application choices
+"Comment" = "Comentário"
+"File rating" = "Avaliação do arquivo"
+"Folders: read lists, write changes contents, execute enters" = "Pastas: leitura lista, escrita altera conteúdo e execução permite entrar"
+"Group (name or ID; empty keeps current)" = "Grupo (nome ou ID; vazio mantém o atual)"
+"Mixed annotations stay unchanged until edited" = "Anotações diferentes permanecem até serem editadas"
+"Only changed bits apply to all selected items" = "Somente os bits alterados se aplicam a todos os itens selecionados"
+"Open once" = "Abrir uma vez"
+"Owner (name or ID; empty keeps current)" = "Proprietário (nome ou ID; vazio mantém o atual)"
+"Selected items" = "Itens selecionados"
+"Set as default and open" = "Definir como padrão e abrir"
+"Tags" = "Etiquetas"
+"Tags (comma-separated)" = "Etiquetas (separadas por vírgulas)"
+"{} selected items" = "{} itens selecionados"
+"Include folder contents: yes" = "Incluir conteúdo das pastas: sim"
+"Include folder contents: no" = "Incluir conteúdo das pastas: não"
+
+"Clear annotations" = "Limpar anotações"
+
 [contexts.file-action]
 "Open" = "Abrir"

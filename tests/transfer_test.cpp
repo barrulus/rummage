@@ -21,6 +21,7 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/annotations.hpp"
 #include "rummage/fs/transfer_queue.hpp"
 #include "temp_dir.hpp"
 
@@ -1243,4 +1244,24 @@ TEST_CASE("transfer tasks: cancelling a conflict also wakes a paused transfer") 
     REQUIRE(run_until(loop, [&] { return done.has_value(); }));
     CHECK(done->cancelled);
     CHECK(read_file(t.to / "notes.txt") == "old");
+}
+
+TEST_CASE("transfer: file and directory annotations survive copy and move") {
+    const Tree tree;
+    const rummage::fs::Annotations value{
+        .tags = "keep", .rating = "5", .comment = "remember", .error = {}};
+    for (const auto& path : {tree.from / "Trip", tree.from / "Trip/a.jpg"})
+        REQUIRE(rummage::fs::write_annotations(rummage::fs::permission_target(path), {}, value, 7)
+                    .empty());
+    auto request = TransferRequest{
+        .kind = TransferKind::copy, .source = tree.from, .names = {"Trip"}, .destination = tree.to};
+    SUBCASE("copy") {}
+    SUBCASE("move through copy") {
+        request.kind = TransferKind::move;
+        request.force_copy = true;
+    }
+    const auto result = rummage::fs::run_transfer(request, {}, {});
+    CHECK(result.errors.empty());
+    CHECK(rummage::fs::read_annotations(tree.to / "Trip") == value);
+    CHECK(rummage::fs::read_annotations(tree.to / "Trip/a.jpg") == value);
 }

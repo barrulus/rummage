@@ -44,6 +44,19 @@ PropertiesDialog::~PropertiesDialog() {
 
 void PropertiesDialog::open(std::filesystem::path path, std::function<void()> changed,
                             bool editable, bool drive, std::string label) {
+    open_selection({std::move(path)}, std::move(changed), editable, drive, std::move(label));
+}
+
+void PropertiesDialog::open_many(std::vector<std::filesystem::path> paths,
+                                 std::function<void()> changed, bool editable) {
+    open_selection(std::move(paths), std::move(changed), editable, false, {});
+}
+
+void PropertiesDialog::open_selection(std::vector<std::filesystem::path> paths,
+                                      std::function<void()> changed, bool editable, bool drive,
+                                      std::string label) {
+    if (paths.empty())
+        return;
     if (saving_)
         return;
     ++generation_;
@@ -55,7 +68,8 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     details_expanded_ = copy_hovered_ = copied_ = false;
     text_.reset();
     load_job_.cancel();
-    path_ = std::move(path);
+    paths_ = std::move(paths);
+    path_ = paths_.front();
     if (!path_.has_filename() && path_ != path_.root_path())
         path_ = path_.parent_path();
     changed_ = std::move(changed);
@@ -65,7 +79,14 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     drive_ = drive;
     drive_label_ = std::move(label);
     data_ = {};
-    permissions_ = 0;
+    permissions_ = permission_mask_ = mixed_permissions_ = 0;
+    recursive_ = false;
+    annotation_mask_ = 0;
+    tags_.set_text({});
+    rating_.set_text({});
+    comment_.set_text({});
+    owner_.set_text({});
+    group_.set_text({});
     draft_.clear();
     original_.clear();
     error_.clear();
@@ -73,7 +94,7 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     focus_ = "close";
     load_job_ = pool_.submit(
         core::Priority::visible,
-        [path = path_, mime = mime_, drive](const core::CancelToken& token) {
+        [path = path_, paths = paths_, mime = mime_, drive](const core::CancelToken& token) {
             Data result;
             if (drive) {
                 result.entry.kind = fs::EntryKind::directory;
@@ -81,6 +102,10 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
                 if (result.filesystem.error)
                     result.info.error = result.filesystem.error.message();
                 return result;
+            }
+            for (const auto& selected : paths) {
+                result.targets.push_back(fs::permission_target(selected));
+                result.annotations.push_back(fs::read_annotations(selected));
             }
             const auto parent = path == path.root_path() ? path : path.parent_path();
             const auto name = path == path.root_path() ? "." : path.filename().string();
@@ -113,7 +138,21 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
             data_ = std::move(data);
             original_ = draft_ = data_.icon;
             permissions_ = data_.mode & 0777;
+            for (const auto& target : data_.targets)
+                if (target.error.empty())
+                    mixed_permissions_ |= (target.mode ^ permissions_) & 0777;
             error_ = data_.info.error;
+            if (!data_.annotations.empty()) {
+                const auto& first = data_.annotations.front();
+                const auto same = [&](auto member) {
+                    return std::ranges::all_of(data_.annotations, [&](const auto& item) {
+                        return item.*member == first.*member;
+                    });
+                };
+                tags_.set_text(same(&fs::Annotations::tags) ? first.tags : "");
+                rating_.set_text(same(&fs::Annotations::rating) ? first.rating : "");
+                comment_.set_text(same(&fs::Annotations::comment) ? first.comment : "");
+            }
             loading_ = false;
             focus_ = can_edit_icon() ? "change" : "close";
             redraw_();
@@ -133,6 +172,7 @@ void PropertiesDialog::open_photo(PhotoProperties properties, PhotoSave save,
     scrollbar_ = ui::Scrollbar{};
     details_expanded_ = copy_hovered_ = copied_ = false;
     text_.reset();
+    paths_.clear();
     path_ = properties.path;
     changed_ = std::move(changed);
     photo_ = std::move(properties);
@@ -267,18 +307,28 @@ void PropertiesDialog::close() {
 }
 
 bool PropertiesDialog::can_edit_icon() const {
-    return open_ && !loading_ && !saving_ && editable_ && data_.entry.is_directory() &&
-           data_.info.error.empty() && data_.icon_error.empty();
+    return open_ && !loading_ && !saving_ && editable_ && paths_.size() == 1 &&
+           data_.entry.is_directory() && data_.info.error.empty() && data_.icon_error.empty();
 }
 
 bool PropertiesDialog::can_edit_permissions() const {
-    return open_ && !loading_ && !saving_ && editable_ && data_.owned;
+    return open_ && !loading_ && !saving_ && editable_ &&
+           std::ranges::any_of(data_.targets,
+                               [](const auto& target) { return target.error.empty(); });
+}
+
+bool PropertiesDialog::can_edit_annotations() const {
+    return open_ && !loading_ && !saving_ && editable_ && !drive_ &&
+           std::ranges::any_of(data_.annotations,
+                               [](const auto& value) { return value.error.empty(); });
 }
 
 void PropertiesDialog::set_permissions(std::uint16_t permissions) {
     if (!can_edit_permissions())
         return;
     permissions_ = permissions & 0777;
+    permission_mask_ = 0777;
+    mixed_permissions_ = 0;
     error_.clear();
     redraw_();
 }
@@ -315,13 +365,15 @@ void PropertiesDialog::apply() {
         apply_photo();
         return;
     }
-    if ((!can_edit_icon() && !can_edit_permissions()) || !dirty())
+    if ((!can_edit_icon() && !can_edit_permissions() && !can_edit_annotations()) || !dirty())
         return;
 
     struct Saved {
         std::string error;
-        bool mode{false};
         bool icon{false};
+        std::vector<fs::PermissionTarget> targets;
+        std::vector<fs::Annotations> annotations;
+        std::string owner, group;
     };
 
     saving_ = true;
@@ -329,9 +381,15 @@ void PropertiesDialog::apply() {
     save_job_ = pool_.submit(
         core::Priority::visible,
         [path = path_, icon = draft_, device = data_.device, inode = data_.inode,
-         before = data_.mode, permissions = permissions_,
-         icon_changed = draft_ != original_](const core::CancelToken&) {
+         targets = data_.targets, annotation_before = data_.annotations,
+         annotations = fs::Annotations{tags_.text(), rating_.text(), comment_.text(), {}},
+         annotation_mask = annotation_mask_,
+         edit = fs::PermissionEdit{permission_mask_, permissions_, owner_.text(), group_.text(),
+                                   recursive_},
+         icon_changed = draft_ != original_](const core::CancelToken& token) {
             Saved saved;
+            saved.targets = targets;
+            saved.annotations = annotation_before;
             const auto save = [&]() -> std::string {
                 struct stat info{};
                 if (::stat(path.c_str(), &info) != 0 || info.st_dev != device ||
@@ -344,16 +402,47 @@ void PropertiesDialog::apply() {
                         return error;
                     saved.icon = true;
                 }
-                if (permissions != (before & 0777)) {
-                    const auto error =
-                        fs::set_permissions(path, device, inode, before, permissions);
-                    if (!error.empty())
-                        return error;
-                    saved.mode = true;
+                if (annotation_mask) {
+                    std::string errors;
+                    for (std::size_t i = 0; i < targets.size(); ++i) {
+                        if (token.cancelled())
+                            return std::string{"Cancelled"};
+                        const auto error = fs::write_annotations(targets[i], annotation_before[i],
+                                                                 annotations, annotation_mask);
+                        if (error.empty()) {
+                            saved.annotations[i] = fs::read_annotations(targets[i].path);
+                        } else {
+                            if (!errors.empty())
+                                errors += "\n";
+                            errors += targets[i].path.filename().string() + ": " + error;
+                        }
+                    }
+                    if (!errors.empty())
+                        return errors;
+                }
+                if (edit.mask || !edit.owner.empty() || !edit.group.empty()) {
+                    const auto result =
+                        fs::apply_permissions(targets, edit, [&] { return token.cancelled(); });
+                    for (const auto& refreshed : result.refreshed)
+                        for (auto& target : saved.targets)
+                            if (target.path == refreshed.path)
+                                target = refreshed;
+                    std::string errors;
+                    for (const auto& error : result.errors) {
+                        if (!errors.empty())
+                            errors += "\n";
+                        errors += error;
+                    }
+                    if (!errors.empty())
+                        return errors;
                 }
                 return {};
             };
             saved.error = save();
+            if (!saved.targets.empty()) {
+                saved.owner = fs::owner_name(saved.targets.front().owner);
+                saved.group = fs::group_name(saved.targets.front().group);
+            }
             return saved;
         },
         [this](Saved result) {
@@ -361,8 +450,12 @@ void PropertiesDialog::apply() {
             error_ = std::move(result.error);
             if (result.icon)
                 original_ = draft_;
-            if (result.mode) {
-                data_.mode = static_cast<std::uint16_t>((data_.mode & 07000) | permissions_);
+            data_.targets = std::move(result.targets);
+            data_.annotations = std::move(result.annotations);
+            if (!data_.targets.empty()) {
+                data_.mode = data_.targets.front().mode;
+                data_.info.owner = std::move(result.owner);
+                data_.info.group = std::move(result.group);
                 data_.info.permissions = preview::permissions_text(
                     static_cast<std::uint32_t>(data_.mode) |
                     static_cast<std::uint32_t>(data_.entry.is_directory() ? S_IFDIR : S_IFREG));
@@ -439,13 +532,17 @@ std::vector<std::string> PropertiesDialog::focus_order() const {
         order.push_back("change");
         order.push_back("default");
     }
-    if (can_edit_permissions())
+    if (can_edit_permissions()) {
         for (int bit = 8; bit >= 0; --bit)
             order.push_back("permission:" + std::to_string(bit));
+        order.insert(order.end(), {"owner", "group", "recursive"});
+    }
+    if (can_edit_annotations())
+        order.insert(order.end(), {"tags", "rating", "comment", "clear_annotations"});
     if (!loading_ && copy_)
         order.push_back("copy");
     order.push_back("close");
-    if (can_edit_icon() || can_edit_permissions() || (photo_ && photo_save_))
+    if (can_edit_icon() || can_edit_permissions() || can_edit_annotations() || (photo_ && photo_save_))
         order.push_back("apply");
     return order;
 }
@@ -464,7 +561,18 @@ void PropertiesDialog::activate(std::string_view id) {
         return;
     }
     if (id.starts_with("permission:") && id.size() == 12 && id.back() >= '0' && id.back() <= '8') {
-        set_permissions(static_cast<std::uint16_t>(permissions_ ^ (1U << (id.back() - '0'))));
+        const auto bit = static_cast<std::uint16_t>(1U << (id.back() - '0'));
+        permissions_ = static_cast<std::uint16_t>((mixed_permissions_ & bit) ? permissions_ | bit
+                                                                             : permissions_ ^ bit);
+        permission_mask_ |= bit;
+        mixed_permissions_ &= static_cast<std::uint16_t>(~bit);
+        redraw_();
+    } else if (id == "recursive") {
+        recursive_ = !recursive_;
+        redraw_();
+    } else if (id == "clear_annotations") {
+        set_annotations({}, {}, {});
+        redraw_();
     } else if (id == "details") {
         details_expanded_ = !details_expanded_;
         text_.reset();
@@ -526,6 +634,24 @@ void PropertiesDialog::activate(std::string_view id) {
         choose_icon(std::string{id.substr(5)});
 }
 
+ui::TextField* PropertiesDialog::editing_field() {
+    if (!picking_ && can_edit_permissions()) {
+        if (focus_ == "owner")
+            return &owner_;
+        if (focus_ == "group")
+            return &group_;
+    }
+    if (!picking_ && can_edit_annotations()) {
+        if (focus_ == "tags")
+            return &tags_;
+        if (focus_ == "rating")
+            return &rating_;
+        if (focus_ == "comment")
+            return &comment_;
+    }
+    return nullptr;
+}
+
 bool PropertiesDialog::key(const ui::KeyEvent& event) {
     if (!open_)
         return false;
@@ -559,6 +685,24 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
             redraw_();
             return true;
         }
+    }
+    if (auto* field = editing_field();
+        field && event.keysym != XKB_KEY_Tab && event.keysym != XKB_KEY_ISO_Left_Tab) {
+        const auto before = field->text();
+        if (event.modifiers.ctrl && (event.keysym == XKB_KEY_c || event.keysym == XKB_KEY_x)) {
+            const auto selected = event.keysym == XKB_KEY_x ? field->cut() : field->selected_text();
+            if (copy_ && !selected.empty())
+                copy_(selected);
+        } else {
+            field->key(event);
+        }
+        if (before != field->text())
+            annotation_mask_ |= focus_ == "tags"      ? 1U
+                                : focus_ == "rating"  ? 2U
+                                : focus_ == "comment" ? 4U
+                                                      : 0U;
+        redraw_();
+        return true;
     }
     if (!picking_ && text_.key(event)) {
         redraw_();
@@ -594,6 +738,8 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
         ui::Rect rect{};
         if (const int index = photo_field_index(); index >= 0)
             rect = photo_fields_[static_cast<std::size_t>(index)].bounds();
+        else if (auto* field = editing_field())
+            rect = field->bounds();
         else if (focus_ == "search")
             rect = search_.bounds();
         else if (focus_ == "custom")
@@ -606,7 +752,9 @@ bool PropertiesDialog::key(const ui::KeyEvent& event) {
                     rect = control.rect;
         if (focus_ == "change" || focus_ == "default" || focus_ == "search" || focus_ == "custom" ||
             focus_ == "grid" || focus_ == "details" || focus_.starts_with("permission:") ||
-            focus_.starts_with("photo:") || focus_.starts_with("photo-apply:")) {
+            focus_.starts_with("photo:") || focus_.starts_with("photo-apply:") ||
+            focus_ == "owner" || focus_ == "group" || focus_ == "recursive" || focus_ == "tags" ||
+            focus_ == "rating" || focus_ == "comment" || focus_ == "clear_annotations") {
             if (rect.y < content_.y)
                 scroller_.jump_to(scroller_.offset() + rect.y - content_.y);
             else if (rect.bottom() > content_.bottom())
@@ -681,7 +829,18 @@ void PropertiesDialog::paste(std::string_view text) {
             return;
         }
     }
-    if (!open_ || !picking_ || saving_)
+    if (!open_ || saving_)
+        return;
+    if (auto* field = editing_field()) {
+        field->insert(text.substr(0, text.find_first_of("\r\n")));
+        annotation_mask_ |= focus_ == "tags"      ? 1U
+                            : focus_ == "rating"  ? 2U
+                            : focus_ == "comment" ? 4U
+                                                  : 0U;
+        redraw_();
+        return;
+    }
+    if (!picking_)
         return;
     text = text.substr(0, text.find_first_of("\r\n"));
     if (focus_ == "search") {
@@ -741,6 +900,21 @@ void PropertiesDialog::pointer(const ui::PointerEvent& event) {
             }
         }
     }
+    if (!picking_ && (can_edit_permissions() || can_edit_annotations()) &&
+        content_.contains(event.x, event.y)) {
+        for (auto [name, field] :
+             {std::pair{"owner", &owner_}, std::pair{"group", &group_}, std::pair{"tags", &tags_},
+              std::pair{"rating", &rating_}, std::pair{"comment", &comment_}}) {
+            const bool identity = field == &owner_ || field == &group_;
+            if ((identity ? can_edit_permissions() : can_edit_annotations()) &&
+                field->bounds().contains(event.x, event.y) && field->pointer(event)) {
+                focus_ = name;
+                text_.clear_focus();
+                redraw_();
+                return;
+            }
+        }
+    }
     if (!picking_ && text_.pointer(event)) {
         focus_ = "text";
         redraw_();
@@ -788,6 +962,11 @@ ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
         for (const auto& field : photo_fields_)
             if (field.bounds().contains(x, y))
                 return ui::CursorShape::text;
+    if (!picking_ && can_edit_permissions() && content_.contains(x, y) &&
+        (owner_.bounds().contains(x, y) || group_.bounds().contains(x, y) ||
+         tags_.bounds().contains(x, y) || rating_.bounds().contains(x, y) ||
+         comment_.bounds().contains(x, y)))
+        return ui::CursorShape::text;
     if (!picking_ && text_.cursor_at(x, y) == ui::CursorShape::text)
         return ui::CursorShape::text;
     for (const auto& control : controls_) {
@@ -837,6 +1016,10 @@ std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows
         }
         return rows;
     }
+    if (paths_.size() > 1)
+        return {{std::string{i18n::mark("Selected items")}, std::to_string(paths_.size())},
+                {std::string{i18n::mark("Permissions")},
+                 std::string{i18n::tr("Only changed bits apply to all selected items")}}};
     if (drive_) {
         const auto& facts = data_.filesystem;
         const auto value = [this, &facts](std::uint64_t size) {
@@ -895,6 +1078,19 @@ std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows
     rows.insert(rows.end(), content.begin(), content.end());
     if (!data_.info.link_target.empty())
         rows.emplace_back("Link target", data_.info.link_target);
+    if (!data_.annotations.empty()) {
+        const auto& annotations = data_.annotations.front();
+        if (!annotations.error.empty())
+            rows.emplace_back(std::string{i18n::mark("Annotations")}, annotations.error);
+        else {
+            if (!annotations.tags.empty())
+                rows.emplace_back(std::string{i18n::mark("Tags")}, annotations.tags);
+            if (!annotations.rating.empty())
+                rows.emplace_back(std::string{i18n::mark("File rating")}, annotations.rating);
+            if (!annotations.comment.empty())
+                rows.emplace_back(std::string{i18n::mark("Comment")}, annotations.comment);
+        }
+    }
     return rows;
 }
 
@@ -910,12 +1106,19 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
     const float row_height = 26.0F;
     const bool photo_controls = photo_ && photo_save_;
-    const bool permission_controls = editable_ && data_.owned;
-    const bool folder_controls = data_.entry.is_directory() && editable_;
+    const bool permission_controls =
+        !loading_ && editable_ && !drive_ &&
+        std::ranges::any_of(data_.targets, [](const auto& target) { return target.error.empty(); });
+    const bool annotation_controls = !loading_ && editable_ && !drive_ &&
+                                     std::ranges::any_of(data_.annotations, [](const auto& value) {
+                                         return value.error.empty();
+                                     });
+    const bool folder_controls = paths_.size() == 1 && data_.entry.is_directory() && editable_;
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
     const std::string name = photo_ && !photo_->title.empty()  ? photo_->title
+                             : paths_.size() > 1              ? i18n::trf("{} selected items", paths_.size())
                              : drive_ && !drive_label_.empty() ? drive_label_
                              : path_.filename().empty()        ? path_.string()
                                                                : path_.filename().string();
@@ -1006,7 +1209,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float photo_controls_height = 330 + photo_help_height + photo_date_help_height + 16;
     const float natural_height = picking_
                                      ? 550.0F
-                                     : rows_top + rows_height + (permission_controls ? 132 : 0) +
+                                     : rows_top + rows_height + (permission_controls ? 310 : 0) +
+                                           (annotation_controls ? 230 : 0) +
                                            (photo_controls ? photo_controls_height : 0) +
                                            (folder_controls ? 40 + icon_height + 8 : 0) +
                                            (folder_hint ? hint_height + 8 : 0) +
@@ -1029,13 +1233,18 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.draw_text(value, x, y, size, dim ? palette.on_surface_variant : palette.on_surface,
                            space, ui::Ellipsis::middle);
     };
-    const auto button = [&](std::string id, std::string label, ui::Rect rect, bool enabled = true,
-                            bool primary = false) {
+    const auto button = [&](std::string id, std::string_view label, ui::Rect rect,
+                            bool enabled = true, bool primary = false) {
         draw_dialog_button(renderer, rect, palette, i18n::tr(label), focus_ == id,
                            primary && enabled ? DialogButton::primary : DialogButton::normal);
         if (!enabled)
             renderer.fill_rect(rect, palette.surface_container_high.with_alpha(0.55F));
         controls_.push_back({std::move(id), rect, enabled});
+    };
+    const auto field_colors = [&](bool focused) {
+        return ui::FieldColors{palette.surface, focused ? palette.primary : palette.outline_variant,
+                               palette.on_surface, palette.primary_container,
+                               focused ? palette.primary : ui::Color{}};
     };
     const float bottom = top + natural_height - 56;
     if (picking_) {
@@ -1044,12 +1253,6 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         if (!preview_icons_)
             preview_icons_ = std::make_unique<ui::IconSet>(renderer.fonts());
         preview_icons_->set_theme(resolved_theme_);
-        const auto field_colors = [&](bool focused) {
-            return ui::FieldColors{palette.surface,
-                                   focused ? palette.primary : palette.outline_variant,
-                                   palette.on_surface, palette.primary_container,
-                                   focused ? palette.primary : ui::Color{}};
-        };
         text(i18n::tr("Search folder icons"), left, top + 55, 12, room, true);
         search_.draw(renderer, {left, top + 76, room, 30}, 13, field_colors(focus_ == "search"));
         grid_ = {left, top + 120, room, std::max(90.0F, bottom - (top + 120) - 136)};
@@ -1205,13 +1408,48 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 for (std::size_t col = 0; col < 3; ++col) {
                     const auto bit = 8 - (row_index * 3 + col);
                     const bool checked = (permissions_ & (1U << bit)) != 0;
-                    button("permission:" + std::to_string(bit), checked ? "✓" : "−",
+                    button("permission:" + std::to_string(bit),
+                           (mixed_permissions_ & (1U << bit)) ? "Mixed"
+                           : checked                          ? "✓"
+                                                              : "−",
                            {left + label_space + static_cast<float>(col) * cell, y, cell - 6, 28},
                            can_edit_permissions(), checked);
                 }
                 y += 34;
             }
             y += 6;
+            text(i18n::tr("Folders: read lists, write changes contents, execute enters"), left, y,
+                 11, room);
+            y += 24;
+            text(i18n::tr("Owner (name or ID; empty keeps current)"), left, y, 11, room);
+            y += 18;
+            owner_.draw(renderer, {left, y, room, 28}, 13, field_colors(focus_ == "owner"));
+            y += 34;
+            text(i18n::tr("Group (name or ID; empty keeps current)"), left, y, 11, room);
+            y += 18;
+            group_.draw(renderer, {left, y, room, 28}, 13, field_colors(focus_ == "group"));
+            y += 34;
+            button("recursive",
+                   recursive_ ? i18n::tr("Include folder contents: yes")
+                              : i18n::tr("Include folder contents: no"),
+                   {left, y, room, 28}, can_edit_permissions(), recursive_);
+            y += 38;
+        }
+        if (annotation_controls) {
+            text(i18n::tr("Mixed annotations stay unchanged until edited"), left, y, 11, room);
+            y += 24;
+            const auto annotation = [&](const char* id, std::string_view label,
+                                        ui::TextField& field) {
+                text(i18n::tr(label), left, y, 11, room);
+                y += 18;
+                field.draw(renderer, {left, y, room, 28}, 13, field_colors(focus_ == id));
+                y += 36;
+            };
+            annotation("tags", i18n::mark("Tags (comma-separated)"), tags_);
+            annotation("rating", i18n::mark("Rating (0–5)"), rating_);
+            annotation("comment", i18n::mark("Comment"), comment_);
+            button("clear_annotations", i18n::mark("Clear annotations"), {left, y, room, 28});
+            y += 38;
         }
         if (folder_controls) {
             button("change", "Change Icon…", {left, y, 144, 32}, can_edit_icon());
@@ -1262,12 +1500,17 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     } else {
         button("close", dirty() ? "Cancel" : "Close",
                {card.right() -
-                    ((folder_controls || permission_controls || photo_controls) ? 232 : 124),
+                    ((folder_controls || permission_controls || annotation_controls || photo_controls)
+                         ? 232
+                         : 124),
                 footer, 100, 34},
                !saving_);
-        if (folder_controls || permission_controls || photo_controls)
+        if (folder_controls || permission_controls || annotation_controls || photo_controls)
             button("apply", saving_ ? "Saving…" : "Apply", {card.right() - 124, footer, 100, 34},
-                   (can_edit_icon() || can_edit_permissions() || photo_controls) && dirty(), true);
+                   (can_edit_icon() || can_edit_permissions() || can_edit_annotations() ||
+                    photo_controls) &&
+                       dirty(),
+                   true);
     }
 }
 

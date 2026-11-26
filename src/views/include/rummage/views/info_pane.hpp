@@ -14,6 +14,7 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/annotations.hpp"
 #include "rummage/fs/measure.hpp"
 #include "rummage/platform/code_stats.hpp"
 #include "rummage/preview/preview.hpp"
@@ -243,6 +244,7 @@ private:
     std::string key_;  // what summary_ is (or will be) about
     std::optional<core::CancelToken> job_;
     std::shared_ptr<const preview::Summary> summary_;
+    fs::Annotations annotations_;
     std::shared_ptr<const preview::Summary> held_;  // the one before, drawn while kHold lasts
     core::EventLoop::SourceId hold_timer_{0};
     Measurement folder_measure_, selection_measure_;

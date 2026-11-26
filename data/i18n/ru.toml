@@ -1704,5 +1704,25 @@ moves = "перемещение"
 "Video" = "Видео"
 "{} items · Select a row to explore" = "{} элементов · Выберите строку для просмотра"
 
+
+# File metadata and application choices
+"Comment" = "Комментарий"
+"File rating" = "Оценка файла"
+"Folders: read lists, write changes contents, execute enters" = "Папки: чтение — список, запись — изменение содержимого, исполнение — вход"
+"Group (name or ID; empty keeps current)" = "Группа (имя или ID; пустое поле сохраняет значение)"
+"Mixed annotations stay unchanged until edited" = "Различающиеся аннотации сохраняются до редактирования"
+"Only changed bits apply to all selected items" = "Только изменённые биты применяются ко всем выбранным объектам"
+"Open once" = "Открыть один раз"
+"Owner (name or ID; empty keeps current)" = "Владелец (имя или ID; пустое поле сохраняет значение)"
+"Selected items" = "Выбранные объекты"
+"Set as default and open" = "Сделать приложением по умолчанию и открыть"
+"Tags" = "Метки"
+"Tags (comma-separated)" = "Метки (через запятую)"
+"{} selected items" = "Выбрано объектов: {}"
+"Include folder contents: yes" = "Включить содержимое папок: да"
+"Include folder contents: no" = "Включить содержимое папок: нет"
+
+"Clear annotations" = "Очистить аннотации"
+
 [contexts.file-action]
 "Open" = "Открыть"

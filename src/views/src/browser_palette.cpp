@@ -151,8 +151,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
     const bool editable = folder && !in_trash && !folder->is_archive();
-    if (folder && !folder->is_archive() && (names.size() <= 1 || properties_window_) &&
-        (!in_trash || !names.empty()))
+    if (folder && !folder->is_archive() && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
     if (editable && !picker_mode_) {
@@ -657,37 +656,71 @@ void Browser::open_with_palette() {
     fs::Entry typed = *cursor;
     typed.mime = folder->mime_of(*cursor);
     ++menu_loads_;
-    choices_(folder->path(), std::move(typed),
-             [this, alive = alive_, directory = folder->path(),
-              files = std::move(files)](const std::vector<AppChoice>& apps) {
-                 if (!*alive) {
-                     return;
-                 }
-                 --menu_loads_;
-                 if (palette_.is_open() || menu_.is_open()) {
-                     return;  // something else meanwhile
-                 }
-                 std::vector<PaletteItem> items;
-                 items.reserve(apps.size());
-                 for (const AppChoice& app : apps) {
-                     items.push_back({.id = "open_with:" + app.id,
-                                      .label = app.is_default
-                                                   ? app.name + std::string{i18n::tr(" (default)")}
-                                                   : app.name,
+    (all_choices_ ? all_choices_ : choices_)(
+        folder->path(), std::move(typed),
+        [this, alive = alive_, directory = folder->path(),
+         files = std::move(files)](const std::vector<AppChoice>& apps) {
+            if (!*alive) {
+                return;
+            }
+            --menu_loads_;
+            if (palette_.is_open() || menu_.is_open()) {
+                return;  // something else meanwhile
+            }
+            std::vector<PaletteItem> items;
+            items.reserve(apps.size());
+            for (const AppChoice& app : apps) {
+                items.push_back(
+                    {.id = "open_with:" + app.id,
+                     .label =
+                         app.is_default ? app.name + std::string{i18n::tr(" (default)")} : app.name,
+                     .keys = {},
+                     .remember = false,
+                     .action =
+                         [this, directory, files, id = app.id, name = app.name] {
+                             if (!make_default_) {
+                                 open_with_(directory, files, id);
+                                 return;
+                             }
+                             std::vector<PaletteItem> options;
+                             options.push_back(
+                                 {.id = "application:once",
+                                  .label = std::string{i18n::tr("Open once")},
+                                  .keys = {},
+                                  .remember = false,
+                                  .action = [this, directory, files,
+                                             id] { open_with_(directory, files, id); },
+                                  .path = false,
+                                  .quick_look = {},
+                                  .open = {}});
+                             const bool same_type =
+                                 !files.empty() && files.front().mime != fs::kUnknownMime &&
+                                 std::ranges::all_of(files, [&](const auto& entry) {
+                                     return entry.mime == files.front().mime;
+                                 });
+                             if (same_type)
+                                 options.push_back(
+                                     {.id = "application:default",
+                                      .label = std::string{i18n::tr("Set as default and open")},
                                       .keys = {},
                                       .remember = false,
                                       .action = [this, directory, files,
-                                                 id = app.id] { open_with_(directory, files, id); },
+                                                 id] { make_default_(directory, files, id); },
                                       .path = false,
                                       .quick_look = {},
                                       .open = {}});
-                 }
-                 if (items.empty()) {
-                     show_message(std::string{i18n::tr("No applications open it")}, false);
-                     return;
-                 }
-                 palette_.open(std::move(items), {}, std::string{i18n::tr("Open with…")});
-             });
+                             palette_.open(std::move(options), {}, name);
+                         },
+                     .path = false,
+                     .quick_look = {},
+                     .open = {}});
+            }
+            if (items.empty()) {
+                show_message(std::string{i18n::tr("No applications open it")}, false);
+                return;
+            }
+            palette_.open(std::move(items), {}, std::string{i18n::tr("Open with…")});
+        });
 }
 
 void Browser::open_finder() {

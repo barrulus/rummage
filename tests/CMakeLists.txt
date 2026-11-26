@@ -22,6 +22,7 @@ add_test(NAME log-transport COMMAND rummage-log-tests)
 add_executable(rummage-tests
     batch_rename_test.cpp
     permissions_test.cpp
+    annotations_test.cpp
     program_test.cpp
     actions_test.cpp
     archives_test.cpp

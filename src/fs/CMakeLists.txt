@@ -1,4 +1,5 @@
 add_library(rummage_fs
+    src/annotations.cpp
     src/archive_folder.cpp
     src/compress.cpp
     src/extract.cpp

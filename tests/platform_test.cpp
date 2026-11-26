@@ -590,3 +590,105 @@ TEST_CASE("applications: every one for a type, in GLib's order, the default firs
     CHECK(platform::plan_open(files, apps, *sys.mime, sys.environment, "nope.desktop").problems ==
           std::vector<std::string>{"nope.desktop is not installed"});
 }
+
+TEST_CASE(
+    "applications: general chooser includes unassociated apps and respects hidden overrides") {
+    System sys;
+    sys.program("viewer");
+    sys.app("share", "viewer.desktop", "viewer");
+    sys.app("share", "hidden.desktop", "viewer");
+    sys.app("home", "hidden.desktop", "viewer", "Hidden=true\n");
+    sys.app("share", "missing.desktop", "missing");
+    const auto apps = Applications::load(sys.environment, *sys.mime);
+    CHECK(apps.all_for("image/png", *sys.mime).empty());
+    const auto all = apps.installed();
+    REQUIRE(all.size() == 1);
+    CHECK(all.front()->id == "viewer.desktop");
+}
+
+TEST_CASE("applications: setting defaults preserves unrelated text and desktop precedence") {
+    System sys;
+    sys.program("viewer");
+    sys.app("share", "viewer.desktop", "viewer");
+    sys.app("share", "other.desktop", "viewer");
+    sys.environment.desktops = {"test", "second"};
+    sys.dir.write(
+        "config/mimeapps.list",
+        "# preserve me\n[Default "
+        "Applications]\ntext/plain=other.desktop;\nimage/png=other.desktop;\n[Added "
+        "Associations]\nimage/png=other.desktop;\n[Removed "
+        "Associations]\nimage/png=viewer.desktop;blocked.desktop;\n[Custom]\nkey=value\n");
+    sys.dir.write(
+        "config/test-mimeapps.list",
+        "# desktop\n[Default Applications]\nimage/png=other.desktop;\ntext/plain=other.desktop;\n");
+    const auto error =
+        Applications::set_default(sys.environment, *sys.mime, "image/png", "viewer.desktop");
+    REQUIRE_MESSAGE(error.empty(), error);
+    CHECK(sys.default_for("image/png") == "viewer.desktop");
+    CHECK(sys.default_for("text/plain") == "other.desktop");
+    const auto text = read_file(sys.dir.path / "config/mimeapps.list");
+    CHECK(text.starts_with("# preserve me\n"));
+    CHECK(text.find("[Custom]\nkey=value\n") != std::string::npos);
+    platform::MimeApps lists;
+    lists.add(text);
+    CHECK(lists.types["image/png"].added ==
+          std::vector<std::string>{"viewer.desktop", "other.desktop"});
+    CHECK(lists.types["image/png"].removed == std::vector<std::string>{"blocked.desktop"});
+    CHECK_FALSE(fs::exists(sys.dir.path / "config/second-mimeapps.list"));
+    CHECK_FALSE(fs::exists(sys.dir.path / "etc/mimeapps.list"));
+    const auto saved = read_file(sys.dir.path / "config/mimeapps.list");
+    CHECK_FALSE(
+        Applications::set_default(sys.environment, *sys.mime, "image/png", "missing.desktop")
+            .empty());
+    CHECK_FALSE(
+        Applications::set_default(sys.environment, *sys.mime, "unknown/type", "viewer.desktop")
+            .empty());
+    CHECK(read_file(sys.dir.path / "config/mimeapps.list") == saved);
+}
+
+TEST_CASE("opener: default selection refuses mixed MIME types without launching") {
+    System sys;
+    sys.program("viewer");
+    sys.app("share", "viewer.desktop", "viewer");
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    std::vector<std::pair<std::string, bool>> reports;
+    Opener opener{loop, pool, sys.mime, sys.environment, [&](std::string message, bool error) {
+                      reports.emplace_back(std::move(message), error);
+                  }};
+    opener.set_default_and_open(sys.dir.path,
+                                {{.name = "photo.png", .mime = sys.mime->find("image/png")},
+                                 {.name = "text.txt", .mime = sys.mime->find("text/plain")}},
+                                "viewer.desktop");
+    REQUIRE(run_until(loop, [&] { return !opener.planning(); }));
+    REQUIRE(reports.size() == 1);
+    CHECK(reports.front().second);
+    CHECK_FALSE(fs::exists(sys.dir.path / "config/mimeapps.list"));
+    CHECK(opener.launcher().running() == 0);
+}
+
+TEST_CASE(
+    "applications: aliases duplicate sections and missing final newline keep the selected "
+    "default") {
+    System sys;
+    sys.program("viewer");
+    sys.app("share", "viewer.desktop", "viewer");
+    sys.app("share", "other.desktop", "viewer");
+    REQUIRE(sys.mime->find("image/x-targa") == sys.mime->find("image/x-tga"));
+    sys.environment.desktops = {"test"};
+    sys.dir.write("config/mimeapps.list",
+                  "# preserved\n[Default "
+                  "Applications]\nimage/x-targa=other.desktop;\n[Custom]\nuntouched=yes\n[Default "
+                  "Applications]\nimage/x-tga=other.desktop;\ntext/plain=other.desktop;");
+    sys.dir.write("config/test-mimeapps.list",
+                  "[Default Applications]\nimage/x-targa=other.desktop;");
+    const auto error =
+        Applications::set_default(sys.environment, *sys.mime, "image/x-targa", "viewer.desktop");
+    REQUIRE_MESSAGE(error.empty(), error);
+    CHECK(sys.default_for("image/x-tga") == "viewer.desktop");
+    CHECK(sys.default_for("text/plain") == "other.desktop");
+    const auto text = read_file(sys.dir.path / "config/mimeapps.list");
+    CHECK(text.find("# preserved\n") != std::string::npos);
+    CHECK(text.find("[Custom]\nuntouched=yes\n") != std::string::npos);
+    CHECK(text.find("image/x-targa=") == std::string::npos);
+}

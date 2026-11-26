@@ -347,7 +347,7 @@ TEST_CASE("context menu: the items for one entry, several, empty space; paste on
                                                "sort",
                                                "panes",
                                                "|",
-                                               "-properties"});
+                                               "properties"});
     f.menu().close();
     f.select({"sub"});
     CHECK(f.press(key(XKB_KEY_F10, {.shift = true})));
@@ -1139,7 +1139,9 @@ TEST_CASE("properties: context menu and shortcut open a modal for files and the 
     properties.close();
     f.select({"a.txt", "b.txt"});
     f.press(key(XKB_KEY_Return, {.alt = true}));
-    CHECK_FALSE(properties.is_open());
+    REQUIRE(f.settle());
+    CHECK(properties.is_open());
+    CHECK(properties.can_edit_permissions());
 }
 
 TEST_CASE(
@@ -1888,7 +1890,13 @@ TEST_CASE("properties: embedded image metadata wraps, scrolls and copies in a na
     properties.pointer(
         {.kind = rummage::ui::PointerEvent::Kind::scroll, .x = 180, .y = 300, .wheel_y = 10000});
     draw();
-    const auto rect = properties.text_bounds("PNG · Last custom tag");
+    auto rect = properties.text_bounds("PNG · Last custom tag");
+    properties.pointer({.kind = rummage::ui::PointerEvent::Kind::scroll,
+                        .x = 180,
+                        .y = 300,
+                        .scroll_y = rect.y - 150});
+    draw();
+    rect = properties.text_bounds("PNG · Last custom tag");
     REQUIRE_FALSE(rect.empty());
     CHECK(rect.height > 26);
     CHECK(rect.x >= properties.card_bounds().x);
@@ -1967,8 +1975,9 @@ TEST_CASE("properties: every rwx permission toggle is keyboard accessible") {
     dialog.open(path, [] {});
     REQUIRE(f.settle());
     std::uint16_t mode = 0644;
-    // Close initially has focus. Skip Copy, then visit Others/execute through Owner/read.
-    dialog.key(key(XKB_KEY_Tab, {.shift = true}));
+    // Close initially has focus. Skip Copy, annotation and owner/group/scope controls.
+    for (int i = 0; i < 8; ++i)
+        dialog.key(key(XKB_KEY_Tab, {.shift = true}));
     for (unsigned bit = 0; bit < 9; ++bit) {
         dialog.key(key(XKB_KEY_Tab, {.shift = true}));
         dialog.key(key(XKB_KEY_space));
@@ -2564,4 +2573,25 @@ TEST_CASE(
     dialog.key(key(XKB_KEY_Escape));
     CHECK_FALSE(dialog.is_open());
     CHECK_FALSE(saved);
+}
+
+TEST_CASE("properties: multiple items stage annotations and permissions together") {
+    Fixture f;
+    f.select({"a.txt", "b.txt"});
+    f.browser.show_properties();
+    REQUIRE(f.settle());
+    auto& dialog = f.browser.properties_dialog();
+    REQUIRE(dialog.can_edit_permissions());
+    REQUIRE(dialog.can_edit_annotations());
+    dialog.set_permissions(0600);
+    dialog.set_annotations("project, favorite", "4", "reviewed");
+    dialog.apply();
+    REQUIRE(run_until(f.loop, [&] { return !dialog.saving(); }));
+    REQUIRE_MESSAGE(!dialog.is_open(), dialog.error());
+    for (const auto* name : {"a.txt", "b.txt"}) {
+        struct stat info{};
+        REQUIRE(::stat((f.photos / name).c_str(), &info) == 0);
+        CHECK((info.st_mode & 0777) == 0600);
+        CHECK(rummage::fs::read_annotations(f.photos / name).rating == "4");
+    }
 }

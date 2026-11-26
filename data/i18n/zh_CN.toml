@@ -1702,5 +1702,25 @@ moves = "移动"
 "Video" = "视频"
 "{} items · Select a row to explore" = "{} 个项目 · 选择一行以浏览"
 
+
+# File metadata and application choices
+"Comment" = "备注"
+"File rating" = "文件评分"
+"Folders: read lists, write changes contents, execute enters" = "文件夹：读取列出名称，写入更改内容，执行允许进入"
+"Group (name or ID; empty keeps current)" = "组（名称或 ID；留空保留当前值）"
+"Mixed annotations stay unchanged until edited" = "不同的注释在编辑前保持不变"
+"Only changed bits apply to all selected items" = "仅将更改的权限位应用于所有选中项目"
+"Open once" = "打开一次"
+"Owner (name or ID; empty keeps current)" = "所有者（名称或 ID；留空保留当前值）"
+"Selected items" = "选中项目"
+"Set as default and open" = "设为默认并打开"
+"Tags" = "标签"
+"Tags (comma-separated)" = "标签（逗号分隔）"
+"{} selected items" = "{} 个选中项目"
+"Include folder contents: yes" = "包含文件夹内容：是"
+"Include folder contents: no" = "包含文件夹内容：否"
+
+"Clear annotations" = "清除注释"
+
 [contexts.file-action]
 "Open" = "打开"

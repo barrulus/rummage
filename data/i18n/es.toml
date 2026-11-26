@@ -1713,5 +1713,24 @@ moves = "mover"
 "{} selected photos" = { one = "{} foto seleccionada", many = "{} fotos seleccionadas", other = "{} fotos seleccionadas" }
 "{}: {} · {} items completed" = "{}: {} · {} elementos completados"
 
+# File metadata and application choices
+"Comment" = "Comentario"
+"File rating" = "Valoración del archivo"
+"Folders: read lists, write changes contents, execute enters" = "Carpetas: lectura lista, escritura cambia contenido y ejecución permite entrar"
+"Group (name or ID; empty keeps current)" = "Grupo (nombre o ID; vacío conserva el actual)"
+"Mixed annotations stay unchanged until edited" = "Las anotaciones mixtas no cambian hasta editarlas"
+"Only changed bits apply to all selected items" = "Solo los bits modificados se aplican a todos los elementos seleccionados"
+"Open once" = "Abrir una vez"
+"Owner (name or ID; empty keeps current)" = "Propietario (nombre o ID; vacío conserva el actual)"
+"Selected items" = "Elementos seleccionados"
+"Set as default and open" = "Establecer como predeterminada y abrir"
+"Tags" = "Etiquetas"
+"Tags (comma-separated)" = "Etiquetas (separadas por comas)"
+"{} selected items" = "{} elementos seleccionados"
+"Include folder contents: yes" = "Incluir contenido de carpetas: sí"
+"Include folder contents: no" = "Incluir contenido de carpetas: no"
+
+"Clear annotations" = "Borrar anotaciones"
+
 [contexts.file-action]
 "Open" = "Abrir"

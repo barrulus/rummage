@@ -133,3 +133,57 @@ TEST_CASE("properties permissions: reject replaced items, links and stale modes"
         CHECK(mode_of(file) == 0755);
     }
 }
+
+TEST_CASE(
+    "batch permissions: explicit bits preserve mixed modes and recursion never follows links") {
+    using namespace rummage::fs;
+    const TempDir dir;
+    fs::create_directories(dir.path / "tree/sub");
+    const auto first = dir.write("tree/a", "a"), second = dir.write("tree/sub/b", "b");
+    const auto outside = dir.write("outside", "untouched");
+    REQUIRE(::chmod(first.c_str(), 0640) == 0);
+    REQUIRE(::chmod(second.c_str(), 0604) == 0);
+    REQUIRE(::chmod(outside.c_str(), 0600) == 0);
+    fs::create_symlink(outside, dir.path / "tree/link");
+    auto result = apply_permissions(
+        {permission_target(dir.path / "tree")},
+        {.mask = 0020, .values = 0020, .owner = {}, .group = {}, .recursive = true});
+    CHECK(result.errors.empty());
+    CHECK(mode_of(first) == 0660);
+    CHECK(mode_of(second) == 0624);
+    CHECK(mode_of(outside) == 0600);
+    CHECK_FALSE(permission_target(dir.path / "tree/link/").error.empty());
+}
+
+TEST_CASE(
+    "batch permissions: stale roots are not adopted for retry and partial success is reported") {
+    using namespace rummage::fs;
+    const TempDir dir;
+    const auto first = dir.write("first", "a"), second = dir.write("second", "b");
+    REQUIRE(::chmod(first.c_str(), 0644) == 0);
+    REQUIRE(::chmod(second.c_str(), 0644) == 0);
+    const auto a = permission_target(first), b = permission_target(second);
+    REQUIRE(::chmod(second.c_str(), 0600) == 0);
+    const auto result = apply_permissions(
+        {a, b}, {.mask = 0100, .values = 0100, .owner = {}, .group = {}, .recursive = false});
+    CHECK(result.changed == 1);
+    CHECK(result.errors.size() == 1);
+    REQUIRE(result.refreshed.size() == 1);
+    CHECK(result.refreshed.front().path == first);
+    CHECK(result.refreshed.front().mode == 0744);
+    CHECK(mode_of(second) == 0600);
+    const auto refused =
+        apply_permissions({result.refreshed.front()}, {.mask = 0,
+                                                       .values = 0,
+                                                       .owner = std::string{"root\0suffix", 11},
+                                                       .group = {},
+                                                       .recursive = false});
+    CHECK_FALSE(refused.errors.empty());
+    const auto own =
+        apply_permissions({result.refreshed.front()}, {.mask = 0,
+                                                       .values = 0,
+                                                       .owner = std::to_string(::geteuid()),
+                                                       .group = std::to_string(::getegid()),
+                                                       .recursive = false});
+    CHECK(own.errors.empty());
+}
