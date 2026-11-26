@@ -119,6 +119,8 @@ TEST_CASE("helpers: a photo's information travels whole, and nonsense is refused
     info.height = 3912;
     info.camera = "OM-1";
     info.duration = "0:00:12.500";
+    info.duration_ms = 12500;
+    info.bitrate_bps = 3000000;
     info.video_codec = "h264";
     info.audio_codec = "aac";
     info.sample_rate = "48000 Hz";
@@ -131,6 +133,8 @@ TEST_CASE("helpers: a photo's information travels whole, and nonsense is refused
     CHECK(back.width == 5220);
     CHECK(back.camera == "OM-1");
     CHECK(back.duration == info.duration);
+    CHECK(back.duration_ms == info.duration_ms);
+    CHECK(back.bitrate_bps == info.bitrate_bps);
     CHECK(back.video_codec == info.video_codec);
     CHECK(back.audio_codec == info.audio_codec);
     CHECK(back.sample_rate == info.sample_rate);

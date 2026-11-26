@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "rummage/fs/name_pattern.hpp"
+#include "rummage/picture/load.hpp"
 
 namespace rummage::views {
 namespace {
@@ -96,7 +97,10 @@ void Folder::append_collection(std::vector<fs::Entry> rows, std::size_t total, b
     selection_changed(false);
 }
 
-Folder::~Folder() { *alive_ = false; }
+Folder::~Folder() {
+    *alive_ = false;
+    media_job_.cancel();
+}
 
 void Folder::notify_visible_range(std::size_t first, std::size_t last_exclusive) const {
     if (!collection_ || !visible_range_handler_)
@@ -198,13 +202,111 @@ void Folder::set_order(const fs::SortOrder& order) {
     redraw_();
 }
 
+void Folder::request_media(std::size_t first, std::size_t last) {
+    // External collections own their metadata; DirectoryModel cannot publish their rows.
+    if (collection_ || is_archive())
+        return;
+    last = std::min(last, entries().size());
+    for (std::size_t i = first; i < last && media_queue_.size() < 256; ++i) {
+        const auto& entry = entries()[i];
+        if (entry.is_directory() || entry.media || media_queued_.contains(entry.name))
+            continue;
+        const auto type = mime_of(entry);
+        const auto mime =
+            std::string{mime_->name(type == fs::kUnknownMime ? entry.name_guess : type)};
+        if (!mime.starts_with("image/") && !mime.starts_with("video/") &&
+            !mime.starts_with("audio/"))
+            continue;
+        media_queued_.insert(entry.name);
+        // Retain only identity and requested type, not unrelated entry strings.
+        fs::Entry identity;
+        identity.name = entry.name;
+        identity.size = entry.size;
+        identity.modified_ns = entry.modified_ns;
+        media_queue_.push_back(
+            {std::move(identity), path_of(entry), mime, media_epochs_[entry.name]});
+    }
+    pump_media();
+}
+
+void Folder::pump_media() {
+    if (media_running_ || media_queue_.empty())
+        return;
+    std::vector<MediaWork> batch;
+    while (!media_queue_.empty() && batch.size() < 8) {
+        batch.push_back(std::move(media_queue_.front()));
+        media_queue_.pop_front();
+    }
+    media_running_ = true;
+    media_job_ = pool_.submit(
+        core::Priority::nearby,
+        [batch = std::move(batch)](const core::CancelToken& token) mutable {
+            for (auto& item : batch) {
+                if (token.cancelled())
+                    break;
+                const auto info = picture::load_photo_info(item.path, item.mime);
+                auto media = std::make_shared<fs::MediaMetadata>();
+                media->width = info.width;
+                media->height = info.height;
+                media->duration_ms = info.duration_ms;
+                media->bitrate_bps = info.bitrate_bps;
+                media->video_codec = info.video_codec;
+                media->audio_codec = info.audio_codec;
+                item.entry.media = std::move(media);
+            }
+            return batch;
+        },
+        [this, alive = alive_](std::vector<MediaWork> completed) {
+            if (!*alive)
+                return;
+            media_running_ = false;
+            std::vector<fs::Entry> results;
+            for (auto& item : completed) {
+                const auto epoch = media_epochs_.find(item.entry.name);
+                if (epoch != media_epochs_.end() && epoch->second == item.epoch && item.entry.media)
+                    results.push_back(item.entry);
+                media_queued_.erase(item.entry.name);
+                media_epochs_.erase(item.entry.name);
+            }
+            model_.apply_media(results);
+            pump_media();
+            redraw_();
+        });
+}
+
 void Folder::on_change(const fs::ModelChange& change) {
+    if (!change.metadata_only) {
+        if (change.reset) {
+            // Only queued/in-flight identities own epochs. Keep in-flight reservations
+            // until their callbacks discard the old generation; clear abandoned queue keys.
+            for (auto& [name, epoch] : media_epochs_)
+                ++epoch;
+            for (const auto& item : media_queue_) {
+                media_epochs_.erase(item.entry.name);
+                media_queued_.erase(item.entry.name);
+            }
+            media_queue_.clear();
+        }
+        const auto invalidate = [this](const std::string& name) {
+            if (auto it = media_epochs_.find(name); it != media_epochs_.end())
+                ++it->second;
+        };
+        for (const auto& name : change.updated)
+            invalidate(name);
+        for (const auto& name : change.removed)
+            invalidate(name);
+        for (const auto& [old_name, new_name] : change.renamed) {
+            invalidate(old_name);
+            invalidate(new_name);
+        }
+    }
     for (const std::string& name : change.removed) {
         sniffed_.erase(name);
         selected_.erase(name);
     }
     for (const std::string& name : change.updated) {
-        sniffed_.erase(name);  // the content may be different now
+        if (!change.metadata_only)
+            sniffed_.erase(name);  // the content may be different now
     }
     for (const auto& [from, to] : change.renamed) {
         sniffed_.erase(from);

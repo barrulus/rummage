@@ -65,6 +65,7 @@ struct Request {
     std::uint32_t height{0};
     // Types an archive's entries by name (their icons); none: untyped.
     std::shared_ptr<const fs::MimeDatabase> types{};
+    std::uint32_t page{0};
 };
 
 // The most entries Archive::top holds for Quick Look.

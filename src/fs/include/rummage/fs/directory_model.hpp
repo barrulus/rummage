@@ -26,8 +26,9 @@ namespace rummage::fs {
 // What changed in a DirectoryModel since the last notification. Names, not indices: a view
 // looks them up in the listing (and keeps its selection across renames).
 struct ModelChange {
-    bool reset{false};   // the listing was replaced (open, reload after an overflow, error)
-    bool loaded{false};  // the initial load just finished
+    bool metadata_only{false};  // Derived media fields changed; filesystem identity is unchanged.
+    bool reset{false};          // the listing was replaced (open, reload after an overflow, error)
+    bool loaded{false};         // the initial load just finished
     std::vector<std::string> added;
     std::vector<std::string> removed;
     std::vector<std::string> updated;                          // size, date or type changed
@@ -80,6 +81,8 @@ public:
     void set_predicate(Listing::Predicate predicate);
     // Reread metadata changed inside a child folder, beyond this directory's inotify watch.
     void refresh_entry(const std::string& name);
+    // Accept derived helper results only for unchanged entries; preserve selection by name.
+    void apply_media(const std::vector<Entry>& results);
 
     [[nodiscard]] const std::filesystem::path& path() const noexcept { return path_; }
 

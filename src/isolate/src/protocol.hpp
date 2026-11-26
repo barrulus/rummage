@@ -53,6 +53,7 @@ struct Request {
     Kind kind{Kind::picture};
     std::uint32_t max_width{0};
     std::uint32_t max_height{0};
+    std::uint32_t page{0};
 };
 
 struct Response {
@@ -64,6 +65,7 @@ struct Response {
     std::uint32_t height{0};
     std::uint32_t full_width{0};
     std::uint32_t full_height{0};
+    std::uint32_t pages{0};
 };
 
 inline constexpr std::uint32_t kTextMagic = 0x4E505458;  // "NPTX"

@@ -42,13 +42,14 @@
   writeShellScriptBin,
   withTests ? false,
   withPhotos ? false,
+  withFont ? false,
   rummage-pdfium ? callPackage ./pdfium.nix { },
 }:
 
 stdenv.mkDerivation {
   pname = "rummage";
   version = "0.7.0";
-  outputs = [ "out" ] ++ lib.optional withPhotos "photos";
+  outputs = [ "out" ] ++ lib.optional withPhotos "photos" ++ lib.optional withFont "font";
 
   src = lib.fileset.toSource {
     root = ../.;
@@ -121,6 +122,7 @@ stdenv.mkDerivation {
     "-DRUMMAGE_MEDIA=ON"
     "-DRUMMAGE_PDF=ON"
     "-DRUMMAGE_PHOTOS=${if withPhotos then "ON" else "OFF"}"
+    "-DRUMMAGE_FONT=${if withFont then "ON" else "OFF"}"
     "-DRUMMAGE_BUILD_TESTS=${if withTests then "ON" else "OFF"}"
   ];
 
@@ -159,10 +161,16 @@ stdenv.mkDerivation {
       mkdir -p "$photos/libexec/rummage"
       mv "$out/libexec/rummage/librummage-photos.so" "$photos/libexec/rummage/"
     ''
+    + lib.optionalString withFont ''
+      mkdir -p "$font/libexec/rummage" "$font/share/rummage/engines"
+      mv "$out/libexec/rummage/rummage-font" "$font/libexec/rummage/"
+      mv "$out/share/rummage/engines/font.toml" "$font/share/rummage/engines/"
+    ''
     + ''
       install -Dm644 "$src/LICENSE" "$out/share/licenses/rummage/LICENSE"
       wrapProgram "$out/bin/rummage" \
         ${lib.optionalString withPhotos "--set RUMMAGE_PHOTOS_LIBRARY $photos/libexec/rummage/librummage-photos.so"} \
+        ${lib.optionalString withFont "--suffix RUMMAGE_ENGINE_PATH : $font/share/rummage/engines"} \
         --set-default XDG_DATA_DIRS /usr/local/share:/usr/share \
         --suffix XDG_DATA_DIRS : "${
           lib.makeSearchPath "share" [

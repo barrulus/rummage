@@ -78,6 +78,13 @@ Requires:       %{name} = %{version}-%{release}
 Optional local photo catalog and organisation. Originals remain in place.
 Removing this package preserves the user's catalog and annotations.
 
+%package font
+Summary:        Optional font specimens for rummage
+Requires:       %{name} = %{version}-%{release}
+
+%description font
+Isolated scalable TrueType/OpenType specimens using system FreeType.
+
 %prep
 %autosetup -n rummage-checkout
 
@@ -85,11 +92,11 @@ Removing this package preserves the user's catalog and annotations.
 %if 0%{?suse_version}
 %define __builder ninja
 %endif
-%cmake -G Ninja -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+%cmake -G Ninja -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
 %if 0%{?suse_version}
-%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage_photos
+%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage-font rummage_photos
 %else
-%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage_photos
+%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage_photos
 %endif
 
 %install
@@ -112,6 +119,7 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %{_libexecdir}/rummage/libpdfium.so
 %license %{_datadir}/licenses/rummage-pdf/
 %{_datadir}/rummage/
+%exclude %{_datadir}/rummage/engines/font.toml
 %{_datadir}/applications/rummage.desktop
 %{_datadir}/icons/hicolor/scalable/apps/rummage.svg
 %{_datadir}/xdg-desktop-portal/portals/rummage.portal
@@ -124,3 +132,8 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %files photos
 %license LICENSE
 %{_libexecdir}/rummage/librummage-photos.so
+
+%files font
+%license LICENSE
+%{_libexecdir}/rummage/rummage-font
+%{_datadir}/rummage/engines/font.toml

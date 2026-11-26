@@ -28,7 +28,12 @@ enum class SortKey : std::uint8_t {
     group,
     permissions,
     location,
-    link_target
+    link_target,
+    dimensions,
+    duration,
+    bitrate,
+    video_codec,
+    audio_codec
 };
 
 struct SortOrder {

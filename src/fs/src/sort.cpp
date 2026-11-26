@@ -122,6 +122,35 @@ bool SortOrder::operator()(const Entry& a, const Entry& b) const noexcept {
         case SortKey::link_target:
             result = natural_compare(a.link_target, b.link_target);
             break;
+        case SortKey::dimensions:
+        case SortKey::duration:
+        case SortKey::bitrate:
+        case SortKey::video_codec:
+        case SortKey::audio_codec: {
+            const auto number = [this](const Entry& entry) -> std::uint64_t {
+                if (!entry.media)
+                    return 0;
+                if (key == SortKey::duration)
+                    return entry.media->duration_ms;
+                if (key == SortKey::bitrate)
+                    return entry.media->bitrate_bps;
+                return static_cast<std::uint64_t>(entry.media->width) * entry.media->height;
+            };
+            const auto text = [this](const Entry& entry) -> std::string_view {
+                if (!entry.media)
+                    return {};
+                return key == SortKey::video_codec ? entry.media->video_codec
+                                                   : entry.media->audio_codec;
+            };
+            const bool numeric = key <= SortKey::bitrate;
+            const bool a_missing = numeric ? number(a) == 0 : text(a).empty();
+            const bool b_missing = numeric ? number(b) == 0 : text(b).empty();
+            // Missing/pending metadata stays last in both directions.
+            if (a_missing != b_missing)
+                return !a_missing;
+            result = numeric ? three_way(number(a), number(b)) : natural_compare(text(a), text(b));
+            break;
+        }
         case SortKey::location:  // Siblings share a location; use their names to break the tie.
         case SortKey::name:
             break;

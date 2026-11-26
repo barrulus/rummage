@@ -18,7 +18,7 @@ Package: rummage
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, shared-mime-info, hicolor-icon-theme,
  libheif1 (>= 1.23), libheif-plugin-libde265 (>= 1.23)
-Suggests: rummage-photos, tokei
+Suggests: rummage-photos, rummage-font, tokei
 Conflicts: rummage-media, rummage-pdf, rummage-previews
 Replaces: rummage-media, rummage-pdf, rummage-previews
 Description: Native Wayland file manager
@@ -31,3 +31,9 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
 Description: Photo Library for rummage
  Optional local photo catalog and organisation. Originals remain in place.
  Removing this package preserves the user's catalog and annotations.
+
+Package: rummage-font
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
+Description: Optional font specimens for rummage
+ Isolated scalable TrueType/OpenType specimens using system FreeType.

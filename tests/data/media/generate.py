@@ -21,3 +21,11 @@ run('-f', 'lavfi', '-i', 'color=c=blue:s=96x48:r=10:d=0.5',
     '-c:v', 'libx264', '-threads', '1', '-c:a', 'aac', '-ac', '2',
     '-metadata', 'title=Metadata sample', '-metadata', 'artist=Rummage tests',
     str(root / 'metadata.mp4'))
+
+# Audio-only metadata fixture, independent of FFmpeg's encoder defaults.
+import wave
+with wave.open(str(root / 'silence.wav'), 'wb') as out:
+    out.setnchannels(1)
+    out.setsampwidth(2)
+    out.setframerate(8000)
+    out.writeframes(b'\0' * 16000)

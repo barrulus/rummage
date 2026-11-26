@@ -59,6 +59,12 @@ public:
     void close();
     void set_details(bool shown);
 
+    [[nodiscard]] std::uint32_t document_page() const;
+    [[nodiscard]] std::uint32_t document_pages() const;
+    void set_document_page(std::uint32_t page);
+
+    [[nodiscard]] float document_zoom() const { return document_zoom_; }
+
     [[nodiscard]] bool markdown_rendered() const;
 
     [[nodiscard]] ui::Rect markdown_button() const { return markdown_button_; }
@@ -130,6 +136,10 @@ public:
 
 private:
     bool details_{false};
+    float document_zoom_{1.0F};
+    ui::Rect previous_page_, next_page_, zoom_out_, zoom_in_, document_area_;
+    [[nodiscard]] bool is_document() const;
+    void zoom_document(float zoom);
     bool render_markdown_{true};
     ui::Rect markdown_button_;
     MarkdownView markdown_;
@@ -145,6 +155,8 @@ private:
 
     struct Slot {
         std::filesystem::path path;
+        std::uint32_t page{0}, pages{0};
+        std::uint64_t request_id{0};
         preview::Kind kind{preview::Kind::info};
         std::optional<core::CancelToken> thumbnail_job;
         bool offline_thumbnail_tried{false};

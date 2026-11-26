@@ -192,3 +192,36 @@ TEST_CASE("sort: filesystem properties compare values then names in both directi
     CHECK(SortOrder{.key = SortKey::created, .descending = true}(a, unknown));
     CHECK(SortOrder{.key = SortKey::location}(b, a));
 }
+
+TEST_CASE("media sort: numeric fields and codecs sort with absent metadata last") {
+    auto small = file("small"), large = file("large"), absent = file("absent");
+    small.media = std::make_shared<rummage::fs::MediaMetadata>(
+        rummage::fs::MediaMetadata{.width = 40,
+                                   .height = 30,
+                                   .duration_ms = 2000,
+                                   .bitrate_bps = 8000,
+                                   .video_codec = "h264",
+                                   .audio_codec = "aac"});
+    large.media = std::make_shared<rummage::fs::MediaMetadata>(
+        rummage::fs::MediaMetadata{.width = 100,
+                                   .height = 50,
+                                   .duration_ms = 10000,
+                                   .bitrate_bps = 16000,
+                                   .video_codec = "vp9",
+                                   .audio_codec = "opus"});
+    for (const auto key : {SortKey::dimensions, SortKey::duration, SortKey::bitrate,
+                           SortKey::video_codec, SortKey::audio_codec}) {
+        INFO(static_cast<int>(key));
+        for (const bool descending : {false, true}) {
+            const SortOrder order{.key = key, .descending = descending};
+            std::vector<Entry> entries{large, absent, small};
+            std::ranges::sort(entries, order);
+            CHECK(entries.back().name == "absent");
+            CHECK(entries.front().name == (descending ? "large" : "small"));
+            // An explicit unavailable result follows the same ordering as pending metadata.
+            absent.media = std::make_shared<rummage::fs::MediaMetadata>();
+            CHECK(order(small, absent));
+            CHECK_FALSE(order(absent, large));
+        }
+    }
+}

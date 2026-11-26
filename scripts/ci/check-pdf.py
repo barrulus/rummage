@@ -12,7 +12,7 @@ helper = sys.argv[1]
 fixtures = Path(sys.argv[2])
 
 
-def render(name, size=128, expected_failure=False):
+def render(name, size=128, expected_failure=False, page=0):
     parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
     pid = os.fork()
     if pid == 0:
@@ -25,20 +25,21 @@ def render(name, size=128, expected_failure=False):
     descriptors = array.array('i')
     try:
         with (fixtures / name).open('rb') as source:
-            parent.sendmsg([struct.pack('=IIII', 0x4E505251, 0, size, size)],
+            parent.sendmsg([struct.pack('=IIIII', 0x4E505251, 0, size, size, page)],
                            [(socket.SOL_SOCKET, socket.SCM_RIGHTS, array.array('i', [source.fileno()]))])
         data, controls, flags, _ = parent.recvmsg(8192, socket.CMSG_SPACE(8))
         for level, kind, payload in controls:
             if level == socket.SOL_SOCKET and kind == socket.SCM_RIGHTS:
                 descriptors.frombytes(payload)
         assert not flags & (socket.MSG_TRUNC | socket.MSG_CTRUNC), name
-        assert len(data) >= 24, (name, data)
-        magic, failure, _, _, width, height, _, _ = struct.unpack('=IBBHIIII', data[:24])
+        assert len(data) >= 28, (name, data)
+        magic, failure, _, _, width, height, _, _, pages = struct.unpack('=IBBHIIIII', data[:28])
         assert magic == 0x4E505253, (name, magic)
         if expected_failure:
             assert failure != 0 and not descriptors, (name, failure)
             return
-        assert failure == 0 and len(descriptors) == 1, (name, failure, data[24:])
+        assert failure == 0 and len(descriptors) == 1, (name, failure, data[28:])
+        assert pages > page, (name, page, pages)
         pixels = os.pread(descriptors[0], width * height * 4, 0)
         assert len(pixels) == width * height * 4, name
         return width, height, pixels
@@ -66,4 +67,6 @@ for name in ('form.pdf', 'form-rotated.pdf'):
     assert sum(r > 220 and g < 30 and b < 30 for r, g, b in colors) > 4000
     assert sum(r < 30 and g < 30 and b < 30 for r, g, b in colors) > 200
     assert sum(r < 30 and g < 30 and b > 220 for r, g, b in colors) > 300
-print('Installed PDF helper: first page, rotation, fonts and forms passed under the sandbox.')
+assert render('two-pages.pdf', page=1)[2][2] > 220
+render('two-pages.pdf', expected_failure=True, page=2)
+print('Installed PDF helper: pages, rotation, fonts and forms passed under the sandbox.')

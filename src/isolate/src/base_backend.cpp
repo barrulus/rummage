@@ -54,7 +54,13 @@ void warm_up() {
     ::malloc_trim(0);
 }
 
-picture::Loaded make_picture(int fd, std::uint32_t w, std::uint32_t h) {
+picture::Loaded make_picture(int fd, std::uint32_t w, std::uint32_t h, std::uint32_t page) {
+    if (page != 0) {
+        picture::Loaded result;
+        result.failure = picture::Failure::unknown_format;
+        result.detail = "this engine does not support document pages";
+        return result;
+    }
     return formats::make_picture(fd, w, h);
 }
 

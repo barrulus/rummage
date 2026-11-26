@@ -69,12 +69,13 @@ int sealed_memfd(const char* name, std::span<const std::byte> bytes) {
 
 void answer_picture(int socket, int file, const protocol::Request& request) {
     const picture::Loaded loaded =
-        isolate::backend::make_picture(file, request.max_width, request.max_height);
+        isolate::backend::make_picture(file, request.max_width, request.max_height, request.page);
     protocol::Response response;
     response.failure = static_cast<std::uint8_t>(loaded.failure);
     response.from_preview = loaded.from_preview ? 1 : 0;
     response.full_width = loaded.full_width;
     response.full_height = loaded.full_height;
+    response.pages = loaded.pages;
     int pixels = -1;
     if (loaded.failure == picture::Failure::none) {
         pixels = sealed_memfd("rummage-picture", std::as_bytes(std::span{loaded.image.rgba}));

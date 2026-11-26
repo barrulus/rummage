@@ -55,10 +55,11 @@ reported pixel movement.
 | Camera raw | Embedded previews; some DNGs developed by rummage | Support depends on the file's container, preview and compression |
 | Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
 | Video | Included `rummage-media` helper using FFmpeg libraries | Thumbnails and still previews; no playback |
-| PDF | Included `rummage-pdf` helper using PDFium | First page as thumbnail and still; no document viewer |
+| PDF | Included `rummage-pdf` helper using PDFium | First-page thumbnails; page navigation and zoom in Quick Look |
 | SVG files | librsvg in the preview helper | Static previews and thumbnails; limits described below |
 | ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
-| Other formats | File information and external application opening | No built-in audio player or font preview |
+| Fonts | Optional `rummage-font` engine using FreeType | Scalable TrueType/OpenType specimens; first face of a collection |
+| Other formats | File information and external application opening | No built-in audio player; unsupported model/art formats listed below |
 
 The [base engine manifest](../data/engines/base.toml) registers MIME families.
 Registration is not a guarantee that every subtype/sample can decode. The image
@@ -223,9 +224,22 @@ for CMake, Nix and `RUMMAGE_ENGINE_PATH` registration.
 
 ## Optional PDF previews
 
-PDF thumbnails and first-page stills in the information pane and Quick Look are
-included in the standard package. Toggle **PDF previews** in General settings. Enter still opens the document in its default
-application; this is a preview of page one, not a viewer.
+PDF thumbnails and Quick Look are included in the standard package. Toggle **PDF previews** in General settings. The
+information pane and thumbnail cache continue to use page one. In Quick Look:
+
+- Click **‹ / ›** or press **Page Up / Page Down** to change page; **Home / End**
+  goes to the first / last page. The toolbar shows the current page and total.
+- Click **− / +**, press **− / +** (or **=**), or use **Ctrl+wheel** to zoom from
+  fit to 400%. **0** resets to fit. Wheel scrolls vertically; **Shift+wheel** pans
+  horizontally when the zoomed page extends outside the preview.
+- Arrows still change files; Space/Escape closes Quick Look. Enter opens the default
+  application.
+
+Pages load on demand. Changing page cancels the superseded request and retains only
+one page per cached file; the existing bounded neighbour-file cache is shared with
+other previews. The raster is limited to 2048 pixels per side, including at high zoom.
+This preview does not edit documents, select PDF text, follow links, search, fill
+forms, or unlock password-protected documents.
 
 The helper links PDFium and uses PDFium's built-in fonts with an empty system font
 list, so it opens no files inside the same seccomp/Landlock isolation as the other
@@ -313,3 +327,64 @@ Metadata reads remain bounded inside the preview helpers. Extended details are l
 bytes and directory/chunk traversal. Truncated metadata is identified, and binary summaries
 explicitly mark omitted data. Text preview line counts are labeled as preview counts when the
 file was not read in full. No sidecar files are read for these details.
+
+
+## Media columns in Details
+
+The Details header menu offers **Dimensions**, **Duration**, **Bitrate**, **Video
+codec**, and **Audio codec** alongside filesystem columns. Choices, order, widths
+and sort key are remembered globally, per folder and per tab. Dimensions sorts by
+pixel area; duration and bitrate sort numerically; codec names use natural ordering.
+Unavailable values stay after known values in both ascending and descending order.
+
+An ellipsis means metadata is pending; a dash means the field is absent, unsupported,
+or could not be read (including a missing optional helper). Images use the base
+helper; audio and video require `rummage-media`. The media helper also reads common
+MP3, FLAC, Ogg, WAV, AAC, Opus and MPEG-4 audio metadata; support depends on the
+container and codecs available in the linked FFmpeg build.
+
+Visible rows request metadata asynchronously. Sorting by a media field gradually
+loads the folder so rows can move as values arrive; selection follows filenames.
+Each folder queues at most 256 requests and processes one batch of eight at a time,
+using the existing bounded helper pool and timeouts. Completed and unavailable
+results are cached for the entry's lifetime and invalidated by file changes. Closing
+the folder cancels pending work; an already active metadata request ends at the
+helper's timeout. There is no persistent media index or recursive background scan.
+Archive members currently show dashes in these columns.
+
+## Optional font specimens and additional format coverage
+
+Source builds can enable `-DRUMMAGE_FONT=ON` to build `rummage-font`, which depends on
+FreeType. Build target `rummage-font`, then install CMake component `font` alongside
+the matching application. The helper and `font.toml` manifest use the normal
+`libexec/rummage` and `share/rummage/engines` locations. Restart after installation.
+The native package recipes also provide a separate `rummage-font` package; the
+`rummage-previews` convenience package includes it. With Nix, use
+`nix build .#rummage-with-font` for the application with the registered helper, or
+`.#rummage-font` for the helper output alone. `.#rummage-with-previews` includes media, PDF and font helpers.
+
+Font parsing and rasterization run inside the same isolated preview helper cage.
+Input is limited to 32 MiB, output to 1024 pixels per side; the ordinary helper pool,
+timeout, cancellation, thumbnail cache and scale handling apply. Quick Look shows a
+fixed Latin/digit specimen for scalable TrueType/OpenType fonts and the first face
+of a font collection. Bitmap-only fonts and additional collection faces are not
+shown; glyphs absent from the font may appear as replacement boxes. Damaged inputs
+produce a failure badge/reason; a missing optional helper leaves the regular icon.
+No font is installed into the user's font collection.
+
+The requested model and art-project families are assessed separately; the font
+provider does not register their MIME types or claim to render them:
+
+| Family | Current coverage and backend boundary |
+| --- | --- |
+| glTF / GLB | No provider. A future glTF importer must supply bounded mesh/material decoding and handle external buffers/textures without opening arbitrary paths. |
+| STL, PLY, OBJ | No provider. Mesh import needs a separate isolated renderer; OBJ material/texture references need explicit resource rules. No Assimp dependency is currently linked. |
+| STEP | No provider. CAD tessellation needs a dedicated backend such as Open CASCADE, bounded independently of triangle-mesh formats. |
+| FBX | No provider. An importer and renderer would need version-specific samples and licensing review; it cannot be inferred from glTF support. |
+| Blender | No provider. No Blender process or project scripts are launched. A saved embedded preview could be supported separately from scene rendering. |
+| CLIP, MDP, SAI2 | No provider. No generic image decoder is assumed to understand these proprietary project containers. Each needs a tested bounded embedded-preview reader or supported isolated renderer. |
+| Fonts | FreeType helper described above: scalable TTF/OTF and first collection face only; no font editing or installation. |
+
+Unsupported formats continue to show file information and can be opened in an
+external application. There is no automatic dependency download or external
+renderer execution from the preview path.

@@ -179,6 +179,11 @@ if(RUMMAGE_PHOTOS)
 else()
     file(REMOVE "${PROJECT_BINARY_DIR}/librummage-photos.so")
 endif()
+option(RUMMAGE_FONT "Build the optional isolated FreeType font preview helper" OFF)
+if(RUMMAGE_FONT)
+    add_subdirectory(src/font)
+endif()
+
 add_subdirectory(src/platform)  # default applications (freedesktop), launching processes
 add_subdirectory(src/views)     # column view and grid
 

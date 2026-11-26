@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -275,8 +276,26 @@ public:
     // Sniffs the types of entries [first, last) that the name does not decide, on a worker (the
     // view asks for what it shows).
     void sniff(std::size_t first, std::size_t last);
+    // At most one batch of eight helper metadata reads runs for this folder.
+    void request_media(std::size_t first, std::size_t last);
+
+    [[nodiscard]] bool media_loading() const { return media_running_ || !media_queue_.empty(); }
 
 private:
+    void pump_media();
+
+    struct MediaWork {
+        fs::Entry entry;
+        std::filesystem::path path;
+        std::string mime;
+        std::uint64_t epoch;
+    };
+
+    std::deque<MediaWork> media_queue_;
+    std::unordered_set<std::string> media_queued_;
+    std::unordered_map<std::string, std::uint64_t> media_epochs_;
+    core::CancelToken media_job_;
+    bool media_running_{false};
     void on_change(const fs::ModelChange& change);
     void selection_changed(bool feedback = true);
 

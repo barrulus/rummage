@@ -31,6 +31,8 @@
         pdfium-sources = import ./nix/pdfium-sources.nix { pkgs = nixpkgs.legacyPackages.${system}; };
         rummage-with-photos = self.packages.${system}.rummage.override { withPhotos = true; };
         rummage-photos = self.packages.${system}.rummage-with-photos.photos;
+        rummage-with-font = self.packages.${system}.rummage.override { withFont = true; };
+        rummage-font = self.packages.${system}.rummage-with-font.font;
         default = self.packages.${system}.rummage;
       });
 
@@ -39,6 +41,7 @@
           (self.packages.${system}.rummage.override {
             withTests = true;
             withPhotos = true;
+            withFont = true;
           }).overrideAttrs
             {
               pname = "rummage-tests";
@@ -51,6 +54,17 @@
               postInstall = "";
               dontFixup = true;
             };
+        font =
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
+            helper = self.packages.${system}.rummage-font;
+          in
+          pkgs.runCommand "rummage-font-installed" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+            test -s ${helper}/share/rummage/engines/font.toml
+            python3 ${./scripts/ci/check-font.py} ${helper}/libexec/rummage/rummage-font \
+              ${pkgs.dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf
+            touch "$out"
+          '';
         nixos-module = import ./nix/module-check.nix { inherit self nixpkgs system; };
         smoke = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {
           package = self.packages.${system}.rummage;

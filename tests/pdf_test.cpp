@@ -383,3 +383,28 @@ TEST_CASE("pdf: document metadata is returned through the sandbox") {
     CHECK(info.width == 0);  // page points must never masquerade as image pixels
     CHECK(helpers.photo_info(fixtures / "missing.pdf").details.empty());
 }
+
+TEST_CASE("pdf: page selection reports count and rejects out-of-range indices") {
+    isolate::Helpers helpers{{.program = RUMMAGE_PDF_HELPER, .args = {}}};
+    for (std::uint32_t page = 0; page < 2; ++page) {
+        const auto loaded = helpers.load({.path = fixtures / "two-pages.pdf",
+                                          .max_width = 128,
+                                          .max_height = 128,
+                                          .page = page});
+        INFO(loaded.detail);
+        REQUIRE(loaded.failure == picture::Failure::none);
+        CHECK(loaded.pages == 2);
+        CHECK(loaded.image.rgba[page == 0 ? 0 : 2] > 220);
+        CHECK(loaded.image.rgba[page == 0 ? 2 : 0] < 30);
+    }
+    for (const std::uint32_t page : {2U, 0xffffffffU}) {
+        const auto invalid = helpers.load({.path = fixtures / "two-pages.pdf",
+                                           .max_width = 128,
+                                           .max_height = 128,
+                                           .page = page});
+        CHECK(invalid.failure != picture::Failure::none);
+        CHECK(invalid.image.empty());
+    }
+    CHECK(helpers.load({.path = fixtures / "red.pdf", .max_width = 128, .max_height = 128}).pages ==
+          1);
+}

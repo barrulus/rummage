@@ -1,5 +1,5 @@
 # Build from the checksum-verified checkout archive supplied by scripts/ci/native.sh.
-pkgname=('rummage' 'rummage-photos')
+pkgname=('rummage' 'rummage-photos' 'rummage-font')
 pkgver=0.7.0
 pkgrel=1
 pkgdesc='Native Wayland file manager'
@@ -17,12 +17,13 @@ sha256sums=('CHECKOUT_SHA256')
 build() {
     cmake -S rummage-checkout -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-        -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
-    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf rummage_photos
+        -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
+    cmake --build build --parallel "${CI_JOBS:-2}" --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage_photos
 }
 
 package_rummage() {
-    optdepends=('tokei: source language and line statistics' 'rummage-photos: Photo Library')
+    optdepends=('tokei: source language and line statistics' 'rummage-photos: Photo Library'
+                'rummage-font: font specimens')
     conflicts=('rummage-media' 'rummage-pdf' 'rummage-previews')
     replaces=('rummage-media' 'rummage-pdf' 'rummage-previews')
     DESTDIR="$pkgdir" cmake --install build --component Unspecified
@@ -40,5 +41,12 @@ package_rummage-photos() {
     pkgdesc='Photo Library for rummage'
     depends=("rummage=$pkgver-$pkgrel" 'sqlite' 'gcc-libs')
     DESTDIR="$pkgdir" cmake --install build --component photos
+    install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_rummage-font() {
+    pkgdesc='Optional font specimens for rummage'
+    depends=("rummage=$pkgver-$pkgrel" 'freetype2')
+    DESTDIR="$pkgdir" cmake --install build --component font
     install -Dm644 rummage-checkout/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

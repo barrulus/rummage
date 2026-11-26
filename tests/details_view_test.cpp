@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -14,8 +15,10 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/formats/image/photo.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/picture/load.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/offscreen.hpp"
@@ -656,4 +659,54 @@ TEST_CASE("details: leaf folders have no disclosure and gain one when subfolders
     CHECK(f.details.hit(arrow_x, alpha_y));
     f.details.set_show_hidden(true);
     REQUIRE(run_until(f.loop, [&] { return !f.details.hit(arrow_x, alpha_y); }));
+}
+
+TEST_CASE("details: bounded asynchronous media cache handles mixed large folders and selection") {
+    namespace picture = rummage::picture;
+
+    struct Restore {
+        ~Restore() {
+            picture::set_info_loader([](const fs::path& path, std::string_view) {
+                return rummage::formats::image::read_photo_info(path);
+            });
+        }
+    } restore;
+
+    std::atomic<unsigned> calls{0};
+    picture::set_info_loader([&](const fs::path& path, std::string_view) {
+        ++calls;
+        picture::PhotoInfo info;
+        if (path.extension() == ".png") {
+            info.width = 48;
+            info.height = 32;
+        }
+        return info;  // unavailable media engine
+    });
+    TempDir dir;
+    for (int i = 0; i < 300; ++i)
+        dir.write("image" + std::to_string(i) + ".png", "image");
+    dir.write("clip.mp4", "video");
+    dir.write("notes.txt", "text");
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    DirectoryWatcher watcher{loop};
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, rummage::fs::MimeDatabase::load(),
+                                           dir.path, [] {});
+    REQUIRE(run_until(loop, [&] { return !folder->model().loading(); }));
+    folder->select_name("image10.png");
+    folder->set_order({.key = SortKey::dimensions, .descending = true});
+    folder->request_media(0, folder->entries().size());
+    REQUIRE(run_until(loop, [&] {
+        folder->request_media(0, folder->entries().size());
+        return !folder->media_loading();
+    }));
+    CHECK(calls == 301);
+    CHECK(cursor_name(*folder) == "image10.png");
+    CHECK(folder->entries().front().name.starts_with("image"));
+    CHECK(folder->entries().back().name == "clip.mp4");
+    CHECK(folder->entries()[300].name == "notes.txt");
+    folder->request_media(0, folder->entries().size());
+    CHECK_FALSE(folder->media_loading());
+    CHECK(calls == 301);  // empty/unavailable results are cached too
+    folder.reset();       // completion callbacks and outstanding work may not retain a dead folder
 }

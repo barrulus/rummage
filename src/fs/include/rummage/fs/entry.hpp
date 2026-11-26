@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -10,6 +11,12 @@
 namespace rummage::fs {
 
 enum class EntryKind : std::uint8_t { file, directory, other, unknown };
+
+struct MediaMetadata {
+    std::uint32_t width{0}, height{0};
+    std::uint64_t duration_ms{0}, bitrate_bps{0};
+    std::string video_codec{}, audio_codec{};
+};
 
 // One directory entry, as the views need it. A symbolic link takes the kind of its target
 // (a link to a directory is a directory) and keeps is_link; a dangling link is kind other.
@@ -38,6 +45,8 @@ struct Entry {
     std::string group{};
     std::string permissions{};
     std::string link_target{};
+    // Absent: not requested/pending. Present but empty: unsupported or unavailable.
+    std::shared_ptr<const MediaMetadata> media{};
 
     // Collection rows keep a stable key independently of their displayed filename. An empty
     // identity preserves ordinary directory semantics. location is always a real original path,

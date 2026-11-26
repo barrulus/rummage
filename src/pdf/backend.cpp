@@ -1,8 +1,8 @@
 // PDF parsing lives only in rummage-pdf, after the same cage as rummage-preview: PDFium draws the
-// first page. PDFium carries the standard fonts, and the system font provider is empty, so nothing
-// has to be opened inside the cage. PDFium parses only PDF, has no JavaScript in this build (no
-// V8), reads through pread bounded in bytes and time, and draws progressively so a page that takes
-// too long is stopped at a deadline.
+// requested page. PDFium carries the standard fonts, and the system font provider is empty, so
+// nothing has to be opened inside the cage. PDFium parses only PDF, has no JavaScript in this build
+// (no V8), reads through pread bounded in bytes and time, and draws progressively so a page that
+// takes too long is stopped at a deadline.
 #include "backend.hpp"
 
 #include <algorithm>
@@ -178,7 +178,8 @@ struct Forms {
     }
 };
 
-picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std::uint32_t height) {
+picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std::uint32_t height,
+                     std::uint32_t page_index) {
     FPDF_FILEACCESS access{};
     access.m_FileLen = static_cast<unsigned long>(size);
     access.m_GetBlock = get_block;
@@ -194,10 +195,13 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std
         }
         return failure(picture::Failure::damaged, "unreadable pdf");
     }
-    if (FPDF_GetPageCount(document.handle) < 1) {
+    const int pages = FPDF_GetPageCount(document.handle);
+    if (pages < 1) {
         return failure(picture::Failure::damaged, "pdf without pages");
     }
-    const Page page{FPDF_LoadPage(document.handle, 0)};
+    if (page_index >= static_cast<std::uint32_t>(pages))
+        return failure(picture::Failure::damaged, "pdf page is out of range");
+    const Page page{FPDF_LoadPage(document.handle, static_cast<int>(page_index))};
     // PDFium can recover a failed stream read by returning an empty page.
     if (source.exhausted) {
         return failure(picture::Failure::unavailable, "pdf reading budget exhausted");
@@ -277,6 +281,7 @@ picture::Loaded draw(Source& source, std::int64_t size, std::uint32_t width, std
     }
     picture::Loaded loaded;
     loaded.image = std::move(image);
+    loaded.pages = static_cast<std::uint32_t>(pages);
     return loaded;
 }
 
@@ -312,7 +317,8 @@ void warm_up() {
     }
 }
 
-picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) {
+picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height,
+                             std::uint32_t page_index) {
     if (width == 0 || height == 0) {
         return failure(picture::Failure::too_large, "empty pdf preview size");
     }
@@ -330,7 +336,7 @@ picture::Loaded make_picture(int fd, std::uint32_t width, std::uint32_t height) 
     }
     Source source;
     source.fd = fd;
-    return draw(source, st.st_size, width, height);
+    return draw(source, st.st_size, width, height, page_index);
 }
 
 picture::PhotoInfo photo_info(int fd) {
