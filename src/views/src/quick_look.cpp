@@ -401,7 +401,9 @@ void QuickLook::follow(std::shared_ptr<Folder> folder) {
     const std::size_t index = *cursor;
     if (moved) {
         stop_playback();
-        if (is_media())
+        // Archive members use the bounded extraction/still path below; their displayed
+        // paths are not regular files that the playback worker can open.
+        if (!folder_->is_archive() && is_media())
             playback_ = std::make_unique<isolate::Playback>(folder_->path_of(*entry));
         document_zoom_ = 1;
         previous_page_ = next_page_ = zoom_out_ = zoom_in_ = document_area_ = {};

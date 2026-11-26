@@ -24,6 +24,8 @@
 #include "rummage/archive/archive.hpp"
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/engines/engines.hpp"
+#include "rummage/formats/image/load.hpp"
 #include "rummage/fs/directory_model.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/extract.hpp"
@@ -511,6 +513,77 @@ std::string tar_member(std::string_view name, std::string_view data, bool broken
 }
 
 }  // namespace
+
+TEST_CASE("archive folders: media retains its extracted still preview without playback") {
+    namespace picture = rummage::picture;
+    namespace engines = rummage::engines;
+
+    struct Restore {
+        std::shared_ptr<const engines::Registry> registry{engines::installed()};
+
+        ~Restore() {
+            engines::set_installed(registry);
+            picture::set_loader([](const picture::LoadRequest& request) {
+                return rummage::formats::image::load(request);
+            });
+        }
+    } restore;
+
+    auto registry = std::make_shared<engines::Registry>(*restore.registry);
+    REQUIRE(registry->add({.manifest = {.name = "media",
+                                        .program = "rummage-media",
+                                        .families = {{.name = "video",
+                                                      .shows = engines::Shows::picture,
+                                                      .mime = {"video/mp4"}}}},
+                           .program = "rummage-media",
+                           .manifest_path = {}}));
+    engines::set_installed(registry);
+    std::ifstream fixture{fs::path{RUMMAGE_TEST_DATA} / "media" / "metadata.mp4", std::ios::binary};
+    const std::string movie{std::istreambuf_iterator<char>{fixture}, {}};
+    REQUIRE_FALSE(movie.empty());
+    // Exercise actual archive extraction and provider dispatch without requiring FFmpeg in
+    // the UI test binary. Only a descriptor containing the original movie yields a frame.
+    picture::set_loader([movie](const picture::LoadRequest& request) {
+        std::ifstream input{request.path, std::ios::binary};
+        const std::string extracted{std::istreambuf_iterator<char>{input}, {}};
+        picture::Loaded result;
+        if (request.mime != "video/mp4" || !request.path.string().starts_with("/proc/self/fd/") ||
+            extracted != movie) {
+            result.failure = picture::Failure::unreadable;
+            return result;
+        }
+        result.image = {
+            .width = 64, .height = 32, .rgba = std::vector<std::uint8_t>(64 * 32 * 4, 255)};
+        result.full_width = 64;
+        result.full_height = 32;
+        return result;
+    });
+    TempDir dir;
+    dir.write("movies.tar", tar_member("clip.mp4", movie) + std::string(1024, '\0'));
+    rummage::fs::forget_archive_trees();
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<rummage::views::Folder>(loop, pool, watcher, mime,
+                                                           dir.path / "movies.tar", [] {});
+    REQUIRE(run_until(loop, [&] { return folder->entries().size() == 1; }));
+    REQUIRE(folder->is_archive());
+    folder->select_name("clip.mp4");
+    REQUIRE(mime->name(folder->mime_of(*folder->cursor_entry())) == "video/mp4");
+    rummage::views::QuickLook look{pool, mime, {}, [] {}};
+    look.open(folder, rummage::views::QuickLook::Clock::now());
+    CHECK(look.playback() == nullptr);
+    REQUIRE(run_until(loop, [&] { return !look.loading(); }));
+    REQUIRE(look.content());
+    const auto* still = std::get_if<picture::Loaded>(look.content());
+    REQUIRE(still);
+    CHECK(still->failure == picture::Failure::none);
+    CHECK(still->image.width == 64);
+    CHECK(still->image.height == 32);
+    look.follow(folder);
+    CHECK(look.playback() == nullptr);
+}
 
 TEST_CASE("archive folders: an archive shown in part says why") {
     Fixture f;
