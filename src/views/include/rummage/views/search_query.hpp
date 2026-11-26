@@ -13,12 +13,14 @@ namespace rummage::views {
 // Search syntax is shared by live searches and saved queries. Dates are UTC day boundaries.
 struct SearchQuery {
     bool content{false}, hidden{false}, fold_case{false};
-    std::string text, type, extension, error;
+    std::string text, type, extension, error, tag, comment;
+    std::optional<unsigned> rating;
     std::optional<std::int64_t> after, before;
     std::vector<std::string> excluded;
 
     [[nodiscard]] bool metadata() const {
-        return content || !type.empty() || !extension.empty() || after || before;
+        return content || !type.empty() || !extension.empty() || after || before || !tag.empty() ||
+               !comment.empty() || rating;
     }
 };
 

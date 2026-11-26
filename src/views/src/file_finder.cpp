@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/annotations.hpp"
 #include "rummage/views/fuzzy.hpp"
 
 namespace rummage::views {
@@ -154,6 +155,18 @@ SearchQuery parse_search_query(std::string_view input, bool hidden) {
                     result.text += ' ';
                 result.text += value;
             }
+        } else if (colon != std::string::npos && (key == "tag" || key == "comment")) {
+            if (value.empty())
+                bad();
+            else if (key == "tag")
+                result.tag = value;
+            else
+                result.comment = value;
+        } else if (colon != std::string::npos && key == "rating") {
+            if (value.size() != 1 || value.front() < '0' || value.front() > '5')
+                bad();
+            else
+                result.rating = static_cast<unsigned>(value.front() - '0');
         } else if (colon != std::string::npos && key == "type") {
             if (value != "file" && value != "folder" && value != "link" && value != "any")
                 bad();
@@ -270,6 +283,35 @@ SearchMatches match_files(const std::filesystem::path& root,
                 (query.after && info.st_mtim.tv_sec < *query.after) ||
                 (query.before && info.st_mtim.tv_sec >= *query.before))
                 continue;
+            if (!query.tag.empty() || !query.comment.empty() || query.rating) {
+                const auto annotations = fs::read_annotations(metadata.fd);
+                if (!annotations.error.empty()) {
+                    ++result.stats.unreadable;
+                    continue;
+                }
+                const auto fold = [&](std::string text) {
+                    return query.fold_case ? ascii_lower(text) : text;
+                };
+                bool tag_match = query.tag.empty();
+                std::string_view tags = annotations.tags;
+                while (!tags.empty()) {
+                    const auto comma = tags.find(',');
+                    auto tag = tags.substr(0, comma);
+                    while (!tag.empty() && tag.front() == ' ')
+                        tag.remove_prefix(1);
+                    while (!tag.empty() && tag.back() == ' ')
+                        tag.remove_suffix(1);
+                    if (fold(std::string{tag}) == fold(query.tag))
+                        tag_match = true;
+                    tags.remove_prefix(comma == std::string_view::npos ? tags.size() : comma + 1);
+                }
+                const auto rating = annotations.rating.empty() ? "0" : annotations.rating;
+                if (!tag_match ||
+                    (!query.comment.empty() &&
+                     fold(annotations.comment).find(fold(query.comment)) == std::string::npos) ||
+                    (query.rating && rating != std::to_string(*query.rating)))
+                    continue;
+            }
             found.directory = S_ISDIR(info.st_mode);
             if (!query.content) {
                 keep(std::move(found));

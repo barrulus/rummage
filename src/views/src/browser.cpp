@@ -2495,7 +2495,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         properties.label = i18n::tr("Properties…");
         properties.keys = keys_for(Command::properties);
         properties.separator = true;
-        properties.enabled = names.size() == 1 || (properties_window_ && !names.empty());
+        properties.enabled = !names.empty();
         properties.action = [this] { show_properties(); };
         items.push_back(std::move(properties));
         for (auto& item : action_items(action_context(folder))) {
@@ -2626,7 +2626,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     add("erase", "Delete Permanently…", keys_for(Command::erase), [this] { erase(); });
     add(
         "properties", "Properties…", keys_for(Command::properties), [this] { show_properties(); },
-        true, count == 1 || (properties_window_ && count > 1));
+        true, count > 0);
     if (!picker_mode_ && count == 1 && cursor && cursor->is_directory() && !folder->is_archive())
         add("folder_insights", "Insights…", keys_for(Command::folder_insights),
             [this, path = folder->path_of(*cursor)] { show_insights(path); });
@@ -2819,20 +2819,27 @@ void Browser::show_properties() {
     if (!folder || properties_.saving())
         return;
     const auto names = targets(*folder);
-    if ((!properties_window_ && names.size() > 1) || (names.empty() && folder->is_trash()))
+    if (names.empty() && folder->is_trash())
         return;
-    if (properties_window_ && names.size() > 1) {
+    if (names.size() > 1) {
         menu_.close();
         palette_.close();
         quick_look_.close();
         info_pane_.clear_text_focus();
         filter_focused_ = false;
+        std::vector<std::filesystem::path> paths;
         for (const auto& name : names) {
             const auto entry = std::ranges::find(folder->entries(), name, &fs::Entry::name);
             if (entry != folder->entries().end())
-                open_properties(folder->path_of(*entry),
-                                !folder->is_trash() && !folder->is_archive());
+                paths.push_back(folder->path_of(*entry));
         }
+        properties_.open_many(
+            paths,
+            [this, paths] {
+                for (const auto& path : paths)
+                    properties_changed(path);
+            },
+            !folder->is_trash() && !folder->is_archive());
         return;
     }
     auto path = folder->path();

@@ -334,16 +334,19 @@ void InfoPane::request(const std::filesystem::path& path, std::int64_t modified_
         core::Priority::visible,
         [path, mime = std::move(mime), kind,
          types = std::move(types)](const core::CancelToken& token) {
-            return std::make_shared<const preview::Summary>(
-                preview::summarize(path, mime, kind, token, types, true));
+            return std::pair{std::make_shared<const preview::Summary>(
+                                 preview::summarize(path, mime, kind, token, types, true)),
+                             fs::read_annotations(path)};
         },
-        [this, alive = alive_, key = key_](std::shared_ptr<const preview::Summary> summary) {
+        [this, alive = alive_,
+         key = key_](std::pair<std::shared_ptr<const preview::Summary>, fs::Annotations> loaded) {
             if (!*alive || key != key_) {
                 return;
             }
             job_.reset();
             drop_held();
-            summary_ = std::move(summary);
+            summary_ = std::move(loaded.first);
+            annotations_ = std::move(loaded.second);
             redraw_();
         });
 }
@@ -801,6 +804,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         if (info != nullptr) {
             if (expanded_)
                 out.section("MORE");
+            if (annotations_.error.empty()) {
+                out.row(i18n::mark("Tags"), annotations_.tags);
+                out.row(i18n::mark("File rating"), annotations_.rating);
+                out.row(i18n::mark("Comment"), annotations_.comment);
+            }
             out.row("Permissions", info->permissions, ui::Typeface::monospace, expanded_);
             if (!info->owner.empty())
                 out.row("Owner", info->owner + " · " + info->group, ui::Typeface::proportional,

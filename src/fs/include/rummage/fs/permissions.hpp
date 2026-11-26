@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,6 +27,38 @@ struct ModeResult {
 [[nodiscard]] std::string set_permissions(const std::filesystem::path& path, std::uint64_t device,
                                           std::uint64_t inode, std::uint16_t before,
                                           std::uint16_t permissions);
+
+// Snapshot used to refuse roots replaced or edited since the dialog was opened.
+struct PermissionTarget {
+    std::filesystem::path path;
+    std::uint64_t device{}, inode{};
+    std::uint32_t owner{}, group{};
+    std::uint16_t mode{};
+    bool directory{false};
+    std::string error;
+};
+
+[[nodiscard]] PermissionTarget permission_target(const std::filesystem::path& path);
+
+struct PermissionEdit {
+    std::uint16_t mask{}, values{};  // only explicitly chosen rwx bits; others stay unchanged
+    std::string owner, group;        // empty keeps existing; numeric ID or account/group name
+    bool recursive{false};
+};
+
+struct PermissionResult {
+    std::size_t changed{};
+    std::vector<PermissionTarget> refreshed;  // validated original roots after attempted changes
+    std::vector<std::string> errors;
+};
+
+// No privilege elevation. Roots must match snapshots; descendants are traversed through
+// pinned descriptors without following symlinks. Directories change after their children.
+// Explicit recursive scope includes selected roots and their descendants, but no mount crossing.
+// Changes are immediate and not recorded in file-operation Undo; errors can be partial.
+[[nodiscard]] PermissionResult apply_permissions(const std::vector<PermissionTarget>& roots,
+                                                 const PermissionEdit& edit,
+                                                 const std::function<bool()>& cancelled = {});
 
 // The bits a regular file gets: allow adds the owner's execute bit only (u+x); otherwise every
 // execute bit goes (a-x). Other bits are kept.

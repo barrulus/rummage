@@ -432,6 +432,11 @@ public:
         open_with_ = std::move(open_with);
     }
 
+    void set_application_chooser_handlers(ChoicesHandler all, OpenWithHandler make_default) {
+        all_choices_ = std::move(all);
+        make_default_ = std::move(make_default);
+    }
+
     // Opens a terminal in a folder (F4, "Open in Terminal"). Without one, neither is there.
     using TerminalHandler = std::function<void(const std::filesystem::path& directory)>;
 
@@ -1121,7 +1126,8 @@ private:
     std::function<void()> redraw_;
     std::function<void(ui::CursorShape)> set_cursor_;
     OpenHandler open_;
-    ChoicesHandler choices_;
+    ChoicesHandler choices_, all_choices_;
+    OpenWithHandler make_default_;
     OpenWithHandler open_with_;
     TerminalHandler terminal_;
     FolderChooser folder_chooser_;

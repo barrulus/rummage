@@ -1703,9 +1703,27 @@ moves = "移動"
 "Video" = "動画"
 "{} items · Select a row to explore" = "{} 項目 · 行を選択して探索"
 
-"Gallery: hide media filenames" = "ギャラリー：メディアのファイル名を非表示"
 "Make Focused Folder Column Root" = "フォーカス中のフォルダーをカラムのルートにする"
 "Stack directory columns vertically" = "ディレクトリのカラムを縦に並べる"
+
+# File metadata and application choices
+"Comment" = "コメント"
+"File rating" = "ファイルの評価"
+"Folders: read lists, write changes contents, execute enters" = "フォルダー：読み取りは一覧、書き込みは内容変更、実行は移動を許可"
+"Group (name or ID; empty keeps current)" = "グループ（名前または ID、空欄で現在値を維持）"
+"Mixed annotations stay unchanged until edited" = "異なる注釈は編集するまで変更されません"
+"Only changed bits apply to all selected items" = "変更したビットのみを選択した全項目に適用"
+"Open once" = "一度だけ開く"
+"Owner (name or ID; empty keeps current)" = "所有者（名前または ID、空欄で現在値を維持）"
+"Selected items" = "選択した項目"
+"Set as default and open" = "既定に設定して開く"
+"Tags" = "タグ"
+"Tags (comma-separated)" = "タグ（カンマ区切り）"
+"{} selected items" = "{} 個の選択項目"
+"Include folder contents: yes" = "フォルダー内容を含む：はい"
+"Include folder contents: no" = "フォルダー内容を含む：いいえ"
+
+"Clear annotations" = "注釈を消去"
 
 [contexts.file-action]
 "Open" = "開く"

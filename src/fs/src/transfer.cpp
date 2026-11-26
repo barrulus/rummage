@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/annotations.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::fs {
@@ -595,6 +596,11 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
             return false;
         }
     }
+    if (const auto annotations = copy_annotations(from.get(), to.get()); annotations) {
+        error(where, "Could not preserve annotations: " + annotations.message());
+        give_up();
+        return false;
+    }
     const std::array<timespec, 2> times{info.st_atim, info.st_mtim};
     fchmod(to.get(), info.st_mode & 07777);
     futimens(to.get(), times.data());
@@ -806,6 +812,24 @@ bool Engine::finish(std::deque<Building>& folders) {
             if (failed && building.parent != nullptr) {
                 building.parent->failed = true;  // incomplete inside: so is the folder around it
             }
+        }
+        const Fd original{
+            open(building.source.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
+        const Fd destination{
+            open(building.made.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)};
+        struct stat original_info{};
+        if (original.get() < 0 || destination.get() < 0 ||
+            fstat(original.get(), &original_info) != 0) {
+            error(building.where, last_error());
+            fail(&building);
+        } else if (original_info.st_dev != building.info.st_dev ||
+                   original_info.st_ino != building.info.st_ino) {
+            error(building.where, "Folder changed while preserving annotations");
+            fail(&building);
+        } else if (const auto annotations = copy_annotations(original.get(), destination.get());
+                   annotations) {
+            error(building.where, "Could not preserve annotations: " + annotations.message());
+            fail(&building);
         }
         chmod(building.made.c_str(), building.info.st_mode & 07777);
         const std::array<timespec, 2> times{building.info.st_atim, building.info.st_mtim};

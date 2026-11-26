@@ -22,6 +22,7 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/annotations.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/walk.hpp"
@@ -898,4 +899,18 @@ TEST_CASE("find files: Back restores a chosen palette result as a search session
     CHECK(results->finder()->query() == "ext:txt");
     CHECK(results->chosen() == std::vector<fs::path>{f.a / path});
     CHECK(results->first_row() == first);
+}
+
+TEST_CASE("annotation search: exact tags rating and comment predicates") {
+    const TempDir dir;
+    const auto file = dir.write("notes.txt", "data");
+    const rummage::fs::Annotations values{
+        .tags = "Travel, blue", .rating = "4", .comment = "A great trip", .error = {}};
+    REQUIRE(rummage::fs::write_annotations(rummage::fs::permission_target(file), {}, values, 7)
+                .empty());
+    CHECK(search_tree(dir.path, "tag:Travel").files.size() == 1);
+    CHECK(search_tree(dir.path, "tag:Tra").files.empty());
+    CHECK(search_tree(dir.path, "tag:travel case:fold rating:4 comment:trip").files.size() == 1);
+    CHECK(search_tree(dir.path, "rating:3").files.empty());
+    CHECK_FALSE(rummage::views::parse_search_query("rating:6").error.empty());
 }

@@ -1259,6 +1259,25 @@ int main(int argc, char** argv) {
                         std::string app_id) {
                         opener->open(directory, std::move(files), std::move(app_id));
                     });
+                columns->set_application_chooser_handlers(
+                    [&](const std::filesystem::path& directory, fs::Entry entry,
+                        std::function<void(std::vector<views::Browser::AppChoice>)> done) {
+                        opener->choices(
+                            directory, std::move(entry),
+                            [done = std::move(done)](std::vector<platform::AppChoice> found) {
+                                std::vector<views::Browser::AppChoice> apps;
+                                for (auto& app : found)
+                                    apps.push_back(
+                                        {std::move(app.id), std::move(app.name), app.is_default});
+                                done(std::move(apps));
+                            },
+                            true);
+                    },
+                    [&](const std::filesystem::path& directory, std::vector<fs::Entry> files,
+                        std::string app_id) {
+                        opener->set_default_and_open(directory, std::move(files),
+                                                     std::move(app_id));
+                    });
                 columns->settings_dialog().set_theme_status_handler([&] { return theme.status(); });
                 columns->set_settings_handler(
                     config_path,

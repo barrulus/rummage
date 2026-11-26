@@ -127,7 +127,12 @@ public:
     // The applications for entry (its type detected if unknown), worked out on a worker and
     // handed to done on the loop thread.
     void choices(const std::filesystem::path& directory, fs::Entry entry,
-                 std::function<void(std::vector<AppChoice>)> done);
+                 std::function<void(std::vector<AppChoice>)> done, bool all_installed = false);
+
+    // Saves a default for a homogeneous selection, then uses the normal opening path.
+    // Mixed-type/unknown selections are refused without changing associations.
+    void set_default_and_open(const std::filesystem::path& directory,
+                              std::vector<fs::Entry> entries, std::string app_id);
 
     // A process that ends with an error sooner than this after it started is reported: the
     // application could not open the file. Later exits are its own business.

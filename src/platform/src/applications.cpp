@@ -1,6 +1,7 @@
 #include "rummage/platform/applications.hpp"
 
 #include <algorithm>
+#include <mutex>
 #include <system_error>
 #include <unordered_set>
 #include <utility>
@@ -160,6 +161,147 @@ const DesktopEntry* Applications::find(std::string_view id) const {
         return &entry;
     }
     return nullptr;
+}
+
+std::vector<const DesktopEntry*> Applications::installed() const {
+    std::vector<const DesktopEntry*> result;
+    std::unordered_set<std::string> seen;
+    for (const auto& dir : dirs_)
+        for (const auto& [id, entry] : dir.entries) {
+            (void)entry;
+            if (seen.insert(id).second)
+                if (const auto* app = find(id))
+                    result.push_back(app);
+        }
+    std::ranges::sort(result, [](const auto* a, const auto* b) {
+        return a->name == b->name ? a->id < b->id : a->name < b->name;
+    });
+    return result;
+}
+
+namespace {
+// Keep comments, unknown sections and other MIME keys byte-for-byte. Collapse duplicate
+// occurrences of the changed key so another reader cannot pick an obsolete value.
+std::string replace_association(std::string_view input, std::string_view section,
+                                std::string_view mime, const std::vector<std::string>& ids,
+                                const fs::MimeDatabase& database) {
+    std::string output;
+    std::string group;
+    bool inserted = false;
+    const auto insert = [&] {
+        output += std::string{mime} + "=";
+        for (const auto& id : ids)
+            output += id + ";";
+        output += "\n";
+        inserted = true;
+    };
+    while (!input.empty()) {
+        const auto end = input.find('\n');
+        const auto raw = input.substr(0, end == std::string_view::npos ? input.size() : end + 1);
+        const auto line = trim(input.substr(0, end));
+        if (line.starts_with('[') && line.ends_with(']')) {
+            if (group == section && !inserted)
+                insert();
+            group = line.substr(1, line.size() - 2);
+        }
+        const auto equal = line.find('=');
+        if (group == section && equal != std::string_view::npos &&
+            database.find(trim(line.substr(0, equal))) == database.find(mime)) {
+            if (!inserted)
+                insert();
+        } else {
+            output += raw;
+        }
+        input.remove_prefix(raw.size());
+    }
+    if (!inserted) {
+        if (!output.empty() && output.back() != '\n')
+            output += '\n';
+        if (group != section)
+            output += "[" + std::string{section} + "]\n";
+        insert();
+    }
+    return output;
+}
+}  // namespace
+
+std::string Applications::set_default(const Environment& environment,
+                                      const fs::MimeDatabase& database, std::string_view mime,
+                                      std::string_view app_id) {
+    // Opener instances can save from different workers; serialize read/modify/write here.
+    static std::mutex mutex;
+    const std::lock_guard lock{mutex};
+    if (environment.config_dirs.empty() || !environment.config_dirs.front().is_absolute())
+        return "No absolute user configuration directory is available";
+    const auto type_id = database.find(mime);
+    if (type_id == fs::kUnknownMime || mime.find_first_of("\r\n=;") != std::string_view::npos)
+        return "The file type is unknown; a default application cannot be saved";
+    mime = database.name(type_id);
+    if (app_id.empty() || app_id.find_first_of("\r\n=;/\\") != std::string_view::npos ||
+        app_id.find('\0') != std::string_view::npos)
+        return "Invalid desktop application ID";
+    const auto apps = load(environment, database);
+    if (!apps.find(app_id))
+        return "The chosen application is no longer installed or cannot be launched";
+    const auto config = environment.config_dirs.front();
+
+    struct Change {
+        std::filesystem::path path;
+        core::TextFile before;
+        std::string text;
+    };
+
+    std::vector<Change> changes;
+    const auto prepare = [&](const std::filesystem::path& path, bool generic) -> std::string {
+        const auto target = core::atomic_write_target(path);
+        if (!target.error.empty())
+            return target.error;
+        auto before = core::read_text_file(target.destination);
+        if (!before.error.empty())
+            return before.error;
+        MimeApps lists;
+        lists.add(before.text, &database);
+        auto& entries = lists.types[std::string{mime}];
+        if (!generic && entries.defaults.empty())
+            return {};  // no desktop-specific override of this type
+        auto prepend = [&](std::vector<std::string> ids) {
+            std::erase(ids, app_id);
+            ids.insert(ids.begin(), std::string{app_id});
+            return ids;
+        };
+        auto text = replace_association(before.text, "Default Applications", mime,
+                                        prepend(entries.defaults), database);
+        if (generic) {
+            text = replace_association(text, "Added Associations", mime, prepend(entries.added),
+                                       database);
+            std::erase(entries.removed, app_id);
+            text =
+                replace_association(text, "Removed Associations", mime, entries.removed, database);
+        }
+        changes.push_back({target.destination, std::move(before), std::move(text)});
+        return {};
+    };
+    if (const auto error = prepare(config / "mimeapps.list", true); !error.empty())
+        return error;
+    for (const auto& desktop : environment.desktops) {
+        if (desktop.empty() || desktop.find_first_not_of(
+                                   "abcdefghijklmnopqrstuvwxyz0123456789_-") != std::string::npos)
+            return "Invalid current desktop name";
+        const auto path = config / (desktop + "-mimeapps.list");
+        if (const auto existing = core::read_text_file(path); existing.exists) {
+            if (const auto error = prepare(path, false); !error.empty())
+                return error;
+        }
+    }
+    for (const auto& change : changes) {
+        const auto current = core::read_text_file(change.path);
+        if (!current.error.empty() || current.exists != change.before.exists ||
+            current.text != change.before.text)
+            return "MIME associations changed while saving; retry the selection";
+        if (const auto error = core::write_file_atomically(change.path, change.text); error)
+            return "Could not save MIME associations: " + error.message();
+    }
+    return {};
 }
 
 std::vector<std::string> Applications::types_for(std::string_view mime,

@@ -233,21 +233,61 @@ void Opener::open(const std::filesystem::path& directory, std::vector<fs::Entry>
 }
 
 void Opener::choices(const std::filesystem::path& directory, fs::Entry entry,
-                     std::function<void(std::vector<AppChoice>)> done) {
+                     std::function<void(std::vector<AppChoice>)> done, bool all_installed) {
     pool_.submit(
         core::Priority::visible,
-        [directory, entry = std::move(entry), database = database_,
-         environment = environment_](const core::CancelToken& /*token*/) {
+        [directory, entry = std::move(entry), database = database_, environment = environment_,
+         all_installed](const core::CancelToken& /*token*/) {
             const fs::MimeId mime = database->to_open(
                 entry.mime != fs::kUnknownMime ? entry.mime : database->detect(directory, entry),
                 entry.name);
             const Applications apps = Applications::load(*environment, *database);
-            return choices_for(database->name(mime), apps, *database);
+            auto choices = choices_for(database->name(mime), apps, *database);
+            if (all_installed)
+                for (const auto* app : apps.installed())
+                    if (std::ranges::find(choices, app->id, &AppChoice::id) == choices.end())
+                        choices.push_back(
+                            {app->id, app->name.empty() ? app->id : app->name, false});
+            return choices;
         },
         [alive = alive_, done = std::move(done)](std::vector<AppChoice> choices) {
             if (*alive) {
                 done(std::move(choices));
             }
+        });
+}
+
+void Opener::set_default_and_open(const std::filesystem::path& directory,
+                                  std::vector<fs::Entry> entries, std::string app_id) {
+    ++planning_;
+    pool_.submit(
+        core::Priority::visible,
+        [directory, entries, app_id, database = database_,
+         environment = environment_](const core::CancelToken&) -> std::string {
+            fs::MimeId common = fs::kUnknownMime;
+            for (const auto& entry : entries) {
+                const auto mime = database->to_open(entry.mime != fs::kUnknownMime
+                                                        ? entry.mime
+                                                        : database->detect(directory, entry),
+                                                    entry.name);
+                if (mime == fs::kUnknownMime || (common != fs::kUnknownMime && common != mime))
+                    return "Choose files of one known type to change their default application";
+                common = mime;
+            }
+            if (common == fs::kUnknownMime)
+                return "No files were selected";
+            return Applications::set_default(*environment, *database, database->name(common),
+                                             app_id);
+        },
+        [this, alive = alive_, directory, entries, app_id](std::string error) mutable {
+            if (!*alive)
+                return;
+            --planning_;
+            if (!error.empty()) {
+                report_(std::move(error), true);
+                return;
+            }
+            open(directory, std::move(entries), std::move(app_id));
         });
 }
 
