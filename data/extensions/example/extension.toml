@@ -1,0 +1,11 @@
+[extension]
+api = 1
+id = "example"
+label = "Example"
+program = "helper"
+status = true
+
+[[command]]
+id = "count"
+label = "Count selected files"
+selection = "many"

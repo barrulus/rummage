@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""Minimal Rummage extension protocol v1; no third-party Python packages."""
+import json
+import sys
+from urllib.parse import unquote_to_bytes
+
+request = json.load(sys.stdin)
+if request.get("version") != 1:
+    raise SystemExit("unsupported protocol")
+if request["operation"] == "command" and request["command"] == "count":
+    reply = {"version": 1, "message": f"Selected {len(request['files'])} files"}
+elif request["operation"] == "status":
+    reply = {
+        "version": 1,
+        "decorations": {
+            uri: {"badge": "TODO", "label": "Example: to-do file", "severity": 1}
+            for uri in request["files"]
+            if unquote_to_bytes(uri).endswith(b".todo")
+        },
+    }
+else:
+    reply = {"version": 1, "error": True, "message": "Unknown command"}
+json.dump(reply, sys.stdout)

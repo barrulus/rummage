@@ -889,3 +889,38 @@ TEST_CASE("filter: keyboard menu changes matching mode and case sensitivity") {
     f.press(key(XKB_KEY_Return));
     CHECK(f.browser.name_filter() == "case:text:P1");
 }
+
+TEST_CASE("extensions: Git palette action opens a modal and disabling clears badges") {
+    Fixture f;
+    const auto invoke = [&](std::vector<std::string> args) {
+        args.insert(args.begin(), "git");
+        const auto result = rummage::platform::extensions::run(args, f.a, {}, {});
+        REQUIRE(result.code == 0);
+    };
+    invoke({"init", "-q"});
+    invoke({"add", "one.txt"});
+    f.browser.set_extensions({.git = true});
+    REQUIRE(run_until(f.loop, [&] {
+        const auto folder = f.browser.picker_folder();
+        return folder && !folder->repository().empty();
+    }));
+    CHECK(f.ids().contains("git:staged"));
+    auto items = f.browser.palette_items();
+    auto staged = std::ranges::find(items, "git:staged", &PaletteItem::id);
+    REQUIRE(staged != items.end());
+    staged->action();
+    REQUIRE(run_until(f.loop, [&] { return f.browser.extension_output().is_open(); }));
+    CHECK(f.browser.extension_output().detail().find("+1") != std::string::npos);
+    CHECK(f.press(key(XKB_KEY_Escape)));
+    CHECK_FALSE(f.browser.extension_output().is_open());
+    const auto folder = f.browser.picker_folder();
+    REQUIRE(folder);
+    REQUIRE(std::ranges::any_of(folder->entries(),
+                                [](const auto& entry) { return bool(entry.decoration); }));
+    f.browser.set_extensions({});
+    REQUIRE(run_until(f.loop, [&] {
+        return std::ranges::none_of(folder->entries(),
+                                    [](const auto& entry) { return bool(entry.decoration); });
+    }));
+    CHECK_FALSE(f.ids().contains("git:staged"));
+}

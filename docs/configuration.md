@@ -331,3 +331,12 @@ action uses the same terminal settings and an interactive Bash, Zsh or Fish from
 An executable without permission asks before allowing and running; scripts continue to open
 with their associated application. Set it to `false` in Settings or the configuration to disable
 direct program launches. The file chooser never launches programs.
+
+## Workflow extensions and Git
+
+`[extensions]` is opt-in: `enabled = []`, `git = false`, and `git_tool = []` by
+default. `enabled` lists installed extension IDs; `git` enables status badges
+and read-only diff actions; `git_tool` is a literal argv prefix for your chosen
+Git interface, with the repository root appended. Changes reload automatically.
+See [Workflow extensions and Git](extensions.md) for the versioned protocol,
+installation, trust boundaries, status meanings and refresh limits.

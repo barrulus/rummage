@@ -52,6 +52,8 @@ struct SelectionSummary {
 // take_reveal(), that the cursor moved and how the view should bring it into sight.
 //
 // Loop thread only. Must not outlive the loop, pool or watcher.
+class StatusTicker;
+
 class Folder {
 public:
     // How the view should bring the cursor into sight at its next draw.
@@ -106,6 +108,10 @@ public:
     }
 
     ~Folder();
+
+    [[nodiscard]] const std::string& decoration_problem() const { return decoration_problem_; }
+
+    [[nodiscard]] const std::filesystem::path& repository() const { return repository_; }
 
     Folder(const Folder&) = delete;
     Folder& operator=(const Folder&) = delete;
@@ -282,6 +288,13 @@ public:
     [[nodiscard]] bool media_loading() const { return media_running_ || !media_queue_.empty(); }
 
 private:
+    void request_decorations();
+    std::shared_ptr<StatusTicker> status_ticker_;
+    std::uint64_t status_subscription_{}, status_generation_{};
+    bool status_running_{false};
+    core::CancelToken status_job_;
+    std::filesystem::path repository_;
+    std::string decoration_problem_;
     void pump_media();
 
     struct MediaWork {

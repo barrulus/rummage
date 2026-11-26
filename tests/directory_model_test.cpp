@@ -514,3 +514,30 @@ TEST_CASE(
     f.model.apply_media({a});
     CHECK_FALSE(find(f.model, "a.png")->media);
 }
+
+TEST_CASE("extensions: decorations change metadata without reordering or losing identity") {
+    Fixture f;
+    f.dir.write("one", "contents");
+    f.dir.write("two", "more");
+    f.open();
+    const auto before = *find(f.model, "one");
+    auto decoration = std::make_shared<rummage::fs::Decoration>();
+    decoration->badge = "M";
+    decoration->label = "Git: modified";
+    decoration->severity = 2;
+    f.model.apply_decorations({{"one", decoration}});
+    const auto* after = find(f.model, "one");
+    REQUIRE(after);
+    CHECK(after->decoration == decoration);
+    CHECK(after->name == before.name);
+    CHECK(after->size == before.size);
+    CHECK(after->mime == before.mime);
+    CHECK(names(f.model) == std::vector<std::string>{"one", "two"});
+    REQUIRE(f.changes.size() == 1);
+    CHECK(f.changes.back().metadata_only);
+    f.model.apply_decorations({{"one", decoration}});
+    CHECK(f.changes.size() == 1);
+    f.model.apply_decorations({});
+    CHECK_FALSE(find(f.model, "one")->decoration);
+    CHECK(f.changes.size() == 2);
+}

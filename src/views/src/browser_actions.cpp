@@ -87,6 +87,8 @@ std::vector<MenuItem> Browser::action_items(const core::ActionContext& context) 
             custom.children.push_back(std::move(item));
         }
     }
+    for (auto& item : extension_items(context))
+        items.push_back(std::move(item));
     if (!custom.children.empty()) {
         items.push_back(std::move(custom));
     }

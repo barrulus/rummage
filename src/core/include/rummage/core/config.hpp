@@ -18,6 +18,13 @@
 namespace rummage::core {
 
 struct Config {
+    struct Extensions {
+        std::vector<std::string> enabled{};
+        bool git{false};
+        std::vector<std::string> git_tool{};
+        bool operator==(const Extensions&) const = default;
+    };
+
     struct Interface {
         std::string language{"system"};  // Compiled catalog code; applied at process startup.
     };
@@ -106,6 +113,7 @@ struct Config {
 
     Appearance appearance;
     Interface interface;
+    Extensions extensions;
     Sidebar sidebar;
     MotionConfig animations;
     Startup startup;

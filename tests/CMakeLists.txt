@@ -24,6 +24,7 @@ add_executable(rummage-tests
     permissions_test.cpp
     annotations_test.cpp
     program_test.cpp
+    extensions_test.cpp
     actions_test.cpp
     archives_test.cpp
     compress_test.cpp

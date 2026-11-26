@@ -28,6 +28,7 @@ reporting behavior in a development build.
 | Change colours, fonts, icons or transparency | [Appearance](appearance.md) |
 | Change the interface language or add a translation | [Languages and translations](translations.md) |
 | Configure animation effects and reduced motion | [Motion effects](motion.md) |
+| Install workflow extensions or show Git status | [Extensions and Git](extensions.md) |
 | Add commands, destination dialogs or menu groups | [Actions and context menus](actions.md) |
 | Look up default keys or override bindings | [Keyboard shortcuts](shortcuts.md) |
 | Use command-line options or diagnostic variables | [Command line](command-line.md) |
