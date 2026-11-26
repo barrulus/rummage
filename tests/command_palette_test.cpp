@@ -736,14 +736,16 @@ TEST_CASE(
     CHECK_FALSE(palette.is_open());
 }
 
-TEST_CASE("palette in the browser: Ctrl+K, Ctrl+F and Ctrl+S switch between their cards") {
+TEST_CASE("palette in the browser: search opens results and command/selection cards still switch") {
     PatternFixture f;
     auto& palette = f.browser.command_palette();
     f.press(key(XKB_KEY_s, kCtrl));
     REQUIRE(palette.external());
     f.press(key(XKB_KEY_f, kCtrl));
-    CHECK(palette.is_open());
-    CHECK(f.browser.file_finder() != nullptr);
+    CHECK_FALSE(palette.is_open());
+    REQUIRE(f.browser.searching_results());
+    f.press(key(XKB_KEY_Escape));
+    CHECK_FALSE(f.browser.searching_results());
     f.press(key(XKB_KEY_s, kCtrl));
     CHECK(palette.is_open());
     CHECK(f.browser.file_finder() == nullptr);

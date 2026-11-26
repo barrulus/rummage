@@ -6948,7 +6948,11 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;
     }
     if (filter_focused_ && !shortcuts_.is_open() && !quick_look_.is_open()) {
-        if (event.keysym == XKB_KEY_space && event.modifiers == ui::Modifiers{.ctrl = true}) {
+        if (command_for(event) == Command::find_files) {
+            blur_filter();
+            run(Command::find_files, now);
+        } else if (event.keysym == XKB_KEY_space &&
+                   event.modifiers == ui::Modifiers{.ctrl = true}) {
             menu_.open(filter_bounds_.x, filter_bounds_.bottom(), name_filter_menu().children,
                        true);
             filter_focused_ = false;

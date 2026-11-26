@@ -32,6 +32,7 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
     if (showing_photos())
         open_tab(root, true);
     note_location();
+    filter_focused_ = false;
     palette_.close();
     menu_.close();
     shortcuts_.close();

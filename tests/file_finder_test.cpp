@@ -408,8 +408,11 @@ TEST_CASE("find files: Ctrl+F opens persistent recursive results and refocuses t
     touch(f.a / "photos" / "another.zip");
     touch(f.a / "photos" / "deep" / "third.zip");
     f.browser.set_name_filter("one.txt");
+    REQUIRE(f.press(key(XKB_KEY_F, {.ctrl = true, .shift = true})));
+    REQUIRE(f.browser.filtering());
     REQUIRE(f.press(key(XKB_KEY_f, kCtrl)));
     REQUIRE(f.browser.searching_results());
+    CHECK_FALSE(f.browser.filtering());
     CHECK_FALSE(f.browser.command_palette().is_open());
     auto* results = f.browser.search_results();
     results->set_query("ext:zip");
