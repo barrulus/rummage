@@ -35,9 +35,10 @@ struct BoxStyle {
 //
 // Usage per frame: begin_frame, any number of draw/clip calls, end_frame. Draw order is
 // paint order, also between boxes and text. Glyphs are rasterized on first use into two
-// 2048x2048 atlases (coverage and color) and reused across frames. Requires the GL context to be
-// current for every call, including construction and destruction. Throws std::runtime_error if the
-// shaders fail to build.
+// lazily allocated atlases and reused across frames. Coverage starts at 1024x1024 and grows
+// once to 2048x2048; color uses 2048x2048 only when a color glyph is first drawn. Requires the GL
+// context to be current for every call, including construction and destruction. Throws
+// std::runtime_error if the shaders fail to build.
 class Renderer {
 public:
     explicit Renderer(FontSystem& fonts);
@@ -88,7 +89,7 @@ public:
 
     [[nodiscard]] FontSystem& fonts() noexcept { return fonts_; }
 
-    // GPU bytes of the two glyph atlases (the memory report).
+    // Allocated glyph texture bytes across all live renderers (the process memory report).
     [[nodiscard]] static std::size_t atlas_bytes() noexcept;
 
     void draw_box(const Rect& rect, const BoxStyle& style);
