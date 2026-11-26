@@ -1,5 +1,6 @@
 #include "rummage/views/state.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -75,6 +76,11 @@ State changed() {
     s.info_auto_hide = true;
     s.info_width = 410.0F;
     s.info_expanded = true;
+    s.terminal = {.placement = rummage::views::TerminalPlacement::floating,
+                  .width = 650,
+                  .height = 375,
+                  .x = 90,
+                  .y = 120};
     s.sort_key = SortKey::modified;
     s.sort_descending = true;
     s.details_widths = rummage::views::kDetailsWidths;
@@ -726,4 +732,33 @@ TEST_CASE("state: explicit archive launch survives startup defaults and independ
     CHECK(browser.columns().focused_folder()->path() == archive);
     CHECK(browser.columns().focused_folder()->is_archive());
     CHECK_FALSE(external_open);
+}
+
+TEST_CASE("state: invalid terminal geometry and placement retain safe defaults") {
+    const auto result = parse(
+        "[terminal]\nplacement = \"detached\"\nwidth = -1\nheight = nan\nx = -20\ny = 20000\n");
+    CHECK(result.problems.size() == 5);
+    CHECK(result.state.terminal == rummage::views::TerminalLayout{});
+}
+
+TEST_CASE(
+    "state: remembered terminal layout never starts a shell or exposes unavailable features") {
+    const TempDir dir;
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    State state;
+    state.terminal.placement = rummage::views::TerminalPlacement::floating;
+    browser.apply(state);
+    browser.open(dir.path);
+    REQUIRE(run_until(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.terminal_panel().layout() == state.terminal);
+    CHECK_FALSE(browser.terminal_panel().visible());
+    CHECK_FALSE(browser.terminal_panel().session().running());
+    browser.open_view_menu(0, 0);
+    const auto& items = browser.context_menu().items();
+    const bool present =
+        std::ranges::any_of(items, [](const auto& item) { return item.id == "terminal"; });
+    CHECK(present == rummage::platform::EmbeddedTerminal::available());
 }

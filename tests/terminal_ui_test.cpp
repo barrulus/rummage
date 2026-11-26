@@ -459,3 +459,260 @@ TEST_CASE(
     REQUIRE(until(f.loop, [&] { return fs::exists(f.temp.path / "result"); }));
     CHECK(read(f.temp.path / "result") == "ok");
 }
+
+TEST_CASE("terminal UI: View menu exposes visibility and every placement without restarting jobs") {
+    using rummage::views::MenuItem;
+    using rummage::views::TerminalPlacement;
+    Fixture f;
+    auto menu = [&] {
+        f.browser.open_view_menu(10, 10);
+        const auto& items = f.browser.context_menu().items();
+        const auto found = std::ranges::find(items, "terminal", &MenuItem::id);
+        REQUIRE(found != items.end());
+        auto result = *found;
+        f.browser.context_menu().close();
+        return result;
+    };
+    auto terminal = menu();
+    REQUIRE(terminal.children.size() == 2);
+    CHECK_FALSE(terminal.children[0].checked);
+    CHECK(terminal.children[0].keys == "Shift+F4");
+    terminal.children[0].action();
+    REQUIRE(until(f.loop, [&] { return f.terminal().ready(); }));
+    REQUIRE(f.terminal().command(
+        "printf ready > job-started; read -r answer; printf '%s' \"$answer\" > job-result"));
+    REQUIRE(until(
+        f.loop, [&] { return fs::exists(f.temp.path / "job-started") && !f.terminal().ready(); }));
+    const std::array placements{TerminalPlacement::bottom, TerminalPlacement::top,
+                                TerminalPlacement::left, TerminalPlacement::right,
+                                TerminalPlacement::floating};
+    for (std::size_t i = 0; i < placements.size(); ++i) {
+        terminal = menu();
+        REQUIRE(terminal.children[1].children.size() == placements.size());
+        terminal.children[1].children[i].action();
+        CHECK(f.browser.terminal_panel().layout().placement == placements[i]);
+        CHECK(f.terminal().running());
+        CHECK_FALSE(f.terminal().ready());
+        CHECK(menu().children[1].children[i].checked);
+        CHECK(f.browser.terminal_focused());
+    }
+    menu().children[0].action();
+    CHECK_FALSE(f.browser.terminal_panel().visible());
+    CHECK(f.terminal().running());
+    menu().children[0].action();
+    CHECK(f.browser.terminal_panel().visible());
+    f.terminal().key(rummage::platform::EmbeddedTerminal::Key::none, "survived");
+    f.terminal().key(rummage::platform::EmbeddedTerminal::Key::enter, "");
+    REQUIRE(until(f.loop,
+                  [&] { return f.terminal().ready() && fs::exists(f.temp.path / "job-result"); }));
+    CHECK(read(f.temp.path / "job-result") == "survived");
+    const auto remembered = f.browser.state();
+    CHECK(remembered.terminal.placement == TerminalPlacement::floating);
+    Browser restored{f.loop, f.pool,     f.watcher, rummage::fs::MimeDatabase::load(),
+                     [] {},  [](auto) {}};
+    restored.apply(remembered);
+    CHECK(restored.terminal_panel().layout() == remembered.terminal);
+    CHECK_FALSE(restored.terminal_panel().visible());
+    CHECK_FALSE(restored.terminal_panel().session().running());
+    f.browser.terminal_panel().set_placement(TerminalPlacement::bottom);
+    f.browser.open_view_menu(650, 40, true);
+    auto& context = f.browser.context_menu();
+    for (std::size_t n = 0; n < context.items().size(); ++n) {
+        if (context.highlighted() && context.items()[*context.highlighted()].id == "terminal")
+            break;
+        f.press(XKB_KEY_Down);
+    }
+    REQUIRE(context.highlighted());
+    REQUIRE(context.items()[*context.highlighted()].id == "terminal");
+    REQUIRE(f.press(XKB_KEY_Right));
+    REQUIRE(f.press(XKB_KEY_Down));
+    REQUIRE(f.press(XKB_KEY_Right));
+    REQUIRE(context.open_levels() == 3);
+    REQUIRE(f.press(XKB_KEY_End));
+    if (const char* prefix = std::getenv("RUMMAGE_TERMINAL_SNAPSHOT")) {
+        rummage::ui::Offscreen surface{1000, 700};
+        rummage::ui::FontSystem fonts;
+        rummage::ui::Renderer renderer{fonts};
+        rummage::ui::IconSet icons{fonts};
+        renderer.begin_frame(1000, 700, 1, {});
+        f.browser.draw(renderer, {0, 0, 1000, 700}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+        std::vector<std::uint8_t> pixels(1000 * 700 * 4), flipped(pixels.size());
+        glReadPixels(0, 0, 1000, 700, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        for (int y = 0; y < 700; ++y)
+            std::copy_n(pixels.data() + y * 1000 * 4, 1000 * 4,
+                        flipped.data() + (699 - y) * 1000 * 4);
+        const auto png = rummage::picture::encode_png(
+            {.width = 1000, .height = 700, .rgba = std::move(flipped)});
+        std::ofstream output{std::string{prefix} + "-menu.png", std::ios::binary};
+        output.write(reinterpret_cast<const char*>(png.data()),
+                     static_cast<std::streamsize>(png.size()));
+        REQUIRE(output.good());
+    }
+    REQUIRE(f.press(XKB_KEY_Return));
+    CHECK_FALSE(context.is_open());
+    CHECK(f.browser.terminal_panel().layout().placement == TerminalPlacement::floating);
+}
+
+TEST_CASE("terminal UI: dock edges resize and floating header drags with captured pointer") {
+    namespace ui = rummage::ui;
+    using rummage::views::TerminalPlacement;
+    rummage::core::EventLoop loop;
+    rummage::views::TerminalPanel panel{loop, [] {}};
+    panel.show(true);
+    const ui::Rect available{20, 40, 1000, 700};
+    const std::array placements{TerminalPlacement::bottom, TerminalPlacement::top,
+                                TerminalPlacement::left, TerminalPlacement::right,
+                                TerminalPlacement::floating};
+    for (const auto placement : placements) {
+        CAPTURE(static_cast<int>(placement));
+        panel.set_layout({.placement = placement});
+        const auto remaining = panel.arrange(available);
+        const auto before = panel.bounds();
+        float x = before.x + 2, y = before.y + 2, dx = 0, dy = 0;
+        switch (placement) {
+            case TerminalPlacement::bottom:
+                dy = -70;
+                CHECK(remaining.bottom() == before.y);
+                break;
+            case TerminalPlacement::top:
+                y = before.bottom() - 2;
+                dy = 70;
+                CHECK(remaining.y == before.bottom());
+                break;
+            case TerminalPlacement::left:
+                x = before.right() - 2;
+                dx = 70;
+                CHECK(remaining.x == before.right());
+                break;
+            case TerminalPlacement::right:
+                dx = -70;
+                CHECK(remaining.right() == before.x);
+                break;
+            case TerminalPlacement::floating:
+                x = before.right() - 2;
+                y = before.bottom() - 2;
+                dx = 70;
+                dy = 70;
+                CHECK(remaining.width == available.width);
+                CHECK(remaining.height == available.height);
+                break;
+        }
+        const auto cursor = panel.cursor_at(x, y);
+        CHECK(cursor ==
+              (placement == TerminalPlacement::floating ? ui::CursorShape::se_resize
+               : placement == TerminalPlacement::left || placement == TerminalPlacement::right
+                   ? ui::CursorShape::ew_resize
+                   : ui::CursorShape::ns_resize));
+        CHECK(panel.pointer({.kind = ui::PointerEvent::Kind::press,
+                             .x = x,
+                             .y = y,
+                             .button = ui::PointerButton::left}));
+        CHECK(panel.claims(-100, -100));
+        CHECK(panel.pointer({.kind = ui::PointerEvent::Kind::motion, .x = x + dx, .y = y + dy}));
+        panel.arrange(available);
+        if (dx != 0)
+            CHECK(panel.bounds().width == before.width + 70);
+        if (dy != 0)
+            CHECK(panel.bounds().height == before.height + 70);
+        CHECK(panel.pointer({.kind = ui::PointerEvent::Kind::release,
+                             .x = x + dx,
+                             .y = y + dy,
+                             .button = ui::PointerButton::left}));
+        CHECK_FALSE(panel.claims(-100, -100));
+    }
+    panel.set_layout({.placement = TerminalPlacement::floating});
+    panel.arrange(available);
+    const auto before = panel.bounds();
+    const auto x = before.x + 100, y = before.y + 15;
+    CHECK(panel.cursor_at(x, y) == ui::CursorShape::grab);
+    CHECK(panel.pointer({.kind = ui::PointerEvent::Kind::press,
+                         .x = x,
+                         .y = y,
+                         .button = ui::PointerButton::left}));
+    CHECK(panel.cursor_at(-100, -100) == ui::CursorShape::grabbing);
+    panel.pointer({.kind = ui::PointerEvent::Kind::motion, .x = x + 100, .y = y + 80});
+    panel.arrange(available);
+    CHECK(panel.bounds().x == before.x + 100);
+    CHECK(panel.bounds().y == before.y + 80);
+    panel.pointer({.kind = ui::PointerEvent::Kind::motion, .x = -500, .y = -500});
+    panel.arrange(available);
+    CHECK(panel.bounds().x == available.x);
+    CHECK(panel.bounds().y == available.y);
+    panel.pointer({.kind = ui::PointerEvent::Kind::release,
+                   .x = -500,
+                   .y = -500,
+                   .button = ui::PointerButton::left});
+    CHECK(panel.focused());
+    panel.arrange({0, 0, 80, 60});
+    CHECK(panel.bounds().width == 80);
+    CHECK(panel.bounds().height == 60);
+}
+
+TEST_CASE("terminal UI: all placements render above search and retain terminal input focus") {
+    namespace ui = rummage::ui;
+    using rummage::views::TerminalPlacement;
+    Fixture f;
+    f.start();
+    REQUIRE(f.terminal().command(
+        "printf '\\033[2J\\033[H\\033[32mTerminal placement\\033[0m\\nUTF-8: café 世界\\n'"));
+    REQUIRE(until(f.loop, [&] { return f.terminal().ready(); }));
+    f.browser.set_sidebar_visible(false);
+    f.browser.set_info_visible(false);
+    f.browser.open_search_results(f.temp.path, "needle", false);
+    ui::Offscreen surface{1000, 700};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const std::array placements{TerminalPlacement::bottom, TerminalPlacement::top,
+                                TerminalPlacement::left, TerminalPlacement::right,
+                                TerminalPlacement::floating};
+    for (const auto placement : placements) {
+        CAPTURE(static_cast<int>(placement));
+        auto& panel = f.browser.terminal_panel();
+        panel.set_placement(placement);
+        renderer.begin_frame(1000, 700, 1, {});
+        f.browser.draw(renderer, {0, 0, 1000, 700}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+        const auto bounds = panel.bounds(), list = f.browser.search_results()->list_bounds();
+        switch (placement) {
+            case TerminalPlacement::bottom:
+                CHECK(list.bottom() <= bounds.y);
+                break;
+            case TerminalPlacement::top:
+                CHECK(list.y >= bounds.bottom());
+                break;
+            case TerminalPlacement::left:
+                CHECK(list.x >= bounds.right());
+                break;
+            case TerminalPlacement::right:
+                CHECK(list.right() <= bounds.x);
+                break;
+            case TerminalPlacement::floating:
+                CHECK(list.width > bounds.width);
+                break;
+        }
+        f.browser.pointer({.kind = ui::PointerEvent::Kind::press,
+                           .x = bounds.x + 20,
+                           .y = bounds.y + 60,
+                           .button = ui::PointerButton::left},
+                          Browser::Clock::now());
+        CHECK(f.browser.terminal_focused());
+        CHECK_FALSE(f.browser.input_field());
+        if (const char* prefix = std::getenv("RUMMAGE_TERMINAL_SNAPSHOT")) {
+            std::vector<std::uint8_t> pixels(1000 * 700 * 4), flipped(pixels.size());
+            glReadPixels(0, 0, 1000, 700, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            for (int y = 0; y < 700; ++y)
+                std::copy_n(pixels.data() + y * 1000 * 4, 1000 * 4,
+                            flipped.data() + (699 - y) * 1000 * 4);
+            const auto png = rummage::picture::encode_png(
+                {.width = 1000, .height = 700, .rgba = std::move(flipped)});
+            std::ofstream output{std::string{prefix} + "-placement-" +
+                                     std::to_string(static_cast<int>(placement)) + ".png",
+                                 std::ios::binary};
+            output.write(reinterpret_cast<const char*>(png.data()),
+                         static_cast<std::streamsize>(png.size()));
+            REQUIRE(output.good());
+        }
+    }
+}

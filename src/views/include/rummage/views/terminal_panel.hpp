@@ -5,6 +5,7 @@
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/renderer.hpp"
 #include "rummage/ui/seat.hpp"
+#include "rummage/views/terminal_layout.hpp"
 
 namespace rummage::views {
 class TerminalPanel {
@@ -18,6 +19,15 @@ public:
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette);
     bool pointer(const ui::PointerEvent& event);
     void key(const ui::KeyEvent& event);
+    ui::Rect arrange(const ui::Rect& available);
+    [[nodiscard]] ui::Rect remaining(ui::Rect bounds) const;
+    [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
+    [[nodiscard]] bool claims(float x, float y) const;
+
+    [[nodiscard]] const TerminalLayout& layout() const { return layout_; }
+
+    void set_layout(TerminalLayout layout);
+    void set_placement(TerminalPlacement placement);
 
     bool focused() const { return focused_; }
 
@@ -28,6 +38,7 @@ public:
     void show(bool value) {
         visible_ = value;
         focused_ = value;
+        dragging_ = resizing_ = false;
         changed_();
     }
 
@@ -40,8 +51,11 @@ public:
 private:
     std::function<void()> changed_;
     platform::EmbeddedTerminal session_;
-    bool visible_{false}, focused_{false}, resizing_{false}, close_requested_{false};
-    float height_{260}, resize_y_{}, resize_height_{};
-    ui::Rect bounds_{}, close_{}, grip_{};
+    void controls();
+    bool visible_{false}, focused_{false}, resizing_{false}, dragging_{false},
+        close_requested_{false};
+    TerminalLayout layout_{}, drag_layout_{};
+    float drag_x_{}, drag_y_{};
+    ui::Rect available_{}, bounds_{}, close_{}, grip_{}, header_{};
 };
 }  // namespace rummage::views

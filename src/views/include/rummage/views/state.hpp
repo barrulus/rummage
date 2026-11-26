@@ -16,6 +16,7 @@
 #include "rummage/fs/sort.hpp"
 #include "rummage/views/details_columns.hpp"
 #include "rummage/views/grid_size.hpp"
+#include "rummage/views/terminal_layout.hpp"
 
 // What rummage remembers from one start to the next (ROADMAP 7.5a): how the window was left, not
 // preferences (those are config.toml's). Kept in $XDG_STATE_HOME/rummage/state.toml, written by
@@ -42,6 +43,7 @@ struct State {
     float info_width{300.0F};
     float sidebar_preview_ratio{0.55F};
     bool info_expanded{false};
+    TerminalLayout terminal;
     // Details sorting, column order/visibility and widths (the name takes the rest).
     fs::SortKey sort_key{fs::SortKey::name};
     bool sort_descending{false};

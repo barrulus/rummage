@@ -20,6 +20,10 @@ namespace {
 constexpr std::array kModes{std::pair{"columns", State::Mode::columns},
                             std::pair{"grid", State::Mode::grid},
                             std::pair{"details", State::Mode::details}};
+constexpr std::array kTerminalPlacements{
+    std::pair{"bottom", TerminalPlacement::bottom}, std::pair{"top", TerminalPlacement::top},
+    std::pair{"left", TerminalPlacement::left}, std::pair{"right", TerminalPlacement::right},
+    std::pair{"floating", TerminalPlacement::floating}};
 constexpr std::array kListSizeWords{
     std::pair{"small", std::size_t{0}}, std::pair{"usual", std::size_t{1}},
     std::pair{"large", std::size_t{2}}, std::pair{"larger", std::size_t{3}},
@@ -364,6 +368,11 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     read.number("info.width", kInfoMin, kInfoMax, s.info_width);
     read.flag("info.expanded", s.info_expanded);
     read.number("info.sidebar_ratio", 0.15F, 0.85F, s.sidebar_preview_ratio);
+    read.word("terminal.placement", kTerminalPlacements, s.terminal.placement);
+    read.number("terminal.width", 200.0F, 2400.0F, s.terminal.width);
+    read.number("terminal.height", 100.0F, 2000.0F, s.terminal.height);
+    read.number("terminal.x", 0.0F, 10000.0F, s.terminal.x);
+    read.number("terminal.y", 0.0F, 10000.0F, s.terminal.y);
     read.word("details.sort", kSortKeys, s.sort_key);
     read.flag("details.descending", s.sort_descending);
     read.details("details.", s.details_widths, s.details_columns);
@@ -782,6 +791,10 @@ std::string format_state(const State& s) {
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,
                s.active_pane) +
+           std::format(
+               "\n[terminal]\nplacement = \"{}\"\nwidth = {}\nheight = {}\nx = {}\ny = {}\n",
+               word_of(kTerminalPlacements, s.terminal.placement), s.terminal.width,
+               s.terminal.height, s.terminal.x, s.terminal.y) +
            tabs + folders + searches +
            (s.photo_library.empty() || s.photo_library.size() > State::kMaxPhotoStateBytes ||
                     !valid_utf8(s.photo_library)

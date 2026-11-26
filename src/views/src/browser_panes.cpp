@@ -318,6 +318,40 @@ void Browser::open_view_menu(float x, float y, bool keyboard) {
                              .children = {},
                              .action = [this] { run(Command::toggle_sidebar, Clock::now()); }});
     items.push_back(std::move(show));
+    if (!picker_mode_ && platform::EmbeddedTerminal::available()) {
+        MenuItem terminal;
+        terminal.id = "terminal";
+        terminal.label = i18n::tr("Terminal");
+        terminal.submenu = true;
+        MenuItem visible;
+        visible.id = "toggle_terminal";
+        visible.label = i18n::tr("Show");
+        visible.keys = keys_for(Command::toggle_terminal);
+        visible.checkable = true;
+        visible.checked = embedded_terminal_.visible();
+        visible.action = [this] { toggle_terminal(); };
+        terminal.children.push_back(std::move(visible));
+        MenuItem placement;
+        placement.id = "terminal_placement";
+        placement.label = i18n::tr("Placement");
+        placement.submenu = true;
+        const auto add = [&](std::string id, std::string_view label, TerminalPlacement position) {
+            MenuItem item;
+            item.id = std::move(id);
+            item.label = label;
+            item.radio = true;
+            item.checked = embedded_terminal_.layout().placement == position;
+            item.action = [this, position] { embedded_terminal_.set_placement(position); };
+            placement.children.push_back(std::move(item));
+        };
+        add("terminal_bottom", i18n::tr("Bottom"), TerminalPlacement::bottom);
+        add("terminal_top", i18n::tr("Top"), TerminalPlacement::top);
+        add("terminal_left", i18n::tr("Left"), TerminalPlacement::left);
+        add("terminal_right", i18n::tr("Right"), TerminalPlacement::right);
+        add("terminal_floating", i18n::tr("Floating"), TerminalPlacement::floating);
+        terminal.children.push_back(std::move(placement));
+        items.push_back(std::move(terminal));
+    }
     MenuItem sidebar_options;
     sidebar_options.id = "sidebar_options";
     sidebar_options.label = i18n::tr("Sidebar");

@@ -4,9 +4,16 @@
 
 ## Embedded terminal
 
-Press **Shift+F4** or choose **Toggle Terminal** in the command palette to show or
-hide the terminal below the file view. Drag its top edge to resize it. Click the
-terminal to type there; **Ctrl+`** switches focus between the terminal and files.
+Choose **View → Terminal → Show**, press **Shift+F4**, or choose **Toggle Terminal**
+in the command palette to show or hide the terminal. **View → Terminal → Placement**
+places it at the bottom, top, left or right of the file view, or floats it inside
+this window. Drag the edge facing the files to resize a docked terminal. Drag the
+header to move a floating terminal and its bottom-right corner to resize it.
+Placement and size are remembered; restarting Rummage keeps the terminal hidden
+until you open it. Moving the panel preserves the shell and its running jobs.
+Floating panels stay within their browser window; detached terminal windows are
+not supported. Click the terminal to type there; **Ctrl+`** switches focus between
+the terminal and files.
 The close button hides the panel. Hiding it retains the shell and its jobs;
 closing the window ends the terminal session and its foreground/background jobs.
 Commands which deliberately start a separate session are independent.

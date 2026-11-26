@@ -4017,6 +4017,7 @@ State Browser::state() {
     state.info_visible = info_visible_;
     state.info_auto_hide = info_auto_hide_;
     state.info_width = info_pane_.width();
+    state.terminal = embedded_terminal_.layout();
     state.sidebar_preview_ratio = sidebar_preview_ratio_;
     state.info_expanded = info_pane_.expanded();
     state.sort_key = pane().details.order().key;
@@ -4230,6 +4231,7 @@ void Browser::apply(const State& state) {
     set_info_visible(state.info_visible);
     info_auto_hide_ = state.info_auto_hide;
     info_pane_.set_width(state.info_width);
+    embedded_terminal_.set_layout(state.terminal);
     sidebar_preview_ratio_ = state.sidebar_preview_ratio;
     info_pane_.set_expanded(state.info_expanded);
     set_sort(state.sort_key, state.sort_descending);
@@ -4577,14 +4579,10 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
             content.width -= width;
         }
     }
-    if (embedded_terminal_.visible()) {
-        const float terminal_height = embedded_terminal_.height(content.height);
-        embedded_terminal_.draw(
-            renderer,
-            {content.x, content.bottom() - terminal_height, content.width, terminal_height},
-            palette);
-        content.height -= terminal_height;
-    }
+    // Search replaces the whole browser surface; dock beside that surface rather than
+    // exposing inactive file toolbar/sidebar controls around the search overlay.
+    embedded_terminal_.arrange(searching_results() ? bounds : content);
+    content = embedded_terminal_.remaining(content);
     split_bounds_ = content;
     divider_ = {};
     for (auto& owner : areas_)
@@ -4644,11 +4642,11 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     if (showing_photos() && photo_library_->has_dialog())
         photo_library_->draw_dialogs(renderer, bounds, palette);
     if (searching_results()) {
-        auto results_bounds = bounds;
-        if (embedded_terminal_.visible())
-            results_bounds.height = std::max(0.0F, embedded_terminal_.bounds().y - bounds.y);
+        const auto results_bounds = embedded_terminal_.remaining(bounds);
         pane().search_results->draw(renderer, results_bounds, palette, !terminal_focused());
     }
+    if (embedded_terminal_.visible())
+        embedded_terminal_.draw(renderer, embedded_terminal_.bounds(), palette);
     if (quick_look_.is_open())
         quick_look_.follow(searching_results() && search_preview_ ? search_preview_
                                                                   : current_folder());
@@ -4955,6 +4953,8 @@ ui::CursorShape Browser::cursor_at(float x, float y) const {
     }
     if (showing_photos() && photo_library_->has_dialog())
         return photo_library_->cursor_at(x, y);
+    if (embedded_terminal_.claims(x, y))
+        return embedded_terminal_.cursor_at(x, y);
     if (searching_results())
         return pane().search_results->cursor_at(x, y);
     if (editor_.active() && editor_.field().bounds().contains(x, y)) {
