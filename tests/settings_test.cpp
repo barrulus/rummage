@@ -11,6 +11,7 @@
 #include "rummage/core/config_edit.hpp"
 #include "rummage/core/file.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/ui/accessibility.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/confirm_dialog.hpp"
 #include "rummage/views/settings_dialog.hpp"
@@ -1262,6 +1263,65 @@ TEST_CASE("settings: translated rows grow without overlapping text and controls"
         }
         renderer.end_frame();
     }
+}
+
+TEST_CASE("settings: language search reveals the measured control and anchors its choices") {
+    namespace ui = rummage::ui;
+
+    struct RestoreLanguage {
+        ~RestoreLanguage() { rummage::i18n::set_language("en"); }
+    } restore;
+
+    rummage::i18n::set_language("de");
+    Fixture f;
+    f.open();
+    ui::Offscreen surface{1000, 800};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    ui::AccessibleFrame frame;
+    float width = 900;
+    SUBCASE("wide card with reset-category footer") { width = 900; }
+    SUBCASE("narrow card with wrapped description") { width = 500; }
+    const auto draw = [&] {
+        frame.nodes.clear();
+        renderer.begin_frame(1000, 800, 1, {});
+        f.dialog.draw(renderer, {0, 0, width, 750}, rummage::theme::Palette{}, icons);
+        renderer.end_frame();
+    };
+    draw();
+    f.dialog.search("interface.language");
+    draw();
+    const auto results = f.dialog.search_results();
+    REQUIRE(results.size() == 1);
+    f.dialog.jump_to_result(results.front().field);
+    draw();
+    const auto language =
+        std::ranges::find(frame.nodes, "setting:interface:language", &core::AccessibleNode::id);
+    REQUIRE(language != frame.nodes.end());
+    const auto control = language->bounds;
+    CHECK(control.height >= 32);
+    CHECK(control.x > 20);
+    CHECK(control.y > 100);
+    const auto footer =
+        std::ranges::find(frame.nodes, "Kategorie zurücksetzen", &core::AccessibleNode::name);
+    if (footer != frame.nodes.end())
+        CHECK(control.y + control.height <= footer->bounds.y);
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    draw();
+    const auto system = std::ranges::find_if(frame.nodes, [](const auto& node) {
+        return node.role == core::AccessibleRole::menu_item && node.name == "System";
+    });
+    REQUIRE(system != frame.nodes.end());
+    // The menu may move upward to fit, but must retain the control's horizontal anchor.
+    CHECK(system->bounds.x == control.x + 4);
+    CHECK(system->bounds.y > 100);
+    f.dialog.key({.keysym = XKB_KEY_Home, .text = {}});
+    for (int n = 0; n < 4; ++n)
+        f.dialog.key({.keysym = XKB_KEY_Down, .text = {}});
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.interface.language == "fr");
 }
 
 TEST_CASE("settings: the full translated reset button is clickable") {
