@@ -23,6 +23,7 @@ TEST_CASE(
     REQUIRE(fchmod(fd, 0755) == 0);
     CHECK_FALSE(mark_archive_origin(fd, "https://example.test/download.zip"));
     REQUIRE(archive_confirmation_required(file));
+    REQUIRE(archive_confirmation_required(fd));
     struct stat info{};
     REQUIRE(fstat(fd, &info) == 0);
     CHECK((info.st_mode & 0777) == 0755);
@@ -38,6 +39,7 @@ TEST_CASE(
     CHECK_FALSE(mark_archive_origin(replacement, "archive"));
     CHECK_FALSE(approve_archive_program(fd));
     CHECK_FALSE(archive_confirmation_required(dir.path / "original"));
+    CHECK_FALSE(archive_confirmation_required(fd));
     CHECK(archive_confirmation_required(file));
     CHECK(archive_confirmation_required(dir.path / "copied/tool"));
     close(replacement);

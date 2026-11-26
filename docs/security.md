@@ -90,6 +90,12 @@ reported; absolute symlink targets and targets containing any `..` component are
 rejected, including otherwise harmless parent-relative links. These guarantees
 apply to the built-in member workflow, not to independently configured external tools.
 
+Executable launches retain an open descriptor to the inode checked for program
+content, execute access and archive provenance. Asynchronous activation-token
+requests cannot retarget the launch by replacing its pathname. Explicit archive
+approval applies to that pinned inode. This does not prevent another process
+with write access from modifying the same inode's contents.
+
 Custom actions use an argument vector, preserving path boundaries without implicit
 shell evaluation, globbing or environment expansion. A user-configured shell or
 executable still has the user's normal authority. The destination picker confirms

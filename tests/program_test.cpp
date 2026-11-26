@@ -312,3 +312,40 @@ TEST_CASE(
     CHECK(rummage::fs::archive_confirmation_required(tool));
     CHECK_FALSE(rummage::fs::archive_confirmation_required(dir.path / "selected"));
 }
+
+TEST_CASE("opener: automatic program launch retains checked inode while activation is deferred") {
+    const TempDir dir;
+    const auto tool = dir.path / "tool";
+    fs::copy_file(harmless_program(), tool);
+    fs::permissions(tool, fs::perms::owner_all);
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    std::function<void(std::string)> activate;
+    std::vector<std::pair<std::string, bool>> reports;
+    bool asked = false;
+    Opener opener{
+        loop,
+        pool,
+        MimeDatabase::load(),
+        {},
+        [&](const std::string& message, bool error) { reports.emplace_back(message, error); },
+        [&](auto callback) { activate = std::move(callback); }};
+    opener.set_ask_to_run([&](const auto&, auto) { asked = true; });
+    opener.open(dir.path, {{.name = "tool", .kind = EntryKind::file, .size = fs::file_size(tool)}});
+    REQUIRE(run_until(loop, [&] { return bool(activate); }));
+    CHECK_FALSE(asked);
+    CHECK(opener.launcher().running() == 0);
+    fs::rename(tool, dir.path / "selected");
+    fs::copy_file(harmless_program().parent_path() / "rummage-program-failure-fixture", tool);
+    fs::permissions(tool, fs::perms::owner_all);
+    const int fd = ::open(tool.c_str(), O_RDONLY | O_CLOEXEC);
+    REQUIRE(fd >= 0);
+    REQUIRE_FALSE(rummage::fs::mark_archive_origin(fd, "replacement archive"));
+    ::close(fd);
+    activate({});
+    REQUIRE(run_until(loop, [&] { return opener.launcher().running() == 0; }));
+    // The originally checked ELF exits0; running the marked replacement would exit23.
+    CHECK(reports == std::vector<std::pair<std::string, bool>>{{"Starting tool…", false}});
+    CHECK_FALSE(asked);
+    CHECK(rummage::fs::archive_confirmation_required(tool));
+}

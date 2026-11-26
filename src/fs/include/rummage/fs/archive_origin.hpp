@@ -13,6 +13,7 @@ inline constexpr char kArchiveOrigin[] = "user.rummage.archive-origin";
 [[nodiscard]] std::error_code mark_archive_origin(int fd, std::string_view origin);
 [[nodiscard]] std::error_code copy_archive_origin(int source, int destination);
 [[nodiscard]] bool archive_confirmation_required(const std::filesystem::path& file);
+[[nodiscard]] bool archive_confirmation_required(int fd);
 [[nodiscard]] std::string archive_origin(const std::filesystem::path& archive);
 [[nodiscard]] std::error_code mark_archive_tree(const std::filesystem::path& path,
                                                 std::string_view origin,
