@@ -54,7 +54,7 @@ reported pixel movement.
 | PGM / PPM | rummage's binary PNM reader | 8- and 16-bit samples; not every Netpbm format |
 | Camera raw | Embedded previews; some DNGs developed by rummage | Support depends on the file's container, preview and compression |
 | Text | Isolated decoding, syntax colours, selectable text and rendered Markdown in Quick Look | Bounded reads; not an editor |
-| Video | Included `rummage-media` helper using FFmpeg libraries | Thumbnails and still previews; no playback |
+| Video | Included `rummage-media` helper using FFmpeg libraries | Thumbnails, still previews and Quick Look playback |
 | PDF | Included `rummage-pdf` helper using PDFium | First-page thumbnails; page navigation and zoom in Quick Look |
 | SVG files | librsvg in the preview helper | Static previews and thumbnails; limits described below |
 | ZIP, TAR, tar.gz, gzip | Archive summary and member previews through the base helper | Read-only browsing; encrypted or unsupported members require external extraction |
@@ -209,7 +209,7 @@ clears text focus and selection. All preview and metadata text remains read-only
 
 Video thumbnails and still previews in the information pane and Quick Look are
 included in the standard package. Toggle **Video previews** in General settings. The grid decorates video thumbnails with
-film rails; cache images and larger stills stay undecorated. This is not playback.
+film rails; cache images and larger stills stay undecorated. Quick Look also offers [audio/video playback](#audio-and-video-playback).
 Enter opens the file in its default player.
 
 The helper links system FFmpeg 6.1+ libraries and uses the same descriptor-based
@@ -398,3 +398,43 @@ Coverage is deliberately narrower than [Assimp's importer list](https://github.c
 Unsupported formats continue to show file information and can be opened in an
 external application. There is no automatic dependency download or external
 renderer execution from the preview path.
+
+### Audio and video playback
+
+With `rummage-media` installed, Quick Look opens local audio/video files paused.
+Click **Play** or press **P** to start or pause. Click the progress bar or press
+**J/L** to seek backward/forward five seconds; **Home** returns to the start.
+**+/-** changes volume in ten-percent steps, including mute at zero. The current
+time, duration and volume remain visible. **Space/Escape** closes Quick Look;
+arrow keys still move to another file. Closing, changing files and pausing stop
+audio output; closing or changing files also terminates and reaps the decoder.
+Playback does not start for neighbouring files prepared as still previews.
+
+Audio uses the session's default PulseAudio output, including a PipeWire server
+with PulseAudio compatibility. No audio device is required for silent video.
+When the server/output helper is unavailable, an inline message appears and video
+continues silently. A missing decoder, unsupported codec, damaged file, failed
+seek or decoding timeout produces an inline message; the file can still be
+opened in its usual application.
+
+The optional media package contains separate `rummage-playback` and
+`rummage-audio` programs. FFmpeg demuxing/decoding stays in the same seccomp and
+Landlock cage used for thumbnails. It reads one already-open regular file,
+refuses external paths/URLs, and sends only validated, sealed RGBA/PCM buffers.
+The audio program receives raw stereo 48 kHz signed 16-bit samples and owns the
+sound-server connection; it does not parse media. The main application links
+neither FFmpeg nor PulseAudio. Playback uses a dedicated worker and decoder,
+independent of the thumbnail pool.
+
+Playback supports the installed FFmpeg decoders in MP4/MOV, Matroska/WebM, AVI,
+MPEG/transport streams, Ogg, FLV, ASF, MJPEG, YUV4MPEG, MP3, FLAC, WAV and AAC.
+Playlists, network URLs, external-resource containers and DRM are not supported.
+Preview output is limited to a 1280×720 box (upright after rotation), updates at
+20 frames per second, and uses software decoding. Each reply contains at most
+one second of stereo PCM; the UI keeps only the latest frame. Decoder reordering
+queues are capped at 32 frames and 64 MiB. Inputs are limited
+to 32 million pixels per decoded frame, 32 audio channels and 384 kHz, with a
+four-second/128 MiB read budget per step and a six-second client timeout. Files
+longer than seven days, unusually sparse/interleaved streams or complex files
+that exceed these bounds may fail. Seeking is approximate to decoded frames;
+Quick Look is intended for brief inspection, not frame-accurate editing.

@@ -287,3 +287,7 @@ keyboard access to section visibility and restore/reset controls.
 The configurable command `reset_column_root` makes the focused column the root
 without changing the selection. It has no default shortcut and is also available
 in the View menu and command palette.
+
+In an audio/video Quick Look preview, **P** toggles playback, **J/L** seeks five
+seconds, **Home** returns to the beginning, and **+/-** changes volume. Space and
+Escape still close the preview; arrows still select another file.

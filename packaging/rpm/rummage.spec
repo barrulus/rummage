@@ -50,6 +50,8 @@ BuildRequires:  pkgconfig(libavutil) >= 58.29.100
 BuildRequires:  pkgconfig(libswscale)
 BuildRequires:  pkgconfig(assimp)
 BuildRequires:  pkgconfig(sqlite3)
+BuildRequires:  pkgconfig(libswresample)
+BuildRequires:  pkgconfig(libpulse-simple)
 BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(sdbus-c++) >= 2
 # The decoder uses versioned option fields, so require the same minimum at runtime.
@@ -102,9 +104,9 @@ Isolated standalone geometry previews using system Assimp.
 %endif
 %cmake -G Ninja -DRUMMAGE_MODEL=ON -DRUMMAGE_FONT=ON -DRUMMAGE_PHOTOS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PRIVATE_PDFIUM=ON -DBUILD_SHARED_LIBS=OFF -DRUMMAGE_BUILD_TESTS=OFF -DRUMMAGE_WERROR=OFF
 %if 0%{?suse_version}
-%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage-font rummage-model rummage_photos
+%cmake_build rummage rummage-preview rummage-media rummage-pdf rummage-playback rummage-audio rummage-font rummage-model rummage_photos
 %else
-%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage-font rummage-model rummage_photos
+%cmake_build --target rummage rummage-preview rummage-media rummage-pdf rummage-playback rummage-audio rummage-font rummage-model rummage_photos
 %endif
 
 %install
@@ -123,6 +125,8 @@ install -Dm644 third_party/wuffs/LICENSE-APACHE %{buildroot}%{_datadir}/licenses
 %dir %{_libexecdir}/rummage
 %{_libexecdir}/rummage/rummage-preview
 %{_libexecdir}/rummage/rummage-media
+%{_libexecdir}/rummage/rummage-playback
+%{_libexecdir}/rummage/rummage-audio
 %{_libexecdir}/rummage/rummage-pdf
 %{_libexecdir}/rummage/libpdfium.so
 %license %{_datadir}/licenses/rummage-pdf/

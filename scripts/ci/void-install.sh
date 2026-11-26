@@ -7,7 +7,7 @@ xbps-install -y -R /packages rummage
 xbps-pkgdb rummage
 test ! -e /usr/libexec/rummage/librummage-photos.so
 # Check linked runtime dependencies before adding compositor/test dependencies.
-for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview /usr/libexec/rummage/rummage-media /usr/libexec/rummage/rummage-pdf; do
+for executable in /usr/bin/rummage /usr/libexec/rummage/rummage-preview /usr/libexec/rummage/rummage-media /usr/libexec/rummage/rummage-playback /usr/libexec/rummage/rummage-audio /usr/libexec/rummage/rummage-pdf; do
     dependencies=$(ldd "$executable")
     printf '%s\n' "$dependencies"
     if grep -F 'not found' <<< "$dependencies"; then exit 1; fi
@@ -37,6 +37,8 @@ xbps-remove -y rummage-photos
 test ! -e /usr/libexec/rummage/librummage-photos.so
 python3 /source/scripts/ci/check-photos-installed.py /usr/bin/rummage
 test -x /usr/libexec/rummage/rummage-media
+test -x /usr/libexec/rummage/rummage-playback
+test -x /usr/libexec/rummage/rummage-audio
 test -x /usr/libexec/rummage/rummage-pdf
 
 libraries=$(ldd /usr/libexec/rummage/rummage-font)
@@ -49,3 +51,9 @@ libraries=$(ldd /usr/libexec/rummage/rummage-model)
 if grep -F 'not found' <<< "$libraries"; then exit 1; fi
 test -s /usr/share/rummage/engines/model.toml
 python3 /source/scripts/ci/check-model.py /usr/libexec/rummage/rummage-model
+
+for executable in /usr/libexec/rummage/rummage-playback /usr/libexec/rummage/rummage-audio; do
+    libraries=$(ldd "$executable")
+    if grep -F 'not found' <<< "$libraries"; then exit 1; fi
+done
+python3 /source/scripts/ci/check-playback.py /usr/libexec/rummage/rummage-playback /source/tests/data/media

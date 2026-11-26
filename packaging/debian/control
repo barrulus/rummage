@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, pyt
  libglib2.0-dev, libjpeg-dev, libpng-dev, libtiff-dev,
  libwayland-dev, wayland-protocols, libegl-dev, libgles-dev, libxkbcommon-dev,
  libharfbuzz-dev, libfreetype-dev, libfontconfig-dev, libtomlplusplus-dev, nlohmann-json3-dev,
- libassimp-dev, libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
+ libassimp-dev, libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev, libswresample-dev, libpulse-dev,
  libwebp-dev, libjxl-dev, libheif-dev (>= 1.23), liblcms2-dev,
  librsvg2-dev (>= 2.52), libpango1.0-dev,
  libsqlite3-dev, zlib1g-dev, libre2-dev, libsdbus-c++-dev (>= 2)

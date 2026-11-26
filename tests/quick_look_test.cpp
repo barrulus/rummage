@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -761,4 +762,96 @@ TEST_CASE("quick look: PDF page requests, boundaries, zoom and cancelled navigat
     CHECK(look.document_zoom() == 1);
     look.close();
     CHECK_FALSE(look.loading());
+}
+
+TEST_CASE("quick look: media controls keep navigation keys and release playback on file change") {
+    const auto original = rummage::engines::installed();
+
+    struct RestorePlaybackRegistry {
+        std::shared_ptr<const rummage::engines::Registry> previous;
+
+        ~RestorePlaybackRegistry() { rummage::engines::set_installed(previous); }
+    } restore{original};
+
+    auto registry = std::make_shared<rummage::engines::Registry>();
+    const auto media = fs::path{RUMMAGE_EXECUTABLE}.parent_path() / "rummage-media";
+    REQUIRE(
+        registry->add({.manifest = {.name = "media", .program = "rummage-media", .families = {}},
+                       .program = media,
+                       .manifest_path = {}}));
+    rummage::engines::set_installed(registry);
+    rummage::test::TempDir dir;
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "media" / "metadata.mp4", dir.path / "clip.mp4");
+    dir.write("notes.txt", "notes");
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder =
+        std::make_shared<rummage::views::Folder>(loop, pool, watcher, mime, dir.path, [] {});
+    REQUIRE(run_until(loop, [&] { return folder->entries().size() == 2; }));
+    folder->sniff(0, 2);
+    REQUIRE(run_until(loop, [&] {
+        return std::ranges::all_of(folder->entries(), [&](const auto& entry) {
+            return folder->mime_of(entry) != rummage::fs::kUnknownMime;
+        });
+    }));
+    folder->select_name("clip.mp4");
+    QuickLook look{pool, mime, {}, [] {}};
+    look.open(folder, QuickLook::Clock::now() - 1s);
+    REQUIRE(look.playback());
+    REQUIRE(run_until(loop, [&] { return !look.playback()->snapshot().loading; }));
+    const auto key = [&](xkb_keysym_t symbol) {
+        rummage::ui::KeyEvent event;
+        event.keysym = symbol;
+        return look.text_key(event, QuickLook::Clock::now());
+    };
+    CHECK(key(XKB_KEY_minus));
+    CHECK(look.playback()->volume() == 70);
+    CHECK(key(XKB_KEY_equal));
+    CHECK(look.playback()->volume() == 80);
+    CHECK(key(XKB_KEY_j));
+    CHECK(key(XKB_KEY_l));
+    for (int i = 0; i < 8; ++i)
+        CHECK(key(XKB_KEY_minus));
+    CHECK(key(XKB_KEY_p));
+    CHECK(key(XKB_KEY_p));
+    CHECK(key(XKB_KEY_Home));
+    REQUIRE(run_until(loop, [&] { return !look.playback()->snapshot().loading; }));
+    for (int i = 0; i < 8; ++i)
+        CHECK(key(XKB_KEY_equal));
+    if (fs::exists(media))
+        REQUIRE(look.playback()->snapshot().image);
+    CHECK_FALSE(key(XKB_KEY_Left));
+    CHECK_FALSE(key(XKB_KEY_Right));
+    CHECK_FALSE(key(XKB_KEY_space));
+    rummage::ui::Offscreen surface{800, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(800, 600, 1, {});
+    look.draw(renderer, {0, 0, 800, 600}, rummage::theme::Palette{}, icons,
+              QuickLook::Clock::now());
+    renderer.end_frame();
+    if (const char* output = std::getenv("RUMMAGE_PLAYBACK_SNAPSHOT")) {
+        rummage::picture::Image capture{
+            .width = 800, .height = 600, .rgba = std::vector<std::uint8_t>(800 * 600 * 4)};
+        std::vector<std::uint8_t> pixels(capture.rgba.size());
+        glReadPixels(0, 0, 800, 600, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        for (std::size_t row = 0; row < 600; ++row)
+            std::copy_n(pixels.data() + (599 - row) * 800 * 4, 800 * 4,
+                        capture.rgba.data() + row * 800 * 4);
+        const auto png = rummage::picture::encode_png(capture);
+        std::ofstream file{output, std::ios::binary};
+        file.write(reinterpret_cast<const char*>(png.data()),
+                   static_cast<std::streamsize>(png.size()));
+    }
+    folder->select_name("notes.txt");
+    look.follow(folder);
+    CHECK(look.playback() == nullptr);
+    folder->select_name("clip.mp4");
+    look.follow(folder);
+    REQUIRE(look.playback());
+    look.close();
+    CHECK(look.playback() == nullptr);
 }

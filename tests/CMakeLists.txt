@@ -307,17 +307,22 @@ if(DBUS_RUN_SESSION)
 endif()
 
 if(RUMMAGE_MEDIA)
-    add_executable(rummage-media-tests media_test.cpp)
+    add_executable(rummage-fake-playback playback_fake.cpp ${PROJECT_SOURCE_DIR}/src/isolate/src/protocol.cpp)
+    target_include_directories(rummage-fake-playback PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src)
+    target_link_libraries(rummage-fake-playback PRIVATE rummage::picture rummage::text rummage::archive rummage::warnings)
+    add_executable(rummage-media-tests media_test.cpp playback_test.cpp)
     target_link_libraries(rummage-media-tests PRIVATE doctest::doctest rummage::isolate
         rummage::thumbs rummage::preview rummage::warnings)
     target_compile_definitions(rummage-media-tests PRIVATE
         RUMMAGE_MEDIA_HELPER="$<TARGET_FILE:rummage-media>"
+        RUMMAGE_PLAYBACK_HELPER="$<TARGET_FILE:rummage-playback>"
+        RUMMAGE_FAKE_PLAYBACK="$<TARGET_FILE:rummage-fake-playback>"
         RUMMAGE_BASE_HELPER="$<TARGET_FILE:rummage-preview>"
         RUMMAGE_FAKE_HELPER="$<TARGET_FILE:rummage-fake-preview>"
         RUMMAGE_MEDIA_DATA="${PROJECT_SOURCE_DIR}/tests/data/media"
         RUMMAGE_IMAGE_DATA="${PROJECT_SOURCE_DIR}/tests/data/image"
         RUMMAGE_ENGINE_DATA="${PROJECT_SOURCE_DIR}/data/engines")
-    add_dependencies(rummage-media-tests rummage-media rummage-preview rummage-fake-preview)
+    add_dependencies(rummage-media-tests rummage-fake-playback rummage-media rummage-preview rummage-fake-preview)
     add_test(NAME media-tests COMMAND rummage-media-tests)
     set_tests_properties(media-tests PROPERTIES TIMEOUT 60)
 endif()
