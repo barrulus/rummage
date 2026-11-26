@@ -63,7 +63,9 @@
             pkgs = nixpkgs.legacyPackages.${system};
             helper = self.packages.${system}.rummage;
           in
-          pkgs.runCommand "rummage-playback-installed" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+          pkgs.runCommand "rummage-playback-installed" {
+            nativeBuildInputs = [ pkgs.python3 pkgs.glibc.bin ];
+          } ''
             test -x ${helper}/libexec/rummage/rummage-audio
             python3 ${./scripts/ci/check-playback.py} ${helper}/libexec/rummage/rummage-playback ${./tests/data/media}
             python3 ${./scripts/ci/check-audio.py} ${helper}/libexec/rummage/rummage-audio ${pkgs.pulseaudio}/bin

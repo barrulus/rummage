@@ -119,11 +119,9 @@ constexpr std::array kAllowed{
 // Sanitizer builds (tests only): their runtimes need a few more (ASan checks whether memory is
 // readable through a pipe: pipe2 and ioctl, seen in a snapshot with RUMMAGE_SANDBOX_REPORT=1).
 constexpr std::array kAllowedSanitized{
-    __NR_sigaltstack, __NR_gettid,       __NR_getpid,
-    __NR_prctl,       __NR_rt_sigaction, __NR_sched_getaffinity,
-    __NR_tgkill,      __NR_nanosleep,    __NR_clock_nanosleep,
-    __NR_getrlimit,   __NR_prlimit64,    __NR_readlinkat,
-    __NR_pipe2,       __NR_ioctl,
+    __NR_sigaltstack, __NR_gettid,    __NR_getpid,          __NR_prctl,     __NR_rt_sigaction,
+    __NR_tgkill,      __NR_nanosleep, __NR_clock_nanosleep, __NR_getrlimit, __NR_prlimit64,
+    __NR_readlinkat,  __NR_pipe2,     __NR_ioctl,
 #ifdef __NR_readlink
     __NR_readlink,
 #endif
@@ -180,6 +178,16 @@ Program filter(Unexpected unexpected) {
         add(program, BPF_JMP | BPF_JEQ | BPF_K, static_cast<std::uint32_t>(number), 0, 1);
         ret(program, refuse);
     }
+    // OpenH264 queries its own CPU set even with a single decoding thread. Permit that
+    // read-only query only for pid 0 (the calling thread), never another process. pid_t is
+    // 32 bits; the kernel ignores the upper half. Changing affinity and creating threads
+    // remain forbidden, and FFmpeg's decoder/thread limits are unchanged.
+    add(program, BPF_JMP | BPF_JEQ | BPF_K, static_cast<std::uint32_t>(__NR_sched_getaffinity), 0,
+        4);
+    load(program, offsetof(seccomp_data, args));
+    add(program, BPF_JMP | BPF_JEQ | BPF_K, 0, 0, 1);
+    ret(program, SECCOMP_RET_ALLOW);
+    ret(program, otherwise);
     // newfstatat only on a descriptor (AT_EMPTY_PATH): glibc's fstat, never a path. The flags
     // are the fourth argument; their low 32 bits are enough.
     add(program, BPF_JMP | BPF_JEQ | BPF_K, static_cast<std::uint32_t>(__NR_newfstatat), 0, 4);
