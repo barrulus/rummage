@@ -2,20 +2,32 @@
 
 #include <algorithm>
 #include <array>
+#include <fcntl.h>
 #include <format>
 #include <iterator>
 #include <optional>
 #include <string_view>
+#include <unistd.h>
 #include <utility>
 
 #include "rummage/core/i18n.hpp"
 #include "rummage/core/log.hpp"
+#include "rummage/fs/archive_origin.hpp"
 #include "rummage/fs/permissions.hpp"
 #include "rummage/platform/exec.hpp"
 #include "rummage/platform/program.hpp"
 
 namespace rummage::platform {
 namespace {
+
+std::shared_ptr<int> pin_program(const std::filesystem::path& path) {
+    return {new int{::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)},
+            [](int* fd) {
+                if (*fd >= 0)
+                    ::close(*fd);
+                delete fd;
+            }};
+}
 
 // The files that go to one application.
 struct Group {
@@ -198,7 +210,7 @@ void Opener::open(const std::filesystem::path& directory, std::vector<fs::Entry>
                         if (check.noexec) {
                             problems.push_back(i18n::trf(
                                 "“{}” is on a disk that does not let programs run", entry.name));
-                        } else if (check.executable) {
+                        } else if (check.executable && !fs::archive_confirmation_required(path)) {
                             started.push_back(program_launch(path));
                         } else {
                             not_allowed.push_back(path);
@@ -252,26 +264,31 @@ void Opener::choices(const std::filesystem::path& directory, fs::Entry entry,
 }
 
 void Opener::allow_and_run(const std::filesystem::path& program) {
+    allow_and_run(program, pin_program(program));
+}
+
+void Opener::allow_and_run(const std::filesystem::path& program, std::shared_ptr<int> pinned) {
     if (!programs_)
         return;
     ++planning_;
     pool_.submit(
         core::Priority::visible,
-        [program](const core::CancelToken& /*token*/) {
+        [program, pinned](const core::CancelToken& /*token*/) {
             OpenPlan plan;
-            const fs::ModeResult result = fs::set_running({program}, true);
-            if (!result.errors.empty()) {
+            const auto result = fs::approve_archive_program(*pinned);
+            if (result) {
                 plan.problems.push_back(
-                    i18n::trf("Could not allow it to run: {}", result.errors.front()));
+                    i18n::trf("Could not allow it to run: {}", result.message()));
                 return plan;
             }
-            const ProgramCheck check = check_program(program);
+            const ProgramCheck check = check_program("/proc/self/fd/" + std::to_string(*pinned));
             if (!check.program || !check.executable || check.noexec) {
                 plan.problems.push_back(
                     i18n::trf("“{}” still cannot run", program.filename().string()));
                 return plan;
             }
             plan.launches.push_back(program_launch(program));
+            plan.launches.back().executable = pinned;
             plan.files = 1;
             plan.first_name = program.filename().string();
             return plan;
@@ -340,9 +357,10 @@ void Opener::start(OpenPlan plan) {
         }
         const std::filesystem::path first = plan.not_allowed.front();
         if (ask_) {
-            ask_(first, [this, alive = alive_, first] {
+            auto pinned = pin_program(first);
+            ask_(first, [this, alive = alive_, first, pinned] {
                 if (*alive) {
-                    allow_and_run(first);
+                    allow_and_run(first, pinned);
                 }
             });
         } else {
@@ -390,8 +408,11 @@ void Opener::start_one(const OpenPlan::Launch& launch, const std::string& token)
         env.push_back("DESKTOP_STARTUP_ID=" + token);
     }
     log::info("open: {} with {} ({} file(s))", launch.argv.front(), launch.app_id, launch.files);
+    auto argv = launch.argv;
+    if (launch.executable)
+        argv.front() = "/proc/self/fd/3";
     const std::error_code error = launcher_.spawn(
-        launch.argv, launch.directory, env,
+        argv, launch.directory, env,
         [this, alive = alive_, name = launch.app_name](const Launcher::Exit& exit) {
             if (!*alive || exit.lifetime >= kQuickExit || (exit.status == 0 && exit.signal == 0)) {
                 return;
@@ -400,7 +421,8 @@ void Opener::start_one(const OpenPlan::Launch& launch, const std::string& token)
                         ? i18n::trf("{} was stopped by signal {}", name, exit.signal)
                         : i18n::trf("{} quit at once with status {}", name, exit.status),
                     true);
-        });
+        },
+        -1, -1, -1, launch.executable ? *launch.executable : -1);
     if (error) {
         report_(i18n::trf("Could not start {}: {}", launch.app_name, error.message()), true);
     }

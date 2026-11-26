@@ -31,9 +31,10 @@ struct OpenPlan {
         std::string app_id;
         std::string app_name;  // the localized Name, else the ID
         std::vector<std::string> argv;
-        std::filesystem::path directory;  // the entry's Path, else the first file's folder
-        std::size_t files{0};             // how many of the files it opens
-        bool program{false};              // the file itself, started as a program
+        std::filesystem::path directory;    // the entry's Path, else the first file's folder
+        std::size_t files{0};               // how many of the files it opens
+        std::shared_ptr<int> executable{};  // pinned approved inode, inherited as fd 3
+        bool program{false};                // the file itself, started as a program
     };
 
     std::vector<Launch> launches;
@@ -139,6 +140,7 @@ public:
     [[nodiscard]] bool planning() const noexcept { return planning_ > 0; }
 
 private:
+    void allow_and_run(const std::filesystem::path& program, std::shared_ptr<int> pinned);
     void start(OpenPlan plan);
     void start_one(const OpenPlan::Launch& launch, const std::string& token);
 

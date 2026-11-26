@@ -18,6 +18,8 @@ namespace rummage::views {
 
 // The types rummage offers for files, the most precise first.
 inline constexpr std::string_view kGnomeFiles = "x-special/gnome-copied-files";
+// Private, copy-only virtual member paths; never advertised as host file URIs.
+inline constexpr std::string_view kArchiveMembers = "application/x-rummage-archive-members";
 inline constexpr std::string_view kUriList = "text/uri-list";
 inline constexpr std::string_view kKdeCut = "application/x-kde-cutselection";
 inline constexpr std::string_view kText = "text/plain;charset=utf-8";

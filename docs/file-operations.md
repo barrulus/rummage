@@ -402,3 +402,31 @@ only that item, not its children, and uses your current user permissions without
 elevation. Symbolic links and read-only archive items do not offer permission edits.
 Ownership and special permission bits are not editable. Filesystem errors and
 changes made externally while Properties was open leave the dialog open with an error.
+
+### Archive members and executable trust
+
+Drag archive members to an ordinary folder, another pane or another Rummage window
+to extract them. These drags always copy, including when Shift is held. They use
+the same extraction queue, progress, cancellation and existing-name handling as
+copy-to-extract. Read-only, unsupported or encrypted members keep the existing
+extraction errors; member extraction does not decrypt password-protected entries.
+Use whole-archive extraction for the external backend password dialog. Once a
+window has received the drag data, closing the source window does not affect its
+job. A drag interrupted before delivery creates nothing. No temporary extraction
+is created for dragging. External applications do not receive archive-member drags;
+extract to a real folder first. Choose **Open in New Window** on a supported archive
+or an archive subfolder for a separate non-modal browser. The original panes and
+archive file are unchanged.
+
+Completed built-in and tracked command-line extractions mark regular files with bounded `user.rummage.archive-origin` provenance,
+using the archive's download-origin URL when available. Rummage asks **Allow and
+Run** before directly starting an archive-origin executable even when its execute
+bits were stored in the archive. Approval pins the selected inode through launch
+and clears only that file's marker; it does not trust the archive or its siblings.
+Rummage copies propagate the marker and moves retain it. If provenance cannot be
+written (including filesystems without user xattrs), extraction/copy removes all
+execute bits after restoring metadata. A failure to enforce either policy prevents
+publication. The check is Rummage's opener policy, not a system-wide execution
+sandbox: terminal commands, other file managers and deliberate chmod/xattr changes
+are outside it. File Roller and custom external extraction actions own their output and
+are outside this provenance policy. Scripts continue to open as documents rather than run automatically.

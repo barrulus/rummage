@@ -22,6 +22,7 @@
 #include <vector>
 #include <zlib.h>
 
+#include "rummage/fs/advanced_archive.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::fs {
@@ -787,6 +788,8 @@ private:
 
 TransferResult run_compress(const TransferRequest& request, const core::CancelToken& token,
                             const TransferCallbacks& callbacks) {
+    if (request.archive_options)
+        return run_advanced_archive(request, token, callbacks);
     return Compressor{request, token, callbacks}.run();
 }
 

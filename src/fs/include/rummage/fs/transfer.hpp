@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,7 @@ struct SourceIdentity {
     std::uint64_t device{0}, inode{0}, size{0};
     std::int64_t mtime_ns{0};
 };
+struct ArchiveOptions;
 
 struct TransferRequest {
     TransferKind kind{TransferKind::copy};
@@ -59,6 +61,7 @@ struct TransferRequest {
     bool from_archive{false};
     std::string archive_name{};
     bool tar_gz{false};
+    std::shared_ptr<ArchiveOptions> archive_options{};
     // Optional destination names parallel to names (undo restores a Keep Both item's old name).
     std::vector<std::string> destination_names{};
     GroupFolder group_folder{};

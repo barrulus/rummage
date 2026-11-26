@@ -8,6 +8,7 @@
 
 #include "rummage/core/actions.hpp"
 #include "rummage/core/file_picker.hpp"
+#include "rummage/core/worker_pool.hpp"
 #include "rummage/platform/archives.hpp"
 #include "rummage/platform/desktop_entry.hpp"
 #include "rummage/platform/launcher.hpp"
@@ -62,6 +63,8 @@ private:
     void archive_problem(const std::shared_ptr<Extraction>& job, std::string reason,
                          std::string guidance);
     Launcher launcher_;
+    core::EventLoop& loop_;
+    std::unique_ptr<core::WorkerPool> archive_workers_;
     Environment environment_;
     Report report_;
     Activate activate_;

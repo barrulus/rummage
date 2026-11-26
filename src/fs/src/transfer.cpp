@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/archive_origin.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::fs {
@@ -598,6 +599,11 @@ bool Engine::copy_file(const std::filesystem::path& source, const struct stat& i
     const std::array<timespec, 2> times{info.st_atim, info.st_mtim};
     fchmod(to.get(), info.st_mode & 07777);
     futimens(to.get(), times.data());
+    if (const auto origin_error = copy_archive_origin(from.get(), to.get())) {
+        error(where, origin_error);
+        give_up();
+        return false;
+    }
     // Between file systems the original is deleted next: the copy must be on the disk first.
     if (moving_ && fsync(to.get()) != 0) {
         error(where, last_error());

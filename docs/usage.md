@@ -601,3 +601,23 @@ or inaccessible items disappear rather than becoming stale operation targets.
 Forward returns to the opened location. Parent-folder navigation still follows the
 filesystem hierarchy. Each tab and pane owns its own results session; searches are
 not restored after restarting Rummage unless saved explicitly.
+
+### Opening archives from the desktop or command line
+
+`rummage -- '/home/me/naïve archive.zip'` opens the archive's contents directly;
+`rummage --new-window -- archive.tar.gz` requests an independent window. An explicit
+path wins over the configured startup folder and restored session. A running
+Rummage instance receives the same path, including spaces, Unicode and leading
+hyphens after `--`. Missing, unsupported and damaged inputs remain visible as
+browser errors instead of launching an associated application again. Encrypted
+ZIP entries may be listed but require whole-archive extraction with a password
+to read their contents.
+
+The desktop entry advertises only the built-in ZIP, TAR, compressed TAR and gzip
+formats in addition to directories. Installing it does not change defaults. To opt
+in, use the desktop's default-application settings or, for example,
+`xdg-mime default rummage.desktop application/zip`. Repeat for
+`application/x-tar`, `application/x-compressed-tar` or `application/gzip` as desired.
+Use the desktop's settings or `xdg-mime default OTHER.desktop TYPE` to restore a
+previous association. Other archive formats remain available through external
+extraction actions, not advertised built-in browsing associations.

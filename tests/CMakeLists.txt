@@ -29,6 +29,8 @@ add_executable(rummage-tests
     extract_test.cpp
     archive_test.cpp
     archive_folder_test.cpp
+    archive_origin_test.cpp
+    advanced_archive_test.cpp
     main.cpp
     photo_client_test.cpp
     about_test.cpp
@@ -273,6 +275,11 @@ add_test(NAME file-manager-cli COMMAND "${CMAKE_COMMAND}"
     "-DTEST_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/file-manager-cli-scratch"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/file_manager_cli.cmake")
 set_tests_properties(file-manager-cli PROPERTIES TIMEOUT 30)
+add_executable(rummage-archive-cli-tests archive_cli_test.cpp)
+target_link_libraries(rummage-archive-cli-tests PRIVATE rummage::platform rummage::warnings)
+target_compile_definitions(rummage-archive-cli-tests PRIVATE
+    RUMMAGE_EXECUTABLE="$<TARGET_FILE:rummage>"
+    RUMMAGE_TEST_DATA="${PROJECT_SOURCE_DIR}/tests/data")
 add_executable(rummage-file-manager-tests file_manager_bus_test.cpp)
 target_link_libraries(rummage-file-manager-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
 find_program(DBUS_RUN_SESSION dbus-run-session)
@@ -286,6 +293,8 @@ if(DBUS_RUN_SESSION AND DBUS_SEND)
     set_tests_properties(file-manager-activation PROPERTIES TIMEOUT 40)
 endif()
 if(DBUS_RUN_SESSION)
+    add_test(NAME archive-cli COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-archive-cli-tests>)
+    set_tests_properties(archive-cli PROPERTIES TIMEOUT 70)
     add_test(NAME desktop-portal COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-desktop-portal-tests>)
     set_tests_properties(desktop-portal PROPERTIES TIMEOUT 30)
     add_test(NAME file-manager COMMAND "${DBUS_RUN_SESSION}" -- $<TARGET_FILE:rummage-file-manager-tests>)

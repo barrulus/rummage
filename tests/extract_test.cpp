@@ -19,6 +19,8 @@
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/archive_folder.hpp"
+#include "rummage/fs/archive_origin.hpp"
+#include "rummage/fs/compress.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/transfer.hpp"
@@ -321,4 +323,28 @@ TEST_CASE("extract: Ctrl+C inside an archive, Ctrl+V outside; Extract Here") {
     CHECK(read_file(dir.path / "out" / "docs" / "b.txt") == "second file\n");
 
     // Full-archive extraction stays covered by the external-backend integration tests.
+}
+
+TEST_CASE("extract: ZIP and tar.gz executable members retain provenance before publication") {
+    for (const bool tar_gz : {false, true}) {
+        TempDir dir;
+        const auto file = dir.write("program", "ELF fixture");
+        fs::permissions(file, fs::perms::owner_all);
+        const auto made =
+            rummage::fs::run_compress({.kind = TransferKind::compress,
+                                       .source = dir.path,
+                                       .names = {"program"},
+                                       .destination = dir.path,
+                                       .archive_name = tar_gz ? "test.tar.gz" : "test.zip",
+                                       .tar_gz = tar_gz},
+                                      {}, {});
+        REQUIRE(made.placed.size() == 1);
+        fs::create_directory(dir.path / "out");
+        const auto unpacked =
+            extract(dir.path / made.placed.front(), {"program"}, dir.path / "out");
+        CHECK(unpacked.errors.empty());
+        CHECK(rummage::fs::archive_confirmation_required(dir.path / "out/program"));
+        CHECK((fs::status(dir.path / "out/program").permissions() & fs::perms::owner_exec) !=
+              fs::perms::none);
+    }
 }

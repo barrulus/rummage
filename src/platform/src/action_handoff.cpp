@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/archive_origin.hpp"
 #include "rummage/fs/operations.hpp"
 
 namespace rummage::platform {
@@ -191,6 +192,7 @@ ActionHandoff::ActionHandoff(core::EventLoop& loop, Environment environment, Rep
                              Activate activate, ChooseDirectory choose,
                              ChooseDestination destination_picker, Notify notify)
     : launcher_{loop},
+      loop_{loop},
       environment_{std::move(environment)},
       report_{std::move(report)},
       activate_{std::move(activate)},
@@ -894,35 +896,56 @@ void ActionHandoff::extract_step(std::shared_ptr<Extraction> job, bool second_pa
             job->volumes.in_use = false;
             if (!*alive)
                 return;
-            if (result.status != 0 || result.signal != 0) {
-                fail_archive(job, "extract", result, stream ? -1 : job->output->fd);
-                return;
-            }
-            if (job->backend.tar_layer && !second_pass) {
+            if (result.status == 0 && result.signal == 0 && job->backend.tar_layer &&
+                !second_pass) {
                 extract_step(job, true);
                 return;
             }
-            std::error_code publish_error;
-            const auto output =
-                publish(job->backend.single_file ? job->staging / "payload" : job->contents,
-                        job->destination, job->name, publish_error);
-            if (publish_error) {
-                archive_problem(
-                    job,
-                    i18n::trf("Extraction finished, but publishing the result failed: {}",
-                              publish_error.message()),
-                    "The extracted data is retained. Check destination permissions and "
-                    "move it from the output folder below.");
-                return;
-            }
-            // Only known temporary entries, never recursively remove archive-controlled paths.
-            std::error_code ignored;
-            if (job->backend.single_file)
-                std::filesystem::remove(job->contents, ignored);
-            if (job->backend.tar_layer)
-                std::filesystem::remove(job->staging / "payload", ignored);
-            std::filesystem::remove(job->staging, ignored);
-            report_(i18n::trf("Extracted to {}", output.string()), false);
+            if (!archive_workers_)
+                archive_workers_ = std::make_unique<core::WorkerPool>(loop_, 1);
+            archive_workers_->submit(
+                core::Priority::visible,
+                [job](const core::CancelToken& token) {
+                    return fs::mark_archive_tree(
+                        job->backend.single_file ? job->staging / "payload" : job->contents,
+                        fs::archive_origin(job->source), token);
+                },
+                [this, alive = alive_, job, result, stream](std::error_code trust_error) {
+                    if (!*alive)
+                        return;
+                    if (result.status != 0 || result.signal != 0) {
+                        fail_archive(job, "extract", result, stream ? -1 : job->output->fd);
+                        return;
+                    }
+                    if (trust_error) {
+                        archive_problem(job, trust_error.message(),
+                                        "Archive provenance could not be recorded safely; output "
+                                        "was not published.");
+                        return;
+                    }
+                    std::error_code publish_error;
+                    const auto output =
+                        publish(job->backend.single_file ? job->staging / "payload" : job->contents,
+                                job->destination, job->name, publish_error);
+                    if (publish_error) {
+                        archive_problem(
+                            job,
+                            i18n::trf("Extraction finished, but publishing the result failed: {}",
+                                      publish_error.message()),
+                            "The extracted data is retained. Check destination permissions and "
+                            "move it from the output folder below.");
+                        return;
+                    }
+                    // Only known temporary entries, never recursively remove archive-controlled
+                    // paths.
+                    std::error_code ignored;
+                    if (job->backend.single_file)
+                        std::filesystem::remove(job->contents, ignored);
+                    if (job->backend.tar_layer)
+                        std::filesystem::remove(job->staging / "payload", ignored);
+                    std::filesystem::remove(job->staging, ignored);
+                    report_(i18n::trf("Extracted to {}", output.string()), false);
+                });
         },
         job->output->fd, job->errors->fd, job->password ? job->password->fd : -1, job->input->fd);
     if (error) {

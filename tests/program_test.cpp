@@ -4,10 +4,12 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <fcntl.h>
 #include <filesystem>
 #include <functional>
 #include <span>
 #include <string>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -15,6 +17,7 @@
 
 #include "rummage/core/event_loop.hpp"
 #include "rummage/core/worker_pool.hpp"
+#include "rummage/fs/archive_origin.hpp"
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/platform/opener.hpp"
@@ -270,4 +273,42 @@ TEST_CASE(
     CHECK(asked.empty());
     REQUIRE(reports.size() == 1);
     CHECK(reports[0].first.starts_with("No application opens"));
+}
+
+TEST_CASE(
+    "opener: archive provenance asks despite executable bits and pins approval across "
+    "replacement") {
+    const TempDir dir;
+    const auto tool = dir.path / "tool";
+    fs::copy_file(harmless_program(), tool);
+    fs::permissions(tool, fs::perms::owner_all);
+    int fd = ::open(tool.c_str(), O_RDONLY | O_CLOEXEC);
+    REQUIRE(fd >= 0);
+    REQUIRE_FALSE(rummage::fs::mark_archive_origin(fd, "archive"));
+    ::close(fd);
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    std::function<void()> yes;
+    std::vector<std::pair<std::string, bool>> reports;
+    Opener opener{
+        loop, pool, MimeDatabase::load(), {}, [&](const std::string& message, bool error) {
+            reports.emplace_back(message, error);
+        }};
+    opener.set_ask_to_run([&](const auto&, auto approve) { yes = std::move(approve); });
+    opener.open(dir.path, {{.name = "tool", .kind = EntryKind::file, .size = fs::file_size(tool)}});
+    REQUIRE(run_until(loop, [&] { return !opener.planning(); }));
+    REQUIRE(yes);
+    CHECK(reports.empty());
+    fs::rename(tool, dir.path / "selected");
+    dir.write("tool", "replacement is not an executable");
+    fd = ::open(tool.c_str(), O_RDONLY | O_CLOEXEC);
+    REQUIRE(fd >= 0);
+    REQUIRE_FALSE(rummage::fs::mark_archive_origin(fd, "replacement"));
+    ::close(fd);
+    yes();
+    REQUIRE(
+        run_until(loop, [&] { return !opener.planning() && opener.launcher().running() == 0; }));
+    CHECK(reports == std::vector<std::pair<std::string, bool>>{{"Starting tool…", false}});
+    CHECK(rummage::fs::archive_confirmation_required(tool));
+    CHECK_FALSE(rummage::fs::archive_confirmation_required(dir.path / "selected"));
 }

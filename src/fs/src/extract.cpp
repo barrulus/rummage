@@ -31,6 +31,7 @@
 #include "rummage/archive/archive.hpp"
 #include "rummage/core/i18n.hpp"
 #include "rummage/fs/archive_folder.hpp"
+#include "rummage/fs/archive_origin.hpp"
 
 namespace rummage::fs {
 namespace {
@@ -202,6 +203,7 @@ public:
             result_.refused = "Not inside an archive";
             return std::move(result_);
         }
+        origin_ = archive_origin(where->archive);
         tree_ = archive_tree(where->archive, nullptr);
         if (tree_->failure() != archive::Failure::none && tree_->folder("") != nullptr &&
             tree_->folder("")->empty()) {
@@ -484,6 +486,11 @@ private:
             return false;
         }
         ::fchmod(file.get(), file_mode(entry.mode));
+        if (const auto error = mark_archive_origin(file.get(), origin_)) {
+            ::unlinkat(dir, name.c_str(), 0);
+            fail(item, error.message());
+            return false;
+        }
         if (entry.mtime != 0) {
             const std::array<timespec, 2> times = times_of(entry.mtime);
             ::futimens(file.get(), times.data());
@@ -541,6 +548,7 @@ private:
     TransferProgress progress_;
     TransferResult result_;
     Fd archive_file_;
+    std::string origin_;
     Fd destination_;
     Fd staging_;
     std::string staging_name_;

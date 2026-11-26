@@ -1709,7 +1709,8 @@ void Browser::transfer_progress(const fs::TransferRequest& request,
                                                    static_cast<double>(progress.bytes_total))
                               : -1.0F;
         status.text =
-            progress.preparing
+            progress.verifying ? std::string{i18n::tr("Verifying…")}
+            : progress.preparing
                 ? std::string{i18n::tr("Getting ready to compress…")}
                 : i18n::trf("Compressing into “{}” · {} of {}", request.archive_name,
                             format_size(progress.bytes_done), format_size(progress.bytes_total));
@@ -2520,6 +2521,11 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         enter.keysym = XKB_KEY_Return;
         view_key(enter, Clock::now());
     });
+    if (cursor && names.size() == 1 && new_window_ && !picker_mode_ &&
+        (cursor->is_directory() || (!folder->is_archive() && opens_as_folder(*cursor)))) {
+        add("open_window", "Open in New Window", "",
+            [this, path = folder->path() / cursor->name] { new_window_(path); });
+    }
     if (cursor != nullptr && choices_ && open_with_) {
         MenuItem with;
         with.id = "open_with";
@@ -2605,6 +2611,8 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     }
     add("compress_zip", "Compress to ZIP…", "", [this] { compress(false); }, true);
     add("compress_tar", "Compress to tar.gz…", "", [this] { compress(true); });
+    if (!folder->is_archive() && !picker_mode_)
+        items.push_back(advanced_archive_menu());
     add("copy", "Copy", keys_for(Command::copy), [this] { take_selection(false); }, true);
     add("cut", "Cut", keys_for(Command::cut), [this] { take_selection(true); });
     add(
@@ -2919,11 +2927,13 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
         group({"open_terminal", "add_bookmark", "photos_add_folder"});
         extensions();
     } else {
-        group({"open", "open_with", "open_tab", "open_terminal", "reveal_link_target"});
+        group({"open", "open_with", "open_tab", "open_window", "open_terminal",
+               "reveal_link_target"});
         group({"cut", "copy", "paste", "rename", "create_link", "create_relative_link",
                "create_hard_link", "move_into_folder"});
         group({"action:copy_name", "action:copy_location"});
-        group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar"});
+        group({"action:extract_here", "action:extract_to", "compress_zip", "compress_tar",
+               "advanced_archive"});
         group({"add_bookmark", "photos_add_folder", "running"});
         extensions();
         group({"trash", "erase"});
@@ -3004,6 +3014,16 @@ void Browser::open_menu(float x, float y, bool keyboard) {
     menu_loaders_.clear();
     std::vector<MenuItem> items;
     if (folder->is_archive()) {
+        const auto* cursor = folder->cursor_entry();
+        if (new_window_ && !picker_mode_ && (!cursor || cursor->is_directory())) {
+            MenuItem window;
+            window.id = "open_window";
+            window.label = i18n::tr("Open in New Window");
+            window.action = [this, path = cursor ? folder->path() / cursor->name : folder->path()] {
+                new_window_(path);
+            };
+            items.push_back(std::move(window));
+        }
         if (!targets(*folder).empty()) {
             MenuItem copy;
             copy.id = "copy";
@@ -3018,8 +3038,9 @@ void Browser::open_menu(float x, float y, bool keyboard) {
             items.push_back(std::move(preview));
             copy.separator = true;
             items.push_back(std::move(copy));
-            menu_.open(x, y, std::move(items), keyboard);
         }
+        if (!items.empty())
+            menu_.open(x, y, std::move(items), keyboard);
         return;
     }
     if (!targets(*folder).empty()) {
@@ -5365,7 +5386,7 @@ void Browser::start_drag(Press press) {
             false);
         return;
     }
-    if (folder.is_trash() || folder.is_archive() || !press.hit.entry ||
+    if (folder.is_trash() || !press.hit.entry ||
         *press.hit.entry >= folder.entries().size()) {
         return;  // the trash only gives back (Restore); an archive's entries are extracted
     }
@@ -5388,12 +5409,18 @@ void Browser::start_drag(Press press) {
     drag_ = Drag{.directory = folder.path(),
                  .names = std::move(names),
                  .icon = std::string{fs::icon_name(folder.mime(), typed)},
+                 .archive = folder.is_archive(),
                  .folders_only = folders_only,
                  .choose = press.choose};
     // The view lets go of the press: the drag has the pointer now.
     send_pointer(Target::view, {.kind = ui::PointerEvent::Kind::leave}, Clock::now());
     button_held_ = false;
     const std::string lines = path_lines(paths);
+    if (folder.is_archive()) {
+        dnd_.start({{std::string{kArchiveMembers}, uri_list(paths)}});
+        redraw_();
+        return;
+    }
     dnd_.start({{std::string{kUriList}, uri_list(paths)},
                 {std::string{kText}, lines},
                 {"text/plain", lines}});
@@ -5547,9 +5574,15 @@ void Browser::drop_event(const ui::DropEvent& event) {
     }
     std::optional<DropTarget> target = drop_target_at(event.x, event.y);
     const std::vector<std::string> types = dnd_.types ? dnd_.types() : std::vector<std::string>{};
-    const bool files = std::ranges::find(types, kUriList) != types.end();
+    const bool archive =
+        (drag_ && drag_->archive) || std::ranges::find(types, kArchiveMembers) != types.end();
+    const bool files = archive || std::ranges::find(types, kUriList) != types.end();
     const auto content = content_offer(types);
-    const auto offered = files || drag_ ? std::optional{std::string{kUriList}} : content;
+    const auto offered = archive          ? std::optional{std::string{kArchiveMembers}}
+                         : files || drag_ ? std::optional{std::string{kUriList}}
+                                          : content;
+    if (archive && target && (target->bookmark || fs::is_trash(target->folder)))
+        target.reset();
     std::vector<std::filesystem::path> own;
     if (drag_) {
         for (const std::string& name : drag_->names) {
@@ -5576,6 +5609,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
             }
             if (target && target->bookmark) {
                 add_to_sidebar(std::move(own));
+            } else if (target && archive) {
+                extract_dragged_members(target->folder, std::move(own));
             } else if (target) {
                 drop_paths(target->folder, std::move(own), true, false, choose);
             }
@@ -5600,7 +5635,8 @@ void Browser::drop_event(const ui::DropEvent& event) {
         ++operations_;
         dnd_.read(*offered, [this, alive = alive_, folder = target->folder,
                              bookmark = target->bookmark, move, choose, move_allowed, files,
-                             content, type = *offered, reveal](std::optional<std::string> data) {
+                             archive, content, type = *offered,
+                             reveal](std::optional<std::string> data) {
             if (!*alive)
                 return;
             --operations_;
@@ -5614,7 +5650,9 @@ void Browser::drop_event(const ui::DropEvent& event) {
             }
             ClipboardFiles dropped = parse_uri_list(*data);
             if (!dropped.paths.empty()) {
-                if (bookmark)
+                if (archive)
+                    extract_dragged_members(folder, std::move(dropped.paths));
+                else if (bookmark)
                     add_to_sidebar(std::move(dropped.paths));
                 else if (choose && !fs::is_trash(folder))
                     drop_actions(folder, std::move(dropped.paths), false, move_allowed);
@@ -5655,7 +5693,7 @@ void Browser::drop_event(const ui::DropEvent& event) {
     if (dnd_.accept) {
         if (!target) {
             dnd_.accept(std::nullopt, 0, 0);
-        } else if (drag_ || choose || !files) {
+        } else if (drag_ || choose || !files || archive) {
             dnd_.accept(offered, ui::kDndCopy, ui::kDndCopy);  // decided at the drop
         } else {
             const std::uint32_t allowed = dnd_.source_actions ? dnd_.source_actions() : 0;

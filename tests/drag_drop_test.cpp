@@ -1393,3 +1393,89 @@ TEST_CASE("windows: a right drag carries its source and choice into another brow
     CHECK_FALSE(fs::exists(f.album / "P2.ORF"));
     CHECK(fs::exists(f.photos / "P2.ORF"));
 }
+
+TEST_CASE(
+    "drop: archive members advertise private copy-only payload, extract across independent "
+    "windows") {
+    Fixture destination;
+    if (!destination.gl)
+        return;
+    const auto archive = destination.root / "naïve archive.zip";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archive/basic.zip", archive);
+    std::string payload;
+    {
+        Fixture source;
+        if (!source.gl)
+            return;
+        source.show(archive, Browser::Mode::details);
+        source.drag(archive, "docs");
+        REQUIRE(source.dnd.started.size() == 1);
+        CHECK(source.dnd.started.front().first == rummage::views::kArchiveMembers);
+        payload = source.dnd.started.front().second;
+        source.browser.drag_ended();
+    }  // once received, closing the source window cannot cancel extraction in the destination
+    const auto unchanged = fs::last_write_time(archive);
+    destination.show(destination.root, Browser::Mode::details);
+    destination.dnd.types = {std::string{rummage::views::kArchiveMembers}};
+    destination.dnd.source_actions = rummage::ui::kDndCopy | rummage::ui::kDndMove;
+    destination.dnd.action = rummage::ui::kDndCopy;
+    destination.dnd.data = payload;
+    destination.drop_at(destination.point_of(destination.root, "album"));
+    CHECK(destination.dnd.accepted_actions == rummage::ui::kDndCopy);
+    CHECK(fs::exists(destination.album / "docs"));
+    CHECK_FALSE(fs::is_empty(destination.album / "docs"));
+    CHECK(fs::last_write_time(archive) == unchanged);
+}
+
+TEST_CASE("drop: archive payload rejects ordinary host files") {
+    Fixture f;
+    if (!f.gl)
+        return;
+    f.show(f.root, Browser::Mode::details);
+    f.dnd.types = {std::string{rummage::views::kArchiveMembers}};
+    f.dnd.data = rummage::core::file_uri(f.photos / "P1.ORF") + "\r\n";
+    f.drop_at(f.point_of(f.root, "album"));
+    CHECK_FALSE(fs::exists(f.album / "P1.ORF"));
+}
+
+TEST_CASE("drop: archive window and advanced menu workflows preserve the source pane") {
+    Fixture f;
+    if (!f.gl)
+        return;
+    const auto archive = f.root / "basic.zip";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "archive/basic.zip", archive);
+    fs::path requested;
+    f.browser.set_new_window_handler([&](const auto& path) { requested = path; });
+    const auto item = [&](const std::string& id) {
+        const auto& items = f.browser.context_menu().items();
+        const auto found = std::ranges::find(items, id, &rummage::views::MenuItem::id);
+        REQUIRE(found != items.end());
+        return *found;
+    };
+    f.show(f.root, Browser::Mode::details);
+    f.browser.go_to(f.root, "basic.zip");
+    REQUIRE(f.settle());
+    f.browser.open_menu_from_keyboard();
+    const auto open = item("open_window").action;
+    const auto advanced = item("advanced_archive");
+    CHECK(advanced.submenu);
+    const auto create =
+        std::ranges::find(advanced.children, "create_7z", &rummage::views::MenuItem::id);
+    REQUIRE(create != advanced.children.end());
+    const auto encrypt_names = std::ranges::find(advanced.children, "archive_encrypt_names",
+                                                 &rummage::views::MenuItem::id);
+    REQUIRE(encrypt_names != advanced.children.end());
+    CHECK_FALSE(encrypt_names->enabled);
+    f.browser.context_menu().close();
+    open();
+    CHECK(requested == archive);
+    CHECK(f.browser.details().folder()->path() == f.root);
+    f.browser.go_to(archive, "docs");
+    REQUIRE(f.settle());
+    f.browser.open_menu_from_keyboard();
+    const auto nested = item("open_window").action;
+    f.browser.context_menu().close();
+    nested();
+    CHECK(requested == archive / "docs");
+    CHECK(f.browser.details().folder()->path() == archive);
+}
