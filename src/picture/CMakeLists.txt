@@ -10,6 +10,14 @@ target_include_directories(rummage_wuffs SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/thi
 target_compile_options(rummage_wuffs PRIVATE -w)
 if(RUMMAGE_SANITIZER)
     target_compile_options(rummage_wuffs PRIVATE -fsanitize=${RUMMAGE_SANITIZER})
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # Wuffs' generated vtables cast concrete receiver pointers to void* signatures
+        # (e.g. wuffs_png__decoder__func_ptrs_for__wuffs_base__image_decoder). Clang's
+        # function-type check rejects that intentional ABI dispatch. Keep the vendored
+        # source unchanged and exempt only this check in its implementation unit; ASan
+        # and other UBSan checks, including those in our picture wrapper, remain enabled.
+        target_compile_options(rummage_wuffs PRIVATE -fno-sanitize=function)
+    endif()
 endif()
 
 add_library(rummage_picture

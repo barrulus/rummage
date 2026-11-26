@@ -106,7 +106,12 @@ Keep ASan/UBSan and TSan in separate builds. Sanitizer runtimes change memory
 requirements and helper sandbox allowances; see [security](../docs/security.md).
 Known third-party leak suppressions live in
 `src/core/src/lsan_suppressions.cpp`. Record suppressions and environment workarounds
-when reporting results.
+when reporting results. Clang sanitizer builds omit only the indirect function-type
+check (`-fsanitize=function`) in the `rummage_wuffs` implementation target: Wuffs'
+generated vtables intentionally cast concrete decoder receiver signatures to
+`void*` signatures. ASan and the remaining UBSan checks stay enabled there; the
+picture wrapper and other application targets retain the function-type check.
+The vendored Wuffs source is unchanged.
 
 Enable build-time analysis with `-DRUMMAGE_CLANG_TIDY=ON`. Check formatting with
 `scripts/format.sh --check`. Neither formatter nor tidy covers documentation;
