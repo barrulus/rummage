@@ -6,6 +6,7 @@
 
 #include "cursor-shape-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
+#include "text-input-unstable-v3-client-protocol.h"
 #include "viewporter-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-decoration-unstable-v1-client-protocol.h"
@@ -18,6 +19,8 @@ namespace rummage::ui {
 // One overload per Wayland proxy type we own. Defined out of line on purpose: the
 // wayland-scanner *_destroy helpers are `static inline`, so naming them in a type used across
 // translation units would give that type internal linkage (an ODR hazard).
+void destroy(zwp_text_input_manager_v3*) noexcept;
+void destroy(zwp_text_input_v3*) noexcept;
 void destroy(wl_display* display) noexcept;
 void destroy(wl_registry* registry) noexcept;
 void destroy(wl_compositor* compositor) noexcept;

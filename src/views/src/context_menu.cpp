@@ -345,6 +345,16 @@ void ContextMenu::draw_panel(ui::Renderer& renderer, const ui::Rect& panel,
         }
         const ui::Rect rect{panel.x + kInset, y, panel.width - (2.0F * kInset), kItemHeight};
         rects.push_back(rect.intersect(viewport));
+        core::AccessibleNode node;
+        node.id = "menu:" + item.id + ":" + std::to_string(static_cast<int>(panel.x));
+        node.name = item.label;
+        node.description = item.keys;
+        node.role = core::AccessibleRole::menu_item;
+        node.enabled = item.enabled;
+        node.focused = highlighted == i;
+        node.checkable = item.checked;
+        node.checked = item.checked;
+        renderer.accessible(std::move(node), rect);
         const bool lit = highlighted == i && item.enabled;
         if (lit) {
             renderer.draw_box(rect, {.fill = palette.hover, .radius = {}});

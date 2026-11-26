@@ -48,6 +48,10 @@ public:
     std::vector<MenuItem> preview_items() const;
     static std::string serialize(const std::vector<core::MenuNode>& nodes);
 
+    [[nodiscard]] ui::TextField* input_field() {
+        return editable_ && label_focus_ && !popup_.is_open() ? &label_ : nullptr;
+    }
+
 private:
     using Path = std::vector<std::size_t>;
 

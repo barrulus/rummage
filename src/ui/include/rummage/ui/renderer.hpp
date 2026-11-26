@@ -1,5 +1,4 @@
 #pragma once
-
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -7,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rummage/ui/accessibility.hpp"
 #include "rummage/ui/color.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/motion.hpp"
@@ -133,6 +133,7 @@ public:
     // Restricts drawing to rect, intersected with the current clip, until pop_clip.
     void push_clip(const Rect& rect);
     void pop_clip();
+    void accessible(core::AccessibleNode node, const Rect& bounds);
 
 private:
     struct Gl;

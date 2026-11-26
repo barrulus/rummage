@@ -1,10 +1,10 @@
 #pragma once
-
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/renderer.hpp"
@@ -56,6 +56,11 @@ public:
 
     // The line is there, as last drawn.
     [[nodiscard]] bool field_at(float x, float y) const { return field_.bounds().contains(x, y); }
+
+    [[nodiscard]] ui::TextField* input_field() {
+        field_.set_accessible_name(std::string{i18n::tr("Location")});
+        return is_open() && !on_toggle_ ? &field_ : nullptr;
+    }
 
 private:
     enum class Target : std::uint8_t { none, add, cancel, go };

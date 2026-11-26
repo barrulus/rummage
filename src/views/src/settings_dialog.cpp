@@ -1429,6 +1429,21 @@ std::string SettingsDialog::copy_selection(bool cut) {
     return {};
 }
 
+ui::TextField* SettingsDialog::input_field() {
+    if (!open_ || choices_.is_open() || details_.is_open())
+        return nullptr;
+    if (focus_ == "search")
+        return &search_;
+    if (!editable())
+        return nullptr;
+    if (focus_ == "editor")
+        return section_ == 4 ? menus_.input_field() : editors_.input_field();
+    for (std::size_t i = 0; i < fields_.size(); ++i)
+        if (focus_ == "f" + std::to_string(i) && fields_[i].choices.empty())
+            return &fields_[i].input;
+    return nullptr;
+}
+
 void SettingsDialog::paste(std::string_view text) {
     if (!valid_ || !open_ || choices_.is_open() || details_.is_open())
         return;
@@ -1814,6 +1829,19 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                               i18n::tr(field.description), field.layout);
         field.bounds = control;
         const bool focused = focus_ == "f" + std::to_string(i);
+        if (!field.choices.empty() && ui::AccessibleFrame::current()) {
+            core::AccessibleNode node;
+            node.id = "setting:" + field.table + ":" + field.key;
+            node.name = i18n::tr(field.label);
+            node.description = choice_label(field, field.input.text());
+            node.role =
+                field.toggle() ? core::AccessibleRole::check_box : core::AccessibleRole::button;
+            node.enabled = editable();
+            node.focused = focused;
+            node.checkable = field.toggle();
+            node.checked = field.input.text() == "true";
+            renderer.accessible(std::move(node), control);
+        }
         if (field.toggle()) {
             const bool on = field.input.text() == "true";
             const ui::Rect toggle{control.x, control.y + 4, 44, 24};
@@ -1848,6 +1876,8 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 button("plus" + std::to_string(i), "+", {control.right() - 32, control.y, 32, 32},
                        DialogButton::normal, true);
             }
+            field.input.set_accessible_editable(editable());
+            field.input.set_accessible_name(std::string{i18n::tr(field.label)});
             field.input.draw(renderer, field.bounds, 13,
                              {.background = palette.surface_container_highest,
                               .border = !field.error.empty() ? palette.error

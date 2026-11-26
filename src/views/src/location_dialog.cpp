@@ -184,6 +184,8 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                          22.0F + kButtonHeight + kPadding;
     const ui::Rect card{bounds.x + ((bounds.width - width) / 2.0F),
                         bounds.y + ((bounds.height - height) / 3.0F), width, height};
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(std::string{i18n::tr("Go to Folder or Server")}, card);
     renderer.draw_box(card, {.fill = palette.surface_container_high,
                              .radius = ui::Corners::all(14.0F),
                              .border_width = 1.0F,
@@ -215,6 +217,16 @@ void LocationDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
 
     const ui::Rect box{left, y, kCheckSize, kCheckSize};
     toggle_ = {box.x - 4.0F, y - 4.0F, room + 4.0F, kCheckSize + 8.0F};
+    if (ui::AccessibleFrame::current()) {
+        core::AccessibleNode node;
+        node.id = "save-server";
+        node.name = i18n::tr("Add a server to the sidebar");
+        node.role = core::AccessibleRole::check_box;
+        node.checkable = true;
+        node.checked = add_;
+        node.focused = on_toggle_;
+        renderer.accessible(std::move(node), toggle_);
+    }
     renderer.draw_box(box, {.fill = add_ ? palette.primary : palette.surface_container_highest,
                             .radius = ui::Corners::all(4.0F),
                             .border_width = on_toggle_ ? 2.0F : 1.0F,

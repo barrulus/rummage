@@ -731,6 +731,17 @@ void FilePicker::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     const auto button = [&](std::size_t i, const std::string& text, ui::Rect rect, bool primary,
                             bool checkbox = false, bool checked = false) {
         controls_[i] = rect;
+        if (ui::AccessibleFrame::current()) {
+            core::AccessibleNode node;
+            node.id = "picker-control:" + std::to_string(i);
+            node.name = text;
+            node.role = checkbox ? core::AccessibleRole::check_box : core::AccessibleRole::button;
+            node.checkable = checkbox;
+            node.checked = checked;
+            node.focused = focus_ == static_cast<int>(i);
+            node.selected = checkbox && checked;
+            renderer.accessible(std::move(node), rect);
+        }
         renderer.draw_box(rect,
                           {.fill = primary ? palette.primary : palette.surface_container_highest,
                            .radius = {},

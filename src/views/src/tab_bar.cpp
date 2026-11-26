@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "rummage/core/i18n.hpp"
+
 namespace rummage::views {
 namespace {
 
@@ -46,6 +48,12 @@ void TabBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
                              kCloseSize, kCloseSize};
         tabs_.push_back(tab);
         closes_.push_back(close);
+        core::AccessibleNode node;
+        node.id = "tab:" + std::to_string(i) + ":" + std::to_string(static_cast<int>(bounds.x));
+        node.name = titles[i];
+        node.role = core::AccessibleRole::tab;
+        node.selected = i == active;
+        renderer.accessible(std::move(node), tab);
         const bool shown = i == active;
         const bool over = hovered_ && hovered_->index == i && hovered_->part != Part::add;
         if (shown) {
@@ -63,6 +71,11 @@ void TabBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         renderer.draw_text(titles[i], tab.x + kInset, top + ((height - kTextSize) / 2.0F) - 2.0F,
                            kTextSize, text, std::max(1.0F, close.x - (tab.x + kInset) - 4.0F));
         if (shown || over) {
+            core::AccessibleNode close_node;
+            close_node.id = "close-tab:" + std::to_string(i);
+            close_node.name = std::string{i18n::tr("Close Tab")};
+            close_node.role = core::AccessibleRole::button;
+            renderer.accessible(std::move(close_node), close);
             if (hovered_ == Hit{.part = Part::close, .index = i}) {
                 renderer.draw_box(close, {.fill = palette.surface_container_highest, .radius = {}});
             }
@@ -75,6 +88,11 @@ void TabBar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
 
     // The +: two bars, as the icon font has no plus.
     add_ = {x + kGap, top + ((height - kAddSize) / 2.0F), kAddSize, kAddSize};
+    core::AccessibleNode add_node;
+    add_node.id = "new-tab";
+    add_node.name = std::string{i18n::tr("New Tab")};
+    add_node.role = core::AccessibleRole::button;
+    renderer.accessible(std::move(add_node), add_);
     if (hovered_ && hovered_->part == Part::add) {
         renderer.draw_box(add_, {.fill = palette.surface_container, .radius = {}});
     }

@@ -43,6 +43,10 @@ public:
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette);
     [[nodiscard]] ui::CursorShape cursor_at(float x, float y) const;
 
+    [[nodiscard]] ui::TextField* input_field() {
+        return is_open() && !busy_ && focus_ < fields_.size() ? &fields_[focus_] : nullptr;
+    }
+
 private:
     void update();
     void submit();

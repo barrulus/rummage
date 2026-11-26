@@ -58,6 +58,10 @@ public:
         return fractional_scale_manager_.get();
     }
 
+    [[nodiscard]] zwp_text_input_manager_v3* text_input_manager() const noexcept {
+        return text_input_manager_.get();
+    }
+
     // Optional: without it, copy and paste stay inside rummage.
     [[nodiscard]] wl_data_device_manager* data_device_manager() const noexcept {
         return data_device_manager_.get();
@@ -92,6 +96,7 @@ private:
     WlPtr<xdg_activation_v1> activation_;
     WlPtr<wl_data_device_manager> data_device_manager_;
     WlPtr<wl_seat> seat_;
+    WlPtr<zwp_text_input_manager_v3> text_input_manager_;
     WlPtr<zxdg_importer_v2> importer_;
     WlPtr<xdg_wm_dialog_v1> dialog_manager_;
 };

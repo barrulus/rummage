@@ -591,3 +591,118 @@ TEST_CASE("text field: clipboard helpers never export masked text") {
     field.key({.keysym = XKB_KEY_z, .text = {}, .modifiers = {.ctrl = true}});
     CHECK(field.text() == "secret");
 }
+
+TEST_CASE("text input: preedit commit surrounding deletion and focus preserve UTF-8 boundaries") {
+    using rummage::ui::TextInputEdit;
+    TextField field{"photo.txt"};
+    TextField::focus_input(&field);
+    field.select(0, 5);
+    CHECK(field.input_edit({.preedit = "日本", .begin = 3, .end = 6}));
+    CHECK(field.text() == ".txt");
+    CHECK(field.preedit() == "日本");
+    CHECK(field.input_edit({.commit = "日本語"}));
+    CHECK(field.text() == "日本語.txt");
+    CHECK(field.caret() == 9);
+    CHECK(field.preedit().empty());
+    CHECK_FALSE(field.input_edit({.before = 1}));
+    CHECK(field.text() == "日本語.txt");
+    CHECK(field.input_edit({.commit = "本", .before = 3}));
+    CHECK(field.text() == "日本本.txt");
+    CHECK(field.undo());
+    CHECK(field.text() == "日本語.txt");
+    CHECK(field.input_edit({.preedit = "compose", .begin = -1, .end = -1}));
+    TextField other;
+    TextField::focus_input(&other);
+    TextField::focus_input(&field);
+    CHECK(field.preedit().empty());
+    CHECK(field.text() == "日本語.txt");
+    field.set_text("abSELcd");
+    field.select(5, 2);
+    CHECK(field.input_edit({.before = 1, .after = 1}));
+    CHECK(field.text() == "aSELd");
+    CHECK(field.input_state().anchor == 4);
+    CHECK(field.caret() == 1);
+    CHECK(field.input_edit({.commit = "😀"}));
+    CHECK(field.text() == "a😀d");
+    TextField::focus_input(nullptr);
+}
+
+TEST_CASE("text input: password privacy and bounded surrounding text") {
+    TextField field{"secret password"};
+    field.set_masked(true);
+    auto state = field.input_state();
+    CHECK(state.password);
+    CHECK(state.text.empty());
+    CHECK(state.cursor == 0);
+    CHECK(state.anchor == 0);
+    field.set_masked(false);
+    std::string long_text;
+    for (int i = 0; i < 3000; ++i)
+        long_text += "語";
+    field.set_text(long_text);
+    state = field.input_state();
+    CHECK(state.text.size() <= 4000);
+    CHECK(state.text.size() % 3 == 0);
+    CHECK(state.cursor == static_cast<int>(state.text.size()));
+    field.select_all();
+    CHECK(field.input_state().text.empty());
+    CHECK_FALSE(field.input_edit({.commit = "line\nbreak"}));
+    CHECK_FALSE(field.input_edit({.commit = std::string{"\xc0\xaf"}}));
+    CHECK_FALSE(field.input_edit({.commit = std::string{"\xed\xa0\x80"}}));
+    CHECK_FALSE(field.input_edit({.preedit = std::string{"\xf0\x9f"}}));
+}
+
+TEST_CASE("text input: browser rename receives composition without activating commands") {
+    BrowserFixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    f.folder()->select_name("notes.txt");
+    f.browser.key(key(XKB_KEY_F2), Browser::Clock::now());
+    REQUIRE(f.browser.input_field());
+    f.browser.key(
+        KeyEvent{.text = {},
+                 .input_edit = rummage::ui::TextInputEdit{.preedit = "日本", .begin = 6, .end = 6}},
+        Browser::Clock::now());
+    CHECK(f.browser.name_editor().active());
+    CHECK(f.browser.input_field()->preedit() == "日本");
+    f.browser.key(KeyEvent{.text = {}, .input_edit = rummage::ui::TextInputEdit{.commit = "日本"}},
+                  Browser::Clock::now());
+    CHECK(f.browser.input_field()->text() == "日本.txt");
+    CHECK(fs::exists(f.root / "notes.txt"));
+    f.browser.key(key(XKB_KEY_Escape), Browser::Clock::now());
+    CHECK_FALSE(f.browser.input_field());
+}
+
+TEST_CASE("text input: semantic snapshot masks secrets and exposes committed Unicode offsets") {
+    namespace ui = rummage::ui;
+    ui::Offscreen gl{400, 100};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    TextField field{"日😀.txt"};
+    field.set_accessible_name("Name");
+    TextField::focus_input(&field);
+    field.select(3, 7);
+    ui::AccessibleFrame frame;
+    renderer.begin_frame(400, 100, 1, {});
+    field.draw(renderer, {20, 20, 300, 32}, 14, {});
+    renderer.end_frame();
+    REQUIRE_FALSE(frame.nodes.empty());
+    CHECK(frame.nodes[0].name == "Name");
+    CHECK(frame.nodes[0].caret == 2);
+    CHECK(frame.nodes[0].anchor == 1);
+    CHECK(frame.nodes[0].focused);
+    CHECK(rummage::core::text_byte_offset(field.text(), 2) == 7);
+    frame.nodes.clear();
+    field.set_masked(true);
+    REQUIRE(field.input_edit({.preedit = "secret", .begin = 6, .end = 6}));
+    renderer.begin_frame(400, 100, 1, {});
+    field.draw(renderer, {20, 20, 300, 32}, 14, {});
+    renderer.end_frame();
+    CHECK(frame.nodes[0].password);
+    for (const auto& node : frame.nodes) {
+        CHECK(node.text.find("secret") == std::string::npos);
+        CHECK(node.text.find("日") == std::string::npos);
+        CHECK(node.text.find("😀") == std::string::npos);
+    }
+    TextField::focus_input(nullptr);
+}

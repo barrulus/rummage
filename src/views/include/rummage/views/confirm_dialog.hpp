@@ -70,6 +70,12 @@ public:
             buttons_, [x, y](const ui::Rect& button) { return button.contains(x, y); });
     }
 
+    [[nodiscard]] ui::TextField* input_field() {
+        password_field_.set_accessible_name(title_);
+        password_field_.set_masked(field_masked_);
+        return is_open() && password_mode_ && focused_ == -1 ? &password_field_ : nullptr;
+    }
+
 private:
     // The buttons, left to right.
     static constexpr std::size_t kCancel = 0;

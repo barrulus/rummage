@@ -325,6 +325,8 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const ui::Rect card{bounds.x + ((bounds.width - width) / 2.0F),
                         bounds.y + ((bounds.height - height) / 2.0F), width, height};
     draw_dialog_surface(renderer, bounds, card, palette);
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(title_, card);
     renderer.push_clip(card);
     const float left = card.x + kPadding;
     const float room = width - (2.0F * kPadding);
@@ -349,6 +351,16 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
              {std::tuple{rects_.registered, !anonymous_, i18n::tr("Registered user"),
                          Target::registered},
               std::tuple{rects_.anonymous, anonymous_, i18n::tr("Anonymous"), Target::anonymous}}) {
+            if (ui::AccessibleFrame::current()) {
+                core::AccessibleNode node;
+                node.id = "login-mode:" + std::string{label};
+                node.name = label;
+                node.role = core::AccessibleRole::radio_button;
+                node.checkable = true;
+                node.checked = chosen;
+                node.focused = focus_ == Item::mode && chosen;
+                renderer.accessible(std::move(node), rect);
+            }
             ui::Color fill =
                 chosen ? palette.secondary_container : palette.surface_container_highest;
             if (hovered_ == target && !chosen) {
@@ -397,6 +409,16 @@ void PasswordDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         y += 4.0F;
         const ui::Rect box{left + kLabelWidth, y, kCheckSize, kCheckSize};
         rects_.remember = {box.x - 4.0F, y - 4.0F, room - kLabelWidth + 4.0F, kCheckSize + 8.0F};
+        if (ui::AccessibleFrame::current()) {
+            core::AccessibleNode node;
+            node.id = "remember-password";
+            node.name = i18n::tr("Remember the password");
+            node.role = core::AccessibleRole::check_box;
+            node.checkable = true;
+            node.checked = remember_;
+            node.focused = focus_ == Item::remember;
+            renderer.accessible(std::move(node), rects_.remember);
+        }
         renderer.draw_box(box,
                           {.fill = remember_ ? palette.primary : palette.surface_container_highest,
                            .radius = ui::Corners::all(4.0F),

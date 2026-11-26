@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "rummage/core/log.hpp"
+#include "rummage/ui/text_field.hpp"
 #include "rummage/ui/xcursor.hpp"
 
 namespace rummage::ui {
@@ -144,6 +145,21 @@ Seat::Seat(Display& display)
         .name = &Seat::on_name,
     };
     wl_seat_add_listener(display.seat(), &kSeatListener, this);
+    if (display.text_input_manager()) {
+        text_input_.reset(
+            zwp_text_input_manager_v3_get_text_input(display.text_input_manager(), display.seat()));
+        static constexpr auto listener = [] {
+            zwp_text_input_v3_listener value{};
+            value.enter = &Seat::on_text_enter;
+            value.leave = &Seat::on_text_leave;
+            value.preedit_string = &Seat::on_preedit;
+            value.commit_string = &Seat::on_commit;
+            value.delete_surrounding_text = &Seat::on_delete;
+            value.done = &Seat::on_text_done;
+            return value;
+        }();
+        zwp_text_input_v3_add_listener(text_input_.get(), &listener, this);
+    }
 }
 
 Seat::~Seat() {
@@ -423,6 +439,8 @@ void Seat::on_keyboard_leave(void* data, wl_keyboard* /*keyboard*/, std::uint32_
     auto& self = *static_cast<Seat*>(data);
     self.disarm_repeat();
     self.keyboard_surface_ = nullptr;
+    if (self.focus_handler_)
+        self.focus_handler_(nullptr);
     if (self.compose_state_) {
         xkb_compose_state_reset(self.compose_state_.get());
     }
@@ -434,6 +452,13 @@ void Seat::forget_surface(wl_surface* surface) {
         disarm_repeat();
         if (compose_state_)
             xkb_compose_state_reset(compose_state_.get());
+    }
+    if (text_surface_ == surface) {
+        text_surface_ = nullptr;
+        text_state_ = {};
+        composing_ = false;
+        pending_text_ = {};
+        TextField::focus_input(nullptr);
     }
     if (pointer_surface_ == surface) {
         pointer_surface_ = nullptr;
@@ -456,7 +481,7 @@ void Seat::on_key(void* data, wl_keyboard* /*keyboard*/, std::uint32_t serial,
     }
     self.input_serial_ = serial;
     self.press(keycode, false);
-    if (xkb_keymap_key_repeats(self.keymap_.get(), keycode) != 0) {
+    if (!self.composing_ && xkb_keymap_key_repeats(self.keymap_.get(), keycode) != 0) {
         self.arm_repeat(keycode);
     } else {
         self.disarm_repeat();
@@ -481,6 +506,11 @@ void Seat::on_repeat_info(void* data, wl_keyboard* /*keyboard*/, std::int32_t ra
 }
 
 void Seat::press(xkb_keycode_t keycode, bool repeat) {
+    // A compositor may forward an unhandled composition key; it must not activate browser
+    // commands (Space/Enter/Escape/arrows) while a preedit transaction is active.
+    const auto modifiers = current_modifiers();
+    if (composing_ && !modifiers.ctrl && !modifiers.alt && !modifiers.super)
+        return;
     KeyEvent event{.keysym = xkb_state_key_get_one_sym(state_.get(), keycode),
                    .text = {},
                    .modifiers = current_modifiers(),
@@ -514,6 +544,112 @@ void Seat::press(xkb_keycode_t keycode, bool repeat) {
     if (key_handler_) {
         key_handler_(event);
     }
+}
+
+void Seat::update_text_input() {
+    if (!text_input_)
+        return;
+    TextInputState next;
+    if (text_surface_ && text_surface_ == keyboard_surface_ && text_provider_)
+        next = text_provider_();
+    const bool changed_focus = next.identity != text_state_.identity;
+    if (changed_focus) {
+        if (text_state_.identity)
+            zwp_text_input_v3_disable(text_input_.get());
+        composing_ = false;
+        pending_text_ = {};
+        text_stalled_ = false;
+        if (next.identity)
+            zwp_text_input_v3_enable(text_input_.get());
+    }
+    if (text_stalled_ && !changed_focus)
+        return;
+    const auto& a = next.cursor_rect;
+    const auto& b = text_state_.cursor_rect;
+    const bool changed = changed_focus || next.text != text_state_.text ||
+                         next.cursor != text_state_.cursor || next.anchor != text_state_.anchor ||
+                         next.password != text_state_.password || a.x != b.x || a.y != b.y ||
+                         a.width != b.width || a.height != b.height;
+    if (!changed)
+        return;
+    if (next.identity) {
+        zwp_text_input_v3_set_content_type(
+            text_input_.get(),
+            next.password ? ZWP_TEXT_INPUT_V3_CONTENT_HINT_HIDDEN_TEXT |
+                                ZWP_TEXT_INPUT_V3_CONTENT_HINT_SENSITIVE_DATA
+                          : ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE,
+            next.password ? ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_PASSWORD
+                          : ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL);
+        zwp_text_input_v3_set_surrounding_text(
+            text_input_.get(), next.password ? "" : next.text.c_str(),
+            next.password ? 0 : next.cursor, next.password ? 0 : next.anchor);
+        zwp_text_input_v3_set_text_change_cause(
+            text_input_.get(), input_method_change_ ? ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_INPUT_METHOD
+                                                    : ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_OTHER);
+        zwp_text_input_v3_set_cursor_rectangle(text_input_.get(),
+                                               static_cast<std::int32_t>(std::floor(a.x)),
+                                               static_cast<std::int32_t>(std::floor(a.y)),
+                                               std::max(1, static_cast<int>(std::ceil(a.width))),
+                                               std::max(1, static_cast<int>(std::ceil(a.height))));
+    }
+    zwp_text_input_v3_commit(text_input_.get());
+    ++text_serial_;
+    if (changed_focus)
+        text_focus_serial_ = text_serial_;
+    text_state_ = std::move(next);
+}
+
+void Seat::on_text_enter(void* data, zwp_text_input_v3*, wl_surface* surface) {
+    auto& self = *static_cast<Seat*>(data);
+    self.text_surface_ = surface;
+    self.text_state_ = {};
+    self.update_text_input();
+}
+
+void Seat::on_text_leave(void* data, zwp_text_input_v3*, wl_surface*) {
+    auto& self = *static_cast<Seat*>(data);
+    self.text_surface_ = nullptr;
+    self.text_state_ = {};
+    self.pending_text_ = {};
+    self.composing_ = false;
+    self.text_stalled_ = false;
+    TextField::focus_input(nullptr);
+}
+
+void Seat::on_preedit(void* data, zwp_text_input_v3*, const char* text, std::int32_t begin,
+                      std::int32_t end) {
+    auto& self = *static_cast<Seat*>(data);
+    self.pending_text_.preedit = text ? text : "";
+    self.pending_text_.begin = begin;
+    self.pending_text_.end = end;
+}
+
+void Seat::on_commit(void* data, zwp_text_input_v3*, const char* text) {
+    static_cast<Seat*>(data)->pending_text_.commit = text ? text : "";
+}
+
+void Seat::on_delete(void* data, zwp_text_input_v3*, std::uint32_t before, std::uint32_t after) {
+    auto& edit = static_cast<Seat*>(data)->pending_text_;
+    edit.before = before;
+    edit.after = after;
+}
+
+void Seat::on_text_done(void* data, zwp_text_input_v3*, std::uint32_t serial) {
+    auto& self = *static_cast<Seat*>(data);
+    auto edit = std::exchange(self.pending_text_, {});
+    if (!self.text_state_.identity || self.text_surface_ != self.keyboard_surface_ ||
+        static_cast<std::int32_t>(serial - self.text_focus_serial_) < 0)
+        return;
+    self.text_stalled_ = serial != self.text_serial_;
+    self.composing_ = !edit.preedit.empty();
+    if (self.composing_)
+        self.disarm_repeat();
+    self.input_method_change_ = true;
+    if (self.key_handler_)
+        self.key_handler_(KeyEvent{.text = {}, .input_edit = std::move(edit)});
+    if (!self.text_stalled_)
+        self.update_text_input();
+    self.input_method_change_ = false;
 }
 
 void Seat::arm_repeat(xkb_keycode_t keycode) {

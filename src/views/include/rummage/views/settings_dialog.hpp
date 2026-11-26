@@ -104,6 +104,8 @@ public:
 
     [[nodiscard]] std::string palette_status() const;
 
+    [[nodiscard]] ui::TextField* input_field();
+
 private:
     struct Number {
         float minimum, maximum, step;

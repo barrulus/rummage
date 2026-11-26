@@ -322,6 +322,8 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const float width = std::min(480.0F, bounds.width - 32.0F);
         const ui::Rect card{bounds.x + (bounds.width - width) / 2.0F,
                             bounds.y + (bounds.height - 100.0F) / 2.0F, width, 100.0F};
+        if (auto* frame = ui::AccessibleFrame::current())
+            frame->dialog(std::string{i18n::tr("Batch Rename")}, card);
         renderer.draw_box(card, {.fill = palette.surface_container_high,
                                  .radius = ui::Corners::all(14.0F),
                                  .border_width = 1.0F,
@@ -336,6 +338,8 @@ void BatchRenameDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const float height = std::min(590.0F, bounds.height - 24.0F);
     const ui::Rect card{bounds.x + (bounds.width - width) / 2.0F,
                         bounds.y + (bounds.height - height) / 2.0F, width, height};
+    if (auto* frame = ui::AccessibleFrame::current())
+        frame->dialog(std::string{i18n::tr("Batch Rename")}, card);
     renderer.draw_box(card, {.fill = palette.surface_container_high,
                              .radius = ui::Corners::all(14.0F),
                              .border_width = 1.0F,

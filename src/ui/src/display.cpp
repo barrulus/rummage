@@ -119,6 +119,9 @@ void Display::on_global(void* data, wl_registry* registry, std::uint32_t name,
         self.decoration_manager_.reset(
             bind<zxdg_decoration_manager_v1>(registry, name, zxdg_decoration_manager_v1_interface,
                                              version, kDecorationManagerVersion));
+    } else if (iface == zwp_text_input_manager_v3_interface.name) {
+        self.text_input_manager_.reset(bind<zwp_text_input_manager_v3>(
+            registry, name, zwp_text_input_manager_v3_interface, version, 1));
     } else if (iface == wl_shm_interface.name) {
         self.shm_.reset(bind<wl_shm>(registry, name, wl_shm_interface, version, kShmVersion));
     } else if (iface == wl_seat_interface.name && !self.seat_) {

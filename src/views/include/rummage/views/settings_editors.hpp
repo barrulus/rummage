@@ -59,6 +59,13 @@ public:
     void new_action();
     bool update_action(const core::Action& action);
 
+    [[nodiscard]] ui::TextField* input_field() {
+        return !recording() && focus_ >= 0 && static_cast<std::size_t>(focus_) < controls_.size() &&
+                       (!controls_[static_cast<std::size_t>(focus_)].editable || editable_)
+                   ? controls_[static_cast<std::size_t>(focus_)].field
+                   : nullptr;
+    }
+
 private:
     enum class Operation {
         field,

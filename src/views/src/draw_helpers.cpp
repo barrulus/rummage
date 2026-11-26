@@ -5,6 +5,7 @@
 #include <cstddef>
 
 #include "item_style.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/engines/engines.hpp"
 #include "rummage/fs/icon.hpp"
 #include "rummage/views/thumbnails.hpp"
@@ -31,6 +32,38 @@ void reveal_row(ui::Scroller& scroller, std::size_t row, float height, float vie
 void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
                      const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
                      Thumbnails* thumbnails, ui::Rect bounds, bool cut, ItemVisual* painted) {
+    if (ui::AccessibleFrame::current()) {
+        core::AccessibleNode node;
+        const std::string group =
+            "folder:" + std::to_string(reinterpret_cast<std::uintptr_t>(&folder));
+        auto* frame = ui::AccessibleFrame::current();
+        auto parent =
+            std::ranges::find_if(frame->nodes, [&](const auto& n) { return n.id == group; });
+        if (parent == frame->nodes.end()) {
+            core::AccessibleNode list;
+            list.id = group;
+            list.name = folder.path_of(entry).parent_path().string();
+            list.role = core::AccessibleRole::list;
+            renderer.accessible(std::move(list), bounds);
+        } else {
+            auto& r = parent->bounds;
+            const auto b = ui::AccessibleFrame::bounds(bounds);
+            const int right = std::max(r.x + r.width, b.x + b.width);
+            const int bottom = std::max(r.y + r.height, b.y + b.height);
+            r.x = std::min(r.x, b.x);
+            r.y = std::min(r.y, b.y);
+            r.width = right - r.x;
+            r.height = bottom - r.y;
+        }
+        node.parent = group;
+        node.id = group + ":file:" + entry.name;
+        node.name = entry.name;
+        node.description = entry.is_directory() ? i18n::tr("Folder") : i18n::tr("File");
+        node.role = core::AccessibleRole::list_item;
+        node.selected = folder.is_selected(entry.name);
+        node.focused = folder.cursor_entry() && folder.cursor_entry()->name == entry.name;
+        renderer.accessible(std::move(node), bounds);
+    }
     fs::Entry typed = entry;
     typed.mime = folder.mime_of(entry);
     const auto& mime = folder.mime();
@@ -138,6 +171,20 @@ void draw_right_aligned(ui::Renderer& renderer, std::string_view text, float rig
 
 void draw_button_text(ui::Renderer& renderer, std::string_view text, const ui::Rect& bounds,
                       ui::Color color) {
+    if (auto* frame = ui::AccessibleFrame::current()) {
+        const auto rectangle = ui::AccessibleFrame::bounds(bounds);
+        const bool recorded = std::ranges::any_of(frame->nodes, [&](const auto& n) {
+            return n.role == core::AccessibleRole::button && n.bounds.x == rectangle.x &&
+                   n.bounds.y == rectangle.y && n.bounds.width == rectangle.width;
+        });
+        if (!recorded) {
+            core::AccessibleNode node;
+            node.id = "button:" + std::string{text} + ":" + std::to_string(rectangle.y);
+            node.name = text.substr(0, text.find("   "));
+            node.role = core::AccessibleRole::button;
+            renderer.accessible(std::move(node), bounds);
+        }
+    }
     const ui::Rect content{bounds.x + 10, bounds.y, bounds.width - 20, bounds.height};
     if (content.empty())
         return;

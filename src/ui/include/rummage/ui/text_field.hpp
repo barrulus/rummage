@@ -93,6 +93,20 @@ public:
     void draw(Renderer& renderer, const Rect& rect, float size, const FieldColors& colors,
               bool masked = false);
 
+    // Only the focused field displays preedit. The pointer is compared, never dereferenced
+    // globally; dialog/vector destruction cannot leave a callable stale target.
+    static void focus_input(TextField* field);
+
+    void set_accessible_editable(bool value) { accessible_editable_ = value; }
+
+    void set_accessible_name(std::string name) { accessible_name_ = std::move(name); }
+
+    [[nodiscard]] TextInputState input_state() const;
+
+    [[nodiscard]] const std::string& preedit() const noexcept { return preedit_; }
+
+    bool input_edit(const TextInputEdit& edit);
+
     // Where the box was last drawn.
     [[nodiscard]] const Rect& bounds() const noexcept { return bounds_; }
 
@@ -123,6 +137,12 @@ private:
     [[nodiscard]] float width_of(FontSystem& fonts, std::size_t bytes) const;
 
     [[nodiscard]] std::string display_text(std::size_t bytes) const;
+    inline static TextField* input_focus_{};
+    std::string accessible_name_;
+    bool accessible_editable_{true};
+    std::string preedit_;
+    std::int32_t preedit_begin_{}, preedit_end_{};
+    Rect caret_bounds_{};
     bool masked_{false};
     std::string text_;
     std::size_t caret_{0};

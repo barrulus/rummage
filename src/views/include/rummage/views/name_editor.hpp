@@ -1,10 +1,10 @@
 #pragma once
-
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/entry.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
@@ -68,6 +68,11 @@ public:
 
     // The field over the slot's rect, when the view placed it this frame.
     void draw(ui::Renderer& renderer, const theme::Palette& palette);
+
+    [[nodiscard]] ui::TextField* input_field() {
+        field_.set_accessible_name(std::string{i18n::tr("Name")});
+        return active() && !busy_ ? &field_ : nullptr;
+    }
 
 private:
     void close();

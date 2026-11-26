@@ -1014,9 +1014,34 @@ void Renderer::draw_image(const Texture& texture, const Rect& rect, const Corner
     gl_->images.draw(&instance, 1, sizeof(ImageInstance), buffer_width_, buffer_height_);
 }
 
+void Renderer::accessible(core::AccessibleNode node, const Rect& bounds) {
+    auto* frame = AccessibleFrame::current();
+    if (!frame || bounds.empty())
+        return;
+    if (!clips_.empty()) {
+        const auto& clip = clips_.back();
+        if (bounds.right() <= clip.x || bounds.x >= clip.right() || bounds.bottom() <= clip.y ||
+            bounds.y >= clip.bottom())
+            return;
+    }
+    node.bounds = AccessibleFrame::bounds(bounds);
+    frame->add(std::move(node));
+}
+
 float Renderer::draw_text(std::string_view utf8, float x, float y, float size, Color color,
                           float max_width, Ellipsis ellipsis, Typeface typeface) {
     const TextLayout& layout = fonts_.layout(utf8, size, scale_, max_width, ellipsis, typeface);
+    if (auto* frame = AccessibleFrame::current(); frame && !utf8.empty()) {
+        frame->last_label = std::string{utf8};
+        core::AccessibleNode node;
+        node.id = "label:" + std::string{utf8} + ":" + std::to_string(static_cast<int>(x)) + ":" +
+                  std::to_string(static_cast<int>(y));
+        node.name = std::string{utf8};
+        node.text = node.name;
+        node.role = core::AccessibleRole::label;
+        accessible(std::move(node), {x, y, std::max(1.0F, layout.width / scale_), size + 6});
+    }
+
     draw_layout(layout, x, y, color);
     return layout.width / scale_;
 }
