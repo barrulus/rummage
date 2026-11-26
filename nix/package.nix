@@ -34,6 +34,7 @@
   shared-mime-info,
   hicolor-icon-theme,
   doctest,
+  git,
   python3,
   dbus,
   dejavu_fonts,
@@ -135,14 +136,17 @@ stdenv.mkDerivation {
 
   doCheck = withTests;
   nativeCheckInputs = lib.optionals withTests [
+    git
     _7zz
     unzip
     (writeShellScriptBin "7z" ''exec ${_7zz}/bin/7zz "$@"'')
   ];
-  # These two fixtures create executable scripts at runtime, after patchShebangs runs.
+  # These fixtures create executable scripts at runtime, after patchShebangs runs.
   postPatch = lib.optionalString withTests ''
     substituteInPlace tests/about_test.cpp tests/platform_test.cpp \
       --replace-fail '#!/bin/sh' '#!${stdenv.shell}'
+    substituteInPlace tests/extensions_test.cpp \
+      --replace-fail '#!/usr/bin/env python3' '#!${python3}/bin/python3'
   '';
   checkPhase = ''
     runHook preCheck
