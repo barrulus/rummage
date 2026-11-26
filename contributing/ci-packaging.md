@@ -473,3 +473,89 @@ its source pins and recipe, then rerun the PDF tests and package preflight. Revi
 instead of terminating the helper on an assertion. Compare rendered output and
 timings, and measure the complete added closure against `.#rummage`, not just the
 size of `libpdfium.so`.
+
+## Sanitizer and fuzz gate
+
+The `instrumentation` CI matrix runs before the ordinary test/package gate. Its
+Clang toolchain, optional preview libraries, fonts and software renderer come
+from the locked `instrumentation` Nix development shell. Run one profile locally
+with a new output directory outside the checkout:
+
+```sh
+nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py asan /tmp/rummage-asan
+nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py tsan /tmp/rummage-tsan
+nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py fuzz /tmp/rummage-fuzz
+```
+
+ASan/UBSan builds and checks the base, FFmpeg and PDFium helper integrations.
+The shared libraries supplied by Nix are not themselves rebuilt with sanitizers.
+The allocator-accounting process `memory-tests` is excluded because ASan changes
+allocation sizes; the normal test gate still runs it. TSan runs the event-loop,
+worker-pool and file-watcher suites, with a nonempty-results check. UI/driver,
+D-Bus and helper-process tests are outside that TSan scope and remain covered by
+the ordinary and ASan jobs. TSan shadow-address mapping failures on incompatible
+kernels/containers are failures, never silently converted into passes. No global
+ASLR or security-policy changes are made by the runner.
+
+Fuzz smoke tests cover all eight current targets: TIFF, camera, picture, DNG,
+lossless JPEG, text, SVG and archives. Each receives a fixed random seed,
+15-second mutation budget, 10-second per-input limit, 2 GiB RSS limit and 1 MiB
+maximum input size. The outer runner additionally enforces wall-clock deadlines.
+Checked-in fixtures are copied into disposable corpora; lossless JPEG starts
+with small synthetic inputs, so this is a smoke check, not comprehensive format
+coverage. Increase `--fuzz-seconds` up to 60 for a local smoke run. Longer research
+runs should invoke the individual fuzz binaries directly.
+
+Logs, identity, command arguments, test reports, mutated corpora and reproducing
+inputs are retained as CI artifacts for 14 days, including on failure. Existing
+fontconfig leak and Mesa/AMDGPU race suppressions remain narrowly documented in
+`src/core/src/lsan_suppressions.cpp`; the runner adds none. Do not disable a failing
+sanitizer to obtain a passing package build.
+
+## Preparing a Fedora COPR source package
+
+There is no provisioned project COPR repository. The local preparation workflow
+below does not enable a repository, upload packages or claim clean-install
+validation. The initial target policy follows the existing native RPM matrix:
+Fedora 45 on x86_64. Additional supported Fedora releases and aarch64 require
+separate dependency, build, installation and upgrade validation before being
+advertised. Use separate stable and development projects: stable accepts an
+explicit `vVERSION` tag, while development accepts an identifiable committed
+revision. Never automatically promote a development package to stable.
+
+First commit the intended source and use the existing exporter. It vendors the
+hash-pinned PDFium sources so the RPM build does not fetch code from the network:
+
+```sh
+bash scripts/ci/export-source.sh /tmp/rummage-export
+python3 scripts/ci/copr-source.py /tmp/rummage-export/input /tmp/rummage-copr --channel development
+rpmbuild -bs --define '_topdir /tmp/rummage-copr' /tmp/rummage-copr/SPECS/rummage.spec
+```
+
+For a stable build use `--channel stable --tag vVERSION`, replacing `VERSION`
+with the source version. The helper verifies that the existing local tag points
+to the exported commit. It verifies the archive hash, uses the recipe inside
+that archive, and records both archive and generated-recipe hashes. Development
+RPM releases begin with `0.TIMESTAMP.gitCOMMIT`, below the stable `1` release for
+the same version. Preserve `source.json` beside the source RPM. Reproducible
+source inputs do not guarantee byte-identical binaries as Fedora repositories
+continue to update.
+
+Provisioning requires a Fedora account and an agreed project owner with backup
+maintainers. The owner must create separate stable/development projects, select
+the validated chroots and retain their COPR build IDs and source manifests. A
+release automation integration should submit only the prepared source RPM after
+local validation, using a scoped credential stored in the CI secret store;
+credentials must not appear in source archives or logs. This repository does not
+automatically submit to COPR.
+
+Before publishing enablement instructions, verify the actual project URL and
+signing-key fingerprint, then test `dnf copr enable OWNER/PROJECT` in a clean
+Fedora environment. `OWNER/PROJECT` is a placeholder, not an available repository.
+Document who controls that signing key and that enabling a third-party
+repository trusts its package updates. Test base-only, `rummage-media`,
+`rummage-pdf` and `rummage-previews` installs, exact-version dependencies, helper
+isolation, upgrade from the previous release, downgrade/channel switching and
+removal. Use `scripts/ci/native.sh rpm` for the existing container package check;
+a successful local RPM build does not establish COPR service or repository
+upgrade behavior.

@@ -174,3 +174,17 @@ Release builds log at `info` by default; debug builds at `debug`. SIGUSR1 asks t
 browser for a memory report; SIGINT/SIGTERM request orderly shutdown. Startup
 benchmark variables and `RUMMAGE_SANDBOX_REPORT` are development instrumentation,
 described in [development](../contributing/development.md) and [security](security.md).
+
+## Shell completion
+
+The default CMake installation includes Bash, Zsh and Fish completion definitions
+under the installation prefix. Bash uses `share/bash-completion/completions`,
+Zsh uses `share/zsh/site-functions`, and Fish uses `share/fish/vendor_completions.d`.
+Enable your shell's normal completion system; a custom installation prefix may
+need to be added to its completion search path.
+
+Completions suggest public flags, directory arguments and file arguments for
+`--reveal`, `--properties` and `--config`. Picker-only flags are offered after a
+picker mode, and choosing a launch mode removes conflicting launch-mode
+suggestions. `--` ends option completion. Internal IPC flags are intentionally
+not suggested. Packagers can opt out with `RUMMAGE_INSTALL_COMPLETIONS=OFF`.

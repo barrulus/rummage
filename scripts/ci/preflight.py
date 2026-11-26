@@ -18,7 +18,8 @@ NIX_PACKAGES = [".#rummage", ".#rummage-with-photos"]
 def commands(target, output):
     if target == "lint":
         return [["nix", "shell", "--inputs-from", ".", "nixpkgs#actionlint",
-                 "nixpkgs#shellcheck", "nixpkgs#python3", "nixpkgs#bashInteractive", "--command",
+                 "nixpkgs#shellcheck", "nixpkgs#python3", "nixpkgs#bashInteractive",
+                 "nixpkgs#zsh", "nixpkgs#fish", "--command",
                  "bash", "scripts/ci/lint.sh"]]
     if target == "tests":
         return [["nix", "build", "--no-link", "--print-build-logs", NIX_TESTS]]

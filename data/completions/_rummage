@@ -1,33 +1,51 @@
 #compdef rummage
-local -a options picker_options
-options=(
-  '--new-window[Open a separate browser window]'
+local -a completion_specs picker_completion_specs
+local word value='' only_paths='' paths='' picker=''
+local i
+for (( i=2; i<CURRENT; ++i )); do
+  word=$words[i]
+  if [[ -n $value ]]; then value=''; continue; fi
+  if [[ -n $only_paths ]]; then continue; fi
+  case $word in
+    --) only_paths=1 ;;
+    --config|--title|--name) value=1 ;;
+    --pick|--pick-directory|--save-file) picker=1 ;;
+    --reveal|--properties) paths=1 ;;
+  esac
+done
+completion_specs=(
   '(-h --help)'{-h,--help}'[Show usage]'
   '--config[Read configuration from a file]:file:_files'
   '--check-config[Check configuration and exit]'
-  '--test-scene[Show the renderer test scene]'
   '--version[Print the version]'
   '--about[Print diagnostic information]'
-  '--reveal[Select paths in their folders]'
-  '--properties[Show properties of paths]'
-  '--open-folders[Open folders in tabs]'
-  '--portal[Run the file chooser portal backend]'
-  '--file-manager1[Run the Show in Folder service]'
-  '--set-file-manager[Register as the file manager]'
-  '--unset-file-manager[Remove file manager registration]'
-  '--pick[Choose files]'
-  '--pick-directory[Choose a folder]'
-  '--save-file[Choose a file to save]'
 )
-if (( ${words[(I)--(pick|pick-directory|save-file)]} )); then
-  picker_options=(
+# Keep selected options in _arguments so it can parse the existing command line;
+# exclusion groups suppress conflicting suggestions without losing that grammar.
+local launch_exclusion='(--pick --pick-directory --save-file --reveal --properties --open-folders --portal --file-manager1 --set-file-manager --unset-file-manager --test-scene)'
+completion_specs+=(
+  "${launch_exclusion}--test-scene[Show the renderer test scene]"
+  "${launch_exclusion}--reveal[Select paths in their folders]"
+  "${launch_exclusion}--properties[Show properties of paths]"
+  "${launch_exclusion}--open-folders[Open folders in tabs]"
+  "${launch_exclusion}--portal[Run the file chooser portal backend]"
+  "${launch_exclusion}--file-manager1[Run the Show in Folder service]"
+  "${launch_exclusion}--set-file-manager[Register as the file manager]"
+  "${launch_exclusion}--unset-file-manager[Remove file manager registration]"
+  "${launch_exclusion}--pick[Choose files]"
+  "${launch_exclusion}--pick-directory[Choose a folder]"
+  "${launch_exclusion}--save-file[Choose a file to save]"
+  '(--new-window --pick --pick-directory --save-file --reveal --properties --portal --file-manager1 --set-file-manager --unset-file-manager --test-scene)--new-window[Open a separate browser window]'
+)
+if [[ -n $picker ]]; then
+  picker_completion_specs=(
     '--multiple[Choose multiple files]'
     '--name[Proposed filename]:name: '
     '--title[Window title]:title: '
   )
 fi
-if (( ${words[(I)--(reveal|properties)]} )); then
-  _arguments -S $options $picker_options '*:path:_files'
+if [[ -n $paths ]]; then
+  _arguments -S $completion_specs $picker_completion_specs '*:path:_files'
 else
-  _arguments -S $options $picker_options '*:folder:_files -/'
+  _arguments -S $completion_specs $picker_completion_specs '*:folder:_files -/'
 fi

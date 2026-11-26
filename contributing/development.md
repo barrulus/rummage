@@ -201,3 +201,17 @@ preview-sized free block on every worker. Bursts still wake additional workers;
 queued work keeps its visible/nearby/prefetch priority order. When investigating
 retention, distinguish live allocations from freed blocks held by allocator
 arenas, and check both repeated navigation and concurrent work.
+
+## Maintaining shell completions
+
+When public CLI usage changes, update all three files in `data/completions`.
+`python3 -m unittest discover -s scripts/ci/tests -p test_completions.py` compares
+public option coverage with the usage string and exercises Bash/Fish completion
+results plus Zsh argument specification and context parsing. Local tests skip
+shells that are unavailable; the lint preflight supplies all three shells from
+the locked Nix input. Zsh context tests do not substitute for an interactive ZLE
+check after changes to its completion presentation. The native package smoke
+checks also require the three installed completion files.
+
+The bounded [sanitizer and fuzz gate](ci-packaging.md#sanitizer-and-fuzz-gate)
+provides repeatable instrumented checks and retains failure evidence.
