@@ -26,6 +26,54 @@ let
       filePicker.enable = true;
     };
   };
+  previewCases =
+    map
+      (
+        features:
+        evaluate {
+          programs.rummage = {
+            enable = true;
+            preview = { inherit (features) font model; };
+            photos.enable = features.photos;
+            filePicker.enable = true;
+          };
+        }
+      )
+      (
+        lib.cartesianProduct {
+          photos = [
+            false
+            true
+          ];
+          font = [
+            false
+            true
+          ];
+          model = [
+            false
+            true
+          ];
+        }
+      );
+  previewWorks =
+    config:
+    let
+      cfg = config.programs.rummage;
+      package = cfg.package;
+      expected = self.packages.${system}.rummage.override {
+        withPhotos = cfg.photos.enable;
+        withFont = cfg.preview.font;
+        withModel = cfg.preview.model;
+      };
+    in
+    package == expected
+    && (lib.elem "photos" package.outputs == cfg.photos.enable)
+    && (lib.elem "font" package.outputs == cfg.preview.font)
+    && (lib.elem "model" package.outputs == cfg.preview.model)
+    && lib.elem package config.environment.systemPackages
+    && lib.elem package config.xdg.portal.extraPortals
+    && lib.elem package config.services.dbus.packages
+    && !rejected config;
   picker = evaluate {
     programs.rummage = {
       enable = true;
@@ -56,6 +104,16 @@ let
       };
     };
   };
+  customPreviews = evaluate {
+    programs.rummage = {
+      enable = true;
+      package = (self.packages.${system}.rummage.override { withPhotos = true; }).overrideAttrs {
+        pname = "rummage-custom";
+      };
+      preview.font = true;
+      filePicker.enable = true;
+    };
+  };
   invalid = evaluate { programs.rummage.filePicker.enable = true; };
   emptyDesktops = evaluate {
     programs.rummage = {
@@ -80,6 +138,13 @@ assert !(lib.elem "photos" app.programs.rummage.package.outputs);
 assert lib.elem photos.programs.rummage.package photos.environment.systemPackages;
 assert lib.elem photos.programs.rummage.package photos.xdg.portal.extraPortals;
 assert !rejected photos;
+assert lib.all previewWorks previewCases;
+assert customPreviews.programs.rummage.package.pname == "rummage-custom";
+assert lib.elem "font" customPreviews.programs.rummage.package.outputs;
+assert lib.elem "photos" customPreviews.programs.rummage.package.outputs;
+assert lib.elem customPreviews.programs.rummage.package customPreviews.environment.systemPackages;
+assert lib.elem customPreviews.programs.rummage.package customPreviews.xdg.portal.extraPortals;
+assert lib.elem customPreviews.programs.rummage.package customPreviews.services.dbus.packages;
 assert picker.xdg.portal.enable;
 assert lib.elem picker.programs.rummage.package picker.xdg.portal.extraPortals;
 assert lib.elem pkgs.xdg-desktop-portal-gtk picker.xdg.portal.extraPortals;

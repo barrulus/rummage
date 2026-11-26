@@ -16,15 +16,31 @@ in
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       defaultText = lib.literalExpression "inputs.rummage.packages.\${pkgs.stdenv.hostPlatform.system}.default";
-      apply = package: if cfg.photos.enable then package.override { withPhotos = true; } else package;
+      apply =
+        package:
+        if cfg.photos.enable || cfg.preview.font || cfg.preview.model then
+          package.override (
+            lib.optionalAttrs cfg.photos.enable { withPhotos = true; }
+            // lib.optionalAttrs cfg.preview.font { withFont = true; }
+            // lib.optionalAttrs cfg.preview.model { withModel = true; }
+          )
+        else
+          package;
       description = ''
-        rummage package, including video and PDF previews. Enabling Photo Library
-        overrides withPhotos; a custom package must support that argument.
-        Preview features can be switched off in the application's Settings.
+        rummage package, including audio/video playback and PDF previews. Enabled
+        Photo Library, font and model options override withPhotos, withFont and
+        withModel; a custom package must support those arguments. Features already
+        enabled in the selected package are preserved. Preview features can be
+        switched off in the application's Settings.
       '';
     };
 
     photos.enable = lib.mkEnableOption "the optional Photo Library add-on";
+
+    preview = {
+      font = lib.mkEnableOption "font specimens through the FreeType font engine";
+      model = lib.mkEnableOption "standalone model geometry previews through the Assimp engine";
+    };
 
     filePicker = {
       enable = lib.mkEnableOption "rummage as the XDG FileChooser portal backend";

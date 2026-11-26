@@ -309,7 +309,7 @@ sudo nixos-rebuild switch --flake .#my-host
 ```
 
 Video and PDF previews are included automatically and can be toggled in Settings.
-`photos.enable` defaults to `false` and selects the only add-on, Photo Library.
+`photos.enable` defaults to `false` and selects the Photo Library add-on.
 `programs.rummage.package` can select another package. Enabling photos overrides
 that package's `withPhotos` argument, which custom packages must support.
 Enabling the application
@@ -465,3 +465,6 @@ not link it. `-DRUMMAGE_MODEL=ON` builds this helper, and native packages split 
 into `rummage-model`. The Nix outputs `rummage-model` and `rummage-with-model` provide
 the helper alone or the application with it; `rummage-with-previews` includes it.
 See [model format coverage](previews.md) before choosing this optional component.
+
+NixOS module users can independently enable `programs.rummage.preview.font` and
+`programs.rummage.preview.model`; both default to false. Media/PDF support is included in the base package.
