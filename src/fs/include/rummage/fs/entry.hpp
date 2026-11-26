@@ -44,6 +44,13 @@ struct Entry {
     // Resolved on the directory worker: theme icon name only, never an image path.
     std::string folder_icon{};
 
+    // Virtual collections keep a unique identity in name and a normal filename for display.
+    std::string display_name{};
+
+    [[nodiscard]] const std::string& label() const noexcept {
+        return display_name.empty() ? name : display_name;
+    }
+
     // Collected on directory workers, never during drawing. Missing stat data stays empty.
     std::optional<std::int64_t> created_ns{};
     std::optional<std::int64_t> accessed_ns{};

@@ -99,11 +99,18 @@ void Browser::open_saved_searches(bool remove) {
 
 void Browser::search_action(SearchResults::Action action) {
     using Action = SearchResults::Action;
-    if (!searching_results())
+    const auto collection = current_folder();
+    const bool recent = collection && collection->is_recent() && !searching_results();
+    if (!searching_results() && !recent)
         return;
-    const auto paths = pane().search_results->chosen();
-    auto* finder = pane().search_results->finder();
-    if (!finder)
+    std::vector<std::filesystem::path> paths;
+    if (recent) {
+        for (const auto& name : targets(*collection))
+            paths.push_back(collection->model().source_path(name));
+    } else
+        paths = pane().search_results->chosen();
+    auto* finder = recent ? nullptr : pane().search_results->finder();
+    if (!finder && !recent)
         return;
     switch (action) {
         case Action::close:
@@ -168,6 +175,11 @@ void Browser::search_action(SearchResults::Action action) {
             const bool cut = action == Action::cut;
             clipboard_ = {.directory = {}, .names = {}, .cut = cut, .paths = paths};
             cut_marks_ = {};
+            if (recent && cut) {
+                const auto names = targets(*collection);
+                cut_marks_ = {.directory = collection->path(),
+                              .names = {names.begin(), names.end()}};
+            }
             if (system_.offer) {
                 std::vector<SystemClipboard::Format> formats{
                     {std::string{kGnomeFiles}, gnome_copied_files(cut, paths)},
@@ -208,6 +220,10 @@ void Browser::search_action(SearchResults::Action action) {
             break;
         }
         case Action::preview:
+            if (recent) {
+                quick_look_.open(collection, Clock::now());
+                return;
+            }
             if (paths.size() != 1)
                 return;
             search_preview_ = std::make_shared<Folder>(loop_, pool_, watcher_, mime_,
@@ -218,8 +234,16 @@ void Browser::search_action(SearchResults::Action action) {
             break;
         case Action::reveal:
         case Action::open: {
+            if (recent && action == Action::open) {
+                open_selection();
+                return;
+            }
             if (paths.size() != 1)
                 return;
+            if (recent) {
+                go_to(paths.front().parent_path(), paths.front().filename().string());
+                return;
+            }
             const auto root = finder->root();
             const auto relative = paths.front().lexically_relative(root).string();
             search_action(Action::close);

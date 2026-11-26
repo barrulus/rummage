@@ -37,6 +37,11 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
 void draw_item_visual(ui::Renderer&, ui::IconSet&, const theme::Palette&, const ItemVisual&,
                       ui::Rect bounds);
 
+// Compact status in a caller-reserved lane, separate from the file icon and name.
+void draw_entry_status(ui::Renderer&, const theme::Palette&, const fs::Entry&, ui::Rect lane,
+                       ui::Color foreground);
+inline constexpr float kStatusWidth = 26.0F;
+
 // Height of the bar above the views (the breadcrumb).
 inline constexpr float kTitleHeight = 40.0F;
 

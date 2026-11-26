@@ -57,6 +57,8 @@ std::optional<std::size_t> place_holding(std::span<const fs::Place> places,
     std::optional<std::size_t> best;
     std::size_t best_depth = 0;
     for (std::size_t i = 0; i < places.size(); ++i) {
+        if (places[i].uri == "rummage:recent" && path == "rummage:recent")
+            return i;
         const std::filesystem::path folder = places[i].path.lexically_normal();
         if (folder.empty() || !inside(normal, folder)) {  // empty: a disk not mounted
             continue;

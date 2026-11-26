@@ -4,10 +4,12 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
 #include <sys/inotify.h>
 #include <vector>
@@ -540,4 +542,54 @@ TEST_CASE("extensions: decorations change metadata without reordering or losing 
     f.model.apply_decorations({});
     CHECK_FALSE(find(f.model, "one")->decoration);
     CHECK(f.changes.size() == 2);
+}
+
+TEST_CASE("directory model: Recent shares normal listings and watches source paths and privacy") {
+    TempDir temporary;
+    const char* previous = std::getenv("XDG_STATE_HOME");
+    const std::optional<std::string> saved =
+        previous ? std::optional<std::string>{previous} : std::nullopt;
+
+    struct Restore {
+        std::optional<std::string> value;
+
+        ~Restore() {
+            if (value)
+                ::setenv("XDG_STATE_HOME", value->c_str(), 1);
+            else
+                ::unsetenv("XDG_STATE_HOME");
+        }
+    } restore{saved};
+
+    ::setenv("XDG_STATE_HOME", temporary.path.c_str(), 1);
+    std::filesystem::create_directories(temporary.path / "a");
+    std::filesystem::create_directories(temporary.path / "b");
+    const auto a = temporary.write("a/same.txt", "first");
+    const auto b = temporary.write("b/same.txt", "second");
+    rummage::fs::RecentFiles history;
+    REQUIRE(history.record({a, b}).empty());
+    Fixture fixture;
+    fixture.model.open(rummage::fs::recent_path());
+    REQUIRE(run_until(fixture.loop, [&] { return fixture.loaded; }));
+    REQUIRE(fixture.model.is_recent());
+    const auto& entries = fixture.model.listing().entries();
+    REQUIRE(entries.size() == 2);
+    CHECK(entries[0].name != entries[1].name);
+    CHECK(entries[0].label() == "same.txt");
+    CHECK(entries[1].label() == "same.txt");
+    CHECK(fixture.model.source_path(entries[0].name) == a);
+    CHECK(fixture.model.source_path(entries[1].name) == b);
+    std::filesystem::remove(a);
+    REQUIRE(run_until(fixture.loop, [&] { return fixture.model.listing().entries().size() == 1; }));
+    temporary.write("a/same.txt", "restored");
+    REQUIRE(run_until(fixture.loop, [&] { return fixture.model.listing().entries().size() == 2; }));
+    REQUIRE(history.set_enabled(false).empty());
+    REQUIRE(run_until(fixture.loop, [&] { return fixture.model.listing().entries().empty(); }));
+    CHECK(std::filesystem::exists(b));
+    REQUIRE(history.record({b}).empty());
+    run_for(fixture.loop, 50ms);
+    CHECK(fixture.model.listing().entries().empty());
+    REQUIRE(history.set_enabled(true).empty());
+    REQUIRE(history.record({b}).empty());
+    REQUIRE(run_until(fixture.loop, [&] { return fixture.model.listing().entries().size() == 1; }));
 }

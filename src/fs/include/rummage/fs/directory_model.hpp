@@ -19,6 +19,7 @@
 #include "rummage/fs/directory.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/fs/recent.hpp"
 #include "rummage/fs/sort.hpp"
 #include "rummage/fs/trash.hpp"
 
@@ -100,6 +101,10 @@ public:
     // nullptr elsewhere or for an unknown name.
     [[nodiscard]] const TrashedItem* trashed(const std::string& name) const;
 
+    [[nodiscard]] bool is_recent() const noexcept { return fs::is_recent(path_); }
+
+    [[nodiscard]] std::filesystem::path source_path(const std::string& name) const;
+
     [[nodiscard]] bool is_trash() const noexcept { return trash_; }
 
     // Why the directory cannot be shown (cannot be read, was deleted or moved); empty when fine.
@@ -133,6 +138,7 @@ private:
     // The trash folder: read every trash on a worker, then apply the differences.
     struct TrashListing;
     void load_trash();
+    void load_recent();
     void load_archive();
     void fail_with(std::error_code error, std::string problem);
     void apply_trash(TrashListing listing);
@@ -169,6 +175,8 @@ private:
     std::unordered_map<std::uint32_t, std::string> moved_from_;  // cookie -> old name
     std::vector<std::pair<std::string, std::string>> renames_;
 
+    std::unordered_map<std::string, std::filesystem::path> recent_paths_;
+    bool recent_again_{false};
     bool trash_{false};
     std::unordered_map<std::string, TrashedItem> trashed_;  // by name, as listed
     std::unordered_map<std::string, DirectoryWatcher::WatchId> trash_watches_;  // by info/ dir

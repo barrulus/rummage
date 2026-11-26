@@ -126,10 +126,12 @@ bool RecentFiles::enabled() const {
            !ec;
 }
 
-std::vector<RecentFile> RecentFiles::load() const {
+std::vector<RecentFile> RecentFiles::load(bool include_unavailable) const {
     if (!enabled())
         return {};
     auto files = read(directory_ / "recent-files");
+    if (include_unavailable)
+        return files;
     std::erase_if(files, [](const auto& file) {
         std::error_code ec;
         return !std::filesystem::is_regular_file(file.path, ec) ||

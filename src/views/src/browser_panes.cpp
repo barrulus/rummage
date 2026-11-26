@@ -160,11 +160,11 @@ void Browser::transfer_to_other_pane(bool move) {
     const auto destination = other_folder();
     if (!source || source->is_collection() ||
         (source->is_trash() || (move && source->is_archive())) || !destination ||
-        (destination->is_collection() || destination->is_trash() || destination->is_archive()))
+        (destination->is_collection() || destination->is_recent() || destination->is_trash() || destination->is_archive()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*source))
-        paths.push_back(source->path() / name);
+        paths.push_back(source->model().source_path(name));
     if (paths.empty())
         return;
     if (const auto why = refusal(destination->path(), paths); !why.empty()) {
@@ -415,12 +415,12 @@ std::vector<MenuItem> Browser::pane_items() {
     }
     const auto destination = other_folder();
     if (!destination ||
-        (destination->is_collection() || destination->is_trash() || destination->is_archive()) ||
+        (destination->is_collection() || destination->is_recent() || destination->is_trash() || destination->is_archive()) ||
         names.empty())
         return items;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : names)
-        paths.push_back(source->path() / name);
+        paths.push_back(source->model().source_path(name));
     if (!refusal(destination->path(), paths).empty())
         return items;
     const std::string direction =

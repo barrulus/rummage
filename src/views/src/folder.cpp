@@ -250,7 +250,7 @@ void Folder::request_decorations() {
         repository_.clear();
         decoration_problem_.clear();
     }
-    if (status_running_ || is_archive() || is_trash() ||
+    if (status_running_ || is_archive() || is_trash() || is_recent() ||
         (!registry->config.git && registry->config.enabled.empty()))
         return;
     std::vector<std::string> names;
@@ -762,7 +762,7 @@ std::filesystem::path Folder::path_of(const fs::Entry& entry) const {
     if (const fs::TrashedItem* const item = model_.trashed(entry.name)) {
         return item->path;
     }
-    return path() / entry.name;
+    return model_.source_path(entry.name);
 }
 
 void Folder::sniff(std::size_t first, std::size_t last) {

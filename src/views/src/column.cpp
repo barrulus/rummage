@@ -115,6 +115,11 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
             icons.draw(renderer, "chevron-right", bounds.right() - kRightPadding - kChevronSize,
                        y + ((size_.row - kChevronSize) / 2.0F), kChevronSize, style.chevron);
         }
+        if (entry.decoration && name_right - name_x >= kStatusWidth + 16) {
+            draw_entry_status(renderer, palette, entry,
+                              {name_right - kStatusWidth, y, kStatusWidth, size_.row}, style.text);
+            name_right -= kStatusWidth;
+        }
         if (edit != nullptr && edit->holds(*folder_, entry)) {
             edit->place({name_x - ui::TextField::kPadding, y + 3.0F,
                          std::max(1.0F, name_right - name_x) + (2.0F * ui::TextField::kPadding),
@@ -124,7 +129,7 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
             continue;
         }
         const float drawn =
-            renderer.draw_text(display_name(entry.name, entry.is_directory(), show_extensions),
+            renderer.draw_text(display_name(entry.label(), entry.is_directory(), show_extensions),
                                name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
                                style.text, std::max(1.0F, name_right - name_x), ui::Ellipsis::end);
         item_right_.push_back(name_x + drawn + kItemSlack);

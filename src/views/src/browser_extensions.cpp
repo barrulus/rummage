@@ -33,6 +33,14 @@ std::vector<MenuItem> Browser::extension_items(const core::ActionContext& contex
         menu.id = "git";
         menu.label = i18n::tr("Git");
         menu.submenu = true;
+        if (const auto folder = current_folder();
+            folder && folder->single_selection() && folder->single_selection()->decoration) {
+            MenuItem status;
+            status.id = "git:status";
+            status.label = folder->single_selection()->decoration->label;
+            status.enabled = false;
+            menu.children.push_back(std::move(status));
+        }
         for (const bool staged : {false, true}) {
             MenuItem item;
             item.id = staged ? "git:staged" : "git:diff";

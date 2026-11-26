@@ -375,6 +375,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 show_thumbnails_ ? thumbnails_ : nullptr,
                 {x + ((cell_width_ - item_icon) / 2.0F), y + kIconTop, item_icon, item_icon}, cut,
                 cursor == i ? &motion_bounds_.visual : nullptr);
+            draw_entry_status(
+                renderer, palette, entry,
+                {x + cell_width_ - kStatusWidth - kCellInset, y + kCellInset, kStatusWidth, 18},
+                style.text);
             if (cursor == i)
                 motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(area_);
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {
@@ -392,7 +396,7 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 continue;
             }
             const ui::TextLayout& name =
-                fonts.layout(display_name(entry.name, entry.is_directory(), show_extensions_),
+                fonts.layout(display_name(entry.label(), entry.is_directory(), show_extensions_),
                              kTextSize, renderer.scale(),
                              std::max(1.0F, cell_width_ - (2.0F * kNameMargin)), ui::Ellipsis::end);
             const float name_width = name.width / renderer.scale();

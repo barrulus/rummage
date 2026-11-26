@@ -25,6 +25,9 @@ constexpr std::string_view kEllipsis = "…";
 
 std::vector<Crumb> crumbs_of(const std::filesystem::path& folder,
                              const std::filesystem::path& home) {
+    if (fs::is_recent(folder))
+        return {{.path = folder, .label = {}, .icon = "calendar"},
+                {.path = folder, .label = std::string{i18n::tr("Recent Files")}, .icon = {}}};
     if (fs::is_trash(folder)) {
         return {{.path = folder, .label = {}, .icon = "trash"},
                 {.path = folder, .label = std::string{i18n::tr("Trash")}, .icon = {}}};

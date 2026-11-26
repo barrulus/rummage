@@ -57,10 +57,12 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
         }
         node.parent = group;
         node.id = group + ":file:" + entry.name;
-        node.name = entry.name;
+        node.name = entry.label();
         node.description = entry.is_directory() ? i18n::tr("Folder") : i18n::tr("File");
         if (entry.decoration && !entry.decoration->label.empty())
             node.description += "; " + entry.decoration->label;
+        if (folder.is_recent())
+            node.description += "; " + folder.path_of(entry).parent_path().string();
         node.role = core::AccessibleRole::list_item;
         node.selected = folder.is_selected(entry.name);
         node.focused = folder.cursor_entry() && folder.cursor_entry()->name == entry.name;
@@ -139,18 +141,25 @@ void draw_item_visual(ui::Renderer& renderer, ui::IconSet& icons, const theme::P
         draw_failure_badge(renderer, icons, palette, visual.failure, bounds.x, bounds.y, size,
                            alpha);
     }
-    if (visual.decoration) {
-        const auto& value = *visual.decoration;
-        const float font = std::clamp(size * 0.35F, 9.0F, 13.0F);
-        const float width = std::min(44.0F, text_width(renderer, value.badge, font) + 4.0F);
-        const ui::Rect badge{bounds.x - 1, bounds.y - 1, width, font + 3};
-        const auto fill = value.severity >= 3 ? palette.error : palette.primary;
-        renderer.draw_box(badge, {.fill = fill.with_alpha(alpha), .radius = ui::Corners::all(2)});
-        renderer.draw_text(value.badge, badge.x + 2, badge.y + 1, font,
-                           palette.on_primary.with_alpha(alpha), width - 4);
-    }
     if (visual.executable)
         draw_run_mark(renderer, bounds.x, bounds.y, size, visual.run_color, visual.run_background);
+}
+
+void draw_entry_status(ui::Renderer& renderer, const theme::Palette& palette,
+                       const fs::Entry& entry, ui::Rect lane, ui::Color foreground) {
+    if (!entry.decoration || lane.width <= 0)
+        return;
+    // A reserved lane, never an overlay on the icon or filename. Use a neutral background
+    // and contrast-correct text; the letter also conveys state without relying on colour.
+    const auto background = palette.surface;
+    const auto ink = entry.decoration->severity >= 3 ? palette.error : foreground;
+    const float font = 10;
+    const float width = std::min(lane.width, 22.0F);
+    const ui::Rect badge{lane.x + (lane.width - width) / 2, lane.y + (lane.height - 16) / 2, width,
+                         16};
+    renderer.draw_box(badge, {.fill = background, .radius = ui::Corners::all(3)});
+    renderer.draw_text(entry.decoration->badge, badge.x + 2, badge.y + 1, font,
+                       theme::readable_foreground(ink, background), width - 4, ui::Ellipsis::end);
 }
 
 float text_width(ui::Renderer& renderer, std::string_view text, float size) {

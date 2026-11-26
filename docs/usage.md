@@ -628,7 +628,9 @@ extraction actions, not advertised built-in browsing associations.
 ## Recent Files
 
 **Recent Files** lists up to 200 readable files most recently opened through
-Rummage, newest first, with their actual parent folder and UTC opening time.
+Rummage in the current Grid, Details or Columns view, using the same sorting,
+selection and preview controls as other folders. Properties and Show in Folder
+identify the original location when different folders contain equal filenames.
 It uses Rummage's own history, separate from desktop-shared history, bookmarks,
 folder navigation and recent commands. A successful application launch records
 its document paths; this does not prove the other application finished reading.
@@ -644,8 +646,9 @@ to existing processes because each write checks the shared flag under the histor
 lock; queued launches cannot repopulate disabled history. History lives in private
 `$XDG_STATE_HOME/rummage/recent-files` (normally `~/.local/state/rummage`), with a
 separate disable marker; passwords and remote URI credentials are never recorded.
-The view filters filename/path text and refreshes on request; it does not launch
-a recursive filesystem search.
+The view filters filename/path text and watches history and source folders for
+changes; it does not launch a recursive filesystem search. Recent is a collection,
+so paste and file-creation destinations must be real folders.
 
 ## Discovering servers and attached devices
 

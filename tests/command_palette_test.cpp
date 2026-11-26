@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -24,6 +25,7 @@
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/name_pattern.hpp"
 #include "rummage/fs/places.hpp"
+#include "rummage/picture/png.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/ui/seat.hpp"
 #include "rummage/views/browser.hpp"
@@ -957,4 +959,201 @@ TEST_CASE("extensions: Git palette action opens a modal and disabling clears bad
                                     [](const auto& entry) { return bool(entry.decoration); });
     }));
     CHECK_FALSE(f.ids().contains("git:staged"));
+}
+
+TEST_CASE("Recent folder: ordinary views preserve source operations and navigation") {
+    TempDir state;
+    const auto* before = std::getenv("XDG_STATE_HOME");
+
+    struct Restore {
+        std::optional<std::string> value;
+
+        ~Restore() {
+            if (value)
+                ::setenv("XDG_STATE_HOME", value->c_str(), 1);
+            else
+                ::unsetenv("XDG_STATE_HOME");
+        }
+    } restore{before ? std::optional<std::string>{before} : std::nullopt};
+
+    ::setenv("XDG_STATE_HOME", state.path.c_str(), 1);
+    Fixture f;
+    f.browser.set_reduced_motion(true);
+    const auto source = f.a / "one.txt";
+    REQUIRE(rummage::fs::RecentFiles{}.record({source}).empty());
+    std::vector<fs::path> opened;
+    f.browser.set_open_handler(
+        [&](const fs::path& directory, std::vector<rummage::fs::Entry> files) {
+            for (const auto& entry : files)
+                opened.push_back(directory / entry.name);
+        });
+    for (const auto mode : {Browser::Mode::grid, Browser::Mode::details, Browser::Mode::columns}) {
+        f.browser.open(f.a);
+        REQUIRE(f.settle());
+        f.browser.set_mode(mode);
+        f.browser.open(rummage::fs::recent_path());
+        REQUIRE(f.settle());
+        CHECK(f.browser.mode() == mode);
+        auto folder = f.browser.picker_folder();
+        REQUIRE(folder);
+        REQUIRE(folder->is_recent());
+        REQUIRE(folder->entries().size() == 1);
+        folder->select_name(folder->entries().front().name);
+        if (const auto* prefix = std::getenv("RUMMAGE_RECENT_SNAPSHOT")) {
+            rummage::ui::Offscreen surface{1000, 640};
+            rummage::ui::FontSystem fonts;
+            rummage::ui::Renderer renderer{fonts};
+            rummage::ui::IconSet icons{fonts};
+            renderer.begin_frame(1000, 640, 1, {});
+            f.browser.draw(renderer, {0, 0, 1000, 640}, {}, icons, Browser::Clock::now());
+            renderer.end_frame();
+            rummage::picture::Image image{
+                .width = 1000, .height = 640, .rgba = std::vector<std::uint8_t>(1000 * 640 * 4)};
+            std::vector<std::uint8_t> pixels(image.rgba.size());
+            glReadPixels(0, 0, 1000, 640, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            for (std::size_t row = 0; row < 640; ++row)
+                std::copy_n(pixels.data() + (639 - row) * 1000 * 4, 1000 * 4,
+                            image.rgba.data() + row * 1000 * 4);
+            const auto png = rummage::picture::encode_png(image);
+            std::ofstream output{
+                std::string{prefix} + "-" + std::to_string(static_cast<int>(mode)) + ".png",
+                std::ios::binary};
+            output.write(reinterpret_cast<const char*>(png.data()),
+                         static_cast<std::streamsize>(png.size()));
+        }
+        CHECK(f.browser.tab_titles().front() == "Recent Files");
+        CHECK(f.browser.state().last_folder == f.a);
+        f.press(key(XKB_KEY_Return));
+        REQUIRE_FALSE(opened.empty());
+        CHECK(opened.back() == source);
+        CHECK(f.browser.picker_folder()->is_recent());
+        CHECK(f.ids().contains("command:copy"));
+        CHECK_FALSE(f.ids().contains("command:new_folder"));
+        CHECK_FALSE(f.ids().contains("command:compress_zip"));
+        f.browser.back();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->path() == f.a);
+        f.browser.forward();
+        REQUIRE(f.settle());
+        CHECK(f.browser.picker_folder()->is_recent());
+    }
+    auto folder = f.browser.picker_folder();
+    folder->select_name(folder->entries().front().name);
+    f.browser.take_selection(false);
+    f.browser.open(f.b);
+    REQUIRE(f.settle());
+    f.browser.paste();
+    REQUIRE(run_until(f.loop, [&] { return fs::exists(f.b / "one.txt"); }));
+    CHECK(fs::exists(source));
+    f.browser.open(rummage::fs::recent_path());
+    REQUIRE(f.settle());
+    folder = f.browser.picker_folder();
+    folder->select_name(folder->entries().front().name);
+    f.browser.trash();
+    REQUIRE(run_until(f.loop, [&] { return !fs::exists(source) && folder->entries().empty(); }));
+    CHECK(fs::exists(f.b / "one.txt"));
+    std::ofstream{source} << "recreated";
+    REQUIRE(rummage::fs::RecentFiles{}.record({source, f.b / "one.txt"}).empty());
+    REQUIRE(run_until(f.loop, [&] { return folder->entries().size() == 2; }));
+    folder->select_all();
+    opened.clear();
+    f.press(key(XKB_KEY_Return));
+    std::ranges::sort(opened);
+    CHECK(opened == std::vector<fs::path>{source, f.b / "one.txt"});
+    opened.clear();
+    f.browser.open_menu(200, 100, false);
+    const auto& menu = f.browser.context_menu().items();
+    const auto open_item = std::ranges::find(menu, "open", &rummage::views::MenuItem::id);
+    REQUIRE(open_item != menu.end());
+    open_item->action();
+    f.browser.context_menu().close();
+    std::ranges::sort(opened);
+    CHECK(opened == std::vector<fs::path>{source, f.b / "one.txt"});
+    bool full_chooser = false;
+    std::vector<fs::path> chosen;
+    f.browser.set_open_with_handlers(
+        [](const auto&, auto, auto done) { done({}); },
+        [&](const fs::path& directory, std::vector<rummage::fs::Entry> files, std::string id) {
+            CHECK(id == "chosen.desktop");
+            CHECK(directory.is_absolute());
+            for (const auto& file : files)
+                chosen.push_back(directory / file.name);
+        });
+    f.browser.set_application_chooser_handlers(
+        [&](const fs::path& directory, rummage::fs::Entry file, auto done) {
+            full_chooser = true;
+            CHECK(fs::exists(directory / file.name));
+            done({Browser::AppChoice{"chosen.desktop", "Chosen application", false}});
+        },
+        {});
+    auto choices = f.browser.palette_items();
+    const auto with = std::ranges::find(choices, "command:open_with", &PaletteItem::id);
+    REQUIRE(with != choices.end());
+    with->action();
+    CHECK(full_chooser);
+    REQUIRE(f.browser.command_palette().is_open());
+    REQUIRE(f.browser.command_palette().items().size() == 1);
+    f.browser.command_palette().items().front().action();
+    std::ranges::sort(chosen);
+    CHECK(chosen == std::vector<fs::path>{source, f.b / "one.txt"});
+    f.browser.command_palette().close();
+    f.browser.open_tab(rummage::fs::recent_path(), true);
+    REQUIRE(f.settle());
+    const auto restored =
+        rummage::views::parse_state(rummage::views::format_state(f.browser.state()), "test");
+    CHECK(restored.problems.empty());
+    REQUIRE(restored.state.tabs.size() == 2);
+    CHECK(restored.state.tabs.back().folder == rummage::fs::recent_path());
+}
+
+TEST_CASE("folder status layout: compact indicators leave names and icons readable in each view") {
+    Fixture f;
+    f.browser.set_reduced_motion(true);
+    for (const auto* name : {"conflicted-file.txt", "staged-file.txt", "modified-file.txt",
+                             "untracked-file.txt", "both-staged-and-modified.txt"})
+        std::ofstream{f.a / name} << "fixture";
+    f.browser.open(f.a);
+    REQUIRE(f.settle());
+    const auto folder = f.browser.picker_folder();
+    const std::map<std::string, std::shared_ptr<const rummage::fs::Decoration>> statuses{
+        {"sub", std::make_shared<rummage::fs::Decoration>("M", "Git: modified; Git: untracked", 2)},
+        {"conflicted-file.txt",
+         std::make_shared<rummage::fs::Decoration>("!", "Git: conflicted", 3)},
+        {"staged-file.txt", std::make_shared<rummage::fs::Decoration>("S", "Git: staged", 1)},
+        {"modified-file.txt", std::make_shared<rummage::fs::Decoration>("M", "Git: modified", 2)},
+        {"untracked-file.txt", std::make_shared<rummage::fs::Decoration>("?", "Git: untracked", 1)},
+        {"both-staged-and-modified.txt",
+         std::make_shared<rummage::fs::Decoration>("SM", "Git: staged and modified", 2)}};
+    const_cast<rummage::fs::DirectoryModel&>(folder->model()).apply_decorations(statuses);
+    rummage::ui::Offscreen surface{1000, 640};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    for (const auto mode : {Browser::Mode::grid, Browser::Mode::details, Browser::Mode::columns}) {
+        f.browser.set_mode(mode);
+        rummage::ui::AccessibleFrame frame;
+        renderer.begin_frame(1000, 640, 1, {});
+        f.browser.draw(renderer, {0, 0, 1000, 640}, {}, icons, Browser::Clock::now());
+        renderer.end_frame();
+        for (const auto& [name, decoration] : statuses)
+            CHECK(std::ranges::any_of(frame.nodes, [&](const auto& node) {
+                return node.name == name &&
+                       node.description.find(decoration->label) != std::string::npos;
+            }));
+        if (const auto* prefix = std::getenv("RUMMAGE_STATUS_SNAPSHOT")) {
+            rummage::picture::Image image{
+                .width = 1000, .height = 640, .rgba = std::vector<std::uint8_t>(1000 * 640 * 4)};
+            std::vector<std::uint8_t> pixels(image.rgba.size());
+            glReadPixels(0, 0, 1000, 640, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            for (std::size_t row = 0; row < 640; ++row)
+                std::copy_n(pixels.data() + (639 - row) * 1000 * 4, 1000 * 4,
+                            image.rgba.data() + row * 1000 * 4);
+            const auto png = rummage::picture::encode_png(image);
+            std::ofstream output{
+                std::string{prefix} + "-" + std::to_string(static_cast<int>(mode)) + ".png",
+                std::ios::binary};
+            output.write(reinterpret_cast<const char*>(png.data()),
+                         static_cast<std::streamsize>(png.size()));
+        }
+    }
 }

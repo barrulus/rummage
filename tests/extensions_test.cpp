@@ -279,6 +279,28 @@ TEST_CASE("extensions: Git nested repositories, worktrees, conflict and no repos
     CHECK(status.entries.at("conflict")->badge == "M");
 }
 
+TEST_CASE("extensions: mixed directory statuses stay concise and deduplicate descriptions") {
+    TempDir temporary;
+    init(temporary.path);
+    std::filesystem::create_directory(temporary.path / "mixed");
+    for (int i = 0; i < 20; ++i)
+        temporary.write("mixed/tracked" + std::to_string(i), "base\n");
+    git(temporary.path, {"add", "."});
+    git(temporary.path, {"commit", "-qm", "initial"});
+    for (int i = 0; i < 20; ++i) {
+        temporary.write("mixed/tracked" + std::to_string(i), "changed\n");
+        temporary.write("mixed/new" + std::to_string(i), "new\n");
+    }
+    const auto status = ext::git_status(temporary.path, CancelToken{}, false);
+    REQUIRE(status.entries.contains("mixed"));
+    const auto& decoration = *status.entries.at("mixed");
+    CHECK(decoration.badge == "M");
+    CHECK(decoration.severity == 2);
+    CHECK(decoration.label.find("modified") != std::string::npos);
+    CHECK(decoration.label.find("untracked") != std::string::npos);
+    CHECK(decoration.label.size() < 60);
+}
+
 TEST_CASE("extensions: unavailable Git fails without decorating unrelated files") {
     TempDir temporary;
     Environment path{"PATH", temporary.path.string()};

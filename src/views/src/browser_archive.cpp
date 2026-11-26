@@ -69,7 +69,7 @@ void Browser::open_archive_members(const std::filesystem::path& source,
 void Browser::compress(bool tar_gz) {
     const auto folder = current_folder();
     if (!folder || picker_mode_ || folder->is_trash() ||
-        (folder->is_archive() || folder->is_collection()))
+        (folder->is_archive() || folder->is_collection() || folder->is_recent()))
         return;
     auto names = targets(*folder);
     if (names.empty())
@@ -160,7 +160,8 @@ MenuItem Browser::advanced_archive_menu() {
 
 void Browser::advanced_archive(bool test_only) {
     const auto folder = current_folder();
-    if (!folder || folder->is_archive() || folder->is_trash() || picker_mode_)
+    if (!folder || folder->is_archive() || folder->is_trash() || folder->is_recent() ||
+        picker_mode_)
         return;
     auto names = targets(*folder);
     if (names.empty() || (test_only && names.size() != 1)) {

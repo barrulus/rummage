@@ -9,7 +9,7 @@ namespace rummage::views {
 void Browser::move_into_new_folder() {
     const auto folder = current_folder();
     if (!folder || picker_mode_ || folder->is_trash() ||
-        (folder->is_archive() || folder->is_collection()))
+        (folder->is_archive() || folder->is_collection() || folder->is_recent()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*folder))
@@ -278,6 +278,7 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
         items.push_back(std::move(item));
         return items;
     }
+    const bool recent = place.uri == "rummage:recent";
     const bool mounted = place.disk.mounted && !place.path.empty();
     const bool trash = fs::is_trash(place.path);
     const auto add = [&](std::string id, std::string_view label, std::function<void()> action,
@@ -307,7 +308,7 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
             sidebar_.set_focused(false);
             open_place(place);
         },
-        mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
+        recent || mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
     if (panes_enabled_ && !picker_mode_) {
         add(
             "open_tab", i18n::mark("Open in New Tab"),
@@ -315,16 +316,18 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
                 sidebar_.set_focused(false);
                 open_place(place, PlaceDestination::tab);
             },
-            mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
+            recent || mounted ||
+                (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
         if (new_window_)
             add(
                 "open_window", i18n::mark("Open in New Window"),
                 [this, place] { open_place(place, PlaceDestination::window); },
-                mounted || (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
+                recent || mounted ||
+                    (!place.uri.empty() ? bool(remotes_.mount) : bool(devices_.mount)));
         if (!trash)
             add(
                 "open_other_pane", i18n::mark("Open in Other Pane"),
-                [this, path = place.path] {
+                [this, path = recent ? fs::recent_path() : place.path] {
                     sidebar_.set_focused(false);
                     open_in_other_pane(path);
                 },

@@ -454,6 +454,8 @@ std::vector<std::string> Browser::tab_titles() const {
                                          each->insights.current_path().filename().string()));
         } else if (!folder) {
             titles.emplace_back();
+        } else if (folder->is_recent()) {
+            titles.emplace_back(i18n::tr("Recent Files"));
         } else if (folder->is_trash()) {
             titles.emplace_back(i18n::tr("Trash"));
         } else if (folder->path() == home) {
@@ -516,6 +518,10 @@ void Browser::take_selection(bool cut) {
     photo_copy_job_.cancel();
     if (showing_photos()) {
         copy_photo_files(cut);
+        return;
+    }
+    if (const auto folder = current_folder(); folder && folder->is_recent()) {
+        search_action(cut ? SearchResults::Action::cut : SearchResults::Action::copy);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -611,6 +617,14 @@ void Browser::copy_path() {
     if (!folder) {
         return;
     }
+    if (folder->is_recent()) {
+        std::vector<std::filesystem::path> paths;
+        for (const auto& name : targets(*folder))
+            paths.push_back(folder->model().source_path(name));
+        if (!paths.empty())
+            copy_text(path_lines(paths));
+        return;
+    }
     // The entries' paths are Ctrl+C's: as text, other programs paste them too.
     std::string path = folder->path().string();
     std::string message = i18n::trf("Copied {}", path);
@@ -697,7 +711,7 @@ void Browser::paste() {
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || folder->is_archive() || folder->is_trash()) {
+    if (!folder || folder->is_archive() || folder->is_trash() || folder->is_recent()) {
         return;
     }
     if (batch_rename_preparing_ || batch_rename_running_) {
@@ -1199,6 +1213,10 @@ void Browser::trash() {
                      false);
         return;
     }
+    if (const auto folder = current_folder(); folder && folder->is_recent()) {
+        search_action(SearchResults::Action::trash);
+        return;
+    }
     if (batch_rename_preparing_ || batch_rename_running_) {
         show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
@@ -1293,7 +1311,7 @@ void Browser::erase() {
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder) {
+    if (!folder || folder->is_recent()) {
         return;
     }
     std::vector<std::string> names = targets(*folder);
@@ -1439,7 +1457,7 @@ void Browser::place_menu(const fs::Place& place, float x, float y, bool keyboard
                     if (!error.empty())
                         show_message(error, true);
                     else
-                        open_search_results("rummage:recent");
+                        open(fs::recent_path());
                 });
         };
         MenuItem clear;
@@ -2180,7 +2198,7 @@ Browser::RunningTargets Browser::running_targets(const Folder& folder) const {
         if (entry.kind != fs::EntryKind::file || !target_names.contains(entry.name)) {
             continue;
         }
-        found.files.push_back(folder.path() / entry.name);
+        found.files.push_back(folder.path_of(entry));
         const bool runs = (entry.mode & S_IXUSR) != 0;
         all = all && runs;
         any = any || runs;
@@ -2469,12 +2487,16 @@ void Browser::start_rename() {
                      false);
         return;
     }
+    if (const auto folder = current_folder(); folder && folder->is_recent()) {
+        search_action(SearchResults::Action::rename);
+        return;
+    }
     if (batch_rename_preparing_ || batch_rename_running_) {
         show_message(std::string{i18n::tr("Wait for Batch Rename to finish")}, false);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || folder->is_trash() || folder->is_archive()) {
+    if (!folder || folder->is_trash() || folder->is_archive() || folder->is_recent()) {
         return;
     }
     auto names = folder->selected_names();
@@ -2501,7 +2523,7 @@ void Browser::new_folder() {
         return;
     }
     std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || folder->is_trash() || folder->is_archive()) {
+    if (!folder || folder->is_trash() || folder->is_archive() || folder->is_recent()) {
         return;
     }
     // Keep the new folder visible so its name can be edited immediately.
@@ -2545,7 +2567,7 @@ void Browser::new_file(const std::string& name, const std::filesystem::path& fro
         return;
     }
     std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || folder->is_archive()) {
+    if (!folder || folder->is_archive() || folder->is_recent()) {
         return;
     }
     ++operations_;
@@ -2581,6 +2603,35 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder->cursor_entry();
     std::vector<MenuItem> items;
+    if (folder->is_recent()) {
+        const auto add = [&](std::string id, std::string_view label, SearchResults::Action action) {
+            MenuItem item;
+            item.id = std::move(id);
+            item.label = i18n::tr(label);
+            item.action = [this, action] { search_action(action); };
+            items.push_back(std::move(item));
+        };
+        add("open", "Open", SearchResults::Action::open);
+        if (choices_ && open_with_) {
+            MenuItem with;
+            with.id = "open_with";
+            with.label = i18n::tr("Open With…");
+            with.action = [this] { open_with_palette(); };
+            items.push_back(std::move(with));
+        }
+        add("preview", "Quick Look", SearchResults::Action::preview);
+        add("reveal", "Show in Folder", SearchResults::Action::reveal);
+        add("copy", "Copy", SearchResults::Action::copy);
+        add("cut", "Cut", SearchResults::Action::cut);
+        add("rename", "Rename…", SearchResults::Action::rename);
+        add("trash", "Move to Trash", SearchResults::Action::trash);
+        MenuItem properties;
+        properties.id = "properties";
+        properties.label = i18n::tr("Properties…");
+        properties.action = [this] { show_properties(); };
+        items.push_back(std::move(properties));
+        return items;
+    }
     if (folder->is_trash()) {
         MenuItem back;
         back.id = "restore";
@@ -2939,7 +2990,7 @@ void Browser::show_properties() {
     if (!folder || properties_.saving())
         return;
     const auto names = targets(*folder);
-    if (names.empty() && folder->is_trash())
+    if (names.empty() && (folder->is_trash() || folder->is_recent()))
         return;
     if (names.size() > 1) {
         menu_.close();
@@ -3184,6 +3235,8 @@ void Browser::open_menu(float x, float y, bool keyboard) {
     }
     if (!targets(*folder).empty()) {
         items = entry_menu(folder);
+    } else if (folder->is_recent()) {
+        // The collection has no writable background destination.
     } else if (!folder->is_trash()) {
         items = folder_menu();
     } else {
@@ -3303,6 +3356,13 @@ void Browser::open(const std::filesystem::path& directory) {
     pane().photos = false;
     pane().photo_records = false;
     clear_type_jump();
+    if (fs::is_recent(directory) && searching_results()) {
+        pane().search_results->close();
+        ++search_generation_;
+        search_preview_.reset();
+        search_preview_pending_ = false;
+        quick_look_.close();
+    }
     if (pane().insights.is_open()) {
         ++path_navigation_generation_;
         quick_look_.close();
@@ -3327,7 +3387,8 @@ void Browser::open(const std::filesystem::path& directory) {
         pane().columns.suspend();
         pane().details.show(pane().columns.focused_folder());
     }
-    restore_folder(directory, true);
+    if (!fs::is_recent(directory))
+        restore_folder(directory, true);
     note_location();
 }
 
@@ -3487,7 +3548,7 @@ void Browser::note_location() {
         return;
     }
     restore_name_filter(shown->path());
-    if (!shown->is_trash()) {
+    if (!shown->is_trash() && !shown->is_recent()) {
         restore_folder(shown->path(), std::exchange(pane().restore_mode_on_arrival, false));
         if (context_area_ == active_area_)
             last_folder_ = shown->path();
@@ -4179,7 +4240,8 @@ bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t show
     std::size_t to_show = 0;
     for (std::size_t i = 0; i < tabs.size(); ++i) {
         const State::Tab& tab = tabs[i];
-        if (tab.photos ? !photos_available() : !tab.folder.is_absolute()) {
+        if (tab.photos ? !photos_available()
+                       : (!fs::is_recent(tab.folder) && !tab.folder.is_absolute())) {
             continue;  // malformed paths are ignored; disconnected folders stay recoverable
         }
         if (restored > 0) {
@@ -5572,6 +5634,12 @@ void Browser::go_to(const std::filesystem::path& folder, const std::string& chil
         return;
     }
     ++path_navigation_generation_;
+    if (fs::is_recent(folder)) {
+        open(folder);
+        if (const auto shown = current_folder(); shown && !child.empty())
+            shown->select_name(child);
+        return;
+    }
     if (pane().mode == Mode::columns) {
         pane().restore_mode_on_arrival = true;
         if (!pane().columns.focus_folder(folder)) {
@@ -5627,14 +5695,19 @@ void Browser::start_drag(Press press) {
     std::vector<std::filesystem::path> paths;
     paths.reserve(names.size());
     for (const std::string& name : names) {
-        paths.push_back(folder.path() / name);
+        paths.push_back(folder.model().source_path(name));
     }
     const bool selected = folder.is_selected(entry.key());
     const bool folders_only = std::ranges::none_of(folder.entries(), [&](const fs::Entry& listed) {
         return !listed.is_directory() &&
                (selected ? folder.is_selected(listed.key()) : listed.key() == entry.key());
     });
-    drag_ = Drag{.directory = folder.path(),
+    if (folder.is_recent()) {
+        names.clear();
+        for (const auto& path : paths)
+            names.push_back(path.string());
+    }
+    drag_ = Drag{.directory = folder.is_recent() ? std::filesystem::path{} : folder.path(),
                  .names = std::move(names),
                  .icon = std::string{fs::icon_name(folder.mime(), typed)},
                  .archive = folder.is_archive(),
@@ -5707,13 +5780,15 @@ std::optional<Browser::DropTarget> Browser::drop_target_at(float x, float y) con
             continue;
         if (tab.mode == Mode::details && tab.details.horizontal_scrollbar_bounds().contains(x, y)) {
             const auto folder = tab.details.root_folder();
-            if (folder && !folder->is_trash() && !folder->is_archive())
+            if (folder && !folder->is_trash() && !folder->is_archive() && !folder->is_recent())
                 return DropTarget{.folder = folder->path(),
                                   .mark = {.directory = folder->path(), .name = {}},
                                   .place = {},
                                   .crumb = {}};
         }
         if (const auto crumb = areas_[i]->breadcrumb.path_at(x, y)) {
+            if (fs::is_recent(*crumb))
+                return std::nullopt;
             const auto& shown_pane = *areas_[i]->tabs[areas_[i]->active];
             const auto shown_folder =
                 shown_pane.mode == Mode::columns
@@ -5731,7 +5806,7 @@ std::optional<Browser::DropTarget> Browser::drop_target_at(float x, float y) con
     }
     const std::optional<ViewHit> hit = view_hit(x, y);
     if (!hit || hit->folder->is_collection() || hit->folder->is_trash() ||
-        hit->folder->is_archive()) {
+        hit->folder->is_archive() || hit->folder->is_recent()) {
         return std::nullopt;
     }
     if (hit->entry && *hit->entry < hit->folder->entries().size()) {
@@ -6305,7 +6380,11 @@ void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
     }
     if (place.uri == "rummage:recent") {
         if (destination == PlaceDestination::current)
-            open_search_results("rummage:recent");
+            open(fs::recent_path());
+        else if (destination == PlaceDestination::tab && panes_enabled_ && !picker_mode_)
+            open_tab(fs::recent_path(), true);
+        else if (destination == PlaceDestination::window && new_window_ && !picker_mode_)
+            new_window_(fs::recent_path());
         return;
     }
     if (place.uri == "rummage:saved-searches") {
@@ -7105,6 +7184,26 @@ void Browser::run(Command command, Clock::time_point now) {
             return;
         }
     }
+    if (const auto shown = current_folder(); shown && shown->is_recent()) {
+        switch (command) {
+            case Command::new_folder:
+            case Command::paste:
+            case Command::erase:
+            case Command::add_bookmark:
+            case Command::folder_insights:
+            case Command::open_terminal:
+            case Command::toggle_terminal:
+            case Command::focus_terminal:
+            case Command::fzf_navigate:
+            case Command::zoxide_jump:
+            case Command::shell_command:
+            case Command::find_files:
+            case Command::parent_folder:
+                return;
+            default:
+                break;
+        }
+    }
     if (const std::shared_ptr<Folder> shown = current_folder(); shown && shown->is_trash()) {
         switch (command) {
             case Command::rename:
@@ -7442,7 +7541,7 @@ bool Browser::open_selection() {
         fs::Entry typed = *cursor;
         typed.mime = folder->mime_of(*cursor);
         if (opens_as_folder(typed)) {
-            open(folder->path() / cursor->name);
+            open(folder->path_of(*cursor));
             return true;
         }
     }
@@ -7463,7 +7562,17 @@ bool Browser::open_selection() {
             }
         }
     }
-    if (folder->is_archive())
+    if (folder->is_recent()) {
+        std::map<std::filesystem::path, std::vector<fs::Entry>> grouped;
+        for (auto& file : files) {
+            const auto source = folder->path_of(file);
+            file.name = source.filename().string();
+            file.display_name.clear();
+            grouped[source.parent_path()].push_back(std::move(file));
+        }
+        for (auto& [directory, entries] : grouped)
+            open_(directory, std::move(entries));
+    } else if (folder->is_archive())
         open_archive_members(folder->path(), std::move(files));
     else
         open_(folder->path(), std::move(files));

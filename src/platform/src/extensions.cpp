@@ -149,11 +149,22 @@ void combine(Status& status, const std::string& name,
         status.entries.emplace(name, std::move(decoration));
     else {
         auto merged = std::make_shared<fs::Decoration>(*it->second);
-        if (merged->badge != decoration->badge &&
-            merged->badge.size() + decoration->badge.size() < 12)
-            merged->badge += "/" + decoration->badge;
-        if (merged->label != decoration->label &&
-            merged->label.size() + decoration->label.size() < 512)
+        // A folder can contain hundreds of mixed changes. Keep one bounded indicator;
+        // the complete, deduplicated meanings remain available in its status description.
+        if (decoration->severity > merged->severity ||
+            (decoration->severity == merged->severity &&
+             decoration->badge.size() > merged->badge.size()))
+            merged->badge = decoration->badge;
+        bool present = false;
+        for (std::size_t start = 0; start < merged->label.size();) {
+            const auto end = merged->label.find("; ", start);
+            if (merged->label.substr(start, end - start) == decoration->label)
+                present = true;
+            if (end == std::string::npos)
+                break;
+            start = end + 2;
+        }
+        if (!present && merged->label.size() + decoration->label.size() < 512)
             merged->label += "; " + decoration->label;
         merged->severity = std::max(merged->severity, decoration->severity);
         it->second = std::move(merged);

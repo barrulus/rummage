@@ -135,6 +135,8 @@ public:
     [[nodiscard]] std::filesystem::path path_of(const fs::Entry& entry) const;
 
     // The trash folder (fs::trash_path()): nothing is made, pasted or renamed in it.
+    [[nodiscard]] bool is_recent() const noexcept { return model_.is_recent(); }
+
     [[nodiscard]] bool is_trash() const noexcept { return model_.is_trash(); }
 
     // A folder inside an archive (0.9.0): read-only.

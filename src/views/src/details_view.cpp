@@ -670,8 +670,13 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(rows_).intersect(
                 {layout_.left[0], y, layout_.width[0], size_.row});
         const float name_x = name_left + size_.icon + kIconGap;
-        const float name_room = layout_.left.at(index(Field::name)) +
-                                layout_.width.at(index(Field::name)) - kCellPadding - name_x;
+        const float name_right = layout_.left.at(index(Field::name)) +
+                                 layout_.width.at(index(Field::name)) - kCellPadding;
+        const bool status = entry.decoration && name_right - name_x >= kStatusWidth + 16;
+        if (status)
+            draw_entry_status(renderer, palette, entry,
+                              {name_right - kStatusWidth, y, kStatusWidth, size_.row}, style.text);
+        const float name_room = name_right - name_x - (status ? kStatusWidth : 0);
         if (edit_ != nullptr && edit_->holds(*owner, entry)) {
             const auto room = ui::Rect{name_x - ui::TextField::kPadding, y + 3.0F,
                                        std::max(1.0F, name_room) + (2.0F * ui::TextField::kPadding),
@@ -681,10 +686,10 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 edit_->place(room, size_.text);
             item_right_.push_back(name_x + name_room);
         } else {
-            const float drawn =
-                renderer.draw_text(display_name(entry.name, entry.is_directory(), show_extensions_),
-                                   name_x, y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text,
-                                   style.text, std::max(1.0F, name_room), ui::Ellipsis::end);
+            const float drawn = renderer.draw_text(
+                display_name(entry.label(), entry.is_directory(), show_extensions_), name_x,
+                y + ((size_.row - size_.text) / 2.0F) - 2.0F, size_.text, style.text,
+                std::max(1.0F, name_room), ui::Ellipsis::end);
             item_right_.push_back(name_x + drawn + kItemSlack);
         }
 

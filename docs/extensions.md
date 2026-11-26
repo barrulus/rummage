@@ -17,7 +17,8 @@ enabled = []
 git_tool = ["gitg"]
 ```
 
-Git is disabled by default. When enabled, grid, details and column icons show:
+Git is disabled by default. When enabled, Grid, Details and Columns show compact status indicators in
+reserved space, separate from icons and filenames:
 
 | Badge | Meaning |
 | --- | --- |
@@ -28,8 +29,9 @@ Git is disabled by default. When enabled, grid, details and column icons show:
 | ! | Merge conflict |
 | I | Ignored |
 
-Folders aggregate the states of their descendants; mixed states have combined
-letters. Ignored directories receive one `I` badge rather than recursively scanning
+Folders aggregate the states of their descendants into one highest-priority
+indicator (conflicts before modifications before staged/untracked changes).
+The selected item’s Git submenu and accessible description give all its statuses. Ignored directories receive one `I` badge rather than recursively scanning
 their contents. Untracked directories similarly receive one `?` badge. Clean files
 have no badge. Nested repositories are inspected independently when opened, and
 linked Git worktrees are supported. Submodule dirtiness is not recursively inspected.

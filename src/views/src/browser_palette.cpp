@@ -150,7 +150,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
     const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
-    const bool editable = folder && !in_trash && !folder->is_archive();
+    const bool editable = folder && !in_trash && !folder->is_archive() && !folder->is_recent();
     if (folder && !folder->is_archive() && (!in_trash || !names.empty()))
         command(Command::properties, "properties", "Properties…");
 
@@ -197,7 +197,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     // Opening and moving.
     if (cursor != nullptr)
         command(Command::open_selected, "open", "Open");
-    if (cursor != nullptr && editable && choices_ && open_with_) {
+    if (cursor != nullptr && (editable || folder->is_recent()) && choices_ && open_with_) {
         add("command:open_with", "Open With…", "", [this] { open_with_palette(); });
     }
     if (panes_enabled_ && !picker_mode_ && folder && !in_trash && !names.empty()) {
@@ -255,7 +255,8 @@ std::vector<PaletteItem> Browser::palette_items() {
             for (auto& item : link_menu(true))
                 add("command:" + item.id, item.label, "", std::move(item.action), true, false);
     }
-    if (editable && !names.empty() && (names.size() == 1 || !picker_mode_)) {
+    if ((editable || (folder && folder->is_recent() && names.size() == 1)) && !names.empty() &&
+        (names.size() == 1 || !picker_mode_)) {
         command(Command::rename, "rename", names.size() > 1 ? "Batch Rename…" : "Rename…");
     }
     if (folder && !folder->is_archive()) {
@@ -268,7 +269,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (!names.empty() && !in_trash && !folder->is_archive()) {
         command(Command::trash, "trash", "Move to Trash");
     }
-    if (!names.empty() && !folder->is_archive()) {
+    if (!names.empty() && !folder->is_archive() && !folder->is_recent()) {
         command(Command::erase, "erase", "Delete Permanently…");
     }
     if (!names.empty() && in_trash) {
@@ -666,15 +667,25 @@ void Browser::open_with_palette() {
         if (entry.is_directory() == cursor->is_directory() && target_names.contains(entry.name)) {
             fs::Entry typed = entry;
             typed.mime = folder->mime_of(entry);
+            if (folder->is_recent()) {
+                typed.name = folder->path_of(entry).string();
+                typed.display_name.clear();
+            }
             files.push_back(std::move(typed));
         }
     }
     fs::Entry typed = *cursor;
     typed.mime = folder->mime_of(*cursor);
+    const auto directory =
+        folder->is_recent() ? folder->path_of(*cursor).parent_path() : folder->path();
+    if (folder->is_recent()) {
+        typed.name = folder->path_of(*cursor).filename().string();
+        typed.display_name.clear();
+    }
     ++menu_loads_;
     (all_choices_ ? all_choices_ : choices_)(
-        folder->path(), std::move(typed),
-        [this, alive = alive_, directory = folder->path(),
+        directory, std::move(typed),
+        [this, alive = alive_, directory,
          files = std::move(files)](const std::vector<AppChoice>& apps) {
             if (!*alive) {
                 return;
