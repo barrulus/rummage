@@ -14,6 +14,7 @@
 #include "rummage/fs/annotations.hpp"
 #include "rummage/fs/sort.hpp"
 #include "temp_dir.hpp"
+#include "xattr_support.hpp"
 
 using rummage::core::CancelToken;
 using rummage::core::EventLoop;
@@ -206,18 +207,19 @@ TEST_CASE("read_directory: ratings are cached and refresh on attribute changes")
     const TempDir dir;
     const auto path = dir.write("rated", "contents");
     const rummage::fs::Annotations value{.tags = {}, .rating = "4", .comment = {}, .error = {}};
-    REQUIRE(
-        rummage::fs::write_annotations(rummage::fs::permission_target(path), {}, value, 2).empty());
+    const bool xattrs = rummage::test::user_xattrs_available(path);
+    CHECK(rummage::fs::write_annotations(rummage::fs::permission_target(path), {}, value, 2)
+              .empty() == xattrs);
     std::filesystem::create_symlink("rated", dir.path / "link");
     ReadResult result;
     const auto entries = read_all(dir.path, result);
     REQUIRE(find(entries, "rated"));
-    CHECK(find(entries, "rated")->rating == 4);
+    CHECK(find(entries, "rated")->rating == (xattrs ? std::optional<unsigned>{4} : std::nullopt));
     REQUIRE(find(entries, "link"));
     CHECK_FALSE(find(entries, "link")->rating.has_value());
-    REQUIRE(
-        rummage::fs::write_annotations(rummage::fs::permission_target(path), value, {}, 2).empty());
+    CHECK(rummage::fs::write_annotations(rummage::fs::permission_target(path), value, {}, 2)
+              .empty() == xattrs);
     const auto refreshed = rummage::fs::read_entries(dir.path, {"rated"}, {});
     REQUIRE(refreshed[0]);
-    CHECK(refreshed[0]->rating == 0);
+    CHECK(refreshed[0]->rating == (xattrs ? std::optional<unsigned>{0} : std::nullopt));
 }

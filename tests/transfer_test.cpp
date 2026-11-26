@@ -24,6 +24,7 @@
 #include "rummage/fs/annotations.hpp"
 #include "rummage/fs/transfer_queue.hpp"
 #include "temp_dir.hpp"
+#include "xattr_support.hpp"
 
 using rummage::core::CancelToken;
 using rummage::core::EventLoop;
@@ -1250,9 +1251,11 @@ TEST_CASE("transfer: file and directory annotations survive copy and move") {
     const Tree tree;
     const rummage::fs::Annotations value{
         .tags = "keep", .rating = "5", .comment = "remember", .error = {}};
+    const bool xattrs = rummage::test::user_xattrs_available(tree.from / "Trip/a.jpg");
+    REQUIRE(rummage::test::user_xattrs_available(tree.from / "Trip") == xattrs);
     for (const auto& path : {tree.from / "Trip", tree.from / "Trip/a.jpg"})
         REQUIRE(rummage::fs::write_annotations(rummage::fs::permission_target(path), {}, value, 7)
-                    .empty());
+                    .empty() == xattrs);
     auto request = TransferRequest{
         .kind = TransferKind::copy, .source = tree.from, .names = {"Trip"}, .destination = tree.to};
     SUBCASE("copy") {}
@@ -1262,8 +1265,20 @@ TEST_CASE("transfer: file and directory annotations survive copy and move") {
     }
     const auto result = rummage::fs::run_transfer(request, {}, {});
     CHECK(result.errors.empty());
-    CHECK(rummage::fs::read_annotations(tree.to / "Trip") == value);
-    CHECK(rummage::fs::read_annotations(tree.to / "Trip/a.jpg") == value);
+    REQUIRE(fs::is_directory(tree.to / "Trip"));
+    CHECK(read_file(tree.to / "Trip/a.jpg") == "Trip/a.jpg");
+    CHECK(fs::exists(tree.from / "Trip") == (request.kind == TransferKind::copy));
+    for (const auto& path : {tree.to / "Trip", tree.to / "Trip/a.jpg"}) {
+        const auto annotations = rummage::fs::read_annotations(path);
+        if (xattrs) {
+            CHECK(annotations == value);
+        } else {
+            CHECK_FALSE(annotations.error.empty());
+            CHECK(annotations.tags.empty());
+            CHECK(annotations.rating.empty());
+            CHECK(annotations.comment.empty());
+        }
+    }
 }
 
 TEST_CASE("transfer: verified copied move preserves coarse remote sources") {
