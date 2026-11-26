@@ -2,6 +2,9 @@ add_executable(rummage-code-fixture code_stats_fixture.cpp)
 target_link_libraries(rummage-code-fixture PRIVATE rummage::warnings)
 add_executable(rummage-program-fixture program_fixture.cpp)
 target_link_libraries(rummage-program-fixture PRIVATE rummage::warnings)
+add_executable(rummage-program-failure-fixture program_fixture.cpp)
+target_compile_definitions(rummage-program-failure-fixture PRIVATE RUMMAGE_FIXTURE_EXIT=23)
+target_link_libraries(rummage-program-failure-fixture PRIVATE rummage::warnings)
 
 add_executable(rummage-i18n-tests i18n_runtime_test.cpp
     ${PROJECT_SOURCE_DIR}/src/core/src/i18n.cpp
@@ -213,7 +216,7 @@ add_executable(rummage-sandbox-probe sandbox_probe.cpp
                                      ${PROJECT_SOURCE_DIR}/src/isolate/src/sandbox.cpp)
 target_include_directories(rummage-sandbox-probe PRIVATE ${PROJECT_SOURCE_DIR}/src/isolate/src)
 target_link_libraries(rummage-sandbox-probe PRIVATE rummage::warnings)
-add_dependencies(rummage-tests rummage-code-fixture rummage rummage-program-fixture rummage-preview rummage-fake-preview rummage-sandbox-probe)
+add_dependencies(rummage-tests rummage-code-fixture rummage rummage-program-fixture rummage-program-failure-fixture rummage-preview rummage-fake-preview rummage-sandbox-probe)
 # The MIME database the tests read: shared-mime-info as pkg-config finds it at build time, not
 # whatever $XDG_DATA_DIRS says when they run (NixOS keeps it outside /usr/share, Flatpak adds
 # its own). tests/main.cpp points $XDG_DATA_DIRS at it.

@@ -99,6 +99,11 @@ bool archive_confirmation_required(const std::filesystem::path& file) {
     return size >= 0 || !absent(errno);
 }
 
+bool archive_confirmation_required(int fd) {
+    const ssize_t size = fgetxattr(fd, kArchiveOrigin, nullptr, 0);
+    return size >= 0 || !absent(errno);
+}
+
 std::string archive_origin(const std::filesystem::path& archive) {
     std::array<char, 4096> data{};
     const ssize_t size = getxattr(archive.c_str(), "user.xdg.origin.url", data.data(), data.size());

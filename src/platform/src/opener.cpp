@@ -7,6 +7,7 @@
 #include <iterator>
 #include <optional>
 #include <string_view>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <utility>
 
@@ -22,8 +23,13 @@ namespace rummage::platform {
 namespace {
 
 std::shared_ptr<int> pin_program(const std::filesystem::path& path) {
-    return {new int{::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)},
-            [](int* fd) {
+    int opened = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK | O_NOCTTY);
+    struct stat info{};
+    if (opened >= 0 && (::fstat(opened, &info) != 0 || !S_ISREG(info.st_mode))) {
+        ::close(opened);
+        opened = -1;
+    }
+    return {new int{opened}, [](int* fd) {
                 if (*fd >= 0)
                     ::close(*fd);
                 delete fd;
@@ -211,13 +217,19 @@ void Opener::open(const std::filesystem::path& directory, std::vector<fs::Entry>
                 const std::filesystem::path path = directory / entry.name;
                 if (programs && app_id.empty() && entry.kind == fs::EntryKind::file &&
                     may_be_program(*database, found)) {
-                    const ProgramCheck check = check_program(path);
+                    // Content, execute access and provenance must refer to the same inode
+                    // retained through asynchronous activation-token delivery and spawn.
+                    const auto pinned = pin_program(path);
+                    const ProgramCheck check =
+                        check_program("/proc/self/fd/" + std::to_string(*pinned));
                     if (check.program) {
                         if (check.noexec) {
                             problems.push_back(i18n::trf(
                                 "“{}” is on a disk that does not let programs run", entry.name));
-                        } else if (check.executable && !fs::archive_confirmation_required(path)) {
+                        } else if (check.executable &&
+                                   !fs::archive_confirmation_required(*pinned)) {
                             started.push_back(program_launch(path));
+                            started.back().executable = pinned;
                         } else {
                             not_allowed.push_back(path);
                         }
