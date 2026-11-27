@@ -1001,12 +1001,6 @@ int main(int argc, char** argv) {
                     }
             renderer_for_stats = nullptr;
         };
-        const auto quit_windows = [&] {
-            const auto closing = bindings;
-            for (const auto& binding : closing)
-                if (binding->window)
-                    binding->window->close();
-        };
         open_browser = [&](std::filesystem::path folder, std::string token,
                            bool initial) -> rummage::app::WindowSession {
             const auto window_state = initial ? remembered.state : views::State{};
@@ -1308,7 +1302,7 @@ int main(int argc, char** argv) {
                             }
                         });
                 }
-                columns->set_quit_handler(quit_windows);
+                columns->set_quit_handler([&window] { window.close(); });
                 if (clipboard.available()) {
                     columns->set_system_clipboard({
                         .offer =
@@ -1454,12 +1448,13 @@ int main(int argc, char** argv) {
                 false;  // the content heard a leave when the bar took the pointer
             bool content_pressed = false;  // a press in the content keeps the pointer there
 
-            std::string last_key = "Press a key (Ctrl+Q quits)";
+            std::string last_key = "Press a key (Ctrl+Q closes this window)";
             binding->key = [&](const ui::KeyEvent& event) {
                 if (event.modifiers.ctrl &&
                     (event.keysym == XKB_KEY_q || event.keysym == XKB_KEY_Q)) {
-                    log::info("quit requested");
-                    quit_windows();
+                    // Reused instances share a process, but each window closes independently.
+                    log::info("window close requested");
+                    window.close();
                     return;
                 }
                 if (picker) {
@@ -1786,7 +1781,7 @@ int main(int argc, char** argv) {
             binding->key = [&, weak = std::weak_ptr{binding}](const ui::KeyEvent& event) {
                 if (event.modifiers.ctrl &&
                     (event.keysym == XKB_KEY_q || event.keysym == XKB_KEY_Q)) {
-                    quit_windows();
+                    window.close();
                     return;
                 }
                 if (event.modifiers.ctrl &&

@@ -100,6 +100,58 @@ TEST_CASE("windows: application shutdown cancels a queued close without resuming
     CHECK(loop.run() == 0);
 }
 
+TEST_CASE("windows: closing either session keeps the other and its queued work alive") {
+    EventLoop loop;
+    add_watchdog(loop);
+    std::array<rummage::app::WindowLifetime, 2> lifetimes;
+    std::array<bool, 2> destroyed{};
+    std::vector<rummage::app::WindowSession> sessions;
+    const auto open = [&](std::size_t index) -> rummage::app::WindowSession {
+        struct Guard {
+            bool& destroyed;
+            ~Guard() { destroyed = true; }
+        } guard{destroyed[index]};
+        co_await lifetimes[index];
+    };
+    sessions.push_back(open(0));
+    sessions.push_back(open(1));
+    std::size_t first = 0;
+    SUBCASE("original window closes first") { first = 0; }
+    SUBCASE("new window closes first") { first = 1; }
+    const auto remaining = 1 - first;
+    bool remaining_work_completed = false;
+    int closes = 0;
+    std::function<void()> reap = [&] {
+        for (const auto& session : sessions)
+            session.rethrow();
+        std::erase_if(sessions, [](const auto& session) { return session.done(); });
+        ++closes;
+        if (sessions.empty()) {
+            CHECK(remaining_work_completed);
+            loop.quit();
+            return;
+        }
+        REQUIRE(sessions.size() == 1);
+        CHECK(destroyed[first]);
+        CHECK_FALSE(destroyed[remaining]);
+        // Work belonging to the surviving window still runs after the other is reaped.
+        loop.post([&] {
+            CHECK_FALSE(destroyed[remaining]);
+            remaining_work_completed = true;
+            lifetimes[remaining].close(loop, reap);
+        });
+    };
+    lifetimes[first].close(loop, reap);
+    lifetimes[first].close(loop, reap);
+    CHECK_FALSE(destroyed[first]);
+    CHECK_FALSE(destroyed[remaining]);
+    CHECK(loop.run() == 0);
+    CHECK(closes == 2);
+    CHECK(sessions.empty());
+    CHECK(destroyed[0]);
+    CHECK(destroyed[1]);
+}
+
 TEST_CASE("post from another thread runs on the loop thread, quit sets the exit code") {
     EventLoop loop;
     add_watchdog(loop);

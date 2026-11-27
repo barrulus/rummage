@@ -40,7 +40,7 @@ a shortcut's meaning follows the focused control.
 | Up / Down, Page Up/Down, Home/End | Move through entries or Places | `move_up`, `move_down`, `page_up`, `page_down`, `first_entry`, `last_entry` |
 | Ctrl+plus / Ctrl+minus / Ctrl+wheel | Increase/decrease zoom | Fixed |
 | Ctrl+0 | Reset zoom | Fixed |
-| Ctrl+Q | Quit | Fixed |
+| Ctrl+Q | Close the current window; exit when the last window closes | Fixed |
 
 ## Panes
 
