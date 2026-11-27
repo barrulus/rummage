@@ -178,6 +178,25 @@ TEST_CASE("paste: Ctrl+C then Ctrl+V copies, sidecars along, and selects what ar
           Names{"P1 2.ORF", "P1 2.ORF.xmp", "P1.ORF", "P1.ORF.xmp", "P2.ORF"});
 }
 
+TEST_CASE("paste: a completed folder appears in an empty details view without refreshing") {
+    Fixture f;
+    fs::create_directory(f.root / "empty");
+    f.show(f.root, {"photos"});
+    REQUIRE(f.press(key(XKB_KEY_c, {.ctrl = true})));
+    f.show(f.root / "empty", {});
+    const auto destination = f.folder();
+    REQUIRE(destination->entries().empty());
+
+    REQUIRE(f.press(key(XKB_KEY_v, {.ctrl = true})));
+    REQUIRE(run_until(f.loop,
+                      [&] { return !f.browser.loading() && destination->entries().size() == 1; }));
+    CHECK(f.folder() == destination);
+    CHECK(destination->entries().front().name == "photos");
+    CHECK(destination->entries().front().is_directory());
+    CHECK(listing(f.root / "empty" / "photos") == Names{"P1.ORF", "P1.ORF.xmp", "P2.ORF"});
+    CHECK(listing(f.root / "empty") == Names{"photos"});
+}
+
 TEST_CASE("paste: Ctrl+X fades, Escape keeps them, Ctrl+V moves once") {
     Fixture f;
     f.show(f.root / "photos", {"P1.ORF"});
