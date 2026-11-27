@@ -1059,7 +1059,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                 path_, data_.entry.modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(
                     std::lround(std::max(preview_width, header_height) * renderer.scale()))),
-                mime_->name(data_.entry.mime), nullptr, photo_ && !photo_->entry.can_preview());
+                mime_->name(data_.entry.mime), nullptr,
+                ThumbnailOptions::for_entry(photo_ ? photo_->entry : data_.entry, true));
         }
         if (thumbnail) {
             const float fit =

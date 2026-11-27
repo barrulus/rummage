@@ -1,0 +1,32 @@
+[
+  {
+    "phase": 1,
+    "selections": 600,
+    "full_cache_existed_before_input": 0,
+    "valid_cache": 0,
+    "ready_when_valid_cache_existed": 0,
+    "current_ready_when_valid_cache_existed": 0,
+    "large_cache_existed_before_input": 3,
+    "grid_ready_with_large_cache": 3
+  },
+  {
+    "phase": 3,
+    "selections": 600,
+    "full_cache_existed_before_input": 116,
+    "valid_cache": 116,
+    "ready_when_valid_cache_existed": 116,
+    "current_ready_when_valid_cache_existed": 116,
+    "large_cache_existed_before_input": 92,
+    "grid_ready_with_large_cache": 63
+  },
+  {
+    "phase": 5,
+    "selections": 600,
+    "full_cache_existed_before_input": 184,
+    "valid_cache": 184,
+    "ready_when_valid_cache_existed": 184,
+    "current_ready_when_valid_cache_existed": 184,
+    "large_cache_existed_before_input": 127,
+    "grid_ready_with_large_cache": 81
+  }
+]

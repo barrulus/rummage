@@ -343,6 +343,58 @@ TEST_CASE("replacement at an old location never inherits its previous annotation
     CHECK(fixture.call({{"op", "query"}, {"include_inactive", true}})["total"] == 2);
 }
 
+TEST_CASE("same-size same-time inode replacement preserves only the old retained associations") {
+    Fixture fixture;
+    const auto original = fixture.file("source/photo.jpg", "first image");
+    fixture.add("source");
+    fixture.drain();
+    const auto previous = fixture.call({{"op", "query"}})["photos"][0];
+    const auto id = previous["id"];
+    fixture.call({{"op", "edit"},
+                  {"ids", Json::array({id})},
+                  {"description", "belongs to the original"},
+                  {"add_tags", Json::array({"original"})}});
+    const auto album = fixture.call(
+        {{"op", "create_album"}, {"name", "Original"}, {"ids", Json::array({id})}})["id"];
+
+    // Keep both files alive until rename so inode reuse cannot disguise the replacement.
+    const auto replacement = fixture.file("replacement.jpg", "other image");
+    fs::last_write_time(replacement, fs::last_write_time(original));
+    fs::rename(replacement, original);
+    fixture.call({{"op", "refresh"}});
+    fixture.drain();
+    const auto current = fixture.call({{"op", "query"}});
+    REQUIRE(current["total"] == 1);
+    const auto photo = current["photos"][0];
+    CHECK(photo["device"] == previous["device"]);
+    CHECK(photo["inode"] != previous["inode"]);
+    CHECK(photo["size"] == previous["size"]);
+    CHECK(photo["mtime_ns"] == previous["mtime_ns"]);
+    CHECK(photo["id"] != id);
+    CHECK(photo["description"] == "");
+    CHECK(photo["tags"].empty());
+    CHECK(photo["albums"].empty());
+    CHECK(fixture.call({{"op", "query"}, {"album_id", album}})["total"] == 0);
+    const auto retained =
+        fixture.call({{"op", "query"}, {"album_id", album}, {"retained_only", true}});
+    REQUIRE(retained["total"] == 1);
+    CHECK(retained["photos"][0]["id"] == id);
+    CHECK(retained["photos"][0]["availability"] == "replaced");
+    CHECK(retained["photos"][0]["description"] == "belongs to the original");
+    CHECK(retained["photos"][0]["tags"] == Json::array({"original"}));
+    const auto albums = fixture.call({{"op", "albums"}})["albums"];
+    REQUIRE(albums.size() == 1);
+    CHECK(albums[0]["count"] == 0);
+    CHECK(albums[0]["retained_count"] == 1);
+
+    fixture.call({{"op", "refresh"}});
+    fixture.drain();
+    CHECK(fixture.call({{"op", "query"}})["photos"][0]["id"] == photo["id"]);
+    CHECK(fixture.call({{"op", "query"}, {"include_inactive", true}})["total"] == 2);
+    std::ifstream stream(original);
+    CHECK(std::string(std::istreambuf_iterator<char>(stream), {}) == "other image");
+}
+
 TEST_CASE("fresh-catalog restore is atomic and remaps saved filter identities") {
     Fixture fixture;
     fixture.file("a/one.jpg");

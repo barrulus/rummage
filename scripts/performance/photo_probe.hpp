@@ -16,6 +16,7 @@ inline FILE* output = [] {
     return p ? std::fopen(p, "w") : nullptr;
 }();
 inline int preview_ready = -1;
+inline int requested_ready = -1;
 inline unsigned sequence = 0;
 inline unsigned phase = 0;
 inline unsigned tick = 0, sent = 0;
@@ -25,6 +26,7 @@ inline bool refresh_active = false, refresh_trimmed = false;
 inline unsigned drawn_sequence = 0, drawn_phase = 0;
 inline long long drawn_cursor = -1;
 inline int drawn_preview = -1;
+inline int drawn_requested = -1;
 inline std::string drawn_identity;
 
 inline long long now() {
@@ -33,9 +35,12 @@ inline long long now() {
         .count();
 }
 
-inline void preview(bool ready) { preview_ready = ready; }
+inline void preview(bool ready, bool at_requested_size) {
+    preview_ready = ready;
+    requested_ready = at_requested_size;
+}
 
-inline void begin_draw() { preview_ready = -1; }
+inline void begin_draw() { preview_ready = requested_ready = -1; }
 
 inline float width() {
     const char* value = std::getenv("PHOTO_WIDTH");
@@ -51,6 +56,7 @@ void draw(Browser& b) {
     drawn_phase = phase;
     drawn_cursor = f && f->cursor() ? static_cast<long long>(*f->cursor()) : -1LL;
     drawn_preview = preview_ready;
+    drawn_requested = requested_ready;
     drawn_identity = f && f->cursor_entry() ? f->cursor_entry()->key() : "-";
     std::fprintf(output, "draw %lld %u %u %lld %d %zu %zu\n", now(), sequence, phase,
                  f && f->cursor() ? static_cast<long long>(*f->cursor()) : -1LL, preview_ready,
@@ -60,8 +66,8 @@ void draw(Browser& b) {
 
 inline void frame() {
     if (output) {
-        std::fprintf(output, "frame %lld %u %u %lld %d %s\n", now(), drawn_sequence, drawn_phase,
-                     drawn_cursor, drawn_preview, drawn_identity.c_str());
+        std::fprintf(output, "frame %lld %u %u %lld %d %s %d\n", now(), drawn_sequence, drawn_phase,
+                     drawn_cursor, drawn_preview, drawn_identity.c_str(), drawn_requested);
         std::fflush(output);
     }
 }

@@ -1,0 +1,154 @@
+{
+  "head": "6cd4fc4c85f3ad6004b56daa1273cafd41082439",
+  "working_tree_status": " M scripts/performance/photo_instrument.py\n M scripts/performance/photo_probe.hpp\n M scripts/performance/photo_scroll.py\n M scripts/performance/test_photo_metrics.py\n M src/core/include/rummage/core/memory.hpp\n M src/core/include/rummage/core/worker_pool.hpp\n M src/core/src/memory.cpp\n M src/core/src/worker_pool.cpp\n M src/thumbs/include/rummage/thumbs/cache.hpp\n M src/thumbs/src/cache.cpp\n M src/views/include/rummage/views/thumbnails.hpp\n M src/views/src/draw_helpers.cpp\n M src/views/src/grid_view.cpp\n M src/views/src/info_pane.cpp\n M src/views/src/photo_library.cpp\n M src/views/src/properties_dialog.cpp\n M src/views/src/thumbnails.cpp\n M tests/memory_test.cpp\n M tests/photo_library_ui_test.cpp\n M tests/photos_test.cpp\n M tests/thumbs_test.cpp\n M tests/worker_pool_test.cpp\n?? audits/2026-11-27/sshfs-fixes/\n",
+  "compiler": "/nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++",
+  "flags": [
+    "-std=c++20",
+    "-O1",
+    "-g",
+    "-fno-omit-frame-pointer",
+    "-fsanitize=thread",
+    "-pthread",
+    "-fPIE",
+    "-pie",
+    "-I/tmp/rummage-photo-library/src/core/include",
+    "-I/nix/store/mncfvp2l78ascq4qsd7f7zkmma1rz0wp-doctest-2.5.3/include"
+  ],
+  "environment": {
+    "TSAN_OPTIONS": "halt_on_error=1:exitcode=66:history_size=7",
+    "RUMMAGE_LOG": "off"
+  },
+  "source_sha256": {
+    "/tmp/rummage-photo-library/src/core/src/event_loop.cpp": "e863fdfb442e205bf58eb77ff715b52f6bcae4cc59498fcf9d368129688d57d5",
+    "/tmp/rummage-photo-library/src/core/src/worker_pool.cpp": "9f382766ab133237d65d011c25fa70afa79ae242daecab5d802ccbcc57fb4623",
+    "/tmp/rummage-photo-library/src/core/src/log.cpp": "bb64006e6f6f6938173040b7ae62c5455c74834f67221f18d1ee11f477821c6b",
+    "/tmp/rummage-photo-library/src/core/src/memory.cpp": "e15dc79706ec7237f1eb9687123b667448e17eca084a247f335f2961485c9148",
+    "/tmp/rummage-photo-library/tests/worker_pool_test.cpp": "2b8ead774ff0b44dce99c21b0d700795304ae9ab1f1dd111d7bf196070e56758",
+    "/tmp/rummage-photo-library/tests/event_loop_test.cpp": "113f53670b80a060feba8f99c7e0c5ee760076d8687b06172b1af3d5ceaf0426",
+    "/tmp/rummage-cachelane-tsan-n_zkocp0/main.cpp": "010cc5d71fa312cc2aef083c5a8ecbcfa076db95fd50a3761df2d3e5b29b12a5",
+    "/tmp/rummage-cachelane-tsan-n_zkocp0/stress.cpp": "0d0ef1c104eb78eca5978aca8e521dc1be127b40acd8cd7bf57a91da4b87a59c"
+  },
+  "steps": [
+    {
+      "name": "compile-control",
+      "command": [
+        "/nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++",
+        "-std=c++20",
+        "-O1",
+        "-g",
+        "-fno-omit-frame-pointer",
+        "-fsanitize=thread",
+        "-pthread",
+        "-fPIE",
+        "-pie",
+        "-I/tmp/rummage-photo-library/src/core/include",
+        "-I/nix/store/mncfvp2l78ascq4qsd7f7zkmma1rz0wp-doctest-2.5.3/include",
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/race_control.cpp",
+        "-o",
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/race-control"
+      ],
+      "exit": 0,
+      "seconds": 0.666
+    },
+    {
+      "name": "control",
+      "command": [
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/race-control"
+      ],
+      "exit": 66,
+      "seconds": 0.032
+    },
+    {
+      "name": "compile-core",
+      "command": [
+        "/nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++",
+        "-std=c++20",
+        "-O1",
+        "-g",
+        "-fno-omit-frame-pointer",
+        "-fsanitize=thread",
+        "-pthread",
+        "-fPIE",
+        "-pie",
+        "-I/tmp/rummage-photo-library/src/core/include",
+        "-I/nix/store/mncfvp2l78ascq4qsd7f7zkmma1rz0wp-doctest-2.5.3/include",
+        "/tmp/rummage-photo-library/src/core/src/event_loop.cpp",
+        "/tmp/rummage-photo-library/src/core/src/worker_pool.cpp",
+        "/tmp/rummage-photo-library/src/core/src/log.cpp",
+        "/tmp/rummage-photo-library/src/core/src/memory.cpp",
+        "/tmp/rummage-photo-library/tests/worker_pool_test.cpp",
+        "/tmp/rummage-photo-library/tests/event_loop_test.cpp",
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/main.cpp",
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/stress.cpp",
+        "-o",
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/core-tsan"
+      ],
+      "exit": 0,
+      "seconds": 23.427
+    },
+    {
+      "name": "core-1",
+      "command": [
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/core-tsan",
+        "--no-skip",
+        "--order-by=rand",
+        "--rand-seed=731"
+      ],
+      "exit": 0,
+      "seconds": 6.838
+    },
+    {
+      "name": "core-2",
+      "command": [
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/core-tsan",
+        "--no-skip",
+        "--order-by=rand",
+        "--rand-seed=732"
+      ],
+      "exit": 0,
+      "seconds": 6.832
+    },
+    {
+      "name": "core-3",
+      "command": [
+        "/tmp/rummage-cachelane-tsan-n_zkocp0/core-tsan",
+        "--no-skip",
+        "--order-by=rand",
+        "--rand-seed=733"
+      ],
+      "exit": 0,
+      "seconds": 6.885
+    }
+  ],
+  "headers_sha256": {
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/actions.hpp": "f7e90a0623bc8757cf4f1deec4bd0f892cd3092753d5cb1d1705043fdd83f9ac",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/config.hpp": "91b917804fc053bdc1428eef1bfbdfbe68dd6b1f9bbdaa927e801e7e45b74465",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/event_loop.hpp": "36f5928022f38a59f89e7d73e1afed23d6983e69ef86130a2f44accc7104ca30",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/file_picker.hpp": "73434301b6b75d799256dd5e7fe5f58408863cd23fc711b06f0f0ba895f24895",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/motion.hpp": "6a482008aad770b92ba3463da5f8c0ac660d4140ea4848e052cf0549c5540150",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/file.hpp": "558544b996a1bf8e23cd6721a95f772520c8310947942a85e317048885570dce",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/log.hpp": "db383820252a041fab8583773ed32d41ade67874990b30f8304cae2f7f93ead7",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/config_edit.hpp": "6bd371760add80b6e3ac73f8cedc8aa83388cce95c39a1b7342ab7f22061f0db",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/worker_pool.hpp": "c14d42aee90220e7c71d01447e0ee78f0465f8a67ca626362b6b2e3ea3cf15df",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/i18n.hpp": "0f24a54fe6aa34e3998883b017d95c0551c30a01f5f874468aee3d19579122f6",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/memory.hpp": "45f37e6a0517d2f01bfc82f0283bf11ba1c71cec66890ca7a6e4120d74cde192",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/menu_layout.hpp": "3460d2fa81c8a42e80e8e086f922323cca9983eb40aa47b53c70953b6f3f2c06",
+    "/tmp/rummage-photo-library/src/core/include/rummage/core/file_watcher.hpp": "9ba7832c7fae01d307a151e662584a357eb5296d439268c00ca065cb43b07629"
+  },
+  "source_and_header_hashes_unchanged_after_run": true,
+  "changed_sources": [],
+  "test_summaries": {
+    "core-1.log": [
+      "[doctest] test cases:    26 |    26 passed | 0 failed | 0 skipped",
+      "[doctest] assertions: 46215 | 46215 passed | 0 failed |"
+    ],
+    "core-2.log": [
+      "[doctest] test cases:    26 |    26 passed | 0 failed | 0 skipped",
+      "[doctest] assertions: 46215 | 46215 passed | 0 failed |"
+    ],
+    "core-3.log": [
+      "[doctest] test cases:    26 |    26 passed | 0 failed | 0 skipped",
+      "[doctest] assertions: 46215 | 46215 passed | 0 failed |"
+    ]
+  }
+}

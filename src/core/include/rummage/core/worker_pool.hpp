@@ -95,9 +95,19 @@ public:
         return token;
     }
 
+    // Lazy application-lifetime lanes: catalog queries reuse one allocator arena, while
+    // previews retain capacity even when general workers are blocked on filesystem I/O.
+    // Call on the EventLoop thread. Destroying a view never joins these workers.
+    WorkerPool& catalog_lane();
+    WorkerPool& preview_lane();
+    // Local cache probes must remain responsive while previews wait on remote originals.
+    WorkerPool& thumbnail_cache_lane();
+
     [[nodiscard]] std::size_t thread_count() const noexcept { return threads_.size(); }
 
 private:
+    WorkerPool(EventLoop& loop, unsigned threads, bool reclaim_on_idle);
+
     struct Job {
         CancelToken token;
         std::function<void()> run;
@@ -124,6 +134,7 @@ private:
     void worker_main(Sleeper& sleeper);
 
     EventLoop& loop_;
+    const bool reclaim_on_idle_;
     // Shared with posted deliveries so they can tell the pool (and its owner) are gone.
     std::shared_ptr<std::atomic<bool>> alive_{std::make_shared<std::atomic<bool>>(true)};
 
@@ -135,6 +146,7 @@ private:
     std::array<std::deque<Job>, 3> queues_;  // indexed by Priority
     bool stopping_{false};
     std::vector<std::thread> threads_;
+    std::unique_ptr<WorkerPool> catalog_lane_, preview_lane_, thumbnail_cache_lane_;
 };
 
 }  // namespace rummage::core

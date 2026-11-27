@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <doctest/doctest.h>
@@ -1235,6 +1236,71 @@ TEST_CASE("photo workspace: native scrolling appends every collection beyond two
     REQUIRE(library->rows().size() == 1);
     CHECK(library->rows().front().value("filename", "") == "photo-1000.png");
     CHECK(library->folder()->total_count() == 1);
+}
+
+TEST_CASE(
+    "photo workspace: multi-batch refresh keeps loaded selection and replaces queued queries") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Many pictures";
+    constexpr std::size_t count = 1100;
+    for (std::size_t i = 0; i < count; ++i)
+        fixture(source / ("photo-" + std::to_string(1000 + i) + ".png"));
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    for (int batch = 0; batch < 32; ++batch) {
+        REQUIRE(catalog.request({{"op", "work"}, {"budget", 256}}).value("ok", false));
+        if (catalog.request({{"op", "query"}, {"limit", 1}}).value("total", std::size_t{}) == count)
+            break;
+    }
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    PhotoLibrary library{loop, pool, watcher, mime, [] {}};
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    for (int page = 0; page < 8 && library.rows().size() < count; ++page) {
+        library.folder()->notify_visible_range(0, library.rows().size());
+        REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    }
+    REQUIRE(library.rows().size() == count);
+    library.folder()->set_cursor(count - 1);
+    const auto selection = library.selected_ids();
+    const auto cursor = library.folder()->cursor_entry()->key();
+    const auto original = library.rows();
+    for (int refresh = 0; refresh < 3; ++refresh) {
+        library.refresh();
+        library.refresh();  // coalesced while the complete prefix is in flight
+        REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+        CHECK(library.rows() == original);
+        CHECK(library.selected_ids() == selection);
+        REQUIRE(library.folder()->cursor_entry());
+        CHECK(library.folder()->cursor_entry()->key() == cursor);
+    }
+    std::promise<void> started, release;
+    auto ready = started.get_future();
+    auto gate = release.get_future().share();
+    pool.catalog_lane().submit(
+        rummage::core::Priority::visible,
+        [&started, gate](const rummage::core::CancelToken&) {
+            started.set_value();
+            gate.wait();
+            return 0;
+        },
+        [](int) {});
+    ready.wait();
+    library.refresh();
+    library.set_query("photo-1000.png");
+    library.set_query("photo-2099.png");
+    release.set_value();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.rows().size() == 1);
+    CHECK(library.rows().front().value("filename", "") == "photo-2099.png");
+    CHECK(library.selected_ids().empty());
+    CHECK(library.folder()->total_count() == 1);
 }
 
 TEST_CASE("photo workspace: changed originals preview freshly without accepting catalog identity") {

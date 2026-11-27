@@ -79,7 +79,8 @@ public:
                                 const core::CancelToken* cancel = nullptr) const;
 
     // Offline catalog browsing: validate against the last known modification time in seconds,
-    // without touching the original or attempting a decode. An evicted cache entry is a miss.
+    // without touching the original or attempting an original decode. A valid larger tier
+    // can be downscaled; a cache miss stays a miss.
     [[nodiscard]] Thumbnail cached(const std::filesystem::path& file, Size size,
                                    std::int64_t modified_seconds) const;
 

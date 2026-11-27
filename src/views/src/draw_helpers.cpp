@@ -58,7 +58,7 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
             visual.thumbnail = thumbnails->get_shared(
                 folder.path_of(entry), entry.modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(size * renderer.scale()))),
-                type, &visual.failure, !entry.can_preview());
+                type, &visual.failure, ThumbnailOptions::for_entry(entry));
         }
     }
     draw_item_visual(renderer, icons, palette, visual, bounds);

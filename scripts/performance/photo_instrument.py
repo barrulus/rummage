@@ -49,8 +49,20 @@ for relative, stem in [
     else:
         patches = [
             (
+                "const ui::Texture* thumbnail = nullptr;",
+                "const ui::Texture* thumbnail = nullptr;\n"
+                "        thumbs::Size photo_probe_tier = thumbs::Size::normal;\n"
+                "        const auto photo_probe_requested_tier = thumbs::size_for(\n"
+                "            static_cast<std::uint32_t>(std::lround(box * renderer.scale())));",
+            ),
+            (
+                "ThumbnailOptions::for_entry(*single, true));",
+                "ThumbnailOptions::for_entry(*single, true), &photo_probe_tier);",
+            ),
+            (
                 "if (thumbnail != nullptr) {",
-                "photo_probe::preview(thumbnail != nullptr);\n        if (thumbnail != nullptr) {",
+                "photo_probe::preview(thumbnail != nullptr, thumbnail != nullptr && "
+                "photo_probe_tier == photo_probe_requested_tier);\n        if (thumbnail != nullptr) {",
             )
         ]
     for before, after in patches:

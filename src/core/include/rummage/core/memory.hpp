@@ -28,12 +28,14 @@ struct MemoryReport {
 
     std::vector<Mapping> mappings;
 
-    // glibc's malloc (mallinfo2), bytes: what the program holds, and what malloc keeps although
-    // freed (not given back to the system). All 0 under ASan or TSan: their malloc replaces it.
+    // glibc's malloc (mallinfo2), bytes: live allocations and allocator address-space capacity.
+    // All 0 under ASan or TSan: their malloc replaces it.
     std::uint64_t heap_arena{0};    // obtained with brk and in arenas
     std::uint64_t heap_mmapped{0};  // large blocks with their own mmap
     std::uint64_t heap_in_use{0};
-    std::uint64_t heap_free{0};  // freed, kept by malloc
+    // Free allocator capacity, including pages malloc_trim may already have decommitted.
+    // This is not a count of resident bytes; read it alongside rss/anonymous.
+    std::uint64_t heap_free{0};
 
     // The GPU driver's view of this process (fdinfo of its DRM file, amdgpu and others),
     // bytes; nullopt when the driver does not say.
@@ -49,9 +51,16 @@ struct MemoryReport {
 // it first thing in main(), before any thread starts.
 void give_back_large_blocks();
 
-// Hands the free memory at the top of every malloc arena back to the system (malloc_trim): after
+// Attempts to return unused whole pages in malloc arenas to the system (malloc_trim), after
 // letting go of many small blocks at once, such as the paths of finding files.
 void give_back_free_memory();
+
+// Reclaim only after a substantial amount of allocator capacity is free. Run on a worker
+// after a burst of large allocations settles, not in a draw or input callback. The caller
+// must coalesce requests: free capacity can stay high even after pages have been returned.
+// Returns true when malloc reports reclaiming memory; live allocations are untouched.
+[[nodiscard]] bool give_back_free_memory_if_needed(
+    std::uint64_t minimum_free_bytes = std::uint64_t{64} << 20);
 
 // Reads it now (a few files of /proc; a few milliseconds).
 [[nodiscard]] MemoryReport read_memory_report();

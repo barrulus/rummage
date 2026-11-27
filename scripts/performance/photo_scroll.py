@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import signal
+import shutil
 import sqlite3
 import subprocess
 import time
@@ -34,7 +35,13 @@ def metrics(path):
             and f[4] == key[4]
             and (len(key) < 6 or (len(f) > 6 and key[5] == f[6]))
         ]
-        ready = next((f for f in matching if f[5] == "1"), None)
+        current = next((f for f in matching if f[5] == "1"), None)
+        # Preserve the old full-request metric. New traces additionally distinguish a
+        # smaller preview of this same photo from the requested cache tier being ready.
+        ready = next(
+            (f for f in matching if f[5] == "1" and (len(f) < 8 or f[7] == "1")),
+            None,
+        )
         result.append(
             {
                 "sequence": int(key[2]),
@@ -45,7 +52,11 @@ def metrics(path):
                 "presented": bool(matching),
                 "advanced": i == 0 or key[4] != keys[i - 1][4],
                 "preview_ready": ready is not None,
+                "current_photo_ready": current is not None,
                 "latency_ms": (int(ready[1]) - int(key[1])) / 1e6 if ready else None,
+                "current_photo_latency_ms": (
+                    (int(current[1]) - int(key[1])) / 1e6 if current else None
+                ),
             }
         )
     phases = []
@@ -63,6 +74,9 @@ def metrics(path):
                 "selection_presented": sum(r["presented"] for r in rows),
                 "preview_ready_before_next_input": sum(
                     r["preview_ready"] for r in rows
+                ),
+                "current_photo_ready_before_next_input": sum(
+                    r["current_photo_ready"] for r in rows
                 ),
                 "preview_not_ready_before_next_input": sum(
                     not r["preview_ready"] for r in rows
@@ -120,6 +134,10 @@ def main():
     p.add_argument("--catalog", type=Path, required=True)
     p.add_argument("--executable", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument(
+        "--cache-seed", type=Path,
+        help="Copy a prepared thumbnail cache into each private run for a warm-cache control",
+    )
     p.add_argument("--steps", type=int, default=600)
     p.add_argument(
         "--refresh-passes",
@@ -164,8 +182,13 @@ def main():
             {
                 "input": "Browser::key invoked on UI event loop, nominal25Hz; actual intervals reported",
                 "preview": "Current cursor identity and dispatch sequence matched to drawn preview texture and Wayland frame callback; deadline=min(next input,40ms)",
+                "preview_quality": "preview_ready retains requested-tier readiness; current_photo_ready also accepts a smaller preview of the same photo. Legacy traces have no progressive fallback.",
                 "presentation": "Headless compositor callback, not physical display presentation",
-                "cache": "Fresh XDG cache per case; three repeated input traversals within one process",
+                "cache": (
+                    "Private copy of prepared thumbnail cache: " + str(a.cache_seed)
+                    if a.cache_seed
+                    else "Fresh XDG cache per case; three repeated input traversals within one process"
+                ),
                 "geometry": "Sidebar hidden; inspector300px; browser content width constrained inside1280x960 hardware window",
                 "idle": "10s between traversals;35s final idle then one malloc_trim(0),3s further idle",
                 "memory": "1Hz parent/helper smaps_rollup;1Hz mallinfo2 main-thread samples; cache accounting from app logs",
@@ -236,6 +259,8 @@ def main():
             directory = out / kind.lower()
             directory.mkdir()
             env["XDG_" + kind + "_HOME"] = str(directory)
+        if a.cache_seed:
+            shutil.copytree(a.cache_seed, out / "cache/thumbnails")
         catalog = out / "data/rummage/photos/catalog.sqlite3"
         catalog.parent.mkdir(parents=True)
         background = "-background" in name
@@ -361,6 +386,7 @@ def main():
             "exit_code": proc.returncode,
             "elapsed_s": time.monotonic() - start,
             "profiled": bool(a.heaptrack),
+            "cache_seed": str(a.cache_seed) if a.cache_seed else None,
             "background_work": background,
             "external_observed_pids": a.observe_pid,
             "external_process_caveat": "Shared external processes can include activity unrelated to this test; excluded from app/helper totals.",

@@ -1,0 +1,73 @@
+{
+  "catalog_sha256": "3f9f6cfd4ffe3e9061f9905dbf8a96915b7d49ce244189bf63f256afc64a9c59",
+  "completed": 2407,
+  "down_targets": 600,
+  "elapsed_s": 23.01,
+  "eligible_down_targets": 599,
+  "expected_exact_pngs": 2407,
+  "failed": 4,
+  "failure_note": "Three original .jpg files are not recognized by the normal decoder; forced retries confirm three large-tier failures and one selected x-large-tier failure. Fixtures and trace remain unchanged. All renderable exact-tier PNGs validate.",
+  "grid_coverage": "Three-column cursor traversal plus one partially visible padding row; confirmed by completed remote cache entries at indices 1803..1805",
+  "grid_cursor_first": 0,
+  "grid_cursor_last": 1805,
+  "helper_sha256": "f335833d02c30fd1532887bf02ddf7ff4deead275eeaf8b36ee623cc0fe6f0e9",
+  "initial_home_targets": 1,
+  "jobs_sha256": "46e33f51e6471059a14d69fbba2149759dbf8201841bee6d91594a7c88bbf147",
+  "large_count": 1806,
+  "missing_exact_pngs": 4,
+  "observed_grid_cache_max_index": 1805,
+  "order": "large first, x-large second, so larger-tier cache reuse cannot suppress lower-tier persistence",
+  "original_names_in_report": false,
+  "schema": 1,
+  "seed_manifest_sha256": "378487599e846e4fe6b98c8793d5e69dd40563e65d28680b499a608ca211dfbe",
+  "selected_total_including_home": 601,
+  "selected_valid": 600,
+  "source_validation": "Catalog fractional nanoseconds combined with seconds; pre/post stat size+mtime, no original-content hashes",
+  "status": "ready_with_unsupported_files",
+  "total_down_targets": 600,
+  "total_png_bytes": 417965283,
+  "total_pngs": 2407,
+  "trace_sha256": "432e7e32c73db43ff2a6ff0e0ee799f3f131226a4c999149ee09413ac42e0837",
+  "unsupported_files": [
+    {
+      "extension": ".jpg",
+      "path_sha256": "6117fff432033fc724e6dd1339bdceb5fcfee9189ecc3bb001553c4be447f678",
+      "photo_id": 5254,
+      "selected": false
+    },
+    {
+      "extension": ".jpg",
+      "path_sha256": "1c8e8e827b672e15dd63fe8897fdab0c1f719568c831cb8319fd1e5840f829d7",
+      "photo_id": 5287,
+      "selected": true
+    },
+    {
+      "extension": ".jpg",
+      "path_sha256": "c160a524d48b0def1449fdd83ae03e0352368299b69d8deb1653661b95748319",
+      "photo_id": 5223,
+      "selected": false
+    }
+  ],
+  "valid_exact_pngs": 2403,
+  "verification_failures": [
+    {
+      "path_sha256": "6117fff432033fc724e6dd1339bdceb5fcfee9189ecc3bb001553c4be447f678",
+      "tier": "large"
+    },
+    {
+      "path_sha256": "1c8e8e827b672e15dd63fe8897fdab0c1f719568c831cb8319fd1e5840f829d7",
+      "tier": "large"
+    },
+    {
+      "path_sha256": "c160a524d48b0def1449fdd83ae03e0352368299b69d8deb1653661b95748319",
+      "tier": "large"
+    },
+    {
+      "path_sha256": "1c8e8e827b672e15dd63fe8897fdab0c1f719568c831cb8319fd1e5840f829d7",
+      "tier": "x-large"
+    }
+  ],
+  "verified_exact_pngs": 2403,
+  "workers": 4,
+  "x_large_count": 601
+}

@@ -75,6 +75,32 @@ class PhotoMetricsTests(unittest.TestCase):
         self.assertEqual(result["transitions"], [])
         self.assertTrue(result["done"])
 
+    def test_progressive_current_photo_does_not_count_as_requested_resolution(self):
+        result = self.parse(
+            "key 100 1 1 0 photo:1\nframe 110 1 1 0 1 photo:1 1\n"
+            "key 200 2 1 3 photo:4\nframe 210 2 1 3 1 photo:4 0\ndone 300\n"
+        )
+        self.assertTrue(result["transitions"][1]["current_photo_ready"])
+        self.assertFalse(result["transitions"][1]["preview_ready"])
+        self.assertEqual(result["phases"][0]["current_photo_ready_before_next_input"], 1)
+        self.assertEqual(result["phases"][0]["preview_ready_before_next_input"], 0)
+
+    def test_progressive_upgrade_records_both_latencies(self):
+        result = self.parse(
+            "key 100 1 1 0 photo:1\nframe 110 1 1 0 1 photo:1 0\n"
+            "frame 120 1 1 0 1 photo:1 1\ndone 130\n"
+        )
+        row = result["transitions"][0]
+        self.assertTrue(row["current_photo_ready"])
+        self.assertTrue(row["preview_ready"])
+        self.assertLess(row["current_photo_latency_ms"], row["latency_ms"])
+
+    def test_progressive_frame_still_requires_current_identity(self):
+        result = self.parse(
+            "key 100 1 1 0 photo:1\nframe 110 1 1 0 1 photo:2 0\ndone 120\n"
+        )
+        self.assertFalse(result["transitions"][0]["current_photo_ready"])
+
 
 if __name__ == "__main__":
     unittest.main()

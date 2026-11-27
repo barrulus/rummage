@@ -3,10 +3,14 @@
 #include <algorithm>
 
 #include "rummage/core/log.hpp"
+#include "rummage/core/memory.hpp"
 
 namespace rummage::core {
 
-WorkerPool::WorkerPool(EventLoop& loop, unsigned threads) : loop_{loop} {
+WorkerPool::WorkerPool(EventLoop& loop, unsigned threads) : WorkerPool(loop, threads, false) {}
+
+WorkerPool::WorkerPool(EventLoop& loop, unsigned threads, bool reclaim_on_idle)
+    : loop_{loop}, reclaim_on_idle_{reclaim_on_idle} {
     if (threads == 0) {
         threads = std::max(2U, std::thread::hardware_concurrency() / 2);
     }
@@ -40,10 +44,32 @@ WorkerPool::~WorkerPool() {
     }
 }
 
+WorkerPool& WorkerPool::catalog_lane() {
+    if (!catalog_lane_)
+        catalog_lane_ = std::unique_ptr<WorkerPool>(new WorkerPool(loop_, 1, true));
+    return *catalog_lane_;
+}
+
+WorkerPool& WorkerPool::preview_lane() {
+    if (!preview_lane_)
+        preview_lane_ = std::make_unique<WorkerPool>(loop_, 2);
+    return *preview_lane_;
+}
+
+WorkerPool& WorkerPool::thumbnail_cache_lane() {
+    if (!thumbnail_cache_lane_)
+        thumbnail_cache_lane_ = std::make_unique<WorkerPool>(loop_, 1);
+    return *thumbnail_cache_lane_;
+}
+
 void WorkerPool::enqueue(Priority priority, CancelToken token, std::function<void()> run) {
     Sleeper* next = nullptr;
     {
         const std::scoped_lock lock{mutex_};
+        // Replaced searches and offscreen thumbnails must not retain closures behind
+        // a slow filesystem operation. Running work remains cooperatively cancelled.
+        for (auto& queue : queues_)
+            std::erase_if(queue, [](const Job& job) { return job.token.cancelled(); });
         queues_.at(static_cast<std::size_t>(priority))
             .push_back({.token = std::move(token), .run = std::move(run)});
         if (!idle_.empty()) {
@@ -58,6 +84,7 @@ void WorkerPool::enqueue(Priority priority, CancelToken token, std::function<voi
 }
 
 void WorkerPool::worker_main(Sleeper& sleeper) {
+    bool reclaim_pending = false;
     while (true) {
         Job job;
         {
@@ -65,7 +92,22 @@ void WorkerPool::worker_main(Sleeper& sleeper) {
             while (!stopping_ &&
                    std::ranges::all_of(queues_, [](const auto& queue) { return queue.empty(); })) {
                 idle_.push_back(&sleeper);
-                sleeper.wake.wait(lock, [this, &sleeper] { return stopping_ || sleeper.notified; });
+                const auto ready = [this, &sleeper] { return stopping_ || sleeper.notified; };
+                if (reclaim_on_idle_ && reclaim_pending) {
+                    // One shared catalog lane owns large JSON bursts. Reuse its arena during
+                    // activity, then trim once after three uninterrupted idle seconds. This
+                    // includes cancelled queries and survives their originating view closing.
+                    if (!sleeper.wake.wait_for(lock, std::chrono::seconds{3}, ready)) {
+                        std::erase(idle_, &sleeper);
+                        reclaim_pending = false;
+                        lock.unlock();
+                        (void)give_back_free_memory_if_needed();
+                        lock.lock();
+                        continue;
+                    }
+                } else {
+                    sleeper.wake.wait(lock, ready);
+                }
                 sleeper.notified = false;
             }
             if (stopping_) {
@@ -80,6 +122,7 @@ void WorkerPool::worker_main(Sleeper& sleeper) {
             }
         }
         job.run();
+        reclaim_pending = true;
     }
 }
 

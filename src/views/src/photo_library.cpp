@@ -744,7 +744,7 @@ void PhotoLibrary::query(bool reset) {
     Json input = filter_;
     input["op"] = "query";
     input["text"] = search_;
-    query_job_ = pool_.submit(
+    query_job_ = pool_.catalog_lane().submit(
         core::Priority::visible,
         [client = client_, input, wanted](const core::CancelToken& token) mutable {
             Json collected = Json::array();
@@ -757,11 +757,11 @@ void PhotoLibrary::query(bool reset) {
                 response = client->request(input, &token);
                 if (!response.value("ok", false))
                     return response;
-                const auto& batch = response.at("photos");
+                auto& batch = response.at("photos");
                 if (batch.empty())
                     break;
-                for (const auto& row : batch)
-                    collected.push_back(row);
+                for (auto& row : batch)
+                    collected.push_back(std::move(row));
             } while (collected.size() < wanted &&
                      collected.size() < response.value("total", std::size_t{}));
             response["fetched"] = collected.size();
@@ -805,7 +805,7 @@ void PhotoLibrary::load_more() {
     input["text"] = search_;
     input["offset"] = offset_;
     input["limit"] = page_size_;
-    query_job_ = pool_.submit(
+    query_job_ = pool_.catalog_lane().submit(
         core::Priority::visible,
         [client = client_, input](const core::CancelToken& token) {
             return client->request(input, &token);
@@ -820,7 +820,8 @@ void PhotoLibrary::load_more() {
                 return;
             }
             sync_selection();
-            auto batch = response.value("photos", Json::array());
+            auto batch =
+                response.contains("photos") ? std::move(response.at("photos")) : Json::array();
             offset_ += batch.size();
             total_ = response.value("total", std::size_t{});
             if (batch.empty())

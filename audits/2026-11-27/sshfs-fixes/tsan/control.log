@@ -1,0 +1,36 @@
+==================
+WARNING: ThreadSanitizer: data race (pid=3479481)
+  Write of size 4 at 0x5555555580b4 by thread T1:
+    #0 operator() /tmp/rummage-cachelane-tsan-n_zkocp0/race_control.cpp:8 (race-control+0x12d4)
+    #1 __invoke_impl<void, main()::<lambda()> > /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/invoke.h:63 (race-control+0x12d4)
+    #2 __invoke<main()::<lambda()> > /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/invoke.h:98 (race-control+0x12d4)
+    #3 _M_invoke<0> /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:303 (race-control+0x12d4)
+    #4 operator() /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:310 (race-control+0x12d4)
+    #5 _M_run /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:255 (race-control+0x12d4)
+    #6 execute_native_thread_routine <null> (libstdc++.so.6+0xf94c5)
+
+  Previous read of size 4 at 0x5555555580b4 by thread T2:
+    #0 __gthread_yield() /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/x86_64-unknown-linux-gnu/bits/gthr-default.h:739 (race-control+0x12a3)
+    #1 std::this_thread::yield() /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:377 (race-control+0x12a3)
+    #2 operator() /tmp/rummage-cachelane-tsan-n_zkocp0/race_control.cpp:7 (race-control+0x12a3)
+    #3 __invoke_impl<void, main()::<lambda()> > /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/invoke.h:63 (race-control+0x12a3)
+    #4 __invoke<main()::<lambda()> > /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/invoke.h:98 (race-control+0x12a3)
+    #5 _M_invoke<0> /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:303 (race-control+0x12a3)
+    #6 operator() /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:310 (race-control+0x12a3)
+    #7 _M_run /nix/store/rp1zq1p0rjfdg99rb2cfs14871y6cqaj-gcc-16.2.0/include/c++/16.2.0/bits/std_thread.h:255 (race-control+0x12a3)
+    #8 execute_native_thread_routine <null> (libstdc++.so.6+0xf94c5)
+
+  Location is global 'shared_value' of size 4 at 0x5555555580b4 (race-control+0x40b4)
+
+  Thread T1 (tid=3479483, running) created by main thread at:
+    #0 pthread_create <null> (libtsan.so.2+0x60a46)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xf9598)
+    #2 __libc_start_call_main <null> (libc.so.6+0x2b390) (BuildId: 133180439d230cb18be500acfbe7a8aec7d554d1)
+
+  Thread T2 (tid=3479484, finished) created by main thread at:
+    #0 pthread_create <null> (libtsan.so.2+0x60a46)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xf9598)
+    #2 __libc_start_call_main <null> (libc.so.6+0x2b390) (BuildId: 133180439d230cb18be500acfbe7a8aec7d554d1)
+
+SUMMARY: ThreadSanitizer: data race /tmp/rummage-cachelane-tsan-n_zkocp0/race_control.cpp:8 in operator()
+==================
