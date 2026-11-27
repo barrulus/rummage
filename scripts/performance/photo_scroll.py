@@ -13,7 +13,7 @@ import sqlite3
 import subprocess
 import time
 from pathlib import Path
-from run import memory_tree
+from run import memory, memory_tree
 
 
 def metrics(path):
@@ -49,7 +49,7 @@ def metrics(path):
             }
         )
     phases = []
-    for phase in (1, 3, 5):
+    for phase in ((10,) if any(r["phase"] == 10 for r in result) else (1, 3, 5)):
         rows = [r for r in result if r["phase"] == phase][1:]  # omit Home
         lat = sorted(r["latency_ms"] for r in rows if r["latency_ms"] is not None)
         intervals = sorted(
@@ -95,6 +95,8 @@ def metrics(path):
         "columns": sorted(set(int(e[6]) for e in draws)),
         "max_loaded": max((int(e[7]) for e in draws), default=0),
         "done": any(e[0] == "done" for e in events),
+        "refreshes_started": sum(e[0] == "refresh_begin" for e in events),
+        "refreshes_completed": sum(e[0] == "refresh_done" for e in events),
     }
 
 
@@ -119,7 +121,30 @@ def main():
     p.add_argument("--executable", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--steps", type=int, default=600)
+    p.add_argument(
+        "--refresh-passes",
+        type=int,
+        default=0,
+        help="Serialized full-prefix query refreshes instead of navigation",
+    )
     p.add_argument("--smoke", action="store_true")
+    p.add_argument(
+        "--refresh-scroll",
+        action="store_true",
+        help="Navigate while serialized refresh queries are active",
+    )
+    p.add_argument(
+        "--case",
+        choices=("small-two", "small-four", "large-two", "large-three"),
+        help="Run one geometry only",
+    )
+    p.add_argument(
+        "--observe-pid",
+        type=int,
+        action="append",
+        default=[],
+        help="Read-only memory observation of an external shared process; excluded from app totals",
+    )
     p.add_argument("--only-background", action="store_true")
     p.add_argument("--all-loaded-pair", action="store_true")
     p.add_argument("--preload-all", action="store_true")
@@ -182,6 +207,8 @@ def main():
         ("large-two", 4, 850),
         ("large-three", 4, 1150),
     ]
+    if a.case:
+        cases = [case for case in cases if case[0] == a.case]
     if a.smoke:
         cases = cases[:1]
     if a.heaptrack:
@@ -253,11 +280,14 @@ def main():
             PHOTO_ICON=str(icon),
             PHOTO_WIDTH=str(width),
             PHOTO_STEPS=str(a.steps),
+            PHOTO_REFRESH_PASSES=str(a.refresh_passes),
             ALLOCATOR_TRACE=str(out / "allocator.jsonl"),
             ALLOCATOR_CONTROL=str(out / "control"),
         )
         if a.preload_all:
             env["PHOTO_PRELOAD_ALL"] = "1"
+        if a.refresh_scroll:
+            env["PHOTO_REFRESH_SCROLL"] = "1"
         config = out / "config.toml"
         config.write_text('[icon]\ntheme="builtin"\nfollow_accent=false\n')
         empty = out / "empty"
@@ -306,6 +336,13 @@ def main():
                             proc.wait(timeout=15)
                             break
                         raise
+                    observed = {}
+                    for observed_pid in a.observe_pid:
+                        try:
+                            observed[str(observed_pid)] = memory(observed_pid)
+                        except (OSError, ProcessLookupError):
+                            observed[str(observed_pid)] = {"unavailable": True}
+                    sample["external_observed_processes"] = observed
                     mem.write(json.dumps(sample) + "\n")
                     mem.flush()
                     time.sleep(1)
@@ -325,7 +362,11 @@ def main():
             "elapsed_s": time.monotonic() - start,
             "profiled": bool(a.heaptrack),
             "background_work": background,
+            "external_observed_pids": a.observe_pid,
+            "external_process_caveat": "Shared external processes can include activity unrelated to this test; excluded from app/helper totals.",
             "preload_all": a.preload_all,
+            "refresh_passes": a.refresh_passes,
+            "refresh_scroll": a.refresh_scroll,
             "jobs_before": jobs_before,
             "jobs_after": jobs(),
             "catalog_before": counts_before,

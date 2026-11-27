@@ -1,0 +1,13 @@
+{
+  "transitions_including_home": [
+    1803,
+    1803
+  ],
+  "identical_selected_paths": 1803,
+  "exact_order_match": true,
+  "normalized_path_sequence_sha256": [
+    "a3c33819d60e45aa0f763310366b0049c667934beb14207c8d3c5ea73949cd91",
+    "a3c33819d60e45aa0f763310366b0049c667934beb14207c8d3c5ea73949cd91"
+  ],
+  "normalization": "Source absolutepath+relativepath normalized under local /home/barrulus/test-pics and remote /home/barrulus/pixie-pictures/Pictures. No originalfilenames recorded in this report."
+}

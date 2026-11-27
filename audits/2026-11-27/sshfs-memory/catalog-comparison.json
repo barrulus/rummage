@@ -1,0 +1,913 @@
+{
+  "local-matched": {
+    "catalog": "/tmp/rummage-sshfs-catalogs-20261127/local-matched/catalog.sqlite3",
+    "discovery_seconds": 77.95653174699692,
+    "photos": 14268,
+    "metadata_attempted": 0,
+    "entries_checked": 18413,
+    "source_count": 5,
+    "pending_directories": 0,
+    "outcomes": [],
+    "integrity": [
+      [
+        "ok"
+      ]
+    ],
+    "foreign_key_errors": [],
+    "jobs": [
+      [
+        1,
+        "scan",
+        "queued",
+        3928,
+        null
+      ],
+      [
+        2,
+        "scan",
+        "queued",
+        4015,
+        null
+      ],
+      [
+        3,
+        "scan",
+        "queued",
+        466,
+        null
+      ],
+      [
+        4,
+        "scan",
+        "queued",
+        496,
+        null
+      ],
+      [
+        5,
+        "scan",
+        "queued",
+        9508,
+        null
+      ]
+    ],
+    "paused": 1
+  },
+  "remote-matched": {
+    "catalog": "/tmp/rummage-sshfs-catalogs-20261127/remote-matched/catalog.sqlite3",
+    "discovery_seconds": 79.61031184600142,
+    "photos": 14268,
+    "metadata_attempted": 0,
+    "entries_checked": 18413,
+    "source_count": 5,
+    "pending_directories": 0,
+    "outcomes": [],
+    "integrity": [
+      [
+        "ok"
+      ]
+    ],
+    "foreign_key_errors": [],
+    "jobs": [
+      [
+        1,
+        "scan",
+        "queued",
+        3928,
+        null
+      ],
+      [
+        2,
+        "scan",
+        "queued",
+        4015,
+        null
+      ],
+      [
+        3,
+        "scan",
+        "queued",
+        466,
+        null
+      ],
+      [
+        4,
+        "scan",
+        "queued",
+        496,
+        null
+      ],
+      [
+        5,
+        "scan",
+        "queued",
+        9508,
+        null
+      ]
+    ],
+    "paused": 1
+  },
+  "remote-full": {
+    "catalog": "/tmp/rummage-sshfs-catalogs-20261127/remote-full/catalog.sqlite3",
+    "discovery_seconds": 241.70761291899544,
+    "photos": 30834,
+    "metadata_attempted": 0,
+    "entries_checked": 39850,
+    "source_count": 1,
+    "pending_directories": 0,
+    "outcomes": [],
+    "integrity": [
+      [
+        "ok"
+      ]
+    ],
+    "foreign_key_errors": [],
+    "jobs": [
+      [
+        1,
+        "scan",
+        "queued",
+        39850,
+        null
+      ]
+    ],
+    "paused": 1
+  },
+  "pair_metadata_comparison": {
+    "local_photo_candidates": 14268,
+    "remote_photo_candidates": 14268,
+    "matching_relative_paths": 14268,
+    "counts": {
+      "local_only": 0,
+      "remote_only": 0,
+      "size": 0,
+      "mtime_seconds": 0,
+      "mtime_nanoseconds": 0
+    },
+    "comparison": "Source-folder name plus relative photo path, byte size, mtime seconds and nanoseconds; no content hashes or decoding",
+    "source_folder_count": 5
+  },
+  "pair_ordering": {
+    "method": "Default SQL ordering: filename COLLATE NOCASE then photo id; normalized source-folder name/relative path",
+    "total_positions": 14268,
+    "same_path_at_same_position": 14268,
+    "first_1801_positions_match": 1801,
+    "selected_600_down_3columns_paths_match": 600,
+    "selected_mismatches": 0
+  },
+  "fresh_inode_stability": {
+    "matched_candidates": 14268,
+    "full_candidates": 30834,
+    "common_paths": 14268,
+    "device_differences": 0,
+    "inode_differences": 0,
+    "size_or_mtime_differences": 0,
+    "repeated_stat_sample": {
+      "seconds_between": 143.47232240599988,
+      "samples": [
+        {
+          "photo_id": 61458,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 64021,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 66584,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 69159,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 71833,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 74597,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 79475,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 82038,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 84601,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 87164,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 89727,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        },
+        {
+          "photo_id": 92291,
+          "signature_unchanged": true,
+          "inode_unchanged": true
+        }
+      ],
+      "all_unchanged": true
+    }
+  },
+  "user_snapshot": {
+    "records": 92291,
+    "availability": {
+      "changed": 2627,
+      "online": 28195,
+      "replaced": 61457,
+      "unreadable": 12
+    },
+    "metadata_attempted": 37106,
+    "jobs": [
+      [
+        1,
+        "scan",
+        "completed",
+        41218,
+        41218
+      ],
+      [
+        2,
+        "scan",
+        "completed",
+        39850,
+        39850
+      ],
+      [
+        3,
+        "scan",
+        "running",
+        40478,
+        null
+      ]
+    ],
+    "pending_directories": 0,
+    "sources": [
+      {
+        "id": 1,
+        "path": "/home/barrulus/pixie-pictures/Pictures",
+        "active": 1,
+        "availability": "online",
+        "identity_matches_mount": true
+      }
+    ],
+    "identity_samples": [
+      {
+        "availability": "online",
+        "photo_id": 61458,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 64021,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 66584,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 69159,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 71833,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 74597,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 79475,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 82038,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 84601,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 87164,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 89727,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "online",
+        "photo_id": 92291,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 70536,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 74133,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 76262,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 76545,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 76786,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 77025,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 77264,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 77503,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 77741,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 78021,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 78799,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "changed",
+        "photo_id": 79079,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 1,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 5587,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 11174,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 16761,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 22348,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 27935,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 33522,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 39109,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 44696,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 50283,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 55870,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "replaced",
+        "photo_id": 61457,
+        "matches": {
+          "device": true,
+          "inode": false,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67034,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67045,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67069,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67072,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67094,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67133,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67148,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67166,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67183,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67919,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67950,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      },
+      {
+        "availability": "unreadable",
+        "photo_id": 67983,
+        "matches": {
+          "device": true,
+          "inode": true,
+          "size": true,
+          "mtime_seconds": true,
+          "mtime_nanoseconds": true
+        }
+      }
+    ],
+    "identity_sample_summary": {
+      "online": {
+        "sampled": 12,
+        "unreadable_paths": 0,
+        "all_signature_fields_match": 6,
+        "mismatches_by_field": {
+          "device": 0,
+          "inode": 6,
+          "size": 0,
+          "mtime_seconds": 0,
+          "mtime_nanoseconds": 0
+        }
+      },
+      "changed": {
+        "sampled": 12,
+        "unreadable_paths": 0,
+        "all_signature_fields_match": 0,
+        "mismatches_by_field": {
+          "device": 0,
+          "inode": 12,
+          "size": 0,
+          "mtime_seconds": 0,
+          "mtime_nanoseconds": 0
+        }
+      },
+      "replaced": {
+        "sampled": 12,
+        "unreadable_paths": 0,
+        "all_signature_fields_match": 0,
+        "mismatches_by_field": {
+          "device": 0,
+          "inode": 12,
+          "size": 0,
+          "mtime_seconds": 0,
+          "mtime_nanoseconds": 0
+        }
+      },
+      "unreadable": {
+        "sampled": 12,
+        "unreadable_paths": 0,
+        "all_signature_fields_match": 12,
+        "mismatches_by_field": {
+          "device": 0,
+          "inode": 0,
+          "size": 0,
+          "mtime_seconds": 0,
+          "mtime_nanoseconds": 0
+        }
+      }
+    },
+    "test_copy_refresh": {
+      "job_ids": [
+        3
+      ],
+      "ok": true
+    },
+    "test_copy": "/tmp/rummage-sshfs-catalogs-20261127/user-refresh/catalog.sqlite3",
+    "snapshot": "/tmp/rummage-sshfs-catalogs-20261127/user-catalog-snapshot/catalog.sqlite3",
+    "test_copy_pending_directories": 0,
+    "test_copy_jobs": [
+      [
+        1,
+        "scan",
+        "completed",
+        41218,
+        41218
+      ],
+      [
+        2,
+        "scan",
+        "completed",
+        39850,
+        39850
+      ],
+      [
+        3,
+        "scan",
+        "running",
+        40478,
+        null
+      ]
+    ],
+    "visible_query_total": 30834
+  },
+  "user_rescan": {
+    "catalog": "/tmp/rummage-sshfs-catalogs-20261127/user-rescan/catalog.sqlite3",
+    "native_action": "job_control retry job3 whilegloballypaused",
+    "response": {
+      "ok": true,
+      "state": "queued"
+    },
+    "records": 92291,
+    "availability": {
+      "changed": 2627,
+      "online": 28207,
+      "replaced": 61457
+    },
+    "pending_directories": 1
+  },
+  "method": {
+    "module": "/tmp/rummage-remediation-build/librummage-photos.so",
+    "discovery_only": true,
+    "sources_read_only": true,
+    "photo_contents_read": false,
+    "catalog_integrity_checked": true,
+    "original_user_catalog": "Read-only SQLite backup; all API writes restricted to separate test copies.",
+    "pause_control": "Native job_control pause/resume plus background_control pause; no source signature fabrication.",
+    "timing_limit": "Existing kernel/SSHFS caches were not cleared. Preparation timings are not cold network throughput benchmarks."
+  }
+}

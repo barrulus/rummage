@@ -20,6 +20,8 @@ inline unsigned sequence = 0;
 inline unsigned phase = 0;
 inline unsigned tick = 0, sent = 0;
 inline bool initialized = false;
+inline unsigned refresh_sent = 0, refresh_done = 0;
+inline bool refresh_active = false, refresh_trimmed = false;
 inline unsigned drawn_sequence = 0, drawn_phase = 0;
 inline long long drawn_cursor = -1;
 inline int drawn_preview = -1;
@@ -72,6 +74,10 @@ void install(Loop& loop, Browser& b, Window& window) {
                                : 600;
     const unsigned icon =
         std::getenv("PHOTO_ICON") ? static_cast<unsigned>(std::atoi(std::getenv("PHOTO_ICON"))) : 2;
+    const unsigned refresh_passes =
+        std::getenv("PHOTO_REFRESH_PASSES")
+            ? static_cast<unsigned>(std::atoi(std::getenv("PHOTO_REFRESH_PASSES")))
+            : 0;
     b.open_photo_library();
     b.set_mode(Browser::Mode::grid);
     b.set_grid_size(icon);
@@ -79,7 +85,7 @@ void install(Loop& loop, Browser& b, Window& window) {
     b.set_info_auto_hide(false);
     b.info_pane().set_width(300);
     b.set_sidebar_visible(false);
-    loop.add_timer(40ms, 40ms, [&, steps]() {
+    loop.add_timer(40ms, 40ms, [&, steps, refresh_passes]() {
         allocator_probe::poll();
         if (!initialized) {
             const auto f = b.grid().folder();
@@ -95,6 +101,57 @@ void install(Loop& loop, Browser& b, Window& window) {
         ++tick;
         if (tick % 25 == 0)
             allocator_probe::sample("periodic", "sample");
+        if (refresh_passes) {
+            phase = 10;
+            if (std::getenv("PHOTO_REFRESH_SCROLL") && refresh_done < refresh_passes) {
+                rummage::ui::KeyEvent event;
+                event.keysym = sent++ == 0 ? XKB_KEY_Home : XKB_KEY_Down;
+                const auto f = b.grid().folder();
+                ++sequence;
+                const auto dispatched = now();
+                b.key(event, Browser::Clock::now());
+                std::fprintf(output, "key %lld %u %u %lld %s\n", dispatched, sequence, phase,
+                             f && f->cursor() ? static_cast<long long>(*f->cursor()) : -1LL,
+                             f && f->cursor_entry() ? f->cursor_entry()->key().c_str() : "-");
+                std::fflush(output);
+                window.request_redraw();
+            }
+            if (refresh_active && !b.photo_library()->loading()) {
+                refresh_active = false;
+                ++refresh_done;
+                tick = 0;
+                std::fprintf(output, "refresh_done %lld %u %zu\n", now(), refresh_done,
+                             b.grid().folder()->entries().size());
+                std::fflush(output);
+                allocator_probe::sample("refresh_complete", "sample");
+            }
+            if (!refresh_active && refresh_sent < refresh_passes && tick >= 25 &&
+                !b.photo_library()->loading()) {
+                ++refresh_sent;
+                refresh_active = true;
+                tick = 0;
+                std::fprintf(output, "refresh_begin %lld %u %zu\n", now(), refresh_sent,
+                             b.grid().folder()->entries().size());
+                std::fflush(output);
+                b.photo_library()->refresh();
+                window.request_redraw();
+            } else if (refresh_done == refresh_passes && !refresh_trimmed && tick >= 875) {
+                for (const auto& line : b.memory_lines())
+                    std::fprintf(stderr, "before_trim: %s\n", line.c_str());
+                allocator_probe::sample("refresh_idle", "before_trim");
+                const int result = malloc_trim(0);
+                allocator_probe::sample("refresh_idle", "after_trim", result);
+                ::raise(SIGUSR1);
+                refresh_trimmed = true;
+                tick = 0;
+            } else if (refresh_trimmed && tick >= 75) {
+                allocator_probe::sample("post_trim_idle", "sample");
+                std::fprintf(output, "done %lld\n", now());
+                std::fflush(output);
+                loop.quit(0);
+            }
+            return;
+        }
         if (phase == 0 && tick >= 125) {
             phase = 1;
             tick = 0;

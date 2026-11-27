@@ -60,6 +60,21 @@ class PhotoMetricsTests(unittest.TestCase):
         result = self.parse("key 100 1 1 5\nframe 120 1 1 6 1\ndone 130\n")
         self.assertFalse(result["transitions"][0]["preview_ready"])
 
+    def test_refresh_only_workload_counts_completed_queries(self):
+        result = self.parse(
+            "draw 10 0 10 -1 -1 3 30834\n"
+            "refresh_begin 20 1 30834\n"
+            "refresh_done 30 1 30834\n"
+            "refresh_begin 40 2 30834\n"
+            "refresh_done 50 2 30834\n"
+            "done 60\n"
+        )
+        self.assertEqual(result["refreshes_started"], 2)
+        self.assertEqual(result["refreshes_completed"], 2)
+        self.assertEqual(result["max_loaded"], 30834)
+        self.assertEqual(result["transitions"], [])
+        self.assertTrue(result["done"])
+
 
 if __name__ == "__main__":
     unittest.main()
