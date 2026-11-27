@@ -121,12 +121,38 @@ the application's launcher. For a local Debian build:
 sudo apt install ./rummage-debian13-amd64.deb ./rummage-photos-debian13-amd64.deb
 ```
 
-For Fedora, Arch and Tumbleweed, pass the matching two packages to `dnf install`,
-`pacman -U`, or `zypper install --allow-unsigned-rpm`. For Void, install
-`rummage-photos` from the same indexed bundle. Installing the add-on makes Photo
-Library available; it does not scan any folder. Disable **Enable Photo Library**
-in General settings to stop using the capability. Removal or disabling preserves
-catalog data and annotations, and ordinary file browsing remains available.
+For Fedora, install both matching RPMs in one command from the directory containing
+the downloaded packages (these filenames are for the Fedora 45 build):
+
+```sh
+sudo dnf install ./rummage-fedora45-x86_64.rpm ./rummage-photos-fedora45-x86_64.rpm
+```
+
+There are two packages: the application and its optional photo add-on. The add-on
+requires the exact matching application version. If that version of `rummage` is
+already installed, only the add-on RPM needs to be supplied. These filenames
+describe the packaging output; local branch builds are not published downloads.
+
+For Arch and Tumbleweed, pass the matching two packages to `pacman -U` or
+`zypper install --allow-unsigned-rpm`. For Void, install `rummage-photos` from the
+same indexed bundle.
+
+After installing:
+
+1. Close and reopen Rummage.
+2. In **Settings → General**, check that **Enable Photo Library** is on (the default).
+3. Choose **Photo Library** in the sidebar.
+4. Open the toolbar's **Photo Library** menu and choose **Add folder…**. Select a
+   source in Rummage's folder picker, review the subfolder and exclusion options,
+   and confirm to start indexing.
+
+Installing the add-on does not scan any folder automatically. Originals stay in
+their existing locations. See the [Photo Library guide](photo-library.md) for
+albums, saved searches, annotations, duplicates and background activity.
+
+Disable **Enable Photo Library** in General settings to stop using the capability.
+Removal or disabling preserves catalog data and annotations, and ordinary file
+browsing remains available.
 
 For Nix, `nix build .#rummage-with-photos` selects the application with the module;
 `.#rummage-photos` selects the module output for custom composition. The wrapper
