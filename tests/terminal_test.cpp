@@ -73,6 +73,46 @@ TEST_CASE("terminal: real PTY UTF8 colour resize shell quoting and bounded scrol
     CHECK(f.terminal.screen().cells.size() == 600);
 }
 
+TEST_CASE("terminal: widening then growing restores narrow scrollback without hanging") {
+    Fixture f;
+    f.start();
+    f.terminal.resize(8, 20);
+    REQUIRE(f.terminal.command("printf 'row %03d\\n' {1..60}"));
+    REQUIRE(until(f.loop, [&] {
+        return f.terminal.ready() && f.terminal.text().find("row 060") != std::string::npos;
+    }));
+    bool alternate = false;
+    SUBCASE("shell screen") {}
+    SUBCASE("interactive alternate screen") {
+        alternate = true;
+        REQUIRE(
+            f.terminal.command("printf '\\033[?1049hALT_READY'; IFS= read -r -n1 key; "
+                               "printf '\\033[?1049l'"));
+        REQUIRE(until(f.loop,
+                      [&] { return f.terminal.text().find("ALT_READY") != std::string::npos; }));
+    }
+    f.terminal.resize(8, 80);
+    // The old callback spins inside libvterm, before the event loop can run a watchdog.
+    // Bound this synchronous regression so a reintroduced hang fails the test process.
+    ::alarm(5);
+    f.terminal.resize(20, 80);
+    ::alarm(0);
+    const auto screen = f.terminal.screen();
+    CHECK(screen.rows == 20);
+    CHECK(screen.columns == 80);
+    CHECK(screen.cells.size() == 1600);
+    if (alternate) {
+        f.terminal.key(EmbeddedTerminal::Key::none, "q");
+        REQUIRE(until(f.loop, [&] { return f.terminal.ready(); }));
+    }
+    REQUIRE(f.terminal.command("printf 'RESIZE_OK\\n'; stty size"));
+    REQUIRE(until(f.loop, [&] {
+        return f.terminal.ready() && f.terminal.text().find("RESIZE_OK") != std::string::npos &&
+               f.terminal.text().find("20 80") != std::string::npos;
+    }));
+    CHECK(f.terminal.error().empty());
+}
+
 TEST_CASE("terminal: browser sync never overwrites a draft or foreground command") {
     Fixture f;
     f.start();

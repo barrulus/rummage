@@ -129,6 +129,9 @@ struct EmbeddedTerminal::Impl {
         auto row = std::move(self.history.back());
         self.history.pop_back();
         VTermScreenCell blank{};
+        // libvterm advances through restored cells by width. Padding a narrow history
+        // row with zero-width cells makes its resize loop stop making progress.
+        blank.width = 1;
         blank.fg.type = VTERM_COLOR_DEFAULT_FG;
         blank.bg.type = VTERM_COLOR_DEFAULT_BG;
         std::fill(cells, cells + cols, blank);
