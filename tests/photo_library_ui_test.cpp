@@ -51,9 +51,20 @@ KeyEvent photo_key(xkb_keysym_t keysym, rummage::ui::Modifiers modifiers = {},
     return result;
 }
 
+const rummage::views::MenuItem* find_menu_item(const std::vector<rummage::views::MenuItem>& items,
+                                               std::string_view id) {
+    for (const auto& item : items) {
+        if (item.id == id)
+            return &item;
+        if (const auto* child = find_menu_item(item.children, id))
+            return child;
+    }
+    return nullptr;
+}
+
 void invoke(std::vector<rummage::views::MenuItem> items, std::string_view id) {
-    const auto found = std::ranges::find(items, id, &rummage::views::MenuItem::id);
-    REQUIRE(found != items.end());
+    const auto* found = find_menu_item(items, id);
+    REQUIRE(found);
     REQUIRE(found->enabled);
     REQUIRE(static_cast<bool>(found->action));
     found->action();
@@ -342,7 +353,7 @@ TEST_CASE(
     press(photo_key(XKB_KEY_Escape));
     CHECK(library->selected_ids() == selected);
     CHECK(library->state() == before);
-    invoke(library->context_menu_items(), "photos:edit");
+    invoke(library->menu_items(), "photos:edit");
     REQUIRE(browser.properties_dialog().is_open());
     draw("native-properties");
     // Existing PropertiesDialog keyboard focus order reaches the actual native text field.
@@ -655,7 +666,7 @@ TEST_CASE(
     CHECK(browser.gallery());
     CHECK(browser.grid().gallery());
     CHECK(library->rows().size() == 13);
-    invoke(library->menu_items(), "photos:destination:0");
+    library->show_all_photos();
     REQUIRE(
         settle_photos(loop, [&] { return library->rows().size() == 14 && !library->loading(); }));
     invoke(library->menu_items(), "photos:clear-selection");
@@ -670,7 +681,7 @@ TEST_CASE(
             return album.value("name", "") == "Empty album" && album.value("count", -1) == 0;
         });
     }));
-    for (const auto route : {"sidebar", "back", "parent", "menu"}) {
+    for (const auto route : {"sidebar", "back", "parent", "controller"}) {
         INFO("Return route: " << route);
         open_album("Empty album");
         REQUIRE(library->rows().empty());
@@ -690,7 +701,7 @@ TEST_CASE(
         else if (std::string_view{route} == "parent")
             press(photo_key(XKB_KEY_Up, {.alt = true}));
         else
-            invoke(library->menu_items(), "photos:destination:0");
+            library->show_all_photos();
         REQUIRE(settle_photos(loop,
                               [&] { return library->rows().size() == 14 && !library->loading(); }));
         CHECK(browser.showing_photos());
@@ -834,12 +845,14 @@ TEST_CASE(
     CHECK(library->at_all_photos());
     CHECK(library->selected_ids() == changed_selection);
     invoke(library->menu_items(), "photos:clear-selection");
-    for (const auto& menu : {library->menu_items(), library->context_menu_items()}) {
-        const auto item =
-            std::ranges::find(menu, "photos:add-to-album", &rummage::views::MenuItem::id);
-        REQUIRE(item != menu.end());
-        CHECK_FALSE(item->enabled);
-    }
+    const auto toolbar = library->menu_items();
+    const auto* add_to_album = find_menu_item(toolbar, "photos:add-to-album");
+    REQUIRE(add_to_album);
+    CHECK_FALSE(add_to_album->enabled);
+    const auto empty_context = library->context_menu_items();
+    CHECK_FALSE(find_menu_item(empty_context, "photos:add-to-album"));
+    REQUIRE(empty_context.size() == 1);
+    CHECK(empty_context[0].id == "photos:select-page");
     draw("native-add-to-album-complete");
 }
 
@@ -1472,7 +1485,7 @@ TEST_CASE("photo workspace: changed originals preview freshly without accepting 
     const auto changed_actions = browser.context_menu().items();
     REQUIRE(browser.key(photo_key(XKB_KEY_Escape), Browser::Clock::now()));
     for (const auto* action_id :
-         {"copy", "cut", "copy_path", "properties", "photos:edit", "photos:add-to-album"}) {
+         {"copy", "cut", "copy_path", "properties", "photos:add-to-album"}) {
         const auto action =
             std::ranges::find(changed_actions, action_id, &rummage::views::MenuItem::id);
         REQUIRE(action != changed_actions.end());
@@ -1682,6 +1695,11 @@ TEST_CASE(
     CHECK_FALSE(library.folder()->entries().front().can_preview());
     CHECK(library.status().find("Retained associations") != std::string::npos);
     CHECK(std::filesystem::exists(source / "original.png"));
+    invoke(library.menu_items(), "photos:retained");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows().empty());
+    CHECK(nlohmann::json::parse(library.state()).at("filter").at("album_id") == album.at("id"));
+    CHECK_FALSE(nlohmann::json::parse(library.state()).at("filter").contains("retained_only"));
     library.show(PhotoLibrary::Destination::albums);
     REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
     library.folder()->set_cursor(0);
@@ -1696,8 +1714,8 @@ TEST_CASE(
     CHECK(std::ranges::any_of(props.rows, [](const auto& row) { return row.second == "paused"; }));
     CHECK(std::ranges::any_of(props.rows, [](const auto& row) { return row.second == "1"; }));
     const auto menu = library.menu_items();
-    const auto retained = std::ranges::find(menu, "photos:retained", &rummage::views::MenuItem::id);
-    REQUIRE(retained != menu.end());
+    const auto* retained = find_menu_item(menu, "photos:retained");
+    REQUIRE(retained);
     CHECK(retained->label != "Review retained photo associations");
     CHECK_FALSE(retained->label.empty());
     rummage::i18n::set_language("en");
@@ -1788,7 +1806,7 @@ TEST_CASE("photo workspace: album management preserves originals and renders cho
     const auto id = album.at("id").get<PhotoLibrary::Id>();
     library.open_album(id, "Original album");
     REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
-    invoke(library.context_menu_items(), "photos:rename-album");
+    invoke(library.menu_items(), "photos:rename-album");
     REQUIRE(library.has_dialog());
     CHECK(library.copy_selection(false) == "Original album");
     library.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, "Renamed album"));
@@ -1942,12 +1960,18 @@ TEST_CASE(
         const auto actions = browser.context_menu().items();
         press(photo_key(XKB_KEY_Escape));
         for (const auto* action_id :
-             {"copy", "cut", "copy_path", "properties", "photos:edit", "photos:add-to-album"}) {
+             {"copy", "cut", "copy_path", "properties", "photos:add-to-album"}) {
             const auto action =
                 std::ranges::find(actions, action_id, &rummage::views::MenuItem::id);
             REQUIRE(action != actions.end());
             CHECK(action->enabled);
         }
+        REQUIRE(!actions.empty());
+        CHECK(actions.back().id == "properties");
+        CHECK_FALSE(find_menu_item(actions, "photos:edit"));
+        CHECK_FALSE(find_menu_item(actions, "photos:create-album"));
+        if (!open_album)
+            CHECK_FALSE(find_menu_item(actions, "paste"));
         invoke(actions, "copy");
     } else {
         press(photo_key(XKB_KEY_c, {.ctrl = true}));
@@ -2512,5 +2536,131 @@ TEST_CASE(
     CHECK(catalog.request({{"op", "jobs"}}).at("jobs") == before);
     library.open();
     REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.rows().size() == 1; }));
+}
+
+TEST_CASE(
+    "photo workspace: compact context menus keep collection tools in native toolbar submenus") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    fixture(source / "First.png");
+    fixture(source / "Second.png");
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    const auto rows = catalog.request({{"op", "query"}}).at("photos");
+    REQUIRE(rows.size() == 2);
+    const auto album = catalog.request(
+        {{"op", "create_album"}, {"name", "Both"}, {"ids", {rows[0].at("id"), rows[1].at("id")}}});
+    REQUIRE(album.value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    PhotoLibrary library{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    library.set_folder_chooser([](auto, auto) {});
+    library.set_album_chooser([](auto, auto) {});
+    library.set_edit_handler([] {});
+    library.set_reveal_handler([](auto) {});
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    const auto toolbar = library.menu_items();
+    CHECK(toolbar.size() == 7);
+    for (const auto& item : toolbar)
+        CHECK_FALSE(item.id.starts_with("photos:destination:"));
+    for (const auto* group : {"photos:search-menu", "photos:selection-menu",
+                              "photos:background-menu", "photos:annotations-menu"}) {
+        const auto* submenu = find_menu_item(toolbar, group);
+        REQUIRE(submenu);
+        CHECK(submenu->submenu);
+        CHECK_FALSE(submenu->children.empty());
+    }
+    const auto empty_context = library.context_menu_items();
+    REQUIRE(empty_context.size() == 1);
+    CHECK(empty_context[0].id == "photos:select-page");
+    // Navigate the actual native submenu with keys and run its Select loaded photos action.
+    rummage::views::ContextMenu native_menu{[] {}};
+    native_menu.open(10, 10, toolbar, true);
+    const auto selection =
+        std::ranges::find(toolbar, "photos:selection-menu", &rummage::views::MenuItem::id);
+    REQUIRE(selection != toolbar.end());
+    for (auto item = toolbar.begin(); item != selection; ++item)
+        REQUIRE(native_menu.key(photo_key(XKB_KEY_Down)));
+    REQUIRE(native_menu.key(photo_key(XKB_KEY_Right)));
+    REQUIRE(native_menu.submenu_open());
+    CHECK(native_menu.sub_highlighted() == 2);
+    REQUIRE(native_menu.key(photo_key(XKB_KEY_Return)));
+    CHECK_FALSE(native_menu.is_open());
+    REQUIRE(library.selected_ids().size() == 2);
+    const auto selected_context = library.context_menu_items();
+    CHECK(selected_context.size() == 2);
+    CHECK(find_menu_item(selected_context, "photos:reveal"));
+    CHECK(find_menu_item(selected_context, "photos:add-to-album"));
+    for (const auto* id : {"photos:edit", "photos:create-album", "photos:filters",
+                           "photos:retained", "photos:select-page", "photos:refresh",
+                           "photos:pause", "photos:export", "photos:restore-originals"})
+        CHECK_FALSE(find_menu_item(selected_context, id));
+    library.open_album(album.at("id").get<PhotoLibrary::Id>(), "Both");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK_FALSE(find_menu_item(library.context_menu_items(), "photos:set-album-cover"));
+    library.folder()->set_cursor(0);
+    const auto single = library.context_menu_items();
+    CHECK(find_menu_item(single, "photos:set-album-cover"));
+    CHECK(find_menu_item(single, "photos:album-remove"));
+    CHECK_FALSE(find_menu_item(single, "photos:rename-album"));
+    CHECK_FALSE(find_menu_item(single, "photos:delete-album"));
+    library.folder()->select_all();
+    const auto captured = library.context_menu_items();
+    library.folder()->set_cursor(0);
+    invoke(captured, "photos:album-remove");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows()
+              .empty());  // The captured two-photo selection was removed, not the later one.
+    CHECK(catalog.request({{"op", "query"}}).value("total", 0) == 2);
+    CHECK(std::filesystem::exists(source / "First.png"));
+    CHECK(std::filesystem::exists(source / "Second.png"));
+    library.show(PhotoLibrary::Destination::albums);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    library.folder()->set_cursor(0);
+    const auto record_context = library.context_menu_items();
+    REQUIRE(!record_context.empty());
+    CHECK(record_context.front().id == "photos:show-album");
+    std::set<std::string> record_ids;
+    for (const auto& item : record_context)
+        CHECK(record_ids.insert(item.id).second);
+    CHECK(find_menu_item(record_context, "photos:rename-album"));
+    CHECK(find_menu_item(record_context, "photos:delete-album"));
+    CHECK(find_menu_item(record_context, "photos:reset-album-cover"));
+    library.folder()->set_cursor(std::nullopt);
+    const auto albums_background = library.context_menu_items();
+    REQUIRE(albums_background.size() == 1);
+    CHECK(albums_background[0].id == "photos:create-album");
+    library.show(PhotoLibrary::Destination::activity);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(!library.folder()->entries().empty());
+    library.folder()->set_cursor(0);
+    const auto jobs_before = catalog.request({{"op", "jobs"}}).at("jobs");
+    CHECK(library.activate());
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(catalog.request({{"op", "jobs"}}).at("jobs") == jobs_before);
+    library.show(PhotoLibrary::Destination::sources);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    library.folder()->set_cursor(0);
+    const auto active_source = library.context_menu_items();
+    CHECK(active_source.front().id == "photos:show-source");
+    CHECK(find_menu_item(active_source, "photos:inactive-source"));
+    CHECK_FALSE(find_menu_item(active_source, "photos:forget-source"));
+    invoke(active_source, "photos:inactive-source");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    library.folder()->set_cursor(0);
+    const auto inactive_source = library.context_menu_items();
+    CHECK(find_menu_item(inactive_source, "photos:forget-source"));
+    CHECK_FALSE(find_menu_item(inactive_source, "photos:inactive-source"));
+    CHECK_FALSE(find_menu_item(inactive_source, "photos:refresh-source"));
+    library.folder()->set_cursor(std::nullopt);
+    const auto sources_background = library.context_menu_items();
+    REQUIRE(sources_background.size() == 1);
+    CHECK(sources_background[0].id == "photos:add");
 }
 #endif

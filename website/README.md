@@ -75,13 +75,15 @@ Update the manifest when replacing an image. The website and guides share these
 assets; the original `guide-*`, `shot-*`, and `readme-*` screenshots have been
 retired rather than retained in the deployed image directory.
 
-The Photo Library showcase and guide use six supplied 27 November 2026 captures:
+The Photo Library screenshot collection contains six supplied 27 November 2026 captures:
 the library grid, Quick Look, an open album, photo details, the source folder picker,
 and the Add to album action. Their `photo-*` manifest entries record the capture
 date and custom dark appearance. They use the same lossless, original-size WebP
 conversion and decoded-pixel verification as the earlier collection. The 19:31:22
 details capture replaces the clipped 19:26:34 take; the latter is listed as unused.
 The homepage links to the illustrated guide and the optional add-on installation steps.
+The guide currently uses five captures: the older Add to album screenshot is retained in
+the collection but omitted from the guide following the context-menu simplification.
 
 The `/pricing/` page presents three humorous free tiers, all linking to the same
 downloads. Keep their feature lists identical and the MIT licence and development

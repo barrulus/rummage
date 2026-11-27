@@ -4,6 +4,7 @@
 #include <charconv>
 #include <format>
 #include <fstream>
+#include <initializer_list>
 #include <utility>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -1677,28 +1678,9 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
         item.enabled = enabled;
         result.push_back(std::move(item));
     };
-    for (const auto& [label, destination] :
-         std::array{std::pair{tr("All photos"), Destination::library},
-                    std::pair{tr("Sources"), Destination::sources},
-                    std::pair{tr("Albums"), Destination::albums},
-                    std::pair{tr("Saved searches"), Destination::filters},
-                    std::pair{tr("Review duplicates"), Destination::review},
-                    std::pair{tr("Activity"), Destination::activity}}) {
-        add("photos:destination:" + std::to_string(static_cast<int>(destination)), label,
-            [this, destination] {
-                if (destination == Destination::library)
-                    show_all_photos();
-                else
-                    show(destination);
-            });
-        result.back().radio = result.back().checkable = true;
-        result.back().checked =
-            destination == Destination::library ? at_all_photos() : destination_ == destination;
-    }
     add(
         "photos:add", tr("Add folder…"), [this] { add_folder(); },
         static_cast<bool>(choose_folder_));
-    result.back().separator = true;
     add("photos:filters", tr("Filter photos…"), [this] {
         open_form(Form::filters,
                   {{tr("Minimum rating (0–5)"), std::to_string(filter_.value("rating_min", 0))},
@@ -1708,7 +1690,10 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
     add("photos:clear", tr("Clear photo filters"), [this] { show_all_photos(); });
     add("photos:retained", tr("Review retained photo associations"), [this] {
         sync_selection();
-        filter_["retained_only"] = true;
+        if (filter_.value("retained_only", false))
+            filter_.erase("retained_only");
+        else
+            filter_["retained_only"] = true;
         search_.clear();
         active_saved_search_ = 0;
         offset_ = 0;
@@ -1738,9 +1723,20 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
         auto album_items = album_menu_items(album.value("id", Id{}), album.value("name", ""));
         for (auto& item : album_items)
             result.push_back(std::move(item));
+        const auto ids = selected_ids();
+        add(
+            "photos:album-remove",
+            photo_rows() ? tr("Remove from this album") : tr("Remove selected photos from album"),
+            [this, id = album.value("id", Id{}), ids] {
+                mutate({{"op", "edit"}, {"ids", ids}, {"remove_albums", {id}}},
+                       tr("Album membership saved"));
+            },
+            !ids.empty());
         if (photo_rows()) {
-            const auto ids = selected_ids();
-            const bool single_member = ids.size() == 1 && row_by_id_.contains(ids[0].get<Id>());
+            const auto member =
+                ids.size() == 1 ? row_by_id_.find(ids[0].get<Id>()) : row_by_id_.end();
+            const bool single_member = member != row_by_id_.end() &&
+                                       rows_[member->second].value("availability", "") == "online";
             add(
                 "photos:set-album-cover", tr("Use as album thumbnail"),
                 [this, id = album.value("id", Id{}), ids] {
@@ -1823,6 +1819,30 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
     result.back().checked = background_pace_ == "gentle";
     add("photos:export", tr("Export photo annotations…"), [this] { choose_annotations(true); });
     add("photos:restore", tr("Restore photo annotations…"), [this] { choose_annotations(false); });
+    const auto group = [&](std::string id, std::string label,
+                           std::initializer_list<std::string_view> actions) {
+        MenuItem submenu;
+        submenu.id = std::move(id);
+        submenu.label = std::move(label);
+        submenu.submenu = true;
+        for (const auto action : actions) {
+            const auto item = std::ranges::find(result, action, &MenuItem::id);
+            if (item == result.end())
+                continue;
+            submenu.children.push_back(std::move(*item));
+            result.erase(item);
+        }
+        if (!submenu.children.empty()) {
+            submenu.children.front().separator = false;
+            result.push_back(std::move(submenu));
+        }
+    };
+    group("photos:search-menu", tr("Search and filters"),
+          {"photos:filters", "photos:clear", "photos:save-search", "photos:retained"});
+    group("photos:selection-menu", tr("Selection"),
+          {"photos:add-to-album", "photos:edit", "photos:select-page", "photos:clear-selection"});
+    group("photos:background-menu", tr("Background work"), {"photos:pause", "photos:pace"});
+    group("photos:annotations-menu", tr("Annotations"), {"photos:export", "photos:restore"});
     return result;
 }
 
@@ -1831,6 +1851,8 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
     std::vector<MenuItem> result;
     const auto add = [&](std::string id, std::string label, std::function<void()> run,
                          bool enabled = true) {
+        if (!enabled)
+            return;
         MenuItem item;
         item.id = std::move(id);
         item.label = std::move(label);
@@ -1838,14 +1860,32 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
         item.enabled = enabled;
         result.push_back(std::move(item));
     };
+    const auto toolbar = menu_items();
+    const auto append = [&](std::string_view id) {
+        const auto find = [&](const auto& self,
+                              const std::vector<MenuItem>& items) -> const MenuItem* {
+            for (const auto& item : items) {
+                if (item.id == id)
+                    return &item;
+                if (const auto* child = self(self, item.children))
+                    return child;
+            }
+            return nullptr;
+        };
+        if (const auto* item = find(find, toolbar); item && item->enabled)
+            result.push_back(*item);
+    };
     const auto record = focused_record();
     const auto id = record.value("id", Id{});
     if (destination_ == Destination::sources && !record.empty()) {
         add("photos:show-source", tr("Show photos"),
             [this, id, record] { open_source(id, record.value("path", "")); });
-        add("photos:refresh-source", tr("Refresh folder"), [this, id] {
-            mutate({{"op", "refresh"}, {"source_id", id}}, tr("Folder refresh queued"));
-        });
+        add(
+            "photos:refresh-source", tr("Refresh folder"),
+            [this, id] {
+                mutate({{"op", "refresh"}, {"source_id", id}}, tr("Folder refresh queued"));
+            },
+            record.value("active", true));
         add(
             "photos:relink-source", tr("Relink source…"), [this, record] { relink_source(record); },
             static_cast<bool>(choose_folder_));
@@ -1880,13 +1920,9 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
                        tr("Album membership saved"));
             },
             !ids.empty());
-        add(
-            "photos:album-remove", tr("Remove selected photos from album"),
-            [this, id, ids] {
-                mutate({{"op", "edit"}, {"ids", ids}, {"remove_albums", {id}}},
-                       tr("Album membership saved"));
-            },
-            !ids.empty());
+        append("photos:album-remove");
+        for (auto& item : album_menu_items(id, record.value("name", "")))
+            result.push_back(std::move(item));
     } else if (destination_ == Destination::filters && !record.empty()) {
         add("photos:run-search", tr("Find photos"), [this, record] { open_saved_search(record); });
     } else if (destination_ == Destination::review && !record.empty()) {
@@ -1931,16 +1967,14 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
             },
             !focused_path.empty() && static_cast<bool>(reveal_));
         const auto ids = selected_ids();
-        add(
-            "photos:edit", tr("Edit photo annotations…"),
-            [this] {
-                if (edit_)
-                    edit_();
-            },
-            !ids.empty() && static_cast<bool>(edit_));
-        add(
-            "photos:add-to-album", tr("Add to album…"), [this] { add_to_album(); },
-            !ids.empty() && static_cast<bool>(choose_album_));
+        if (ids.empty()) {
+            result.clear();
+            append("photos:select-page");
+            return result;
+        }
+        append("photos:add-to-album");
+        append("photos:album-remove");
+        append("photos:set-album-cover");
         if (destination_ == Destination::duplicate_group) {
             add(
                 "photos:keep", tr("Keep selected copies"),
@@ -1978,19 +2012,18 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
             },
             restorable && static_cast<bool>(file_action_));
     }
-    auto common = menu_items();
-    if (!common.empty())
-        common.front().separator = true;
-    for (auto& item : common)
-        if (std::ranges::none_of(result,
-                                 [&](const MenuItem& existing) { return existing.id == item.id; }))
-            result.push_back(std::move(item));
+    if (record.empty() && destination_ == Destination::albums)
+        append("photos:create-album");
+    else if (record.empty() && destination_ == Destination::sources)
+        append("photos:add");
     return result;
 }
 
 bool PhotoLibrary::activate() {
     if (photo_rows())
         return false;
+    if (destination_ == Destination::activity && !focused_record().value("file_operation", false))
+        return true;  // Job controls require an explicit context-menu choice.
     const auto items = context_menu_items();
     if (!focused_record().empty() && !items.empty() && items.front().enabled &&
         items.front().action)

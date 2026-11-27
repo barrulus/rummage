@@ -2951,8 +2951,9 @@ void Browser::open_menu(float x, float y, bool keyboard) {
             for (const auto& [id, label, command] :
                  {std::tuple{"copy", "Copy", Command::copy}, std::tuple{"cut", "Cut", Command::cut},
                   std::tuple{"copy_path", "Copy Path", Command::copy_path},
-                  std::tuple{"paste", "Paste", Command::paste},
-                  std::tuple{"properties", "Properties…", Command::properties}}) {
+                  std::tuple{"paste", "Paste", Command::paste}}) {
+                if (command == Command::paste ? photo_library_->active_album() <= 0 : ids.empty())
+                    continue;
                 MenuItem item;
                 item.id = id;
                 item.label = i18n::tr(label);
@@ -2966,17 +2967,25 @@ void Browser::open_menu(float x, float y, bool keyboard) {
                         copy_path();
                     else if (command == Command::paste)
                         paste();
-                    else if (command == Command::properties)
-                        show_properties();
                     else
                         take_selection(command == Command::cut);
                 };
                 clipboard.push_back(std::move(item));
             }
-            if (!items.empty())
+            if (!clipboard.empty() && !items.empty())
                 items.front().separator = true;
             for (auto& item : items)
                 clipboard.push_back(std::move(item));
+            if (!ids.empty()) {
+                MenuItem properties;
+                properties.id = "properties";
+                properties.label = i18n::tr("Properties…");
+                properties.keys = keys_for(Command::properties);
+                properties.enabled = complete;
+                properties.separator = !clipboard.empty();
+                properties.action = [this] { show_properties(); };
+                clipboard.push_back(std::move(properties));
+            }
             items = std::move(clipboard);
         }
         menu_.open(x, y, std::move(items), keyboard);

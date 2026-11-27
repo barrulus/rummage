@@ -26,6 +26,13 @@ a group’s label to browse its list in the main pane. Click Photo Library to re
 The sidebar remembers which groups you expand or collapse and highlights the current location.
 New albums and saved searches appear there after they are saved.
 
+Right-click a photo for actions on that selection: copying, showing its original folder,
+adding it to an album, and **Properties…**. Properties also edits catalog annotations.
+Inside an album, the menu additionally offers **Remove from this album** and, for a single
+selected photo, **Use as album thumbnail**. Library navigation stays in the sidebar.
+The Photo Library toolbar menu groups library-wide controls under **Search and filters**,
+**Selection**, **Background work** and **Annotations**.
+
 Open the toolbar’s **Photo Library** menu and choose **Add folder…**. Select the folder in
 Rummage’s own folder picker, then review **Include subfolders** and optional source-relative
 exclusions. The review shows the chosen location; no path typing is required. Adding a folder
@@ -39,7 +46,7 @@ folders retain separate identities. Symbolic links inside sources are not follow
 
 The **Library** shows all active sources together while discovery continues. The browser’s
 **Search photos…** field matches stored filenames, descriptions and tags. In the Photo Library
-menu, **Filter photos…** adds minimum rating, capture-date bounds, **Unknown date only**, and
+menu’s **Search and filters** submenu, **Filter photos…** adds minimum rating, capture-date bounds, **Unknown date only**, and
 an option to include inactive sources. **Sources** and **Albums** can narrow the same collection.
 **Clear photo filters** returns to the active library. **Save photo search…** records the current
 query and filters for reuse under **Saved searches**. Search is indexed text search; there is
@@ -89,8 +96,9 @@ remain unchanged. **Cut** and destructive operations still require a verified or
 Offline, missing, trashed and replaced records remain cache-only.
 
 Album counts describe visible photos. Replaced originals and inactive sources retain their
-annotations separately: choose **Review retained photo associations** in the Photo Library
-menu to inspect them. This view can be used within an album or source. A changed filesystem
+annotations separately: choose **Search and filters → Review retained photo associations**
+in the Photo Library toolbar menu to inspect them. This view can be used within an album or source.
+Turn the filter off to return to active photos. A changed filesystem
 identity is never automatically attached to another file, even when its name and contents look
 the same. Sources whose inode identities change across reconnects may require this review.
 
@@ -117,7 +125,7 @@ image.
 ## Edit and organise
 
 Select photographs and open **Properties**, or choose **Edit photo annotations…** from the
-Photo Library menu or photo context menu. This uses Rummage’s normal Properties dialog and
+Photo Library menu’s **Selection** submenu. This uses Rummage’s normal Properties dialog and
 shows the affected-photo count. Shared fields show their value; differing or unloaded values
 are marked **Mixed values**. Editing a field checks its **Apply** switch. Check a blank field
 explicitly to clear it across the selection; leave unchecked fields unchanged. **Tags to add**
@@ -150,16 +158,12 @@ manual annotations and date overrides.
 Select photos, right-click and choose **Add to album…**. Choose an existing album in the
 searchable album list, or **Create new album…** to make one from the same selection. Cancelling
 the chooser leaves your photos and album memberships unchanged. This action is also in the
-Photo Library toolbar menu.
-
-![Three photos selected in Photo Library with the context menu open to Add to album](images/rummage-photo-add-to-album.webp)
-
-*Add the selected photos to an album without moving their originals.*
+Photo Library toolbar menu’s **Selection** submenu.
 
 Use **Create album…** in the Photo Library menu to create an album containing
 that selection. The dialog shows how many photos will be included; with no selection it creates
 an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
-album. Choose **All photos**, click **Photo Library** in the sidebar, or use Back or Parent to
+album. Click **Photo Library** in the sidebar, or use Back or Parent to
 return to the full active library. An album’s context
 menu offers **Add selected photos to album** and **Remove selected photos from album**.
 
@@ -205,7 +209,8 @@ they are not counted as successful metadata reads. A job’s context menu offers
 **Cancel job** and **Retry job** when appropriate. Completed work remains recorded. A pause
 prevents new items from starting at a safe checkpoint; already claimed metadata work can finish.
 
-The Photo Library menu’s **Pause background work** and **Resume background work** apply across library
+The Photo Library menu’s **Background work** submenu contains **Pause background work** and
+**Resume background work**. These apply across library
 windows and persist through restarts. Resuming globally leaves individually paused jobs paused.
 Source changes can still queue a refresh while work is paused; processing waits for resume.
 Check **Gentle background pace** in the same menu for smaller, less frequent batches that
@@ -290,7 +295,7 @@ must not be treated as a completed cleanup. Near-duplicate and burst review are 
 
 ## Export and recovery
 
-**Export photo annotations…** in the Photo Library menu opens Rummage’s native Save picker
+**Export photo annotations…** under **Annotations** in the Photo Library menu opens Rummage’s native Save picker
 with a suggested JSON filename. Saving over an existing export uses the picker’s replacement
 confirmation; the completed export replaces the file atomically. Exports contain annotations,
 date overrides, albums,
