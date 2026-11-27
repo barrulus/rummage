@@ -22,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1193,13 +1194,29 @@ bool runnable(Database& db, Id id) {
     return state.row() && (state.text(0) == "running" || state.text(0) == "queued");
 }
 
+struct WorkErrors {
+    unsigned count{};
+    std::string last;
+
+    void add(std::string_view reason) {
+        count = std::min(count + 1U, 1024U);
+        auto length = std::min(reason.size(), std::size_t{1024});
+        // Preserve a valid UTF-8 boundary when a long original path is part of the reason.
+        if (length < reason.size())
+            while (length > 0 && (static_cast<unsigned char>(reason[length]) & 0xc0U) == 0x80U)
+                --length;
+        last.assign(reason.substr(0, length));
+    }
+};
+
 void outcome(Database& db, Id job, const std::string& path, const std::string& error,
-             const std::string& stage = "discovery") {
+             WorkErrors& errors, const std::string& stage = "discovery") {
     Statement statement(
         db.get(),
         "INSERT INTO outcomes(job_id,path,error,stage) VALUES(?,?,?,?) ON "
         "CONFLICT(job_id,path) DO UPDATE SET error=excluded.error,stage=excluded.stage");
     statement.bind(1, job).bind(2, path).bind(3, error).bind(4, stage).run();
+    errors.add(stage + ": " + error);
 }
 
 bool index_file(Database& db, Id source, Id job, const std::string& relative, const struct stat& st,
@@ -1305,7 +1322,8 @@ struct DirectoryCursor {
 std::mutex cursor_mutex;
 std::map<std::string, DirectoryCursor> cursors;
 
-Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs::path>& internal) {
+Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs::path>& internal,
+               WorkErrors& errors) {
     Json changed = Json::array();
     bool topology_changed = false, discovery_changed = false;
     Statement root(db.get(),
@@ -1323,6 +1341,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                        "UPDATE jobs SET state='failed',error='Source is inside an internal catalog "
                        "or thumbnail-cache folder' WHERE id=?");
         fail.bind(1, job).run();
+        errors.add("Source is inside an internal catalog or thumbnail-cache folder");
         return {{"worked", true}};
     }
     const bool recursive = root.number(1) != 0;
@@ -1341,6 +1360,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                           "it and retry.' WHERE id=?");
         waiting.bind(1, job).run();
         transaction.commit();
+        errors.add("Source is unavailable. Reconnect it and retry.");
         return {{"worked", true},
                 {"waiting", true},
                 {"discovery_changed", true},
@@ -1405,6 +1425,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                 discovery_changed = true;
                 topology_changed = true;
                 transaction.commit();
+                errors.add("Source disconnected. Reconnect and retry.");
                 break;
             }
             if (problems.number(0) == 0) {
@@ -1448,7 +1469,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
         }
         auto& stream = cursor.stream;
         if (!stream) {
-            outcome(db, job, directory.string(), std::strerror(errno));
+            outcome(db, job, directory.string(), std::strerror(errno), errors);
             Statement remove(db.get(),
                              "DELETE FROM directories WHERE job_id=? AND relative_path=?");
             remove.bind(1, job).bind(2, relative).run();
@@ -1475,7 +1496,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
             auto* entry = ::readdir(stream.get());
             if (!entry) {
                 if (errno != 0)
-                    outcome(db, job, directory.string(), std::strerror(errno));
+                    outcome(db, job, directory.string(), std::strerror(errno), errors);
                 finished = true;
                 break;
             }
@@ -1499,7 +1520,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                 outcome(
                     db, job, (directory / label.str()).string(),
                     "Filename is not valid UTF-8; rename it using the file manager before retrying",
-                    "filename");
+                    errors, "filename");
                 excluded = true;
             }
             for (const auto& exclusion : exclusions)
@@ -1510,7 +1531,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
             if (!excluded) {
                 struct stat st{};
                 if (::lstat((path / child).c_str(), &st) != 0)
-                    outcome(db, job, (path / child).string(), std::strerror(errno));
+                    outcome(db, job, (path / child).string(), std::strerror(errno), errors);
                 else if (S_ISDIR(st.st_mode) && recursive) {
                     Statement add(
                         db.get(),
@@ -1614,7 +1635,7 @@ bool equal_files(const fs::path& a, const fs::path& b) {
     }
 }
 
-Json duplicate_work(Database& db, Id job, Id budget) {
+Json duplicate_work(Database& db, Id job, Id budget, WorkErrors& errors) {
     Statement last(db.get(), "SELECT last_photo FROM jobs WHERE id=?");
     last.bind(1, job);
     (void)last.row();
@@ -1645,7 +1666,7 @@ Json duplicate_work(Database& db, Id job, Id budget) {
                 update.bind(1, hash).bind(2, item["id"]).run();
             }
         } catch (const std::exception& error) {
-            outcome(db, job, item["path"].get<std::string>(), error.what());
+            outcome(db, job, item["path"].get<std::string>(), error.what(), errors);
         }
         Statement checkpoint(db.get(),
                              "UPDATE jobs SET last_photo=?,completed=completed+1 WHERE id=?");
@@ -1743,21 +1764,31 @@ Json work(Database& db, const Json& request) {
         auto result = state;
         result["worked"] = false;
         result["metadata"] = Json::array();
+        result["work_errors"] = 0;
+        result["work_error"] = "";
         return result;
     }
     WorkLock lock(db.path());
     if (!lock.acquired())
-        return {{"worked", false}, {"busy", true}, {"metadata", Json::array()}};
+        return {{"worked", false},
+                {"busy", true},
+                {"metadata", Json::array()},
+                {"work_errors", 0},
+                {"work_error", ""}};
     const Id maximum = state.value("pace", std::string{}) == "gentle" ? Id{8} : Id{256};
     const Id budget = std::clamp(request.value("budget", Id{64}), Id{1}, maximum);
     Statement job(db.get(),
                   "SELECT id,kind,COALESCE(source_id,0) FROM jobs WHERE state IN "
                   "('queued','running') ORDER BY id LIMIT 1");
     Json result{{"worked", false}};
+    WorkErrors errors;
     if (job.row())
-        result = job.text(1) == "scan" ? scan_work(db, job.number(0), job.number(2), budget,
-                                                   internal_exclusions(db, request))
-                                       : duplicate_work(db, job.number(0), std::min(budget, Id{8}));
+        result = job.text(1) == "scan"
+                     ? scan_work(db, job.number(0), job.number(2), budget,
+                                 internal_exclusions(db, request), errors)
+                     : duplicate_work(db, job.number(0), std::min(budget, Id{8}), errors);
+    result["work_errors"] = errors.count;
+    result["work_error"] = std::move(errors.last);
     result["metadata"] = metadata_pending(db, state.at("metadata_limit").get<Id>());
     if (!result.contains("changed_ids"))
         result["changed_ids"] = Json::array();

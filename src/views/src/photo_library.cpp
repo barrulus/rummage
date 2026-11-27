@@ -1319,8 +1319,8 @@ void PhotoLibrary::update_progress(const Json& jobs, const Json& counts) {
     if (in_flight > 0)
         progress_ += " · " + i18n::trf("{} in flight", in_flight);
     if (paused || waiting || failed)
-        progress_ += " · " + i18n::trf("{} paused · {} waiting · {} failed — see Activity", paused,
-                                       waiting, failed);
+        progress_ += " · " + i18n::trf("{} paused · {} waiting · {} failed — check system journal",
+                                       paused, waiting, failed);
 }
 
 PhotoProperties PhotoLibrary::properties(bool focused_only) const {

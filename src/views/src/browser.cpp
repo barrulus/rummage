@@ -1572,9 +1572,7 @@ void Browser::show_places() {
                          logical(std::string{i18n::tr("Saved searches")}, "bookmark",
                                  "rummage:photos/searches"),
                          logical(std::string{i18n::tr("Review duplicates")}, "files",
-                                 "rummage:photos/review"),
-                         logical(std::string{i18n::tr("Activity")}, "list-details",
-                                 "rummage:photos/activity")},
+                                 "rummage:photos/review")},
             .expanded_by_default = true};
         for (const auto& [key, uri, icon] :
              {std::tuple{"albums", "rummage:photos/albums", "photo"},
@@ -5937,8 +5935,7 @@ void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
              {std::pair{"rummage:photos/albums", PhotoLibrary::Destination::albums},
               std::pair{"rummage:photos/sources", PhotoLibrary::Destination::sources},
               std::pair{"rummage:photos/searches", PhotoLibrary::Destination::filters},
-              std::pair{"rummage:photos/review", PhotoLibrary::Destination::review},
-              std::pair{"rummage:photos/activity", PhotoLibrary::Destination::activity}}) {
+              std::pair{"rummage:photos/review", PhotoLibrary::Destination::review}}) {
             if (place.uri == uri) {
                 photo_library_->show(target);
                 return;

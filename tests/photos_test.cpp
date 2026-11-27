@@ -205,7 +205,11 @@ TEST_CASE("source disconnection preserves edits and relink requires established 
     fixture.call({{"op", "edit"}, {"ids", Json::array({id})}, {"rating", 5}});
     fs::rename(fixture.root / "a", fixture.root / "disconnected");
     fixture.call({{"op", "refresh"}});
-    fixture.call({{"op", "work"}});
+    const auto disconnected = fixture.call({{"op", "work"}});
+    CHECK(disconnected["work_errors"] == 1);
+    CHECK(disconnected["work_error"].get<std::string>().find("Source is unavailable") !=
+          std::string::npos);
+    CHECK(fixture.call({{"op", "work"}})["work_errors"] == 0);
     CHECK(fixture.call({{"op", "query"}})["photos"][0]["availability"] == "offline");
     fixture.call({{"op", "relink_source"},
                   {"source_id", source},
@@ -630,11 +634,59 @@ TEST_CASE("invalid UTF-8 filenames are reported without hiding healthy photograp
     fixture.file("a/healthy.jpg");
     fixture.file(std::string("a/bad-") + static_cast<char>(0xff) + ".jpg");
     fixture.add("a");
+    const auto batch = fixture.call({{"op", "work"}, {"budget", 64}});
+    CHECK(batch["work_errors"] == 1);
+    CHECK(batch["work_error"].get<std::string>().find("Filename is not valid UTF-8") !=
+          std::string::npos);
     fixture.drain();
+    const auto idle = fixture.call({{"op", "work"}});
+    CHECK(idle["work_errors"] == 0);
+    CHECK(idle["work_error"] == "");
     CHECK(fixture.call({{"op", "query"}})["total"] == 1);
     const auto jobs = fixture.call({{"op", "jobs"}})["jobs"];
     REQUIRE(jobs[0]["failures"].size() == 1);
     CHECK(jobs[0]["failures"][0]["stage"] == "filename");
+}
+
+TEST_CASE("duplicate work reports stored errors once with a bounded reason") {
+    Fixture fixture;
+    std::string nested = "source";
+    for (int i = 0; i < 6; ++i)
+        nested += "/" + std::string(190, 'x');
+    const auto first = fixture.file(nested + "/one.jpg", "same bytes");
+    const auto second = fixture.file(nested + "/two.jpg", "same bytes");
+    fixture.add("source");
+    fixture.drain();
+    fixture.call({{"op", "find_duplicates"}});
+    fs::remove(first);
+    fs::remove(second);
+    const auto batch = fixture.call({{"op", "work"}, {"budget", 8}});
+    CHECK(batch["work_errors"] == 2);
+    const auto reason = batch["work_error"].get<std::string>();
+    CHECK(reason.find("Cannot read original") != std::string::npos);
+    CHECK(reason.size() <= 1024);
+    CHECK(fixture.call({{"op", "jobs"}})["jobs"][0]["failures"].size() == 2);
+    const auto next = fixture.call({{"op", "work"}, {"budget", 8}});
+    CHECK(next["work_errors"] == 0);
+    CHECK(next["work_error"] == "");
+    CHECK(fixture.call({{"op", "query"}})["total"] == 2);
+}
+
+TEST_CASE("source rejection reports failure without scanning internal folders") {
+    Fixture fixture;
+    const auto original = fixture.file("source/photo.jpg");
+    fixture.add("source");
+    const auto rejected =
+        fixture.call({{"op", "work"},
+                      {"internal_exclusions", Json::array({(fixture.root / "source").string()})}});
+    CHECK(rejected["work_errors"] == 1);
+    CHECK(rejected["work_error"].get<std::string>().find("internal catalog") != std::string::npos);
+    CHECK(fixture.call({{"op", "jobs"}})["jobs"][0]["state"] == "failed");
+    CHECK(fs::exists(original));
+    fixture.call({{"op", "background_control"}, {"paused", true}});
+    const auto paused = fixture.call({{"op", "work"}});
+    CHECK(paused["work_errors"] == 0);
+    CHECK(paused["work_error"] == "");
 }
 
 TEST_CASE("unfinished directory replays safely after an owning process exits") {

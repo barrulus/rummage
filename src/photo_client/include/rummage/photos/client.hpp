@@ -10,6 +10,9 @@ class CancelToken;
 }
 
 namespace rummage::photos {
+namespace detail {
+struct SharedWorkDiagnostics;
+}
 
 // The optional catalog has a versioned C boundary. Merely discovering or loading it never
 // opens a catalog, creates directories, starts workers or scans a source. Call request() on
@@ -28,9 +31,12 @@ public:
                                          const core::CancelToken* cancel = nullptr) const;
 
 private:
+    [[nodiscard]] nlohmann::json request_impl(const nlohmann::json& request,
+                                              const core::CancelToken* cancel = nullptr) const;
     struct Module;
     std::shared_ptr<Module> module_;
     std::filesystem::path catalog_;
+    std::shared_ptr<detail::SharedWorkDiagnostics> diagnostics_;
 };
 
 }  // namespace rummage::photos

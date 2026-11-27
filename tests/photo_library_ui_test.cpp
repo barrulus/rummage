@@ -1101,8 +1101,7 @@ TEST_CASE(
     click_uri("rummage:photos");
     for (const auto& [uri, destination] :
          std::array{std::pair{"rummage:photos/sources", PhotoLibrary::Destination::sources},
-                    std::pair{"rummage:photos/review", PhotoLibrary::Destination::review},
-                    std::pair{"rummage:photos/activity", PhotoLibrary::Destination::activity}}) {
+                    std::pair{"rummage:photos/review", PhotoLibrary::Destination::review}}) {
         click_uri(uri);
         CHECK(library->destination() == destination);
         CHECK(library->folder()->is_collection());
@@ -1112,6 +1111,9 @@ TEST_CASE(
             CHECK_FALSE(entry.is_directory());
         }
     }
+    CHECK_FALSE(browser.sidebar().place_icon_rect_for_uri("rummage:photos/activity"));
+    const auto toolbar_menu = library->menu_items();
+    CHECK_FALSE(find_menu_item(toolbar_menu, "photos:activity"));
     click_uri("rummage:photos");
     press(photo_key(XKB_KEY_F6));
     press(photo_key(XKB_KEY_Left));

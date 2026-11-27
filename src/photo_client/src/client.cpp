@@ -4,14 +4,17 @@
 #include <cstdlib>
 #include <dlfcn.h>
 #include <exception>
+#include <optional>
 #include <unistd.h>
 #include <utility>
 
+#include "rummage/core/log.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/engines/engines.hpp"
 #include "rummage/fs/entry.hpp"
 #include "rummage/fs/mime.hpp"
 #include "rummage/fs/trash.hpp"
+#include "rummage/photos/work_diagnostics.hpp"
 #include "rummage/picture/load.hpp"
 #include "rummage/thumbs/cache.hpp"
 
@@ -102,7 +105,9 @@ std::filesystem::path Client::default_catalog_path() {
 Client::Client() : Client(installed_path(), default_catalog_path()) {}
 
 Client::Client(std::filesystem::path module, std::filesystem::path catalog)
-    : module_{std::make_shared<Module>(module)}, catalog_{std::move(catalog)} {}
+    : module_{std::make_shared<Module>(module)},
+      catalog_{std::move(catalog)},
+      diagnostics_{detail::SharedWorkDiagnostics::for_catalog(catalog_)} {}
 
 bool Client::available() const { return module_->error.empty(); }
 
@@ -110,6 +115,35 @@ std::string Client::error() const { return module_->error; }
 
 nlohmann::json Client::request(const nlohmann::json& request,
                                const core::CancelToken* cancel) const {
+    std::optional<std::uint64_t> generation;
+    try {
+        const std::lock_guard lock{diagnostics_->mutex};
+        generation = diagnostics_->state.begin(request);
+    } catch (const std::exception&) {
+        // Allocation failure in optional bookkeeping must not prevent the actual request.
+    }
+    auto response = request_impl(request, cancel);
+    // Diagnostics never alter the catalog result or replace its user-facing error. All journal
+    // calls run on the requesting worker, and nested metadata requests count only once.
+    try {
+        if (!generation)
+            return response;
+        const std::lock_guard lock{diagnostics_->mutex};
+        const auto events = diagnostics_->state.finish(request, response, *generation,
+                                                       detail::WorkDiagnostics::Clock::now(),
+                                                       cancel && cancel->cancelled());
+        for (const auto& event : events)
+            log::journal(event.kind == detail::WorkDiagnostics::Kind::error ? log::Level::warn
+                                                                            : log::Level::info,
+                         event.message);
+    } catch (const std::exception&) {
+        // Optional diagnostics must not prevent a successful request from reaching the UI.
+    }
+    return response;
+}
+
+nlohmann::json Client::request_impl(const nlohmann::json& request,
+                                    const core::CancelToken* cancel) const {
     if (cancel && cancel->cancelled())
         return {{"ok", false}, {"error", "Photo Library request cancelled"}};
     if (!available())
@@ -130,8 +164,8 @@ nlohmann::json Client::request(const nlohmann::json& request,
             };
             std::int64_t after = 0;
             for (;;) {
-                const auto journal =
-                    this->request({{"op", "recovery_operations"}, {"after_id", after}}, cancel);
+                const auto journal = this->request_impl(
+                    {{"op", "recovery_operations"}, {"after_id", after}}, cancel);
                 if (!journal.value("ok", false))
                     return journal;
                 for (const auto& operation : journal.at("operations")) {
@@ -181,9 +215,9 @@ nlohmann::json Client::request(const nlohmann::json& request,
                                                  {"destination", destination.string()}});
                     }
                     if (!recovered.empty()) {
-                        const auto saved = this->request({{"op", "operation_complete"},
-                                                          {"operation_id", operation.at("id")},
-                                                          {"results", recovered}});
+                        const auto saved = this->request_impl({{"op", "operation_complete"},
+                                                               {"operation_id", operation.at("id")},
+                                                               {"results", recovered}});
                         if (!saved.value("ok", false))
                             return saved;
                     }
@@ -192,7 +226,7 @@ nlohmann::json Client::request(const nlohmann::json& request,
                     break;
                 after = journal.at("next_after_id").get<std::int64_t>();
             }
-            return this->request({{"op", "reconcile_operations"}});
+            return this->request_impl({{"op", "reconcile_operations"}});
         }
         auto envelope = request;
         const auto operation = request.value("op", "");
@@ -224,10 +258,10 @@ nlohmann::json Client::request(const nlohmann::json& request,
                 if (updates.size() >= static_cast<std::size_t>(metadata_limit) ||
                     (cancel && cancel->cancelled()))
                     break;
-                const auto claim = this->request({{"op", "metadata_claim"},
-                                                  {"id", photo.at("id")},
-                                                  {"signature", photo.at("signature")},
-                                                  {"owner", std::to_string(::getpid())}});
+                const auto claim = this->request_impl({{"op", "metadata_claim"},
+                                                       {"id", photo.at("id")},
+                                                       {"signature", photo.at("signature")},
+                                                       {"owner", std::to_string(::getpid())}});
                 if (!claim.value("ok", false)) {
                     result["metadata_error"] = claim.value("error", "Cannot claim image metadata");
                     break;
@@ -281,7 +315,8 @@ nlohmann::json Client::request(const nlohmann::json& request,
             // Persist completed items even when cancellation arrived during decoding. A global
             // pause still prevents each subsequent claim; it never discards already claimed work.
             if (!updates.empty()) {
-                const auto saved = this->request({{"op", "metadata_batch"}, {"items", updates}});
+                const auto saved =
+                    this->request_impl({{"op", "metadata_batch"}, {"items", updates}});
                 if (!saved.value("ok", false))
                     return saved;
                 auto& changed = result["changed_ids"];
@@ -292,6 +327,25 @@ nlohmann::json Client::request(const nlohmann::json& request,
                         changed.push_back(id);
                 result["metadata_processed"] = updates.size();
                 result["metadata_results"] = saved.value("results", nlohmann::json::array());
+                // Successful metadata writes can record an unreadable image. Keep a count and
+                // one bounded decoder reason; invalid writes are counted separately.
+                std::size_t failed = 0;
+                const auto& metadata_results = result["metadata_results"];
+                const auto checked = metadata_results.is_array()
+                                         ? std::min(updates.size(), metadata_results.size())
+                                         : std::size_t{0};
+                for (std::size_t i = 0; i < checked; ++i) {
+                    const auto& item = metadata_results[i];
+                    if (!item.is_object())
+                        continue;
+                    if (!updates[i].value("error", std::string{}).empty() &&
+                        item.value("ok", false) && !item.value("stale", false)) {
+                        ++failed;
+                        result["metadata_failure_reason"] = detail::bounded_diagnostic_reason(
+                            updates[i]["error"].get_ref<const std::string&>());
+                    }
+                }
+                result["metadata_failed"] = failed;
                 result["jobs_changed"] = true;
                 result["worked"] = true;
             }

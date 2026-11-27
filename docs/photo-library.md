@@ -19,8 +19,8 @@ has **Add to Photo Library…**. Photo Library opens in a normal browser tab alo
 folder tabs, with the same sidebar, navigation, view controls and status bar. Picker and portal
 windows do not expose the library.
 
-**Photo Library** opens expanded in the sidebar, with **Albums**, **Sources**, **Saved searches**,
-**Review duplicates** and **Activity** beneath it. Expand Albums or Saved searches to select an
+**Photo Library** opens expanded in the sidebar, with **Albums**, **Sources**, **Saved searches**
+and **Review duplicates** beneath it. Expand Albums or Saved searches to select an
 individual album or saved query directly; Sources also expands to its registered folders. Click
 a group’s label to browse its list in the main pane. Click Photo Library to return to all photos.
 The sidebar remembers which groups you expand or collapse and highlights the current location.
@@ -200,14 +200,23 @@ provided.
 
 ## Sources and background work
 
-**Activity** lists discovery and duplicate-review jobs, their states, known progress and file
-errors in the existing browser view. The status bar distinguishes folder discovery from metadata
-processing. Discovery counts entries examined (including folders and skipped files); it is not
+Background-work diagnostics go to the system journal, rather than an Activity view.
+Only starts, stops, checkpoints every 30 seconds during work, and grouped errors are logged.
+Repeated errors are rate-limited; pending errors are flushed when work stops. Read them on a
+systemd desktop with:
+
+```sh
+journalctl -t rummage -b
+```
+
+Use `journalctl -t rummage -f` to follow new entries. Rummage does not create a separate log file.
+The status bar still shows current progress and errors. It distinguishes folder discovery from
+metadata processing. Discovery counts entries examined (including folders and skipped files); it is not
 a count of finished photo metadata. After discovery, metadata progress shows checked and pending
 eligible photos. Changed or unavailable originals are reported separately and need source refresh;
-they are not counted as successful metadata reads. A job’s context menu offers **Pause job**, **Resume job**,
-**Cancel job** and **Retry job** when appropriate. Completed work remains recorded. A pause
-prevents new items from starting at a safe checkpoint; already claimed metadata work can finish.
+they are not counted as successful metadata reads. Refresh a source to retry discovery after
+resolving an unavailable location. A pause prevents new items from starting at a safe checkpoint;
+already claimed metadata work can finish.
 
 The Photo Library menu’s **Background work** submenu contains **Pause background work** and
 **Resume background work**. These apply across library
@@ -265,7 +274,7 @@ source and confirmation, and discards its catalog records. Neither action delete
 
 Confirmed moves and renames retain organisation when filesystem identity is preserved.
 Moves to another filesystem or outside registered sources can require location review;
-**Review operation outcome** in Activity’s context menu retains the original and destination details. These unresolved
+the catalog retains the original and destination details for recovery. These unresolved
 matches are not automatically attached to a different file.
 
 ## Review exact duplicates
@@ -342,7 +351,6 @@ These remaining limits affect normal use:
 | Automatic folder monitoring | 4,096 photo folders per window; 8,192 shared asynchronous registrations across the watcher’s users. A warning appears when coverage is incomplete. Manual refresh still scans sources. |
 | Bulk edits / new album selection | 100,000 photos per request. Larger requests are rejected. |
 | Duplicate review | Groups are paginated, with no total group cap; one review accepts up to 1,000 candidate and keeper IDs. |
-| Activity history | Latest 1,000 jobs and 1,000 file operations; only the first 100 file outcomes per job are returned. This can hide older jobs and additional failures. Recovery scans unresolved file operations independently of this history limit. |
 | Annotation export and restore | Both support at most 256 MiB per JSON file and 1,000,000 photo records. An oversized export fails before replacing its destination. |
 | Annotation text | Description: 65,536 UTF-8 bytes. Each tag, album name and saved-search name: 512 bytes. Native Properties fields are currently single-line. |
 | Source exclusions | Up to 1,000 patterns per source. |

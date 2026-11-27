@@ -44,6 +44,20 @@ should distinguish a Wayland connection failure from graphics/font initializatio
 For title-bar/cursor problems try `RUMMAGE_FORCE_CSD=1` or
 `RUMMAGE_FORCE_XCURSOR=1` as described in [compatibility](compatibility.md).
 
+## Photo Library background work
+
+Photo Library sends starts, stops, periodic checkpoints and errors to the system journal.
+There is no Activity view or separate photo log file. On a systemd desktop:
+
+```sh
+journalctl -t rummage -b
+journalctl -t rummage -f
+```
+
+The first command shows entries from this boot; the second follows new entries.
+Regular polling and individual photo processing are not logged. Normal progress and
+actionable errors remain visible in Rummage. `RUMMAGE_LOG=off` also disables these entries.
+
 ## Configuration changes do not apply
 
 Run `--check-config` with the same `--config FILE` argument as the application.
