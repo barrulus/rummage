@@ -126,6 +126,7 @@ for the command IDs and a J/K movement example.
 | `appearance.palette_source` | `"auto"` | `"auto"` (file → desktop → built-in), `"desktop"`, `"file"`, `"builtin"`, or `"kde"` (active kdeglobals colours); unavailable explicit sources fall back to built-in; live |
 | `appearance.color_scheme` | `"system"` | `"system"` (follow selected source), `"light"`, or `"dark"`; independent of source; live |
 | `appearance.preview_position` | `"right"` | `"right"` or `"sidebar"` (below Places); live |
+| `appearance.transparent_settings` | `false` | Settings follows background opacity; applies immediately |
 | `appearance.background_opacity` | `1.0` | Number from 0 to 1; background only |
 | `animations.enabled` | `true` | Enable transitions and persistent effects; live |
 | `animations.duration_scale` | `1.0` | Finite number 0–4; 0 is immediate; final duration capped at 2 seconds |

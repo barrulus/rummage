@@ -46,7 +46,7 @@ public:
     void paste(std::string_view text);
     std::string copy_selection(bool cut);
     void draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
-              ui::IconSet& icons);
+              ui::IconSet& icons, bool window_content = false);
     // Commit pending text fields / retry a failed save. Successful saves keep Settings open.
     void save();
     bool edit(std::string_view table, std::string_view key, std::string value);
