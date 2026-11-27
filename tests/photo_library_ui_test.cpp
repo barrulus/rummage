@@ -952,6 +952,25 @@ TEST_CASE(
     press(photo_key(XKB_KEY_Home));
     for (auto it = album_entries.begin(); it != target_row; ++it)
         press(photo_key(XKB_KEY_Down));
+    // Album keys use the native dialogs and never rename/delete the cover original.
+    press(photo_key(XKB_KEY_F2));
+    REQUIRE(library->has_dialog());
+    CHECK(library->copy_selection(false) == "Target album");
+    press(photo_key(XKB_KEY_Escape));
+    for (const auto modifiers : {rummage::ui::Modifiers{}, rummage::ui::Modifiers{.shift = true}}) {
+        press(photo_key(XKB_KEY_Delete, modifiers));
+        REQUIRE(library->has_dialog());
+        press(photo_key(XKB_KEY_Escape));
+    }
+    REQUIRE(library->selected_ids() == selected);
+    int album_clipboard_offers = 0;
+    rummage::views::SystemClipboard album_clipboard{};
+    album_clipboard.offer = [&](auto) { ++album_clipboard_offers; };
+    browser.set_system_clipboard(std::move(album_clipboard));
+    press(photo_key(XKB_KEY_c, {.ctrl = true}));
+    press(photo_key(XKB_KEY_x, {.ctrl = true}));
+    browser.copy_path();
+    CHECK(album_clipboard_offers == 0);
     invoke(library->context_menu_items(), "photos:album-add");
     REQUIRE(settle_photos(loop, [&] {
         const auto response =
@@ -1042,6 +1061,23 @@ TEST_CASE(
     REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
     CHECK_FALSE(browser.showing_photos());
     CHECK(browser.picker_folder()->path() == directory.path);
+    draw();
+    const auto album_bounds = browser.sidebar().place_icon_rect_for_uri(weekend_uri);
+    REQUIRE(album_bounds);
+    for (auto kind :
+         {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
+        browser.pointer({.kind = kind,
+                         .x = album_bounds->x + album_bounds->width / 2,
+                         .y = album_bounds->y + album_bounds->height / 2,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+    const auto sidebar_actions = browser.context_menu().items();
+    press(photo_key(XKB_KEY_Escape));
+    invoke(sidebar_actions, "photos:rename-album");
+    REQUIRE(browser.showing_photos());
+    REQUIRE(library->has_dialog());
+    CHECK(library->copy_selection(false) == "Weekend");
+    press(photo_key(XKB_KEY_Escape));
     click_uri("rummage:photos");
     CHECK(library->at_all_photos());
     CHECK(library->rows().size() == 3);
@@ -1625,5 +1661,98 @@ TEST_CASE("photo workspace: duplicate review exposes every group beyond the firs
     invoke(library.menu_items(), "photos:duplicate-previous");
     REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
     CHECK(library.folder()->entries().front().key() == first_key);
+}
+
+TEST_CASE("photo workspace: album management preserves originals and renders chosen covers") {
+    rummage::ui::Offscreen offscreen{800, 700};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    fixture(source / "First.png");
+    fixture(source / "Second.png");
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    PhotoLibrary library{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    library.open();
+    library.add_folder(source);
+    library.key_dialog(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(loop, [&] { return library.rows().size() == 2 && !library.loading(); }));
+    const auto first = library.rows()[0].at("id");
+    const auto second = library.rows()[1].at("id");
+    const auto album = library.client()->request(
+        {{"op", "create_album"}, {"name", "Original album"}, {"ids", {first, second}}});
+    REQUIRE(album.value("ok", false));
+    const auto id = album.at("id").get<PhotoLibrary::Id>();
+    library.open_album(id, "Original album");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    invoke(library.context_menu_items(), "photos:rename-album");
+    REQUIRE(library.has_dialog());
+    CHECK(library.copy_selection(false) == "Original album");
+    library.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, "Renamed album"));
+    library.key_dialog(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(
+        loop, [&] { return !library.loading() && library.title() == "Album: Renamed album"; }));
+    REQUIRE(library.navigation().at("albums").size() == 1);
+    CHECK(library.navigation().at("albums")[0].at("name") == "Renamed album");
+    library.folder()->set_cursor(1);
+    const auto cover = library.focused_photo();
+    REQUIRE(!cover.empty());
+    invoke(library.context_menu_items(), "photos:set-album-cover");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.navigation().at("albums")[0].at("cover_id") == cover.at("id"));
+    library.show(PhotoLibrary::Destination::albums);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.folder()->entries().size() == 1);
+    const auto entry = library.folder()->entries().front();
+    CHECK(entry.name == "Renamed album");
+    CHECK(entry.key() == "album:" + std::to_string(id));
+    CHECK(entry.location == cover.at("path").get<std::string>());
+    CHECK(entry.modified_ns == cover.at("mtime_ns").get<std::int64_t>());
+    CHECK(library.folder()->mime().name(entry.mime) == "image/png");
+    // Exercise the actual grid path with an empty cache, not just the catalog cover fields.
+    const auto cache =
+        std::make_shared<rummage::thumbs::Cache>(directory.path / "cache", "album-cover-test");
+    rummage::views::Thumbnails thumbnails{loop, pool, cache, [] {}};
+    rummage::views::GridView grid{loop,  pool,        watcher,    rummage::fs::MimeDatabase::load(),
+                                  [] {}, [](auto) {}, &thumbnails};
+    grid.set_info_visible(false);
+    grid.show(library.folder());
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    REQUIRE(settle_photos(loop, [&] {
+        renderer.begin_frame(800, 700, 1, {});
+        grid.draw(renderer, {0, 0, 800, 700}, {}, icons, Browser::Clock::now());
+        thumbnails.end_frame();
+        renderer.end_frame();
+        return thumbnails.texture_bytes() > 0 && !thumbnails.loading();
+    }));
+    capture("native-album-chosen-cover", 800, 700);
+    library.folder()->set_cursor(0);
+    invoke(library.context_menu_items(), "photos:reset-album-cover");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.navigation().at("albums")[0].at("custom_cover_id") == 0);
+    library.folder()->set_cursor(0);
+    CHECK(library.activate());
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows().size() == 2);
+    invoke(library.menu_items(), "photos:delete-album");
+    REQUIRE(library.has_dialog());
+    library.key_dialog(photo_key(XKB_KEY_Escape));
+    CHECK(library.client()->request({{"op", "albums"}}).at("albums").size() == 1);
+    invoke(library.menu_items(), "photos:delete-album");
+    library.key_dialog(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(loop, [&] {
+        return !library.loading() && library.destination() == PhotoLibrary::Destination::albums;
+    }));
+    CHECK(library.folder()->entries().empty());
+    CHECK(library.navigation().at("albums").empty());
+    library.show_all_photos();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows().size() == 2);
+    CHECK(std::filesystem::exists(source / "First.png"));
+    CHECK(std::filesystem::exists(source / "Second.png"));
 }
 #endif

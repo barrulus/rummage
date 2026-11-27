@@ -245,6 +245,22 @@ public:
                     throw;
                 }
             }
+            // Additive album metadata is compatible with existing schema-three catalogs.
+            // Keep the allocation counter separate so deleting an album can never retarget
+            // a saved search or a stale UI reference to a later album with a reused ID.
+            Statement album_metadata(db_,
+                                     "SELECT count(*) FROM sqlite_master WHERE type='table' "
+                                     "AND name IN ('album_covers','album_sequence')");
+            (void)album_metadata.row();
+            if (album_metadata.number(0) != 2)
+                exec(
+                    "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS album_covers(album_id INTEGER "
+                    "PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,photo_id INTEGER NOT "
+                    "NULL REFERENCES photos(id) ON DELETE CASCADE,FOREIGN KEY(photo_id,album_id) "
+                    "REFERENCES memberships(photo_id,album_id) ON DELETE CASCADE); "
+                    "CREATE TABLE IF NOT EXISTS album_sequence(id INTEGER PRIMARY KEY "
+                    "CHECK(id=1),next_id INTEGER NOT NULL); "
+                    "INSERT OR IGNORE INTO album_sequence VALUES(1,1); COMMIT;");
         } catch (...) {
             sqlite3_close(db_);
             db_ = nullptr;
@@ -1900,6 +1916,27 @@ Json job_control(Database& db, const Json& request) {
     return {{"state", state}};
 }
 
+Id create_album(Database& db, const std::string& name) {
+    Statement sequence(db.get(),
+                       "SELECT next_id,COALESCE((SELECT max(id) FROM albums),0) "
+                       "FROM album_sequence WHERE id=1");
+    if (!sequence.row() || sequence.number(0) >= std::numeric_limits<Id>::max() ||
+        sequence.number(1) >= std::numeric_limits<Id>::max() - 1)
+        throw std::runtime_error("No more album identifiers are available");
+    const Id id = std::max(sequence.number(0), sequence.number(1) + 1);
+    Statement insert(db.get(), "INSERT INTO albums(id,name) VALUES(?,?)");
+    insert.bind(1, id).bind(2, name).run();
+    Statement advance(db.get(), "UPDATE album_sequence SET next_id=? WHERE id=1");
+    advance.bind(1, id + 1).run();
+    return id;
+}
+
+Id find_or_create_album(Database& db, const std::string& name) {
+    Statement find(db.get(), "SELECT id FROM albums WHERE name=?");
+    find.bind(1, name);
+    return find.row() ? find.number(0) : create_album(db, name);
+}
+
 Json export_data(Database& db, const Json& request) {
     // A read transaction captures one coherent snapshot across windows and writers.
     db.exec("BEGIN");
@@ -1927,9 +1964,13 @@ Json export_data(Database& db, const Json& request) {
             data["photos"].push_back(std::move(item));
         }
         enrich_photos(db, data["photos"]);
-        Statement albums(db.get(), "SELECT id,name FROM albums ORDER BY id");
+        Statement albums(db.get(),
+                         "SELECT a.id,a.name,COALESCE(c.photo_id,0) FROM albums a "
+                         "LEFT JOIN album_covers c ON c.album_id=a.id ORDER BY a.id");
         while (albums.row())
-            data["albums"].push_back({{"id", albums.number(0)}, {"name", albums.text(1)}});
+            data["albums"].push_back({{"id", albums.number(0)},
+                                      {"name", albums.text(1)},
+                                      {"cover_id", albums.number(2)}});
         Statement filters(db.get(), "SELECT name,definition FROM filters ORDER BY id");
         while (filters.row())
             data["filters"].push_back(
@@ -1961,17 +2002,12 @@ Json restore(Database& db, const Json& request) {
     Transaction transaction(db);
     Json restored = Json::array(), missing = Json::array(), ambiguous = Json::array(),
          unresolved_filters = Json::array();
-    std::map<Id, Id> album_mapping;
+    std::map<Id, Id> album_mapping, photo_mapping;
     for (const auto& album : data.value("albums", Json::array())) {
         const auto name = checked_text(album, "name", 512);
         if (name.empty())
             throw std::runtime_error("Invalid exported album name");
-        Statement create(db.get(), "INSERT OR IGNORE INTO albums(name) VALUES(?)");
-        create.bind(1, name).run();
-        Statement find(db.get(), "SELECT id FROM albums WHERE name=?");
-        find.bind(1, name);
-        (void)find.row();
-        album_mapping[album.at("id").get<Id>()] = find.number(0);
+        album_mapping[album.at("id").get<Id>()] = find_or_create_album(db, name);
     }
     const auto map_path = [&](const fs::path& original) {
         for (const auto& mapping : request.value("source_mappings", Json::array())) {
@@ -2110,15 +2146,24 @@ Json restore(Database& db, const Json& request) {
                      {"add_tags", photo.at("tags")},
                      {"add_albums", Json::array()}};
         for (const auto& album : photo.at("albums")) {
-            Statement create(db.get(), "INSERT OR IGNORE INTO albums(name) VALUES(?)");
-            create.bind(1, album.at("name")).run();
-            Statement find(db.get(), "SELECT id FROM albums WHERE name=?");
-            find.bind(1, album.at("name"));
-            (void)find.row();
-            changes["add_albums"].push_back(find.number(0));
+            changes["add_albums"].push_back(
+                find_or_create_album(db, checked_text(album, "name", 512)));
         }
         (void)edit(db, changes);
         restored.push_back(id);
+        photo_mapping[photo.at("id").get<Id>()] = id;
+    }
+    for (const auto& album : data.value("albums", Json::array())) {
+        const Id cover = album.value("cover_id", Id{});
+        if (cover <= 0 || !photo_mapping.contains(cover))
+            continue;  // Old exports and unresolved identities preserve the existing choice.
+        Statement save(db.get(),
+                       "INSERT INTO album_covers(album_id,photo_id) SELECT album_id,photo_id "
+                       "FROM memberships WHERE album_id=? AND photo_id=? ON CONFLICT(album_id) "
+                       "DO UPDATE SET photo_id=excluded.photo_id");
+        save.bind(1, album_mapping.at(album.at("id").get<Id>()))
+            .bind(2, photo_mapping.at(cover))
+            .run();
     }
     for (const auto& filter : data.value("filters", Json::array())) {
         const auto name = checked_text(filter, "name", 512);
@@ -2832,17 +2877,88 @@ Json dispatch(Database& db, const Json& request) {
                       "SELECT a.id,a.name,sum(CASE WHEN s.active=1 AND p.availability<>'replaced' "
                       "THEN 1 ELSE 0 END),"
                       "sum(CASE WHEN p.id IS NOT NULL AND (s.active=0 OR "
-                      "p.availability='replaced') THEN 1 ELSE 0 END) "
+                      "p.availability='replaced') THEN 1 ELSE 0 END),"
+                      "COALESCE((SELECT photo_id FROM album_covers WHERE album_id=a.id),0) "
                       "FROM albums a LEFT JOIN memberships m ON m.album_id=a.id LEFT JOIN photos p "
                       "ON p.id=m.photo_id "
                       "LEFT JOIN sources s ON s.id=p.source_id GROUP BY a.id ORDER BY a.name");
         Json items = Json::array();
-        while (all.row())
+        while (all.row()) {
+            // Snapshot previews remain usable when a source is offline. Changed, replaced,
+            // missing and trashed identities must not become covers of different originals.
+            const auto read_cover = [&](bool chosen) -> Json {
+                Statement cover(db.get(),
+                                "SELECT " + photo_columns +
+                                    " FROM memberships m JOIN photos p ON p.id=m.photo_id "
+                                    "JOIN sources s ON s.id=p.source_id WHERE m.album_id=? "
+                                    "AND s.active=1 AND p.availability='online' " +
+                                    (chosen ? "AND m.photo_id=? " : "") +
+                                    "ORDER BY m.photo_id LIMIT 1");
+                cover.bind(1, all.number(0));
+                if (chosen)
+                    cover.bind(2, all.number(4));
+                return cover.row() ? photo_json(db, cover, false) : Json{};
+            };
+            Json photo = all.number(4) > 0 ? read_cover(true) : Json{};
+            if (photo.is_null())
+                photo = read_cover(false);
             items.push_back({{"id", all.number(0)},
                              {"name", all.text(1)},
                              {"count", all.number(2)},
-                             {"retained_count", all.number(3)}});
+                             {"retained_count", all.number(3)},
+                             {"custom_cover_id", all.number(4)},
+                             {"cover_id", photo.is_null() ? Id{} : photo.at("id").get<Id>()},
+                             {"cover", std::move(photo)}});
+        }
         return {{"albums", items}};
+    }
+    if (op == "rename_album" || op == "delete_album" || op == "set_album_cover") {
+        const Id id = request.at("id").get<Id>();
+        Transaction transaction(db);
+        Statement exists(db.get(), "SELECT id FROM albums WHERE id=?");
+        exists.bind(1, id);
+        if (id <= 0 || !exists.row())
+            throw std::runtime_error("Album no longer exists");
+        if (op == "rename_album") {
+            const auto name = checked_text(request, "name", 512);
+            if (name.empty())
+                throw std::runtime_error("Album name cannot be empty");
+            Statement rename(db.get(), "UPDATE albums SET name=? WHERE id=?");
+            rename.bind(1, name).bind(2, id).run();
+        } else if (op == "delete_album") {
+            // Advance even for albums created by an older add-on before deleting their IDs.
+            db.exec(
+                "UPDATE album_sequence SET next_id=max(next_id,"
+                "COALESCE((SELECT max(id)+CASE WHEN max(id)<9223372036854775807 THEN 1 "
+                "ELSE 0 END FROM albums),1)) WHERE id=1");
+            Statement remove(db.get(), "DELETE FROM albums WHERE id=?");
+            remove.bind(1, id).run();
+        } else {
+            const auto value = request.at("photo_id");
+            if (!value.is_null() && !value.is_number_integer())
+                throw std::runtime_error("Choose a photograph from this album");
+            const Id photo = value.is_null() ? 0 : value.get<Id>();
+            if (photo < 0)
+                throw std::runtime_error("Choose a photograph from this album");
+            if (photo == 0) {
+                Statement clear(db.get(), "DELETE FROM album_covers WHERE album_id=?");
+                clear.bind(1, id).run();
+            } else {
+                Statement member(db.get(),
+                                 "SELECT p.id FROM memberships m JOIN photos p ON p.id=m.photo_id "
+                                 "JOIN sources s ON s.id=p.source_id WHERE m.album_id=? AND "
+                                 "m.photo_id=? AND s.active=1 AND p.availability='online'");
+                member.bind(1, id).bind(2, photo);
+                if (!member.row())
+                    throw std::runtime_error("Choose an available photograph from this album");
+                Statement save(db.get(),
+                               "INSERT INTO album_covers(album_id,photo_id) VALUES(?,?) "
+                               "ON CONFLICT(album_id) DO UPDATE SET photo_id=excluded.photo_id");
+                save.bind(1, id).bind(2, photo).run();
+            }
+        }
+        transaction.commit();
+        return {{"id", id}, {"changed", 1}};
     }
     if (op == "create_album") {
         const auto name = checked_text(request, "name", 512);
@@ -2858,9 +2974,7 @@ Json dispatch(Database& db, const Json& request) {
             unique.insert(value.get<Id>());
         }
         Transaction transaction(db);
-        Statement insert(db.get(), "INSERT INTO albums(name) VALUES(?)");
-        insert.bind(1, name).run();
-        const auto album = db.last_id();
+        const auto album = create_album(db, name);
         for (const auto id : unique) {
             Statement exists(db.get(), "SELECT id FROM photos WHERE id=?");
             exists.bind(1, id);

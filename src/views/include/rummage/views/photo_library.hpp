@@ -84,6 +84,7 @@ public:
     void set_sort(const fs::SortOrder&);
     [[nodiscard]] std::vector<MenuItem> menu_items();
     [[nodiscard]] std::vector<MenuItem> context_menu_items();
+    [[nodiscard]] std::vector<MenuItem> album_menu_items(Id id, std::string name);
     bool activate();
 
     void set_changed_handler(std::function<void()> changed) { changed_ = std::move(changed); }

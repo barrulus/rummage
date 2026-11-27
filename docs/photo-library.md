@@ -116,7 +116,21 @@ that selection. The dialog shows how many photos will be included; with no selec
 an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
 album. Choose **All photos**, click **Photo Library** in the sidebar, or use Back or Parent to
 return to the full active library. An album’s context
-menu offers **Add selected photos to album** and **Remove selected photos from album**. Filesystem-browser annotations, xattrs and sidecars retain their existing separate
+menu offers **Add selected photos to album** and **Remove selected photos from album**.
+
+Right-click an album in the sidebar or Albums view to **Rename album…** or
+**Delete album…**. These actions are also in the Photo Library menu while the album
+is open. Deleting an album asks for confirmation and removes only the album and
+its memberships; its photos remain in the library and their original folders.
+In the Albums view, **F2** renames the focused album and **Delete** opens the same
+deletion confirmation.
+
+Albums show an automatic photo thumbnail in the Albums view. To choose one, open
+the album, select a single photo, and choose **Use as album thumbnail** from its
+context menu or the Photo Library menu. **Use automatic album thumbnail** in the
+album menu clears your choice. Empty albums keep a placeholder.
+
+Filesystem-browser annotations, xattrs and sidecars retain their existing separate
 semantics. The photo library does not silently import or synchronise those editable values,
 and it does not rewrite embedded metadata. Explicit external-annotation import is not yet
 provided.

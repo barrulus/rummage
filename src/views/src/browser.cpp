@@ -504,6 +504,8 @@ std::vector<std::string> Browser::targets(const Folder& folder) {
 
 void Browser::take_selection(bool cut) {
     if (showing_photos()) {
+        if (!photo_library_->photo_rows())
+            return;
         const auto rows = photo_library_->selected_photos();
         if (rows.size() != photo_library_->selected_ids().size()) {
             show_message(std::string{i18n::tr(
@@ -612,6 +614,8 @@ void Browser::copy_text(std::string text, std::string message) {
 
 void Browser::copy_path() {
     if (showing_photos()) {
+        if (!photo_library_->photo_rows())
+            return;
         const auto rows = photo_library_->selected_photos();
         if (rows.size() != photo_library_->selected_ids().size()) {
             show_message(
@@ -6531,6 +6535,17 @@ void Browser::run(Command command, Clock::time_point now) {
          command == Command::reset_folder_view))
         return;
     if (showing_photos() && !sidebar_.focused()) {
+        if (photo_library_->destination() == PhotoLibrary::Destination::albums &&
+            (command == Command::rename || command == Command::trash ||
+             command == Command::erase)) {
+            const auto items = photo_library_->menu_items();
+            const auto id =
+                command == Command::rename ? "photos:rename-album" : "photos:delete-album";
+            const auto item = std::ranges::find(items, id, &MenuItem::id);
+            if (item != items.end() && item->enabled && item->action)
+                item->action();
+            return;
+        }
         switch (command) {
             case Command::parent_folder:
             case Command::collapse_folder:

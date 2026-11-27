@@ -234,6 +234,26 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
         item.keys = keys_for(Command::open_selected);
         item.action = [this, place] { open_place(place); };
         items.push_back(std::move(item));
+        if (photos_available() && photo_library_ &&
+            place.uri.starts_with("rummage:photos/albums/")) {
+            for (const auto& record : photo_navigation_.value("albums", nlohmann::json::array())) {
+                const auto id = record.value("id", std::int64_t{});
+                if (place.uri != "rummage:photos/albums/" + std::to_string(id))
+                    continue;
+                auto actions = photo_library_->album_menu_items(id, record.value("name", ""));
+                for (auto& action : actions) {
+                    auto run = std::move(action.action);
+                    action.action = [this, place, run = std::move(run)] {
+                        if (!photos_available() || !photo_library_)
+                            return;
+                        open_place(place);
+                        run();
+                    };
+                    items.push_back(std::move(action));
+                }
+                break;
+            }
+        }
         return items;
     }
     if (place.uri == "rummage:saved-searches") {

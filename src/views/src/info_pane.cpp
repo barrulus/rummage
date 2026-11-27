@@ -509,12 +509,16 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     const fs::MimeDatabase& mime = folder.mime();
     const std::filesystem::path path = single == nullptr ? folder.path() : folder.path_of(*single);
-    const bool logical = single != nullptr && folder.is_collection() && path.empty();
+    const bool album =
+        single != nullptr && folder.is_collection() && single->identity.starts_with("album:");
+    const bool logical = single != nullptr && folder.is_collection() && (path.empty() || album);
     fs::Entry typed;
     preview::Kind kind = preview::Kind::info;
     if (single != nullptr) {
         typed = *single;
-        if (!logical) {
+        // An album's location is its cover image, not the album itself. It can supply pixels
+        // without turning the collection into a file or exposing the cover's metadata as its own.
+        if (!logical || (album && !path.empty())) {
             typed.mime = folder.mime_of(*single);
             kind = preview::provider_for(mime, typed.mime).kind();
         }
@@ -527,7 +531,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     } else {
         measure(folder_measure_, {}, {});
     }
-    if (folder.is_archive() || path.empty() || (single && !single->available)) {
+    if (logical || folder.is_archive() || path.empty() || (single && !single->available)) {
         forget_summary();
     } else {
         request(path, single == nullptr ? 0 : single->modified_ns,

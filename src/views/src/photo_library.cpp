@@ -575,6 +575,9 @@ void PhotoLibrary::publish() {
             fs::Entry entry;
             entry.kind = fs::EntryKind::other;
             entry.available = false;
+            if (destination_ == Destination::albums && row.contains("cover") &&
+                row["cover"].is_object() && !row["cover"].empty())
+                entry = photo_entry(row["cover"]);
             entry.identity = record_key(row, i);
             if (destination_ == Destination::sources)
                 entry.name = row.value("path", "");
@@ -1053,19 +1056,34 @@ void PhotoLibrary::work() {
 
 void PhotoLibrary::mutate(Json input, std::string success) {
     const auto op = input.value("op", "");
+    const auto album_id = input.value("id", Id{});
+    const auto album_name = input.value("name", std::string{});
     const bool navigation_changed =
+        op == "rename_album" || op == "delete_album" || op == "set_album_cover" ||
         op == "create_album" || op == "save_filter" || op == "restore" || op == "add_source" ||
         op == "remove_source" || op == "forget_source" || op == "relink_source" ||
         op == "refresh" ||
         (op == "edit" && (input.contains("add_albums") || input.contains("remove_albums")));
     const bool watches_changed = op == "add_source" || op == "remove_source" ||
                                  op == "forget_source" || op == "relink_source" || op == "refresh";
-    request(std::move(input), [this, navigation_changed, watches_changed,
+    request(std::move(input), [this, op, album_id, album_name, navigation_changed, watches_changed,
                                form_generation = form_generation_,
                                success = std::move(success)](Json response) {
         if (!response.value("ok", false))
             return;
         message_ = success;
+        if (filter_.value("album_id", Id{}) == album_id && album_id > 0) {
+            if (op == "rename_album" && active_saved_search_ == 0)
+                collection_name_ = album_name;
+            else if (op == "delete_album") {
+                filter_ = sort_filter(filter_);
+                active_saved_search_ = 0;
+                collection_name_.clear();
+                offset_ = 0;
+                if (destination_ == Destination::library)
+                    show(Destination::albums);
+            }
+        }
         if (navigation_changed)
             refresh_navigation();
         if (response.contains("missing") || response.contains("ambiguous"))
@@ -1346,6 +1364,59 @@ void PhotoLibrary::create_album(Json ids) {
                 });
 }
 
+std::vector<MenuItem> PhotoLibrary::album_menu_items(Id id, std::string name) {
+    if (id <= 0)
+        return {};
+    std::vector<MenuItem> items;
+    MenuItem rename;
+    rename.id = "photos:rename-album";
+    rename.label = tr("Rename album…");
+    rename.action = [this, alive = alive_, id, name] {
+        if (!*alive)
+            return;
+        cancel_album_chooser();
+        confirm_.open_name(
+            tr("Rename album"), tr("Choose a new name for this album."), name,
+            [this, id](const std::string& value) {
+                if (value.empty())
+                    return std::string{tr("Enter a name")};
+                mutate({{"op", "rename_album"}, {"id", id}, {"name", value}}, tr("Album renamed"));
+                return std::string{};
+            },
+            tr("Rename"));
+        changed();
+    };
+    items.push_back(std::move(rename));
+    MenuItem remove;
+    remove.id = "photos:delete-album";
+    remove.label = tr("Delete album…");
+    remove.action = [this, alive = alive_, id, name] {
+        if (!*alive)
+            return;
+        cancel_album_chooser();
+        confirm_.open(
+            tr("Delete album?"), name, tr("Delete album"),
+            [this, id](bool accepted) {
+                if (accepted)
+                    mutate({{"op", "delete_album"}, {"id", id}}, tr("Album deleted; photos kept"));
+            },
+            tr("Only the album is deleted. Its photos remain in Photo Library and "
+               "their original folders. This cannot be undone."));
+        changed();
+    };
+    items.push_back(std::move(remove));
+    MenuItem reset;
+    reset.id = "photos:reset-album-cover";
+    reset.label = tr("Use automatic album thumbnail");
+    reset.action = [this, alive = alive_, id] {
+        if (*alive)
+            mutate({{"op", "set_album_cover"}, {"id", id}, {"photo_id", nullptr}},
+                   tr("Automatic album thumbnail restored"));
+    };
+    items.push_back(std::move(reset));
+    return items;
+}
+
 void PhotoLibrary::add_to_album() {
     const auto ids = selected_ids();
     if (ids.empty() || !choose_album_ || !photo_rows())
@@ -1462,6 +1533,29 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
                     });
     });
     add("photos:create-album", tr("Create album…"), [this] { create_album(selected_ids()); });
+    Json album = Json::object();
+    if (destination_ == Destination::albums)
+        album = focused_record();
+    else if (destination_ == Destination::library && active_saved_search_ == 0 &&
+             filter_.value("album_id", Id{}) > 0)
+        album = {{"id", filter_["album_id"]}, {"name", collection_name_}};
+    if (!album.empty()) {
+        auto album_items = album_menu_items(album.value("id", Id{}), album.value("name", ""));
+        for (auto& item : album_items)
+            result.push_back(std::move(item));
+        if (photo_rows()) {
+            const auto ids = selected_ids();
+            const bool single_member = ids.size() == 1 && row_by_id_.contains(ids[0].get<Id>());
+            add(
+                "photos:set-album-cover", tr("Use as album thumbnail"),
+                [this, id = album.value("id", Id{}), ids] {
+                    mutate({{"op", "set_album_cover"}, {"id", id}, {"photo_id", ids.at(0)}},
+                           tr("Album thumbnail saved"));
+                },
+                single_member);
+        }
+    }
+
     if (photo_rows())
         add(
             "photos:add-to-album", tr("Add to album…"), [this] { add_to_album(); },

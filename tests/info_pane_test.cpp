@@ -760,4 +760,25 @@ TEST_CASE("info pane: logical collection records use stable identity without fil
     pane.click(copy.x + 4, copy.y + 4);
     CHECK(copied.find("Photo count: 9") != std::string::npos);
     CHECK_FALSE(pane.loading());
+
+    // The album's cover supplies preview pixels, but its file properties are not album data.
+    entry.kind = rummage::fs::EntryKind::file;
+    entry.available = true;
+    entry.location = std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png";
+    entry.mime = mime->by_name("cover.png").mime;
+    entry.size = 123456;
+    entry.modified_ns = 123456789;
+    properties.entry = entry;
+    collection.replace_collection({entry}, "Albums", 1);
+    collection.select_name(entry.key());
+    pane.set_photo_properties(properties);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+    CHECK(pane.property_bounds("Modified.value").empty());
+    CHECK(pane.property_bounds("Size.value").empty());
+    CHECK(pane.property_bounds("Dimensions.value").empty());
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Photo count: 9") != std::string::npos);
+    CHECK(copied.find("image/png") == std::string::npos);
 }

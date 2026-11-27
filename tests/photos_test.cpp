@@ -935,6 +935,96 @@ TEST_CASE("restore rejects invalid source settings atomically and leaves new sou
     CHECK(destination.call({{"op", "sources"}})["sources"][0]["watch_enabled"] == true);
 }
 
+TEST_CASE("album management preserves originals and stable saved search identities") {
+    Fixture fixture;
+    const auto first_path = fixture.file("source/one.jpg");
+    const auto second_path = fixture.file("source/two.jpg");
+    fixture.add("source");
+    fixture.drain();
+    const auto photos = fixture.call({{"op", "query"}})["photos"];
+    const auto first = photos[0]["id"], second = photos[1]["id"];
+    const auto album = fixture.call({{"op", "create_album"},
+                                     {"name", "Original"},
+                                     {"ids", Json::array({first, second})}})["id"];
+    const auto read = [&] { return fixture.call({{"op", "albums"}})["albums"][0]; };
+    CHECK(read()["cover_id"] == first);
+    CHECK(read()["custom_cover_id"] == 0);
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", second}});
+    CHECK(read()["cover_id"] == second);
+    CHECK(read()["custom_cover_id"] == second);
+    CHECK(read()["cover"]["path"] == photos[1]["path"]);
+    CHECK(read()["cover"]["mtime_ns"] == photos[1]["mtime_ns"]);
+    fixture.call({{"op", "rename_album"}, {"id", album}, {"name", "Renamed"}});
+    CHECK(read()["name"] == "Renamed");
+    CHECK(fixture.call({{"op", "query"}, {"album_id", album}})["total"] == 2);
+    fixture.call({{"op", "rename_album"}, {"id", album}, {"name", ""}}, false);
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", 99999}}, false);
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", -1}}, false);
+    CHECK(read()["cover_id"] == second);
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", nullptr}});
+    CHECK(read()["cover_id"] == first);
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", second}});
+    fixture.call(
+        {{"op", "edit"}, {"ids", Json::array({second})}, {"remove_albums", Json::array({album})}});
+    CHECK(read()["cover_id"] == first);
+    CHECK(read()["custom_cover_id"] == 0);
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", second}}, false);
+    fixture.call(
+        {{"op", "save_filter"}, {"name", "Saved album"}, {"filter", {{"album_id", album}}}});
+    fixture.call({{"op", "delete_album"}, {"id", album}});
+    CHECK(fixture.call({{"op", "albums"}})["albums"].empty());
+    CHECK(fixture.call({{"op", "query"}})["total"] == 2);
+    CHECK(fixture.call({{"op", "query"}})["photos"][0]["albums"].empty());
+    CHECK(fs::exists(first_path));
+    CHECK(fs::exists(second_path));
+    fixture.call({{"op", "delete_album"}, {"id", album}}, false);
+    fixture.call({{"op", "rename_album"}, {"id", album}, {"name", "Stale"}}, false);
+    const auto later = fixture.call(
+        {{"op", "create_album"}, {"name", "Later"}, {"ids", Json::array({first})}})["id"];
+    CHECK(later > album);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", album}})["total"] == 0);
+    CHECK(fixture.call({{"op", "filters"}})["filters"][0]["filter"]["album_id"] == album);
+    const auto empty = fixture.call({{"op", "create_album"}, {"name", "Empty"}})["id"];
+    fixture.call({{"op", "rename_album"}, {"id", later}, {"name", "Empty"}}, false);
+    fixture.call({{"op", "set_album_cover"}, {"id", empty}, {"photo_id", first}}, false);
+    CHECK(fixture.call({{"op", "albums"}})["albums"][0]["cover"].is_null());
+}
+
+TEST_CASE("album covers restore with identity mapping and fall back after source removal") {
+    Fixture fixture;
+    fixture.file("a/one.jpg");
+    fixture.file("b/two.jpg");
+    fixture.add("a");
+    const auto source = fixture.add("b")["source"]["id"];
+    fixture.drain();
+    const auto photos = fixture.call({{"op", "query"}})["photos"];
+    const auto first = photos[0]["id"], second = photos[1]["id"];
+    const auto album = fixture.call(
+        {{"op", "create_album"}, {"name", "Covered"}, {"ids", Json::array({first, second})}})["id"];
+    fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", second}});
+    const auto exported = fixture.call({{"op", "export"}})["data"];
+    CHECK(exported["albums"][0]["cover_id"] == second);
+    fs::rename(fixture.root / "b", fixture.root / "away");
+    fixture.call({{"op", "refresh"}, {"source_id", source}});
+    fixture.drain();
+    const auto offline = fixture.call({{"op", "albums"}})["albums"][0];
+    CHECK(offline["cover_id"] == second);
+    CHECK(offline["cover"]["availability"] == "offline");
+    fs::rename(fixture.root / "away", fixture.root / "b");
+    fixture.call({{"op", "remove_source"}, {"id", source}});
+    CHECK(fixture.call({{"op", "albums"}})["albums"][0]["cover_id"] == first);
+    CHECK(fixture.call({{"op", "albums"}})["albums"][0]["custom_cover_id"] == second);
+    fixture.catalog = fixture.root / "restored" / "catalog.db";
+    fixture.call({{"op", "create_album"}, {"name", "Other album"}});
+    fixture.call({{"op", "restore"}, {"data", exported}});
+    const auto restored = fixture.call({{"op", "albums"}})["albums"][0];
+    CHECK(restored["name"] == "Covered");
+    CHECK(restored["id"] != album);
+    CHECK(restored["cover"]["path"] == photos[1]["path"]);
+    CHECK(restored["custom_cover_id"] == restored["cover_id"]);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", restored["id"]}})["total"] == 2);
+}
+
 TEST_CASE("retained associations remain reviewable and album counts match visible photos") {
     Fixture fixture;
     fixture.file("source/photo.jpg");
