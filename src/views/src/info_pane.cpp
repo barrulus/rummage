@@ -554,12 +554,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         // moves when the thumbnail arrives.
         const float box = std::min(preview_width, bounds.height * kMaxPreview);
         const ui::Texture* thumbnail = nullptr;
-        picture::Failure failure = picture::Failure::none;
         if (thumbnails_ != nullptr && !folder.is_archive() && !path.empty()) {
             thumbnail = thumbnails_->get(
                 path, single->modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(box * renderer.scale()))),
-                mime.name(typed.mime), &failure, !single->can_preview());
+                mime.name(typed.mime), nullptr, !single->can_preview());
         }
         if (thumbnail != nullptr) {
             const float fit =
@@ -571,15 +570,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             renderer.draw_shadow({rect.x, rect.y + 4.0F, rect.width, rect.height}, {}, 12.0F,
                                  palette.shadow.with_alpha(0.5F));
             renderer.draw_image(*thumbnail, rect, {});
-        } else {
-            icons.draw_file(renderer, (mime).name(typed.mime), fs::icon_name(mime, typed),
-                            out.left() + ((out.width() - kIconSize) / 2.0F),
-                            out.y() + ((box - kIconSize) / 2.0F), kIconSize,
-                            palette.on_surface_variant, typed.folder_icon);
-            draw_failure_badge(renderer, icons, palette, failure,
-                               out.left() + ((out.width() - kIconSize) / 2.0F),
-                               out.y() + ((box - kIconSize) / 2.0F), kIconSize);
         }
+        // Keep the reserved image area blank until pixels are ready; a file icon here flashes
+        // between selections and before an uncached preview arrives.
         out.skip(box + 18.0F);
     } else if (summary != nullptr && summary->text && !summary->text->lines.empty()) {
         // A thumbnail of the beginning; reading, selection and scrolling live in Quick Look.
