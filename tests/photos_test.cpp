@@ -82,6 +82,25 @@ TEST_CASE("photo catalog ABI initializes lazily and rejects invalid requests") {
     fixture.call({{"op", "unknown"}}, false);
 }
 
+TEST_CASE("catalog identity survives reopening and backup but changes after a reset") {
+    Fixture fixture;
+    const auto original = fixture.call({{"op", "catalog_identity"}}).at("identity");
+    CHECK(original.get<std::string>().size() == 32);
+    CHECK(fixture.call({{"op", "catalog_identity"}}).at("identity") == original);
+    const auto album = fixture.call({{"op", "create_album"}, {"name", "Before reset"}}).at("id");
+    const auto path = fixture.catalog;
+    const auto backup = fixture.root / "backup.db";
+    fixture.call({{"op", "backup"}, {"path", backup.string()}});
+    fixture.catalog = backup;
+    CHECK(fixture.call({{"op", "catalog_identity"}}).at("identity") == original);
+    fixture.catalog = path;
+    fs::rename(path, fixture.root / "old-catalog.db");
+    const auto fresh = fixture.call({{"op", "catalog_identity"}}).at("identity");
+    CHECK(fresh != original);
+    CHECK(fixture.call({{"op", "create_album"}, {"name", "After reset"}}).at("id") == album);
+    CHECK(fixture.call({{"op", "catalog_identity"}}).at("identity") == fresh);
+}
+
 TEST_CASE("photo discovery combines roots, rejects overlap and persists distinct identities") {
     Fixture fixture;
     fixture.file("a/same.jpg");
@@ -100,6 +119,49 @@ TEST_CASE("photo discovery combines roots, rejects overlap and persists distinct
     fixture.call({{"op", "refresh"}});
     fixture.drain();
     CHECK(fixture.call({{"op", "query"}})["photos"] == ids);
+}
+
+TEST_CASE("selection validation reports forgotten identities without mutating the catalog") {
+    Fixture fixture;
+    const auto first_path = fixture.file("first/photo.jpg");
+    fixture.file("second/photo.jpg");
+    const auto first_source = fixture.add("first")["source"]["id"];
+    fixture.add("second");
+    fixture.drain();
+    const auto photos = fixture.call({{"op", "query"}})["photos"];
+    REQUIRE(photos.size() == 2);
+    const auto first = photos[0]["id"], second = photos[1]["id"];
+    REQUIRE(photos[0]["path"] == first_path.string());
+    const Json selected = Json::array({first, second, first, 999999, 999999});
+    const auto before = fixture.call({{"op", "export"}})["data"];
+    const auto valid = fixture.call({{"op", "validate_selection"}, {"ids", selected}});
+    CHECK(valid["count"] == 2);
+    CHECK(valid["missing_ids"] == Json::array({999999}));
+    CHECK_FALSE(valid.contains("photos"));
+    const auto empty = fixture.call({{"op", "validate_selection"}, {"ids", Json::array()}});
+    CHECK(empty["count"] == 0);
+    CHECK(empty["missing_ids"].empty());
+    for (const Json& invalid : {Json(0), Json(-1), Json(1.5), Json("1"), Json(nullptr), Json(true),
+                                Json(std::uint64_t{18446744073709551615ULL})})
+        fixture.call({{"op", "validate_selection"}, {"ids", Json::array({first, invalid})}}, false);
+    fixture.call({{"op", "validate_selection"}, {"ids", "not an array"}}, false);
+    Json too_many = Json::array();
+    too_many.get_ref<Json::array_t&>().resize(100001, first);
+    fixture.call({{"op", "validate_selection"}, {"ids", too_many}}, false);
+    too_many.get_ref<Json::array_t&>().pop_back();
+    CHECK(fixture.call({{"op", "validate_selection"}, {"ids", too_many}})["count"] == 1);
+    CHECK(fixture.call({{"op", "export"}})["data"] == before);
+
+    // Removing a source retains its annotations and IDs. Forgetting it removes the stale
+    // selection identity, even though its original file still exists at the same location.
+    fixture.call({{"op", "remove_source"}, {"id", first_source}});
+    CHECK(fixture.call({{"op", "validate_selection"}, {"ids", selected}})["count"] == 2);
+    fixture.call({{"op", "forget_source"}, {"id", first_source}});
+    const auto forgotten = fixture.call({{"op", "validate_selection"}, {"ids", selected}});
+    CHECK(forgotten["count"] == 1);
+    CHECK(forgotten["missing_ids"] == Json::array({first, 999999}));
+    CHECK(fs::exists(first_path));
+    CHECK(fixture.call({{"op", "query"}})["photos"][0]["id"] == second);
 }
 
 TEST_CASE("photo edits preserve unrelated tags and original dates across restart and refresh") {

@@ -48,6 +48,7 @@ public:
     void show_all_photos();
     [[nodiscard]] bool at_all_photos() const;
     void add_folder(std::filesystem::path initial = {});
+    void create_album_when_ready();
 
     // Sidebar lists are independent of the current result page. Construction and subscription
     // are inert; only explicit activation/expansion calls refresh_navigation().
@@ -99,7 +100,10 @@ public:
         choose_album_ = std::move(choose);
     }
 
-    void cancel_album_chooser() { ++album_chooser_generation_; }
+    void cancel_album_chooser() {
+        ++album_chooser_generation_;
+        pending_album_creation_ = false;
+    }
 
     void set_file_action(std::function<void(Json)> action) { file_action_ = std::move(action); }
 
@@ -124,7 +128,6 @@ public:
     [[nodiscard]] const std::set<Id>& selection() const;
     [[nodiscard]] const std::string& state() const;
     void restore_state(std::string_view);
-    void restore_cursor(std::string_view key);
 
     [[nodiscard]] bool has_dialog() const;
     void draw_dialogs(ui::Renderer&, const ui::Rect&, const theme::Palette&);
@@ -150,8 +153,11 @@ private:
     };
 
     void changed();
+    void initialize_catalog();
+    void clear_catalog_state();
+    void discard_pending_restore();
     void request(Json, std::function<void(Json)>, core::Priority = core::Priority::visible);
-    void mutate(Json, std::string success);
+    void mutate(Json, std::string success, std::function<void(std::string)> failure = {});
     void query(bool reset = false);
     void load_more();
     void publish();
@@ -168,7 +174,8 @@ private:
     void update_background(const Json&);
     void control_background(Json);
     void add_to_album();
-    void create_album(Json ids);
+    void create_album(Json ids, bool validated = false);
+    void name_album(Json ids, std::string name = {}, std::string error = {});
     void name_dialog(std::string title, std::string detail, std::string action,
                      std::function<void(std::string)>);
     void open_form(Form, std::vector<std::pair<std::string, std::string>> fields = {});
@@ -203,6 +210,9 @@ private:
     std::uint64_t navigation_generation_{};
     bool navigation_loading_{false}, navigation_again_{false}, navigation_ready_{false};
     Id active_saved_search_{};
+    std::string catalog_identity_, restored_catalog_identity_;
+    bool catalog_identity_ready_{false}, catalog_identity_loading_{false};
+    bool restored_catalog_state_{false}, pending_album_creation_{false}, resume_requested_{false};
     std::shared_ptr<photos::Client> client_;
     std::shared_ptr<Folder> folder_;
     std::unique_ptr<photos::SourceWatcher> source_watcher_;

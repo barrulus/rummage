@@ -587,6 +587,7 @@ TEST_CASE(
     const auto captured_ids = library->selected_ids();
     REQUIRE(captured_ids.size() == 13);
     invoke(library->menu_items(), "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return library->has_dialog(); }));
     REQUIRE(library->has_dialog());
     press(photo_key(XKB_KEY_NoSymbol, {}, "Thirteen selected"));
     draw("native-album-create-thirteen");
@@ -643,6 +644,7 @@ TEST_CASE(
     invoke(library->menu_items(), "photos:clear-selection");
     REQUIRE(library->selected_ids().empty());
     invoke(library->menu_items(), "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return library->has_dialog(); }));
     press(photo_key(XKB_KEY_NoSymbol, {}, "Empty album"));
     press(photo_key(XKB_KEY_Return));
     REQUIRE(settle_photos(loop, [&] {
@@ -796,7 +798,7 @@ TEST_CASE(
     const auto changed_selection = library->selected_ids();
     REQUIRE(changed_selection.size() == 1);
     press(photo_key(XKB_KEY_Return));
-    REQUIRE(library->has_dialog());
+    REQUIRE(settle_photos(loop, [&] { return library->has_dialog(); }));
     CHECK_FALSE(browser.command_palette().is_open());
     press(photo_key(XKB_KEY_NoSymbol, {}, "Created from chooser"));
     draw("native-add-to-new-album");
@@ -904,6 +906,24 @@ TEST_CASE(
         CHECK(picker.photo_library() == nullptr);
     }
     CHECK_FALSE(std::filesystem::exists(catalog));
+    const auto cold_albums_group =
+        browser.sidebar().place_icon_rect_for_uri("rummage:photos/albums");
+    REQUIRE(cold_albums_group);
+    for (auto kind :
+         {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
+        browser.pointer({.kind = kind,
+                         .x = cold_albums_group->x + cold_albums_group->width / 2,
+                         .y = cold_albums_group->y + cold_albums_group->height / 2,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+    const auto cold_create_actions = browser.context_menu().items();
+    press(photo_key(XKB_KEY_Escape));
+    invoke(cold_create_actions, "photos:create-album");
+    REQUIRE(settle_photos(
+        loop, [&] { return browser.photo_library() && browser.photo_library()->has_dialog(); }));
+    CHECK(browser.showing_photos());
+    CHECK(browser.photo_library()->destination() == PhotoLibrary::Destination::albums);
+    press(photo_key(XKB_KEY_Escape));
     click_uri("rummage:photos");
     auto* library = browser.photo_library();
     REQUIRE(library);
@@ -923,6 +943,7 @@ TEST_CASE(
     const auto selected = library->selected_ids();
     REQUIRE(selected.size() == 2);
     invoke(library->menu_items(), "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return library->has_dialog(); }));
     press(photo_key(XKB_KEY_NoSymbol, {}, "Weekend"));
     press(photo_key(XKB_KEY_Return));
     const auto record_id = [&](std::string_view collection, std::string_view name) {
@@ -940,6 +961,21 @@ TEST_CASE(
     const auto target_uri = "rummage:photos/albums/" + target.at("id").dump();
     click_uri("rummage:photos/albums");
     CHECK(library->destination() == PhotoLibrary::Destination::albums);
+    CHECK(library->selected_ids() == selected);
+    const auto albums_group = browser.sidebar().place_icon_rect_for_uri("rummage:photos/albums");
+    REQUIRE(albums_group);
+    for (auto kind :
+         {rummage::ui::PointerEvent::Kind::press, rummage::ui::PointerEvent::Kind::release})
+        browser.pointer({.kind = kind,
+                         .x = albums_group->x + albums_group->width / 2,
+                         .y = albums_group->y + albums_group->height / 2,
+                         .button = rummage::ui::PointerButton::right},
+                        Browser::Clock::now());
+    const auto group_actions = browser.context_menu().items();
+    press(photo_key(XKB_KEY_Escape));
+    invoke(group_actions, "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return library->has_dialog(); }));
+    press(photo_key(XKB_KEY_Escape));
     CHECK(library->selected_ids() == selected);
     press(photo_key(XKB_KEY_F6));
     press(photo_key(XKB_KEY_Right));
@@ -2171,5 +2207,290 @@ TEST_CASE("photo workspace: album paste reads shared clipboard and respects KDE 
     CHECK(library->rows().front().at("path") == first.string());
     CHECK(bytes(first) == first_bytes);
     CHECK(bytes(second) == second_bytes);
+}
+
+TEST_CASE("photo workspace: restored catalog state is bound to catalog identity, not reused IDs") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto old_source = directory.path / "Old source",
+               new_source = directory.path / "New source";
+    fixture(old_source / "Old.png");
+    fixture(new_source / "New.png");
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    nlohmann::json saved;
+    PhotoLibrary::Id old_id = 0;
+    const auto seed = [&](const std::filesystem::path& source) {
+        rummage::photos::Client catalog;
+        REQUIRE(
+            catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+        REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+        REQUIRE(
+            catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+        const auto rows = catalog.request({{"op", "query"}}).at("photos");
+        REQUIRE(rows.size() == 1);
+        const auto album = catalog.request(
+            {{"op", "create_album"}, {"name", "Album"}, {"ids", {rows[0].at("id")}}});
+        REQUIRE(album.value("ok", false));
+        REQUIRE(catalog
+                    .request({{"op", "save_filter"},
+                              {"name", "Saved album"},
+                              {"filter", {{"album_id", album.at("id")}}}})
+                    .value("ok", false));
+        return rows[0].at("id").get<PhotoLibrary::Id>();
+    };
+    {
+        const rummage::test::ScopedEnv data{"XDG_DATA_HOME",
+                                            (directory.path / "old-data").string()};
+        old_id = seed(old_source);
+        PhotoLibrary library{loop, pool, watcher, mime, [] {}};
+        library.open();
+        REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+        const auto search = library.client()->request({{"op", "filters"}}).at("filters")[0];
+        library.open_saved_search(search);
+        REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+        library.folder()->set_cursor(0);
+        saved = nlohmann::json::parse(library.state());
+        CHECK(saved.at("version") == 3);
+        CHECK_FALSE(saved.at("catalog_identity").get<std::string>().empty());
+        CHECK(saved.at("selected") == nlohmann::json::array({old_id}));
+        PhotoLibrary matching{loop, pool, watcher, mime, [] {}};
+        matching.restore_state(saved.dump());
+        CHECK(matching.selected_ids().empty());
+        matching.set_sort({});  // Browser tab restoration can query before open().
+        matching.open();
+        REQUIRE(settle_photos(loop, [&] { return !matching.loading(); }));
+        CHECK(matching.selected_ids() == nlohmann::json::array({old_id}));
+        REQUIRE(matching.folder()->cursor_entry());
+        CHECK(matching.folder()->cursor_entry()->key() == "photo:" + std::to_string(old_id));
+        CHECK(matching.title() == "Search: Saved album");
+        CHECK(nlohmann::json::parse(matching.state()).at("catalog_identity") ==
+              saved.at("catalog_identity"));
+        auto legacy = saved;
+        legacy["version"] = 2;
+        legacy.erase("catalog_identity");
+        PhotoLibrary unbound{loop, pool, watcher, mime, [] {}};
+        unbound.restore_state(legacy.dump());
+        unbound.open();
+        REQUIRE(settle_photos(loop, [&] { return !unbound.loading(); }));
+        CHECK(unbound.selected_ids().empty());
+        CHECK(unbound.at_all_photos());
+    }
+    {
+        const rummage::test::ScopedEnv data{"XDG_DATA_HOME",
+                                            (directory.path / "new-data").string()};
+        const auto new_id = seed(new_source);
+        REQUIRE(new_id ==
+                old_id);  // IDs collide across catalogs: existence checks are insufficient.
+        saved["selected"] = {old_id, 80077, 109568};
+        PhotoLibrary replacement{loop, pool, watcher, mime, [] {}};
+        replacement.restore_state(saved.dump());
+        replacement.set_sort({});
+        CHECK(replacement.selected_ids().empty());
+        replacement.open();
+        REQUIRE(settle_photos(loop, [&] { return !replacement.loading(); }));
+        REQUIRE(replacement.rows().size() == 1);
+        CHECK(replacement.rows()[0].at("path") == (new_source / "New.png").string());
+        CHECK(replacement.at_all_photos());
+        CHECK(replacement.selected_ids().empty());
+        CHECK(replacement.folder()->selected_count() == 0);
+        CHECK_FALSE(replacement.folder()->cursor());
+        const auto clean = nlohmann::json::parse(replacement.state());
+        CHECK(clean.at("catalog_identity") != saved.at("catalog_identity"));
+        CHECK(clean.at("saved_search_id") == 0);
+        CHECK(clean.at("cursor") == 0);
+        CHECK_FALSE(clean.at("filter").contains("album_id"));
+        invoke(replacement.menu_items(), "photos:create-album");
+        REQUIRE(settle_photos(loop, [&] { return replacement.has_dialog(); }));
+        replacement.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, "Empty after reset"));
+        replacement.key_dialog(photo_key(XKB_KEY_Return));
+        REQUIRE(settle_photos(loop, [&] { return !replacement.loading(); }));
+        const auto albums = replacement.client()->request({{"op", "albums"}}).at("albums");
+        const auto empty = std::ranges::find_if(albums, [](const auto& album) {
+            return album.value("name", "") == "Empty after reset";
+        });
+        REQUIRE(empty != albums.end());
+        CHECK(empty->at("count") == 0);
+        replacement.folder()->set_cursor(0);
+        invoke(replacement.menu_items(), "photos:create-album");
+        REQUIRE(settle_photos(loop, [&] { return replacement.has_dialog(); }));
+        replacement.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, "Current photo"));
+        replacement.key_dialog(photo_key(XKB_KEY_Return));
+        REQUIRE(settle_photos(loop, [&] { return !replacement.loading(); }));
+        const auto with_photo = replacement.client()->request({{"op", "albums"}}).at("albums");
+        const auto current = std::ranges::find_if(with_photo, [](const auto& album) {
+            return album.value("name", "") == "Current photo";
+        });
+        REQUIRE(current != with_photo.end());
+        CHECK(current->at("count") == 1);
+    }
+}
+
+TEST_CASE(
+    "photo workspace: album creation prunes forgotten source selections and requires review") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto first = directory.path / "Forgotten" / "Old.png";
+    const auto second = directory.path / "Retained" / "Current.png";
+    fixture(first);
+    fixture(second);
+    rummage::photos::Client catalog;
+    const auto old_source =
+        catalog.request({{"op", "add_source"}, {"path", first.parent_path().string()}});
+    REQUIRE(old_source.value("ok", false));
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", second.parent_path().string()}})
+                .value("ok", false));
+    for (int i = 0; i < 16 && catalog.request({{"op", "query"}}).value("total", 0) < 2; ++i)
+        REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    PhotoLibrary library{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.rows().size() == 2; }));
+    library.folder()->select_all();
+    REQUIRE(library.selected_ids().size() == 2);
+    // Selected identities survive navigation to the source manager, where one source is forgotten.
+    library.show(PhotoLibrary::Destination::sources);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    const auto sources = catalog.request({{"op", "sources"}}).at("sources");
+    const auto old = std::ranges::find_if(sources, [&](const auto& source) {
+        return source.value("path", "") == first.parent_path().string();
+    });
+    REQUIRE(old != sources.end());
+    const auto source_id = old->at("id");
+    REQUIRE(catalog.request({{"op", "remove_source"}, {"id", source_id}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "forget_source"}, {"id", source_id}}).value("ok", false));
+    library.show_all_photos();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.rows().size() == 1; }));
+    REQUIRE(library.selected_ids().size() == 2);
+    invoke(library.menu_items(), "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.has_dialog());
+    CHECK(library.status().find("no longer exists in the catalog") != std::string::npos);
+    REQUIRE(library.selected_ids().size() == 1);
+    CHECK(library.selected_ids()[0] == library.rows()[0].at("id"));
+    CHECK(library.selected_photos().size() == 1);
+    CHECK(catalog.request({{"op", "albums"}}).at("albums").empty());
+    library.key_dialog(photo_key(XKB_KEY_Return));
+    CHECK_FALSE(library.has_dialog());
+    CHECK(catalog.request({{"op", "albums"}}).at("albums").empty());
+    invoke(library.menu_items(), "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return library.has_dialog(); }));
+    library.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, "Reviewed selection"));
+    library.key_dialog(photo_key(XKB_KEY_Return));
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    const auto albums = catalog.request({{"op", "albums"}}).at("albums");
+    REQUIRE(albums.size() == 1);
+    CHECK(albums[0].at("name") == "Reviewed selection");
+    CHECK(albums[0].at("count") == 1);
+    CHECK(std::filesystem::exists(first));
+    CHECK(std::filesystem::exists(second));
+}
+
+TEST_CASE("photo workspace: album write failures keep the entered name in a visible dialog") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    fixture(source / "Image.png");
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    PhotoLibrary library{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.rows().size() == 1; }));
+    const auto enter_name = [&](std::string name) {
+        library.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, std::move(name)));
+        library.key_dialog(photo_key(XKB_KEY_Return));
+    };
+    invoke(library.menu_items(), "photos:create-album");
+    REQUIRE(library.has_dialog());
+    enter_name("Food & drink");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK_FALSE(library.has_dialog());
+    auto albums = catalog.request({{"op", "albums"}}).at("albums");
+    REQUIRE(albums.size() == 1);
+    CHECK(albums[0].at("name") == "Food & drink");
+
+    invoke(library.menu_items(), "photos:create-album");
+    enter_name("Food & drink");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.has_dialog(); }));
+    CHECK(library.copy_selection(false) == "Food & drink");
+    CHECK(library.status().find("An album with this name already exists") != std::string::npos);
+    CHECK(catalog.request({{"op", "albums"}}).at("albums").size() == 1);
+    library.key_dialog(photo_key(XKB_KEY_Escape));
+
+    library.folder()->set_cursor(0);
+    invoke(library.menu_items(), "photos:create-album");
+    REQUIRE(settle_photos(loop, [&] { return library.has_dialog(); }));
+    // The selection existed during preflight but disappears before the user confirms its name.
+    const auto source_id = catalog.request({{"op", "sources"}}).at("sources")[0].at("id");
+    REQUIRE(catalog.request({{"op", "remove_source"}, {"id", source_id}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "forget_source"}, {"id", source_id}}).value("ok", false));
+    enter_name("Keep this name");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.has_dialog(); }));
+    CHECK(library.copy_selection(false) == "Keep this name");
+    CHECK(library.status().find("no longer exists in the catalog") != std::string::npos);
+    CHECK(catalog.request({{"op", "albums"}}).at("albums").size() == 1);
+    CHECK(std::filesystem::exists(source / "Image.png"));
+    library.key_dialog(photo_key(XKB_KEY_Escape));
+    invoke(library.menu_items(), "photos:clear-selection");
+
+    invoke(library.menu_items(), "photos:create-album");
+    enter_name("Food & drink");
+    library.show(PhotoLibrary::Destination::albums);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK_FALSE(library.has_dialog());  // A late failure never reopens after navigation.
+
+    invoke(library.menu_items(), "photos:create-album");
+    enter_name("Food & drink");
+    invoke(library.menu_items(), "photos:create-album");
+    library.key_dialog(photo_key(XKB_KEY_NoSymbol, {}, "New dialog"));
+    library.key_dialog(photo_key(XKB_KEY_a, {.ctrl = true}));
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.has_dialog());
+    CHECK(library.copy_selection(false) == "New dialog");
+    library.key_dialog(photo_key(XKB_KEY_Escape));
+    CHECK(catalog.request({{"op", "albums"}}).at("albums").size() == 1);
+}
+
+TEST_CASE(
+    "photo workspace: navigation-only catalog initialization does not start background work") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    fixture(source / "Unindexed.png");
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    const auto before = catalog.request({{"op", "jobs"}}).at("jobs");
+    REQUIRE_FALSE(before.empty());
+    REQUIRE(catalog.request({{"op", "query"}}).value("total", -1) == 0);
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    PhotoLibrary library{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    library.refresh_navigation();
+    REQUIRE(settle_photos(loop, [&] {
+        return !library.loading() && library.navigation().at("sources").size() == 1;
+    }));
+    CHECK_FALSE(library.is_open());
+    // Cover two normal worker timer intervals; navigation alone must not advance queued jobs.
+    const auto observation = loop.add_timer(600ms, 0ms, [&] { loop.quit(0); });
+    loop.run();
+    loop.remove(observation);
+    CHECK(catalog.request({{"op", "query"}}).value("total", -1) == 0);
+    CHECK(catalog.request({{"op", "jobs"}}).at("jobs") == before);
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading() && library.rows().size() == 1; }));
 }
 #endif

@@ -234,6 +234,20 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
         item.keys = keys_for(Command::open_selected);
         item.action = [this, place] { open_place(place); };
         items.push_back(std::move(item));
+        if (photos_available() && place.uri == "rummage:photos/albums") {
+            MenuItem create;
+            create.id = "photos:create-album";
+            create.label = i18n::tr("Create album…");
+            create.action = [this, place] {
+                if (!photos_available())
+                    return;
+                open_place(place);
+                if (!photo_library_)
+                    return;
+                photo_library_->create_album_when_ready();
+            };
+            items.push_back(std::move(create));
+        }
         if (photos_available() && photo_library_ &&
             place.uri.starts_with("rummage:photos/albums/")) {
             for (const auto& record : photo_navigation_.value("albums", nlohmann::json::array())) {

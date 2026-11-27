@@ -140,6 +140,16 @@ album. Choose **All photos**, click **Photo Library** in the sidebar, or use Bac
 return to the full active library. An album’s context
 menu offers **Add selected photos to album** and **Remove selected photos from album**.
 
+The sidebar's **Albums** group also offers **Create album…** on right-click. If a previous
+selection includes photos whose source data has since been forgotten, creation removes those
+stale selections and shows a dialog explaining how many were removed. Review the remaining
+selection and choose **Create album…** again. It does not silently create an incomplete album.
+Resetting the catalog also clears saved photo selections and album/source locations, so old IDs cannot select unrelated
+photos in the new library.
+
+If creation fails, the name dialog reopens with the entered name and the error, so you can
+correct it without retyping. Album names can include spaces and ampersands.
+
 Right-click an album in the sidebar or Albums view to **Rename album…** or
 **Delete album…**. These actions are also in the Photo Library menu while the album
 is open. Deleting an album asks for confirmation and removes only the album and

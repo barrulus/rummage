@@ -3855,8 +3855,7 @@ State::Tab Browser::tab_of(const Pane& each, std::size_t side) {
     if (each.photos) {
         tab.folder.clear();
         tab.root.clear();
-        if (const auto* cursor = folder->cursor_entry())
-            tab.cursor = cursor->key();
+        tab.cursor.clear();
         if (each.photo_records) {
             tab.mode = static_cast<State::Mode>(each.photo_view);
             tab.details_columns = each.photo_columns;
@@ -3896,7 +3895,8 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
         const auto sort = tab.sort_key.value_or(fs::SortKey::name);
         set_sort(supported(sort) ? sort : fs::SortKey::name, tab.sort_descending);
         set_name_filter(tab.filter);
-        photo_library_->restore_cursor(tab.cursor);
+        // Photo selection belongs to the catalog-bound workspace state. A bare tab cursor
+        // can refer to a different photograph after the catalog is reset.
         photo_library_->open();
         sync_photo_view();
         return;

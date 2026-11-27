@@ -248,11 +248,12 @@ public:
             // Additive album metadata is compatible with existing schema-three catalogs.
             // Keep the allocation counter separate so deleting an album can never retarget
             // a saved search or a stale UI reference to a later album with a reused ID.
-            Statement album_metadata(db_,
-                                     "SELECT count(*) FROM sqlite_master WHERE type='table' "
-                                     "AND name IN ('album_covers','album_sequence')");
+            Statement album_metadata(
+                db_,
+                "SELECT count(*) FROM sqlite_master WHERE type='table' "
+                "AND name IN ('album_covers','album_sequence','catalog_identity')");
             (void)album_metadata.row();
-            if (album_metadata.number(0) != 2)
+            if (album_metadata.number(0) != 3)
                 exec(
                     "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS album_covers(album_id INTEGER "
                     "PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,photo_id INTEGER NOT "
@@ -260,7 +261,11 @@ public:
                     "REFERENCES memberships(photo_id,album_id) ON DELETE CASCADE); "
                     "CREATE TABLE IF NOT EXISTS album_sequence(id INTEGER PRIMARY KEY "
                     "CHECK(id=1),next_id INTEGER NOT NULL); "
-                    "INSERT OR IGNORE INTO album_sequence VALUES(1,1); COMMIT;");
+                    "INSERT OR IGNORE INTO album_sequence VALUES(1,1); "
+                    "CREATE TABLE IF NOT EXISTS catalog_identity(id INTEGER PRIMARY KEY "
+                    "CHECK(id=1),identity TEXT NOT NULL); "
+                    "INSERT OR IGNORE INTO catalog_identity VALUES(1,lower(hex(randomblob(16)))); "
+                    "COMMIT;");
         } catch (...) {
             sqlite3_close(db_);
             db_ = nullptr;
@@ -1917,6 +1922,10 @@ Json job_control(Database& db, const Json& request) {
 }
 
 Id create_album(Database& db, const std::string& name) {
+    Statement existing(db.get(), "SELECT id FROM albums WHERE name=?");
+    existing.bind(1, name);
+    if (existing.row())
+        throw std::runtime_error("An album with this name already exists");
     Statement sequence(db.get(),
                        "SELECT next_id,COALESCE((SELECT max(id) FROM albums),0) "
                        "FROM album_sequence WHERE id=1");
@@ -2737,6 +2746,12 @@ Json watch_paths(Database& db, const Json& request) {
 
 Json dispatch(Database& db, const Json& request) {
     const auto op = request.at("op").get<std::string>();
+    if (op == "catalog_identity") {
+        Statement identity(db.get(), "SELECT identity FROM catalog_identity WHERE id=1");
+        if (!identity.row())
+            throw std::runtime_error("Photo catalog identity is unavailable");
+        return {{"identity", identity.text(0)}};
+    }
     if (op == "backup") {
         const auto path = request.value("path", db.path().string() + ".backup");
         db.backup(path);
@@ -2756,6 +2771,32 @@ Json dispatch(Database& db, const Json& request) {
         return query(db, request);
     if (op == "query_ids")
         return query_ids(db, request);
+    if (op == "validate_selection") {
+        const auto& ids = request.at("ids");
+        if (!ids.is_array() || ids.size() > 100000)
+            throw std::runtime_error("Validate at most 100000 photograph IDs");
+        std::set<Id> unique;
+        for (const auto& value : ids) {
+            if (!value.is_number_integer() ||
+                (value.is_number_unsigned() &&
+                 value.get<std::uint64_t>() >
+                     static_cast<std::uint64_t>(std::numeric_limits<Id>::max())) ||
+                value.get<Id>() <= 0)
+                throw std::runtime_error("Photo selections must contain valid photograph IDs");
+            unique.insert(value.get<Id>());
+        }
+        // One read statement gives a coherent snapshot and indexed primary-key probes even
+        // for a selection spanning many pages. Retained/offline identities still exist;
+        // only forgotten rows are stale. No original paths or metadata are read here.
+        Statement missing(db.get(),
+                          "SELECT selected.value FROM json_each(?) selected LEFT JOIN photos p "
+                          "ON p.id=selected.value WHERE p.id IS NULL ORDER BY selected.value");
+        missing.bind(1, Json(unique).dump());
+        Json missing_ids = Json::array();
+        while (missing.row())
+            missing_ids.push_back(missing.number(0));
+        return {{"count", unique.size() - missing_ids.size()}, {"missing_ids", missing_ids}};
+    }
     if (op == "edit")
         return edit(db, request);
     if (op == "work")

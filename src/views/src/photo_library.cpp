@@ -212,7 +212,8 @@ std::string PhotoLibrary::status() const {
 }
 
 void PhotoLibrary::sync_selection() const {
-    if (publishing_ || selection_revision_ == folder_->selection_revision())
+    if (!catalog_identity_ready_ || publishing_ ||
+        selection_revision_ == folder_->selection_revision())
         return;
     selection_revision_ = folder_->selection_revision();
     if (!photo_rows())
@@ -242,6 +243,8 @@ const std::set<Id>& PhotoLibrary::selection() const {
 }
 
 PhotoLibrary::Json PhotoLibrary::selected_ids() const {
+    if (!catalog_identity_ready_)
+        return Json::array();
     sync_selection();
     Json ids = Json::array();
     for (Id id : selected_)
@@ -250,6 +253,8 @@ PhotoLibrary::Json PhotoLibrary::selected_ids() const {
 }
 
 PhotoLibrary::Json PhotoLibrary::selected_photos() const {
+    if (!catalog_identity_ready_)
+        return Json::array();
     sync_selection();
     Json result = Json::array();
     for (Id id : selected_) {
@@ -280,16 +285,19 @@ PhotoLibrary::Json PhotoLibrary::focused_record() const {
 const std::string& PhotoLibrary::state() const {
     sync_selection();
     if (state_dirty_) {
-        cached_state_ = Json{{"version", 2},
-                             {"text", search_},
-                             {"filter", filter_},
-                             {"selected", selected_ids()},
-                             {"cursor", cursor_},
-                             {"offset", 0},
-                             {"loaded", offset_},
-                             {"saved_search_id", active_saved_search_},
-                             {"collection_name", collection_name_}}
-                            .dump();
+        cached_state_ =
+            Json{{"version", 3},
+                 {"catalog_identity",
+                  restored_catalog_state_ ? restored_catalog_identity_ : catalog_identity_},
+                 {"text", search_},
+                 {"filter", filter_},
+                 {"selected", selected_},
+                 {"cursor", cursor_},
+                 {"offset", 0},
+                 {"loaded", offset_},
+                 {"saved_search_id", active_saved_search_},
+                 {"collection_name", collection_name_}}
+                .dump();
         state_dirty_ = false;
     }
     return cached_state_;
@@ -300,7 +308,7 @@ void PhotoLibrary::restore_state(std::string_view value) {
         return;
     try {
         const auto saved = Json::parse(value);
-        if (saved.value("version", 0) < 1 || saved.value("version", 0) > 2)
+        if (saved.value("version", 0) < 1 || saved.value("version", 0) > 3)
             return;
         auto filter = saved.value("filter", Json::object());
         auto text = saved.value("text", std::string{});
@@ -321,6 +329,10 @@ void PhotoLibrary::restore_state(std::string_view value) {
         if (offset < 0 || offset > 100000000 || loaded < 0 || loaded > 100001000 || cursor < 0 ||
             saved_search < 0 || collection_name.size() > 16384)
             return;
+        const auto identity = saved.value("catalog_identity", std::string{});
+        if (identity.size() > 128)
+            return;
+        clear_catalog_state();
         search_ = std::move(text);
         filter_ = std::move(filter);
         selected_ = std::move(selected);
@@ -328,25 +340,24 @@ void PhotoLibrary::restore_state(std::string_view value) {
         cursor_ = cursor;
         active_saved_search_ = saved_search;
         collection_name_ = std::move(collection_name);
+        restored_catalog_identity_ = saved.value("version", 0) == 3 ? identity : std::string{};
+        restored_catalog_state_ = true;
+        if (restored_catalog_identity_.empty() ||
+            (catalog_identity_ready_ && restored_catalog_identity_ != catalog_identity_)) {
+            clear_catalog_state();
+        } else if (catalog_identity_ready_) {
+            restored_catalog_state_ = false;
+        }
         state_dirty_ = true;
     } catch (const Json::exception&) {
     }
 }
 
-void PhotoLibrary::restore_cursor(std::string_view key) {
-    const auto id = photo_id(key);
-    if (id <= 0)
-        return;
-    sync_selection();
-    cursor_ = id;
-    selected_.insert(id);
-    selection_revision_ = folder_->selection_revision();
-    state_dirty_ = true;
-    if (!rows_.empty())
-        publish();
-}
-
 void PhotoLibrary::refresh_navigation() {
+    if (!catalog_identity_ready_) {
+        initialize_catalog();
+        return;
+    }
     if (!client_->available())
         return;
     if (navigation_loading_) {
@@ -435,6 +446,7 @@ void PhotoLibrary::add_album_paths(Id album, const std::vector<std::filesystem::
 }
 
 void PhotoLibrary::open_album(Id id, std::string name) {
+    discard_pending_restore();
     if (id <= 0)
         return;
     sync_selection();
@@ -448,6 +460,7 @@ void PhotoLibrary::open_album(Id id, std::string name) {
 }
 
 void PhotoLibrary::open_source(Id id, std::string path) {
+    discard_pending_restore();
     if (id <= 0)
         return;
     sync_selection();
@@ -461,6 +474,7 @@ void PhotoLibrary::open_source(Id id, std::string path) {
 }
 
 void PhotoLibrary::open_saved_search(Json record) {
+    discard_pending_restore();
     if (!record.is_object() || !record.contains("filter") || !record["filter"].is_object())
         return;
     sync_selection();
@@ -472,17 +486,94 @@ void PhotoLibrary::open_saved_search(Json record) {
     show(Destination::library);
 }
 
+void PhotoLibrary::clear_catalog_state() {
+    query_job_.cancel();
+    ++generation_;
+    querying_ = false;
+    selected_.clear();
+    selected_snapshots_.clear();
+    cursor_ = active_saved_search_ = 0;
+    offset_ = total_ = 0;
+    filter_ = sort_filter(filter_);
+    collection_name_.clear();
+    destination_ = Destination::library;
+    rows_ = records_ = Json::array();
+    row_by_id_.clear();
+    record_by_key_.clear();
+    pending_metadata_.clear();
+    ++data_revision_;
+    publishing_ = true;
+    folder_->replace_collection({}, title(), 0);
+    publishing_ = false;
+    selection_revision_ = folder_->selection_revision();
+    restored_catalog_state_ = false;
+    restored_catalog_identity_.clear();
+    state_dirty_ = true;
+}
+
+void PhotoLibrary::discard_pending_restore() {
+    if (restored_catalog_state_ && !catalog_identity_ready_)
+        clear_catalog_state();
+}
+
+void PhotoLibrary::initialize_catalog() {
+    if (catalog_identity_ready_ || catalog_identity_loading_ || !client_->available())
+        return;
+    catalog_identity_loading_ = true;
+    request({{"op", "catalog_identity"}}, [this](Json response) {
+        catalog_identity_loading_ = false;
+        if (!response.value("ok", false))
+            return;
+        const auto identity = response.value("identity", std::string{});
+        if (identity.empty()) {
+            report(tr("Cannot identify the photo catalog"));
+            return;
+        }
+        if (restored_catalog_state_ && restored_catalog_identity_ != identity)
+            clear_catalog_state();
+        else if (restored_catalog_state_) {
+            restored_catalog_state_ = false;
+        }
+        catalog_identity_ = identity;
+        catalog_identity_ready_ = true;
+        // Restoring the tab's sort may change the empty Folder revision before validation.
+        // It is not a user selection change and must not clear the bound restored cursor.
+        selection_revision_ = folder_->selection_revision();
+        state_dirty_ = true;
+        refresh_navigation();
+        if (std::exchange(resume_requested_, false))
+            resume();
+        if (std::exchange(pending_album_creation_, false) && open_)
+            create_album(selected_ids());
+    });
+}
+
+void PhotoLibrary::create_album_when_ready() {
+    if (catalog_identity_ready_)
+        create_album(selected_ids());
+    else {
+        pending_album_creation_ = true;
+        initialize_catalog();
+    }
+}
+
 void PhotoLibrary::open() {
     open_ = true;
     if (!client_->available()) {
         report(client_->error());
         return;
     }
-    refresh_navigation();
+    if (catalog_identity_ready_)
+        refresh_navigation();
     resume();
 }
 
 void PhotoLibrary::resume() {
+    if (!catalog_identity_ready_) {
+        resume_requested_ = true;
+        initialize_catalog();
+        return;
+    }
     if (!source_watcher_)
         source_watcher_ = std::make_unique<photos::SourceWatcher>(loop_, pool_, watcher_, client_,
                                                                   [this](const std::string& error) {
@@ -746,6 +837,10 @@ void PhotoLibrary::drain_metadata() {
 }
 
 void PhotoLibrary::query(bool reset) {
+    if (!catalog_identity_ready_) {
+        initialize_catalog();
+        return;
+    }
     sync_selection();
     query_job_.cancel();
     const auto generation = ++generation_;
@@ -861,6 +956,10 @@ void PhotoLibrary::load_more() {
 }
 
 void PhotoLibrary::refresh() {
+    if (!catalog_identity_ready_) {
+        initialize_catalog();
+        return;
+    }
     if (destination_ == Destination::library) {
         if (querying_) {
             refresh_again_ = true;
@@ -937,6 +1036,7 @@ bool PhotoLibrary::at_all_photos() const {
 }
 
 void PhotoLibrary::show_all_photos() {
+    discard_pending_restore();
     sync_selection();
     active_saved_search_ = 0;
     filter_ = sort_filter(filter_);
@@ -948,6 +1048,7 @@ void PhotoLibrary::show_all_photos() {
 }
 
 void PhotoLibrary::show(Destination destination) {
+    discard_pending_restore();
     sync_selection();
     query_job_.cancel();
     ++generation_;
@@ -1068,7 +1169,8 @@ void PhotoLibrary::work() {
         core::Priority::prefetch);
 }
 
-void PhotoLibrary::mutate(Json input, std::string success) {
+void PhotoLibrary::mutate(Json input, std::string success,
+                          std::function<void(std::string)> failure) {
     const auto op = input.value("op", "");
     const auto album_id = input.value("id", Id{});
     const auto album_name = input.value("name", std::string{});
@@ -1081,10 +1183,13 @@ void PhotoLibrary::mutate(Json input, std::string success) {
     const bool watches_changed = op == "add_source" || op == "remove_source" ||
                                  op == "forget_source" || op == "relink_source" || op == "refresh";
     request(std::move(input), [this, op, album_id, album_name, navigation_changed, watches_changed,
-                               form_generation = form_generation_,
-                               success = std::move(success)](Json response) {
-        if (!response.value("ok", false))
+                               form_generation = form_generation_, success = std::move(success),
+                               failure = std::move(failure)](Json response) {
+        if (!response.value("ok", false)) {
+            if (failure)
+                failure(response.value("error", tr("Photo Library request failed")));
             return;
+        }
         message_ = success;
         if (filter_.value("album_id", Id{}) == album_id && album_id > 0) {
             if (op == "rename_album" && active_saved_search_ == 0)
@@ -1374,18 +1479,82 @@ void PhotoLibrary::save_annotations(std::vector<Id> ids, PhotoEdits edits,
     });
 }
 
-void PhotoLibrary::create_album(Json ids) {
+void PhotoLibrary::create_album(Json ids, bool validated) {
+    if (!catalog_identity_ready_)
+        return;
+    if (!ids.empty() && !validated) {
+        const auto epoch = ++album_chooser_generation_;
+        const auto form_generation = form_generation_;
+        const auto dialog_generation = confirm_.generation();
+        Json validation{{"op", "validate_selection"}, {"ids", ids}};
+        request(std::move(validation), [this, ids = std::move(ids), epoch, form_generation,
+                                        dialog_generation](Json response) {
+            if (!open_ || epoch != album_chooser_generation_ ||
+                form_generation != form_generation_ || dialog_generation != confirm_.generation() ||
+                confirm_.is_open() || !response.value("ok", false))
+                return;
+            const auto missing = response.value("missing_ids", Json::array());
+            if (!missing.empty()) {
+                sync_selection();
+                for (const auto& value : missing) {
+                    const auto id = value.get<Id>();
+                    selected_.erase(id);
+                    selected_snapshots_.erase(id);
+                    if (cursor_ == id)
+                        cursor_ = 0;
+                }
+                focused_properties_.reset();
+                selected_properties_.reset();
+                publish();
+                refresh();
+                const auto detail = i18n::trn(
+                    "{} selected photo no longer exists in the catalog. Review the "
+                    "selection and create the album again.",
+                    "{} selected photos no longer exist in the catalog. Review the "
+                    "selection and create the album again.",
+                    missing.size());
+                report(detail);
+                confirm_.open(tr("Review photo selection"), detail, tr("OK"), [](bool) {}, "");
+                changed();
+                return;
+            }
+            create_album(ids, true);
+        });
+        return;
+    }
+    name_album(std::move(ids));
+}
+
+void PhotoLibrary::name_album(Json ids, std::string initial_name, std::string initial_error) {
     const auto detail =
-        ids.empty() ? tr("Create an empty album. Originals stay in place.")
-                    : i18n::trn("Include {} selected photo. Originals stay in place.",
-                                "Include {} selected photos. Originals stay in place.", ids.size());
-    name_dialog(tr("Create album"), detail, tr("Create"),
-                [this, ids = std::move(ids)](std::string name) {
-                    mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
-                           ids.empty() ? tr("Empty album created")
-                                       : i18n::trn("Album created with {} photo",
-                                                   "Album created with {} photos", ids.size()));
-                });
+        !initial_error.empty() ? tr("Cannot create album: ") + initial_error
+        : ids.empty()
+            ? tr("Create an empty album. Originals stay in place.")
+            : i18n::trn("Include {} selected photo. Originals stay in place.",
+                        "Include {} selected photos. Originals stay in place.", ids.size());
+    cancel_album_chooser();
+    confirm_.open_name(
+        tr("Create album"), detail, std::move(initial_name),
+        [this, ids = std::move(ids)](const std::string& name) {
+            if (name.empty())
+                return std::string{tr("Enter a name")};
+            const auto epoch = album_chooser_generation_;
+            const auto form_generation = form_generation_;
+            const auto dialog_generation = confirm_.generation();
+            mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
+                   ids.empty() ? tr("Empty album created")
+                               : i18n::trn("Album created with {} photo",
+                                           "Album created with {} photos", ids.size()),
+                   [this, ids, name, epoch, form_generation, dialog_generation](std::string error) {
+                       if (open_ && epoch == album_chooser_generation_ &&
+                           form_generation == form_generation_ &&
+                           dialog_generation == confirm_.generation() && !confirm_.is_open())
+                           name_album(ids, name, std::move(error));
+                   });
+            return std::string{};
+        },
+        tr("Create"));
+    changed();
 }
 
 std::vector<MenuItem> PhotoLibrary::album_menu_items(Id id, std::string name) {
@@ -1556,7 +1725,9 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
                                tr("Photo search saved"));
                     });
     });
-    add("photos:create-album", tr("Create album…"), [this] { create_album(selected_ids()); });
+    add(
+        "photos:create-album", tr("Create album…"), [this] { create_album(selected_ids()); },
+        catalog_identity_ready_);
     Json album = Json::object();
     if (destination_ == Destination::albums)
         album = focused_record();
