@@ -511,6 +511,50 @@ TEST_CASE("settings: invalid fields and incomplete drafts do not block independe
     CHECK(loaded.config.font.size == 17);
 }
 
+TEST_CASE("settings: ignored options preserve working pages and survive edits") {
+    Fixture f;
+    const std::string original =
+        "[appearance]\ntransparent_settings = true # keep for another version\n"
+        "color_scheme = 'dark'\n[future_settings]\ncustom_option = 'preserve me'\n";
+    REQUIRE_FALSE(core::write_file_atomically(f.path, original));
+    f.open();
+    REQUIRE(f.dialog.editable());
+    f.focus("Startup folder");
+    f.focus("Colour mode");
+    REQUIRE(f.dialog.edit("appearance", "color_scheme", "light"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.error().empty());
+    // Exercise both the text-field commit and editor/reset apply_edits paths.
+    REQUIRE(f.dialog.reset_setting("icon", "theme"));
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.error().empty());
+    const auto text = core::read_text_file(f.path).text;
+    CHECK(text.find("transparent_settings = true # keep for another version") != std::string::npos);
+    CHECK(text.find("custom_option = 'preserve me'") != std::string::npos);
+    CHECK(core::load_config(f.path).config.appearance.color_scheme == "light");
+    CHECK(f.applied > 0);
+    f.dialog.close();
+    REQUIRE_FALSE(f.dialog.is_open());
+    f.open();
+    CHECK(f.dialog.editable());
+}
+
+TEST_CASE("settings: ignored options do not hide invalid known settings") {
+    Fixture f;
+    const std::string original =
+        "[appearance]\ntransparent_settings = true\n[font]\nsize = 'broken'\n";
+    REQUIRE_FALSE(core::write_file_atomically(f.path, original));
+    f.dialog.open(f.path, [] {}, [](const core::ConfigResult&) {});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK_FALSE(f.dialog.editable());
+    CHECK(f.dialog.error().find("font.size") != std::string::npos);
+    CHECK(f.dialog.error().find("unknown key") == std::string::npos);
+    f.dialog.save();
+    f.dialog.close();
+    CHECK(core::read_text_file(f.path).text == original);
+}
+
 TEST_CASE("settings: failed writes retain edits and Retry can persist them") {
     Fixture f;
     REQUIRE_FALSE(core::write_file_atomically(f.path, "# original\n"));
@@ -567,6 +611,8 @@ TEST_CASE("settings: translated compact navigation preserves keyboard editing an
 
     rummage::i18n::set_language("de");
     Fixture f;
+    REQUIRE_FALSE(core::write_file_atomically(
+        f.path, "[appearance]\ntransparent_settings = true # another version's option\n"));
     f.open();
     ui::Offscreen surface{960, 700};
     ui::FontSystem fonts;

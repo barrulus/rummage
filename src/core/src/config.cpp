@@ -56,24 +56,29 @@ public:
 
     explicit Reader(std::string_view source) : source_{source} {}
 
-    void report(const toml::source_region& where, std::string_view what) {
-        problems_.push_back({where.begin, std::format("{}:{}:{}: {}", source_, where.begin.line,
-                                                      where.begin.column, what)});
+    enum class Severity { ignored_unknown, validation_error };
+
+    void report(const toml::source_region& where, std::string_view what,
+                Severity severity = Severity::validation_error) {
+        problems_.push_back(
+            {where.begin,
+             std::format("{}:{}:{}: {}", source_, where.begin.line, where.begin.column, what),
+             severity});
     }
 
-    // Problems in file order (toml++ tables iterate by key, not by position).
-    [[nodiscard]] std::vector<std::string> take_problems() {
+    // Both lists retain file order (toml++ tables iterate by key, not by position).
+    void take_problems(ConfigResult& result) {
         std::ranges::stable_sort(problems_, [](const Problem& a, const Problem& b) {
             return std::pair{a.where.line, a.where.column} <
                    std::pair{b.where.line, b.where.column};
         });
-        std::vector<std::string> out;
-        out.reserve(problems_.size());
+        result.problems.reserve(problems_.size());
         for (Problem& problem : problems_) {
-            out.push_back(std::move(problem.text));
+            if (problem.severity == Severity::validation_error)
+                result.validation_errors.push_back(problem.text);
+            result.problems.push_back(std::move(problem.text));
         }
         problems_.clear();
-        return out;
     }
 
     void read_section(const toml::node& node, std::string_view section,
@@ -95,7 +100,8 @@ public:
                 }
             }
             if (!known) {
-                report(key.source(), std::format("unknown key '{}'; ignored", path));
+                report(key.source(), std::format("unknown key '{}'; ignored", path),
+                       Severity::ignored_unknown);
             }
         }
     }
@@ -215,6 +221,7 @@ private:
     struct Problem {
         toml::source_position where;
         std::string text;
+        Severity severity;
     };
 
     std::string_view source_;
@@ -681,7 +688,8 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                           const std::string entry_path = path + "." + std::string{name.str()};
                           if (std::ranges::find(keys, name.str()) == std::end(keys)) {
                               reader.report(name.source(),
-                                            "unknown key '" + entry_path + "'; ignored");
+                                            "unknown key '" + entry_path + "'; ignored",
+                                            Reader::Severity::ignored_unknown);
                               continue;
                           }
                           std::string icon;
@@ -698,7 +706,8 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
             // Read after actions so references are independent of TOML order.
         } else {
             reader.report(key.source(),
-                          std::format("unknown section or key '{}'; ignored", key.str()));
+                          std::format("unknown section or key '{}'; ignored", key.str()),
+                          Reader::Severity::ignored_unknown);
         }
     }
 }
@@ -969,7 +978,7 @@ ConfigResult parse_config(std::string_view text, std::string_view source) {
         reader.report(e.source(), std::format("{}; the whole file is ignored, using defaults",
                                               e.description()));
     }
-    result.problems = reader.take_problems();
+    reader.take_problems(result);
     return result;
 }
 
@@ -981,6 +990,7 @@ ConfigResult load_config(const std::filesystem::path& path) {
     if (!file.error.empty()) {
         ConfigResult result;
         result.problems.push_back(std::format("{}: {}; using defaults", path.string(), file.error));
+        result.validation_errors = result.problems;
         return result;
     }
     return parse_config(file.text, path.string());

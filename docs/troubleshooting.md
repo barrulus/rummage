@@ -64,6 +64,11 @@ Run `--check-config` with the same `--config FILE` argument as the application.
 A missing config is valid and uses defaults; inspect the reported path. Keep one
 table per `[keybindings]` or `[context_menu]`, with complete `[[actions]]` blocks.
 
+Unknown options from another version are reported as warnings and preserved when
+Settings saves supported options. They do not prevent Settings pages from opening.
+Invalid values or malformed TOML still block editing; Settings shows the error and
+offers **Open config** so you can correct the file and reopen the dialog.
+
 Fonts require a restart. Desktop icon-theme discovery also happens at startup;
 explicit icon-theme edits reload live. Invalid actions/menus/bindings retain the
 prior valid set on reload, so a still-visible old menu can mean a rejected edit.

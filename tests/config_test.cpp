@@ -204,6 +204,7 @@ TEST_CASE("context menu config: invalid trees reject the entire layout") {
         CAPTURE(std::string{invalid});
         const auto result = parse_config(invalid, "menu.toml");
         CHECK_FALSE(result.problems.empty());
+        CHECK_FALSE(result.validation_errors.empty());
         CHECK_FALSE(result.context_menu_valid);
         CHECK_FALSE(result.config.context_menu.items);
         CHECK_FALSE(result.config.context_menu.entry);
@@ -369,6 +370,7 @@ double_click_distance = = 3
     REQUIRE(result.problems.size() == 1);
     CHECK(result.problems[0].starts_with("test.toml:3:"));
     CHECK(contains(result.problems[0], "whole file is ignored"));
+    CHECK(result.validation_errors == result.problems);
     check_defaults(result.config);
 }
 
@@ -387,6 +389,7 @@ accent = "#ff0000"
     CHECK(contains(result.problems[1], "'colours'"));
     CHECK(result.config.pointer.double_click_distance == 8);
     CHECK(result.config.pointer.double_click_ms == Config{}.pointer.double_click_ms);
+    CHECK(result.validation_errors.empty());
 }
 
 TEST_CASE("a wrong type keeps the default and names both types") {
@@ -465,6 +468,9 @@ TEST_CASE("load_config: missing file, real file, directory") {
     const ConfigResult directory = load_config(dir.path);
     REQUIRE(directory.problems.size() == 1);
     CHECK(contains(directory.problems[0], "not a regular file"));
+    CHECK(directory.validation_errors == directory.problems);
+    CHECK(bad.validation_errors == bad.problems);
+    CHECK(missing.validation_errors.empty());
 }
 
 TEST_CASE("the example config parses clean and matches the defaults") {
@@ -694,4 +700,57 @@ TEST_CASE("preview settings independently disable shipped helpers") {
     CHECK(invalid.problems.size() == 2);
     CHECK(invalid.config.previews.media);
     CHECK(invalid.config.previews.pdf);
+}
+
+TEST_CASE("config validation: ignored unknown settings are nonblocking and remain reported") {
+    const auto result = parse(R"([appearance]
+transparent_settings = true
+[icon.places]
+future_place = "folder"
+[future_section]
+new_option = true
+)");
+    REQUIRE(result.from_file);
+    REQUIRE(result.problems.size() == 3);
+    CHECK(contains(result.problems[0], "appearance.transparent_settings"));
+    CHECK(contains(result.problems[1], "icon.places.future_place"));
+    CHECK(contains(result.problems[2], "future_section"));
+    CHECK(result.validation_errors.empty());
+    CHECK(result.actions_valid);
+    CHECK(result.context_menu_valid);
+}
+
+TEST_CASE("config validation: errors remain in file order alongside ignored unknown settings") {
+    const auto result = parse(R"([pointer]
+double_click_ms = "fast"
+future_option = true
+double_click_distance = 99
+[appearance]
+transparent_settings = true
+[font]
+family = 12
+)");
+    REQUIRE(result.problems.size() == 5);
+    REQUIRE(result.validation_errors.size() == 3);
+    CHECK(result.validation_errors[0] == result.problems[0]);
+    CHECK(result.validation_errors[1] == result.problems[2]);
+    CHECK(result.validation_errors[2] == result.problems[4]);
+    CHECK(result.validation_errors[0].starts_with("test.toml:2:"));
+    CHECK(result.validation_errors[1].starts_with("test.toml:4:"));
+    CHECK(result.validation_errors[2].starts_with("test.toml:8:"));
+}
+
+TEST_CASE("config validation: ignored invalid values and unknown action fields stay blocking") {
+    for (const auto* text : {
+             "font = false",
+             "[icon]\nplaces = false",
+             "[[actions]]\nid = 'test'\nlabel = 'Test'\nargv = ['echo']\nunknown = true",
+             "[context_menu]\nunknown = []",
+             "[context_menu]\nitems = [{id = 'open', unknown = true}]",
+         }) {
+        CAPTURE(text);
+        const auto result = parse(text);
+        REQUIRE_FALSE(result.problems.empty());
+        CHECK(result.validation_errors == result.problems);
+    }
 }

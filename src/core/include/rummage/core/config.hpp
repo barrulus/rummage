@@ -122,6 +122,10 @@ struct ConfigResult {
     bool context_menu_valid{true};
     // One line per problem, ready to print: "<file>:<line>:<column>: <what>".
     std::vector<std::string> problems;
+    // Blocking subset, in the same file order. Ignored unknown keys/sections are warnings:
+    // editors can preserve them while changing supported settings. Invalid values, TOML,
+    // action/menu definitions, and file-read errors remain blocking.
+    std::vector<std::string> validation_errors;
 };
 
 // $XDG_CONFIG_HOME/rummage/config.toml, else $HOME/.config/rummage/config.toml; empty when
