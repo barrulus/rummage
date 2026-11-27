@@ -73,6 +73,17 @@ The [feature overview](docs/features.md) links to the behavior and limitations o
 area. Image and text decoders run in separate preview helpers; see the
 [security model](docs/security.md) for the boundaries and exceptions.
 
+## Photo Library
+
+The optional `rummage-photos` add-on brings albums, saved searches and photo annotations
+into Rummage's existing browser. Add source folders to build your collection; originals
+stay in place when you organise them into albums.
+
+![Photo Library showing a photo grid with albums and sources expanded in the sidebar](docs/images/rummage-photo-library.webp)
+
+See the [Photo Library guide](docs/photo-library.md) for a screenshot walkthrough and
+[installation and setup](docs/install.md#photo-library-add-on).
+
 ## Development downloads
 
 <!-- development-downloads:start -->

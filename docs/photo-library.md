@@ -7,6 +7,10 @@ Originals remain in their existing locations. The optional `rummage-photos` add-
 organisation in a local catalog; it needs no account, server, model download or network service.
 Video and PDF previews belong to the standard application and have separate Settings switches.
 
+![Photo Library showing a photo grid with albums, sources and saved searches in the sidebar](images/rummage-photo-library.webp)
+
+The screenshots in this guide use a custom colour palette.
+
 ## Add folders and find photographs
 
 Install the matching photo add-on, leave **Enable Photo Library** enabled in General settings,
@@ -29,6 +33,10 @@ starts discovery without copying or rewriting
 its contents. Overlapping source roots are refused; files with the same name in different
 folders retain separate identities. Symbolic links inside sources are not followed.
 
+![Rummage’s folder picker for choosing a Photo Library source](images/rummage-photo-source-picker.webp)
+
+*Choose a source folder with the same picker used elsewhere in Rummage.*
+
 The **Library** shows all active sources together while discovery continues. The browser’s
 **Search photos…** field matches stored filenames, descriptions and tags. In the Photo Library
 menu, **Filter photos…** adds minimum rating, capture-date bounds, **Unknown date only**, and
@@ -44,6 +52,10 @@ and selected photo identities. The ordinary sort controls order results by name,
 modification time or original location; Details includes the location so same-name photographs
 from different folders remain distinguishable. The information pane shows the focused photo’s
 preview, cached metadata and catalog annotations.
+
+![The Countryside album with a HEIC landscape selected and its preview and metadata in the information pane](images/rummage-photo-properties.webp)
+
+*The information pane keeps the selected photo and its details beside the collection.*
 
 The view menu’s **Gallery: hide media filenames** option switches to Grid and enlarges ready
 image and video thumbnails into the label area. It works in the full library and inside albums.
@@ -63,6 +75,10 @@ Enter or Space opens the focused photo in **Quick Look**, using Rummage's existi
 preview. **Show in Folder** opens the original location in a folder tab. An offline original
 cannot be opened; cached thumbnails and known information remain available. A missing cached
 thumbnail is shown as a placeholder, without discarding the photo's organisation.
+
+![A photo open in Quick Look over the Photo Library browser](images/rummage-photo-quicklook.webp)
+
+*Quick Look opens over the existing browser view.*
 
 A photo marked **changed** can still show a thumbnail and open in Quick Look by reading the
 file at its recorded location. The preview notice makes clear that the catalog identity is
@@ -136,12 +152,20 @@ searchable album list, or **Create new album…** to make one from the same sele
 the chooser leaves your photos and album memberships unchanged. This action is also in the
 Photo Library toolbar menu.
 
+![Three photos selected in Photo Library with the context menu open to Add to album](images/rummage-photo-add-to-album.webp)
+
+*Add the selected photos to an album without moving their originals.*
+
 Use **Create album…** in the Photo Library menu to create an album containing
 that selection. The dialog shows how many photos will be included; with no selection it creates
 an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
 album. Choose **All photos**, click **Photo Library** in the sidebar, or use Back or Parent to
 return to the full active library. An album’s context
 menu offers **Add selected photos to album** and **Remove selected photos from album**.
+
+![The Home album showing eight photos in the Photo Library grid](images/rummage-photo-album.webp)
+
+*An album opens in the same browser as the full library.*
 
 The sidebar's **Albums** group also offers **Create album…** on right-click. If a previous
 selection includes photos whose source data has since been forgotten, creation removes those

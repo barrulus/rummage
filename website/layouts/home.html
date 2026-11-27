@@ -18,10 +18,14 @@
       <figcaption>{{ .Site.Params.demoCaption }}</figcaption>
     </figure>
   </section>
-  <div class="feature-strip wrap"><span>Columns, grid & details</span><span>Dual panes & tabs</span><span>Quick Look previews</span><span><a href="#insights">Folder Insights</a></span></div>
+  <div class="feature-strip wrap"><span>Columns, grid & details</span><span>Dual panes & tabs</span><span>Quick Look previews</span><span><a href="#insights">Folder Insights</a></span><span><a href="#photo-library">Photo Library</a></span></div>
   <section class="quicklook insights-showcase wrap" id="insights" aria-labelledby="insights-heading">
     <div><p class="eyebrow">Folder Insights</p><h2 id="insights-heading">Know what's here.<br>See what takes space.</h2><p>Compare file types by count or size. Explore nested folders in the Iris rings, or use the Space map to see how their contents add up.</p><p>Select an Iris segment to explore deeper; the centre takes you back up. A file-size list keeps the numbers alongside the picture.</p><p>Open Folder Insights with <kbd>Ctrl Alt I</kbd>.</p><a class="text-link" href="{{ "docs/insights/" | relURL }}">Explore Folder Insights</a></div>
     <figure>{{ partial "screenshot.html" (dict "name" "insights-iris") }}<figcaption>Iris: outer rings reveal deeper folders. This capture shows a partial scan; only measured files have area.</figcaption></figure>
+  </section>
+  <section class="quicklook wrap" id="photo-library" aria-labelledby="photo-library-heading">
+    <div><p class="eyebrow">Photo Library</p><h2 id="photo-library-heading">Your photos.<br>Your folders.</h2><p>Bring photographs from several folders into one searchable library. Browse albums, inspect photo details and open Quick Look in the familiar rummage browser.</p><p>Select photos and add them to albums. Your originals stay in their existing folders.</p><p>Available with the optional <code>rummage-photos</code> add-on. These screenshots show a customised dark appearance.</p><a class="text-link" href="{{ "docs/photo-library/" | relURL }}">Explore Photo Library &amp; screenshots</a><p><a href="{{ "docs/install/#photo-library-add-on" | relURL }}">Install and enable the photo add-on</a></p></div>
+    <figure>{{ partial "screenshot.html" (dict "name" "photo-library") }}<figcaption>A shared library, with albums and source folders in the sidebar. Open the screenshot to see it at full size.</figcaption></figure>
   </section>
   <section class="explore-section wrap" id="explore">
     <div class="section-heading"><div><p class="eyebrow">A view for every task</p><h2>See the bigger picture.<br>Or every little detail.</h2></div><p>Follow a folder through columns, browse images in a grid, or get down to the details. Your files, your point of view.</p></div>
@@ -40,7 +44,7 @@
     </div>
   </section>
   <section class="quicklook wrap">
-    <div><p class="eyebrow">Stay in the flow</p><h2>A closer look.<br>One key away.</h2><p>Select a file and press <kbd>Space</kbd>. Quick Look brings images and text into focus without sending you to another app.</p><p>Optional helpers add video stills and PDF previews.</p><a class="text-link" href="{{ "docs/previews/" | relURL }}">Explore previews & supported formats</a></div>
+    <div><p class="eyebrow">Stay in the flow</p><h2>A closer look.<br>One key away.</h2><p>Select a file and press <kbd>Space</kbd>. Quick Look brings images and text into focus without sending you to another app.</p><p>Video and PDF previews are included, with switches in Settings.</p><a class="text-link" href="{{ "docs/previews/" | relURL }}">Explore previews & supported formats</a></div>
     <figure>{{ partial "screenshot.html" (dict "name" "dark-quicklook") }}<figcaption>A closer look at your artwork, without leaving the folder.</figcaption></figure>
   </section>
   <section class="workflow wrap">

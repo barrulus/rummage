@@ -276,12 +276,74 @@
       "width": 1268,
       "height": 1029,
       "alt": "Folder Insights Iris view in a custom dark palette, showing nested folder rings, a file-size list and an explicitly partial scan"
+    },
+    "photo-library": {
+      "file": "rummage-photo-library.webp",
+      "source": "screenshot_20261127_192249-annotated.png",
+      "source_sha256": "d5e7a937ce0021f67fdc3d0694076408b529c0d368849ead050a8bed2c3a768b",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "Photo Library showing a grid of photographs with Albums and Sources expanded in the sidebar in a custom dark appearance"
+    },
+    "photo-quicklook": {
+      "file": "rummage-photo-quicklook.webp",
+      "source": "screenshot_20261127_192358-annotated.png",
+      "source_sha256": "1003a8f83ef882fd0b781c9219d7f736561fc5c9b3aab465a067e39f0e9dff6f",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "Quick Look displaying a photograph over the dimmed Photo Library browser in a custom dark appearance"
+    },
+    "photo-album": {
+      "file": "rummage-photo-album.webp",
+      "source": "screenshot_20261127_192515-annotated.png",
+      "source_sha256": "69de1e6e777885a85427d4b40e1c691baf8e96dc24e1c0b50138e82f87e48ad5",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "The Home album showing eight photographs in the familiar Rummage browser grid in a custom dark appearance"
+    },
+    "photo-properties": {
+      "file": "rummage-photo-properties.webp",
+      "source": "screenshot_20261127_193122-annotated.png",
+      "source_sha256": "86497519418a6cef9ed283ecdf962868dae52085b108729e00a8fc55d95d3ce4",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "The Countryside album with a selected HEIC photograph, full preview, dimensions and album membership in a custom dark appearance"
+    },
+    "photo-source-picker": {
+      "file": "rummage-photo-source-picker.webp",
+      "source": "screenshot_20261127_192730-annotated.png",
+      "source_sha256": "f4509538e0f3a58347e3d1b4e51a0f78b4025499b2160caf1486487e26fb3466",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "Rummage\u2019s native folder picker selecting the Demo folder to add as a Photo Library source in a custom dark appearance"
+    },
+    "photo-add-to-album": {
+      "file": "rummage-photo-add-to-album.webp",
+      "source": "screenshot_20261127_193255-annotated.png",
+      "source_sha256": "7741935c4c8356ee5624594f2e7bed607b7b8c386540441267a092eb828fdde4",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "Three photographs selected in Photo Library with Add to album highlighted in the context menu in a custom dark appearance"
     }
   },
   "unused_sources": [
     "screenshot_20261124_191453-annotated.png",
     "screenshot_20261124_191552-annotated.png",
     "screenshot_20261124_191702-annotated.png",
-    "screenshot_20261124_191822-annotated.png"
-  ]
+    "screenshot_20261124_191822-annotated.png",
+    "screenshot_20261127_192634-annotated.png"
+  ],
+  "updated": "2026-11-27"
 }
