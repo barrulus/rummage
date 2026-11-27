@@ -164,6 +164,8 @@ searchable album list, or **Create new album…** to make one from the same sele
 the chooser leaves your photos and album memberships unchanged. This action is also in the
 Photo Library toolbar menu’s **Selection** submenu.
 
+![The compact photo context menu with Add to album highlighted in the Home album](images/rummage-photo-add-to-album.webp)
+
 Use **Create album…** in the Photo Library menu to create an album containing
 that selection. The dialog shows how many photos will be included; with no selection it creates
 an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
@@ -171,9 +173,9 @@ album. Click **Photo Library** in the sidebar, or use Back or Parent to
 return to the full active library. An album’s context
 menu offers **Add selected photos to album** and **Remove selected photos from album**.
 
-![The Home album showing eight photos in the Photo Library grid](images/rummage-photo-album.webp)
+![Albums view showing Countryside, Food & Drink and Home with photo covers](images/rummage-photo-album.webp)
 
-*An album opens in the same browser as the full library.*
+*Browse albums by their photo covers, then open one in the same browser as the full library.*
 
 The sidebar's **Albums** group also offers **Create album…** on right-click. If a previous
 selection includes photos whose source data has since been forgotten, creation removes those
