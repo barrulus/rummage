@@ -6907,7 +6907,7 @@ bool Browser::open_selection() {
         const auto folder = photo_library_->folder();
         const auto* entry = folder->cursor_entry();
         if (entry && photo_library_->photo_rows()) {
-            if (entry->available)
+            if (entry->can_preview())
                 quick_look_.open(folder, Clock::now());
             else
                 show_message(

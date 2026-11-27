@@ -363,7 +363,7 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                         thumbnails_->get(folder_->path_of(entry), entry.modified_ns,
                                          thumbs::size_for(static_cast<std::uint32_t>(
                                              std::lround(gallery_icon * renderer.scale()))),
-                                         type, nullptr, !entry.available) != nullptr;
+                                         type, nullptr, !entry.can_preview()) != nullptr;
             }
             const float item_icon = gallery_item ? gallery_icon : icon;
             draw_entry_icon(

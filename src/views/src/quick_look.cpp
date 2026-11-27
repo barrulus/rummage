@@ -216,8 +216,8 @@ const preview::Provider& QuickLook::provider_of(const fs::Entry& entry) const {
 
 // The provider is part of the key: an entry whose type becomes known (sniffed) gets a new slot.
 std::string QuickLook::key_of(const fs::Entry& entry) const {
-    return std::format("{}\n{}\n{}\n{}\n{}", entry.key(), folder_->path_of(entry).string(),
-                       entry.modified_ns, entry.available,
+    return std::format("{}\n{}\n{}\n{}\n{}\n{}", entry.key(), folder_->path_of(entry).string(),
+                       entry.modified_ns, entry.available, entry.preview_current_location,
                        static_cast<int>(provider_of(entry).kind()));
 }
 
@@ -296,7 +296,7 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                 }
             });
     }
-    if (entry.available && !slot.path.empty() && !slot.content && !slot.content_job) {
+    if (entry.can_preview() && !slot.path.empty() && !slot.content && !slot.content_job) {
         slot.requested = Clock::now();
         slot.in_advance = !current;
         slot.content_job = pool_.submit(
@@ -329,10 +329,13 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     if (current && !slot.path.empty() && slot.kind == preview::Kind::image && thumbnails_ &&
         !folder_->is_archive() && !slot.content && !slot.thumbnail_job && !slot.thumbnail_pixels &&
         !slot.thumbnail_texture && !slot.offline_thumbnail_tried) {
-        slot.offline_thumbnail_tried = !entry.available;
+        slot.offline_thumbnail_tried = !entry.can_preview();
+        // An offline thumbnail has no full-content request to start its timing.
+        if (!entry.can_preview())
+            slot.requested = Clock::now();
         slot.thumbnail_job = pool_.submit(
             core::Priority::visible,
-            [cache = thumbnails_, path = slot.path, offline = !entry.available,
+            [cache = thumbnails_, path = slot.path, offline = !entry.can_preview(),
              modified = entry.modified_ns,
              mime = std::string{mime_->name(folder_->mime_of(entry))}](
                 const core::CancelToken& token) {
@@ -720,6 +723,18 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     }
     area.y += 16.0F;
     area.height = std::max(1.0F, area.height - 16.0F);
+    if (entry->preview_current_location) {
+        const std::string notice{
+            "Previewing the current file at this location; catalog identity has changed."};
+        const float height = SelectableText::height(renderer, notice, area.width, 13);
+        SelectableText text;
+        text.begin_frame(area);
+        text.draw(renderer, "changed-original", notice, {area.x, area.y, area.width, 0}, 13,
+                  palette.on_surface.with_alpha(fade), palette.secondary_container);
+        text.end_frame();
+        area.y += height + 12;
+        area.height = std::max(1.0F, area.height - height - 12);
+    }
     details_bounds_ = {};
     if (details_) {
         if (area.width >= 640.0F) {
@@ -818,8 +833,13 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
         row("Group", value->info.group);
         row("Link target", value->info.link_target);
         row("Information", value->info.error);
-    } else
+    } else if (entry->preview_current_location) {
+        row("Information", "Catalog identity changed; current-file details are not loaded");
+    } else if (!entry->available) {
+        row("Information", "Original unavailable; details are not loaded");
+    } else {
         row("Information", std::string{i18n::tr("Loading details…")});
+    }
     row("Location", folder_->path_of(*entry).parent_path().string());
     metadata_.end_frame();
     renderer.pop_clip();

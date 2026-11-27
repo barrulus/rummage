@@ -1210,4 +1210,121 @@ TEST_CASE("photo workspace: native scrolling appends every collection beyond two
     CHECK(library->rows().front().value("filename", "") == "photo-1000.png");
     CHECK(library->folder()->total_count() == 1);
 }
+
+TEST_CASE("photo workspace: changed originals preview freshly without accepting catalog identity") {
+    rummage::ui::Offscreen offscreen{800, 700};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv default_cache{"XDG_CACHE_HOME",
+                                                 (directory.path / "default-cache").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Photos";
+    const auto original = source / "changed.png";
+    fixture(original);
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    const auto indexed = catalog.request({{"op", "query"}}).at("photos");
+    REQUIRE(indexed.size() == 1);
+    const auto id = indexed.front().at("id");
+    const auto signature = indexed.front().at("signature");
+    REQUIRE(catalog
+                .request({{"op", "edit"},
+                          {"ids", {id}},
+                          {"description", "Keep my annotation"},
+                          {"rating", 4},
+                          {"add_tags", {"family"}}})
+                .value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    // Replace the actual original with another valid image. Trailing bytes change its size as
+    // well as its inode, so this is a real identity mismatch even on a stable local filesystem.
+    const auto replacement = directory.path / "replacement.png";
+    fixture(replacement);
+    std::ofstream{replacement, std::ios::app | std::ios::binary} << "replacement";
+    std::filesystem::rename(replacement, original);
+    const auto stale = catalog.request({{"op", "metadata"}, {"id", id}, {"signature", signature}});
+    REQUIRE(stale.value("stale", false));
+    const auto before = catalog.request({{"op", "query"}}).at("photos").front();
+    REQUIRE(before.value("availability", "") == "changed");
+
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    Browser browser{loop, pool, watcher, mime, [] {}, [](auto) {}};
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(
+        settle_photos(loop, [&] { return library->rows().size() == 1 && !library->loading(); }));
+    const auto folder = library->folder();
+    folder->set_cursor(0);
+    REQUIRE(folder->cursor_entry());
+    CHECK_FALSE(folder->cursor_entry()->available);
+    CHECK(folder->cursor_entry()->preview_current_location);
+    CHECK(folder->cursor_entry()->can_preview());
+    CHECK(folder->selected_paths() == std::vector<std::filesystem::path>{original});
+    const auto selected = library->selected_ids();
+    const auto properties = library->properties(true);
+    CHECK_FALSE(properties.available);
+    CHECK(std::ranges::any_of(properties.rows,
+                              [](const auto& row) { return row.first == "Preview"; }));
+    int offers = 0;
+    rummage::views::SystemClipboard clipboard{};
+    clipboard.offer = [&](auto) { ++offers; };
+    browser.set_system_clipboard(std::move(clipboard));
+    browser.take_selection(false);
+    browser.take_selection(true);
+    CHECK(offers == 0);
+
+    const auto cache =
+        std::make_shared<rummage::thumbs::Cache>(directory.path / "fresh-cache", "changed-preview");
+    REQUIRE_FALSE(std::filesystem::exists(cache->root()));
+    rummage::views::Thumbnails thumbnails{loop, pool, cache, [] {}};
+    rummage::views::GridView grid{loop, pool, watcher, mime, [] {}, [](auto) {}, &thumbnails};
+    rummage::views::InfoPane pane{loop, pool, &thumbnails, [] {}};
+    rummage::views::PropertiesDialog dialog{pool, mime, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    std::function<void()> paint;
+    std::string frame;
+    SUBCASE("Grid reads the changed location") {
+        grid.set_info_visible(false);
+        grid.show(folder);
+        frame = "native-changed-preview-grid";
+        paint = [&] { grid.draw(renderer, {0, 0, 800, 700}, {}, icons, Browser::Clock::now()); };
+    }
+    SUBCASE("InfoPane reads the changed location") {
+        pane.set_photo_properties(properties);
+        frame = "native-changed-preview-info";
+        paint = [&] {
+            pane.draw(renderer, {0, 0, 350, 700}, {}, icons, *folder, Browser::Clock::now());
+        };
+    }
+    SUBCASE("Properties reads the changed location") {
+        dialog.open_photo(properties, {});
+        frame = "native-changed-preview-properties";
+        paint = [&] { dialog.draw(renderer, {0, 0, 800, 700}, {}, icons, &thumbnails); };
+    }
+    REQUIRE(static_cast<bool>(paint));
+    const auto draw = [&] {
+        renderer.begin_frame(800, 700, 1, {});
+        paint();
+        thumbnails.end_frame();
+        renderer.end_frame();
+    };
+    REQUIRE(settle_photos(loop, [&] {
+        draw();
+        return thumbnails.texture_bytes() > 0 && !thumbnails.loading();
+    }));
+    capture(frame, 800, 700);
+    CHECK(std::filesystem::exists(cache->root()));
+    CHECK(library->selected_ids() == selected);
+    CHECK_FALSE(folder->cursor_entry()->available);
+    CHECK(folder->selected_paths() == std::vector<std::filesystem::path>{original});
+    const auto after = catalog.request({{"op", "query"}}).at("photos").front();
+    for (const auto* key : {"id", "signature", "availability", "description", "rating", "tags"})
+        CHECK(after.at(key) == before.at(key));
+}
 #endif

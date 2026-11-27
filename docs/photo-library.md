@@ -61,6 +61,13 @@ preview. **Show in Folder** opens the original location in a folder tab. An offl
 cannot be opened; cached thumbnails and known information remain available. A missing cached
 thumbnail is shown as a placeholder, without discarding the photo's organisation.
 
+A photo marked **changed** can still show a thumbnail and open in Quick Look by reading the
+file at its recorded location. The preview notice makes clear that the catalog identity is
+unverified; it does not confirm that the current file is the original catalogued photo.
+Catalog annotations and captured identity remain unchanged, and file-operation guards still
+refuse the changed record. Offline, missing, trashed and replaced records remain cache-only.
+
+
 ## Edit and organise
 
 Select photographs and open **Properties**, or choose **Edit photo annotations…** from the

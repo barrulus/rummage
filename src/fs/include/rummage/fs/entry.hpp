@@ -44,6 +44,13 @@ struct Entry {
     std::string identity{};
     std::filesystem::path location{};
     bool available{true};
+    // A changed catalog original may still be read at its current path. This permits previews
+    // only: available stays false and the catalog identity remains unverified for file actions.
+    bool preview_current_location{false};
+
+    [[nodiscard]] bool can_preview() const noexcept {
+        return available || preview_current_location;
+    }
 
     [[nodiscard]] const std::string& key() const noexcept {
         return identity.empty() ? name : identity;

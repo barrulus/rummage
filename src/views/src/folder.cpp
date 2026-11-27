@@ -537,7 +537,7 @@ void Folder::sniff(std::size_t first, std::size_t last) {
     for (std::size_t i = first; i < std::min(last, list.size()) && batch.size() < kMaxSniffBatch;
          ++i) {
         const fs::Entry& entry = list[i];
-        if (entry.available && (!collection_ || !entry.location.empty()) &&
+        if (entry.can_preview() && (!collection_ || !entry.location.empty()) &&
             entry.mime == fs::kUnknownMime && !sniffed_.contains(entry.key()) &&
             !sniffing_.contains(entry.key())) {
             sniffing_.insert(entry.key());

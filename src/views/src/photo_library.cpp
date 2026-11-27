@@ -483,6 +483,7 @@ fs::Entry PhotoLibrary::photo_entry(const Json& row) const {
     entry.identity = "photo:" + std::to_string(row.value("id", Id{}));
     entry.location = row.value("path", "");
     entry.available = row.value("availability", "") == "online";
+    entry.preview_current_location = row.value("availability", "") == "changed";
     return entry;
 }
 
@@ -1014,6 +1015,9 @@ PhotoProperties PhotoLibrary::properties(bool focused_only) const {
                                                      ? "Keep"
                                                      : "Marked for trash");
         result.rows.emplace_back("Availability", shown.value("availability", ""));
+        if (result.entry.preview_current_location)
+            result.rows.emplace_back("Preview",
+                                     "Current file at this location; catalog identity has changed");
         result.rows.emplace_back("Location", shown.value("path", ""));
         result.rows.emplace_back("Dimensions", std::format("{} × {}", shown.value("width", 0),
                                                            shown.value("height", 0)));
