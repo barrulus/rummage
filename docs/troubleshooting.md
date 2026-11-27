@@ -13,6 +13,9 @@ rummage --check-config
 
 Development builds can share a version number while exposing different features.
 Include the commit and whether the source has local changes in reports.
+After rebuilding, close every running Rummage window before launching the updated
+binary. Opening another window can reuse the existing process, which still runs
+the previous build even though the executable on disk has been replaced.
 
 ## The build fails or tests are missing
 

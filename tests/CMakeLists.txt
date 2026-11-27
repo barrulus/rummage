@@ -255,6 +255,11 @@ endif()
 add_test(NAME rummage-tests COMMAND rummage-tests "--source-file-exclude=*memory_test.cpp")
 add_test(NAME memory-tests COMMAND rummage-tests "--source-file=*memory_test.cpp")
 
+add_executable(rummage-program-output-tests program_output_test.cpp)
+target_link_libraries(rummage-program-output-tests PRIVATE rummage::platform rummage::warnings)
+add_test(NAME program-output-self COMMAND rummage-program-output-tests)
+set_tests_properties(program-output-self PROPERTIES TIMEOUT 30)
+
 add_executable(rummage-portal-tests file_picker_portal_test.cpp)
 target_link_libraries(rummage-portal-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)
 add_executable(rummage-desktop-portal-tests desktop_portal_test.cpp)

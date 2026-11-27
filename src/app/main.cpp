@@ -1276,9 +1276,6 @@ int main(int argc, char** argv) {
                             std::function<void(std::filesystem::path)> chosen) {
                             if (folder_chooser && folder_chooser->running())
                                 return;
-                            std::error_code error;
-                            const auto self =
-                                std::filesystem::read_symlink("/proc/self/exe", error);
                             folder_chooser = std::make_unique<platform::ProgramOutput>(
                                 loop, [chosen = std::move(chosen)](const std::string& output,
                                                                    int status) {
@@ -1291,10 +1288,9 @@ int main(int argc, char** argv) {
                                     if (path.is_absolute())
                                         chosen(path);
                                 });
-                            if (error || !folder_chooser->start(
-                                             self, {"--pick-directory", "--title",
-                                                    std::string{i18n::tr("Choose Folder")},
-                                                    start.string()})) {
+                            if (!folder_chooser->start_self(
+                                    {"--pick-directory", "--title",
+                                     std::string{i18n::tr("Choose Folder")}, start.string()})) {
                                 folder_chooser.reset();
                                 columns->show_message(
                                     std::string{i18n::tr("The folder chooser could not start")},
