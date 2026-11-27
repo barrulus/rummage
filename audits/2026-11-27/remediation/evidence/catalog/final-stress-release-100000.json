@@ -1,0 +1,177 @@
+{
+  "revision": "working remediation based on 088cb77f; final code commit recorded in resolution report",
+  "module": "/tmp/rummage-remediation-build/librummage-photos.so",
+  "module_sha256": "c8d2613e59a9c18c97afb68c93b45948cdf86c229630363009043267ff0e57d0",
+  "build_mode": "Release",
+  "scope": "synthetic catalog only; no decoding/UI measurement; warm filesystem cache",
+  "records": 100000,
+  "machine": {
+    "kernel": "6.18.64",
+    "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+    "cpu_count": 24,
+    "load_start": [
+      2.5126953125,
+      3.2998046875,
+      3.673828125
+    ],
+    "load_end": [
+      2.8818359375,
+      3.32373046875,
+      3.67138671875
+    ]
+  },
+  "workloads": {
+    "first_page": {
+      "samples": 10,
+      "p50_ms": 12.939599495439325,
+      "p95_ms": 13.842437998391688,
+      "max_ms": 13.842437998391688,
+      "total_ms": 130.1562960143201
+    },
+    "mid_offset": {
+      "samples": 10,
+      "p50_ms": 21.04469249752583,
+      "p95_ms": 21.415762006654404,
+      "max_ms": 21.415762006654404,
+      "total_ms": 210.92963097908068
+    },
+    "last_offset": {
+      "samples": 10,
+      "p50_ms": 29.350423501455225,
+      "p95_ms": 29.5113120082533,
+      "max_ms": 29.5113120082533,
+      "total_ms": 293.280832018354
+    },
+    "text": {
+      "samples": 10,
+      "p50_ms": 19.245214003603905,
+      "p95_ms": 19.542791007552296,
+      "max_ms": 19.542791007552296,
+      "total_ms": 192.36668899247888
+    },
+    "rating": {
+      "samples": 10,
+      "p50_ms": 35.93343849934172,
+      "p95_ms": 36.720502001116984,
+      "max_ms": 36.720502001116984,
+      "total_ms": 360.59626399946865
+    },
+    "capture_date": {
+      "samples": 10,
+      "p50_ms": 56.538890494266525,
+      "p95_ms": 57.47113798861392,
+      "max_ms": 57.47113798861392,
+      "total_ms": 566.2137899780646
+    },
+    "size": {
+      "samples": 10,
+      "p50_ms": 12.997981495573185,
+      "p95_ms": 13.235677994089201,
+      "max_ms": 13.235677994089201,
+      "total_ms": 129.95432796014939
+    },
+    "modified": {
+      "samples": 10,
+      "p50_ms": 12.852195002778899,
+      "p95_ms": 12.926919996971264,
+      "max_ms": 12.926919996971264,
+      "total_ms": 128.63150601333473
+    },
+    "location": {
+      "samples": 10,
+      "p50_ms": 47.461007998208515,
+      "p95_ms": 47.64844699820969,
+      "max_ms": 47.64844699820969,
+      "total_ms": 474.1023040114669
+    },
+    "continuous_append_pages": {
+      "samples": 500,
+      "p50_ms": 21.11319599498529,
+      "p95_ms": 28.761039997334592,
+      "max_ms": 30.0942329922691,
+      "total_ms": 10572.2665059875
+    },
+    "jobs_1000_history": {
+      "samples": 10,
+      "p50_ms": 85.3677749983035,
+      "p95_ms": 91.93444201082457,
+      "max_ms": 91.93444201082457,
+      "total_ms": 860.3916669962928
+    },
+    "progress_1000_history": {
+      "samples": 10,
+      "p50_ms": 16.500123507285025,
+      "p95_ms": 16.79417501145508,
+      "max_ms": 16.79417501145508,
+      "total_ms": 165.22343101678416
+    },
+    "controller_prefix_10000": {
+      "samples": 1,
+      "p50_ms": 216.1974310001824,
+      "p95_ms": 216.1974310001824,
+      "max_ms": 216.1974310001824,
+      "total_ms": 216.1974310001824
+    },
+    "controller_prefix_30000": {
+      "samples": 1,
+      "p50_ms": 710.484240000369,
+      "p95_ms": 710.484240000369,
+      "max_ms": 710.484240000369,
+      "total_ms": 710.484240000369
+    },
+    "controller_prefix_100000": {
+      "samples": 1,
+      "p50_ms": 3048.249109997414,
+      "p95_ms": 3048.249109997414,
+      "max_ms": 3048.249109997414,
+      "total_ms": 3048.249109997414
+    },
+    "metadata_pending_tail": {
+      "samples": 10,
+      "p50_ms": 0.36295799509389326,
+      "p95_ms": 0.5566260078921914,
+      "max_ms": 0.5566260078921914,
+      "total_ms": 3.832497008261271
+    },
+    "metadata_claim": {
+      "samples": 256,
+      "p50_ms": 2.1342824984458275,
+      "p95_ms": 2.779107991955243,
+      "max_ms": 5.22384699434042,
+      "total_ms": 566.3846460374771
+    },
+    "metadata_persist": {
+      "samples": 256,
+      "p50_ms": 2.124601996911224,
+      "p95_ms": 2.569834003224969,
+      "max_ms": 6.227456993656233,
+      "total_ms": 555.9008969867136
+    },
+    "export": {
+      "ms": 1650.0928349996684,
+      "photo_count": 100256,
+      "json_bytes": 67063371
+    },
+    "restore_existing_matches": {
+      "ms": 5583.830242001568,
+      "restored": 100256
+    },
+    "restore_fresh_256_real_identities": {
+      "samples": 1,
+      "p50_ms": 32.91073800937738,
+      "p95_ms": 32.91073800937738,
+      "max_ms": 32.91073800937738,
+      "total_ms": 32.91073800937738
+    },
+    "concurrent_read_write": {
+      "ms": 438.0710099940188,
+      "requests": 120,
+      "errors": []
+    }
+  },
+  "setup_ms": 764.0338360070018,
+  "integrity": "ok",
+  "foreign_key_errors": [],
+  "database_bytes": 44797952,
+  "peak_rss_kib": 1054404
+}

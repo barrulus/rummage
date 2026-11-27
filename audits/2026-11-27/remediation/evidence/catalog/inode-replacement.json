@@ -1,0 +1,103 @@
+{
+  "scope": "synthetic prior-inode mismatch; not a real SSHFS measurement",
+  "old_id": 1,
+  "unchanged_original_bytes": true,
+  "visible": [
+    {
+      "albums": [],
+      "availability": "online",
+      "camera": "",
+      "capture_date": null,
+      "date_origin": "unknown",
+      "date_override": null,
+      "description": "",
+      "device": 66307,
+      "extracted_date": null,
+      "filename": "unchanged.jpg",
+      "height": 80,
+      "id": 2,
+      "inode": 10902121,
+      "mtime": 1795768260,
+      "mtime_ns": 1795768260727472985,
+      "mtime_ns_valid": true,
+      "path": "/tmp/rummage-audit-inode-us5m4wmi/source/unchanged.jpg",
+      "rating": 0,
+      "relative_path": "unchanged.jpg",
+      "signature": "66307:10902121:23:1795768260:727472985",
+      "size": 23,
+      "source_id": 1,
+      "tags": [],
+      "width": 100
+    }
+  ],
+  "album_listing": [
+    {
+      "count": 0,
+      "id": 1,
+      "name": "Original album",
+      "retained_count": 1
+    }
+  ],
+  "album_results": 0,
+  "retained_history": [
+    {
+      "albums": [
+        {
+          "id": 1,
+          "name": "Original album"
+        }
+      ],
+      "availability": "replaced",
+      "camera": "",
+      "capture_date": null,
+      "date_origin": "unknown",
+      "date_override": null,
+      "description": "Original annotation",
+      "device": 66307,
+      "extracted_date": null,
+      "filename": "unchanged.jpg",
+      "height": 80,
+      "id": 1,
+      "inode": 11902121,
+      "mtime": 1795768260,
+      "mtime_ns": 1795768260727472985,
+      "mtime_ns_valid": true,
+      "path": "/tmp/rummage-audit-inode-us5m4wmi/source/unchanged.jpg",
+      "rating": 0,
+      "relative_path": "unchanged.jpg",
+      "signature": "66307:11902121:23:1795768260:727472985",
+      "size": 23,
+      "source_id": 1,
+      "tags": [
+        "remember"
+      ],
+      "width": 100
+    },
+    {
+      "albums": [],
+      "availability": "online",
+      "camera": "",
+      "capture_date": null,
+      "date_origin": "unknown",
+      "date_override": null,
+      "description": "",
+      "device": 66307,
+      "extracted_date": null,
+      "filename": "unchanged.jpg",
+      "height": 80,
+      "id": 2,
+      "inode": 10902121,
+      "mtime": 1795768260,
+      "mtime_ns": 1795768260727472985,
+      "mtime_ns_valid": true,
+      "path": "/tmp/rummage-audit-inode-us5m4wmi/source/unchanged.jpg",
+      "rating": 0,
+      "relative_path": "unchanged.jpg",
+      "signature": "66307:10902121:23:1795768260:727472985",
+      "size": 23,
+      "source_id": 1,
+      "tags": [],
+      "width": 100
+    }
+  ]
+}

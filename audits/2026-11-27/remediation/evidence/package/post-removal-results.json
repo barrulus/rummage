@@ -1,0 +1,22 @@
+[
+  {
+    "name": "base-after-addon-removal",
+    "command": [
+      "bash",
+      "/tmp/rummage-photo-library/scripts/ci/check-installed.sh",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix",
+      "0.6.1",
+      "/tmp/rummage-photo-library/LICENSE"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "addon-dynamic-linkage",
+    "command": [
+      "readelf",
+      "-d",
+      "/tmp/rummage-remediation-package-checks/staged-install/addon/libexec/rummage/librummage-photos.so"
+    ],
+    "exit": 0
+  }
+]

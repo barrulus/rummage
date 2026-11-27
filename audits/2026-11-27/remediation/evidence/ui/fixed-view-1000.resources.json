@@ -1,0 +1,21 @@
+{
+  "exit": 0,
+  "timeout": false,
+  "wall_seconds": 0.4668357240007026,
+  "samples": [
+    {
+      "seconds": 0.0003179159975843504,
+      "Rss_kib": 168,
+      "Pss_kib": 36,
+      "Private_Dirty_kib": 36
+    },
+    {
+      "seconds": 0.2505154499958735,
+      "Rss_kib": 268996,
+      "Pss_kib": 137184,
+      "Private_Dirty_kib": 73352
+    }
+  ],
+  "peak_rss_kib": 268996,
+  "peak_pss_kib": 137184
+}

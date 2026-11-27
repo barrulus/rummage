@@ -1,0 +1,14 @@
+Local staged install and documentation validation: PASS
+
+Build input: the completed /tmp/rummage-remediation-build Release snapshot available at staging time, before the final progress-endpoint changes. The saved build/staged SHA-256 hashes identify that tested snapshot; they are not asserted to match the final branch binaries. Base component ownership was unchanged by those later backend changes.
+Staging: /tmp/rummage-remediation-package-checks/staged-install only.
+
+Installed Unspecified, media and pdf components as the base. check-installed.sh passed before and after photo add-on removal, including all three preview helpers, config parsing, desktop metadata and absence of direct SQLite/catalog/decoder dependencies on the application. The photo component owns exactly libexec/rummage/librummage-photos.so and its ELF dependencies include SQLite. Installing it separately and alongside the base passed the installed ABI fixture: independent identities, persistent Unicode annotations, offline retention. Absent/present/disabled/missing-override diagnostics did not initialize a catalog. Removing only the photo module preserved the complete base file inventory and a second full base check passed.
+
+Documentation validator: 28 pages, 288 local links, 24 TOML blocks and example config passed.
+Hugo 0.170.1 generated 27 pages successfully.
+Generated-site validator: 25 HTML pages, 1411 internal links/assets, 19 searchable guides and five distribution downloads passed. Earlier missing photo guide/old-preview anchor failures are resolved.
+
+Evidence: staged-install/results.json, ownership.json and per-stage logs; post-removal-results.json; gates-results.json; build-snapshot.json and staged-snapshot.json. HOME was inherited unchanged from the invoking process in both the driver and every staged-check subprocess. The adaptation was a temporary copy of check-photos-installed.py with its HOME override removed, not a replacement HOME value. XDG_DATA_HOME, XDG_CONFIG_HOME, XDG_STATE_HOME and XDG_CACHE_HOME pointed to disposable temporary directories; diagnostics used those isolated locations. The tracked checker was not edited. No personal configuration or catalog was used by these checks. No system installation, package-manager upgrade, remote upload or publication occurred. These checks validate CMake component ownership and installed behavior, not distribution solver transactions or migration from previously installed preview packages.
+
+Final rerun: root repeated staged_install.py and post_removal.py after the final production changes; all checks passed. final-snapshot.json confirms staged application and add-on hashes match the final build. Earlier snapshot files remain historical.

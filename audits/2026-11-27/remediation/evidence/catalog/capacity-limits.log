@@ -1,0 +1,15 @@
+{
+  "export_over_256_mib": {
+    "error": "Annotation export exceeds the 256 MiB restore capacity; no export was created",
+    "seconds": 0.7115581549878698,
+    "synthetic_photos": 4097,
+    "description_bytes_each": 65536
+  },
+  "restore_over_one_million": {
+    "error": "Photo restore supports at most 1000000 photographs",
+    "catalog_rows_unchanged": true
+  },
+  "integrity": "ok",
+  "foreign_keys": [],
+  "peak_rss_kib": 1054404
+}

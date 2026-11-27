@@ -1,0 +1,9 @@
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:    2 |    2 passed | 0 failed | 0 skipped
+[doctest] assertions: 8209 | 8209 passed | 0 failed |
+[doctest] Status: SUCCESS!
+[    0.000] debug worker pool: 1 threads
+[    0.139] debug worker pool: 1 threads
+[    0.142] debug worker pool: 2 threads

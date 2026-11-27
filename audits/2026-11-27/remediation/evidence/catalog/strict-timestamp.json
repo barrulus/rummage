@@ -1,0 +1,9 @@
+{
+  "exit": 0,
+  "environment": {
+    "LD_PRELOAD": "/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so",
+    "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1",
+    "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+  },
+  "purpose": "Strict signed-overflow companion: out-of-range fixture timestamp must not overflow; zero sentinel and valid=false preserve identity"
+}

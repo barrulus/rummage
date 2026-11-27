@@ -1,0 +1,993 @@
+Start testing: Nov 27 08:32 GMT
+----------------------------------------------------------
+3/16 Testing: photos-recovery
+3/16 Test: photos-recovery
+Command: "/tmp/rummage-remediation-build/tests/rummage-photo-recovery-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-recovery" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:    1 |    1 passed | 0 failed | 0 skipped
+[doctest] assertions: 3168 | 3168 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  15.19 sec
+----------------------------------------------------------
+Test Passed.
+"photos-recovery" end time: Nov 27 08:32 GMT
+"photos-recovery" time elapsed: 00:00:15
+----------------------------------------------------------
+
+2/16 Testing: photos-catalog
+2/16 Test: photos-catalog
+Command: "/tmp/rummage-remediation-build/tests/rummage-photos-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-catalog" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:   35 |   35 passed | 0 failed | 0 skipped
+[doctest] assertions: 1399 | 1399 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   5.09 sec
+----------------------------------------------------------
+Test Passed.
+"photos-catalog" end time: Nov 27 08:32 GMT
+"photos-catalog" time elapsed: 00:00:05
+----------------------------------------------------------
+
+4/16 Testing: photos-watcher
+4/16 Test: photos-watcher
+Command: "/tmp/rummage-remediation-build/tests/rummage-photo-watcher-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-watcher" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  5 |  5 passed | 0 failed | 0 skipped
+[doctest] assertions: 97 | 97 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   3.43 sec
+----------------------------------------------------------
+Test Passed.
+"photos-watcher" end time: Nov 27 08:32 GMT
+"photos-watcher" time elapsed: 00:00:03
+----------------------------------------------------------
+
+13/16 Testing: file-picker-portal
+13/16 Test: file-picker-portal
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-portal-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"file-picker-portal" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+dbus-daemon[2569319]: [session uid=1000 pid=2569319 pidfd=4] Activating service name='org.freedesktop.impl.portal.desktop.rummage' requested by ':1.1' (uid=1000 pid=2569320 comm="/tmp/rummage-remediation-build/tests/rummage-porta")
+dbus-daemon[2569319]: [session uid=1000 pid=2569319 pidfd=4] Successfully activated service 'org.freedesktop.impl.portal.desktop.rummage'
+[    0.000] info  rummage 0.6.1
+[    0.000] info  config: /tmp/rummage-remediation-test-state/config/rummage/config.toml not used, defaults in use
+[    0.000] error [org.freedesktop.DBus.Error.FileExists] Failed to request bus name (File exists)
+[    0.000] error file chooser: Truncated picker message
+[    0.000] error file chooser: A picker path must be NUL-terminated
+FileChooser D-Bus integration passed
+<end of output>
+Test time =   3.39 sec
+----------------------------------------------------------
+Test Passed.
+"file-picker-portal" end time: Nov 27 08:32 GMT
+"file-picker-portal" time elapsed: 00:00:03
+----------------------------------------------------------
+
+5/16 Testing: photos-migration
+5/16 Test: photos-migration
+Command: "/run/current-system/sw/bin/python3.14" "/tmp/rummage-photo-library/tests/photos_migration.py" "/tmp/rummage-remediation-build/librummage-photos.so"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-migration" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+Photo catalog migration: schema-one/two upgrade, preserved unique backups, failed-upgrade retry, rollback and concurrent initialization passed
+<end of output>
+Test time =   2.10 sec
+----------------------------------------------------------
+Test Passed.
+"photos-migration" end time: Nov 27 08:32 GMT
+"photos-migration" time elapsed: 00:00:02
+----------------------------------------------------------
+
+6/16 Testing: photos-ui
+6/16 Test: photos-ui
+Command: "/tmp/rummage-remediation-build/tests/rummage-photo-ui-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-ui" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    1.081] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    1.180] warn  icons: no icon named '' (third_party/tabler-icons/icons.txt)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    4.415] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   11.766] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   13.766] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   15.244] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   19.210] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   19.922] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   20.079] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   20.243] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:   12 |   12 passed | 0 failed | 0 skipped
+[doctest] assertions: 4911 | 4911 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  29.89 sec
+----------------------------------------------------------
+Test Passed.
+"photos-ui" end time: Nov 27 08:32 GMT
+"photos-ui" time elapsed: 00:00:29
+----------------------------------------------------------
+
+9/16 Testing: file-manager-cli
+9/16 Test: file-manager-cli
+Command: "/nix/store/9xdayymn5yh1c98hg12d13d3ir0sxd4x-cmake-4.4.4/bin/cmake" "-DRUMMAGE_EXECUTABLE=/tmp/rummage-remediation-build/rummage" "-DTEST_DIRECTORY=/tmp/rummage-remediation-build/tests/file-manager-cli-scratch" "-P" "/tmp/rummage-photo-library/tests/file_manager_cli.cmake"
+Directory: /tmp/rummage-remediation-build/tests
+"file-manager-cli" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.31 sec
+----------------------------------------------------------
+Test Passed.
+"file-manager-cli" end time: Nov 27 08:32 GMT
+"file-manager-cli" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/16 Testing: media-tests
+15/16 Test: media-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-media-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"media-tests" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    0.167] warn  engine media: its program rummage-media is not installed; skipped
+[    0.167] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  8 |  8 passed | 0 failed | 0 skipped
+[doctest] assertions: 97 | 97 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.25 sec
+----------------------------------------------------------
+Test Passed.
+"media-tests" end time: Nov 27 08:32 GMT
+"media-tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/16 Testing: file-manager-activation
+10/16 Test: file-manager-activation
+Command: "/nix/store/9xdayymn5yh1c98hg12d13d3ir0sxd4x-cmake-4.4.4/bin/cmake" "-DRUMMAGE_EXECUTABLE=/tmp/rummage-remediation-build/rummage" "-DTEST_DIRECTORY=/tmp/rummage-remediation-build/tests/file-manager-activation-scratch" "-DDBUS_RUN_SESSION=/run/current-system/sw/bin/dbus-run-session" "-DDBUS_SEND=/run/current-system/sw/bin/dbus-send" "-P" "/tmp/rummage-photo-library/tests/file_manager_activation.cmake"
+Directory: /tmp/rummage-remediation-build/tests
+"file-manager-activation" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Passed.
+"file-manager-activation" end time: Nov 27 08:32 GMT
+"file-manager-activation" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/16 Testing: file-manager
+12/16 Test: file-manager
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-file-manager-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"file-manager" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   1.53 sec
+----------------------------------------------------------
+Test Passed.
+"file-manager" end time: Nov 27 08:32 GMT
+"file-manager" time elapsed: 00:00:01
+----------------------------------------------------------
+
+8/16 Testing: memory-tests
+8/16 Test: memory-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-tests" "--source-file=*memory_test.cpp"
+Directory: /tmp/rummage-remediation-build/tests
+"memory-tests" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  2 |  2 passed | 0 failed | 1284 skipped
+[doctest] assertions: 28 | 28 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Passed.
+"memory-tests" end time: Nov 27 08:32 GMT
+"memory-tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/16 Testing: desktop-portal
+11/16 Test: desktop-portal
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-desktop-portal-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"desktop-portal" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+Appearance startup and live contrast checks passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"desktop-portal" end time: Nov 27 08:32 GMT
+"desktop-portal" time elapsed: 00:00:00
+----------------------------------------------------------
+
+1/16 Testing: i18n-runtime
+1/16 Test: i18n-runtime
+Command: "/tmp/rummage-remediation-build/tests/rummage-i18n-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"i18n-runtime" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[    0.000] error translation xx: invalid integer plural rule; it is not used
+[    0.000] error translation yy: plural message needs other; it is not used
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  4 |  4 passed | 0 failed | 0 skipped
+[doctest] assertions: 93 | 93 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"i18n-runtime" end time: Nov 27 08:32 GMT
+"i18n-runtime" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/16 Testing: action-notifications
+14/16 Test: action-notifications
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-notification-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"action-notifications" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  notifications: The name org.freedesktop.Notifications was not provided by any .service files
+Notification delivery and missing-service checks passed
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Passed.
+"action-notifications" end time: Nov 27 08:32 GMT
+"action-notifications" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/16 Testing: rummage-tests
+7/16 Test: rummage-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-tests" "--source-file-exclude=*memory_test.cpp"
+Directory: /tmp/rummage-remediation-build/tests
+"rummage-tests" start time: Nov 27 08:32 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    0.122] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-YZBo3c/icons/hicolor/scalable/apps/rummage.svg
+[    0.126] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-YZBo3c/icons/hicolor/scalable/apps/rummage.svg
+[    0.126] info  icon: removed /tmp/nix-shell.VfISqJ/rummage-test-YZBo3c/icons/hicolor/scalable/apps/rummage.svg
+[    0.128] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-KyWy9K/icons/hicolor/scalable/apps/rummage.svg
+[    0.132] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-KyWy9K/icons/hicolor/scalable/apps/rummage.svg
+[    0.132] info  icon: removed /tmp/nix-shell.VfISqJ/rummage-test-KyWy9K/icons/hicolor/scalable/apps/rummage.svg
+[    0.135] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-aHCsJb/rummage.svg
+[    0.139] info  icon: put back /tmp/nix-shell.VfISqJ/rummage-test-aHCsJb/rummage.svg
+[    0.142] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-M4BXNj/rummage.svg
+[    0.146] info  icon: wrote /tmp/nix-shell.VfISqJ/rummage-test-M4BXNj/rummage.svg
+[    0.148] info  theme: default palette
+[    0.148] info  theme: desktop is dark
+[    0.148] info  theme: desktop is dark, with an accent colour
+[    0.148] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-1ibmOP/colors.toml
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    3.390] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    3.488] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    3.490] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[    3.525] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 6: 10de:2d19, driver (null)
+[    4.131] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    5.209] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    5.302] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    5.326] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    5.353] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.216] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.477] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.623] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.758] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.826] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.875] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.920] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.957] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    7.999] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.230] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.252] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.276] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.297] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.318] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.344] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.421] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.472] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.526] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.579] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[    8.700] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[    8.754] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[    8.786] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[    8.825] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    8.879] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    8.917] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-tTvYgI/colors.toml
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-tTvYgI/colors.toml
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.917] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-tTvYgI/colors.toml
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-tTvYgI/colors.toml
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.918] info  theme: desktop is dark, with an accent colour
+[    8.919] info  theme: default palette
+[    8.919] info  theme: desktop is light, with an accent colour
+[    8.919] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-YYTkhT/colors.toml
+[    8.919] info  theme: desktop is dark
+[    8.919] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-YYTkhT/colors.toml removed; palette file unavailable
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    9.044] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[    9.091] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   10.462] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   10.771] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   11.083] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   11.135] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   11.174] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   11.966] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.029] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.077] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.143] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.195] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.500] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.580] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.650] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.730] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   12.769] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   13.107] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   13.157] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   13.189] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   13.239] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   13.379] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   15.677] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.001] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.052] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.139] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.217] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.272] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.386] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.518] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.646] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.703] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   16.881] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   17.055] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   17.212] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   17.278] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   17.370] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   17.467] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   17.555] warn  engine second (/tmp/nix-shell.VfISqJ/rummage-test-03GWUY/b-second.toml) shows a type another engine shows; skipped
+[   17.555] warn  engine /tmp/nix-shell.VfISqJ/rummage-test-03GWUY/c-broken.toml:1: [engine] has no 'protocol'; skipped
+[   17.555] warn  engine missing: its program absent is not installed; skipped
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   17.614] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   18.474] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   18.545] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   18.600] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   18.677] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.029] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.031] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.032] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.032] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.033] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.581] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   21.590] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   22.340] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.353] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.413] warn  icons: no icon named 'check' (third_party/tabler-icons/icons.txt)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.444] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.490] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.538] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.592] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.648] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.703] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.761] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.816] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.863] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.932] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   25.992] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.055] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.420] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.486] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.596] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.682] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.797] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.901] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   26.968] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.014] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.157] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.312] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.350] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.387] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.418] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.475] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.552] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.674] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.724] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.791] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   27.912] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   27.998] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   28.072] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   28.123] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/colors.toml
+[   28.123] info  theme: desktop is dark, with an accent colour
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:View] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:View] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:Window] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:Window] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:Button] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:Button] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:Selection] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.123] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/kdeglobals:1: missing [Colors:Selection] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.124] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-eC1Xva/colors.toml removed; palette file unavailable
+[   28.124] info  theme: default palette
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:2: supported colours must be opaque R,G,B or R,G,B,255 (0–255); KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:View] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:View] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:Window] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:Window] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:Button] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:Button] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:Selection] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   28.677] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-XFyBdm/kdeglobals:1: missing [Colors:Selection] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   29.393] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   29.432] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   29.479] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   29.505] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   29.534] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   29.560] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   30.090] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 6: 10de:2d19, driver (null)
+[   30.165] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   30.305] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   30.344] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.885] warn  ambient shader: shader compile failed: 0:9(1): error: syntax error, unexpected NEW_IDENTIFIER, expecting end of file
+
+[   31.410] warn  ambient shader: Cannot open /tmp/nix-shell.VfISqJ/rummage-test-uFWKs5/missing.frag
+[   31.412] warn  ambient shader: Shader must be a regular file of at most 64 KiB: /tmp/nix-shell.VfISqJ/rummage-test-uFWKs5
+[   31.416] warn  ambient shader: Shader must be a regular file of at most 64 KiB: /tmp/nix-shell.VfISqJ/rummage-test-uFWKs5/huge.frag
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   31.432] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.538] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.577] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   31.584] warn  ambient shader: Cannot open /tmp/nix-shell.VfISqJ/rummage-test-fPCjex/missing.frag
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.600] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.678] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.750] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.823] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.903] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   31.984] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   32.050] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   32.138] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 6: 10de:2d19, driver (null)
+[   32.224] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   32.282] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   35.758] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-uan2X3/colors.toml
+[   35.758] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-uan2X3/colors.toml
+[   35.759] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-uan2X3/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   35.759] warn  theme: keeping the current palette
+[   35.760] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-uan2X3/colors.toml removed; palette file unavailable
+[   35.760] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-T08riY/colors.toml
+[   35.760] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-T08riY/colors.toml
+[   35.760] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-T08riY/colors.toml removed; palette file unavailable
+[   35.760] info  theme: desktop is light
+[   35.760] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:1:1: no [colors] section; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:1:1: no [colors] section; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:1:10: 'colors' must be a section ([colors]); file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:1:8: 'mode' must be "dark" or "light"; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:1:8: 'mode' must be "dark" or "light"; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:3:9: 'colors.hover' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.761] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   35.761] warn  theme: keeping the current palette
+[   35.762] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   35.762] warn  theme: keeping the current palette
+[   35.762] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   35.762] warn  theme: keeping the current palette
+[   35.762] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-J9r8Za/colors.toml:3:11: Error while parsing key-value pair: cannot redefine existing string 'primary'; the whole file is ignored
+[   35.762] warn  theme: keeping the current palette
+[   35.763] info  theme: default palette
+[   35.763] info  theme: desktop is light, with an accent colour
+[   35.813] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-7y7GMu/colors.toml
+[   36.113] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-7y7GMu/colors.toml
+[   36.413] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-7y7GMu/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   36.413] warn  theme: keeping the current palette
+[   36.713] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-7y7GMu/colors.toml removed; palette file unavailable
+[   37.014] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-7y7GMu/colors.toml
+[   37.268] info  theme: default palette
+[   37.268] info  theme: default palette
+[   37.268] info  theme: desktop is light, with an accent colour
+[   37.268] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-5ZPE4T/colors.toml
+[   37.268] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-5ZPE4T/colors.toml
+[   37.268] info  theme: desktop is light, with an accent colour
+[   37.269] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-JozSZD/colors.toml
+[   37.269] info  theme: desktop is light, with an accent colour
+[   37.269] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-JozSZD/colors.toml
+[   37.270] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-JozSZD/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   37.270] warn  theme: keeping the current palette
+[   37.270] info  theme: desktop is dark, with an accent colour
+[   37.270] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-JozSZD/colors.toml removed; palette file unavailable
+[   37.270] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-JozSZD/colors.toml
+[   37.270] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-BN0izn/colors.toml
+[   37.270] info  theme: desktop is light, with an accent colour
+[   37.275] info  theme: default palette
+[   37.275] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-Y2ZeHc/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   37.275] info  theme: default palette
+[   37.275] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-Y2ZeHc/colors.toml
+[   37.276] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-Y2ZeHc/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   37.276] warn  theme: keeping the current palette
+[   37.277] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-Y2ZeHc/colors.toml
+[   37.277] info  theme: /tmp/nix-shell.VfISqJ/rummage-test-Y2ZeHc/colors.toml removed; palette file unavailable
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.353] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.431] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.489] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.547] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.595] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.642] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.719] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   37.759] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.822] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.868] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   37.905] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   39.004] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   40.145] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   40.202] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.772] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   40.930] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 6: 10de:2d19, driver (null)
+[   41.003] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.034] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   41.044] warn  icons: no icon named 'album' (third_party/tabler-icons/icons.txt)
+[   41.050] warn  terminal.program "missing" was not found; trying $TERMINAL and the others
+[   41.050] warn  terminal.program "missing" was not found; trying $TERMINAL and the others
+[   41.064] info  open: /tmp/nix-shell.VfISqJ/rummage-test-vtHDvA/bin/viewer with viewer.desktop (2 file(s))
+[   41.067] info  open: /tmp/nix-shell.VfISqJ/rummage-test-vtHDvA/bin/broken with broken.desktop (1 file(s))
+[   41.069] info  open: /tmp/nix-shell.VfISqJ/rummage-test-vtHDvA/bin/broken with broken.desktop (1 file(s))
+[   41.073] info  open: No application opens application/x-zerosize
+[   41.073] info  open: No application opens application/zip
+[   41.076] info  open: No terminal found: set terminal.program in config.toml
+[   41.077] info  open: /tmp/nix-shell.VfISqJ/rummage-test-GLXIby/bin/foot with foot (1 file(s))
+[   41.079] info  open: /tmp/nix-shell.VfISqJ/rummage-test-GLXIby/bin/myterm with myterm (1 file(s))
+[   41.081] info  open: /tmp/nix-shell.VfISqJ/rummage-test-GLXIby/bin/editor with editor.desktop (1 file(s))
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.095] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.176] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.242] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.294] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.353] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.398] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.476] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.563] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.646] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.703] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSansMono.ttf (25 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.747] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSansMono.ttf (25 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.801] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.838] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   41.878] info  open: /tmp/nix-shell.VfISqJ/rummage-test-qiZp5y/apps/tool with program (1 file(s))
+[   41.880] info  open: /tmp/nix-shell.VfISqJ/rummage-test-qiZp5y/apps/tool with program (1 file(s))
+[   41.883] info  open: No application opens application/pdf
+[   41.884] info  open: No application opens text/x-shellscript
+[   41.885] info  open: No application opens application/x-executable
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   41.939] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   42.024] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   44.075] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   44.178] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   44.227] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 6: 10de:2d19, driver (null)
+[   44.285] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.072] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.097] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.120] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.144] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.164] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.182] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.203] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.223] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.245] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.263] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.281] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.301] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.320] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.343] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.370] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.398] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.425] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.445] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.466] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.484] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.532] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.560] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.585] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.605] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.624] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.813] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.845] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.881] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   45.920] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.006] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.046] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.111] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.184] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.226] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   46.293] info  theme: default palette
+[   46.294] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-QM0UJF/colors.toml
+[   46.294] info  theme: desktop is dark
+[   46.338] info  theme: default palette
+[   46.339] info  theme: reloaded /tmp/nix-shell.VfISqJ/rummage-test-uSY6dU/colors.toml
+[   46.339] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-uSY6dU/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   46.339] warn  theme: keeping the current palette
+[   46.339] warn  theme: /tmp/nix-shell.VfISqJ/rummage-test-uSY6dU/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   46.339] info  theme: default palette
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.356] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.419] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.493] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   46.561] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   46.757] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.777] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 5: 10de:2d19, driver (null)
+[   46.837] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   46.875] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   52.332] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   52.717] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   53.270] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   53.344] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 4: 10de:2d19, driver (null)
+[   53.419] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+MESA-EGL: warning: pci id for fd 7: 10de:2d19, driver (null)
+[   53.667] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+/tmp/rummage-photo-library/tests/command_palette_test.cpp:298:
+TEST CASE:  palette: filtering 500 items takes well under a millisecond a key
+
+/tmp/rummage-photo-library/tests/command_palette_test.cpp:313: MESSAGE: filtering 500 items: 0.077 ms a key
+
+===============================================================================
+/tmp/rummage-photo-library/tests/desktop_palette_test.cpp:259:
+TEST CASE:  portal: the real session bus answers or has no portal (reads only)
+
+/tmp/rummage-photo-library/tests/desktop_palette_test.cpp:269: MESSAGE: desktop is dark, no accent
+
+===============================================================================
+/tmp/rummage-photo-library/tests/devices_test.cpp:389:
+TEST CASE:  devices: udisks2 on the real system bus lists the disks (reads only)
+
+/tmp/rummage-photo-library/tests/devices_test.cpp:406: MESSAGE: home /dev/nvme1n1p1 at /home
+
+/tmp/rummage-photo-library/tests/devices_test.cpp:406: MESSAGE: sixseven /dev/nvme0n1p1 at /
+
+===============================================================================
+/tmp/rummage-photo-library/tests/directory_model_test.cpp:182:
+TEST CASE:  model: a burst of 500 files arrives in a few notifications
+
+/tmp/rummage-photo-library/tests/directory_model_test.cpp:191: MESSAGE: 500 files in 1 notifications
+
+===============================================================================
+/tmp/rummage-photo-library/tests/terminal_navigation_test.cpp:262:
+TEST CASE:  terminal navigation: Fish loads normal config and reports only normal shell exits
+
+/tmp/rummage-photo-library/tests/terminal_navigation_test.cpp:265: WARNING: WARN( false ) is NOT correct!
+  values: WARN( false )
+  logged: Optional shell is unavailable: fish
+
+===============================================================================
+/tmp/rummage-photo-library/tests/xcursor_test.cpp:48:
+TEST CASE:  xcursor: every shape is in the Adwaita theme
+
+/tmp/rummage-photo-library/tests/xcursor_test.cpp:52: MESSAGE: no Adwaita cursor theme on this system: skipped
+
+===============================================================================
+[doctest] test cases:   1281 |   1281 passed | 0 failed | 5 skipped
+[doctest] assertions: 256250 | 256250 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  61.72 sec
+----------------------------------------------------------
+Test Passed.
+"rummage-tests" end time: Nov 27 08:33 GMT
+"rummage-tests" time elapsed: 00:01:01
+----------------------------------------------------------
+
+16/16 Testing: pdf-tests
+16/16 Test: pdf-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-pdf-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"pdf-tests" start time: Nov 27 08:33 GMT
+Output:
+----------------------------------------------------------
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:    13 |    13 passed | 0 failed | 0 skipped
+[doctest] assertions: 65665 | 65665 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  10.81 sec
+----------------------------------------------------------
+Test Passed.
+"pdf-tests" end time: Nov 27 08:33 GMT
+"pdf-tests" time elapsed: 00:00:10
+----------------------------------------------------------
+
+End testing: Nov 27 08:33 GMT

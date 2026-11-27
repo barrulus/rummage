@@ -1,0 +1,48 @@
+REMEDIATION REPRODUCTION
+
+Source commit: fcc1322cd72a43f1509975616f30b6fb8e825165
+Use the repository's existing nix develop environment. Builds used fresh directories:
+/tmp/rummage-remediation-build (Release) and /tmp/rummage-remediation-asan (Debug,
+RUMMAGE_SANITIZER=address,undefined), with tests/media/pdf/photos ON and exported
+compile commands. HOME was inherited; launches set isolated XDG_CONFIG_HOME,
+XDG_CACHE_HOME, XDG_DATA_HOME and XDG_STATE_HOME. Native tests use
+EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1.
+
+  cmake -S . -B BUILD -G Ninja -DCMAKE_BUILD_TYPE=Release     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DRUMMAGE_BUILD_TESTS=ON     -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PHOTOS=ON
+  cmake --build BUILD -j4
+  ctest --test-dir BUILD --output-on-failure -j3
+
+Run the two build variants sequentially: the process-identity test searches by
+executable name. CTest now supplies ASan preload for photos-migration itself.
+Python-host leak checking is disabled only for that host; other suites retain
+normal settings. The focused timestamp companion adds -fstrict-overflow because
+the Nix compiler wrapper otherwise injects -fno-strict-overflow.
+
+Evidence is local, self-contained text/source except generated binaries/large
+fixtures. Scripts preserve the actual absolute paths/Nix store paths used here;
+adapt them on another host. Original audit scripts/evidence remain one directory
+up and supply the baseline. Do not use personal catalogs or originals.
+
+Native UI: evidence/ui/build_harness.py BUILD view_stress or photo_stress.
+Use evidence/ui/seed_photo.py MODULE LABEL COUNT to seed disposable photo catalogs.
+The seed module path points to the sibling catalog helper; adapt its local prefix
+if relocating. run_harness.py isolates XDG roots and captures CSV/RSS/PPM with a
+120-second watchdog. Set RUMMAGE_PHOTOS_LIBRARY to the built module. run_final.py
+records final-photo-{1000,10000,100000}; fixed-view-* records the unchanged generic
+view workload. Compile all harnesses before timing; run workloads serially.
+
+Catalog: stress_catalog.py MODULE --records 100000 --samples 10 --build-mode Release
+--output RESULT. It seeds a temporary catalog and exercises queries,500page traversal,
+claims/persistence, export/restore and concurrent requests. It decodes no real images.
+capacity_limits.py MODULE OUTPUT tests oversized export/restore using synthetic data.
+metadata_utf8_real.py BENCH_PHOTOS OUTPUT exercises an actual generated JPEG through
+the helper/client. inode_replacement_policy.py MODULE OUTPUT simulates an old inode
+mismatch in SQLite while leaving original fixture bytes unchanged. This is not a
+real remote-mount measurement. Targeted watcher TSan runner/source are included.
+
+Package driver scripts stage only below /tmp; run inside nix develop for readelf,
+CMake and desktop validation dependencies. The temporary checker adaptation keeps
+HOME inherited while isolating XDG fixtures; production checker source is unchanged.
+Final staged hashes match the final build. See package/final-snapshot.json.
+
+The archived Hugo log has trailing whitespace normalized; diagnostic content is unchanged. Evidence hashes refer to the archived files.
