@@ -1,0 +1,6 @@
+{"time_ns":95984557310028,"pid":2986419,"tag":"baseline","stage":"sample","rss_bytes":3932160,"live_bytes":76512,"free_bytes":132384,"arena_bytes":208896,"mmapped_bytes":0,"trim_result":-1}
+{"time_ns":95984598506318,"pid":2986419,"tag":"allocated","stage":"sample","rss_bytes":138412032,"live_bytes":134295264,"free_bytes":131360,"arena_bytes":134426624,"mmapped_bytes":0,"trim_result":-1}
+{"time_ns":95984598528259,"pid":2986419,"tag":"freed","stage":"sample","rss_bytes":138412032,"live_bytes":2173680,"free_bytes":132252944,"arena_bytes":134426624,"mmapped_bytes":0,"trim_result":-1}
+{"time_ns":95984598566242,"pid":2986419,"tag":"settled","stage":"before_trim","rss_bytes":138412032,"live_bytes":2173680,"free_bytes":132252944,"arena_bytes":134426624,"mmapped_bytes":0,"trim_result":-1}
+{"time_ns":95984604125232,"pid":2986419,"tag":"settled","stage":"after_trim","rss_bytes":6295552,"live_bytes":2173680,"free_bytes":132121872,"arena_bytes":134295552,"mmapped_bytes":0,"trim_result":1}
+{"time_ns":95984604185895,"pid":2986419,"tag":"final","stage":"sample","rss_bytes":6299648,"live_bytes":2173680,"free_bytes":132121872,"arena_bytes":134295552,"mmapped_bytes":0,"trim_result":-1}

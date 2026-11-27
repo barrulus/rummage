@@ -1,0 +1,53 @@
+[   25.999] info  memory: process: rss 181.0 MB (peak 183.3 MB), anonymous 108.6 MB, private 12.0 MB clean + 108.6 MB dirty, shared 60.3 MB
+[   25.999] info  memory: malloc: in use 85.7 MB, freed but kept 15.2 MB, arenas 100.8 MB, mmapped 0.0 MB
+[   25.999] info  memory: gpu: vram ?, gtt ?, cpu ?
+[   25.999] info  memory:   mapped [heap]: rss 77.8 MB (anonymous 77.8 MB)
+[   25.999] info  memory:   mapped libraries: rss 67.6 MB (anonymous 6.3 MB)
+[   25.999] info  memory:   mapped [anon]: rss 23.3 MB (anonymous 23.3 MB)
+[   25.999] info  memory:   mapped /tmp/rummage-photo-scroll-probe-v2/rummage: rss 8.9 MB (anonymous 0.1 MB)
+[   25.999] info  memory:   mapped fonts: rss 0.6 MB (anonymous 0.0 MB)
+[   25.999] info  memory:   mapped /tmp/rummage-photo-scroll-all-loaded-20261127/large-three-background-all-loaded/cache/mesa_shader_cache/index: rss 0.4 MB (anonymous 0.0 MB)
+[   25.999] info  memory:   mapped /nix/store/rbvrn9kch96rr5nm7jdp3913d51nm09g-glibc-locales-2.44-57/lib/locale/locale-archive: rss 0.3 MB (anonymous 0.0 MB)
+[   25.999] info  memory:   mapped /nix/store/v15nsj8jh94pny5a79bs5fhipi8547iy-fc-cache/3af3525a7c3f50680e0103aac8cccb02-x86_64.cache-12: rss 0.2 MB (anonymous 0.0 MB)
+[   25.999] info  memory: thumbnails: 618 slots, 618 textures 168.4 MB (budget 268.4 MB), pixels waiting 0.0 MB
+[   25.999] info  memory: quick look: 0 slots, textures 0.0 MB, pixels kept 0.0 MB
+[   25.999] info  memory: glyph atlases: 21.0 MB
+[   25.999] info  memory: columns: 1 folders, 14268 entries
+[   25.999] info  memory: shown folder: 14268 entries
+[   44.044] info  memory: process: rss 181.9 MB (peak 183.9 MB), anonymous 109.2 MB, private 12.3 MB clean + 109.2 MB dirty, shared 60.3 MB
+[   44.044] info  memory: malloc: in use 86.6 MB, freed but kept 15.7 MB, arenas 102.4 MB, mmapped 0.0 MB
+[   44.044] info  memory: gpu: vram ?, gtt ?, cpu ?
+[   44.044] info  memory:   mapped [heap]: rss 79.0 MB (anonymous 79.0 MB)
+[   44.044] info  memory:   mapped libraries: rss 67.6 MB (anonymous 6.3 MB)
+[   44.044] info  memory:   mapped [anon]: rss 23.7 MB (anonymous 23.7 MB)
+[   44.044] info  memory:   mapped /tmp/rummage-photo-scroll-probe-v2/rummage: rss 9.2 MB (anonymous 0.1 MB)
+[   44.044] info  memory:   mapped fonts: rss 0.6 MB (anonymous 0.0 MB)
+[   44.044] info  memory:   mapped /tmp/rummage-photo-scroll-all-loaded-20261127/large-three-background-all-loaded/cache/mesa_shader_cache/index: rss 0.4 MB (anonymous 0.0 MB)
+[   44.044] info  memory:   mapped /nix/store/rbvrn9kch96rr5nm7jdp3913d51nm09g-glibc-locales-2.44-57/lib/locale/locale-archive: rss 0.3 MB (anonymous 0.0 MB)
+[   44.044] info  memory:   mapped /nix/store/v15nsj8jh94pny5a79bs5fhipi8547iy-fc-cache/3af3525a7c3f50680e0103aac8cccb02-x86_64.cache-12: rss 0.2 MB (anonymous 0.0 MB)
+[   44.044] info  memory: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB
+[   44.044] info  memory: quick look: 0 slots, textures 0.0 MB, pixels kept 0.0 MB
+[   44.044] info  memory: glyph atlases: 21.0 MB
+[   44.044] info  memory: columns: 1 folders, 14268 entries
+[   44.044] info  memory: shown folder: 14268 entries
+before_trim: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB
+before_trim: quick look: 0 slots, textures 0.0 MB, pixels kept 0.0 MB
+before_trim: glyph atlases: 21.0 MB
+before_trim: columns: 1 folders, 14268 entries
+before_trim: shown folder: 14268 entries
+[   87.081] info  memory: process: rss 173.3 MB (peak 187.9 MB), anonymous 100.6 MB, private 12.3 MB clean + 100.7 MB dirty, shared 60.3 MB
+[   87.081] info  memory: malloc: in use 87.3 MB, freed but kept 16.7 MB, arenas 104.0 MB, mmapped 0.0 MB
+[   87.081] info  memory: gpu: vram ?, gtt ?, cpu ?
+[   87.081] info  memory:   mapped [heap]: rss 78.9 MB (anonymous 78.9 MB)
+[   87.081] info  memory:   mapped libraries: rss 67.6 MB (anonymous 6.3 MB)
+[   87.081] info  memory:   mapped [anon]: rss 15.2 MB (anonymous 15.2 MB)
+[   87.081] info  memory:   mapped /tmp/rummage-photo-scroll-probe-v2/rummage: rss 9.2 MB (anonymous 0.1 MB)
+[   87.081] info  memory:   mapped fonts: rss 0.6 MB (anonymous 0.0 MB)
+[   87.081] info  memory:   mapped /tmp/rummage-photo-scroll-all-loaded-20261127/large-three-background-all-loaded/cache/mesa_shader_cache/index: rss 0.4 MB (anonymous 0.0 MB)
+[   87.081] info  memory:   mapped /nix/store/rbvrn9kch96rr5nm7jdp3913d51nm09g-glibc-locales-2.44-57/lib/locale/locale-archive: rss 0.3 MB (anonymous 0.0 MB)
+[   87.081] info  memory:   mapped /nix/store/v15nsj8jh94pny5a79bs5fhipi8547iy-fc-cache/3af3525a7c3f50680e0103aac8cccb02-x86_64.cache-12: rss 0.2 MB (anonymous 0.0 MB)
+[   87.082] info  memory: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB
+[   87.082] info  memory: quick look: 0 slots, textures 0.0 MB, pixels kept 0.0 MB
+[   87.082] info  memory: glyph atlases: 21.0 MB
+[   87.082] info  memory: columns: 1 folders, 14268 entries
+[   87.082] info  memory: shown folder: 14268 entries

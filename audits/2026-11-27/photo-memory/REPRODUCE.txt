@@ -1,0 +1,98 @@
+Rummage photo-memory test reproduction — local branch feat/photo-library
+Production revision tested: 09b233b (preceding production changes: fcc1322c).
+No production code or normal application executable was modified. All new probes
+are benchmark-only; source media were read, never edited or moved.
+
+Working tree: /tmp/rummage-photo-library
+Release build: /tmp/rummage-remediation-build
+Source fixture: /home/barrulus/test-pics
+
+Automated checks (run inside this checkout):
+  nix develop --command python3 scripts/performance/test_allocator_probe.py
+  python3 -m unittest discover -s scripts/performance -p 'test_*metrics.py'
+Native checks used fresh temporary XDG_CONFIG_HOME, XDG_CACHE_HOME, XDG_DATA_HOME
+and XDG_STATE_HOME, EGL_PLATFORM=surfaceless, LIBGL_ALWAYS_SOFTWARE=1:
+  /tmp/rummage-remediation-build/tests/rummage-tests --source-file='*memory_test.cpp'
+  /tmp/rummage-remediation-build/tests/rummage-tests --source-file='*thumbs_test.cpp,*preview_test.cpp'
+HOME was inherited. Do not use your real catalog/config/cache for these tests.
+
+Index benchmark:
+  /tmp/rummage-remediation-build/rummage-bench-photos NEW-ABSOLUTE-CATALOG /home/barrulus/test-pics
+Run with fresh isolated XDG directories. It performs indexing then an unchanged
+rescan and prints JSON. The benchmark does not render a UI or set the application's
+malloc threshold. The original long-lived tool session was terminated externally
+at ~501 seconds. A detached companion resumed the existing catalog, completing
+remaining metadata and a full unchanged rescan. No uninterrupted cold timing is
+reported. The companion source and compile script remain in the raw artifact root.
+
+Build the temporary UI probe (choose a new output directory):
+  nix develop --command python3 scripts/performance/photo_instrument.py \
+    --source /tmp/rummage-photo-library --build /tmp/rummage-remediation-build \
+    --out /tmp/rummage-photo-probe-NEW
+This compiles temporary main.cpp and InfoPane objects and links a separate binary.
+The original source/binary remains untouched. It reuses the built helpers/assets.
+
+Four incremental-load geometries, three passes of 600 Down inputs each:
+  nix develop --command python3 scripts/performance/display.py \
+    --directory /tmp/rummage-photo-display-NEW \
+    --render-device /dev/dri/renderD129 \
+    --egl-vendor /run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json -- \
+    python3 scripts/performance/photo_scroll.py --runtime '{runtime}' \
+    --catalog /tmp/rummage-index-memory-20261127/catalog/catalog.sqlite3 \
+    --executable /tmp/rummage-photo-probe-NEW/rummage \
+    --out /tmp/rummage-photo-results-NEW --steps 600
+Use this machine's explicit Intel render node; select the appropriate device on
+another host. Every output directory must be new. The display wrapper creates a
+private compositor and runtime, never uses the desktop socket, and cleans up only
+its own compositor process group. The app uses isolated XDG directories and a
+SQLite backup of the input catalog. Keyboard events go directly through the
+benchmark-only Browser::key hook, not through the desktop keyboard.
+
+All-loaded pair (200 Down inputs per pass, all 14,268 rows loaded first):
+Use the same display command with new directories; add to photo_scroll.py:
+  --all-loaded-pair --steps 200 \
+  --incomplete-catalog /tmp/rummage-photo-scroll-smoke2/small-two/data/rummage/photos/catalog.sqlite3
+This runs a paused completed-catalog case and a bounded concurrent-metadata case
+from the preserved incomplete snapshot. Only their own copies are modified.
+The concurrent run leaves work pending; its final wait is input-idle, not pipeline-idle.
+
+Heaptrack:
+  /nix/store/bvggh3ligbb0928p8iic1s7y9k4dbzwj-heaptrack-1.5.0-unstable-2025-07-21/bin/heaptrack
+Add --preload-all --steps 200 --heaptrack PATH to a separate photo_scroll.py run.
+The final runner uses --record-only so the profiler cannot auto-launch its GUI.
+Treat profiler runs separately from timing comparisons. The trace covers the main
+process only; helpers were verified not to have the preload library mapped.
+
+For long runs, launch the display wrapper in a separate process session with
+stdout/stderr redirected to files and monitor its PID and outputs, rather than
+holding one tool execution session open for more than several minutes. Do not
+signal or attach to a user's existing Rummage process.
+
+Raw evidence retained locally (may contain source filenames; no pixels committed):
+  /tmp/rummage-index-memory-20261127
+  /tmp/rummage-heaptrace-index-jc54p3y6
+  /tmp/rummage-photo-scroll-20261127
+  /tmp/rummage-photo-scroll-all-loaded-20261127
+  /tmp/rummage-photo-scroll-heaptrack/large-three
+  /tmp/rummage-photo-scroll-heaptrack-cleanup-check
+  /tmp/rummage-allocator-selftest-final
+  /tmp/rummage-user-thumbnail-header-audit.json
+Unreadable file paths (private, not committed):
+  /tmp/rummage-index-memory-20261127/unreadable-files.txt
+
+Excluded setup/collector runs:
+- Initial smoke runs overlapped indexing and were used only to validate probes.
+- The legacy fifth case in the incremental runner was intentionally stopped before
+  inputs because its row-index identity metric was unsuitable during metadata
+  changes. The separate all-loaded pair uses stable photo identity instead.
+- The full UI heaptrace completed and finalized, but its outer collector failed
+  during wrapper teardown. recovered-run.json preserves this distinction; its
+  timing is excluded. A separate clean-exit smoke validates the collector fix.
+
+Accounting:
+- MiB uses 1,048,576 bytes; Heaptrack's MB/KB values are its decimal output.
+- glibc free chunks are allocator address space, not necessarily resident bytes.
+- RSS sums double-count shared pages across helpers; process-tree PSS is supplied.
+- Texture budget estimates are not additional physical RAM to sum with RSS.
+- One-second samples can miss brief peaks; helper/GPU allocation traces are not
+  included in the parent Heaptrack profile.

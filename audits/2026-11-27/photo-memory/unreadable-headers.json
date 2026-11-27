@@ -1,0 +1,86 @@
+[
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1791439,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1682011,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1657344,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1921322,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1766114,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1777651,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1713004,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1963271,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1700787,
+    "header_hex": "00000000000000000000000000000000",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1781884,
+    "header_hex": "a66b693fee41cb2549503be6e1b0bc4d",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1622222,
+    "header_hex": "8621a58e181a8b44827810084404251c",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  },
+  {
+    "suffix": ".jpg",
+    "mime": "application/octet-stream",
+    "size": 1598199,
+    "header_hex": "53d26371ed0cb19e3c5ec68886b9ee9c",
+    "error": "rummage can't show this kind of file (no preview in the file)"
+  }
+]

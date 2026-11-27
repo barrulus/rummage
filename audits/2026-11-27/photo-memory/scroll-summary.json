@@ -1,0 +1,1144 @@
+[
+  {
+    "name": "small-two",
+    "icon_index": 2,
+    "content_width": 650,
+    "exit_code": 0,
+    "elapsed_s": 135.64862836999237,
+    "profiled": false,
+    "background_work": false,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 0,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 116,
+          "preview_not_ready_before_next_input": 484,
+          "last_cursor": 1200,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.959943808,
+          "input_interval_ms_p50": 39.998718,
+          "input_interval_ms_p95": 40.386742,
+          "input_interval_ms_max": 42.305192,
+          "latency_ms_p50": 31.978087,
+          "latency_ms_p95": 39.04892
+        },
+        {
+          "phase": 3,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 599,
+          "preview_not_ready_before_next_input": 1,
+          "last_cursor": 1200,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.959815238,
+          "input_interval_ms_p50": 39.997579,
+          "input_interval_ms_p95": 40.567771,
+          "input_interval_ms_max": 54.786141,
+          "latency_ms_p50": 20.606062,
+          "latency_ms_p95": 24.04276
+        },
+        {
+          "phase": 5,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 599,
+          "preview_not_ready_before_next_input": 1,
+          "last_cursor": 1200,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960109694,
+          "input_interval_ms_p50": 39.997246,
+          "input_interval_ms_p95": 40.568726,
+          "input_interval_ms_max": 53.555912,
+          "latency_ms_p50": 20.605059,
+          "latency_ms_p95": 24.066955
+        }
+      ],
+      "columns": [
+        2
+      ],
+      "max_loaded": 1400,
+      "done": true
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 96450852203994,
+        "pid": 3012409,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 105787392,
+        "live_bytes": 20079072,
+        "free_bytes": 5492256,
+        "arena_bytes": 25571328,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96489812307456,
+        "pid": 3012409,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 130064384,
+        "live_bytes": 37993664,
+        "free_bytes": 11473728,
+        "arena_bytes": 49467392,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96523853035158,
+        "pid": 3012409,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 131039232,
+        "live_bytes": 35817760,
+        "free_bytes": 14182112,
+        "arena_bytes": 49999872,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96582893174659,
+        "pid": 3012409,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 131952640,
+        "live_bytes": 36159424,
+        "free_bytes": 14741568,
+        "arena_bytes": 50900992,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96582894824974,
+        "pid": 3012409,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 123215872,
+        "live_bytes": 36159424,
+        "free_bytes": 14610496,
+        "arena_bytes": 50769920,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 96585892985993,
+        "pid": 3012409,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 123408384,
+        "live_bytes": 36170864,
+        "free_bytes": 14599056,
+        "arena_bytes": 50769920,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "peak_sampled_main_rss_bytes": 133513216,
+    "peak_sampled_tree_pss_bytes": 297671680,
+    "raw_evidence": "/tmp/rummage-photo-scroll-20261127/small-two",
+    "thumbnail_reports": [
+      "[   39.113] info  memory: thumbnails: 1366 slots, 1366 textures 248.8 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   73.153] info  memory: thumbnails: 698 slots, 698 textures 268.1 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "before_trim: thumbnails: 698 slots, 698 textures 268.1 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[  132.197] info  memory: thumbnails: 698 slots, 698 textures 268.1 MB (budget 268.4 MB), pixels waiting 0.0 MB"
+    ]
+  },
+  {
+    "name": "small-four",
+    "icon_index": 2,
+    "content_width": 970,
+    "exit_code": 0,
+    "elapsed_s": 135.69646031598677,
+    "profiled": false,
+    "background_work": false,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 0,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 65,
+          "preview_not_ready_before_next_input": 535,
+          "last_cursor": 2400,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960063245,
+          "input_interval_ms_p50": 39.99943,
+          "input_interval_ms_p95": 40.378352,
+          "input_interval_ms_max": 55.393209,
+          "latency_ms_p50": 34.211728,
+          "latency_ms_p95": 39.801675
+        },
+        {
+          "phase": 3,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 598,
+          "preview_not_ready_before_next_input": 2,
+          "last_cursor": 2400,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.959806692,
+          "input_interval_ms_p50": 39.997714,
+          "input_interval_ms_p95": 40.623829,
+          "input_interval_ms_max": 54.055807,
+          "latency_ms_p50": 20.698667,
+          "latency_ms_p95": 24.196119
+        },
+        {
+          "phase": 5,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 598,
+          "preview_not_ready_before_next_input": 2,
+          "last_cursor": 2400,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960098864,
+          "input_interval_ms_p50": 39.997869,
+          "input_interval_ms_p95": 40.67973,
+          "input_interval_ms_max": 63.255209,
+          "latency_ms_p50": 20.743774,
+          "latency_ms_p95": 24.065144
+        }
+      ],
+      "columns": [
+        4
+      ],
+      "max_loaded": 2600,
+      "done": true
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 96587836867484,
+        "pid": 3013716,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 105680896,
+        "live_bytes": 20203008,
+        "free_bytes": 5229056,
+        "arena_bytes": 25432064,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96626797251911,
+        "pid": 3013716,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 150839296,
+        "live_bytes": 50920048,
+        "free_bytes": 19572112,
+        "arena_bytes": 70492160,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96660838819700,
+        "pid": 3013716,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 151318528,
+        "live_bytes": 45914560,
+        "free_bytes": 24651328,
+        "arena_bytes": 70565888,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96719878378214,
+        "pid": 3013716,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 152059904,
+        "live_bytes": 46268592,
+        "free_bytes": 25091920,
+        "arena_bytes": 71360512,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96719880756557,
+        "pid": 3013716,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 136171520,
+        "live_bytes": 46268592,
+        "free_bytes": 24960848,
+        "arena_bytes": 71229440,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 96722878200958,
+        "pid": 3013716,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 136318976,
+        "live_bytes": 46269104,
+        "free_bytes": 24960336,
+        "arena_bytes": 71229440,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "peak_sampled_main_rss_bytes": 154030080,
+    "peak_sampled_tree_pss_bytes": 412504064,
+    "raw_evidence": "/tmp/rummage-photo-scroll-20261127/small-four",
+    "thumbnail_reports": [
+      "[   39.123] info  memory: thumbnails: 2478 slots, 2474 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   73.164] info  memory: thumbnails: 1058 slots, 1054 textures 267.8 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "before_trim: thumbnails: 1058 slots, 1054 textures 267.8 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[  132.205] info  memory: thumbnails: 1058 slots, 1054 textures 267.8 MB (budget 268.4 MB), pixels waiting 0.0 MB"
+    ]
+  },
+  {
+    "name": "large-two",
+    "icon_index": 4,
+    "content_width": 850,
+    "exit_code": 0,
+    "elapsed_s": 135.71360927500064,
+    "profiled": false,
+    "background_work": false,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 0,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 103,
+          "preview_not_ready_before_next_input": 497,
+          "last_cursor": 1200,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960074817,
+          "input_interval_ms_p50": 39.999931,
+          "input_interval_ms_p95": 40.578068,
+          "input_interval_ms_max": 42.883518,
+          "latency_ms_p50": 31.42346,
+          "latency_ms_p95": 39.041931
+        },
+        {
+          "phase": 3,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 600,
+          "preview_not_ready_before_next_input": 0,
+          "last_cursor": 1200,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.96007806,
+          "input_interval_ms_p50": 39.998844,
+          "input_interval_ms_p95": 40.752409,
+          "input_interval_ms_max": 41.68088,
+          "latency_ms_p50": 20.731275,
+          "latency_ms_p95": 23.951937
+        },
+        {
+          "phase": 5,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 600,
+          "preview_not_ready_before_next_input": 0,
+          "last_cursor": 1200,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.95985926,
+          "input_interval_ms_p50": 39.99849,
+          "input_interval_ms_p95": 40.760789,
+          "input_interval_ms_max": 41.486427,
+          "latency_ms_p50": 20.730868,
+          "latency_ms_p95": 23.993918
+        }
+      ],
+      "columns": [
+        2
+      ],
+      "max_loaded": 1400,
+      "done": true
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 96724958944590,
+        "pid": 3015165,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 104865792,
+        "live_bytes": 20009184,
+        "free_bytes": 5512992,
+        "arena_bytes": 25522176,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96763919176445,
+        "pid": 3015165,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 126332928,
+        "live_bytes": 34542000,
+        "free_bytes": 12037712,
+        "arena_bytes": 46579712,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96797959214437,
+        "pid": 3015165,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 129798144,
+        "live_bytes": 34183616,
+        "free_bytes": 14538304,
+        "arena_bytes": 48721920,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96856999524762,
+        "pid": 3015165,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 130330624,
+        "live_bytes": 34333392,
+        "free_bytes": 14626096,
+        "arena_bytes": 48959488,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96857000877360,
+        "pid": 3015165,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 120147968,
+        "live_bytes": 34333392,
+        "free_bytes": 14495024,
+        "arena_bytes": 48828416,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 96859999821973,
+        "pid": 3015165,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 120303616,
+        "live_bytes": 34333904,
+        "free_bytes": 14502704,
+        "arena_bytes": 48836608,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "peak_sampled_main_rss_bytes": 131551232,
+    "peak_sampled_tree_pss_bytes": 391174144,
+    "raw_evidence": "/tmp/rummage-photo-scroll-20261127/large-two",
+    "thumbnail_reports": [
+      "[   39.163] info  memory: thumbnails: 678 slots, 678 textures 268.1 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   73.200] info  memory: thumbnails: 517 slots, 517 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "before_trim: thumbnails: 517 slots, 517 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[  132.243] info  memory: thumbnails: 517 slots, 517 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB"
+    ]
+  },
+  {
+    "name": "large-three",
+    "icon_index": 4,
+    "content_width": 1150,
+    "exit_code": 0,
+    "elapsed_s": 135.42142461000185,
+    "profiled": false,
+    "background_work": false,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 0,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 80,
+          "preview_not_ready_before_next_input": 520,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960064178,
+          "input_interval_ms_p50": 39.998748,
+          "input_interval_ms_p95": 40.515807,
+          "input_interval_ms_max": 63.117134,
+          "latency_ms_p50": 31.324608,
+          "latency_ms_p95": 38.585955
+        },
+        {
+          "phase": 3,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 598,
+          "preview_not_ready_before_next_input": 2,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.959873094,
+          "input_interval_ms_p50": 39.999799,
+          "input_interval_ms_p95": 40.706269,
+          "input_interval_ms_max": 41.61825,
+          "latency_ms_p50": 20.529021,
+          "latency_ms_p95": 23.705672
+        },
+        {
+          "phase": 5,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 599,
+          "preview_not_ready_before_next_input": 1,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960034682,
+          "input_interval_ms_p50": 40.000077,
+          "input_interval_ms_p95": 40.890689,
+          "input_interval_ms_max": 55.869322,
+          "latency_ms_p50": 20.590656,
+          "latency_ms_p95": 23.613533
+        }
+      ],
+      "columns": [
+        3
+      ],
+      "max_loaded": 2000,
+      "done": true
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 96862151169191,
+        "pid": 3016587,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 106053632,
+        "live_bytes": 20072464,
+        "free_bytes": 5904368,
+        "arena_bytes": 25976832,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96901111532093,
+        "pid": 3016587,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 141791232,
+        "live_bytes": 39385616,
+        "free_bytes": 22304240,
+        "arena_bytes": 61689856,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96935151812458,
+        "pid": 3016587,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 144244736,
+        "live_bytes": 38935936,
+        "free_bytes": 24765056,
+        "arena_bytes": 63700992,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96994191954569,
+        "pid": 3016587,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 144375808,
+        "live_bytes": 39029584,
+        "free_bytes": 24802480,
+        "arena_bytes": 63832064,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 96994193655583,
+        "pid": 3016587,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 125235200,
+        "live_bytes": 39029584,
+        "free_bytes": 24671408,
+        "arena_bytes": 63700992,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 96997191720574,
+        "pid": 3016587,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 127107072,
+        "live_bytes": 39029808,
+        "free_bytes": 24671184,
+        "arena_bytes": 63700992,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "peak_sampled_main_rss_bytes": 147443712,
+    "peak_sampled_tree_pss_bytes": 475316224,
+    "raw_evidence": "/tmp/rummage-photo-scroll-20261127/large-three",
+    "thumbnail_reports": [
+      "[   39.204] info  memory: thumbnails: 939 slots, 935 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   73.241] info  memory: thumbnails: 603 slots, 599 textures 267.6 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "before_trim: thumbnails: 603 slots, 599 textures 267.6 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[  132.283] info  memory: thumbnails: 603 slots, 599 textures 267.6 MB (budget 268.4 MB), pixels waiting 0.0 MB"
+    ]
+  },
+  {
+    "name": "large-three-all-loaded",
+    "icon_index": 4,
+    "content_width": 1150,
+    "exit_code": 0,
+    "elapsed_s": 90.24294773300062,
+    "profiled": false,
+    "background_work": false,
+    "preload_all": true,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "completed",
+        "completed": 18418,
+        "total": 18418
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 0,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 14268,
+      "valid_dimensions": 14256
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 200,
+          "selection_presented": 200,
+          "preview_ready_before_next_input": 9,
+          "preview_not_ready_before_next_input": 191,
+          "last_cursor": 600,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 200,
+          "input_duration_s": 7.960203405,
+          "input_interval_ms_p50": 39.998553,
+          "input_interval_ms_p95": 40.494147,
+          "input_interval_ms_max": 56.445342,
+          "latency_ms_p50": 37.491753,
+          "latency_ms_p95": 39.784245
+        },
+        {
+          "phase": 3,
+          "down_inputs": 200,
+          "selection_presented": 200,
+          "preview_ready_before_next_input": 200,
+          "preview_not_ready_before_next_input": 0,
+          "last_cursor": 600,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 200,
+          "input_duration_s": 7.959986336,
+          "input_interval_ms_p50": 39.99652,
+          "input_interval_ms_p95": 40.476756,
+          "input_interval_ms_max": 41.725193,
+          "latency_ms_p50": 27.531856,
+          "latency_ms_p95": 32.144918
+        },
+        {
+          "phase": 5,
+          "down_inputs": 200,
+          "selection_presented": 200,
+          "preview_ready_before_next_input": 200,
+          "preview_not_ready_before_next_input": 0,
+          "last_cursor": 600,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 200,
+          "input_duration_s": 7.960065724,
+          "input_interval_ms_p50": 40.000375,
+          "input_interval_ms_p95": 40.85322,
+          "input_interval_ms_max": 42.283113,
+          "latency_ms_p50": 27.206508,
+          "latency_ms_p95": 31.971935
+        }
+      ],
+      "columns": [
+        3
+      ],
+      "max_loaded": 14268,
+      "done": true
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 97005035935160,
+        "pid": 3018566,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 170803200,
+        "live_bytes": 81644192,
+        "free_bytes": 12752224,
+        "arena_bytes": 94396416,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97027996310232,
+        "pid": 3018566,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 178024448,
+        "live_bytes": 87321488,
+        "free_bytes": 13816944,
+        "arena_bytes": 101138432,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97046036999251,
+        "pid": 3018566,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 180051968,
+        "live_bytes": 88282432,
+        "free_bytes": 14531264,
+        "arena_bytes": 102813696,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97089077016565,
+        "pid": 3018566,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 180506624,
+        "live_bytes": 88396400,
+        "free_bytes": 14798224,
+        "arena_bytes": 103194624,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97089078736577,
+        "pid": 3018566,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 170500096,
+        "live_bytes": 88396400,
+        "free_bytes": 14667152,
+        "arena_bytes": 103063552,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 97092076706281,
+        "pid": 3018566,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 170643456,
+        "live_bytes": 88396224,
+        "free_bytes": 14667328,
+        "arena_bytes": 103063552,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "peak_sampled_main_rss_bytes": 182403072,
+    "peak_sampled_tree_pss_bytes": 477474816,
+    "raw_evidence": "/tmp/rummage-photo-scroll-all-loaded-20261127/large-three-all-loaded",
+    "thumbnail_reports": [
+      "[   25.968] info  memory: thumbnails: 618 slots, 618 textures 168.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   44.012] info  memory: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "before_trim: thumbnails: 592 slots, 592 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   87.048] info  memory: thumbnails: 592 slots, 592 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB"
+    ]
+  },
+  {
+    "name": "large-three-background-all-loaded",
+    "icon_index": 4,
+    "content_width": 1150,
+    "exit_code": 0,
+    "elapsed_s": 90.70796628399694,
+    "profiled": false,
+    "background_work": true,
+    "preload_all": true,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "running",
+        "completed": 18418,
+        "total": null
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "running",
+        "completed": 18418,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 8232,
+      "valid_dimensions": 8220
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 9172,
+      "valid_dimensions": 9160
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 200,
+          "selection_presented": 200,
+          "preview_ready_before_next_input": 10,
+          "preview_not_ready_before_next_input": 190,
+          "last_cursor": 600,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 200,
+          "input_duration_s": 7.960393966,
+          "input_interval_ms_p50": 39.999823,
+          "input_interval_ms_p95": 40.495181,
+          "input_interval_ms_max": 41.148646,
+          "latency_ms_p50": 36.924188,
+          "latency_ms_p95": 39.698626
+        },
+        {
+          "phase": 3,
+          "down_inputs": 200,
+          "selection_presented": 200,
+          "preview_ready_before_next_input": 200,
+          "preview_not_ready_before_next_input": 0,
+          "last_cursor": 600,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 200,
+          "input_duration_s": 7.959887484,
+          "input_interval_ms_p50": 39.998231,
+          "input_interval_ms_p95": 40.690171,
+          "input_interval_ms_max": 41.300503,
+          "latency_ms_p50": 26.942332,
+          "latency_ms_p95": 32.231569
+        },
+        {
+          "phase": 5,
+          "down_inputs": 200,
+          "selection_presented": 200,
+          "preview_ready_before_next_input": 200,
+          "preview_not_ready_before_next_input": 0,
+          "last_cursor": 600,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 200,
+          "input_duration_s": 7.960001403,
+          "input_interval_ms_p50": 39.997395,
+          "input_interval_ms_p95": 40.696273,
+          "input_interval_ms_max": 41.469315,
+          "latency_ms_p50": 26.840868,
+          "latency_ms_p95": 32.038548
+        }
+      ],
+      "columns": [
+        3
+      ],
+      "max_loaded": 14268,
+      "done": true
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 97095510361499,
+        "pid": 3019638,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 172625920,
+        "live_bytes": 79326096,
+        "free_bytes": 14369904,
+        "arena_bytes": 93696000,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97118470512842,
+        "pid": 3019638,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 180707328,
+        "live_bytes": 85990720,
+        "free_bytes": 15512256,
+        "arena_bytes": 101502976,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97136511092948,
+        "pid": 3019638,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 181862400,
+        "live_bytes": 86627952,
+        "free_bytes": 15731088,
+        "arena_bytes": 102359040,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97179551259970,
+        "pid": 3019638,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 183472128,
+        "live_bytes": 87278160,
+        "free_bytes": 16690608,
+        "arena_bytes": 103968768,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 97179552910371,
+        "pid": 3019638,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 173309952,
+        "live_bytes": 87278160,
+        "free_bytes": 16592304,
+        "arena_bytes": 103870464,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 97182551271477,
+        "pid": 3019638,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 173772800,
+        "live_bytes": 87332288,
+        "free_bytes": 16779840,
+        "arena_bytes": 104112128,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "peak_sampled_main_rss_bytes": 184455168,
+    "peak_sampled_tree_pss_bytes": 542841856,
+    "raw_evidence": "/tmp/rummage-photo-scroll-all-loaded-20261127/large-three-background-all-loaded",
+    "thumbnail_reports": [
+      "[   25.999] info  memory: thumbnails: 618 slots, 618 textures 168.4 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   44.044] info  memory: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "before_trim: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB",
+      "[   87.082] info  memory: thumbnails: 591 slots, 591 textures 268.2 MB (budget 268.4 MB), pixels waiting 0.0 MB"
+    ]
+  }
+]
