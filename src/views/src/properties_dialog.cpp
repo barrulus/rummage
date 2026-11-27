@@ -183,7 +183,7 @@ void PropertiesDialog::apply_photo() {
         const auto result = std::from_chars(text.data(), text.data() + text.size(), rating);
         if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || rating < 0 ||
             rating > 5) {
-            error_ = "Enter a whole number from 0 to 5";
+            error_ = std::string{i18n::tr("Enter a whole number from 0 to 5")};
             redraw_();
             return;
         }
@@ -449,11 +449,13 @@ void PropertiesDialog::activate(std::string_view id) {
         auto rows = property_rows();
         if (photo_) {
             const auto& annotations = photo_->annotations;
-            rows.emplace_back("Description", annotations.description.value_or("Mixed values"));
+            rows.emplace_back("Description", annotations.description.value_or(
+                                                 std::string{i18n::tr("Mixed values")}));
             rows.emplace_back("Rating", annotations.rating ? std::to_string(*annotations.rating)
-                                                           : "Mixed values");
-            rows.emplace_back("Capture date override",
-                              annotations.capture_date.value_or("Mixed values"));
+                                                           : std::string{i18n::tr("Mixed values")});
+            rows.emplace_back(
+                i18n::mark("Capture date override"),
+                annotations.capture_date.value_or(std::string{i18n::tr("Mixed values")}));
         }
         if (data_.summary.photo) {
             const auto details = media_details(*data_.summary.photo, MediaDetails::additional);
@@ -779,7 +781,7 @@ std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows
     if (photo_) {
         auto rows = photo_->rows;
         if (!photo_->annotations.tags)
-            rows.emplace_back("Tags", "Mixed values");
+            rows.emplace_back("Tags", std::string{i18n::tr("Mixed values")});
         else {
             std::string tags;
             for (const auto& tag : *photo_->annotations.tags) {
@@ -950,10 +952,10 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                                             : "Changing this icon affects the linked folder.");
     const float hint_height = SelectableText::height(renderer, hint, room, 12);
     const float message_height = SelectableText::height(renderer, i18n::tr(message), room, 12);
-    constexpr std::string_view photo_help =
-        "Only checked fields are applied. Tags are comma separated.";
-    constexpr std::string_view photo_date_help =
-        "Clear the date override to use the detected date.";
+    const std::string photo_help =
+        std::string{i18n::tr("Only checked fields are applied. Tags are comma separated.")};
+    const std::string photo_date_help =
+        std::string{i18n::tr("Clear the date override to use the detected date.")};
     const float photo_help_height = SelectableText::height(renderer, photo_help, room, 12);
     const float photo_date_help_height =
         SelectableText::height(renderer, photo_date_help, room, 12);
@@ -1114,9 +1116,9 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                     row(label, value);
         }
         if (photo_controls) {
-            const std::array<std::string_view, 5> labels{"Description", "Rating (0–5)",
-                                                         "Capture date override", "Tags to add",
-                                                         "Tags to remove"};
+            const std::array<std::string_view, 5> labels{
+                "Description", i18n::mark("Rating (0–5)"), i18n::mark("Capture date override"),
+                i18n::mark("Tags to add"), i18n::mark("Tags to remove")};
             const std::array<bool, 3> mixed{!photo_->annotations.description,
                                             !photo_->annotations.rating,
                                             !photo_->annotations.capture_date};

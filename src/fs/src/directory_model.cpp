@@ -50,21 +50,27 @@ void DirectoryModel::open(std::filesystem::path path) {
         load_trash();
         return;
     }
-    std::error_code error;
-    watch_ = watcher_.watch(
-        path_, [this](const std::vector<DirectoryEvent>& events) { on_events(events); }, error);
-    if (error == std::errc::not_a_directory) {
-        load_archive();  // a file, or a path through one: an archive's folder, or an error
-        return;
+    loading_ = true;
+    watch_ = watcher_.watch_async(
+        pool_, path_, [this](const std::vector<DirectoryEvent>& events) { on_events(events); },
+        [this](std::error_code error) {
+            if (error == std::errc::not_a_directory) {
+                load_archive();  // archive path classification also stays off the input thread
+                return;
+            }
+            if (error == std::errc::no_space_on_device) {
+                log::warn("{}: cannot watch for changes (inotify watch limit reached)",
+                          path_.string());
+            } else if (error) {
+                fail(error);
+                return;
+            }
+            start_load();
+        });
+    if (watch_ == 0) {
+        log::warn("{}: cannot watch for changes (pending watch limit reached)", path_.string());
+        start_load();
     }
-    if (error == std::errc::no_space_on_device) {
-        // The per-user inotify watch limit: show the directory anyway, without live updates.
-        log::warn("{}: cannot watch for changes (inotify watch limit reached)", path_.string());
-    } else if (error) {
-        fail(error);
-        return;
-    }
-    start_load();
 }
 
 void DirectoryModel::set_order(SortOrder order) {
@@ -279,10 +285,8 @@ void DirectoryModel::apply_trash(TrashListing listing) {
             trash_watches_.erase(it);
             continue;
         }
-        std::error_code error;
-        const DirectoryWatcher::WatchId id = watcher_.watch(
-            dir,
-            [this](const std::vector<DirectoryEvent>& /*events*/) {
+        const DirectoryWatcher::WatchId id =
+            watcher_.watch_async(pool_, dir, [this](const std::vector<DirectoryEvent>& /*events*/) {
                 if (refresh_running_) {
                     trash_again_ = true;
                     return;
@@ -293,8 +297,7 @@ void DirectoryModel::apply_trash(TrashListing listing) {
                         load_trash();
                     });
                 }
-            },
-            error);
+            });
         if (id != 0) {
             watches.emplace(key, id);
         }

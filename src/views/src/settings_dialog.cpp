@@ -223,8 +223,8 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(0, i18n::mark("Keyboard shortcuts"), "keyboard", "wrap", i18n::mark("Wrap navigation"),
         i18n::mark("Continue at the opposite end of the file list"),
         config.keyboard.wrap ? "true" : "false", true, {"true", "false"});
-    add(0, "Photo Library", "photos", "enabled", "Enable Photo Library",
-        "Requires the photo add-on; preserves your catalog when disabled",
+    add(0, i18n::mark("Photo Library"), "photos", "enabled", i18n::mark("Enable Photo Library"),
+        i18n::mark("Requires the photo add-on; preserves your catalog when disabled"),
         config.photos.enabled ? "true" : "false", true, {"true", "false"});
     add(0, "Previews", "previews", "media", "Video previews",
         "Enable video thumbnails and still previews", config.previews.media ? "true" : "false",

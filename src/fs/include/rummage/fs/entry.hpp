@@ -20,6 +20,7 @@ struct Entry {
     std::uint16_t mode{0};        // permission bits (07777); for a link, its target's
     std::uint64_t size{0};        // bytes; for a link, its target's
     std::int64_t modified_ns{0};  // mtime, nanoseconds since the epoch
+    bool modified_known{true};    // false when the source timestamp cannot fit nanoseconds
     // Set by the loader when the kind or the name alone decides it (no file read); otherwise
     // kUnknownMime, and MimeDatabase::detect() looks at the content when the type is needed.
     MimeId mime{kUnknownMime};

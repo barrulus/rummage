@@ -11,6 +11,7 @@ title = 'Everyday use'
 items = [
   { slug = 'insights', label = 'Folder Insights', description = 'Understand file types and sizes with Iris rings and the Space map.' },
   { slug = 'file-operations', label = 'File operations', description = 'Copy, move, rename, trash, and undo.' },
+  { slug = 'photo-library', label = 'Photo Library', description = 'Browse sources, organize albums, and save photo searches.' },
   { slug = 'previews', label = 'Previews & formats', description = 'Images, raw photos, text, video stills, and PDFs.' },
   { slug = 'shortcuts', label = 'Keyboard shortcuts', description = 'Keep your hands on the keyboard.' },
   { slug = 'file-picker', label = 'File picker', description = 'Use rummage for Open and Save dialogs.' },

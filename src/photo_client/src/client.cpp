@@ -216,58 +216,83 @@ nlohmann::json Client::request(const nlohmann::json& request,
             const auto metadata_limit = std::clamp(result.value("metadata_limit", 4), 0, 4);
             if (result.value("paused", false) || metadata_limit == 0)
                 return result;
-            const auto pending =
-                this->request({{"op", "metadata_pending"}, {"limit", metadata_limit}});
-            if (!pending.value("ok", false))
-                return pending;
+            const auto pending = result.value("metadata", nlohmann::json::array());
+            nlohmann::json updates = nlohmann::json::array();
             static const auto mime = fs::MimeDatabase::load();
             const thumbs::Cache cache{thumbs::default_root(), "rummage-photos"};
-            for (const auto& photo : pending.value("metadata", nlohmann::json::array())) {
-                if (cancel && cancel->cancelled())
+            for (const auto& photo : pending) {
+                if (updates.size() >= static_cast<std::size_t>(metadata_limit) ||
+                    (cancel && cancel->cancelled()))
                     break;
                 const auto claim = this->request({{"op", "metadata_claim"},
                                                   {"id", photo.at("id")},
                                                   {"signature", photo.at("signature")},
                                                   {"owner", std::to_string(::getpid())}});
-                if (!claim.value("ok", false))
-                    return claim;
+                if (!claim.value("ok", false)) {
+                    result["metadata_error"] = claim.value("error", "Cannot claim image metadata");
+                    break;
+                }
                 if (!claim.value("allowed", false))
                     continue;
-                const std::filesystem::path path{photo.at("path").get<std::string>()};
-                const fs::Entry entry{.name = path.filename().string(),
-                                      .kind = fs::EntryKind::file,
-                                      .size = photo.value("size", std::uint64_t{0})};
-                const auto type = mime->detect(path.parent_path(), entry);
-                const auto type_name = mime->name(type);
                 nlohmann::json update{{"op", "metadata"},
                                       {"id", photo.at("id")},
                                       {"signature", photo.at("signature")},
                                       {"claim_token", claim.at("claim_token")}};
-                const auto* family = engines::installed()->find(*mime, type);
-                if (!family || family->shows != engines::Shows::picture ||
-                    !type_name.starts_with("image/")) {
-                    update["error"] = "No installed still-image engine supports this file.";
-                } else {
-                    const auto info = picture::load_photo_info(path, type_name);
-                    const auto thumbnail = cache.get(path, thumbs::Size::large, type_name);
-                    update["width"] = info.width ? info.width : thumbnail.full_width;
-                    update["height"] = info.height ? info.height : thumbnail.full_height;
-                    update["camera"] = info.camera;
-                    // Shared EXIF display dates preserve wall time, without a known offset.
-                    // Never manufacture UTC or use modification time as a capture date.
-                    auto taken = info.taken;
-                    if (taken.size() >= 16 && taken[4] == '-' && taken[7] == '-' &&
-                        taken[10] == ' ') {
-                        taken[10] = 'T';
-                        update["capture_date"] = taken;
+                try {
+                    const std::filesystem::path path{photo.at("path").get<std::string>()};
+                    const fs::Entry entry{.name = path.filename().string(),
+                                          .kind = fs::EntryKind::file,
+                                          .size = photo.value("size", std::uint64_t{0})};
+                    const auto type = mime->detect(path.parent_path(), entry);
+                    const auto type_name = mime->name(type);
+                    const auto* family = engines::installed()->find(*mime, type);
+                    if (!family || family->shows != engines::Shows::picture ||
+                        !type_name.starts_with("image/")) {
+                        update["error"] = "No installed still-image engine supports this file.";
+                    } else {
+                        const auto info = picture::load_photo_info(path, type_name);
+                        const auto thumbnail = cache.get(path, thumbs::Size::large, type_name);
+                        update["width"] = info.width ? info.width : thumbnail.full_width;
+                        update["height"] = info.height ? info.height : thumbnail.full_height;
+                        update["camera"] = info.camera;
+                        // Shared EXIF display dates preserve wall time, without a known offset.
+                        // Never manufacture UTC or use modification time as a capture date.
+                        auto taken = info.taken;
+                        if (taken.size() >= 16 && taken[4] == '-' && taken[7] == '-' &&
+                            taken[10] == ' ') {
+                            taken[10] = 'T';
+                            update["capture_date"] = taken;
+                        }
+                        if (thumbnail.image.empty())
+                            update["error"] = thumbnail.error;
                     }
-                    if (thumbnail.image.empty())
-                        update["error"] = thumbnail.error;
+                    // Validate before accumulating: a broken decoder's text must not strand
+                    // its claim or prevent the remaining photographs from being processed.
+                    (void)update.dump();
+                } catch (const std::exception&) {
+                    update = {
+                        {"id", photo.at("id")},
+                        {"signature", photo.at("signature")},
+                        {"claim_token", claim.at("claim_token")},
+                        {"error", "Image metadata could not be decoded or encoded as UTF-8."}};
                 }
-                const auto saved = this->request(update);
+                updates.push_back(std::move(update));
+            }
+            // Persist completed items even when cancellation arrived during decoding. A global
+            // pause still prevents each subsequent claim; it never discards already claimed work.
+            if (!updates.empty()) {
+                const auto saved = this->request({{"op", "metadata_batch"}, {"items", updates}});
                 if (!saved.value("ok", false))
                     return saved;
-                result["metadata_processed"] = result["metadata_processed"].get<int>() + 1;
+                auto& changed = result["changed_ids"];
+                if (!changed.is_array())
+                    changed = nlohmann::json::array();
+                for (const auto& id : saved.value("changed_ids", nlohmann::json::array()))
+                    if (std::find(changed.begin(), changed.end(), id) == changed.end())
+                        changed.push_back(id);
+                result["metadata_processed"] = updates.size();
+                result["metadata_results"] = saved.value("results", nlohmann::json::array());
+                result["jobs_changed"] = true;
                 result["worked"] = true;
             }
         }

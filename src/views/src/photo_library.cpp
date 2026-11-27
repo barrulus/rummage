@@ -8,12 +8,48 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "rummage/core/file.hpp"
+#include "rummage/core/i18n.hpp"
 #include "rummage/views/dialog_chrome.hpp"
 
 namespace rummage::views {
 namespace {
 using Json = nlohmann::json;
 using Id = PhotoLibrary::Id;
+
+std::string tr(std::string_view text) { return std::string{i18n::tr(text)}; }
+
+std::string photo_label(std::string_view value) {
+    for (const auto& [code, label] :
+         std::array{std::pair{"online", i18n::mark("Online")},
+                    std::pair{"offline", i18n::mark("Offline")},
+                    std::pair{"inactive", i18n::mark("Inactive")},
+                    std::pair{"missing", i18n::mark("Missing")},
+                    std::pair{"unreadable", i18n::mark("Unreadable")},
+                    std::pair{"changed", i18n::mark("Changed")},
+                    std::pair{"replaced", i18n::mark("Replaced")},
+                    std::pair{"trashed", i18n::mark("In Trash")},
+                    std::pair{"running", i18n::mark("Running")},
+                    std::pair{"queued", i18n::mark("Queued")},
+                    std::pair{"paused", i18n::mark("Paused")},
+                    std::pair{"waiting", i18n::mark("Waiting")},
+                    std::pair{"failed", i18n::mark("Failed")},
+                    std::pair{"completed", i18n::mark("Completed")},
+                    std::pair{"cancelled", i18n::mark("Cancelled")},
+                    std::pair{"pending", i18n::mark("Pending")},
+                    std::pair{"scan", i18n::mark("Index photos")},
+                    std::pair{"duplicates", i18n::mark("Find exact duplicates")},
+                    std::pair{"trash", i18n::mark("Move to Trash")},
+                    std::pair{"restore", i18n::mark("Restore")},
+                    std::pair{"discovering", i18n::mark("Finding photos")},
+                    std::pair{"metadata", i18n::mark("Reading metadata")},
+                    std::pair{"finishing", i18n::mark("Finishing")},
+                    std::pair{"manual", i18n::mark("Manual")},
+                    std::pair{"exif", i18n::mark("EXIF metadata")},
+                    std::pair{"unknown", i18n::mark("Unknown")}})
+        if (value == code)
+            return tr(label);
+    return std::string{value};
+}
 
 Json sort_filter(const Json& filter) {
     Json result = Json::object();
@@ -92,6 +128,7 @@ PhotoLibrary::~PhotoLibrary() {
     *alive_ = false;
     source_watcher_.reset();
     loop_.remove(work_timer_);
+    loop_.remove(metadata_retry_timer_);
     query_job_.cancel();
     for (const auto& [id, token] : pending_)
         token.cancel();
@@ -119,44 +156,54 @@ std::string PhotoLibrary::title() const {
     switch (destination_) {
         case Destination::library:
             if (active_saved_search_ > 0)
-                return collection_name_.empty() ? "Saved Photo Search"
-                                                : "Search: " + collection_name_;
+                return collection_name_.empty() ? tr("Saved Photo Search")
+                                                : tr("Search") + ": " + collection_name_;
             if (filter_.contains("album_id"))
-                return collection_name_.empty() ? "Photo Album" : "Album: " + collection_name_;
+                return collection_name_.empty() ? tr("Photo Album")
+                                                : tr("Album") + ": " + collection_name_;
             if (filter_.contains("source_id"))
-                return collection_name_.empty() ? "Photos in Folder" : collection_name_;
-            return "Photo Library";
+                return collection_name_.empty() ? tr("Photos in Folder") : collection_name_;
+            return tr("Photo Library");
         case Destination::sources:
-            return "Photo Sources";
+            return tr("Photo Sources");
         case Destination::albums:
-            return "Photo Albums";
+            return tr("Photo Albums");
         case Destination::filters:
-            return "Saved Photo Searches";
+            return tr("Saved Photo Searches");
         case Destination::review:
-            return "Review Duplicates";
+            return tr("Review Duplicates");
         case Destination::duplicate_group:
-            return "Duplicate Candidates";
+            return tr("Duplicate Candidates");
         case Destination::activity:
-            return "Photo Activity";
+            return tr("Photo Activity");
     }
-    return "Photo Library";
+    return tr("Photo Library");
 }
 
 std::string PhotoLibrary::status() const {
     sync_selection();
     std::string text;
     if (destination_ == Destination::duplicate_group)
-        text = std::format("{} candidates · {} kept · {} marked for trash", rows_.size(),
-                           keepers_.size(), rows_.size() - keepers_.size());
+        text = i18n::trf("{} candidates · {} kept · {} marked for trash", rows_.size(),
+                         keepers_.size(), rows_.size() - keepers_.size());
     else if (destination_ == Destination::library)
-        text = std::format("{} photos · {} selected · {} loaded", total_, selected_.size(),
-                           rows_.size());
+        text = i18n::trf("{} photos · {} selected · {} loaded", total_, selected_.size(),
+                         rows_.size());
     else
-        text = std::format("{} items", records_.size());
+        text = i18n::trn("{} item", "{} items", records_.size());
+    if (destination_ == Destination::review || destination_ == Destination::duplicate_group)
+        text += " · " + tr("All active online sources");
+    if (destination_ == Destination::review)
+        text += " · " + i18n::trf("Groups {}–{} of {}", records_.empty() ? 0 : review_offset_ + 1,
+                                  review_offset_ + records_.size(), review_total_);
+    if (filter_.value("retained_only", false) && destination_ == Destination::library)
+        text += " · " + tr("Retained associations: inactive sources and replaced originals");
     if (querying_)
-        text += " · Updating…";
+        text += " · " + tr("Updating…");
+    if (metadata_refresh_pending_)
+        text += " · " + tr("Capture-date results will update as metadata arrives");
     if (background_paused_)
-        text += " · Background paused";
+        text += " · " + tr("Background paused");
     if (!message_.empty())
         text += " · " + message_;
     if (!progress_.empty())
@@ -177,9 +224,11 @@ void PhotoLibrary::sync_selection() const {
             selected_.insert(id);
     std::erase_if(selected_snapshots_,
                   [this](const auto& item) { return !selected_.contains(item.first); });
-    for (const auto& row : rows_)
-        if (selected_.contains(row.value("id", Id{})))
-            selected_snapshots_[row.value("id", Id{})] = row;
+    for (const auto& row : rows_) {
+        const auto id = row.value("id", Id{});
+        if (selected_.contains(id) && !selected_snapshots_.contains(id))
+            selected_snapshots_.emplace(id, row);
+    }
     if (const auto* entry = folder_->cursor_entry())
         cursor_ = photo_id(entry->key());
     else
@@ -216,9 +265,8 @@ PhotoLibrary::Json PhotoLibrary::focused_photo() const {
     if (!entry || !photo_rows())
         return Json::object();
     const auto id = photo_id(entry->key());
-    const auto found =
-        std::ranges::find_if(rows_, [id](const Json& row) { return row.value("id", Id{}) == id; });
-    return found == rows_.end() ? Json::object() : *found;
+    const auto found = row_by_id_.find(id);
+    return found == row_by_id_.end() ? Json::object() : rows_[found->second];
 }
 
 PhotoLibrary::Json PhotoLibrary::focused_record() const {
@@ -464,7 +512,7 @@ void PhotoLibrary::request(Json input, std::function<void(Json)> done, core::Pri
                           return;
                       pending_.erase(task);
                       if (!response.value("ok", false)) {
-                          message_ = response.value("error", "Photo Library request failed");
+                          message_ = response.value("error", tr("Photo Library request failed"));
                           form_message_ = message_;
                       }
                       done(std::move(response));
@@ -478,6 +526,7 @@ fs::Entry PhotoLibrary::photo_entry(const Json& row) const {
     entry.kind = fs::EntryKind::file;
     entry.size = row.value("size", std::uint64_t{});
     entry.modified_ns = row.value("mtime_ns", std::int64_t{});
+    entry.modified_known = row.value("mtime_ns_valid", true);
     entry.mime = mime_->by_name(entry.name).mime;
     entry.name_guess = entry.mime;
     entry.identity = "photo:" + std::to_string(row.value("id", Id{}));
@@ -498,7 +547,16 @@ std::string PhotoLibrary::record_key(const Json& row, std::size_t index) const {
     return prefix + std::to_string(row.value("id", Id{}));
 }
 
+void PhotoLibrary::index_rows() {
+    row_by_id_.clear();
+    row_by_id_.reserve(rows_.size());
+    for (std::size_t i = 0; i < rows_.size(); ++i)
+        row_by_id_.emplace(rows_[i].value("id", Id{}), i);
+    ++data_revision_;
+}
+
 void PhotoLibrary::publish() {
+    index_rows();
     sync_selection();
     publishing_ = true;
     std::vector<fs::Entry> entries;
@@ -523,11 +581,11 @@ void PhotoLibrary::publish() {
             else if (destination_ == Destination::albums || destination_ == Destination::filters)
                 entry.name = row.value("name", "");
             else if (destination_ == Destination::review)
-                entry.name = std::format("{} duplicate candidates",
-                                         row.value("photos", Json::array()).size());
+                entry.name = i18n::trn("{} duplicate candidate", "{} duplicate candidates",
+                                       row.value("photos", Json::array()).size());
             else
-                entry.name =
-                    std::format("{} · {}", row.value("kind", "Job"), row.value("state", ""));
+                entry.name = std::format("{} · {}", photo_label(row.value("kind", "Job")),
+                                         photo_label(row.value("state", "")));
             record_by_key_.emplace(entry.identity, row);
             entries.push_back(std::move(entry));
         }
@@ -561,6 +619,115 @@ void PhotoLibrary::publish() {
     changed();
 }
 
+void PhotoLibrary::publish_append(std::size_t first) {
+    publishing_ = true;
+    std::vector<fs::Entry> entries;
+    std::vector<std::size_t> newly_selected;
+    std::optional<std::size_t> cursor;
+    entries.reserve(rows_.size() - first);
+    for (std::size_t i = first; i < rows_.size(); ++i) {
+        const auto id = rows_[i].value("id", Id{});
+        row_by_id_[id] = i;
+        entries.push_back(photo_entry(rows_[i]));
+        if (selected_.contains(id)) {
+            selected_snapshots_[id] = rows_[i];
+            newly_selected.push_back(i);
+        }
+        if (id == cursor_)
+            cursor = i;
+    }
+    ++data_revision_;
+    folder_->append_collection(std::move(entries), total_, querying_);
+    if (!newly_selected.empty())
+        folder_->select_band(folder_->selected_names(), newly_selected);
+    if (cursor)
+        folder_->set_cursor(cursor, SelectMode::keep);
+    selection_revision_ = folder_->selection_revision();
+    publishing_ = false;
+    changed();
+}
+
+void PhotoLibrary::update_metadata(const Json& ids) {
+    if (!photo_rows())
+        return;
+    for (const auto& id : ids)
+        if (id.is_number_integer() && row_by_id_.contains(id.get<Id>()))
+            pending_metadata_.insert(id.get<Id>());
+    if (!ids.empty() && destination_ == Destination::library &&
+        (filter_.value("sort", "name") == "date" || filter_.value("unknown_date", false) ||
+         !filter_.value("date_from", "").empty() || !filter_.value("date_to", "").empty())) {
+        metadata_refresh_pending_ = true;
+        if (metadata_refresh_after_ == std::chrono::steady_clock::time_point{})
+            metadata_refresh_after_ = std::chrono::steady_clock::now() + std::chrono::seconds{10};
+    }
+    drain_metadata();
+}
+
+void PhotoLibrary::drain_metadata() {
+    if (querying_ || metadata_querying_ || metadata_retry_timer_ || pending_metadata_.empty() ||
+        !photo_rows())
+        return;
+    Json ids = Json::array();
+    while (!pending_metadata_.empty() && ids.size() < 1000) {
+        ids.push_back(*pending_metadata_.begin());
+        pending_metadata_.erase(pending_metadata_.begin());
+    }
+    metadata_querying_ = true;
+    const auto generation = generation_;
+    request({{"op", "query_ids"}, {"ids", ids}, {"include_inactive", true}},
+            [this, generation, ids](Json response) {
+                metadata_querying_ = false;
+                if (generation != generation_)
+                    for (const auto& id : ids)
+                        if (row_by_id_.contains(id.get<Id>()))
+                            pending_metadata_.insert(id.get<Id>());
+                if (generation == generation_ && !response.value("ok", false)) {
+                    for (const auto& id : ids)
+                        if (row_by_id_.contains(id.get<Id>()))
+                            pending_metadata_.insert(id.get<Id>());
+                    report(response.value("error", tr("Cannot query Photo Library")));
+                    if (++metadata_retry_count_ <= 3)
+                        metadata_retry_timer_ = loop_.add_timer(
+                            std::chrono::seconds{1}, std::chrono::milliseconds{0}, [this] {
+                                metadata_retry_timer_ = 0;
+                                drain_metadata();
+                            });
+                    return;
+                }
+                if (generation == generation_ && response.value("ok", false)) {
+                    metadata_retry_count_ = 0;
+                    if (!response.value("missing_ids", Json::array()).empty()) {
+                        refresh();
+                        return;
+                    }
+                    std::vector<std::pair<std::size_t, fs::Entry>> patches;
+                    for (auto& row : response.at("photos")) {
+                        const auto id = row.value("id", Id{});
+                        const auto found = row_by_id_.find(id);
+                        if (found == row_by_id_.end())
+                            continue;
+                        const auto index = found->second;
+                        rows_[index] = std::move(row);
+                        if (selected_.contains(id))
+                            selected_snapshots_[id] = rows_[index];
+                        patches.emplace_back(index, photo_entry(rows_[index]));
+                    }
+                    if (!patches.empty()) {
+                        publishing_ = true;
+                        const bool patched = folder_->update_collection_rows(std::move(patches));
+                        publishing_ = false;
+                        if (!patched) {
+                            refresh();
+                            return;
+                        }
+                        ++data_revision_;
+                        changed();
+                    }
+                }
+                drain_metadata();
+            });
+}
+
 void PhotoLibrary::query(bool reset) {
     sync_selection();
     query_job_.cancel();
@@ -584,7 +751,7 @@ void PhotoLibrary::query(bool reset) {
             Json response;
             do {
                 if (token.cancelled())
-                    return Json{{"ok", false}, {"error", "Query cancelled"}};
+                    return Json{{"ok", false}, {"error", tr("Query cancelled")}};
                 input["offset"] = collected.size();
                 input["limit"] = std::min(std::size_t{1000}, wanted - collected.size());
                 response = client->request(input, &token);
@@ -615,11 +782,12 @@ void PhotoLibrary::query(bool reset) {
                 offset_ = response.value("fetched", std::size_t{});
                 total_ = response.value("total", std::size_t{});
                 publish();
+                drain_metadata();
                 if (std::exchange(refresh_again_, false))
                     refresh();
             } else {
                 append_failed_ = true;
-                report(response.value("error", "Cannot query Photo Library"));
+                report(response.value("error", tr("Cannot query Photo Library")));
             }
         });
     changed();
@@ -648,7 +816,7 @@ void PhotoLibrary::load_more() {
             querying_ = false;
             if (!response.value("ok", false)) {
                 append_failed_ = true;
-                report(response.value("error", "Cannot load more photos. Refresh to retry."));
+                report(response.value("error", tr("Cannot load more photos. Refresh to retry.")));
                 return;
             }
             sync_selection();
@@ -657,13 +825,16 @@ void PhotoLibrary::load_more() {
             total_ = response.value("total", std::size_t{});
             if (batch.empty())
                 offset_ = total_;
-            std::set<Id> seen;
-            for (const auto& row : rows_)
-                seen.insert(row.value("id", Id{}));
-            for (auto& row : batch)
-                if (seen.insert(row.value("id", Id{})).second)
+            const auto first = rows_.size();
+            for (auto& row : batch) {
+                const auto id = row.value("id", Id{});
+                if (!row_by_id_.contains(id)) {
+                    row_by_id_[id] = rows_.size();
                     rows_.push_back(std::move(row));
-            publish();
+                }
+            }
+            publish_append(first);
+            drain_metadata();
             if (std::exchange(refresh_again_, false) ||
                 (offset_ >= total_ && rows_.size() < total_))
                 refresh();
@@ -693,13 +864,26 @@ void PhotoLibrary::refresh() {
                            : destination == Destination::review  ? "duplicates"
                                                                  : "jobs";
     querying_ = true;
-    request({{"op", op}}, [this, destination, generation, op](Json response) {
+    Json input{{"op", op}};
+    if (destination == Destination::review) {
+        input["offset"] = review_offset_;
+        input["limit"] = page_size_;
+    }
+    request(std::move(input), [this, destination, generation, op](Json response) {
         if (generation != generation_ || destination != destination_)
             return;
         querying_ = false;
         if (!response.value("ok", false))
             return;
         records_ = response.value(op == "duplicates" ? "groups" : op, Json::array());
+        if (destination == Destination::review) {
+            review_total_ = response.value("total", records_.size());
+            if (records_.empty() && review_offset_ > 0 && review_total_ > 0) {
+                review_offset_ = ((review_total_ - 1) / page_size_) * page_size_;
+                refresh();
+                return;
+            }
+        }
         if (destination == Destination::activity) {
             update_background(response);
             update_progress(records_);
@@ -749,7 +933,11 @@ void PhotoLibrary::show(Destination destination) {
     sync_selection();
     query_job_.cancel();
     ++generation_;
+    if (destination == Destination::review && destination_ != Destination::duplicate_group)
+        review_offset_ = 0;
     destination_ = destination;
+    pending_metadata_.clear();
+    metadata_refresh_pending_ = false;
     refresh_again_ = false;
     records_ = Json::array();
     close_form();
@@ -829,14 +1017,34 @@ void PhotoLibrary::work() {
                     if (open_)
                         refresh_progress();
                     schedule_work(true);
-                } else if (response.value("worked", false)) {
-                    if (source_watcher_)
+                } else {
+                    if (response.value("topology_changed", false) && source_watcher_)
                         source_watcher_->refresh_subscriptions();
-                    if (open_)
-                        refresh();
-                    schedule_work();
-                } else if (response.value("busy", false))
-                    schedule_work(true);
+                    if (open_) {
+                        if (response.value("discovery_changed", false))
+                            refresh();
+                        else
+                            update_metadata(response.value("changed_ids", Json::array()));
+                        if (response.value("jobs_changed", false) ||
+                            response.value("worked", false))
+                            refresh_progress();
+                        if (metadata_refresh_pending_ &&
+                            (!response.value("worked", false) ||
+                             std::chrono::steady_clock::now() >= metadata_refresh_after_)) {
+                            metadata_refresh_pending_ = false;
+                            metadata_refresh_after_ =
+                                std::chrono::steady_clock::now() + std::chrono::seconds{10};
+                            refresh();
+                        }
+                        if (destination_ == Destination::activity &&
+                            response.value("jobs_changed", false))
+                            refresh();
+                    }
+                    if (response.value("worked", false))
+                        schedule_work();
+                    else if (response.value("busy", false))
+                        schedule_work(true);
+                }
             }
         },
         core::Priority::prefetch);
@@ -849,7 +1057,10 @@ void PhotoLibrary::mutate(Json input, std::string success) {
         op == "remove_source" || op == "forget_source" || op == "relink_source" ||
         op == "refresh" ||
         (op == "edit" && (input.contains("add_albums") || input.contains("remove_albums")));
-    request(std::move(input), [this, navigation_changed, form_generation = form_generation_,
+    const bool watches_changed = op == "add_source" || op == "remove_source" ||
+                                 op == "forget_source" || op == "relink_source" || op == "refresh";
+    request(std::move(input), [this, navigation_changed, watches_changed,
+                               form_generation = form_generation_,
                                success = std::move(success)](Json response) {
         if (!response.value("ok", false))
             return;
@@ -857,13 +1068,18 @@ void PhotoLibrary::mutate(Json input, std::string success) {
         if (navigation_changed)
             refresh_navigation();
         if (response.contains("missing") || response.contains("ambiguous"))
-            message_ = std::format("Restored: {} · Missing: {} · Ambiguous: {}",
-                                   response.value("restored", 0),
-                                   response.value("missing", Json::array()).size(),
-                                   response.value("ambiguous", Json::array()).size());
+            message_ = i18n::trf("Restored: {} · Missing: {} · Ambiguous: {}",
+                                 response.value("restored", 0),
+                                 response.value("missing", Json::array()).size(),
+                                 response.value("ambiguous", Json::array()).size());
+        if (response.contains("sources_requiring_refresh") &&
+            !response["sources_requiring_refresh"].empty())
+            message_ +=
+                " · " + i18n::trf("{} restored sources need explicit Refresh before discovery",
+                                  response["sources_requiring_refresh"].size());
         if (form_generation == form_generation_)
             close_form();
-        if (source_watcher_)
+        if (watches_changed && source_watcher_)
             source_watcher_->refresh_subscriptions();
         refresh();
         schedule_work();
@@ -873,11 +1089,12 @@ void PhotoLibrary::mutate(Json input, std::string success) {
 void PhotoLibrary::refresh_progress() {
     const auto generation = ++progress_generation_;
     const auto background_generation = background_generation_;
-    request({{"op", "jobs"}}, [this, generation, background_generation](Json response) {
+    request({{"op", "progress"}}, [this, generation, background_generation](Json response) {
         if (generation == progress_generation_ && response.value("ok", false)) {
             if (background_generation == background_generation_)
                 update_background(response);
-            update_progress(response.value("jobs", Json::array()));
+            update_progress(response.value("jobs", Json::array()),
+                            response.value("job_counts", Json::object()));
         }
     });
 }
@@ -900,11 +1117,11 @@ void PhotoLibrary::control_background(Json changes) {
             return;
         update_background(response);
         message_ = !pause_changed ? (background_pace_ == "gentle"
-                                         ? "Gentle pace uses smaller, less frequent batches."
-                                         : "Normal background pace restored.")
+                                         ? tr("Gentle pace uses smaller, less frequent batches.")
+                                         : tr("Normal background pace restored."))
                    : background_paused_
-                       ? "Background work paused. In-flight items finish; no new items start."
-                       : "Background work resumed. Individually paused jobs stay paused.";
+                       ? tr("Background work paused. In-flight items finish; no new items start.")
+                       : tr("Background work resumed. Individually paused jobs stay paused.");
         loop_.remove(work_timer_);
         work_timer_ = 0;
         refresh();
@@ -912,9 +1129,9 @@ void PhotoLibrary::control_background(Json changes) {
     });
 }
 
-void PhotoLibrary::update_progress(const Json& jobs) {
+void PhotoLibrary::update_progress(const Json& jobs, const Json& counts) {
     if (jobs.empty()) {
-        progress_ = "No background jobs. Add a folder when you are ready.";
+        progress_ = tr("No background jobs. Add a folder when you are ready.");
         return;
     }
     const Json* shown = &jobs.front();
@@ -927,41 +1144,65 @@ void PhotoLibrary::update_progress(const Json& jobs) {
         waiting += state == "waiting" ? 1U : 0U;
         failed += state == "failed" ? 1U : 0U;
     }
+    paused = counts.value("paused", paused);
+    waiting = counts.value("waiting", waiting);
+    failed = counts.value("failed", failed);
     const auto kind = shown->value("kind", "");
     const auto phase = shown->value("phase", "");
     if (kind == "scan" && !phase.empty()) {
-        const auto state = shown->value("state", "");
+        const auto state = photo_label(shown->value("state", ""));
         if (phase == "discovering")
-            progress_ = std::format("Finding photos: {} · {} entries checked · {} folders pending",
-                                    state, shown->value("completed", Id{}),
-                                    shown->value("pending_directories", Id{}));
+            progress_ = i18n::trf("Finding photos: {} · {} entries checked · {} folders pending",
+                                  state, shown->value("completed", Id{}),
+                                  shown->value("pending_directories", Id{}));
         else if (phase == "metadata")
-            progress_ = std::format("Reading metadata: {} · {} / {} eligible photos checked", state,
-                                    shown->value("metadata_completed", Id{}),
-                                    shown->value("metadata_total", Id{}));
+            progress_ = i18n::trf("Reading metadata: {} · {} / {} eligible photos checked", state,
+                                  shown->value("metadata_completed", Id{}),
+                                  shown->value("metadata_total", Id{}));
         else
-            progress_ = "Index photos: " + (phase == "finishing" ? "finishing" : state);
+            progress_ =
+                tr("Index photos") + ": " + (phase == "finishing" ? tr("Finishing") : state);
         const auto unavailable = shown->value("metadata_unavailable", Id{});
         if (unavailable > 0)
-            progress_ += std::format(" · {} changed or unavailable — refresh source", unavailable);
+            progress_ +=
+                " · " + i18n::trf("{} changed or unavailable — refresh source", unavailable);
     } else {
-        const auto title = kind == "duplicates" ? "Find exact duplicates" : "Index photos";
-        progress_ = std::format("{}: {} · {} items completed", title, shown->value("state", ""),
-                                shown->value("completed", Id{}));
+        const auto title = kind == "duplicates" ? tr("Find exact duplicates") : tr("Index photos");
+        progress_ =
+            i18n::trf("{}: {} · {} items completed", title, photo_label(shown->value("state", "")),
+                      shown->value("completed", Id{}));
         if (shown->contains("total") && !(*shown)["total"].is_null())
             progress_ += " / " + (*shown)["total"].dump();
         else
-            progress_ += " · Total not yet known";
+            progress_ += " · " + tr("Total not yet known");
     }
     const auto in_flight = shown->value("in_flight", 0);
     if (in_flight > 0)
-        progress_ += std::format(" · {} in flight", in_flight);
+        progress_ += " · " + i18n::trf("{} in flight", in_flight);
     if (paused || waiting || failed)
-        progress_ += std::format(" · {} paused · {} waiting · {} failed — see Activity", paused,
-                                 waiting, failed);
+        progress_ += " · " + i18n::trf("{} paused · {} waiting · {} failed — see Activity", paused,
+                                       waiting, failed);
 }
 
 PhotoProperties PhotoLibrary::properties(bool focused_only) const {
+    const auto* entry = folder_->cursor_entry();
+    // A focused inspector never expands to the bulk selection when no row is focused.
+    if (focused_only && !entry)
+        return {};
+    if (!focused_only)
+        sync_selection();
+    auto& cache = focused_only ? focused_properties_ : selected_properties_;
+    const auto key = entry ? entry->key() : std::string{};
+    const auto revision = focused_only ? 0 : selection_revision_;
+    if (!cache || cache->data_revision != data_revision_ || cache->selection_revision != revision ||
+        cache->cursor != key || cache->language != i18n::language()) {
+        cache = PropertiesCache{data_revision_, revision, key, std::string{i18n::language()},
+                                build_properties(focused_only)};
+    }
+    return cache->value;
+}
+
+PhotoProperties PhotoLibrary::build_properties(bool focused_only) const {
     PhotoProperties result;
     if (!photo_rows()) {
         const auto row = focused_record();
@@ -970,77 +1211,97 @@ PhotoProperties PhotoLibrary::properties(bool focused_only) const {
         result.available = false;
         if (entry)
             result.entry = *entry;
-        for (const auto& [key, label] :
-             std::array{std::pair{"path", "Folder"}, std::pair{"availability", "Availability"},
-                        std::pair{"recursive", "Include subfolders"},
-                        std::pair{"exclusions", "Excluded folders"}, std::pair{"name", "Name"},
-                        std::pair{"count", "Photos"}, std::pair{"kind", "Job"},
-                        std::pair{"state", "State"}, std::pair{"completed", "Completed"},
-                        std::pair{"total", "Total"}, std::pair{"phase", "Phase"},
-                        std::pair{"pending_directories", "Folders pending"},
-                        std::pair{"metadata_completed", "Metadata checked"},
-                        std::pair{"metadata_pending", "Metadata pending"},
-                        std::pair{"metadata_unavailable", "Changed or unavailable"},
-                        std::pair{"error", "Error"}, std::pair{"reason", "Review reason"}}) {
+        for (const auto& [key, label] : std::array{
+                 std::pair{"path", tr("Folder")}, std::pair{"availability", tr("Availability")},
+                 std::pair{"recursive", tr("Include subfolders")},
+                 std::pair{"exclusions", tr("Excluded folders")}, std::pair{"name", tr("Name")},
+                 std::pair{"count", tr("Visible photos")},
+                 std::pair{"retained_count", tr("Retained associations")},
+                 std::pair{"kind", tr("Job")}, std::pair{"state", tr("State")},
+                 std::pair{"completed", tr("Completed")}, std::pair{"total", tr("Total")},
+                 std::pair{"phase", tr("Phase")},
+                 std::pair{"pending_directories", tr("Folders pending")},
+                 std::pair{"metadata_completed", tr("Metadata checked")},
+                 std::pair{"metadata_pending", tr("Metadata pending")},
+                 std::pair{"metadata_unavailable", tr("Changed or unavailable")},
+                 std::pair{"error", tr("Error")}, std::pair{"reason", tr("Review reason")}}) {
             const auto value = std::string_view{key} == "recursive" && row.contains(key)
-                                   ? std::string{row.value(key, false) ? "Yes" : "No"}
+                                   ? std::string{row.value(key, false) ? tr("Yes") : tr("No")}
                                    : text_value(row, key);
             if (!value.empty())
-                result.rows.emplace_back(label, value);
+                result.rows.emplace_back(label, std::string_view{key} == "availability" ||
+                                                        std::string_view{key} == "state" ||
+                                                        std::string_view{key} == "phase" ||
+                                                        std::string_view{key} == "kind"
+                                                    ? photo_label(value)
+                                                    : value);
         }
         return result;
     }
-    const auto focused = focused_photo();
-    const auto ids =
-        focused_only && focused.contains("id") ? Json::array({focused["id"]}) : selected_ids();
-    result.ids = ids.get<std::vector<Id>>();
-    Json selected = Json::array();
-    for (const auto& row : rows_)
-        if (std::ranges::find(result.ids, row.value("id", Id{})) != result.ids.end())
-            selected.push_back(row);
+    const auto* entry = folder_->cursor_entry();
+    const auto at = entry ? row_by_id_.find(photo_id(entry->key())) : row_by_id_.end();
+    const Json* focused = at == row_by_id_.end() ? nullptr : &rows_[at->second];
+    if (focused_only) {
+        if (!focused)
+            return result;
+        result.ids.push_back(focused->value("id", Id{}));
+    } else {
+        result.ids.assign(selected_.begin(), selected_.end());
+    }
+    std::vector<const Json*> selected;
+    selected.reserve(result.ids.size());
+    for (const auto id : result.ids) {
+        if (const auto found = row_by_id_.find(id); found != row_by_id_.end())
+            selected.push_back(&rows_[found->second]);
+        else if (const auto saved = selected_snapshots_.find(id);
+                 saved != selected_snapshots_.end())
+            selected.push_back(&saved->second);
+    }
     result.title = result.ids.size() == 1 && !selected.empty()
-                       ? selected.front().value("filename", "")
-                       : std::format("{} selected photos", result.ids.size());
+                       ? selected.front()->value("filename", "")
+                       : i18n::trn("{} selected photo", "{} selected photos", result.ids.size());
     if (result.ids.empty())
         result.title = title();
-    const auto shown = !focused.empty()   ? focused
-                       : selected.empty() ? Json::object()
-                                          : selected.front();
-    if (!shown.empty()) {
+    const Json* shown_row = focused ? focused : selected.empty() ? nullptr : selected.front();
+    if (shown_row) {
+        const auto& shown = *shown_row;
         result.entry = photo_entry(shown);
         result.path = result.entry.location;
         result.available = result.entry.available;
         if (destination_ == Destination::duplicate_group)
-            result.rows.emplace_back("Decision", keepers_.contains(shown.value("id", Id{}))
-                                                     ? "Keep"
-                                                     : "Marked for trash");
-        result.rows.emplace_back("Availability", shown.value("availability", ""));
+            result.rows.emplace_back(tr("Decision"), keepers_.contains(shown.value("id", Id{}))
+                                                         ? tr("Keep")
+                                                         : tr("Marked for trash"));
+        result.rows.emplace_back(tr("Availability"), photo_label(shown.value("availability", "")));
+        if (!shown.value("mtime_ns_valid", true))
+            result.rows.emplace_back(tr("Modified"),
+                                     tr("Modified time is outside the supported range"));
         if (result.entry.preview_current_location)
-            result.rows.emplace_back("Preview",
-                                     "Current file at this location; catalog identity has changed");
-        result.rows.emplace_back("Location", shown.value("path", ""));
-        result.rows.emplace_back("Dimensions", std::format("{} × {}", shown.value("width", 0),
-                                                           shown.value("height", 0)));
-        result.rows.emplace_back("Camera", text_value(shown, "camera"));
-        result.rows.emplace_back("Capture date", text_value(shown, "capture_date"));
-        result.rows.emplace_back("Date origin", text_value(shown, "date_origin"));
-        result.rows.emplace_back("Albums", text_value(shown, "albums"));
+            result.rows.emplace_back(
+                tr("Preview"), tr("Current file at this location; catalog identity has changed"));
+        result.rows.emplace_back(tr("Location"), shown.value("path", ""));
+        result.rows.emplace_back(tr("Dimensions"), std::format("{} × {}", shown.value("width", 0),
+                                                               shown.value("height", 0)));
+        result.rows.emplace_back(tr("Camera"), text_value(shown, "camera"));
+        result.rows.emplace_back(tr("Capture date"), text_value(shown, "capture_date"));
+        result.rows.emplace_back(tr("Date origin"), photo_label(text_value(shown, "date_origin")));
+        result.rows.emplace_back(tr("Albums"), text_value(shown, "albums"));
     }
     if (!selected.empty() && selected.size() == result.ids.size()) {
         const auto same = [&](std::string_view key) {
-            const auto value = selected.front().value(std::string{key}, Json{});
-            return std::ranges::all_of(selected, [&](const Json& row) {
-                return row.value(std::string{key}, Json{}) == value;
+            const auto value = selected.front()->value(std::string{key}, Json{});
+            return std::ranges::all_of(selected, [&](const Json* row) {
+                return row->value(std::string{key}, Json{}) == value;
             });
         };
         if (same("description"))
-            result.annotations.description = selected.front().value("description", "");
+            result.annotations.description = selected.front()->value("description", "");
         if (same("rating"))
-            result.annotations.rating = selected.front().value("rating", 0);
+            result.annotations.rating = selected.front()->value("rating", 0);
         if (same("date_override"))
-            result.annotations.capture_date = text_value(selected.front(), "date_override");
+            result.annotations.capture_date = text_value(*selected.front(), "date_override");
         if (same("tags"))
-            result.annotations.tags = selected.front().value("tags", std::vector<std::string>{});
+            result.annotations.tags = selected.front()->value("tags", std::vector<std::string>{});
     }
     return result;
 }
@@ -1061,9 +1322,9 @@ void PhotoLibrary::save_annotations(std::vector<Id> ids, PhotoEdits edits,
     request(std::move(patch), [this, done = std::move(done)](Json response) {
         const auto error = response.value("ok", false)
                                ? std::string{}
-                               : response.value("error", "Cannot save photo annotations");
+                               : response.value("error", tr("Cannot save photo annotations"));
         if (error.empty()) {
-            message_ = "Photo annotations saved";
+            message_ = tr("Photo annotations saved");
             refresh();
         }
         done(error);
@@ -1072,14 +1333,16 @@ void PhotoLibrary::save_annotations(std::vector<Id> ids, PhotoEdits edits,
 
 void PhotoLibrary::create_album(Json ids) {
     const auto detail =
-        ids.empty()
-            ? "Create an empty album. Originals stay in place."
-            : std::format("Include {} selected photos. Originals stay in place.", ids.size());
-    name_dialog("Create album", detail, "Create", [this, ids = std::move(ids)](std::string name) {
-        mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
-               ids.empty() ? "Empty album created"
-                           : std::format("Album created with {} photos", ids.size()));
-    });
+        ids.empty() ? tr("Create an empty album. Originals stay in place.")
+                    : i18n::trn("Include {} selected photo. Originals stay in place.",
+                                "Include {} selected photos. Originals stay in place.", ids.size());
+    name_dialog(tr("Create album"), detail, tr("Create"),
+                [this, ids = std::move(ids)](std::string name) {
+                    mutate({{"op", "create_album"}, {"name", name}, {"ids", ids}},
+                           ids.empty() ? tr("Empty album created")
+                                       : i18n::trn("Album created with {} photo",
+                                                   "Album created with {} photos", ids.size()));
+                });
 }
 
 void PhotoLibrary::add_to_album() {
@@ -1103,20 +1366,22 @@ void PhotoLibrary::add_to_album() {
                     return;
                 cancel_album_chooser();
                 mutate({{"op", "edit"}, {"ids", ids}, {"add_albums", {id}}},
-                       std::format("Added {} photos to “{}”", ids.size(), name));
+                       i18n::trn("Added {} photo to “{}”", "Added {} photos to “{}”", ids.size(),
+                                 name));
             };
             choices.push_back(std::move(item));
         }
         MenuItem create;
         create.id = "photos:album-create";
-        create.label = "Create new album…";
+        create.label = tr("Create new album…");
         create.action = [this, alive = alive_, ids, epoch] {
             if (!*alive || epoch != album_chooser_generation_ || !open_ || !photo_rows())
                 return;
             create_album(ids);
         };
         choices.push_back(std::move(create));
-        choose_album_(std::move(choices), std::format("Add {} photos to album…", ids.size()));
+        choose_album_(std::move(choices),
+                      i18n::trn("Add {} photo to album…", "Add {} photos to album…", ids.size()));
     });
 }
 
@@ -1127,7 +1392,7 @@ void PhotoLibrary::name_dialog(std::string title_text, std::string detail, std::
         std::move(title_text), std::move(detail), "",
         [accept = std::move(accept)](const std::string& name) {
             if (name.empty())
-                return std::string{"Enter a name"};
+                return std::string{tr("Enter a name")};
             accept(name);
             return std::string{};
         },
@@ -1147,12 +1412,13 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
         item.enabled = enabled;
         result.push_back(std::move(item));
     };
-    for (const auto& [label, destination] : std::array{
-             std::pair{"All photos", Destination::library},
-             std::pair{"Sources", Destination::sources}, std::pair{"Albums", Destination::albums},
-             std::pair{"Saved searches", Destination::filters},
-             std::pair{"Review duplicates", Destination::review},
-             std::pair{"Activity", Destination::activity}}) {
+    for (const auto& [label, destination] :
+         std::array{std::pair{tr("All photos"), Destination::library},
+                    std::pair{tr("Sources"), Destination::sources},
+                    std::pair{tr("Albums"), Destination::albums},
+                    std::pair{tr("Saved searches"), Destination::filters},
+                    std::pair{tr("Review duplicates"), Destination::review},
+                    std::pair{tr("Activity"), Destination::activity}}) {
         add("photos:destination:" + std::to_string(static_cast<int>(destination)), label,
             [this, destination] {
                 if (destination == Destination::library)
@@ -1164,80 +1430,109 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
         result.back().checked =
             destination == Destination::library ? at_all_photos() : destination_ == destination;
     }
-    add("photos:add", "Add folder…", [this] { add_folder(); }, static_cast<bool>(choose_folder_));
+    add(
+        "photos:add", tr("Add folder…"), [this] { add_folder(); },
+        static_cast<bool>(choose_folder_));
     result.back().separator = true;
-    add("photos:filters", "Filter photos…", [this] {
+    add("photos:filters", tr("Filter photos…"), [this] {
         open_form(Form::filters,
-                  {{"Minimum rating (0–5)", std::to_string(filter_.value("rating_min", 0))},
-                   {"Capture date from (YYYY-MM-DD)", filter_.value("date_from", "")},
-                   {"Capture date to (YYYY-MM-DD)", filter_.value("date_to", "")}});
+                  {{tr("Minimum rating (0–5)"), std::to_string(filter_.value("rating_min", 0))},
+                   {tr("Capture date from (YYYY-MM-DD)"), filter_.value("date_from", "")},
+                   {tr("Capture date to (YYYY-MM-DD)"), filter_.value("date_to", "")}});
     });
-    add("photos:clear", "Clear photo filters", [this] { show_all_photos(); });
-    add("photos:save-search", "Save photo search…", [this] {
-        name_dialog("Save photo search", "Keep the current search and filters.", "Save",
+    add("photos:clear", tr("Clear photo filters"), [this] { show_all_photos(); });
+    add("photos:retained", tr("Review retained photo associations"), [this] {
+        sync_selection();
+        filter_["retained_only"] = true;
+        search_.clear();
+        active_saved_search_ = 0;
+        offset_ = 0;
+        show(Destination::library);
+    });
+    result.back().checkable = true;
+    result.back().checked = filter_.value("retained_only", false);
+    add("photos:save-search", tr("Save photo search…"), [this] {
+        name_dialog(tr("Save photo search"), tr("Keep the current search and filters."), tr("Save"),
                     [this](std::string name) {
                         auto filter = filter_;
                         filter["text"] = search_;
                         mutate({{"op", "save_filter"}, {"name", name}, {"filter", filter}},
-                               "Photo search saved");
+                               tr("Photo search saved"));
                     });
     });
-    add("photos:create-album", "Create album…", [this] { create_album(selected_ids()); });
+    add("photos:create-album", tr("Create album…"), [this] { create_album(selected_ids()); });
     if (photo_rows())
         add(
-            "photos:add-to-album", "Add to album…", [this] { add_to_album(); },
+            "photos:add-to-album", tr("Add to album…"), [this] { add_to_album(); },
             !selected_.empty() && static_cast<bool>(choose_album_));
     if (photo_rows())
         add(
-            "photos:edit", "Edit photo annotations…",
+            "photos:edit", tr("Edit photo annotations…"),
             [this] {
                 if (edit_)
                     edit_();
             },
             !selected_.empty() && static_cast<bool>(edit_));
     if (photo_rows()) {
-        add("photos:select-page", "Select loaded photos", [this] {
+        add("photos:select-page", tr("Select loaded photos"), [this] {
             folder_->select_all();
             sync_selection();
             changed();
         });
         add(
-            "photos:clear-selection", "Clear all photo selection",
+            "photos:clear-selection", tr("Clear all photo selection"),
             [this] {
                 publishing_ = true;
                 folder_->set_cursor(std::nullopt);
                 publishing_ = false;
                 selected_.clear();
                 selected_snapshots_.clear();
+                selected_properties_.reset();
                 cursor_ = 0;
                 selection_revision_ = folder_->selection_revision();
                 changed();
             },
             !selected_.empty());
     }
-    if (destination_ == Destination::review)
-        add("photos:find-duplicates", "Find exact duplicate candidates",
-            [this] { mutate({{"op", "find_duplicates"}}, "Duplicate review queued"); });
+    if (destination_ == Destination::review) {
+        add("photos:find-duplicates", tr("Find exact duplicate candidates"),
+            [this] { mutate({{"op", "find_duplicates"}}, tr("Duplicate review queued")); });
+        add(
+            "photos:duplicate-previous", tr("Previous duplicate groups"),
+            [this] {
+                review_offset_ = review_offset_ > page_size_ ? review_offset_ - page_size_ : 0;
+                refresh();
+            },
+            review_offset_ > 0);
+        add(
+            "photos:duplicate-next", tr("Next duplicate groups"),
+            [this] {
+                review_offset_ += page_size_;
+                refresh();
+            },
+            review_offset_ + records_.size() < review_total_);
+    }
     if (destination_ == Destination::duplicate_group)
         add(
-            "photos:trash-marked", "Move marked copies to Trash…", [this] { confirm_duplicates(); },
-            !keepers_.empty() && keepers_.size() < rows_.size());
-    add("photos:refresh", "Refresh Photo Library",
-        [this] { mutate({{"op", "refresh"}}, "Photo refresh queued"); });
+            "photos:trash-marked", tr("Move marked copies to Trash…"),
+            [this] { confirm_duplicates(); }, !keepers_.empty() && keepers_.size() < rows_.size());
+    add("photos:refresh", tr("Refresh Photo Library"),
+        [this] { mutate({{"op", "refresh"}}, tr("Photo refresh queued")); });
     add(
-        "photos:pause", background_paused_ ? "Resume background work" : "Pause background work",
+        "photos:pause",
+        background_paused_ ? tr("Resume background work") : tr("Pause background work"),
         [this] { control_background({{"paused", !background_paused_}}); }, background_ready_);
     result.back().separator = true;
     add(
-        "photos:pace", "Gentle background pace",
+        "photos:pace", tr("Gentle background pace"),
         [this] {
             control_background({{"pace", background_pace_ == "gentle" ? "normal" : "gentle"}});
         },
         background_ready_);
     result.back().checkable = true;
     result.back().checked = background_pace_ == "gentle";
-    add("photos:export", "Export photo annotations…", [this] { choose_annotations(true); });
-    add("photos:restore", "Restore photo annotations…", [this] { choose_annotations(false); });
+    add("photos:export", tr("Export photo annotations…"), [this] { choose_annotations(true); });
+    add("photos:restore", tr("Restore photo annotations…"), [this] { choose_annotations(false); });
     return result;
 }
 
@@ -1256,69 +1551,70 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
     const auto record = focused_record();
     const auto id = record.value("id", Id{});
     if (destination_ == Destination::sources && !record.empty()) {
-        add("photos:show-source", "Show photos",
+        add("photos:show-source", tr("Show photos"),
             [this, id, record] { open_source(id, record.value("path", "")); });
-        add("photos:refresh-source", "Refresh folder", [this, id] {
-            mutate({{"op", "refresh"}, {"source_id", id}}, "Folder refresh queued");
+        add("photos:refresh-source", tr("Refresh folder"), [this, id] {
+            mutate({{"op", "refresh"}, {"source_id", id}}, tr("Folder refresh queued"));
         });
         add(
-            "photos:relink-source", "Relink source…", [this, record] { relink_source(record); },
+            "photos:relink-source", tr("Relink source…"), [this, record] { relink_source(record); },
             static_cast<bool>(choose_folder_));
         add(
-            "photos:inactive-source", "Make source inactive",
+            "photos:inactive-source", tr("Make source inactive"),
             [this, id] {
                 mutate({{"op", "remove_source"}, {"id", id}},
-                       "Source inactive; originals and annotations retained");
+                       tr("Source inactive; originals and annotations retained"));
             },
             record.value("active", true));
         add(
-            "photos:forget-source", "Forget source data…",
+            "photos:forget-source", tr("Forget source data…"),
             [this, id, record] {
                 confirm_.open(
-                    "Forget source catalog data?", record.value("path", ""), "Forget data",
+                    tr("Forget source catalog data?"), record.value("path", ""), tr("Forget data"),
                     [this, id](bool accepted) {
                         if (accepted)
                             mutate({{"op", "forget_source"}, {"id", id}},
-                                   "Source catalog data forgotten");
+                                   tr("Source catalog data forgotten"));
                     },
-                    "Annotations and album memberships are removed. Originals stay unchanged.");
+                    tr("Annotations and album memberships are removed. Originals stay unchanged."));
             },
             !record.value("active", true));
     } else if (destination_ == Destination::albums && !record.empty()) {
-        add("photos:show-album", "Show album",
+        add("photos:show-album", tr("Show album"),
             [this, id, record] { open_album(id, record.value("name", "")); });
         const auto ids = selected_ids();
         add(
-            "photos:album-add", "Add selected photos to album",
+            "photos:album-add", tr("Add selected photos to album"),
             [this, id, ids] {
                 mutate({{"op", "edit"}, {"ids", ids}, {"add_albums", {id}}},
-                       "Album membership saved");
+                       tr("Album membership saved"));
             },
             !ids.empty());
         add(
-            "photos:album-remove", "Remove selected photos from album",
+            "photos:album-remove", tr("Remove selected photos from album"),
             [this, id, ids] {
                 mutate({{"op", "edit"}, {"ids", ids}, {"remove_albums", {id}}},
-                       "Album membership saved");
+                       tr("Album membership saved"));
             },
             !ids.empty());
     } else if (destination_ == Destination::filters && !record.empty()) {
-        add("photos:run-search", "Find photos", [this, record] { open_saved_search(record); });
+        add("photos:run-search", tr("Find photos"), [this, record] { open_saved_search(record); });
     } else if (destination_ == Destination::review && !record.empty()) {
-        add("photos:review-group", "Review these copies", [this, record] { review_group(record); });
+        add("photos:review-group", tr("Review these copies"),
+            [this, record] { review_group(record); });
     } else if (destination_ == Destination::activity && !record.empty()) {
         if (record.value("file_operation", false)) {
-            add("photos:operation-outcome", "Review operation outcome", [this, record] {
+            add("photos:operation-outcome", tr("Review operation outcome"), [this, record] {
                 duplicate_group_ = record;
                 open_form(Form::outcome);
             });
-            add("photos:recover", "Recheck confirmed outcomes",
+            add("photos:recover", tr("Recheck confirmed outcomes"),
                 [this] { request({{"op", "recover_operations"}}, [this](Json) { refresh(); }); });
         } else {
             const auto state = record.value("state", "");
-            for (const auto& [label, action] :
-                 std::array{std::pair{"Pause job", "pause"}, std::pair{"Resume job", "resume"},
-                            std::pair{"Cancel job", "cancel"}, std::pair{"Retry job", "retry"}}) {
+            for (const auto& [label, action] : std::array{
+                     std::pair{tr("Pause job"), "pause"}, std::pair{tr("Resume job"), "resume"},
+                     std::pair{tr("Cancel job"), "cancel"}, std::pair{tr("Retry job"), "retry"}}) {
                 const bool enabled = std::string_view{action} == "pause"
                                          ? state == "running" || state == "queued"
                                      : std::string_view{action} == "resume" ? state == "paused"
@@ -1329,7 +1625,7 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
                     "photos:job:" + std::string{action}, label,
                     [this, id, action] {
                         mutate({{"op", "job_control"}, {"id", id}, {"action", action}},
-                               "Job updated at the next checkpoint");
+                               tr("Job updated at the next checkpoint"));
                     },
                     enabled);
             }
@@ -1338,7 +1634,7 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
         const auto focused = focused_photo();
         const std::filesystem::path focused_path{focused.value("path", "")};
         add(
-            "photos:reveal", "Show in Folder",
+            "photos:reveal", tr("Show in Folder"),
             [this, focused_path] {
                 if (reveal_)
                     reveal_(focused_path);
@@ -1346,34 +1642,36 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
             !focused_path.empty() && static_cast<bool>(reveal_));
         const auto ids = selected_ids();
         add(
-            "photos:edit", "Edit photo annotations…",
+            "photos:edit", tr("Edit photo annotations…"),
             [this] {
                 if (edit_)
                     edit_();
             },
             !ids.empty() && static_cast<bool>(edit_));
         add(
-            "photos:add-to-album", "Add to album…", [this] { add_to_album(); },
+            "photos:add-to-album", tr("Add to album…"), [this] { add_to_album(); },
             !ids.empty() && static_cast<bool>(choose_album_));
         if (destination_ == Destination::duplicate_group) {
             add(
-                "photos:keep", "Keep selected copies",
+                "photos:keep", tr("Keep selected copies"),
                 [this, ids] {
                     for (const auto& value : ids)
                         keepers_.insert(value.get<Id>());
+                    ++data_revision_;
                     changed();
                 },
                 !ids.empty());
             add(
-                "photos:mark-trash", "Mark selected copies for trash",
+                "photos:mark-trash", tr("Mark selected copies for trash"),
                 [this, ids] {
                     for (const auto& value : ids)
                         keepers_.erase(value.get<Id>());
+                    ++data_revision_;
                     changed();
                 },
                 !ids.empty());
             add(
-                "photos:trash-marked", "Move marked copies to Trash…",
+                "photos:trash-marked", tr("Move marked copies to Trash…"),
                 [this] { confirm_duplicates(); },
                 !keepers_.empty() && keepers_.size() < rows_.size());
         }
@@ -1383,7 +1681,7 @@ std::vector<MenuItem> PhotoLibrary::context_menu_items() {
                                     return row.value("availability", "") == "trashed";
                                 });
         add(
-            "photos:restore-originals", "Restore selected originals from trash",
+            "photos:restore-originals", tr("Restore selected originals from trash"),
             [this, ids] {
                 if (file_action_)
                     file_action_({{"kind", "restore"}, {"ids", ids}});
@@ -1412,6 +1710,12 @@ bool PhotoLibrary::activate() {
 
 void PhotoLibrary::review_group(const Json& group) {
     sync_selection();
+    if (group.value("photos", Json::array()).size() > 1000) {
+        report(
+            tr("This duplicate group exceeds the 1,000-file safety limit. Review smaller groups "
+               "before moving files."));
+        return;
+    }
     duplicate_group_ = group;
     rows_ = group.value("photos", Json::array());
     total_ = rows_.size();
@@ -1437,9 +1741,11 @@ void PhotoLibrary::confirm_duplicates() {
         return;
     const Json reviewed = duplicate_group_.value("photos", Json::array());
     confirm_.open(
-        std::format("Move {} duplicate copies to Trash?", ids.size()),
-        std::format("Keep {} originals. Recheck every file before moving.", keep.size()),
-        "Move to Trash",
+        i18n::trn("Move {} duplicate copy to Trash?", "Move {} duplicate copies to Trash?",
+                  ids.size()),
+        i18n::trn("Keep {} original. Recheck every file before moving.",
+                  "Keep {} originals. Recheck every file before moving.", keep.size()),
+        tr("Move to Trash"),
         [this, ids, keep, reviewed](bool accepted) {
             if (accepted)
                 file_action_({{"kind", "trash"},
@@ -1447,7 +1753,7 @@ void PhotoLibrary::confirm_duplicates() {
                               {"keeper_ids", keep},
                               {"reviewed", reviewed}});
         },
-        "Only marked copies move; kept originals stay in place.");
+        tr("Only marked copies move; kept originals stay in place."));
     changed();
 }
 
@@ -1455,16 +1761,16 @@ void PhotoLibrary::add_folder(std::filesystem::path initial) {
     const auto review = [this](std::filesystem::path path) {
         source_path_ = std::move(path);
         recursive_ = true;
-        open_form(Form::source, {{"Excluded subfolders (comma separated)", ""}});
-        form_detail_ =
-            source_path_.string() + "\nOriginals stay in place. Review the scope before indexing.";
+        open_form(Form::source, {{tr("Excluded subfolders (comma separated)"), ""}});
+        form_detail_ = source_path_.string() + "\n" +
+                       tr("Originals stay in place. Review the scope before indexing.");
     };
     if (!initial.empty()) {
         review(std::move(initial));
         return;
     }
     if (!choose_folder_) {
-        report("The folder chooser is unavailable");
+        report(tr("The folder chooser is unavailable"));
         return;
     }
     const auto generation = ++edit_generation_;
@@ -1487,7 +1793,7 @@ void PhotoLibrary::relink_source(const Json& source) {
         source_path_ = std::move(path);
         relink_reviewed_ = false;
         open_form(Form::relink);
-        form_detail_ = source_path_.string() + "\nChecking photo identities…";
+        form_detail_ = source_path_.string() + "\n" + tr("Checking photo identities…");
         const auto form_generation = form_generation_;
         request({{"op", "relink_source"},
                  {"source_id", source_id_},
@@ -1499,9 +1805,9 @@ void PhotoLibrary::relink_source(const Json& source) {
                     const auto matched = result.value("matched", Json::array()).size();
                     const auto missing = result.value("missing", Json::array()).size();
                     const auto ambiguous = result.value("ambiguous", Json::array()).size();
-                    form_detail_ = source_path_.string() +
-                                   std::format("\nMatched: {} · Missing: {} · Ambiguous: {}",
-                                               matched, missing, ambiguous);
+                    form_detail_ = source_path_.string() + "\n" +
+                                   i18n::trf("Matched: {} · Missing: {} · Ambiguous: {}", matched,
+                                             missing, ambiguous);
                     relink_reviewed_ = matched > 0 && ambiguous == 0;
                 });
     });
@@ -1526,16 +1832,16 @@ void PhotoLibrary::open_form(Form form, std::vector<std::pair<std::string, std::
     }
     switch (form) {
         case Form::source:
-            form_title_ = "Add folder to Photo Library";
+            form_title_ = tr("Add folder to Photo Library");
             break;
         case Form::filters:
-            form_title_ = "Filter photos";
+            form_title_ = tr("Filter photos");
             break;
         case Form::relink:
-            form_title_ = "Relink photo source";
+            form_title_ = tr("Relink photo source");
             break;
         case Form::outcome:
-            form_title_ = "Photo operation outcome";
+            form_title_ = tr("Photo operation outcome");
             break;
         case Form::none:
             form_title_.clear();
@@ -1561,12 +1867,12 @@ void PhotoLibrary::submit_form() {
                 {"path", source_path_.string()},
                 {"recursive", recursive_},
                 {"exclusions", split(fields_[0].text())}},
-               "Folder added. Indexing runs in the background.");
+               tr("Folder added. Indexing runs in the background."));
     } else if (form_ == Form::filters) {
         int rating = 0;
         if (!fields_[0].text().empty() &&
             (!number(fields_[0].text(), rating) || rating < 0 || rating > 5)) {
-            form_message_ = "Enter a rating from 0 to 5";
+            form_message_ = tr("Enter a rating from 0 to 5");
             changed();
             return;
         }
@@ -1582,22 +1888,24 @@ void PhotoLibrary::submit_form() {
                 {"source_id", source_id_},
                 {"path", source_path_.string()},
                 {"confirm", true}},
-               "Source relinked; existing organisation retained");
+               tr("Source relinked; existing organisation retained"));
     }
 }
 
 void PhotoLibrary::choose_annotations(bool exporting) {
     if (!choose_path_) {
-        report("The file picker is not available");
+        report(tr("The file picker is not available"));
         return;
     }
     close_form();
     core::PickerRequest request;
     request.mode = exporting ? core::PickerRequest::Mode::save : core::PickerRequest::Mode::open;
-    request.title = exporting ? "Export photo annotations" : "Restore photo annotations";
-    request.accept_label = exporting ? "Export" : "Restore";
+    if (exporting)
+        report(tr("Exports are limited to 256 MiB and 1,000,000 photos."));
+    request.title = exporting ? tr("Export photo annotations") : tr("Restore photo annotations");
+    request.accept_label = exporting ? tr("Export") : tr("Restore");
     request.name = exporting ? "rummage-photo-annotations.json" : "";
-    request.filters = {{"JSON annotations", {{0, "*.json"}}}};
+    request.filters = {{tr("JSON annotations"), {{0, "*.json"}}}};
     const auto generation = form_generation_;
     choose_path_(request, [this, alive = alive_, generation,
                            exporting](std::optional<std::filesystem::path> path) {
@@ -1610,74 +1918,87 @@ void PhotoLibrary::choose_annotations(bool exporting) {
 void PhotoLibrary::transfer_annotations(bool exporting, const std::filesystem::path& path) {
     if (exporting) {
         const auto form_generation = form_generation_;
-        request({{"op", "export"}}, [this, path, form_generation](Json response) {
-            if (form_generation != form_generation_ || !response.value("ok", false))
-                return;
-            const auto data = response.at("data").dump(2);
-            const auto task = ++task_ids_;
-            pending_.emplace(task,
-                             pool_.submit(
-                                 core::Priority::visible,
-                                 [path, data](const core::CancelToken& token) {
-                                     if (token.cancelled())
-                                         return std::string{"Export cancelled"};
-                                     if (const auto error = core::write_file_atomically(path, data))
-                                         return std::string{"Cannot export annotations: "} +
-                                                error.message();
-                                     return std::string{};
-                                 },
-                                 [this, alive = alive_, task, form_generation](std::string error) {
-                                     if (!*alive)
-                                         return;
-                                     pending_.erase(task);
-                                     if (error.empty()) {
-                                         if (form_generation == form_generation_)
-                                             close_form();
-                                         report("Photo annotations exported");
-                                     } else {
-                                         if (form_generation == form_generation_)
-                                             form_message_ = error;
-                                         report(error);
-                                     }
-                                 }));
-        });
+        request(
+            {{"op", "export"}, {"encoded", true}}, [this, path, form_generation](Json response) {
+                if (form_generation != form_generation_ || !response.value("ok", false))
+                    return;
+                auto data = response.at("json").get<std::string>();
+                const auto task = ++task_ids_;
+                pending_.emplace(
+                    task, pool_.submit(
+                              core::Priority::visible,
+                              [path, data = std::move(data)](const core::CancelToken& token) {
+                                  if (token.cancelled())
+                                      return std::string{tr("Export cancelled")};
+                                  if (const auto error = core::write_file_atomically(path, data))
+                                      return std::string{tr("Cannot export annotations") + ": "} +
+                                             error.message();
+                                  return std::string{};
+                              },
+                              [this, alive = alive_, task, form_generation](std::string error) {
+                                  if (!*alive)
+                                      return;
+                                  pending_.erase(task);
+                                  if (error.empty()) {
+                                      if (form_generation == form_generation_)
+                                          close_form();
+                                      report(tr("Photo annotations exported"));
+                                  } else {
+                                      if (form_generation == form_generation_)
+                                          form_message_ = error;
+                                      report(error);
+                                  }
+                              }));
+            });
     } else {
         const auto form_generation = form_generation_;
         const auto task = ++task_ids_;
         pending_.emplace(
-            task, pool_.submit(
-                      core::Priority::visible,
-                      [path](const core::CancelToken& token) {
-                          try {
-                              if (token.cancelled())
-                                  return Json{{"ok", false}, {"error", "Restore cancelled"}};
-                              std::error_code error;
-                              const auto size = std::filesystem::file_size(path, error);
-                              if (error || size > 256ULL * 1024 * 1024)
-                                  return Json{
-                                      {"ok", false},
-                                      {"error", "Export unavailable or larger than 256 MiB"}};
-                              std::ifstream input{path};
-                              Json data;
-                              input >> data;
-                              return Json{{"ok", true}, {"data", data}};
-                          } catch (const std::exception& error) {
-                              return Json{{"ok", false}, {"error", error.what()}};
-                          }
-                      },
-                      [this, alive = alive_, task, form_generation](Json result) {
-                          if (!*alive)
-                              return;
-                          pending_.erase(task);
-                          if (form_generation != form_generation_)
-                              return;
-                          if (!result.value("ok", false)) {
-                              report(result.value("error", "Cannot read export"));
-                              return;
-                          }
-                          mutate({{"op", "restore"}, {"data", result["data"]}},
-                                 "Photo annotations restored");
-                      }));
+            task,
+            pool_.submit(
+                core::Priority::visible,
+                [path](const core::CancelToken& token) {
+                    try {
+                        if (token.cancelled())
+                            return Json{{"ok", false}, {"error", tr("Restore cancelled")}};
+                        std::error_code error;
+                        const auto size = std::filesystem::file_size(path, error);
+                        if (error || size > 256ULL * 1024 * 1024)
+                            return Json{{"ok", false},
+                                        {"error", tr("Export unavailable or larger than 256 MiB")}};
+                        std::ifstream input{path};
+                        Json data;
+                        input >> data;
+                        return Json{{"ok", true}, {"data", data}};
+                    } catch (const std::exception& error) {
+                        return Json{{"ok", false}, {"error", error.what()}};
+                    }
+                },
+                [this, alive = alive_, task, form_generation](Json result) {
+                    if (!*alive)
+                        return;
+                    pending_.erase(task);
+                    if (form_generation != form_generation_)
+                        return;
+                    if (!result.value("ok", false)) {
+                        report(result.value("error", tr("Cannot read export")));
+                        return;
+                    }
+                    confirm_.open(
+                        tr("Restore photo annotations?"),
+                        tr("For matching photos, replace description, rating and manual date; "
+                           "merge tags and album memberships. Missing or ambiguous matches stay "
+                           "unresolved. Originals are not moved."),
+                        tr("Restore"),
+                        [this, data = std::move(result["data"])](bool accepted) {
+                            if (accepted)
+                                mutate({{"op", "restore"}, {"data", data}},
+                                       tr("Photo annotations restored"));
+                        },
+                        tr("New sources remain paused until you explicitly refresh them. Exports "
+                           "and restores are limited to 256 MiB and 1,000,000 photos."));
+                    changed();
+                }));
     }
 }
 
@@ -1870,8 +2191,8 @@ void PhotoLibrary::draw_dialogs(ui::Renderer& renderer, const ui::Rect& bounds,
         y += draw_wrapped(renderer, form_detail_, left, y, width, palette.on_surface_variant) + 16;
     if (form_ == Form::outcome) {
         y += draw_wrapped(renderer,
-                          "Status: " + duplicate_group_.value("state", "") + "\n" +
-                              duplicate_group_.value("error", ""),
+                          tr("Status") + ": " + photo_label(duplicate_group_.value("state", "")) +
+                              "\n" + duplicate_group_.value("error", ""),
                           left, y, width, palette.on_surface_variant) +
              12;
         for (const auto& row : duplicate_group_.value("photos", Json::array())) {
@@ -1882,8 +2203,8 @@ void PhotoLibrary::draw_dialogs(ui::Renderer& renderer, const ui::Rect& bounds,
                     continue;
                 y += draw_wrapped(renderer,
                                   result.value("success", false)
-                                      ? "Completed: " + result.value("destination", "")
-                                      : "Failed: " + result.value("error", ""),
+                                      ? tr("Completed") + ": " + result.value("destination", "")
+                                      : tr("Failed") + ": " + result.value("error", ""),
                                   left, y, width, palette.on_surface_variant) +
                      14;
             }
@@ -1910,14 +2231,14 @@ void PhotoLibrary::draw_dialogs(ui::Renderer& renderer, const ui::Rect& bounds,
         y += 44;
     };
     if (form_ == Form::source)
-        toggle(recursive_ ? "✓ Include subfolders" : "Include subfolders",
+        toggle(recursive_ ? "✓ " + tr("Include subfolders") : tr("Include subfolders"),
                [this] { recursive_ = !recursive_; });
     if (form_ == Form::filters) {
-        toggle(filter_.value("unknown_date", false) ? "✓ Unknown capture date only"
-                                                    : "Unknown capture date only",
+        toggle(filter_.value("unknown_date", false) ? "✓ " + tr("Unknown capture date only")
+                                                    : tr("Unknown capture date only"),
                [this] { filter_["unknown_date"] = !filter_.value("unknown_date", false); });
-        toggle(filter_.value("include_inactive", false) ? "✓ Include inactive sources"
-                                                        : "Include inactive sources",
+        toggle(filter_.value("include_inactive", false) ? "✓ " + tr("Include inactive sources")
+                                                        : tr("Include inactive sources"),
                [this] { filter_["include_inactive"] = !filter_.value("include_inactive", false); });
     }
     form_height_ = y - start + 32;
@@ -1933,13 +2254,13 @@ void PhotoLibrary::draw_dialogs(ui::Renderer& renderer, const ui::Rect& bounds,
     }
     const float footer_y = frame.footer.y + 10;
     form_button(renderer, palette, {frame.footer.right() - 224, footer_y, 96, 34},
-                form_ == Form::outcome ? "Done" : "Cancel", [this] { close_form(); });
+                form_ == Form::outcome ? tr("Done") : tr("Cancel"), [this] { close_form(); });
     if (form_ != Form::outcome)
         form_button(
             renderer, palette, {frame.footer.right() - 116, footer_y, 96, 34},
-            form_ == Form::source   ? "Add folder"
-            : form_ == Form::relink ? "Relink"
-                                    : "Apply",
+            form_ == Form::source   ? tr("Add folder")
+            : form_ == Form::relink ? tr("Relink")
+                                    : tr("Apply"),
             [this] { submit_form(); }, form_ != Form::relink || relink_reviewed_);
     renderer.draw_text(form_message_, frame.footer.x + 20, footer_y + 44, 12,
                        palette.on_surface_variant, frame.footer.width - 40);

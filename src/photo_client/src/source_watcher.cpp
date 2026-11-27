@@ -68,6 +68,7 @@ void SourceWatcher::stop() {
     pending_sources_.clear();
     candidates_.clear();
     listing_ = false;
+    pending_registrations_ = 0;
 }
 
 bool SourceWatcher::excluded(const std::filesystem::path& path) const {
@@ -117,7 +118,7 @@ void SourceWatcher::fetch_page(Id after) {
                 for (const auto& source : response.at("sources")) {
                     const Id id = source.at("id").get<Id>();
                     const auto path = normalized(source.at("path").get<std::string>());
-                    if (!source.value("active", false) ||
+                    if (!source.value("active", false) || !source.value("watch_enabled", true) ||
                         source.value("availability", std::string{}) != "online" || excluded(path))
                         continue;
                     active[id] = path;
@@ -183,21 +184,38 @@ void SourceWatcher::register_batch() {
             }
             continue;
         }
-        std::error_code error;
-        const auto watch = watcher_.watch(
-            item.path,
+        ++pending_registrations_;
+        const auto watch = watcher_.watch_async(
+            pool_, item.path,
             [this, source = item.source, path = item.path](const auto& events) {
                 receive(source, path, events);
             },
-            error);
+            [this, source = item.source, path = item.path](std::error_code error) {
+                if (error) {
+                    registrations_.erase(path);
+                    if (registration_error_.empty())
+                        registration_error_ = "Cannot watch photo folder " + path.string() + ": " +
+                                              error.message() +
+                                              ". Refresh library remains available.";
+                }
+                if (!error)
+                    pending_sources_.insert(source);  // reconcile events before loop adoption
+                if (--pending_registrations_ == 0)
+                    register_batch();
+            });
         if (watch == 0) {
-            if (registration_error_.empty())
-                registration_error_ = "Cannot watch photo folder " + item.path.string() + ": " +
-                                      error.message() + ". Refresh library remains available.";
+            --pending_registrations_;
+            registration_error_ =
+                "Photo Library cannot add more pending folder watches. "
+                "Refresh library remains available.";
             continue;
         }
         registrations_.emplace(std::move(item.path), Registration{watch, item.source, generation_});
+        // Keep one lookup in flight; a slow mount leaves workers for visible folders.
+        break;
     }
+    if (pending_registrations_ != 0)
+        return;
     if (!pending_paths_.empty()) {
         register_timer_ = loop_.add_timer(10ms, 0ms, [this] { register_batch(); });
         return;

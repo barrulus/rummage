@@ -90,6 +90,25 @@ namespace thumbs = rummage::thumbs;
 namespace ui = rummage::ui;
 namespace views = rummage::views;
 
+// Both native window kinds share the same compositor controls.
+views::TitleBar make_title_bar(ui::Window& window, ui::Display& display, ui::Seat& seat) {
+    return views::TitleBar{
+        {.move = [&window, &display, &seat] { window.move(display.seat(), seat.input_serial()); },
+         .resize = [&window, &display, &seat](
+                       ui::Edge edge) { window.resize(display.seat(), seat.input_serial(), edge); },
+         .minimize = [&window] { window.minimize(); },
+         .toggle_maximized = [&window] { window.toggle_maximized(); },
+         .window_menu =
+             [&window, &display, &seat](float x, float y) {
+                 window.show_window_menu(display.seat(), seat.input_serial(),
+                                         window.content_map().to_surface(x),
+                                         window.content_map().to_surface(y));
+             },
+         .close = [&window] { window.close(); }},
+        [&window] { window.request_redraw(); },
+        [&seat](ui::CursorShape shape) { seat.set_cursor(shape); }};
+}
+
 // SIGINT/SIGTERM delivered as a readable fd, so Ctrl+C ends the loop and runs every
 // destructor instead of killing the process mid-flight; SIGUSR1 asks for the memory report.
 class SignalFd {
@@ -233,7 +252,7 @@ constexpr const char* kUsage =
     "  --version       print the version and exit\n"
     "  --about         print what rummage runs on, for a bug report, and exit\n";
 
-// The folder to open: DIR as given (made absolute, ".." resolved), else $HOME, else "/".
+// The folder to open: DIR made absolute without filesystem probes, else $HOME, else "/".
 std::filesystem::path start_folder(const std::filesystem::path& given) {
     if (fs::is_trash(given))
         return given;
@@ -243,7 +262,7 @@ std::filesystem::path start_folder(const std::filesystem::path& given) {
         folder = home != nullptr && home[0] != '\0' ? home : "/";
     }
     std::error_code error;
-    const std::filesystem::path absolute = std::filesystem::weakly_canonical(folder, error);
+    const std::filesystem::path absolute = std::filesystem::absolute(folder, error);
     return error ? folder : absolute;
 }
 
@@ -1430,23 +1449,7 @@ int main(int argc, char** argv) {
             }
 
             // rummage's own title bar where the compositor draws none (ROADMAP 7.4).
-            views::TitleBar title_bar{
-                {.move = [&] { window.move(display.seat(), seat.input_serial()); },
-                 .resize =
-                     [&](ui::Edge edge) {
-                         window.resize(display.seat(), seat.input_serial(), edge);
-                     },
-                 .minimize = [&] { window.minimize(); },
-                 .toggle_maximized = [&] { window.toggle_maximized(); },
-                 .window_menu =
-                     [&](float x, float y) {
-                         window.show_window_menu(display.seat(), seat.input_serial(),
-                                                 window.content_map().to_surface(x),
-                                                 window.content_map().to_surface(y));
-                     },
-                 .close = [&] { window.close(); }},
-                [&] { window.request_redraw(); },
-                [&](ui::CursorShape shape) { seat.set_cursor(shape); }};
+            auto title_bar = make_title_bar(window, display, seat);
             bool bar_has_pointer =
                 false;  // the content heard a leave when the bar took the pointer
             bool content_pressed = false;  // a press in the content keeps the pointer there
@@ -1757,9 +1760,8 @@ int main(int argc, char** argv) {
                 }
             } watches{watcher, loop};
             if (!settings) {
-                std::error_code error;
-                watches.directory = watcher.watch(
-                    path.parent_path(),
+                watches.directory = watcher.watch_async(
+                    pool, path.parent_path(),
                     [&](const auto& events) {
                         if (std::ranges::none_of(events, [&](const auto& event) {
                                 return event.name.empty() || event.name == path.filename();
@@ -1773,25 +1775,12 @@ int main(int argc, char** argv) {
                                     properties.open(path, changed, editable, drive, label);
                             });
                     },
-                    error);
+                    [&](std::error_code error) {
+                        if (!error && !properties.saving() && !properties.dirty())
+                            properties.open(path, changed, editable, drive, label);
+                    });
             }
-            views::TitleBar title_bar{
-                {.move = [&] { window.move(display.seat(), seat.input_serial()); },
-                 .resize =
-                     [&](ui::Edge edge) {
-                         window.resize(display.seat(), seat.input_serial(), edge);
-                     },
-                 .minimize = [&] { window.minimize(); },
-                 .toggle_maximized = [&] { window.toggle_maximized(); },
-                 .window_menu =
-                     [&](float x, float y) {
-                         window.show_window_menu(display.seat(), seat.input_serial(),
-                                                 window.content_map().to_surface(x),
-                                                 window.content_map().to_surface(y));
-                     },
-                 .close = [&] { window.close(); }},
-                [&] { window.request_redraw(); },
-                [&](ui::CursorShape shape) { seat.set_cursor(shape); }};
+            auto title_bar = make_title_bar(window, display, seat);
             bool content_pressed = false;
             bool closing = false;
             binding->key = [&, weak = std::weak_ptr{binding}](const ui::KeyEvent& event) {

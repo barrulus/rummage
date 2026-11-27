@@ -11,6 +11,23 @@
 
 namespace rummage::views {
 
+void reveal_row(ui::Scroller& scroller, std::size_t row, float height, float viewport, bool jump,
+                ui::Scroller::Clock::time_point now) {
+    const float top = static_cast<float>(row) * height;
+    const float bottom = top + height;
+    const float from = scroller.destination();
+    if (top >= from && bottom <= from + viewport) {
+        return;
+    }
+    if (jump) {
+        scroller.jump_to(top - ((viewport - height) / 2.0F));  // centered
+    } else if (top < from) {
+        scroller.glide_to(top, now);
+    } else {
+        scroller.glide_to(bottom - viewport, now);
+    }
+}
+
 void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
                      const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
                      Thumbnails* thumbnails, ui::Rect bounds, bool cut, ItemVisual* painted) {

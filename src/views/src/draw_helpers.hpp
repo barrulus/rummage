@@ -13,6 +13,7 @@
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/icons.hpp"
 #include "rummage/ui/renderer.hpp"
+#include "rummage/ui/scroller.hpp"
 #include "rummage/views/item_bounds.hpp"
 
 namespace rummage::fs {
@@ -38,6 +39,10 @@ void draw_item_visual(ui::Renderer&, ui::IconSet&, const theme::Palette&, const 
 
 // Height of the bar above the views (the breadcrumb).
 inline constexpr float kTitleHeight = 40.0F;
+
+// Reveal an indexed row, once its owner has resolved the cursor and a nonempty viewport.
+void reveal_row(ui::Scroller& scroller, std::size_t row, float height, float viewport, bool jump,
+                ui::Scroller::Clock::time_point now);
 
 // Width of text in logical pixels.
 float text_width(ui::Renderer& renderer, std::string_view text, float size);

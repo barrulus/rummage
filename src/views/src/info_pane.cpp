@@ -677,7 +677,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         out.row("Created", format_time(*info->created_ns));
     }
     if (single != nullptr && !logical) {
-        out.row("Modified", format_time(single->modified_ns));
+        out.row("Modified", single->modified_known ? format_time(single->modified_ns) : "—");
         // In the trash: where it was, and when it went.
         if (const fs::TrashedItem* const item = folder.model().trashed(single->name)) {
             out.row("Original location", item->info.original.parent_path().string());
@@ -701,13 +701,15 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             out.row(label, value);
         if (!photo_properties_->ids.empty()) {
             const auto& annotations = photo_properties_->annotations;
-            out.row("Description", annotations.description.value_or("Mixed values"));
-            out.row("Rating",
-                    annotations.rating ? std::to_string(*annotations.rating) : "Mixed values");
-            out.row("Capture date override", annotations.capture_date.value_or("Mixed values"));
+            out.row("Description",
+                    annotations.description.value_or(std::string{i18n::tr("Mixed values")}));
+            out.row("Rating", annotations.rating ? std::to_string(*annotations.rating)
+                                                 : std::string{i18n::tr("Mixed values")});
+            out.row("Capture date override",
+                    annotations.capture_date.value_or(std::string{i18n::tr("Mixed values")}));
             std::string tags;
             if (!annotations.tags)
-                tags = "Mixed values";
+                tags = i18n::tr("Mixed values");
             else
                 for (const auto& tag : *annotations.tags) {
                     if (!tags.empty())

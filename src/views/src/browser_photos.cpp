@@ -112,7 +112,7 @@ void Browser::prepare_photo_library() {
             if (folder_chooser_)
                 folder_chooser_(start.empty() ? photo_home() : start, std::move(chosen));
             else
-                show_message("The folder chooser is unavailable", true);
+                show_message(std::string{i18n::tr("The folder chooser is unavailable")}, true);
         });
         photo_library_->set_edit_handler([this] { open_photo_properties(); });
         photo_library_->set_album_chooser([this](std::vector<MenuItem> choices, std::string title) {
@@ -138,7 +138,7 @@ void Browser::prepare_photo_library() {
             if (photo_path_chooser_)
                 photo_path_chooser_(request, std::move(chosen));
             else {
-                show_message("The file chooser is unavailable", true);
+                show_message(std::string{i18n::tr("The file chooser is unavailable")}, true);
                 chosen(std::nullopt);
             }
         });
@@ -204,7 +204,7 @@ void Browser::open_photo_properties() {
     properties_.open_photo(
         std::move(snapshot), [this, alive = alive_](auto ids, auto edits, auto done) {
             if (!*alive || !photo_library_) {
-                done("Photo Library is no longer available");
+                done(std::string{i18n::tr("Photo Library is no longer available")});
                 return;
             }
             photo_library_->save_annotations(std::move(ids), std::move(edits), std::move(done));

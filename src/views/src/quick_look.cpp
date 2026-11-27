@@ -724,8 +724,8 @@ void QuickLook::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme
     area.y += 16.0F;
     area.height = std::max(1.0F, area.height - 16.0F);
     if (entry->preview_current_location) {
-        const std::string notice{
-            "Previewing the current file at this location; catalog identity has changed."};
+        const std::string notice{std::string{i18n::tr(
+            "Previewing the current file at this location; catalog identity has changed.")}};
         const float height = SelectableText::height(renderer, notice, area.width, 13);
         SelectableText text;
         text.begin_frame(area);
@@ -834,9 +834,10 @@ void QuickLook::draw_details(ui::Renderer& renderer, const theme::Palette& palet
         row("Link target", value->info.link_target);
         row("Information", value->info.error);
     } else if (entry->preview_current_location) {
-        row("Information", "Catalog identity changed; current-file details are not loaded");
+        row("Information",
+            std::string{i18n::tr("Catalog identity changed; current-file details are not loaded")});
     } else if (!entry->available) {
-        row("Information", "Original unavailable; details are not loaded");
+        row("Information", std::string{i18n::tr("Original unavailable; details are not loaded")});
     } else {
         row("Information", std::string{i18n::tr("Loading details…")});
     }

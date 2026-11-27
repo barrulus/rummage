@@ -56,6 +56,46 @@ void Folder::replace_collection(std::vector<fs::Entry> rows, std::string label, 
     on_change(change);
 }
 
+bool Folder::update_collection_rows(std::vector<std::pair<std::size_t, fs::Entry>> rows) {
+    if (!collection_)
+        return false;
+    for (const auto& [index, entry] : rows)
+        if (index >= collection_entries_.size() || collection_entries_[index].key() != entry.key())
+            return false;
+    if (rows.empty())
+        return true;
+    for (auto& [index, entry] : rows) {
+        sniffed_.erase(entry.key());
+        collection_entries_[index] = std::move(entry);
+    }
+    ++collection_revision_;
+    selection_changed(false);
+    return true;
+}
+
+void Folder::append_collection(std::vector<fs::Entry> rows, std::size_t total, bool loading) {
+    if (!collection_)
+        return;
+    const auto start = collection_entries_.size();
+    collection_entries_.insert(collection_entries_.end(), std::make_move_iterator(rows.begin()),
+                               std::make_move_iterator(rows.end()));
+    collection_total_ = total;
+    collection_loading_ = loading;
+    ++collection_revision_;
+    // A restored cursor may be waiting for a later page; existing indices never move.
+    if (!cursor_index_ && !cursor_name_.empty()) {
+        for (std::size_t i = start; i < collection_entries_.size(); ++i) {
+            if (collection_entries_[i].key() == cursor_name_) {
+                cursor_index_ = i;
+                cursor_expected_ = false;
+                reveal_ = Reveal::jump;
+                break;
+            }
+        }
+    }
+    selection_changed(false);
+}
+
 Folder::~Folder() { *alive_ = false; }
 
 void Folder::notify_visible_range(std::size_t first, std::size_t last_exclusive) const {

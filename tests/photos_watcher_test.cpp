@@ -197,3 +197,39 @@ TEST_CASE("destroying a photo watcher cancels queued subscription delivery") {
     run_for(fixture.loop, 300ms);
     CHECK(fixture.changes == 0);
 }
+
+TEST_CASE("photo watcher: restored sources remain read-only until an explicit refresh") {
+    Fixture fixture;
+    const auto source = fixture.directory.path / "pictures";
+    fixture.add(source);
+    std::ofstream{source / "existing.jpg"} << "fixture image";
+    fixture.drain();
+    const auto exported = fixture.call({{"op", "export"}}).at("data");
+    fixture.client = std::make_shared<photos::Client>(
+        RUMMAGE_PHOTOS_TEST_MODULE, fixture.directory.path / "restored/catalog.sqlite3");
+    const auto restored = fixture.call({{"op", "restore"}, {"data", exported}});
+    REQUIRE(restored.at("restored") == 1);
+    const auto sources = fixture.call({{"op", "sources"}}).at("sources");
+    REQUIRE(sources.size() == 1);
+    CHECK_FALSE(sources[0].at("watch_enabled").get<bool>());
+    fixture.observer = std::make_unique<photos::SourceWatcher>(
+        fixture.loop, fixture.pool, fixture.watcher, fixture.client, [&](const std::string& error) {
+            ++fixture.changes;
+            fixture.errors.push_back(error);
+        });
+    REQUIRE(run_until(fixture.loop, [&] { return !fixture.observer->refreshing(); }));
+    std::ofstream{source / "new.jpg"} << "new image";
+    fixture.observer->refresh_subscriptions();  // same path as periodic availability checks
+    run_for(fixture.loop, 250ms);
+    CHECK(fixture.observer->subscription_count() == 0);
+    CHECK(fixture.changes == 0);
+    CHECK(fixture.call({{"op", "jobs"}}).at("jobs").empty());
+    CHECK(fixture.call({{"op", "query"}}).at("total") == 1);
+    fixture.call({{"op", "refresh"}, {"source_id", sources[0].at("id")}});
+    fixture.observer->refresh_subscriptions();
+    REQUIRE(run_until(fixture.loop, [&] {
+        return fixture.observer->subscription_count() == 1 && !fixture.observer->refreshing();
+    }));
+    fixture.drain();
+    CHECK(fixture.call({{"op", "query"}}).at("total") == 2);
+}

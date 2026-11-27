@@ -57,19 +57,7 @@ void Column::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
         folder_->request_jump();  // nowhere to show it yet
         return;
     }
-    const float top = static_cast<float>(*cursor) * size_.row;
-    const float bottom = top + size_.row;
-    const float from = scroller_.destination();
-    if (top >= from && bottom <= from + viewport) {
-        return;
-    }
-    if (reveal == Folder::Reveal::jump) {
-        scroller_.jump_to(top - ((viewport - size_.row) / 2.0F));  // centered
-    } else if (top < from) {
-        scroller_.glide_to(top, now);
-    } else {
-        scroller_.glide_to(bottom - viewport, now);
-    }
+    reveal_row(scroller_, *cursor, size_.row, viewport, reveal == Folder::Reveal::jump, now);
 }
 
 void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,

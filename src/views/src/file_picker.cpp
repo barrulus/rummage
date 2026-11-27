@@ -217,6 +217,7 @@ FilePicker::FilePicker(Browser& browser, core::PickerRequest request,
 }
 
 FilePicker::~FilePicker() {
+    validation_.cancel();
     browser_.set_pattern_selection_enabled(true);
     if (terminal_cancel_)
         terminal_cancel_();
@@ -257,6 +258,7 @@ void FilePicker::return_from_terminal(const std::filesystem::path& directory) {
 }
 
 void FilePicker::set_name(std::string name) {
+    cancel_validation();
     const auto dot = name.rfind('.');
     const auto stem = dot == std::string::npos || dot == 0 ? name.size() : dot;
     name_.set_text(std::move(name));
@@ -300,56 +302,98 @@ void FilePicker::finish(std::vector<std::string> paths) {
 }
 
 void FilePicker::accept() {
-    sync_selection();
-    const auto folder = browser_.picker_folder();
-    if (!folder || folder->model().loading()) {
+    if (!done_)
         return;
-    }
+    sync_selection();
+    if (validating_)
+        return;
+    const auto folder = browser_.picker_folder();
+    if (!folder || folder->model().loading())
+        return;
     if (folder->is_archive()) {
         error_ = std::string{i18n::tr("Extract archive contents before choosing them")};
         redraw_();
         return;
     }
-    if (request_.mode == Mode::save && valid_name(name_.text()) && folder->path().is_absolute() &&
-        !folder->is_trash()) {
-        std::error_code ec;
-        const auto target = folder->path() / name_.text();
-        if (std::filesystem::is_directory(target, ec)) {
-            browser_.open(target);
-            set_name(request_.name);
-            error_.clear();
-            return;
-        }
-    }
     auto selected = folder->selected_names();
-    if (selected.empty() && folder->cursor_entry()) {
+    if (selected.empty() && folder->cursor_entry())
         selected.push_back(folder->cursor_entry()->name);
-    }
-    const auto result = picker_selection(request_, folder->path(), selected, name_.text());
-    error_ = result.error;
-    if (error_.empty()) {
-        if (result.overwrite) {
-            confirm_.open(
-                result.paths.size() == 1
-                    ? i18n::trf("Replace “{}”?",
-                                std::filesystem::path{result.paths.front()}.filename().string())
-                    : std::string{i18n::tr("Replace existing files?")},
-                folder->path().string(), std::string{i18n::tr("Replace")},
-                [this, paths = result.paths](bool yes) {
-                    if (yes) {
-                        finish(paths);
-                    }
-                },
-                std::string{
-                    i18n::tr("The application will overwrite the selected file when it saves.")});
-        } else {
-            finish(result.paths);
-        }
-    }
+    const std::string typed = name_.text();
+    const auto selection_revision = folder->selection_revision();
+    const bool save_directory = request_.mode == Mode::save && valid_name(typed) &&
+                                folder->path().is_absolute() && !folder->is_trash();
+    validating_ = true;
+    error_.clear();
+    validation_ = browser_.pool_.submit(
+        core::Priority::visible,
+        [request = request_, path = folder->path(), selected = std::move(selected), typed,
+         save_directory](const core::CancelToken& token) {
+            std::pair<std::filesystem::path, PickerSelection> result;
+            if (save_directory) {
+                std::error_code ec;
+                const auto target = path / typed;
+                if (std::filesystem::is_directory(target, ec)) {
+                    result.first = target;
+                    return result;
+                }
+            }
+            if (!token.cancelled())
+                result.second = picker_selection(request, path, selected, typed);
+            return result;
+        },
+        [this, weak_folder = std::weak_ptr{folder}, typed, selection_revision](auto checked) {
+            const auto checked_folder = weak_folder.lock();
+            validating_ = false;
+            // A reply belongs only to the choice that initiated it, never a newer
+            // checked_folder/name.
+            if (!done_ || !checked_folder || browser_.picker_folder() != checked_folder ||
+                name_.text() != typed ||
+                checked_folder->selection_revision() != selection_revision) {
+                redraw_();
+                return;
+            }
+            if (!checked.first.empty()) {
+                browser_.open(checked.first);
+                set_name(request_.name);
+                error_.clear();
+                redraw_();
+                return;
+            }
+            auto& result = checked.second;
+            error_ = result.error;
+            if (!error_.empty()) {
+                redraw_();
+                return;
+            }
+            if (result.overwrite) {
+                confirm_.open(
+                    result.paths.size() == 1
+                        ? i18n::trf("Replace “{}”?",
+                                    std::filesystem::path{result.paths.front()}.filename().string())
+                        : std::string{i18n::tr("Replace existing files?")},
+                    checked_folder->path().string(), std::string{i18n::tr("Replace")},
+                    [this, paths = result.paths](bool yes) {
+                        if (yes)
+                            finish(paths);
+                    },
+                    std::string{i18n::tr(
+                        "The application will overwrite the selected file when it saves.")});
+                redraw_();
+            } else {
+                // Completion may destroy this picker; do not access members afterwards.
+                finish(std::move(result.paths));
+            }
+        });
     redraw_();
 }
 
+void FilePicker::cancel_validation() {
+    validation_.cancel();
+    validating_ = false;
+}
+
 void FilePicker::cancel() {
+    cancel_validation();
     if (terminal_cancel_)
         terminal_cancel_();
     if (done_) {
@@ -371,6 +415,7 @@ void FilePicker::sync_selection() {
     if (selection == last_selection_) {
         return;
     }
+    cancel_validation();
     const bool same_folder =
         !last_selection_.empty() && last_selection_.front() == selection.front();
     last_selection_ = std::move(selection);
@@ -406,6 +451,7 @@ std::string FilePicker::copy_name(bool cut) {
     const auto [first, last] = name_.selection();
     auto text = name_.text().substr(first, last - first);
     if (cut && first != last) {
+        cancel_validation();
         name_.insert({});
         error_.clear();
         redraw_();
@@ -414,6 +460,7 @@ std::string FilePicker::copy_name(bool cut) {
 }
 
 void FilePicker::paste(std::string_view text) {
+    cancel_validation();
     const auto end = text.find_first_of("\r\n");
     name_.insert(text.substr(0, end));
     error_.clear();
@@ -540,7 +587,10 @@ bool FilePicker::key(const ui::KeyEvent& event) {
         return true;
     }
     if (focus_ == 1) {
+        const auto previous = name_.text();
         if (name_.key(event)) {
+            if (name_.text() != previous)
+                cancel_validation();
             error_.clear();
         }
         redraw_();
@@ -733,7 +783,8 @@ void FilePicker::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     const float right = bounds.right() - 12;
     const float action_width = std::min(108.0F, (available - 8) / 2);
     button(4,
-           request_.accept_label.empty()
+           validating_ ? std::string{i18n::tr("Checking…")}
+           : request_.accept_label.empty()
                ? std::string{request_.mode == Mode::open ? i18n::tr("Select") : i18n::tr("Save")}
                : request_.accept_label,
            {right - action_width, y, action_width, 32}, true);

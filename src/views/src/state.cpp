@@ -307,8 +307,8 @@ StartupLocation startup_location(const core::Config::Startup& startup, const Sta
         folder = core::expand_folder_path(startup.folder);
     if (startup.mode == Mode::last)
         folder = state.last_folder;
-    std::error_code error;
-    if (!folder.empty() && !std::filesystem::is_directory(folder, error))
+    // Availability is resolved by the directory worker, never during startup.
+    if (!folder.empty() && !folder.is_absolute())
         folder.clear();
     return {.folder = std::move(folder)};
 }

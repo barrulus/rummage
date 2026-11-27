@@ -26,8 +26,8 @@ aliases follow the `rummage::` namespace.
 | `src/formats` | Actual file readers linked into the helper; image and text families |
 | `src/isolate` | Helper startup/pooling, descriptor protocol, resource limits and sandbox |
 | `src/thumbs` | Shared thumbnail cache |
-| `src/media` | Optional isolated FFmpeg video engine |
-| `src/pdf` | Optional isolated PDFium PDF engine |
+| `src/media` | Bundled isolated FFmpeg video engine |
+| `src/pdf` | Bundled isolated PDFium PDF engine |
 | `src/svg` | Shared librsvg/Cairo adapter for theme icons and isolated file previews: bounds, aspect-ratio sizing and straight-alpha RGBA |
 | `src/tools` | Developer renderers, inspectors and benchmarks |
 | `tests` | Doctest suite, standalone integrations, fixtures and fuzz targets |

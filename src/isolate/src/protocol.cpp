@@ -95,6 +95,37 @@ std::optional<Packet> receive_packet(int socket) {
 
 namespace {
 
+// Bound display metadata by complete Unicode scalar values. Decoder libraries may return
+// malformed byte strings; replace those bytes rather than producing invalid JSON downstream.
+std::string bounded_utf8(std::string_view text, std::size_t limit) {
+    std::string result;
+    result.reserve(std::min(text.size(), limit));
+    for (std::size_t at = 0; at < text.size();) {
+        const auto first = static_cast<unsigned char>(text[at]);
+        std::size_t length = first < 0x80                     ? 1
+                             : first >= 0xc2 && first <= 0xdf ? 2
+                             : first >= 0xe0 && first <= 0xef ? 3
+                             : first >= 0xf0 && first <= 0xf4 ? 4
+                                                              : 0;
+        bool valid = length != 0 && length <= text.size() - at;
+        for (std::size_t i = 1; valid && i < length; ++i) {
+            const auto byte = static_cast<unsigned char>(text[at + i]);
+            valid = byte >= 0x80 && byte <= 0xbf;
+        }
+        if (valid && length >= 3) {
+            const auto second = static_cast<unsigned char>(text[at + 1]);
+            valid = !(first == 0xe0 && second < 0xa0) && !(first == 0xed && second >= 0xa0) &&
+                    !(first == 0xf0 && second < 0x90) && !(first == 0xf4 && second >= 0x90);
+        }
+        const auto scalar = valid ? text.substr(at, length) : std::string_view{"\xef\xbf\xbd"};
+        if (scalar.size() > limit - result.size())
+            break;
+        result.append(scalar);
+        at += valid ? length : 1;
+    }
+    return result;
+}
+
 // The text fields of a PhotoInfo, in the order they travel.
 constexpr std::array kFields{
     &picture::PhotoInfo::camera,        &picture::PhotoInfo::lens,
@@ -134,29 +165,30 @@ std::vector<std::byte> encode_info(const picture::PhotoInfo& info) {
     header.rating = static_cast<std::int8_t>(info.rating.value_or(0));
     std::vector<std::byte> out(sizeof(header));
     for (std::size_t i = 0; i < kFields.size(); ++i) {
-        const std::string& text = info.*kFields.at(i);
-        const std::size_t length = std::min(text.size(), kMaxField);
+        const auto text = bounded_utf8(info.*kFields.at(i), kMaxField);
+        const std::size_t length = text.size();
         header.lengths.at(i) = static_cast<std::uint8_t>(length);
         const auto* bytes = reinterpret_cast<const std::byte*>(text.data());  // NOLINT: bytes
         out.insert(out.end(), bytes, bytes + length);
     }
     header.details_truncated = info.details_truncated ? 1 : 0;
     for (const auto& [label, value] : info.details) {
-        const auto label_size = std::min(label.size(), picture::PhotoInfo::max_detail_bytes);
-        const auto value_size = std::min(value.size(), picture::PhotoInfo::max_detail_bytes);
+        const auto safe_label = bounded_utf8(label, picture::PhotoInfo::max_detail_bytes);
+        const auto safe_value = bounded_utf8(value, picture::PhotoInfo::max_detail_bytes);
+        const auto label_size = safe_label.size();
+        const auto value_size = safe_value.size();
         if (header.detail_count >= picture::PhotoInfo::max_details ||
             out.size() + 4 + label_size + value_size > kMaxPacket) {
             header.details_truncated = 1;
             break;
         }
-        if (label_size != label.size() || value_size != value.size())
+        if (safe_label != label || safe_value != value)
             header.details_truncated = 1;
         for (const auto size : {label_size, value_size}) {
             out.push_back(static_cast<std::byte>(size & 255));
             out.push_back(static_cast<std::byte>(size >> 8));
         }
-        for (const auto text : {std::string_view{label}.substr(0, label_size),
-                                std::string_view{value}.substr(0, value_size)}) {
+        for (const auto text : {std::string_view{safe_label}, std::string_view{safe_value}}) {
             const auto* data = reinterpret_cast<const std::byte*>(text.data());
             out.insert(out.end(), data, data + text.size());
         }
@@ -190,6 +222,8 @@ std::optional<picture::PhotoInfo> decode_info(std::span<const std::byte> bytes) 
         }
         (info.*kFields.at(i))
             .assign(reinterpret_cast<const char*>(bytes.data() + at), length);  // NOLINT: bytes
+        if (bounded_utf8(info.*kFields.at(i), length) != info.*kFields.at(i))
+            return std::nullopt;
         at += length;
     }
     info.details_truncated = header.details_truncated != 0;
@@ -207,7 +241,10 @@ std::optional<picture::PhotoInfo> decode_info(std::span<const std::byte> bytes) 
             label_size + value_size > bytes.size() - at)
             return std::nullopt;
         const auto* data = reinterpret_cast<const char*>(bytes.data() + at);
-        info.add_detail(std::string{data, label_size}, std::string{data + label_size, value_size});
+        const std::string label{data, label_size}, value{data + label_size, value_size};
+        if (bounded_utf8(label, label_size) != label || bounded_utf8(value, value_size) != value)
+            return std::nullopt;
+        info.add_detail(label, value);
         at += label_size + value_size;
     }
     if (at != bytes.size()) {

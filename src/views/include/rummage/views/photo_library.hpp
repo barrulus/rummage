@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "rummage/core/file_picker.hpp"
@@ -151,11 +152,16 @@ private:
     void query(bool reset = false);
     void load_more();
     void publish();
+    void publish_append(std::size_t first);
+    void update_metadata(const Json& ids);
+    void drain_metadata();
+    void index_rows();
+    PhotoProperties build_properties(bool focused_only) const;
     void sync_selection() const;
     void work();
     void schedule_work(bool busy = false);
     void refresh_progress();
-    void update_progress(const Json&);
+    void update_progress(const Json&, const Json& counts = Json::object());
     void update_background(const Json&);
     void control_background(Json);
     void add_to_album();
@@ -201,12 +207,24 @@ private:
     std::map<std::uint64_t, core::CancelToken> pending_;
     core::CancelToken query_job_;
     core::EventLoop::SourceId work_timer_{};
+    core::EventLoop::SourceId metadata_retry_timer_{};
+    unsigned metadata_retry_count_{};
     std::uint64_t task_ids_{}, generation_{}, progress_generation_{}, background_generation_{};
     std::uint64_t album_chooser_generation_{};
     bool open_{false}, querying_{false}, working_{false}, publishing_{false};
     Destination destination_{Destination::library};
     Json rows_ = Json::array(), records_ = Json::array(), filter_ = Json::object();
     std::string collection_name_;
+    std::unordered_map<Id, std::size_t> row_by_id_;
+    std::uint64_t data_revision_{};
+
+    struct PropertiesCache {
+        std::uint64_t data_revision{}, selection_revision{};
+        std::string cursor, language;
+        PhotoProperties value;
+    };
+
+    mutable std::optional<PropertiesCache> focused_properties_, selected_properties_;
     Json duplicate_group_ = Json::object();
     std::map<std::string, Json> record_by_key_;
     mutable std::set<Id> selected_;
@@ -219,7 +237,10 @@ private:
     std::string search_, message_, progress_, background_pace_{"normal"};
     bool background_paused_{false}, background_ready_{false};
     int work_delay_ms_{250};
-    std::size_t offset_{}, total_{};
+    std::size_t offset_{}, total_{}, review_offset_{}, review_total_{};
+    std::set<Id> pending_metadata_;
+    bool metadata_querying_{false}, metadata_refresh_pending_{false};
+    std::chrono::steady_clock::time_point metadata_refresh_after_{};
     bool append_failed_{false}, refresh_again_{false};
     static constexpr std::size_t page_size_ = 200;
     fs::SortOrder order_;

@@ -67,6 +67,16 @@ unverified; it does not confirm that the current file is the original catalogued
 Catalog annotations and captured identity remain unchanged, and file-operation guards still
 refuse the changed record. Offline, missing, trashed and replaced records remain cache-only.
 
+Album counts describe visible photos. Replaced originals and inactive sources retain their
+annotations separately: choose **Review retained photo associations** in the Photo Library
+menu to inspect them. This view can be used within an album or source. A changed filesystem
+identity is never automatically attached to another file, even when its name and contents look
+the same. Sources whose inode identities change across reconnects may require this review.
+
+Dragging from Photo Library explains the supported alternative: **Copy** or **Cut**, then
+**Paste** in a folder. Collection dragging remains unavailable; the ordinary folder browser's
+drag behavior is unchanged.
+
 
 ## Edit and organise
 
@@ -144,8 +154,9 @@ Closing its workspace leaves work running while that browser window is alive; cl
 window ends processing. There is no background daemon.
 
 While the library is active, Rummage monitors registered source folders and discovered
-subfolders using its existing directory watcher. The catalog retains the discovered folder
-list for the next launch and queues one reconciliation per source on restart to catch changes
+subfolders using its existing directory watcher. Watch registration resolves paths on workers,
+so a slow source does not block the browser’s event loop. The catalog retains the discovered folder
+list for the next launch and queues one reconciliation per monitored source on restart to catch changes
 made while Rummage was closed. Nearby filesystem events are collected for 150 ms before
 queuing a source refresh. Watcher overflow also queues reconciliation; unchanged signatures retain
 derived metadata and duplicate fingerprints. Source availability is checked every 30 seconds,
@@ -162,6 +173,10 @@ or **Refresh Photo Library** for all active sources when automatic monitoring is
 external changes not yet reflected in the library, or to recover from a watcher problem.
 Refreshing remains available even when a folder cannot be watched; it respects background
 pause settings. You can also retry a waiting job after reconnecting its source.
+The shared asynchronous watcher bounds active and pending registrations at 8,192 across its
+users, including cancelled registrations waiting for an operating-system lookup to return.
+If that bound is reached, manual refresh remains available. Cancelling navigation suppresses
+late replies; an already-running filesystem syscall itself may still take time to return.
 
 **Relink source…** in a source’s context menu opens the native folder picker, then reviews
 the chosen location before applying it. Existing filesystem identities must
@@ -178,7 +193,9 @@ matches are not automatically attached to a different file.
 ## Review exact duplicates
 
 Choose **Review duplicates** in the Photo Library menu, then **Find exact duplicate candidates**.
-Size and content signatures select candidate groups; full byte comparison runs again before a
+Use **Previous duplicate groups** and **Next duplicate groups** to browse every result page;
+the status shows the full group count. Size and content signatures select candidate groups;
+full byte comparison runs again before a
 trash request. Open a group with **Review these copies**. Its photos use the same browser views,
 location column and information pane as the library. Use **Keep selected copies** and
 **Mark selected copies for trash** in the context menu to choose which originals to retain.
@@ -209,9 +226,14 @@ Keep exports somewhere separate from the working catalog.
 
 Use **Restore photo annotations…** in the same menu and choose the versioned JSON export in
 Rummage’s native Open picker, including in a fresh catalog. Cancelling either picker leaves
-the catalog and export files unchanged.
+the catalog and export files unchanged. Before applying a restore, a confirmation explains its
+policy: descriptions, ratings and manual dates replace the corresponding matching values;
+tags and album memberships merge with existing organisation. Newer memberships are not
+removed, so this is a merge operation rather than a complete rollback.
 Restoration registers the exported source folders without starting an automatic scan and
-restores only established identity matches. The result reports restored, missing and ambiguous
+restores only established identity matches. Newly restored sources remain unmonitored across
+restarts until you explicitly use **Refresh folder** or **Refresh Photo Library**. Existing
+monitored sources retain their monitoring setting. The result reports restored, missing and ambiguous
 entries; files with the same name are not silently matched. Originals copied onto a different filesystem can have different identities and
 require review. An annotation export is not a backup of your photographs or thumbnail cache.
 
@@ -219,7 +241,8 @@ The catalog is normally `~/.local/share/rummage/photos/catalog.sqlite3`, or unde
 `$XDG_DATA_HOME/rummage/photos/`. Disabling or uninstalling the add-on preserves that directory.
 For a filesystem backup, close all Rummage windows and retain the complete directory, including
 any SQLite journal files. Schema initialization/upgrades are versioned; failures preserve the
-existing catalog and report an error. Do not delete a catalog to dismiss an upgrade error.
+existing catalog and report an error. An interrupted upgrade can retry while preserving earlier
+backup files under unique names. Do not delete a catalog to dismiss an upgrade error.
 
 This implementation supports still-image cataloging through the available image engines.
 Recognised image extensions with unavailable decoders or damaged contents appear as problems
@@ -238,11 +261,11 @@ These remaining limits affect normal use:
 
 | Feature | Current limit and effect |
 | --- | --- |
-| Automatic folder monitoring | 4,096 folders per window; a warning appears when coverage is incomplete. Manual refresh still scans the sources. |
+| Automatic folder monitoring | 4,096 photo folders per window; 8,192 shared asynchronous registrations across the watcher’s users. A warning appears when coverage is incomplete. Manual refresh still scans sources. |
 | Bulk edits / new album selection | 100,000 photos per request. Larger requests are rejected. |
-| Duplicate review | First 1,000 groups are listed; one review accepts up to 1,000 candidates. Additional groups are not currently paginated. |
+| Duplicate review | Groups are paginated, with no total group cap; one review accepts up to 1,000 candidate and keeper IDs. |
 | Activity history | Latest 1,000 jobs and 1,000 file operations; only the first 100 file outcomes per job are returned. This can hide older jobs and additional failures. Recovery scans unresolved file operations independently of this history limit. |
-| Annotation restore | At most 256 MiB per JSON file and 1,000,000 photo records. Export currently has no matching bound, so a larger export cannot be restored through this interface. |
+| Annotation export and restore | Both support at most 256 MiB per JSON file and 1,000,000 photo records. An oversized export fails before replacing its destination. |
 | Annotation text | Description: 65,536 UTF-8 bytes. Each tag, album name and saved-search name: 512 bytes. Native Properties fields are currently single-line. |
 | Source exclusions | Up to 1,000 patterns per source. |
 | Workspace restoration | At most 100,000 selected IDs in the photo workspace; the overall saved workspace is limited to 4 MiB. Oversized state may not survive a restart; catalog data is separate. |

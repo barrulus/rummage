@@ -153,6 +153,7 @@ struct Remotes {
 
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class Browser {
+    friend class FilePicker;  // Picker validation uses the browser’s cancellable I/O pool.
 public:
     using Clock = ui::Scroller::Clock;
 
@@ -682,6 +683,8 @@ public:
     void mount_remote(const fs::Place& place, bool open,
                       std::function<void(const std::filesystem::path&)> ready = {});
     void unmount_remote(const fs::Place& place);
+    void open_mounted_folder(const std::shared_ptr<Folder>& origin,
+                             const std::filesystem::path& where);
 
     // Ctrl+L: the card that goes to a folder or a server, the folder shown in it to start with.
     void open_location();

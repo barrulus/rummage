@@ -8,6 +8,7 @@
 
 #include <doctest/doctest.h>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/photo_library.hpp"
@@ -136,11 +137,24 @@ TEST_CASE(
     CHECK(folder->entries()[0].name == folder->entries()[1].name);
     CHECK(folder->entries()[0].key() != folder->entries()[1].key());
     CHECK(folder->path_of(folder->entries()[0]) != folder->path_of(folder->entries()[1]));
+    folder->set_cursor(std::nullopt);
+    folder->select_band({}, std::vector<std::size_t>{0, 1});
+    CHECK(folder->cursor_entry() == nullptr);
+    CHECK(library.properties(true).ids.empty());
+    CHECK(library.properties().ids.size() == 2);
     folder->set_cursor(1);
+    const auto initial_properties = library.properties(true);
+    REQUIRE(initial_properties.ids.size() == 1);
     const auto chosen = library.selected_ids();
     library.refresh();
     REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
     CHECK(library.selected_ids() == chosen);
+    REQUIRE(library.client()
+                ->request({{"op", "edit"}, {"ids", chosen}, {"description", "Updated annotations"}})
+                .value("ok", false));
+    library.refresh();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.properties(true).annotations.description == "Updated annotations");
     const auto saved = library.state();
     PhotoLibrary restored{loop, pool, watcher, mime, [] {}};
     restored.restore_state(saved);
@@ -181,6 +195,18 @@ TEST_CASE(
     CHECK(picker_request.mode == rummage::core::PickerRequest::Mode::open);
     CHECK_FALSE(picker_request.directory);
     chosen_path(exported);
+    REQUIRE(settle_photos(loop, [&] { return library.has_dialog(); }));
+    library.key_dialog(photo_key(XKB_KEY_Escape));
+    CHECK_FALSE(library.has_dialog());
+    CHECK(library.client()
+              ->request({{"op", "query"}})
+              .at("photos")
+              .front()
+              .value("description", "") == "After export");
+    invoke(library.menu_items(), "photos:restore");
+    chosen_path(exported);
+    REQUIRE(settle_photos(loop, [&] { return library.has_dialog(); }));
+    library.key_dialog(photo_key(XKB_KEY_Return));
     REQUIRE(settle_photos(loop, [&] {
         const auto rows = library.client()->request({{"op", "query"}}).at("photos");
         return std::ranges::any_of(rows, [&](const auto& row) {
@@ -1326,5 +1352,212 @@ TEST_CASE("photo workspace: changed originals preview freshly without accepting 
     const auto after = catalog.request({{"op", "query"}}).at("photos").front();
     for (const auto* key : {"id", "signature", "availability", "description", "rating", "tags"})
         CHECK(after.at(key) == before.at(key));
+}
+
+TEST_CASE("photo workspace: metadata patches preserve loaded storage and focused annotations") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    constexpr std::size_t count = 24;
+    for (std::size_t index = 0; index < count; ++index)
+        fixture(source / (std::to_string(100 + index) + ".png"));
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 256}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "query"}}).at("photos").size() == count);
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    PhotoLibrary library{loop, pool, watcher, mime, [] {}};
+    library.open();
+    REQUIRE(settle_photos(loop, [&] {
+        // Initial open publishes once; adopted watches reconcile once more. Neither is
+        // metadata-only work, so wait for both publications while background work is paused.
+        return !library.loading() && library.rows().size() == count &&
+               library.folder()->revision() >= 2;
+    }));
+    const auto progress = catalog.request({{"op", "progress"}}).at("jobs").front();
+    CHECK(progress.value("pending_directories", -1) == 0);
+    REQUIRE(progress.value("metadata_pending", 0) > 0);
+    const auto folder = library.folder();
+    folder->set_cursor(count - 1);
+    const auto id = library.properties(true).ids.front();
+    invoke(library.menu_items(), "photos:pause");
+    REQUIRE(settle_photos(loop, [&] {
+        return !library.loading() &&
+               library.status().find("Background work resumed.") != std::string::npos;
+    }));
+    // Resume is an explicit action that refreshes once. Observe only subsequent metadata work.
+    const auto* storage = folder->entries().data();
+    const auto selected = library.selected_ids();
+    bool replaced_storage = false;
+    std::string replacement_status;
+    const auto observed = loop.add_timer(5ms, 5ms, [&] {
+        if (folder->entries().data() != storage) {
+            replaced_storage = true;
+            if (replacement_status.empty())
+                replacement_status = library.status();
+        }
+    });
+    REQUIRE(settle_photos(
+        loop,
+        [&] {
+            return library.rows().size() == count &&
+                   std::ranges::all_of(library.rows(), [](const auto& row) {
+                       return row.value("width", 0) > 0 && row.value("height", 0) > 0;
+                   });
+        },
+        12s));
+    loop.remove(observed);
+    INFO(replacement_status);
+    CHECK_FALSE(replaced_storage);
+    CHECK(library.selected_ids() == selected);
+    CHECK(library.properties(true).ids == std::vector<PhotoLibrary::Id>{id});
+    CHECK(std::ranges::any_of(library.properties(true).rows, [](const auto& row) {
+        return row.first == "Dimensions" && !row.second.empty();
+    }));
+    // A metadata patch must update the retained selection snapshot as well. Moving to an
+    // empty album forces bulk properties to read that snapshot rather than the loaded rows.
+    const auto empty_album = catalog.request({{"op", "create_album"}, {"name", "Snapshot check"}});
+    REQUIRE(empty_album.value("ok", false));
+    library.open_album(empty_album.at("id").get<PhotoLibrary::Id>(), "Snapshot check");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.rows().empty());
+    CHECK(library.selected_ids() == selected);
+    CHECK(std::ranges::any_of(library.properties().rows, [](const auto& row) {
+        return row.first == "Dimensions" && !row.second.empty();
+    }));
+    invoke(library.menu_items(), "photos:clear-selection");
+    CHECK(library.selected_ids().empty());
+    CHECK(library.properties().ids.empty());
+    // No cursor means no focused inspector, including a large rubber-band selection.
+    folder->set_cursor(std::nullopt);
+    folder->select_all();
+    folder->set_cursor(std::nullopt);
+    CHECK(library.properties(true).ids.empty());
+}
+
+TEST_CASE(
+    "photo workspace: retained album associations remain explicit and untranslated user names "
+    "survive") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    fixture(source / "original.png");
+    rummage::photos::Client catalog;
+    const auto added = catalog.request({{"op", "add_source"}, {"path", source.string()}});
+    REQUIRE(added.value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    const auto original = catalog.request({{"op", "query"}}).at("photos").front();
+    const auto album =
+        catalog.request({{"op", "create_album"}, {"name", "paused"}, {"ids", {original.at("id")}}});
+    REQUIRE(album.value("ok", false));
+    REQUIRE(catalog.request({{"op", "remove_source"}, {"source_id", added.at("source").at("id")}})
+                .value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    PhotoLibrary library{loop, pool, watcher, mime, [] {}};
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows().empty());
+    library.open_album(album.at("id").get<PhotoLibrary::Id>(), "paused");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows().empty());
+    invoke(library.menu_items(), "photos:retained");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.rows().size() == 1);
+    CHECK(library.rows().front().at("id") == original.at("id"));
+    CHECK(library.rows().front().value("availability", "") == "inactive");
+    CHECK_FALSE(library.folder()->entries().front().available);
+    CHECK_FALSE(library.folder()->entries().front().can_preview());
+    CHECK(library.status().find("Retained associations") != std::string::npos);
+    CHECK(std::filesystem::exists(source / "original.png"));
+    library.show(PhotoLibrary::Destination::albums);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    library.folder()->set_cursor(0);
+
+    struct ResetLanguage {
+        ~ResetLanguage() { rummage::i18n::set_language("en"); }
+    } reset_language;
+
+    rummage::i18n::set_language("de");
+    const auto props = library.properties(true);
+    CHECK(props.title == "paused");
+    CHECK(std::ranges::any_of(props.rows, [](const auto& row) { return row.second == "paused"; }));
+    CHECK(std::ranges::any_of(props.rows, [](const auto& row) { return row.second == "1"; }));
+    const auto menu = library.menu_items();
+    const auto retained = std::ranges::find(menu, "photos:retained", &rummage::views::MenuItem::id);
+    REQUIRE(retained != menu.end());
+    CHECK(retained->label != "Review retained photo associations");
+    CHECK_FALSE(retained->label.empty());
+    rummage::i18n::set_language("en");
+    library.show_all_photos();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.rows().empty());
+}
+
+TEST_CASE("photo workspace: duplicate review exposes every group beyond the first two hundred") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    constexpr std::size_t groups = 202;
+    for (std::size_t group = 0; group < groups; ++group)
+        for (const auto suffix : {"a", "b"}) {
+            const auto path = source / (std::to_string(group) + suffix + ".png");
+            fixture(path);
+            std::ofstream{path, std::ios::binary | std::ios::app} << "group:" << group;
+        }
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    const auto drain = [&] {
+        const auto deadline = std::chrono::steady_clock::now() + 30s;
+        bool idle = false;
+        do {
+            const auto work = catalog.request({{"op", "work"}, {"budget", 256}});
+            REQUIRE(work.value("ok", false));
+            idle = !work.value("worked", false) && !work.value("busy", false);
+        } while (!idle && std::chrono::steady_clock::now() < deadline);
+        INFO(catalog.request({{"op", "jobs"}}).dump());
+        REQUIRE(idle);
+    };
+    drain();
+    REQUIRE(catalog.request({{"op", "query"}, {"limit", 1}}).at("total") == groups * 2);
+    REQUIRE(catalog.request({{"op", "find_duplicates"}}).value("ok", false));
+    drain();
+    REQUIRE(catalog.request({{"op", "duplicates"}}).at("total") == groups);
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    PhotoLibrary library{loop, pool, watcher, mime, [] {}};
+    library.open();
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    library.show(PhotoLibrary::Destination::review);
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.folder()->entries().size() == 200);
+    CHECK(library.status().find("Groups 1–200 of 202") != std::string::npos);
+    const auto first_key = library.folder()->entries().front().key();
+    invoke(library.menu_items(), "photos:duplicate-next");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    REQUIRE(library.folder()->entries().size() == 2);
+    CHECK(library.status().find("Groups 201–202 of 202") != std::string::npos);
+    CHECK(library.folder()->entries().front().key() != first_key);
+    const auto menu = library.menu_items();
+    const auto next =
+        std::ranges::find(menu, "photos:duplicate-next", &rummage::views::MenuItem::id);
+    REQUIRE(next != menu.end());
+    CHECK_FALSE(next->enabled);
+    invoke(library.menu_items(), "photos:duplicate-previous");
+    REQUIRE(settle_photos(loop, [&] { return !library.loading(); }));
+    CHECK(library.folder()->entries().front().key() == first_key);
 }
 #endif

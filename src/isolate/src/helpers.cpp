@@ -143,8 +143,7 @@ int end(pid_t pid, int socket) {
 
 }  // namespace
 
-Helpers::Helpers(HelperOptions options)
-    : options_{std::move(options)}, reaper_{[this] { close_idle(); }} {
+Helpers::Helpers(HelperOptions options) : options_{std::move(options)} {
 #if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
     // Sanitizer builds (tests, snapshots) decode several times slower.
     options_.timeout *= 5;
@@ -157,7 +156,8 @@ Helpers::~Helpers() {
         stopping_ = true;
     }
     idle_changed_.notify_all();
-    reaper_.join();
+    if (reaper_.joinable())
+        reaper_.join();
     const std::scoped_lock lock{mutex_};
     for (const Helper& helper : idle_) {
         end(helper.pid, helper.socket);
@@ -263,6 +263,10 @@ std::optional<Helpers::Helper> Helpers::take(const core::CancelToken* cancel,
             return helper;
         }
         if (count_ < options_.max_helpers) {
+            // Bundled but unused preview engines need no idle housekeeping thread. The
+            // mutex makes concurrent first requests start exactly one reaper.
+            if (!reaper_.joinable())
+                reaper_ = std::thread{[this] { close_idle(); }};
             ++count_;
             lock.unlock();
             std::optional<Helper> started = spawn();
@@ -740,25 +744,7 @@ archive::Read Helpers::read_archive_entry(const std::filesystem::path& path, arc
         protocol::encode_archive_read(format, entry, max_bytes);
     archive::Read result;
     const auto accept = [&](protocol::Packet& reply, std::string& why) {
-        protocol::ArchiveReadResponse response;
-        if (reply.length < sizeof(response)) {
-            why = "the preview helper said something else";
-            return false;
-        }
-        std::memcpy(&response, reply.bytes.data(), sizeof(response));
-        if (response.magic != protocol::kArchiveReadMagic ||
-            reply.length != sizeof(response) + response.detail_length ||
-            response.failure > static_cast<std::uint8_t>(archive::Failure::unreadable) ||
-            response.bytes > max_bytes) {
-            why = "the preview helper said something else";
-            return false;
-        }
-        result.failure = static_cast<archive::Failure>(response.failure);
-        result.bytes = response.bytes;
-        result.detail.assign(reinterpret_cast<const char*>(  // NOLINT: bytes to chars
-                                 reply.bytes.data() + sizeof(response)),
-                             response.detail_length);
-        return true;
+        return accept_read(reply, max_bytes, result, why);
     };
     std::string why;
     const std::array<int, 2> fds{file, out};

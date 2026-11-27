@@ -143,6 +143,23 @@ if(RUMMAGE_PHOTOS)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     add_test(NAME photos-migration COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/photos_migration.py" "$<TARGET_FILE:rummage_photos>")
+    # ctypes loads the instrumented module into an uninstrumented Python host. ASan must
+    # already be present before that dlopen; use this toolchain's runtime, not the host's.
+    if(RUMMAGE_SANITIZER MATCHES "address" AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            set(_photos_asan_name "libclang_rt.asan-${CMAKE_SYSTEM_PROCESSOR}.so")
+        else()
+            set(_photos_asan_name "libasan.so")
+        endif()
+        execute_process(COMMAND "${CMAKE_CXX_COMPILER}" "-print-file-name=${_photos_asan_name}"
+            OUTPUT_VARIABLE _photos_asan_runtime OUTPUT_STRIP_TRAILING_WHITESPACE
+            COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT EXISTS "${_photos_asan_runtime}")
+            message(FATAL_ERROR "Cannot locate sanitizer runtime for Python migration test: ${_photos_asan_name}")
+        endif()
+        set_tests_properties(photos-migration PROPERTIES ENVIRONMENT
+            "LD_PRELOAD=${_photos_asan_runtime};ASAN_OPTIONS=detect_leaks=0:abort_on_error=1;UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1")
+    endif()
 endif()
 
 # The helper protocol's private header, for its tests; the image family's private readers (TIFF,

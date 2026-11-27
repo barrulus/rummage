@@ -10,10 +10,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <set>
 #include <signal.h>
 #include <sqlite3.h>
@@ -31,6 +33,29 @@ namespace {
 using Json = nlohmann::json;
 using Id = std::int64_t;
 namespace fs = std::filesystem;
+constexpr std::size_t kMaxExportPhotos = 1'000'000;
+constexpr std::size_t kMaxExportBytes = std::size_t{256} * 1024 * 1024;
+
+std::optional<Id> nanoseconds(Id seconds, Id fraction) {
+    constexpr Id billion = 1'000'000'000;
+    if (fraction < 0 || fraction >= billion)
+        return std::nullopt;
+    if (seconds >= 0) {
+        if (seconds > (std::numeric_limits<Id>::max() - fraction) / billion)
+            return std::nullopt;
+        return seconds * billion + fraction;
+    }
+    // Shift a negative second toward zero before multiplying so INT64_MIN's partial
+    // second remains representable without overflowing the intermediate product.
+    const Id adjusted = seconds + 1;
+    if (adjusted < std::numeric_limits<Id>::min() / billion)
+        return std::nullopt;
+    const Id base = adjusted * billion;
+    const Id remainder = fraction - billion;
+    if (base < std::numeric_limits<Id>::min() - remainder)
+        return std::nullopt;
+    return base + remainder;
+}
 
 class Statement {
 public:
@@ -152,16 +177,16 @@ public:
                 (void)version.row();
                 schema = version.number(0);
             }
-            if (schema > 2)
+            if (schema > 3)
                 throw std::runtime_error(
                     "Photo catalog is newer than this add-on. Install a matching version; the "
                     "catalog has been preserved.");
             if (schema == 0) {
                 if (!fresh)
-                    backup(path.string() + ".before-schema-1.backup");
+                    backup(path.string() + ".before-schema-1.backup", true);
                 initialize();
             } else if (schema == 1) {
-                backup(path.string() + ".before-schema-2.backup");
+                backup(path.string() + ".before-schema-2.backup", true);
                 try {
                     exec(
                         "BEGIN IMMEDIATE; ALTER TABLE jobs ADD COLUMN refresh_again INTEGER NOT "
@@ -176,6 +201,7 @@ public:
                         "0,UNIQUE(source_id,relative_path)); "
                         "INSERT INTO source_directories(source_id,relative_path) SELECT id,'' FROM "
                         "sources; PRAGMA user_version=2; COMMIT;");
+                    schema = 2;
                 } catch (const std::exception& error) {
                     try {
                         exec("ROLLBACK");
@@ -185,6 +211,38 @@ public:
                         "Photo catalog upgrade failed. The original catalog and pre-upgrade backup "
                         "were preserved; restore the backup or retry with a compatible add-on. " +
                         std::string(error.what()));
+                }
+            }
+            if (schema == 2) {
+                backup(path.string() + ".before-schema-3.backup", true);
+                try {
+                    exec(
+                        "BEGIN IMMEDIATE; ALTER TABLE sources ADD COLUMN watch_enabled INTEGER "
+                        "NOT NULL DEFAULT 1; CREATE INDEX photos_pending_metadata ON photos(id) "
+                        "WHERE metadata_signature='' AND availability='online'; "
+                        "CREATE INDEX photos_seen_job ON "
+                        "photos(seen_job,availability,metadata_signature); "
+                        "CREATE INDEX photos_modified ON photos(mtime,mtime_ns,id); "
+                        "CREATE TABLE photo_receipts(photo_id INTEGER PRIMARY KEY REFERENCES "
+                        "photos(id) ON DELETE CASCADE, operation_id INTEGER NOT NULL, path TEXT "
+                        "NOT NULL, signature TEXT NOT NULL); CREATE INDEX photo_receipts_path ON "
+                        "photo_receipts(path); "
+                        "INSERT OR REPLACE INTO photo_receipts SELECT "
+                        "CAST(json_extract(r.value,'$.id') AS INTEGER),o.id,"
+                        "json_extract(r.value,'$.destination'),json_extract(r.value,'$.receipt_"
+                        "signature') "
+                        "FROM operations o,json_each(o.payload,'$.results') r "
+                        "JOIN photos p ON p.id=json_extract(r.value,'$.id') "
+                        "WHERE o.kind='trash' AND json_extract(r.value,'$.success')=1 "
+                        "AND json_extract(r.value,'$.receipt_signature') IS NOT NULL "
+                        "AND json_extract(r.value,'$.destination') IS NOT NULL ORDER BY o.id; "
+                        "PRAGMA user_version=3; COMMIT;");
+                } catch (...) {
+                    try {
+                        exec("ROLLBACK");
+                    } catch (...) {
+                    }
+                    throw;
                 }
             }
         } catch (...) {
@@ -214,11 +272,18 @@ public:
 
     Id last_id() const { return sqlite3_last_insert_rowid(db_); }
 
-    void backup(const fs::path& destination) {
+    void backup(fs::path destination, bool unique = false) {
         if (!destination.is_absolute())
             throw std::runtime_error("Backup path must be absolute");
-        const int fd =
-            ::open(destination.c_str(), O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC | O_NOFOLLOW, 0600);
+        const auto original = destination;
+        int fd = -1;
+        for (unsigned suffix = 0;; ++suffix) {
+            fd = ::open(destination.c_str(), O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC | O_NOFOLLOW,
+                        0600);
+            if (fd >= 0 || !unique || errno != EEXIST)
+                break;
+            destination = original.string() + "." + std::to_string(suffix + 1);
+        }
         if (fd < 0)
             throw std::runtime_error("Cannot create backup: " + destination.string() +
                                      ". Choose a new path; the original catalog was preserved.");
@@ -246,7 +311,7 @@ public:
 private:
     void initialize() {
         exec(R"SQL(BEGIN IMMEDIATE;
-CREATE TABLE IF NOT EXISTS sources(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, recursive INTEGER NOT NULL, exclusions TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1, availability TEXT NOT NULL DEFAULT 'online',device INTEGER NOT NULL,inode INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS sources(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, recursive INTEGER NOT NULL, exclusions TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1, availability TEXT NOT NULL DEFAULT 'online',device INTEGER NOT NULL,inode INTEGER NOT NULL, watch_enabled INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS photos(id INTEGER PRIMARY KEY AUTOINCREMENT, source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE, relative_path TEXT NOT NULL, filename TEXT NOT NULL, device INTEGER NOT NULL, inode INTEGER NOT NULL, size INTEGER NOT NULL, mtime INTEGER NOT NULL, mtime_ns INTEGER NOT NULL, availability TEXT NOT NULL DEFAULT 'online', description TEXT NOT NULL DEFAULT '', rating INTEGER NOT NULL DEFAULT 0 CHECK(rating BETWEEN 0 AND 5), capture_date TEXT, date_override TEXT, width INTEGER NOT NULL DEFAULT 0, height INTEGER NOT NULL DEFAULT 0, camera TEXT NOT NULL DEFAULT '', metadata_signature TEXT NOT NULL DEFAULT '', fingerprint TEXT NOT NULL DEFAULT '', seen_job INTEGER NOT NULL DEFAULT 0);
 CREATE UNIQUE INDEX IF NOT EXISTS photos_location ON photos(source_id,relative_path) WHERE availability<>'replaced';
 CREATE INDEX IF NOT EXISTS photos_rating ON photos(rating,id);
@@ -254,6 +319,11 @@ CREATE INDEX IF NOT EXISTS photos_date ON photos(COALESCE(date_override,capture_
 CREATE INDEX IF NOT EXISTS photos_name ON photos(filename COLLATE NOCASE,id);
 CREATE INDEX IF NOT EXISTS photos_identity ON photos(source_id,device,inode);
 CREATE INDEX IF NOT EXISTS photos_size ON photos(size);
+CREATE INDEX IF NOT EXISTS photos_pending_metadata ON photos(id) WHERE metadata_signature='' AND availability='online';
+CREATE INDEX IF NOT EXISTS photos_seen_job ON photos(seen_job,availability,metadata_signature);
+CREATE INDEX IF NOT EXISTS photos_modified ON photos(mtime,mtime_ns,id);
+CREATE TABLE IF NOT EXISTS photo_receipts(photo_id INTEGER PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,operation_id INTEGER NOT NULL,path TEXT NOT NULL,signature TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS photo_receipts_path ON photo_receipts(path);
 CREATE TABLE IF NOT EXISTS tags(photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE, tag TEXT NOT NULL, PRIMARY KEY(photo_id,tag));
 CREATE INDEX IF NOT EXISTS tags_text ON tags(tag,photo_id);
 CREATE TABLE IF NOT EXISTS albums(id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
@@ -269,7 +339,7 @@ CREATE TABLE IF NOT EXISTS outcomes(job_id INTEGER NOT NULL REFERENCES jobs(id) 
 CREATE TABLE IF NOT EXISTS metadata_claims(photo_id INTEGER PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE, token TEXT NOT NULL, owner TEXT NOT NULL, owner_start TEXT NOT NULL, expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS operations(id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending', payload TEXT NOT NULL, error TEXT NOT NULL DEFAULT '');
 CREATE VIRTUAL TABLE IF NOT EXISTS photo_search USING fts5(filename,description,tags);
-PRAGMA user_version=2;
+PRAGMA user_version=3;
 COMMIT;)SQL");
     }
 
@@ -318,6 +388,22 @@ std::string checked_text(const Json& request, const char* key, std::size_t maxim
     if (value.size() > maximum || value.find('\0') != std::string::npos)
         throw std::runtime_error(std::string("Invalid ") + key);
     return value;
+}
+
+Json source_exclusions(const Json& request) {
+    const auto exclusions = request.value("exclusions", Json::array());
+    if (!exclusions.is_array() || exclusions.size() > 1000)
+        throw std::runtime_error("Choose at most 1000 source-relative exclusions");
+    for (const auto& item : exclusions) {
+        if (!item.is_string())
+            throw std::runtime_error("Exclusions must be source-relative text paths");
+        const auto text = item.get<std::string>();
+        const fs::path exclusion{text};
+        if (exclusion.empty() || exclusion.is_absolute() || text.find('\0') != std::string::npos ||
+            std::find(exclusion.begin(), exclusion.end(), "..") != exclusion.end())
+            throw std::runtime_error("Exclusions must be source-relative paths without '..'");
+    }
+    return exclusions;
 }
 
 bool valid_date(const std::string& value) {
@@ -405,7 +491,8 @@ Json source_json(Statement& statement) {
             {"active", statement.number(4) != 0},
             {"availability", statement.text(5)},
             {"device", statement.number(6)},
-            {"inode", statement.number(7)}};
+            {"inode", statement.number(7)},
+            {"watch_enabled", statement.number(8) != 0}};
 }
 
 Id queue_scan(Database& db, Id source_id, bool reconcile = false) {
@@ -455,9 +542,10 @@ void check_sources(Database& db) {
 
 Json sources(Database& db) {
     check_sources(db);
-    Statement statement(db.get(),
-                        "SELECT id,path,recursive,exclusions,active,availability,device,inode FROM "
-                        "sources ORDER BY path");
+    Statement statement(
+        db.get(),
+        "SELECT id,path,recursive,exclusions,active,availability,device,inode,watch_enabled FROM "
+        "sources ORDER BY path");
     Json items = Json::array();
     while (statement.row())
         items.push_back(source_json(statement));
@@ -475,16 +563,7 @@ Json add_source(Database& db, const Json& request) {
     if (internally_excluded(internal_exclusions(db, request), path))
         throw std::runtime_error(
             "Rummage's catalog and thumbnail-cache folders cannot be photo sources");
-    const auto exclusions = request.value("exclusions", Json::array());
-    if (!exclusions.is_array() || exclusions.size() > 1000)
-        throw std::runtime_error("Invalid exclusions");
-    for (const auto& item : exclusions) {
-        const auto exclusion = fs::path(item.get<std::string>());
-        if (exclusion.empty() || exclusion.is_absolute() ||
-            exclusion.string().find('\0') != std::string::npos ||
-            std::find(exclusion.begin(), exclusion.end(), "..") != exclusion.end())
-            throw std::runtime_error("Exclusions must be source-relative paths without '..'");
-    }
+    const auto exclusions = source_exclusions(request);
     Transaction transaction(db);
     Statement overlap(db.get(), "SELECT id,path,active FROM sources");
     Id id = 0;
@@ -512,18 +591,24 @@ Json add_source(Database& db, const Json& request) {
             .run();
         id = db.last_id();
     } else {
-        Statement activate(db.get(),
-                           "UPDATE sources SET active=1,availability='online' WHERE id=?");
-        activate.bind(1, id).run();
+        Statement activate(
+            db.get(),
+            "UPDATE sources SET "
+            "active=1,availability='online',watch_enabled=1,recursive=?,exclusions=? WHERE id=?");
+        activate.bind(1, request.value("recursive", true))
+            .bind(2, exclusions.dump())
+            .bind(3, id)
+            .run();
     }
     Statement watch_root(
         db.get(), "INSERT OR IGNORE INTO source_directories(source_id,relative_path) VALUES(?,'')");
     watch_root.bind(1, id).run();
     const Id job = queue_scan(db, id);
     transaction.commit();
-    Statement source(db.get(),
-                     "SELECT id,path,recursive,exclusions,active,availability,device,inode FROM "
-                     "sources WHERE id=?");
+    Statement source(
+        db.get(),
+        "SELECT id,path,recursive,exclusions,active,availability,device,inode,watch_enabled FROM "
+        "sources WHERE id=?");
     source.bind(1, id);
     (void)source.row();
     return {{"source", source_json(source)}, {"job_id", job}};
@@ -540,7 +625,7 @@ void update_search(Database& db, Id id) {
     insert.bind(1, id).run();
 }
 
-Json photo_json(Database& db, Statement& row) {
+Json photo_json(Database& db, Statement& row, bool annotations = true) {
     const Id id = row.number(0);
     const auto path = fs::path(row.text(2)) / row.text(3);
     Json result{{"id", id},
@@ -568,8 +653,12 @@ Json photo_json(Database& db, Statement& row) {
     result["inode"] = std::stoll(
         identity.substr(identity.find(':') + 1,
                         identity.find(':', identity.find(':') + 1) - identity.find(':') - 1));
-    result["mtime_ns"] =
-        row.number(6) * 1000000000 + std::stoll(identity.substr(identity.rfind(':') + 1));
+    const auto timestamp =
+        nanoseconds(row.number(6), std::stoll(identity.substr(identity.rfind(':') + 1)));
+    result["mtime_ns"] = timestamp.value_or(0);
+    result["mtime_ns_valid"] = timestamp.has_value();
+    if (!annotations)
+        return result;
     Statement tags(db.get(), "SELECT tag FROM tags WHERE photo_id=? ORDER BY tag");
     tags.bind(1, id);
     while (tags.row())
@@ -585,12 +674,73 @@ Json photo_json(Database& db, Statement& row) {
 
 const std::string photo_columns =
     "p.id,p.source_id,s.path,p.relative_path,p.filename,p.size,p.mtime,CASE WHEN "
-    "s.availability='offline' THEN 'offline' ELSE p.availability "
+    "s.active=0 THEN 'inactive' WHEN s.availability='offline' THEN 'offline' ELSE p.availability "
     "END,p.description,p.rating,COALESCE(p.date_override,p.capture_date),CASE WHEN p.date_override "
     "IS NOT NULL THEN 'user' WHEN p.capture_date IS NOT NULL THEN 'embedded' ELSE 'unknown' "
     "END,p.width,p.height,p.camera,p.capture_date,p.date_override,CAST(p.device AS "
     "TEXT)||':'||CAST(p.inode AS TEXT)||':'||CAST(p.size AS TEXT)||':'||CAST(p.mtime AS "
     "TEXT)||':'||CAST(p.mtime_ns AS TEXT)";
+
+void enrich_photos(Database& db, Json& photos) {
+    for (std::size_t first = 0; first < photos.size(); first += 1000) {
+        const auto last = std::min(first + 1000, photos.size());
+        std::map<Id, Json*> rows;
+        std::string placeholders;
+        for (auto index = first; index < last; ++index) {
+            if (!placeholders.empty())
+                placeholders += ',';
+            placeholders += '?';
+            rows.emplace(photos[index].at("id").get<Id>(), &photos[index]);
+        }
+        Statement tags(db.get(), "SELECT photo_id,tag FROM tags WHERE photo_id IN (" +
+                                     placeholders + ") ORDER BY photo_id,tag");
+        Statement albums(db.get(),
+                         "SELECT m.photo_id,a.id,a.name FROM memberships m JOIN albums a ON "
+                         "a.id=m.album_id WHERE m.photo_id IN (" +
+                             placeholders + ") ORDER BY m.photo_id,a.name");
+        int parameter = 1;
+        for (auto index = first; index < last; ++index, ++parameter) {
+            tags.bind(parameter, photos[index].at("id"));
+            albums.bind(parameter, photos[index].at("id"));
+        }
+        while (tags.row())
+            (*rows.at(tags.number(0)))["tags"].push_back(tags.text(1));
+        while (albums.row())
+            (*rows.at(albums.number(0)))["albums"].push_back(
+                {{"id", albums.number(1)}, {"name", albums.text(2)}});
+    }
+}
+
+Json query_ids(Database& db, const Json& request) {
+    const auto ids = request.at("ids").get<std::vector<Id>>();
+    if (ids.size() > 1000)
+        throw std::runtime_error("Query at most 1000 photograph IDs per batch");
+    Json photos = Json::array(), missing = Json::array();
+    if (ids.empty())
+        return {{"photos", photos}, {"missing_ids", missing}};
+    std::string placeholders;
+    for (std::size_t i = 0; i < ids.size(); ++i)
+        placeholders += i == 0 ? "?" : ",?";
+    const std::string visible = request.value("include_inactive", false)
+                                    ? ""
+                                    : " AND s.active=1 AND p.availability<>'replaced'";
+    Statement rows(db.get(),
+                   "SELECT " + photo_columns +
+                       " FROM photos p JOIN sources s ON s.id=p.source_id WHERE p.id IN (" +
+                       placeholders + ")" + visible + " ORDER BY p.id");
+    for (std::size_t i = 0; i < ids.size(); ++i)
+        rows.bind(static_cast<int>(i + 1), ids[i]);
+    std::set<Id> found;
+    while (rows.row()) {
+        found.insert(rows.number(0));
+        photos.push_back(photo_json(db, rows, false));
+    }
+    enrich_photos(db, photos);
+    for (const auto id : ids)
+        if (!found.contains(id))
+            missing.push_back(id);
+    return {{"photos", photos}, {"missing_ids", missing}};
+}
 
 Json query(Database& db, const Json& request) {
     check_sources(db);
@@ -602,7 +752,9 @@ Json query(Database& db, const Json& request) {
         where += sql;
         params.push_back(std::move(value));
     };
-    if (!request.value("include_inactive", false))
+    if (request.value("retained_only", false))
+        where += " AND (s.active=0 OR p.availability='replaced')";
+    else if (!request.value("include_inactive", false))
         where += " AND s.active=1 AND p.availability<>'replaced'";
     if (request.value("source_id", Id{0}) > 0)
         filter(" AND p.source_id=?", request["source_id"]);
@@ -675,7 +827,8 @@ Json query(Database& db, const Json& request) {
         .bind(static_cast<int>(params.size() + 2), offset);
     Json photos = Json::array();
     while (statement.row())
-        photos.push_back(photo_json(db, statement));
+        photos.push_back(photo_json(db, statement, false));
+    enrich_photos(db, photos);
     return {{"photos", photos}, {"total", total}, {"offset", offset}, {"limit", limit}};
 }
 
@@ -838,7 +991,8 @@ Json metadata_pending(Database& db, Id limit) {
     Statement statement(
         db.get(),
         "SELECT p.id,s.path,p.relative_path,p.device,p.inode,p.size,p.mtime,p.mtime_ns FROM photos "
-        "p JOIN sources s ON s.id=p.source_id WHERE s.active=1 AND s.availability='online' AND "
+        "p INDEXED BY photos_pending_metadata JOIN sources s ON s.id=p.source_id WHERE "
+        "s.active=1 AND s.availability='online' AND "
         "p.availability='online' AND p.metadata_signature='' AND NOT EXISTS(SELECT 1 FROM "
         "metadata_claims c WHERE c.photo_id=p.id AND c.expires>unixepoch()) AND p.seen_job IN "
         "(SELECT id FROM jobs WHERE state IN ('queued','running','completed')) ORDER BY p.id LIMIT "
@@ -973,6 +1127,43 @@ Json metadata(Database& db, const Json& request) {
     return {{"changed", 1}};
 }
 
+Json metadata_batch(Database& db, const Json& request) {
+    const auto& items = request.at("items");
+    if (!items.is_array() || items.size() > 4)
+        throw std::runtime_error("Complete at most four metadata items per batch");
+    Transaction transaction(db);
+    Json results = Json::array(), changed = Json::array();
+    for (const auto& item : items) {
+        Id id = 0;
+        try {
+            id = item.at("id").get<Id>();
+            auto result = metadata(db, item);
+            result["id"] = id;
+            result["ok"] = true;
+            results.push_back(std::move(result));
+            changed.push_back(id);
+        } catch (const std::exception& error) {
+            const std::string message = error.what();
+            try {
+                Json failure{{"id", id},
+                             {"signature", item.at("signature")},
+                             {"claim_token", item.value("claim_token", std::string{})},
+                             {"error", "Invalid extracted metadata: " + message}};
+                (void)metadata(db, failure);
+                changed.push_back(id);
+            } catch (const std::exception&) {
+                // Never release another worker's claim when a stale/invalid result arrives.
+                Statement release(db.get(),
+                                  "DELETE FROM metadata_claims WHERE photo_id=? AND token=?");
+                release.bind(1, id).bind(2, item.value("claim_token", std::string{})).run();
+            }
+            results.push_back({{"id", id}, {"ok", false}, {"error", message}});
+        }
+    }
+    transaction.commit();
+    return {{"results", results}, {"changed_ids", changed}, {"jobs_changed", !items.empty()}};
+}
+
 bool runnable(Database& db, Id id) {
     if (background_state(db).value("paused", false))
         return false;
@@ -990,8 +1181,8 @@ void outcome(Database& db, Id job, const std::string& path, const std::string& e
     statement.bind(1, job).bind(2, path).bind(3, error).bind(4, stage).run();
 }
 
-bool index_file(Database& db, Id source, Id job, const std::string& relative,
-                const struct stat& st) {
+bool index_file(Database& db, Id source, Id job, const std::string& relative, const struct stat& st,
+                Json& changed) {
     Transaction transaction(db);
     if (!runnable(db, job)) {
         transaction.commit();
@@ -1009,6 +1200,7 @@ bool index_file(Database& db, Id source, Id job, const std::string& relative,
                     current.number(2) != static_cast<Id>(st.st_ino))) {
         Statement replace(db.get(), "UPDATE photos SET availability='replaced' WHERE id=?");
         replace.bind(1, id).run();
+        changed.push_back(id);
         id = 0;
     }
     if (id != 0 && current.number(3) == static_cast<Id>(st.st_size) &&
@@ -1073,6 +1265,7 @@ fingerprint=CASE WHEN photos.device=excluded.device AND photos.inode=excluded.in
         id = find.number(0);
     }
     update_search(db, id);
+    changed.push_back(id);
     transaction.commit();
     return true;
 }
@@ -1092,8 +1285,11 @@ std::mutex cursor_mutex;
 std::map<std::string, DirectoryCursor> cursors;
 
 Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs::path>& internal) {
+    Json changed = Json::array();
+    bool topology_changed = false, discovery_changed = false;
     Statement root(db.get(),
-                   "SELECT path,recursive,exclusions,active,device,inode FROM sources WHERE id=?");
+                   "SELECT path,recursive,exclusions,active,device,inode,availability FROM sources "
+                   "WHERE id=?");
     root.bind(1, source);
     if (!root.row() || root.number(3) == 0) {
         Statement cancel(db.get(), "UPDATE jobs SET state='cancelled' WHERE id=?");
@@ -1124,7 +1320,10 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                           "it and retry.' WHERE id=?");
         waiting.bind(1, job).run();
         transaction.commit();
-        return {{"worked", true}, {"waiting", true}};
+        return {{"worked", true},
+                {"waiting", true},
+                {"discovery_changed", true},
+                {"topology_changed", true}};
     }
     root_check.reset();
     Statement watch_root(
@@ -1132,6 +1331,10 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
         "INSERT INTO source_directories(source_id,relative_path,seen_job) VALUES(?,'',?) ON "
         "CONFLICT(source_id,relative_path) DO UPDATE SET seen_job=excluded.seen_job");
     watch_root.bind(1, source).bind(2, job).run();
+    if (root.text(6) != "online") {
+        discovery_changed = true;
+        topology_changed = true;
+    }
     Statement online(db.get(), "UPDATE sources SET availability='online' WHERE id=?");
     online.bind(1, source).run();
     Statement mark(db.get(),
@@ -1178,18 +1381,23 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                                   "UPDATE jobs SET state='waiting',error='Source disconnected. "
                                   "Reconnect and retry.' WHERE id=?");
                 waiting.bind(1, job).run();
+                discovery_changed = true;
+                topology_changed = true;
                 transaction.commit();
                 break;
             }
             if (problems.number(0) == 0) {
-                Statement missing(db.get(),
-                                  "UPDATE photos SET availability='missing' WHERE source_id=? AND "
-                                  "seen_job<>? AND availability NOT IN ('trashed','replaced')");
+                Statement missing(
+                    db.get(),
+                    "UPDATE photos SET availability='missing' WHERE source_id=? AND "
+                    "seen_job<>? AND availability NOT IN ('trashed','replaced','missing')");
                 missing.bind(1, source).bind(2, job).run();
+                discovery_changed = discovery_changed || sqlite3_changes(db.get()) > 0;
                 Statement prune(db.get(),
                                 "DELETE FROM source_directories WHERE source_id=? AND "
                                 "relative_path<>'' AND seen_job<>?");
                 prune.bind(1, source).bind(2, job).run();
+                topology_changed = topology_changed || sqlite3_changes(db.get()) > 0;
             }
             Statement again(db.get(), "SELECT refresh_again FROM jobs WHERE id=?");
             again.bind(1, job);
@@ -1287,6 +1495,12 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                         db.get(),
                         "INSERT OR IGNORE INTO directories(job_id,relative_path) VALUES(?,?)");
                     add.bind(1, job).bind(2, child.string()).run();
+                    Statement present(
+                        db.get(),
+                        "SELECT 1 FROM source_directories WHERE source_id=? AND relative_path=?");
+                    present.bind(1, source).bind(2, child.string());
+                    if (!present.row())
+                        topology_changed = true;
                     Statement known(
                         db.get(),
                         "INSERT INTO source_directories(source_id,relative_path,seen_job) "
@@ -1294,7 +1508,7 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                         "seen_job=excluded.seen_job");
                     known.bind(1, source).bind(2, child.string()).bind(3, job).run();
                 } else if (S_ISREG(st.st_mode) && photo_extension(child)) {
-                    if (!index_file(db, source, job, child.string(), st))
+                    if (!index_file(db, source, job, child.string(), st, changed))
                         break;
                 }
                 // Symlinks are not followed: roots cannot escape or acquire cycles.
@@ -1315,7 +1529,12 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
             remove.bind(1, job).bind(2, relative).run();
         }
     }
-    return {{"worked", true}, {"job_id", job}, {"processed", processed}};
+    return {{"worked", true},
+            {"job_id", job},
+            {"processed", processed},
+            {"changed_ids", changed},
+            {"discovery_changed", discovery_changed || !changed.empty()},
+            {"topology_changed", topology_changed}};
 }
 
 std::string fingerprint(const fs::path& path, const std::string& expected) {
@@ -1421,12 +1640,18 @@ Json duplicate_work(Database& db, Id job, Id budget) {
     return {{"worked", true}, {"job_id", job}, {"processed", processed}};
 }
 
-Json duplicates(Database& db) {
-    Statement groups(
-        db.get(),
+Json duplicates(Database& db, const Json& request) {
+    const Id limit = std::clamp(request.value("limit", Id{200}), Id{1}, Id{1000});
+    const Id offset = std::max(request.value("offset", Id{0}), Id{0});
+    const std::string grouped =
         "SELECT p.fingerprint,p.size FROM photos p JOIN sources s ON s.id=p.source_id WHERE "
         "p.fingerprint<>'' AND p.availability='online' AND s.active=1 AND s.availability='online' "
-        "GROUP BY p.fingerprint,p.size HAVING count(*)>1 LIMIT 1000");
+        "GROUP BY p.fingerprint,p.size HAVING count(*)>1";
+    Statement count(db.get(), "SELECT count(*) FROM (" + grouped + ")");
+    (void)count.row();
+    const Id total = count.number(0);
+    Statement groups(db.get(), grouped + " ORDER BY p.fingerprint,p.size LIMIT ? OFFSET ?");
+    groups.bind(1, limit).bind(2, offset);
     Json result = Json::array();
     while (groups.row()) {
         Statement entries(db.get(), "SELECT " + photo_columns +
@@ -1436,7 +1661,8 @@ Json duplicates(Database& db) {
         entries.bind(1, groups.text(0)).bind(2, groups.number(1));
         Json photos = Json::array();
         while (entries.row())
-            photos.push_back(photo_json(db, entries));
+            photos.push_back(photo_json(db, entries, false));
+        enrich_photos(db, photos);
         if (photos.size() > 1)
             result.push_back(
                 {{"key", groups.text(0) + ":" + std::to_string(groups.number(1))},
@@ -1445,13 +1671,18 @@ Json duplicates(Database& db) {
                  {"reason", "First cataloged copy; compare original locations before choosing"},
                  {"verified", false}});
     }
-    return {{"groups", result}};
+    return {{"groups", result},
+            {"total", total},
+            {"offset", offset},
+            {"limit", limit},
+            {"more", offset + static_cast<Id>(result.size()) < total}};
 }
 
 Json verify_duplicates(Database& db, const Json& request) {
     const auto ids = request.at("ids").get<std::vector<Id>>();
     if (ids.size() < 2 || ids.size() > 1000)
-        throw std::runtime_error("Choose at least two duplicate candidates");
+        throw std::runtime_error(
+            "Choose between 2 and 1000 duplicate candidates, including retained copies");
     Json photos = Json::array();
     for (Id id : ids) {
         Statement row(db.get(),
@@ -1462,6 +1693,9 @@ Json verify_duplicates(Database& db, const Json& request) {
         if (!row.row())
             throw std::runtime_error("An original is unavailable; refresh duplicate review");
         auto item = photo_json(db, row);
+        if (!item.value("mtime_ns_valid", true))
+            throw std::runtime_error(
+                "Original timestamp is outside the supported range for guarded file operations");
         (void)fingerprint(item["path"].get<std::string>(), item["signature"].get<std::string>());
         photos.push_back(std::move(item));
     }
@@ -1471,6 +1705,9 @@ Json verify_duplicates(Database& db, const Json& request) {
             throw std::runtime_error("Candidates are not byte-identical; no files were changed");
     // Check identities again after the comparisons to reject replacement races.
     for (const auto& photo : photos) {
+        if (!photo.value("mtime_ns_valid", true))
+            throw std::runtime_error(
+                "Original timestamp is outside the supported range for guarded file operations");
         struct stat st{};
         if (::lstat(photo["path"].get<std::string>().c_str(), &st) != 0 ||
             signature(st) != photo["signature"].get<std::string>())
@@ -1500,25 +1737,50 @@ Json work(Database& db, const Json& request) {
         result = job.text(1) == "scan" ? scan_work(db, job.number(0), job.number(2), budget,
                                                    internal_exclusions(db, request))
                                        : duplicate_work(db, job.number(0), std::min(budget, Id{8}));
-    result["metadata"] = metadata_pending(db, budget);
+    result["metadata"] = metadata_pending(db, state.at("metadata_limit").get<Id>());
+    if (!result.contains("changed_ids"))
+        result["changed_ids"] = Json::array();
+    if (!result.contains("discovery_changed"))
+        result["discovery_changed"] = false;
+    if (!result.contains("topology_changed"))
+        result["topology_changed"] = false;
+    result["jobs_changed"] = result.value("worked", false);
     result.update(background_state(db));
     return result;
 }
 
-Json jobs(Database& db) {
+Json jobs(Database& db, bool summary = false) {
     // Aggregate once over the displayed jobs, rather than scanning the photo catalog
     // separately for each historical job. Counts describe rows currently owned by each
     // scan (a later refresh may take ownership); completed job history is not a snapshot.
-    Statement statement(db.get(), R"SQL(
-WITH listed AS (
-    SELECT id,kind,source_id,state,completed,total,error FROM jobs ORDER BY id DESC LIMIT 1000
-), photo_progress AS (
+    const std::string selection =
+        summary ? "SELECT id,kind,source_id,state,completed,total,error FROM jobs ORDER BY CASE "
+                  "state WHEN 'running' THEN 0 WHEN 'queued' THEN 1 WHEN 'paused' THEN 2 WHEN "
+                  "'waiting' THEN 3 ELSE 4 END,id DESC LIMIT 1"
+                : "SELECT id,kind,source_id,state,completed,total,error FROM jobs ORDER BY id DESC "
+                  "LIMIT 1000";
+    // Summary polling uses index ranges. Evaluating three boolean SUM expressions
+    // over every photo dominated each worker batch for large, mostly finished scans.
+    // The third summary column is the full population; unavailable is its remainder.
+    const std::string photo_progress = summary ? R"SQL(
+    SELECT j.id AS job_id,
+        (SELECT count(*) FROM photos WHERE seen_job=j.id
+            AND availability IN ('online','unreadable') AND metadata_signature>'') AS done,
+        (SELECT count(*) FROM photos WHERE seen_job=j.id
+            AND availability='online' AND metadata_signature='') AS pending,
+        (SELECT count(*) FROM photos WHERE seen_job=j.id) AS unavailable
+    FROM listed j WHERE j.kind='scan'
+)SQL"
+                                               : R"SQL(
     SELECT p.seen_job AS job_id,
         sum(p.availability IN ('online','unreadable') AND p.metadata_signature<>'') AS done,
         sum(p.availability='online' AND p.metadata_signature='') AS pending,
         sum(p.availability NOT IN ('online','unreadable') OR
             (p.availability='unreadable' AND p.metadata_signature='')) AS unavailable
     FROM photos p JOIN listed j ON j.id=p.seen_job AND j.kind='scan' GROUP BY p.seen_job
+)SQL";
+    Statement statement(db.get(), "WITH listed AS (" + selection + "), photo_progress AS (" +
+                                      photo_progress + R"SQL(
 ), directory_progress AS (
     SELECT d.job_id,count(*) AS pending FROM directories d
     JOIN listed j ON j.id=d.job_id GROUP BY d.job_id
@@ -1548,7 +1810,8 @@ ORDER BY j.id DESC
         item["metadata_completed"] = statement.number(7);
         item["metadata_pending"] = statement.number(8);
         item["metadata_total"] = statement.number(7) + statement.number(8);
-        item["metadata_unavailable"] = statement.number(9);
+        item["metadata_unavailable"] =
+            statement.number(9) - (summary ? statement.number(7) + statement.number(8) : 0);
         item["pending_directories"] = statement.number(10);
         item["in_flight"] = statement.number(11);
         const auto state = statement.text(3);
@@ -1562,17 +1825,33 @@ ORDER BY j.id DESC
             item["phase"] = "discovering";
         else
             item["phase"] = statement.number(8) > 0 ? "metadata" : "finishing";
-        Statement failures(db.get(),
-                           "SELECT path,error,stage FROM outcomes WHERE job_id=? LIMIT 100");
-        failures.bind(1, statement.number(0));
-        while (failures.row())
-            item["failures"].push_back({{"path", failures.text(0)},
-                                        {"error", failures.text(1)},
-                                        {"stage", failures.text(2)}});
+        if (summary) {
+            Statement count(db.get(), "SELECT count(*) FROM outcomes WHERE job_id=?");
+            count.bind(1, statement.number(0));
+            (void)count.row();
+            item["failure_count"] = count.number(0);
+        } else {
+            Statement failures(db.get(),
+                               "SELECT path,error,stage FROM outcomes WHERE job_id=? LIMIT 100");
+            failures.bind(1, statement.number(0));
+            while (failures.row())
+                item["failures"].push_back({{"path", failures.text(0)},
+                                            {"error", failures.text(1)},
+                                            {"stage", failures.text(2)}});
+        }
         items.push_back(std::move(item));
     }
     auto result = background_state(db);
     result["jobs"] = items;
+    if (summary) {
+        Json counts{{"paused", 0}, {"waiting", 0}, {"failed", 0}};
+        Statement states(db.get(),
+                         "SELECT state,count(*) FROM jobs WHERE state IN "
+                         "('paused','waiting','failed') GROUP BY state");
+        while (states.row())
+            counts[states.text(0)] = states.number(1);
+        result["job_counts"] = counts;
+    }
     return result;
 }
 
@@ -1621,10 +1900,16 @@ Json job_control(Database& db, const Json& request) {
     return {{"state", state}};
 }
 
-Json export_data(Database& db) {
+Json export_data(Database& db, const Json& request) {
     // A read transaction captures one coherent snapshot across windows and writers.
     db.exec("BEGIN");
     try {
+        Statement count(db.get(), "SELECT count(*) FROM photos");
+        (void)count.row();
+        if (static_cast<std::uint64_t>(count.number(0)) > kMaxExportPhotos)
+            throw std::runtime_error(
+                "Annotation export supports at most 1000000 photographs, matching restore "
+                "capacity");
         Json data{{"version", 1},
                   {"sources", sources(db)["sources"]},
                   {"photos", Json::array()},
@@ -1634,13 +1919,14 @@ Json export_data(Database& db) {
                                        ",p.device,p.inode,p.mtime_ns,p.fingerprint FROM photos p "
                                        "JOIN sources s ON s.id=p.source_id ORDER BY p.id");
         while (photos.row()) {
-            auto item = photo_json(db, photos);
+            auto item = photo_json(db, photos, false);
             item["device"] = photos.number(18);
             item["inode"] = photos.number(19);
             item["mtime_subsecond"] = photos.number(20);
             item["fingerprint"] = photos.text(21);
             data["photos"].push_back(std::move(item));
         }
+        enrich_photos(db, data["photos"]);
         Statement albums(db.get(), "SELECT id,name FROM albums ORDER BY id");
         while (albums.row())
             data["albums"].push_back({{"id", albums.number(0)}, {"name", albums.text(1)}});
@@ -1648,7 +1934,15 @@ Json export_data(Database& db) {
         while (filters.row())
             data["filters"].push_back(
                 {{"name", filters.text(0)}, {"filter", Json::parse(filters.text(1))}});
+        const auto encoded = data.dump(2);
+        if (encoded.size() > kMaxExportBytes)
+            throw std::runtime_error(
+                "Annotation export exceeds the 256 MiB restore capacity; no export was created");
         db.exec("COMMIT");
+        if (request.value("encoded", false))
+            return {{"json", encoded},
+                    {"bytes", encoded.size()},
+                    {"photo_count", data["photos"].size()}};
         return {{"data", data}};
     } catch (...) {
         db.exec("ROLLBACK");
@@ -1660,8 +1954,10 @@ Json restore(Database& db, const Json& request) {
     const auto& data = request.at("data");
     if (data.at("version") != 1)
         throw std::runtime_error("Unsupported photo annotation export version");
-    if (!data.at("photos").is_array() || data["photos"].size() > 1000000)
-        throw std::runtime_error("Invalid photo export");
+    if (!data.at("photos").is_array() || data["photos"].size() > kMaxExportPhotos)
+        throw std::runtime_error("Photo restore supports at most 1000000 photographs");
+    if (data.dump().size() > kMaxExportBytes)
+        throw std::runtime_error("Annotation restore supports at most 256 MiB per export");
     Transaction transaction(db);
     Json restored = Json::array(), missing = Json::array(), ambiguous = Json::array(),
          unresolved_filters = Json::array();
@@ -1689,7 +1985,9 @@ Json restore(Database& db, const Json& request) {
         return original;
     };
     std::map<Id, Id> source_mapping;
+    Json sources_requiring_refresh = Json::array();
     for (const auto& source : data.at("sources")) {
+        const auto exclusions = source_exclusions(source);
         const auto path = map_path(fs::path(source.at("path").get<std::string>()));
         Statement find(db.get(), "SELECT id FROM sources WHERE path=?");
         find.bind(1, path.string());
@@ -1708,13 +2006,11 @@ Json restore(Database& db, const Json& request) {
                 continue;
             struct stat st{};
             const bool available = ::stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-            const auto exclusions = source.value("exclusions", Json::array());
-            if (!exclusions.is_array())
-                throw std::runtime_error("Invalid source exclusions in export");
             Statement add(
                 db.get(),
-                "INSERT INTO sources(path,recursive,exclusions,active,availability,device,inode) "
-                "VALUES(?,?,?,?,?,?,?)");
+                "INSERT INTO "
+                "sources(path,recursive,exclusions,active,availability,device,inode,watch_enabled) "
+                "VALUES(?,?,?,?,?,?,?,0)");
             add.bind(1, path.string())
                 .bind(2, source.value("recursive", true))
                 .bind(3, exclusions.dump())
@@ -1724,6 +2020,7 @@ Json restore(Database& db, const Json& request) {
                 .bind(7, available ? static_cast<Id>(st.st_ino) : source.value("inode", Id{0}))
                 .run();
             source_mapping[source.at("id").get<Id>()] = db.last_id();
+            sources_requiring_refresh.push_back(db.last_id());
         }
     }
     db.exec(
@@ -1734,14 +2031,9 @@ Json restore(Database& db, const Json& request) {
     // exact identity matches are imported; missing originals remain in the restore report.
     for (const auto& photo : data["photos"]) {
         const auto original = fs::path(photo.at("path").get<std::string>());
-        fs::path path = original;
-        for (const auto& mapping : request.value("source_mappings", Json::array())) {
-            const fs::path from = mapping.at("from").get<std::string>();
-            if (contains(from, original))
-                path = fs::path(mapping.at("to").get<std::string>()) /
-                       original.lexically_relative(from);
-        }
-        if (!path.is_absolute())
+        const fs::path path = map_path(original);
+        if (!path.is_absolute() || path.lexically_normal() != path ||
+            path.string().find('\0') != std::string::npos)
             throw std::runtime_error("Invalid original path in export");
         const Id exported_source = photo.at("source_id").get<Id>();
         if (!source_mapping.contains(exported_source)) {
@@ -1862,7 +2154,9 @@ Json restore(Database& db, const Json& request) {
             {"restored_ids", restored},
             {"missing", missing},
             {"ambiguous", ambiguous},
-            {"unresolved_filters", unresolved_filters}};
+            {"unresolved_filters", unresolved_filters},
+            {"sources_requiring_refresh", sources_requiring_refresh},
+            {"merge_policy", "replace_scalar_annotations_merge_tags_and_albums"}};
 }
 
 Json operation_prepare(Database& db, const Json& request) {
@@ -1913,12 +2207,22 @@ Json operation_prepare(Database& db, const Json& request) {
     return {{"operation_id", db.last_id()}, {"photos", captured}, {"keepers", keeper_rows}};
 }
 
+void remember_receipt(Database& db, Id photo, Id operation, const std::string& path,
+                      const std::string& identity) {
+    Statement save(db.get(),
+                   "INSERT INTO photo_receipts(photo_id,operation_id,path,signature) "
+                   "VALUES(?,?,?,?) ON CONFLICT(photo_id) DO UPDATE SET "
+                   "operation_id=excluded.operation_id,path=excluded.path,signature=excluded."
+                   "signature WHERE excluded.operation_id>=photo_receipts.operation_id");
+    save.bind(1, photo).bind(2, operation).bind(3, path).bind(4, identity).run();
+}
+
 Json operation_restore_prepare(Database& db, const Json& request) {
     const auto ids = request.at("ids").get<std::vector<Id>>();
     if (ids.empty())
         throw std::runtime_error("Choose trashed photographs to restore");
     Json captured = Json::array();
-    for (Id id : ids) {
+    for (const auto id : ids) {
         Statement photo(db.get(), "SELECT " + photo_columns +
                                       " FROM photos p JOIN sources s ON s.id=p.source_id WHERE "
                                       "p.id=? AND p.availability='trashed'");
@@ -1926,38 +2230,30 @@ Json operation_restore_prepare(Database& db, const Json& request) {
         if (!photo.row())
             throw std::runtime_error("A selected photograph is not in the catalog trash");
         auto item = photo_json(db, photo);
-        Statement receipts(db.get(),
-                           "SELECT payload FROM operations WHERE kind='trash' ORDER BY id DESC");
-        bool found = false;
-        while (!found && receipts.row()) {
-            const auto payload = Json::parse(receipts.text(0));
-            for (const auto& result : payload.value("results", Json::array()))
-                if (result.at("id") == id && result.value("success", false)) {
-                    const auto destination = result.value("destination", std::string{});
-                    const auto expected = result.value("receipt_signature", std::string{});
-                    struct stat st{};
-                    if (destination.empty() || expected.empty() ||
-                        ::lstat(destination.c_str(), &st) != 0 || !S_ISREG(st.st_mode) ||
-                        signature(st) != expected)
-                        throw std::runtime_error(
-                            "The trash receipt no longer matches the original; restore requires "
-                            "review");
-                    item["original_path"] = item["path"];
-                    item["path"] = destination;
-                    item["signature"] = expected;
-                    item["device"] = static_cast<Id>(st.st_dev);
-                    item["inode"] = static_cast<Id>(st.st_ino);
-                    item["size"] = static_cast<Id>(st.st_size);
-                    item["mtime"] = static_cast<Id>(st.st_mtim.tv_sec);
-                    item["mtime_ns"] = static_cast<Id>(st.st_mtim.tv_sec) * 1000000000 +
-                                       static_cast<Id>(st.st_mtim.tv_nsec);
-                    captured.push_back(std::move(item));
-                    found = true;
-                    break;
-                }
-        }
-        if (!found)
+        Statement receipt(db.get(), "SELECT path,signature FROM photo_receipts WHERE photo_id=?");
+        receipt.bind(1, id);
+        if (!receipt.row())
             throw std::runtime_error("No confirmed trash receipt is available for this photograph");
+        const auto destination = receipt.text(0), expected = receipt.text(1);
+        struct stat st{};
+        if (destination.empty() || expected.empty() || ::lstat(destination.c_str(), &st) != 0 ||
+            !S_ISREG(st.st_mode) || signature(st) != expected)
+            throw std::runtime_error(
+                "The trash receipt no longer matches the original; restore requires review");
+        const auto timestamp =
+            nanoseconds(static_cast<Id>(st.st_mtim.tv_sec), static_cast<Id>(st.st_mtim.tv_nsec));
+        if (!timestamp)
+            throw std::runtime_error(
+                "Original timestamp is outside the supported range for guarded file operations");
+        item["original_path"] = item["path"];
+        item["path"] = destination;
+        item["signature"] = expected;
+        item["device"] = static_cast<Id>(st.st_dev);
+        item["inode"] = static_cast<Id>(st.st_ino);
+        item["size"] = static_cast<Id>(st.st_size);
+        item["mtime"] = static_cast<Id>(st.st_mtim.tv_sec);
+        item["mtime_ns"] = *timestamp;
+        captured.push_back(std::move(item));
     }
     Json payload{{"photos", captured}, {"keepers", Json::array()}, {"results", Json::array()}};
     Statement insert(db.get(), "INSERT INTO operations(kind,payload) VALUES('restore',?)");
@@ -1996,9 +2292,9 @@ Json operation_complete(Database& db, const Json& request) {
                 !S_ISREG(st.st_mode) ||
                 signature(st) != found->at("signature").get<std::string>() ||
                 static_cast<Id>(st.st_size) != found->at("size").get<Id>() ||
-                static_cast<Id>(st.st_mtim.tv_sec) * 1000000000 +
-                        static_cast<Id>(st.st_mtim.tv_nsec) !=
-                    found->at("mtime_ns").get<Id>()) {
+                nanoseconds(static_cast<Id>(st.st_mtim.tv_sec),
+                            static_cast<Id>(st.st_mtim.tv_nsec)) !=
+                    std::optional<Id>{found->at("mtime_ns").get<Id>()}) {
                 result["success"] = false;
                 result["error"] =
                     "Filesystem completed but destination identity changed; review the operation";
@@ -2034,6 +2330,7 @@ Json operation_complete(Database& db, const Json& request) {
                     Statement update(db.get(),
                                      "UPDATE photos SET availability='trashed' WHERE id=?");
                     update.bind(1, photo_id).run();
+                    remember_receipt(db, photo_id, id, destination, signature(st));
                 }
             }
         }
@@ -2174,25 +2471,21 @@ Json reconcile_locations(Database& db, const Json& request) {
                 matches.push_back(photo_json(db, candidates));
         }
         if (kind == "restore") {
-            Statement receipts(
-                db.get(), "SELECT payload FROM operations WHERE kind='trash' ORDER BY id DESC");
-            while (receipts.row())
-                for (const auto& result :
-                     Json::parse(receipts.text(0)).value("results", Json::array()))
-                    if (result.value("success", false) &&
-                        result.value("destination", std::string{}) == from.string()) {
-                        Statement photo(db.get(),
-                                        "SELECT " + photo_columns +
-                                            " FROM photos p JOIN sources s ON s.id=p.source_id "
-                                            "WHERE p.id=? AND p.availability='trashed'");
-                        photo.bind(1, result.at("id"));
-                        if (photo.row()) {
-                            auto value = photo_json(db, photo);
-                            value["path"] = from.string();
-                            value["signature"] = result.value("receipt_signature", std::string{});
-                            matches.push_back(std::move(value));
-                        }
-                    }
+            Statement receipts(db.get(),
+                               "SELECT photo_id,signature FROM photo_receipts WHERE path=?");
+            receipts.bind(1, from.string());
+            while (receipts.row()) {
+                Statement photo(db.get(), "SELECT " + photo_columns +
+                                              " FROM photos p JOIN sources s ON s.id=p.source_id "
+                                              "WHERE p.id=? AND p.availability='trashed'");
+                photo.bind(1, receipts.number(0));
+                if (photo.row()) {
+                    auto value = photo_json(db, photo);
+                    value["path"] = from.string();
+                    value["signature"] = receipts.text(1);
+                    matches.push_back(std::move(value));
+                }
+            }
         }
         for (const auto& photo : matches) {
             const fs::path old = photo.at("path").get<std::string>();
@@ -2221,6 +2514,8 @@ Json reconcile_locations(Database& db, const Json& request) {
                     db.get(),
                     "INSERT INTO operations(kind,state,payload) VALUES('trash','completed',?)");
                 receipt.bind(1, payload.dump()).run();
+                remember_receipt(db, photo.at("id").get<Id>(), db.last_id(), destination.string(),
+                                 signature(st));
                 Statement update(db.get(), "UPDATE photos SET availability='trashed' WHERE id=?");
                 update.bind(1, photo["id"]).run();
             } else {
@@ -2366,7 +2661,7 @@ Json watch_paths(Database& db, const Json& request) {
     Statement statement(db.get(),
                         "SELECT d.id,d.source_id,s.path,d.relative_path FROM source_directories d "
                         "JOIN sources s ON s.id=d.source_id WHERE d.id>? AND s.active=1 AND "
-                        "s.availability='online' ORDER BY d.id LIMIT ?");
+                        "s.availability='online' AND s.watch_enabled=1 ORDER BY d.id LIMIT ?");
     statement.bind(1, after).bind(2, limit + 1);
     Json paths = Json::array();
     Id next = after, consumed = 0;
@@ -2414,26 +2709,32 @@ Json dispatch(Database& db, const Json& request) {
         return add_source(db, request);
     if (op == "query")
         return query(db, request);
+    if (op == "query_ids")
+        return query_ids(db, request);
     if (op == "edit")
         return edit(db, request);
     if (op == "work")
         return work(db, request);
     if (op == "jobs")
         return jobs(db);
+    if (op == "progress")
+        return jobs(db, true);
     if (op == "job_control")
         return job_control(db, request);
     if (op == "metadata")
         return metadata(db, request);
+    if (op == "metadata_batch")
+        return metadata_batch(db, request);
     if (op == "metadata_claim")
         return metadata_claim(db, request);
     if (op == "metadata_pending")
         return {{"metadata", metadata_pending(db, request.value("limit", Id{64}))}};
     if (op == "export")
-        return export_data(db);
+        return export_data(db, request);
     if (op == "restore")
         return restore(db, request);
     if (op == "duplicates")
-        return duplicates(db);
+        return duplicates(db, request);
     if (op == "verify_duplicates")
         return verify_duplicates(db, request);
     if (op == "operation_prepare")
@@ -2455,13 +2756,20 @@ Json dispatch(Database& db, const Json& request) {
     if (op == "refresh") {
         Transaction transaction(db);
         const Id id = request.value("source_id", Id{0});
-        Statement all(db.get(), id > 0 ? "SELECT id FROM sources WHERE active=1 AND id=?"
-                                       : "SELECT id FROM sources WHERE active=1");
+        const bool reconcile = request.value("reconcile", false);
+        const std::string eligible = reconcile ? " AND watch_enabled=1" : "";
+        Statement all(db.get(), "SELECT id FROM sources WHERE active=1" + eligible +
+                                    (id > 0 ? " AND id=?" : ""));
         if (id > 0)
             all.bind(1, id);
         Json ids = Json::array();
-        while (all.row())
-            ids.push_back(queue_scan(db, all.number(0), request.value("reconcile", false)));
+        while (all.row()) {
+            if (!reconcile) {
+                Statement enable(db.get(), "UPDATE sources SET watch_enabled=1 WHERE id=?");
+                enable.bind(1, all.number(0)).run();
+            }
+            ids.push_back(queue_scan(db, all.number(0), reconcile));
+        }
         transaction.commit();
         return {{"job_ids", ids}};
     }
@@ -2521,12 +2829,19 @@ Json dispatch(Database& db, const Json& request) {
     }
     if (op == "albums") {
         Statement all(db.get(),
-                      "SELECT a.id,a.name,count(m.photo_id) FROM albums a LEFT JOIN memberships m "
-                      "ON m.album_id=a.id GROUP BY a.id ORDER BY a.name");
+                      "SELECT a.id,a.name,sum(CASE WHEN s.active=1 AND p.availability<>'replaced' "
+                      "THEN 1 ELSE 0 END),"
+                      "sum(CASE WHEN p.id IS NOT NULL AND (s.active=0 OR "
+                      "p.availability='replaced') THEN 1 ELSE 0 END) "
+                      "FROM albums a LEFT JOIN memberships m ON m.album_id=a.id LEFT JOIN photos p "
+                      "ON p.id=m.photo_id "
+                      "LEFT JOIN sources s ON s.id=p.source_id GROUP BY a.id ORDER BY a.name");
         Json items = Json::array();
         while (all.row())
-            items.push_back(
-                {{"id", all.number(0)}, {"name", all.text(1)}, {"count", all.number(2)}});
+            items.push_back({{"id", all.number(0)},
+                             {"name", all.text(1)},
+                             {"count", all.number(2)},
+                             {"retained_count", all.number(3)}});
         return {{"albums", items}};
     }
     if (op == "create_album") {

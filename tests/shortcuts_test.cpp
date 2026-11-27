@@ -727,8 +727,9 @@ TEST_CASE("shortcuts: folder jumps validate, reload and navigate within the curr
     CHECK(f.folder()->path() == f.root);
     REQUIRE(configure_shortcuts({{"go:" + (f.root / "missing").string(), "Ctrl+Alt+j"}}).empty());
     CHECK(f.browser.key(event, Browser::Clock::now()));
-    CHECK(f.folder()->path() == f.root);
-    CHECK(f.browser.status_bar().message().starts_with("Folder unavailable:"));
+    REQUIRE(run_until(f.loop, [&] { return !f.browser.loading(); }));
+    CHECK(f.folder()->path() == f.root / "missing");
+    CHECK(f.folder()->model().error() == std::errc::no_such_file_or_directory);
     REQUIRE(configure_shortcuts({{binding, ""}}).empty());
     CHECK(rummage::views::folder_for(event).empty());
 }

@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -69,24 +70,26 @@ std::vector<PaletteItem> Browser::palette_items() {
             [this, which] { run(which, Clock::now()); });
     };
     if (photos_available()) {
-        add("photos:open", "Photo Library", "", [this] { open_photo_library(); });
+        add("photos:open", std::string{i18n::tr("Photo Library")}, "",
+            [this] { open_photo_library(); });
         const auto folder = current_folder();
         if (showing_photos())
-            add("photos:add", "Add folder to Photo Library…", "",
+            add("photos:add", std::string{i18n::tr("Add folder to Photo Library…")}, "",
                 [this] { photo_library_->add_folder(); });
         else if (folder && !folder->is_collection() && !folder->is_trash() && !folder->is_archive())
-            add("photos:add", "Add folder to Photo Library…", "",
+            add("photos:add", std::string{i18n::tr("Add folder to Photo Library…")}, "",
                 [this, path = folder->path()] { open_photo_library(path); });
     }
     if (showing_photos()) {
-        add("photos:close", "Close Photo Library", keys_for(Command::close_tab), [this] {
-            photo_library_->close();
-            if (area().tabs.size() > 1)
-                close_tab(area().active);
-            else
-                open(place_sources_.home.is_absolute() ? place_sources_.home
-                                                       : std::filesystem::path{"/"});
-        });
+        add("photos:close", std::string{i18n::tr("Close Photo Library")},
+            keys_for(Command::close_tab), [this] {
+                photo_library_->close();
+                if (area().tabs.size() > 1)
+                    close_tab(area().active);
+                else
+                    open(place_sources_.home.is_absolute() ? place_sources_.home
+                                                           : std::filesystem::path{"/"});
+            });
         return items;
     }
     if (searching_results()) {
@@ -145,6 +148,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     const std::shared_ptr<Folder> folder = current_folder();
     const bool in_trash = folder && folder->is_trash();
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
     const bool editable = folder && !in_trash && !folder->is_archive();
     if (folder && !folder->is_archive() && (names.size() <= 1 || properties_window_) &&
@@ -200,7 +204,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (panes_enabled_ && !picker_mode_ && folder && !in_trash && !names.empty()) {
         std::vector<std::filesystem::path> folders;
         for (const fs::Entry& entry : folder->entries()) {
-            if (entry.is_directory() && std::ranges::find(names, entry.name) != names.end()) {
+            if (entry.is_directory() && target_names.contains(entry.name)) {
                 folders.push_back(folder->path() / entry.name);
             }
         }
@@ -641,10 +645,10 @@ void Browser::open_with_palette() {
     // What it would open: the selected entries of the cursor's kind, else the cursor's (as the
     // context menu's "Open With").
     const std::vector<std::string> names = targets(*folder);
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     std::vector<fs::Entry> files;
     for (const fs::Entry& entry : folder->entries()) {
-        if (entry.is_directory() == cursor->is_directory() &&
-            std::ranges::find(names, entry.name) != names.end()) {
+        if (entry.is_directory() == cursor->is_directory() && target_names.contains(entry.name)) {
             fs::Entry typed = entry;
             typed.mime = folder->mime_of(entry);
             files.push_back(std::move(typed));

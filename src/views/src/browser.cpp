@@ -506,7 +506,9 @@ void Browser::take_selection(bool cut) {
     if (showing_photos()) {
         const auto rows = photo_library_->selected_photos();
         if (rows.size() != photo_library_->selected_ids().size()) {
-            show_message("Load the selected photos before copying or moving this selection", true);
+            show_message(std::string{i18n::tr(
+                             "Load the selected photos before copying or moving this selection")},
+                         true);
             return;
         }
         if (rows.empty())
@@ -612,7 +614,9 @@ void Browser::copy_path() {
     if (showing_photos()) {
         const auto rows = photo_library_->selected_photos();
         if (rows.size() != photo_library_->selected_ids().size()) {
-            show_message("Load the selected photos before copying this selection", true);
+            show_message(
+                std::string{i18n::tr("Load the selected photos before copying this selection")},
+                true);
             return;
         }
         std::vector<std::filesystem::path> paths;
@@ -634,10 +638,9 @@ void Browser::copy_path() {
 
 void Browser::paste() {
     if (showing_photos()) {
-        show_message(
-            "Use Show in Folder for filesystem changes; duplicate cleanup is in Photo Library "
-            "Review",
-            false);
+        show_message(std::string{i18n::tr("Use Show in Folder for filesystem changes; duplicate "
+                                          "cleanup is in Photo Library Review")},
+                     false);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -1103,10 +1106,9 @@ void Browser::cursor_after(Folder& folder, const std::unordered_set<std::string>
 
 void Browser::trash() {
     if (showing_photos()) {
-        show_message(
-            "Use Show in Folder for filesystem changes; duplicate cleanup is in Photo Library "
-            "Review",
-            false);
+        show_message(std::string{i18n::tr("Use Show in Folder for filesystem changes; duplicate "
+                                          "cleanup is in Photo Library Review")},
+                     false);
         return;
     }
     if (batch_rename_preparing_ || batch_rename_running_) {
@@ -1140,13 +1142,14 @@ void Browser::restore() {
         return;
     }
     const std::vector<std::string> names = targets(*folder);
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     if (names.empty()) {
         return;
     }
     // The engine is given where the items are; it finds their sidecars itself.
     std::vector<std::string> paths;
     for (const fs::Entry& entry : folder->entries()) {
-        if (std::ranges::find(names, entry.name) != names.end()) {
+        if (target_names.contains(entry.name)) {
             paths.push_back(folder->path_of(entry).string());
         }
     }
@@ -1192,10 +1195,9 @@ std::string erase_detail(const fs::ErasePlan& plan, bool emptying) {
 
 void Browser::erase() {
     if (showing_photos()) {
-        show_message(
-            "Use Show in Folder for filesystem changes; duplicate cleanup is in Photo Library "
-            "Review",
-            false);
+        show_message(std::string{i18n::tr("Use Show in Folder for filesystem changes; duplicate "
+                                          "cleanup is in Photo Library Review")},
+                     false);
         return;
     }
     if (batch_rename_preparing_ || batch_rename_running_) {
@@ -1219,9 +1221,10 @@ void Browser::erase() {
                                 .destination = {},
                                 .force_copy = false};
     if (folder->is_trash()) {
+        const std::unordered_set<std::string> target_names(names.begin(), names.end());
         // Where the items are; the engine finds their sidecars itself.
         for (const fs::Entry& entry : folder->entries()) {
-            if (std::ranges::find(names, entry.name) != names.end()) {
+            if (target_names.contains(entry.name)) {
                 request.names.push_back(folder->path_of(entry).string());
             }
         }
@@ -1518,11 +1521,16 @@ void Browser::show_places() {
                              .uri = std::move(uri)};
         };
         photo_groups["rummage:photos"] = {
-            .children = {logical("Albums", "folder", "rummage:photos/albums"),
-                         logical("Sources", "folder", "rummage:photos/sources"),
-                         logical("Saved searches", "bookmark", "rummage:photos/searches"),
-                         logical("Review duplicates", "files", "rummage:photos/review"),
-                         logical("Activity", "list-details", "rummage:photos/activity")},
+            .children = {logical(std::string{i18n::tr("Albums")}, "folder",
+                                 "rummage:photos/albums"),
+                         logical(std::string{i18n::tr("Sources")}, "folder",
+                                 "rummage:photos/sources"),
+                         logical(std::string{i18n::tr("Saved searches")}, "bookmark",
+                                 "rummage:photos/searches"),
+                         logical(std::string{i18n::tr("Review duplicates")}, "files",
+                                 "rummage:photos/review"),
+                         logical(std::string{i18n::tr("Activity")}, "list-details",
+                                 "rummage:photos/activity")},
             .expanded_by_default = true};
         for (const auto& [key, uri, icon] :
              {std::tuple{"albums", "rummage:photos/albums", "photo"},
@@ -2017,12 +2025,12 @@ Browser::RunningTargets Browser::running_targets(const Folder& folder) const {
         return found;
     }
     const std::vector<std::string> names = targets(folder);
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     bool all = true;
     bool any = false;
     bool runnable = true;
     for (const fs::Entry& entry : folder.entries()) {
-        if (entry.kind != fs::EntryKind::file ||
-            std::ranges::find(names, entry.name) == names.end()) {
+        if (entry.kind != fs::EntryKind::file || !target_names.contains(entry.name)) {
             continue;
         }
         found.files.push_back(folder.path() / entry.name);
@@ -2305,10 +2313,9 @@ Browser::~Browser() {
 
 void Browser::start_rename() {
     if (showing_photos()) {
-        show_message(
-            "Use Show in Folder for filesystem changes; duplicate cleanup is in Photo Library "
-            "Review",
-            false);
+        show_message(std::string{i18n::tr("Use Show in Folder for filesystem changes; duplicate "
+                                          "cleanup is in Photo Library Review")},
+                     false);
         return;
     }
     if (batch_rename_preparing_ || batch_rename_running_) {
@@ -2420,6 +2427,7 @@ void Browser::new_file(const std::string& name, const std::filesystem::path& fro
 
 std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder) {
     const std::vector<std::string> names = targets(*folder);
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder->cursor_entry();
     std::vector<MenuItem> items;
     if (folder->is_trash()) {
@@ -2477,7 +2485,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
         std::vector<fs::Entry> files;
         for (const fs::Entry& entry : folder->entries()) {
             if (entry.is_directory() == cursor->is_directory() &&
-                std::ranges::find(names, entry.name) != names.end()) {
+                target_names.contains(entry.name)) {
                 fs::Entry typed = entry;
                 typed.mime = folder->mime_of(entry);
                 files.push_back(std::move(typed));
@@ -2523,7 +2531,7 @@ std::vector<MenuItem> Browser::entry_menu(const std::shared_ptr<Folder>& folder)
     const std::size_t count = names.size();
     std::vector<std::filesystem::path> folders;
     for (const fs::Entry& entry : folder->entries()) {
-        if (entry.is_directory() && std::ranges::find(names, entry.name) != names.end()) {
+        if (entry.is_directory() && target_names.contains(entry.name)) {
             folders.push_back(folder->path() / entry.name);
         }
     }
@@ -3773,7 +3781,8 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
     if (tab.photos) {
         if (!photos_available()) {
             open(home_directory());
-            show_message("Photo Library is unavailable; opened Home instead", false);
+            show_message(std::string{i18n::tr("Photo Library is unavailable; opened Home instead")},
+                         false);
             return;
         }
         prepare_photo_library();
@@ -3803,10 +3812,6 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
         sync_photo_view();
         return;
     }
-    const auto folder_there = [](const std::filesystem::path& path) {
-        std::error_code error;
-        return !path.empty() && std::filesystem::is_directory(path, error);
-    };
     pane().mode = static_cast<Mode>(tab.mode);
     set_list_size(tab.list_size.value_or(window_list));
     set_grid_size(tab.grid_icon ? grid_index(*tab.grid_icon) : window_grid);
@@ -3822,7 +3827,7 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
         pane().details.set_columns(settings->details_columns);
     }
     const std::filesystem::path relative = tab.folder.lexically_relative(tab.root);
-    if (pane().mode == Mode::columns && folder_there(tab.root) && !relative.empty() &&
+    if (pane().mode == Mode::columns && tab.root.is_absolute() && !relative.empty() &&
         *relative.begin() != "..") {
         // The columns unfold as they were, down to the cursor in the folder shown.
         pane().columns.reveal(tab.root, tab.cursor.empty() ? tab.folder : tab.folder / tab.cursor);
@@ -3845,10 +3850,6 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
 }
 
 bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t shown) {
-    const auto folder_there = [](const std::filesystem::path& path) {
-        std::error_code error;
-        return !path.empty() && std::filesystem::is_directory(path, error);
-    };
     // Tabs written before they had a zoom of their own take the window's (apply()).
     const std::size_t window_list = pane().details.list_size();
     const std::size_t window_grid = pane().grid.size_index();
@@ -3856,8 +3857,8 @@ bool Browser::restore_tabs(const std::vector<State::Tab>& tabs, std::size_t show
     std::size_t to_show = 0;
     for (std::size_t i = 0; i < tabs.size(); ++i) {
         const State::Tab& tab = tabs[i];
-        if (tab.photos ? !photos_available() : !folder_there(tab.folder)) {
-            continue;  // gone meanwhile (an unplugged disk): left out
+        if (tab.photos ? !photos_available() : !tab.folder.is_absolute()) {
+            continue;  // malformed paths are ignored; disconnected folders stay recoverable
         }
         if (restored > 0) {
             add_pane(restored);
@@ -4017,10 +4018,11 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
                       ? palette.primary
                       : palette.primary.with_alpha(0)});
     if (name_filter().empty() && !filter_focused_) {
-        text_in(showing_photos() ? "Search photos…" : i18n::tr("Filter names…"),
-                {filter_bounds_.x + 6, filter_bounds_.y, filter_bounds_.width - 12,
-                 filter_bounds_.height},
-                palette.on_surface_variant);
+        text_in(
+            showing_photos() ? std::string{i18n::tr("Search photos…")} : i18n::tr("Filter names…"),
+            {filter_bounds_.x + 6, filter_bounds_.y, filter_bounds_.width - 12,
+             filter_bounds_.height},
+            palette.on_surface_variant);
     }
     const auto button = [&](const ui::Rect& rect, std::string_view icon, bool active = false) {
         if (rect.empty())
@@ -4185,7 +4187,7 @@ void Browser::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
         sidebar_.set_focused(false);
     settle_found(now);
     const auto folder = current_folder();
-    if (showing_photos()) {
+    if (showing_photos() && info_shown()) {
         auto photo = photo_library_->properties(true);
         info_pane_.set_photo_properties(
             photo.entry.identity.empty() ? std::nullopt : std::optional{std::move(photo)});
@@ -5224,7 +5226,14 @@ std::optional<ViewHit> Browser::view_hit(float x, float y) const {
 void Browser::start_drag(Press press) {
     Folder& folder = *press.hit.folder;
     folder.forget_press();
-    if (folder.is_collection() || folder.is_trash() || folder.is_archive() || !press.hit.entry ||
+    if (folder.is_collection()) {
+        show_message(
+            std::string{i18n::tr(
+                "Photo Library drag is unavailable. Use Copy or Cut, then Paste in a folder.")},
+            false);
+        return;
+    }
+    if (folder.is_trash() || folder.is_archive() || !press.hit.entry ||
         *press.hit.entry >= folder.entries().size()) {
         return;  // the trash only gives back (Restore); an archive's entries are extracted
     }
@@ -5239,12 +5248,11 @@ void Browser::start_drag(Press press) {
     for (const std::string& name : names) {
         paths.push_back(folder.path() / name);
     }
-    bool folders_only = true;
-    for (const fs::Entry& listed : folder.entries()) {
-        if (!listed.is_directory() && std::ranges::find(names, listed.name) != names.end()) {
-            folders_only = false;
-        }
-    }
+    const bool selected = folder.is_selected(entry.key());
+    const bool folders_only = std::ranges::none_of(folder.entries(), [&](const fs::Entry& listed) {
+        return !listed.is_directory() &&
+               (selected ? folder.is_selected(listed.key()) : listed.key() == entry.key());
+    });
     drag_ = Drag{.directory = folder.path(),
                  .names = std::move(names),
                  .icon = std::string{fs::icon_name(folder.mime(), typed)},
@@ -5857,7 +5865,8 @@ void Browser::open_place(const fs::Place& place, PlaceDestination destination) {
                     photo_library_->open_saved_search(record);
                 return;
             }
-            show_message("This Photo Library entry is no longer available", false);
+            show_message(std::string{i18n::tr("This Photo Library entry is no longer available")},
+                         false);
             photo_library_->refresh_navigation();
             return;
         }
@@ -5935,16 +5944,7 @@ void Browser::mount_place(const fs::Place& place, bool open,
             ready(where);
         if (open) {
             // A slow mount belongs to the tab that requested it, even after focus changes.
-            for (std::size_t side = 0; side < areas_.size(); ++side) {
-                if (!areas_[side])
-                    continue;
-                AreaContext addressed{context_area_, side};
-                for (std::size_t i = 0; i < area().tabs.size(); ++i) {
-                    AreaContext tab_context{area().active, i};
-                    if (current_folder() == origin)
-                        this->open(where);
-                }
-            }
+            open_mounted_folder(origin, where);
         }
         // A disk mounted read-only says why: NTFS left unclean by Windows or by a pull.
         ++operations_;
@@ -6037,19 +6037,25 @@ void Browser::mount_remote(const fs::Place& place, bool open,
             if (ready)
                 ready(where);
             if (open) {
-                for (std::size_t side = 0; side < areas_.size(); ++side) {
-                    if (!areas_[side])
-                        continue;
-                    AreaContext addressed{context_area_, side};
-                    for (std::size_t i = 0; i < area().tabs.size(); ++i) {
-                        AreaContext tab_context{area().active, i};
-                        if (current_folder() == origin)
-                            this->open(where);
-                    }
-                }
+                open_mounted_folder(origin, where);
             }
             show_message(i18n::trf("“{}” mounted", name), false);
         });
+}
+
+void Browser::open_mounted_folder(const std::shared_ptr<Folder>& origin,
+                                  const std::filesystem::path& where) {
+    // Completion belongs to the requesting tab even if focus moved during the mount.
+    for (std::size_t side = 0; side < areas_.size(); ++side) {
+        if (!areas_[side])
+            continue;
+        AreaContext addressed{context_area_, side};
+        for (std::size_t i = 0; i < area().tabs.size(); ++i) {
+            AreaContext tab_context{area().active, i};
+            if (current_folder() == origin)
+                this->open(where);
+        }
+    }
 }
 
 void Browser::open_location() {
@@ -6065,10 +6071,6 @@ std::string Browser::go_to(std::string_view text, bool add) {
             i18n::tr("Not a folder or a server: start with /, ~, smb:// or sftp://")};
     }
     if (location->uri.empty()) {
-        std::error_code ignored;
-        if (!std::filesystem::is_directory(location->folder, ignored)) {
-            return i18n::trf("There is no folder “{}”", location->folder.string());
-        }
         open(location->folder);
         return {};
     }
@@ -6440,14 +6442,9 @@ bool Browser::take_key(const ui::KeyEvent& event, Clock::time_point now) {
         return true;  // nothing under them reacts meanwhile
     }
     if (const auto folder = folder_for(event); !folder.empty()) {
-        std::error_code error;
-        if (!std::filesystem::is_directory(folder, error)) {
-            show_message(i18n::trf("Folder unavailable: {}", folder), true);
-        } else {
-            quick_look_.close();
-            sidebar_.set_focused(false);
-            open(folder);
-        }
+        quick_look_.close();
+        sidebar_.set_focused(false);
+        open(folder);  // The directory model checks availability on a worker and shows errors.
         return true;
     }
     if (command == Command::select_tab) {

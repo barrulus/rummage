@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -815,4 +816,144 @@ TEST_CASE("photo album creation atomically includes the selected photos") {
     for (const auto& invalid : {Json(nullptr), Json("one"), Json::array({-1}), Json::array({1.5})})
         fixture.call({{"op", "create_album"}, {"name", "Invalid"}, {"ids", invalid}}, false);
     CHECK(fixture.call({{"op", "albums"}})["albums"].size() == 4);
+}
+
+TEST_CASE("metadata batches isolate invalid results and report changed photo IDs") {
+    Fixture fixture;
+    fixture.file("source/first.jpg");
+    fixture.file("source/second.jpg");
+    fixture.add("source");
+    const auto work = fixture.call({{"op", "work"}, {"budget", 64}});
+    CHECK(work["discovery_changed"] == true);
+    REQUIRE(work["metadata"].size() == 2);
+    Json updates = Json::array();
+    for (const auto& row : work["metadata"]) {
+        const auto claim = fixture.call(
+            {{"op", "metadata_claim"}, {"id", row["id"]}, {"signature", row["signature"]}});
+        REQUIRE(claim["allowed"] == true);
+        updates.push_back({{"id", row["id"]},
+                           {"signature", row["signature"]},
+                           {"claim_token", claim["claim_token"]},
+                           {"width", 12}});
+    }
+    updates[0]["capture_date"] = "invalid extracted date";
+    const auto result = fixture.call({{"op", "metadata_batch"}, {"items", updates}});
+    REQUIRE(result["results"].size() == 2);
+    CHECK(result["results"][0]["ok"] == false);
+    CHECK(result["results"][1]["ok"] == true);
+    CHECK(result["changed_ids"].size() == 2);
+    CHECK(fixture.call({{"op", "metadata_pending"}})["metadata"].empty());
+    const auto patched = fixture.call({{"op", "query_ids"}, {"ids", result["changed_ids"]}});
+    CHECK(patched["photos"][0]["availability"] == "unreadable");
+    CHECK(patched["photos"][1]["availability"] == "online");
+    const auto progress = fixture.call({{"op", "progress"}});
+    REQUIRE(progress["jobs"].size() == 1);
+    CHECK(progress["jobs"][0]["failure_count"] == 1);
+    CHECK(progress["jobs"][0]["failures"].empty());
+    CHECK(progress["jobs"][0]["in_flight"] == 0);
+    CHECK(progress["job_counts"]["paused"] == 0);
+}
+
+TEST_CASE("restore rejects invalid source settings atomically and leaves new sources inert") {
+    Fixture fixture;
+    fixture.file("source/photo.jpg");
+    fixture.add("source");
+    fixture.drain();
+    auto backup = fixture.call({{"op", "export"}})["data"];
+    const auto encoded = fixture.call({{"op", "export"}, {"encoded", true}});
+    CHECK(Json::parse(encoded["json"].get<std::string>()) == backup);
+    CHECK(encoded["bytes"] == encoded["json"].get<std::string>().size());
+    Fixture destination;
+    for (const auto& exclusions :
+         {Json::array({7}), Json::array({"../escape"}), Json::array({"/absolute"})}) {
+        auto invalid = backup;
+        invalid["sources"][0]["exclusions"] = exclusions;
+        destination.call({{"op", "restore"}, {"data", invalid}}, false);
+        CHECK(destination.call({{"op", "sources"}})["sources"].empty());
+        CHECK(destination.call({{"op", "query"}})["photos"].empty());
+    }
+    const auto restored = destination.call({{"op", "restore"}, {"data", backup}});
+    CHECK(restored["restored"] == 1);
+    CHECK(restored["sources_requiring_refresh"].size() == 1);
+    CHECK(restored["merge_policy"] == "replace_scalar_annotations_merge_tags_and_albums");
+    CHECK(destination.call({{"op", "sources"}})["sources"][0]["watch_enabled"] == false);
+    CHECK(destination.call({{"op", "watch_paths"}})["paths"].empty());
+    CHECK(destination.call({{"op", "refresh"}, {"reconcile", true}})["job_ids"].empty());
+    CHECK(destination.call({{"op", "refresh"}})["job_ids"].size() == 1);
+    CHECK(destination.call({{"op", "sources"}})["sources"][0]["watch_enabled"] == true);
+}
+
+TEST_CASE("retained associations remain reviewable and album counts match visible photos") {
+    Fixture fixture;
+    fixture.file("source/photo.jpg");
+    const auto source = fixture.add("source")["source"]["id"];
+    fixture.drain();
+    const auto id = fixture.call({{"op", "query"}})["photos"][0]["id"];
+    fixture.call({{"op", "edit"}, {"ids", Json::array({id})}, {"add_tags", Json::array({"kept"})}});
+    const auto album =
+        fixture.call({{"op", "create_album"}, {"name", "Keep"}, {"ids", Json::array({id})}});
+    fixture.call({{"op", "remove_source"}, {"id", source}});
+    const auto albums = fixture.call({{"op", "albums"}})["albums"];
+    CHECK(albums[0]["count"] == 0);
+    CHECK(albums[0]["retained_count"] == 1);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", album["id"]}})["total"] == 0);
+    const auto retained =
+        fixture.call({{"op", "query"}, {"album_id", album["id"]}, {"retained_only", true}});
+    CHECK(retained["total"] == 1);
+    CHECK(retained["photos"][0]["tags"] == Json::array({"kept"}));
+    CHECK(retained["photos"][0]["availability"] == "inactive");
+    const auto hidden = fixture.call({{"op", "query_ids"}, {"ids", Json::array({id})}});
+    CHECK(hidden["photos"].empty());
+    CHECK(hidden["missing_ids"] == Json::array({id}));
+    CHECK(fixture
+              .call({{"op", "query_ids"},
+                     {"ids", Json::array({id})},
+                     {"include_inactive", true}})["photos"]
+              .size() == 1);
+}
+
+TEST_CASE("duplicate groups expose stable pagination and explicit verification bounds") {
+    Fixture fixture;
+    for (int group = 0; group < 3; ++group)
+        for (int copy = 0; copy < 2; ++copy)
+            fixture.file("source/" + std::to_string(group) + "-" + std::to_string(copy) + ".jpg",
+                         "group-" + std::to_string(group));
+    fixture.add("source");
+    fixture.drain();
+    fixture.call({{"op", "find_duplicates"}});
+    fixture.drain();
+    std::set<std::string> keys;
+    for (int offset = 0; offset < 3; ++offset) {
+        const auto page = fixture.call({{"op", "duplicates"}, {"limit", 1}, {"offset", offset}});
+        CHECK(page["total"] == 3);
+        REQUIRE(page["groups"].size() == 1);
+        CHECK(keys.insert(page["groups"][0]["key"].get<std::string>()).second);
+        CHECK(page["more"] == (offset < 2));
+    }
+    CHECK(fixture.call({{"op", "duplicates"}, {"offset", 3}})["groups"].empty());
+    Json ids = Json::array();
+    ids.get_ref<Json::array_t&>().resize(1001, Json(1));
+    CHECK(fixture.call({{"op", "verify_duplicates"}, {"ids", ids}}, false)["error"]
+              .get<std::string>()
+              .find("1000") != std::string::npos);
+}
+
+TEST_CASE("source availability transitions invalidate visible rows and subscriptions") {
+    Fixture fixture;
+    fixture.file("source/photo.jpg");
+    fixture.add("source");
+    fixture.drain();
+    fs::rename(fixture.root / "source", fixture.root / "disconnected");
+    const auto job = fixture.call({{"op", "refresh"}})["job_ids"][0];
+    const auto offline = fixture.call({{"op", "work"}});
+    CHECK(offline["waiting"] == true);
+    CHECK(offline["discovery_changed"] == true);
+    CHECK(offline["topology_changed"] == true);
+    fs::rename(fixture.root / "disconnected", fixture.root / "source");
+    fixture.call({{"op", "job_control"}, {"id", job}, {"action", "retry"}});
+    const auto online = fixture.call({{"op", "work"}, {"budget", 64}});
+    CHECK(online["discovery_changed"] == true);
+    CHECK(online["topology_changed"] == true);
+    CHECK(online["changed_ids"].empty());
+    CHECK(fixture.call({{"op", "query"}})["photos"][0]["availability"] == "online");
 }

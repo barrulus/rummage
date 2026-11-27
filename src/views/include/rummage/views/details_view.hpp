@@ -240,6 +240,7 @@ private:
     std::shared_ptr<Folder> root_;
     std::map<std::filesystem::path, std::shared_ptr<Folder>> expanded_;
     std::vector<TreeRow> tree_rows_;
+    std::vector<std::pair<const Folder*, std::uint64_t>> row_revisions_;
 
     void enter();
     void go_up();

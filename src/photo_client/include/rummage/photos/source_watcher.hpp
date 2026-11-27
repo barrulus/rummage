@@ -19,7 +19,8 @@ namespace rummage::photos {
 
 // Catalog-derived subscriptions use the browser's existing inotify authority. Construct
 // only after Photo Library has been activated; catalog requests and directory classification
-// run on workers. The loop registers at most 16 watches per turn and holds at most 4096.
+// run on workers, including potentially slow inotify path lookups. One registration
+// is submitted at a time and at most 4096 subscriptions are held.
 class SourceWatcher {
 public:
     // Empty error: reconciliation jobs were queued; the owner should refresh and drain work.
@@ -87,6 +88,7 @@ private:
     core::EventLoop::SourceId register_timer_{0}, debounce_timer_{0}, availability_timer_{0};
     std::uint64_t generation_{0};
     Id next_page_{0};
+    std::size_t pending_registrations_{0};
     bool more_{false}, listing_{false}, rerun_{false}, flushing_{false}, stopped_{false};
     bool limit_reported_{false};
     std::string registration_error_;

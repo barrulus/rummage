@@ -71,6 +71,7 @@ void DetailsView::show(std::shared_ptr<Folder> folder) {
     expanded_.clear();
     subfolders_.retain({});
     tree_rows_.clear();
+    row_revisions_.clear();
     root_ = folder;
     folder_ = std::move(folder);
     scroller_.jump_to(0.0F);
@@ -103,7 +104,22 @@ void DetailsView::append_rows(const std::shared_ptr<Folder>& folder, std::size_t
 }
 
 void DetailsView::rebuild_rows() {
+    bool unchanged = root_ && row_revisions_.size() == expanded_.size() + 1 &&
+                     row_revisions_.front() == std::pair{root_.get(), root_->revision()};
+    std::size_t revision_index = 1;
+    if (unchanged) {
+        for (const auto& [path, folder] : expanded_) {
+            (void)path;
+            if (row_revisions_[revision_index++] != std::pair{folder.get(), folder->revision()}) {
+                unchanged = false;
+                break;
+            }
+        }
+    }
+    if (unchanged)
+        return;
     tree_rows_.clear();
+    row_revisions_.clear();
     if (!root_)
         return;
     append_rows(root_, 0);
@@ -121,11 +137,18 @@ void DetailsView::rebuild_rows() {
         folder_->set_cursor(std::nullopt);
         folder_ = root_;
     }
+    row_revisions_.emplace_back(root_.get(), root_->revision());
+    for (const auto& [path, folder] : expanded_) {
+        (void)path;
+        row_revisions_.emplace_back(folder.get(), folder->revision());
+    }
 }
 
 std::optional<std::size_t> DetailsView::cursor_row() const {
     if (!folder_ || !folder_->cursor())
         return std::nullopt;
+    if (expanded_.empty() && folder_ == root_)
+        return folder_->cursor();
     for (std::size_t i = 0; i < tree_rows_.size(); ++i) {
         if (tree_rows_[i].folder == folder_ && tree_rows_[i].entry == *folder_->cursor())
             return i;
@@ -489,19 +512,7 @@ void DetailsView::reveal_cursor(Folder::Reveal reveal, Clock::time_point now) {
         folder_->request_jump();  // nowhere to show it yet
         return;
     }
-    const float top = static_cast<float>(*cursor) * size_.row;
-    const float bottom = top + size_.row;
-    const float from = scroller_.destination();
-    if (top >= from && bottom <= from + viewport) {
-        return;
-    }
-    if (reveal == Folder::Reveal::jump) {
-        scroller_.jump_to(top - ((viewport - size_.row) / 2.0F));  // centered
-    } else if (top < from) {
-        scroller_.glide_to(top, now);
-    } else {
-        scroller_.glide_to(bottom - viewport, now);
-    }
+    reveal_row(scroller_, *cursor, size_.row, viewport, reveal == Folder::Reveal::jump, now);
 }
 
 void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
@@ -690,7 +701,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
             }
         }
         cell(Field::size, size_text, true);
-        cell(Field::modified, format_time(entry.modified_ns), false);
+        cell(Field::modified, entry.modified_known ? format_time(entry.modified_ns) : "—", false);
         if (layout_.shown.at(index(Field::created)))
             cell(Field::created, entry.created_ns ? format_time(*entry.created_ns) : "—", false);
         if (layout_.shown.at(index(Field::accessed)))

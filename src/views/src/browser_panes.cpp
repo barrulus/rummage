@@ -13,11 +13,10 @@ namespace rummage::views {
 namespace {
 
 std::filesystem::path session_fallback() {
-    // HOME may name a missing directory (for example /homeless-shelter in a Nix build).
+    // Availability is resolved by the directory worker, never while restoring the UI.
     if (const char* home = std::getenv("HOME"); home != nullptr) {
         const std::filesystem::path path{home};
-        std::error_code error;
-        if (path.is_absolute() && std::filesystem::is_directory(path, error)) {
+        if (path.is_absolute()) {
             return path;
         }
     }

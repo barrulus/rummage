@@ -339,9 +339,9 @@ TEST_CASE("state: the browser's tabs, kept and brought back as they were") {
     browser->apply(read.state);
     REQUIRE(browser->restore_tabs(read.state.tabs, read.state.shown_tab));
     REQUIRE(run_until(loop, [&] { return !browser->loading(); }));
-    CHECK(browser->tab_count() == 2);  // "gone" is gone
+    CHECK(browser->tab_count() == 3);  // disconnected tabs remain available for retry
     CHECK(browser->active_tab() == 1);
-    CHECK(browser->tab_titles().size() == 2);
+    CHECK(browser->tab_titles().size() == 3);
     CHECK(browser->tab_titles()[0] == saved.tabs[0].folder.filename().string());
     CHECK(browser->tab_titles()[1] == "b");
     CHECK(browser->mode() == Browser::Mode::grid);
@@ -350,15 +350,18 @@ TEST_CASE("state: the browser's tabs, kept and brought back as they were") {
     REQUIRE(run_until(loop, [&] { return browser->columns().column_count() >= 2; }));
     CHECK(browser->columns().column(0).folder().path() == dir.path / "a");
 
-    // Nothing left to restore: false, and the start opens its folder.
+    // An unavailable tab is restored without a synchronous pathname check.
     const std::unique_ptr<Browser> empty = make();
-    CHECK_FALSE(empty->restore_tabs({{.folder = dir.path / "gone",
-                                      .mode = State::Mode::grid,
-                                      .root = {},
-                                      .cursor = {},
-                                      .list_size = {},
-                                      .grid_icon = {}}},
-                                    0));
+    CHECK(empty->restore_tabs({{.folder = dir.path / "gone",
+                                .mode = State::Mode::grid,
+                                .root = {},
+                                .cursor = {},
+                                .list_size = {},
+                                .grid_icon = {}}},
+                              0));
+    REQUIRE(run_until(loop, [&] { return !empty->loading(); }));
+    REQUIRE(empty->columns().focused_folder());
+    CHECK(empty->columns().focused_folder()->model().error());
 }
 
 TEST_CASE("state: the lists' and the grid's size, and what is not one") {
@@ -512,12 +515,12 @@ TEST_CASE("state: startup selection honors explicit folders, modes and vanished 
     config.mode = Mode::last;
     CHECK(startup_location(config, state).folder == last);
     std::filesystem::remove(last);
-    CHECK(startup_location(config, state).folder.empty());
+    CHECK(startup_location(config, state).folder == last);
     config.mode = Mode::home;
     CHECK(startup_location(config, state).folder.empty());
     config.mode = Mode::folder;
     config.folder = (dir.path / "missing").string();
-    CHECK(startup_location(config, state).folder.empty());
+    CHECK(startup_location(config, state).folder == dir.path / "missing");
 }
 
 TEST_CASE("state: column layouts round trip globally, per folder and per tab") {

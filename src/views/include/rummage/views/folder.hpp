@@ -73,6 +73,11 @@ public:
     void replace_collection(std::vector<fs::Entry> entries, std::string label, std::size_t total,
                             bool loading = false);
 
+    // Preserve stable row keys/order while publishing metadata or a later query page.
+    // An invalid patch is rejected atomically; it cannot move the cursor to another photo.
+    bool update_collection_rows(std::vector<std::pair<std::size_t, fs::Entry>> rows);
+    void append_collection(std::vector<fs::Entry> rows, std::size_t total, bool loading = false);
+
     using VisibleRangeHandler = std::function<void(std::size_t first, std::size_t last_exclusive)>;
 
     // Collection controllers may load more rows as the native view reaches them. Views report

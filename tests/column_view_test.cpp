@@ -821,3 +821,35 @@ TEST_CASE("collection viewport: native views report the drawn range after scroll
         exercise(columns, columns.column(0).scroller());
     }
 }
+
+TEST_CASE("collection folder: incremental metadata and append preserve stable selection") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    Folder folder{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    rummage::fs::Entry first{.name = "photo.jpg", .size = 10, .identity = "photo:1"};
+    auto second = first;
+    second.identity = "photo:2";
+    folder.replace_collection({first, second}, "Photos", 3);
+    folder.set_cursor(1);
+    const auto selection_revision = folder.selection_revision();
+    CHECK(folder.summary().bytes == 10);
+    second.size = 42;
+    CHECK(folder.update_collection_rows({{1, second}}));
+    CHECK(folder.cursor_entry()->key() == "photo:2");
+    CHECK(folder.summary().bytes == 42);
+    CHECK(folder.selection_revision() == selection_revision);
+    auto invalid = first;
+    invalid.identity = "wrong-photo";
+    first.size = 99;
+    CHECK_FALSE(folder.update_collection_rows({{0, first}, {1, invalid}}));
+    CHECK(folder.entries()[0].size == 10);  // invalid patches fail before any mutation
+    CHECK(folder.entries()[1].key() == "photo:2");
+    auto third = first;
+    third.identity = "photo:3";
+    folder.append_collection({third}, 3);
+    CHECK(folder.entries().size() == 3);
+    CHECK(folder.cursor_entry()->key() == "photo:2");
+    CHECK(folder.selected_names() == std::vector<std::string>{"photo:2"});
+    CHECK(folder.selection_revision() == selection_revision);
+}
