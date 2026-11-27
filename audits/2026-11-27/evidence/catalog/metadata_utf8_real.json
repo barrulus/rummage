@@ -1,0 +1,15 @@
+{
+  "program": "/tmp/rummage-photo-browser-build/rummage-bench-photos",
+  "sha256": "a74a539c61c2bb16811748c6cf91bd61de398b88147c96d7fc20793461039acd",
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "[    0.000] debug mime: 1043 types, 1543 globs, 668 magic sections, head 18729 bytes\n[    0.070] debug mime: 1043 types, 1543 globs, 668 magic sections, head 18729 bytes\nphoto benchmark: Photo Library: [json.exception.type_error.316] incomplete UTF-8 string; last byte: 0xC3\n",
+  "photos": [
+    [
+      "online",
+      ""
+    ]
+  ],
+  "claims": 1,
+  "outcomes": 0
+}

@@ -1,0 +1,24 @@
+startup: main 15.65 ms
+[    0.000] info  rummage 0.6.1
+[    0.000] info  config: /tmp/rummage-branch-audit-2026-11-27/root/live/config.toml
+startup: display 16.06 ms
+startup: egl 41.34 ms
+[    0.031] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+startup: fonts 47.10 ms
+[    0.031] info  theme: default palette
+[    0.031] info  portal: no session bus (Failed to open bus (No such file or directory)): the desktop's colours are not followed
+startup: portal 47.22 ms
+startup: workers 48.70 ms
+startup: mime 51.39 ms
+startup: engines 51.59 ms
+startup: icons 51.64 ms
+[    0.047] warn  udisks: no system bus or udisks2 (Failed to open bus (No such file or directory)): disks are not mounted from rummage
+[    0.047] warn  gvfs: no session bus (Failed to open bus (No such file or directory)): network folders are not mounted from rummage
+[    0.047] warn  window reuse unavailable: [org.freedesktop.DBus.Error.FileNotFound] Failed to open bus (No such file or directory)
+[    0.048] info  GL: Mesa Intel(R) Graphics (ARL) | OpenGL ES 3.2 Mesa 26.3.1
+startup: window 71.94 ms
+startup: browser 72.20 ms
+startup: first-draw 72.67 ms
+startup: first-draw-finished 75.04 ms
+startup: first-frame-shown 89.54 ms
+startup: folder-shown 98.14 ms

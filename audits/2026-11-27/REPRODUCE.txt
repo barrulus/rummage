@@ -1,0 +1,115 @@
+RUMMAGE AUDIT REPRODUCTION — 2026-11-27
+
+Start with report.html or REPORT.txt. summary.json contains findings and measurements.
+All production measurements refer to 1dd2368783d814e86268fd2c388ee41671c66ae8,
+not the later commit that stores this report. Baseline is
+63ca25bc8ba464d42dfa315d180354892137e792. Worktree: /tmp/rummage-photo-library.
+
+Original build/fixture artifacts remain at /tmp/rummage-branch-audit-2026-11-27.
+The evidence directory preserves source harnesses, logs, data and exact command
+records without copying build binaries, databases or the large generated fixtures.
+Evidence hashes are in evidence-index.json. Stored text logs normalize trailing
+whitespace and excess final blank lines only; original tool output remains in the
+external audit directory. Diagnostic content is unchanged. Scripts intentionally retain paths and
+Nix store dependencies used in this run. These are reproducible local audit scripts,
+not a portable new production test framework. Adapt paths/dependencies on another host.
+
+Do not run benchmarks against a personal catalog or originals. Keep HOME unchanged;
+isolate XDG_CONFIG_HOME, XDG_CACHE_HOME, XDG_DATA_HOME and XDG_STATE_HOME. Run timed
+workloads serially, use bounded timeouts, and do not globally drop filesystem caches
+or stop other people's processes. The scripts create their own disposable fixtures.
+
+FRESH BUILD / EXISTING SUITES
+
+From the audited source checkout and existing nix develop environment:
+
+  cmake -S . -B /tmp/rummage-branch-audit-2026-11-27/build-release -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DRUMMAGE_BUILD_TESTS=ON -DRUMMAGE_MEDIA=ON -DRUMMAGE_PDF=ON -DRUMMAGE_PHOTOS=ON
+  cmake --build /tmp/rummage-branch-audit-2026-11-27/build-release --parallel 4
+  ctest --test-dir /tmp/rummage-branch-audit-2026-11-27/build-release --output-on-failure -j3
+
+Use a separate build-asan directory with CMAKE_BUILD_TYPE=Debug and
+RUMMAGE_SANITIZER=address,undefined for the sanitizer variant. The Nix shell supplies
+PDFium and other development dependencies. Compiler/options are recorded in configure
+logs and root/compiler-effective-flags.log. CMake private-PDFium packaging is OFF here.
+Run each test process with isolated XDG roots. The test suite owns its own fixtures.
+
+The unmodified Python-hosted photos-migration CTest fails ASan load order. Its corrected
+command, matching libasan preload, and ASAN/UBSAN environment are recorded in
+root/asan-migration-preload.json. Leak detection is disabled only for this CPython host.
+Do not treat the ordinary CTest abort as a product memory bug. The strict timestamp
+companion adds -fstrict-overflow (root/strict-catalog-commands.json) because the Nix
+wrapper normally injects -fno-strict-overflow.
+
+ADVERSARIAL CORRECTNESS REPRODUCERS
+
+From evidence/catalog (or the original catalog audit directory):
+
+  python3 correctness_repros.py /tmp/rummage-branch-audit-2026-11-27/build-release/librummage-photos.so --output /tmp/catalog-correctness-rerun.json
+  python3 stress_catalog.py /tmp/rummage-branch-audit-2026-11-27/build-release/librummage-photos.so --records 100000 --samples 10 --build-mode Release --output /tmp/catalog-stress-rerun.json
+
+Inspect the argv expectations in inode_replacement_policy.py, metadata_utf8_real.py,
+compile_utf8_repro.py and timestamp_overflow.py before running. They create synthetic
+or disposable originals. The inode test edits a prior fixture identity, not file bytes
+or the user's mount. The UTF-8 JPEG is created from a repository fixture and passed
+through the actual helper/client path. Their JSON/log files record observed failures.
+
+NATIVE UI / PERFORMANCE
+
+ui/build_harness.py builds view_stress.cpp and photo_stress.cpp against the corresponding
+build's archives/flags. ui/seed_photo.py uses catalog/audit_support.py to prepare real
+schema with synthetic rows. ui/run_harness.py sets isolated XDG roots, software GL and
+a 120-second timeout. Preserve its fixture/data layout when reproducing. No-cursor
+selection and bulk-property operations have ONE measured sample per size; normal
+focused/draw operations use 30 samples and direct-view draw uses 60 after warmup.
+The 30-refresh burst coalesces into TWO full-prefix loads, not one.
+CSV p95 for a one-sample operation is not a distribution claim. The generic collection
+fixture and backend-backed photo fixture are different; avoid subtracting their costs
+as if this were a profiler trace. Screenshot conversion helper is ui/ppm_png.py.
+
+root/harness/prepare_filesystem.py creates directory/copy fixtures; run_filesystem.py
+runs directory, Finder and hash-verified copies. run_measurement.py records process
+resource context. The copy timings report both copy return and explicit destination
+sync, with three samples each and warm caches. Do not report copy return as durable I/O.
+
+Hardware startup/idle used scripts/performance/display.py with a NEW private runtime,
+/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json, /dev/dri/renderD129 and
+root/harness/live_baseline.py. It uses the existing Umbriel headless compositor;
+no virtual input or user desktop was involved. See root/live-run.log and live/results.json.
+Check the actual render node on a different host; never point the harness at a user's
+existing compositor/runtime. This is not a physical presentation-latency measurement.
+
+SANITIZER MUTATIONS / TARGETED CONCURRENCY
+
+root/harness/build_mutations.py compiles existing fuzz entrypoints with the deterministic
+mutation_driver.cpp. run_mutations.py records commands, seed files, guards and counts in
+root/mutations/results.json. This is deterministic mutation, not libFuzzer coverage-
+guided search. Last-input binary buffers and compiled executables are intentionally
+not committed; regenerate from the recorded source seeds and seed 20261127.
+
+architecture/tsan/README.txt and results.json contain the direct core compile/run method.
+The positive control MUST report a race with exit 66; then the core runs must exit 0.
+Seeds 731/732/733 each passed 21 cases / 46,199 assertions. The runner verifies the frozen
+HEAD. After the report commit, use a separate source snapshot at that revision and adapt
+paths; do not reset this branch or another agent's worktree merely to satisfy the guard.
+
+PACKAGING / TOOLING / WEBSITE
+
+root/harness/staged_install.py installs CMake components only under the audit directory,
+checks base assets/linkage/config/portal paths, checks absent and present photo module,
+exercises its ABI and then removes only that staged module. It preserves HOME when
+adapting the existing installed-photo checker. It adds desktop-file-utils from an
+already installed Nix store path. It does not install packages into the system, nor
+prove upgrades from the old preview add-ons. root/staged-install/{results,ownership}.json
+record component ownership and checks.
+
+architecture/reproduce.txt and checks.json document CI tooling tests, docs/i18n, Hugo
+and generated-site link gate, shell/workflow checks and clone inventory. Expected current
+website result is two missing targets (F08). No publication or CI dispatch was performed.
+
+REPORT VALIDATION
+
+The report's relative evidence links and all JSON were checked; evidence-index.json
+records byte counts and SHA-256 values. Open report.html locally; it has no network assets,
+telemetry or external scripts. No production file was modified by this audit.

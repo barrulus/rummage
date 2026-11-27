@@ -1,0 +1,92 @@
+{
+  ".nix": {
+    "command": [
+      "nix-instantiate",
+      "--parse"
+    ],
+    "checked": [
+      "flake.nix",
+      "nix/module-check.nix",
+      "nix/module.nix",
+      "nix/package.nix",
+      "nix/pdfium-icu.nix",
+      "nix/pdfium-sources.nix",
+      "nix/pdfium.nix",
+      "nix/smoke-test.nix"
+    ],
+    "failures": []
+  },
+  ".sh": {
+    "command": [
+      "bash",
+      "-n"
+    ],
+    "checked": [
+      "packaging/pdfium/build.sh",
+      "scripts/ci/check-installed.sh",
+      "scripts/ci/check-wayland.sh",
+      "scripts/ci/export-source.sh",
+      "scripts/ci/lint.sh",
+      "scripts/ci/native-build.sh",
+      "scripts/ci/native-install.sh",
+      "scripts/ci/native.sh",
+      "scripts/ci/publish-downloads.sh",
+      "scripts/ci/void-build.sh",
+      "scripts/ci/void-install.sh",
+      "scripts/ci/void.sh",
+      "scripts/format.sh",
+      "scripts/make-icon-font.sh",
+      "scripts/svg-capture-references.sh",
+      "scripts/svg-corpus.sh",
+      "tests/data/archive/make-fixtures.sh",
+      "tests/data/image/dng/make.sh",
+      "tests/data/image/make.sh",
+      "tests/data/image/tiff/make.sh"
+    ],
+    "failures": []
+  },
+  ".py": {
+    "method": "ast.parse, no imports or bytecode",
+    "checked": [
+      "packaging/pdfium/configure.py",
+      "packaging/pdfium/copyright.py",
+      "scripts/check-docs.py",
+      "scripts/ci/check-pdf.py",
+      "scripts/ci/check-photos-installed.py",
+      "scripts/ci/check-windows.py",
+      "scripts/ci/nix-cache.py",
+      "scripts/ci/noctalia-template.py",
+      "scripts/ci/preflight.py",
+      "scripts/ci/prepare-downloads.py",
+      "scripts/ci/promote-downloads.py",
+      "scripts/ci/reuse-build.py",
+      "scripts/ci/tests/test_completions.py",
+      "scripts/ci/tests/test_downloads.py",
+      "scripts/ci/tests/test_i18n.py",
+      "scripts/ci/tests/test_noctalia_template.py",
+      "scripts/ci/tests/test_preflight.py",
+      "scripts/ci/tests/test_reuse.py",
+      "scripts/ci/tests/test_workflow.py",
+      "scripts/ci/void-source.py",
+      "scripts/i18n-check.py",
+      "scripts/performance/build_input.py",
+      "scripts/performance/display.py",
+      "scripts/performance/instrument.py",
+      "scripts/performance/report.py",
+      "scripts/performance/run.py",
+      "scripts/performance/test_metrics.py",
+      "scripts/svg_capture_references.py",
+      "scripts/svg_corpus.py",
+      "scripts/svg_review.py",
+      "tests/data/feature-integration/make-fixture.py",
+      "tests/data/image/make-heif.py",
+      "tests/data/media/generate.py",
+      "tests/fuzz/make_dng_seeds.py",
+      "tests/photos_import.py",
+      "tests/photos_migration.py",
+      "tests/photos_scale.py",
+      "website/check.py"
+    ],
+    "failures": []
+  }
+}

@@ -1,0 +1,254 @@
+# Architecture, redundancy, build and packaging audit
+
+Audited snapshot: `1dd2368783d814e86268fd2c388ee41671c66ae8`, branch `feat/photo-library`, in `/tmp/rummage-photo-library`. Comparison baseline: `63ca25bc` (full identity in `snapshot.txt`). Date: 2026-11-27. This is an audit, not a remediation patch. No source edits, commits, installs, remote operations, or shared build writes were performed.
+
+## Results that matter
+
+1. The frozen branch **fails the actual website link gate**, despite passing the Markdown documentation checker. The download page still advertises discontinued preview packages; the new Photo Library guide has not been added to the website navigation/content generation.
+2. The new native photo UI has **avoidable work proportional to all loaded rows on each frame**, even with the information pane hidden. Opening bulk Properties adds a **quadratic selected-ID membership loop**.
+3. Every successful background batch refreshes the entire loaded collection and watcher inventory. Continuous scrolling makes that work grow with browsing history, rather than with the number of rows actually changed or visible.
+4. The client duplicates the backend's pending-metadata lookup and repeatedly opens/closes the catalog around each metadata item. This is a genuine redundant work path, unlike most of the small source clones found by the textual scan.
+5. The packaging design is consistent with the requested boundary: standard previews, one optional photo module, no replacement launcher. I found **no additional confirmed package ownership collision** in the recipes. Actual old-to-new package upgrades were not run, so this is not a runtime upgrade certification.
+6. New photo controls and status strings mostly bypass translation extraction. A successful strict i18n check does not establish localization coverage for these strings.
+
+No new critical/data-loss finding is asserted by this architecture audit. Catalog safety, native stress timings and full-application sanitizer results are owned by the other audit tracks and must be incorporated separately. Targeted core ThreadSanitizer results from this track are recorded below.
+
+## Executed checks
+
+| Check | Result | Evidence |
+|---|---|---|
+| CI tooling unit tests | PASS, 73 tests | `ci-unit.log`, `checks.json` |
+| Performance-script unit tests | PASS, 6 tests | `performance-tool-unit.log` |
+| Markdown links/config examples | PASS: 28 pages, 288 links, 24 TOML blocks | `docs.log` |
+| Strict message catalog checker | PASS, seven languages; coverage caveat below | `i18n.log` |
+| ShellCheck on CI/PDFium shell scripts | PASS | `shellcheck.log`, `extra-checks.json` |
+| Actionlint on both workflows | PASS | `actionlint.log` |
+| Bash syntax | PASS, 20 tracked `.sh` files | `syntax-checks.json` |
+| Nix parser | PASS, 8 tracked `.nix` files | `syntax-checks.json` |
+| Python AST parse | PASS, 38 tracked `.py` files | `syntax-checks.json` |
+| Diff whitespace against baseline | PASS | `whitespace.log` |
+| Hugo local site build | PASS with cached Hugo 0.170.1, output entirely under this audit directory | `website-build.log`, `extra-checks.json` |
+| Generated-site links/assets/downloads | **FAIL, 2 broken links** | `website-check.log` |
+
+These are independent checks of this frozen source. No older native/Nix package results are being presented as validation of this snapshot. The initial architecture pass ran no C++ compilation, CTest, sanitizer, fresh package installation, or package upgrade. A subsequently authorized isolated core ThreadSanitizer run is recorded below. Parent owns full-application and packaging execution. No network access was required.
+
+## Findings
+
+Severity vocabulary: **P2** = concrete correctness/integration defect or material efficiency problem to fix before broad release/use at the intended scale; **P3** = maintenance/coverage improvement. Confidence is separate from severity. Exact source line numbers below refer to the frozen snapshot.
+
+### ARCH-01 — Website packaging instructions and Photo Library route are broken
+
+**P2; introduced integration regression; confidence high; runtime reproduced.**
+
+- `website/layouts/downloads.html:22` advertises matching `rummage-media`/`rummage-pdf` packages and “all four packages” in Void. It links `/docs/install/#optional-preview-packages`.
+- That section was replaced by `docs/install.md:109` (“Photo Library add-on”); the previous anchor no longer exists.
+- `docs/configuration.md:92` now links `photo-library.md`, but `website/data/navigation.toml:1` and its following groups do not register the new guide. The site builds docs from that explicit navigation list, so `/docs/photo-library/` is missing.
+- The template/navigation files are inherited unchanged, but changing their dependent docs/package contract introduced the broken integration on this branch.
+
+Actual `website/check.py` output:
+
+```
+downloads/index.html: missing anchor /docs/install/#optional-preview-packages
+docs/configuration/index.html: missing target /docs/photo-library/
+```
+
+Recommendation: update website package copy and add the guide to navigation/content generation; rerun the generated-site checker, not only `scripts/check-docs.py`. Also remove stale “optional native rummage-pdf package” wording in `THIRD_PARTY.md:22` and optional-media/PDF source-map wording in `contributing/architecture.md:35`; these are secondary wording issues, not extra failing routes.
+
+### ARCH-02 — Inspector snapshot construction scales with the whole collection on every frame, and quadratically for bulk Properties
+
+**P2; introduced; confidence high for complexity/call path; no native timing measured here.**
+
+- `src/views/src/browser.cpp:4188` unconditionally calls `photo_library_->properties(true)` while showing photos, before checking whether/how the information pane will be rendered. Hiding the pane does not avoid this work.
+- `src/views/src/photo_library.cpp:214` finds the focused row through a linear scan of `rows_`.
+- `src/views/src/photo_library.cpp:998` then loops through **every** loaded row and searches the `result.ids` vector with `std::ranges::find`, even for a focused-only single-ID snapshot.
+- Bulk annotation opening calls the same function with the selected-ID vector. Selecting all N loaded photos entails N(N+1)/2 ID comparisons in that loop (the sum of successful search positions), plus JSON copying and field comparisons. For N=30,000 that is 450,015,000 comparisons; for 100,000 it is 5,000,050,000. These are operation-count derivations, not elapsed-time claims.
+- `PhotoLibrary::selected_snapshots_` already provides an ID-indexed source for selected metadata, so the quadratic membership lookup is avoidable without redesigning the catalog.
+
+Recommendation: direct lookup for the focused ID; use an ID set/map for bulk snapshots; cache the rendered snapshot against collection/selection revisions; skip rebuilding it while the pane is not shown. Preserve unknown/mixed values for selections outside the loaded window. Measure native Properties-open and scroll-frame times at 1k/10k/30k/100k after the fix.
+
+### ARCH-03 — Metadata batches trigger full-prefix queries, full UI republish, and full watch inventories
+
+**P2; introduced; confidence high for amplification; runtime cost to correlate with backend/UI stress results.**
+
+- `src/views/src/photo_library.cpp:832` treats any `worked=true` response alike: refresh all watcher subscriptions, refresh the visible collection, then schedule more work. The client also sets `worked=true` after metadata processing (`src/photo_client/src/client.cpp:268`), so no discovery change is required.
+- `PhotoLibrary::query` at `photo_library.cpp:568` preserves the already-loaded prefix length, then refetches it from offset zero in chunks of at most 1,000 (`:588`). This is necessary to preserve an existing prefix with the present implementation, but it is far more work than refreshing four changed metadata rows.
+- `PhotoLibrary::publish` at `:501` rebuilds all `fs::Entry` objects and re-evaluates selection on the UI thread.
+- Each backend query does COUNT plus its page query (`src/photos/src/catalog.cpp:645`, `:670`), and `photo_json` at `:574`/`:578` prepares an individual tags query and albums query for **each row**.
+- At 30,000 loaded rows, one refresh therefore performs 30 page requests, 30 COUNTs, 30 page SELECTs, and 60,000 per-photo tags/albums SELECTs, before jobs and watcher requests. The cadence is limited by actual I/O/query completion; this report does not multiply that by an assumed frame rate or claim a measured queries-per-second figure.
+- `SourceWatcher::refresh_subscriptions` restarts a full `watch_paths` traversal. Existing registrations also consume the 16-per-turn budget (`source_watcher.cpp:160–172`) and queue a 10 ms continuation while pending (`:201`). At 4,096 already-registered directories, traversal requires at least 256 registration batches, in addition to paged database work. If new refresh requests arrive during a traversal, `rerun_` requests another full pass.
+
+Recommendation: distinguish discovery/location changes from metadata-only changes in work responses; refresh watch paths only when their revision changes (plus the existing availability timer); update affected metadata rows or invalidate a bounded window. Reuse prepared tag/album statements or batch enrichment for each page. Coalescing concurrent refreshes already helps; it does not remove the full-prefix work.
+
+### ARCH-04 — Redundant metadata selection and per-item catalog initialization
+
+**P2 efficiency; introduced; confidence high for call count; cost not isolated in this track.**
+
+- Backend `work()` already returns `metadata_pending(db, budget)` at `src/photos/src/catalog.cpp:1503`.
+- The application client ignores that candidate array and requests `metadata_pending` again with its smaller decode batch at `src/photo_client/src/client.cpp:219–220`.
+- Each eligible photo then performs a separate claim request (`:228`) and metadata submission (`:264`). A normal full four-photo batch makes **10 ABI requests/database opens**: work + pending + four claims + four submissions. That excludes UI refresh/jobs/watch requests.
+- `rummage_photos_request` constructs `Database` for every operation (`catalog.cpp:2608`). Construction obtains the schema flock, opens SQLite, configures WAL/FULL synchronous mode, and reads the schema version (`:126–159`); destruction closes it (`:197`). These safeguards are real, but paying all initialization costs for every tiny request is not architecturally required.
+- The second pending lookup may see more recent concurrent claims, so removing it must retain claim-time validation. Do not remove claims, durability, or identity checks as a performance shortcut.
+
+Recommendation: consume a bounded subset of the first candidate list and rely on the existing claim validation, or return only the requested metadata batch from `work`. Consider a bounded connection/session owner with prepared statements, while retaining multi-process migration serialization and worker ownership rules. Coordinate with backend latency measurements before prioritizing larger connection-lifetime changes.
+
+### ARCH-05 — Bounded watch count does not bound UI-thread remote pathname latency
+
+**P2 conditional responsiveness risk; new caller amplifies inherited primitive; confidence high for thread/call path, medium for practical severity; not fault-injected here.**
+
+`SourceWatcher::fetch_page` completion calls `register_batch` on the event loop (`src/photo_client/src/source_watcher.cpp:154`). Registration calls shared `DirectoryWatcher::watch` at `:187`. That function immediately invokes `inotify_add_watch` using the pathname (`src/fs/src/directory_watcher.cpp:38`). The kernel must resolve that path, which can wait on an unavailable/slow FUSE or network filesystem. A budget of 16 registrations and a 10 ms timer only bounds work *between* syscalls, not one blocked lookup. This matters for the explicitly supported external/network-source workflow.
+
+The directory-watch primitive is inherited and correctly shares subscriptions. The new potentially thousands-of-directories source watcher is the introduced amplification. This audit did not hang a mount or measure registration latency, and does not assert that all remote mounts block here.
+
+Recommendation: design asynchronous/path-resolution-safe watch registration with the shared watcher rather than blindly moving its currently non-thread-safe maps to a worker; fault-inject a slow/unresponsive FUSE lookup and require input responsiveness while subscriptions are being established.
+
+### ARCH-06 — New Photo Library strings bypass translation coverage
+
+**P2 usability/integration; introduced; confidence high.**
+
+`src/views/src/photo_library.cpp` has no `i18n::tr`, `trf`, or `mark` calls. New literals such as `Add folder…` (`:1167`), `Pause background work` / `Resume background work` (`:1228`), `Gentle background pace` (`:1232`) and the formatted metadata progress text (`:939`) are absent from all seven message catalogs. `Enable Photo Library` in `settings_dialog.cpp:226` likewise has no translation entry. The diff adds only five entries per language (Gallery label, Mixed values, No results, Photo Library, Add to Photo Library).
+
+The existing generic Settings renderer may call `tr(field.label)` dynamically, but absent catalog keys still fall back to English; raw formatted status text cannot be translated by that lookup. `scripts/i18n-check.py:59` extracts explicit `tr`/`trf`/`mark` calls, so its strict pass is not evidence that these feature strings are covered.
+
+Recommendation: mark/extract new UI messages and use formatted/plural translation helpers, then fill the catalogs. Add a non-English native feature-path check. Backend diagnostic localization needs a separate policy, not blind translation of machine-valued JSON states.
+
+### ARCH-07 — Details rebuilds its flat/tree row index every frame
+
+**P3 inherited efficiency hotspot; confidence high; no new branch regression claimed.**
+
+`DetailsView::draw` calls `rebuild_rows` at `src/views/src/details_view.cpp:567`; `append_rows` at `:94` copies an owning shared pointer/index record for every entry. The baseline already does this (baseline draw call at line 563). Photo collections increase how often users may retain tens of thousands of rows while only a few dozen are visible, but the algorithm itself is inherited.
+
+Recommendation: cache flattened rows by folder/expansion revisions. Measure before changing tree-expansion behavior. Do not label this inherited work as newly copied photo-specific rendering.
+
+## Duplication and architecture evidence
+
+### Reproducible inventory
+
+`inventory.py` reads Git blobs at the frozen revision, not untracked build outputs. It inventories **1,060 tracked files, 34 top-level/module areas, 137 changed files**. First-party `src/` contains **456 files; 432 C/C++ source/header files; 106,965 physical C/C++ lines**. This is a physical-line count, not executable LOC. Binary assets and third-party code remain in the file inventory but are excluded from the clone scan.
+
+Selected size changes (`hotspot-growth.json`):
+
+| File | Baseline lines | Head lines | Delta |
+|---|---:|---:|---:|
+| `views/src/browser.cpp` | 6,655 | 7,053 | +398 |
+| `views/include/rummage/views/browser.hpp` | 1,419 | 1,464 | +45 |
+| `views/src/properties_dialog.cpp` | 971 | 1,227 | +256 |
+| `views/src/details_view.cpp` | 1,153 | 1,163 | +10 |
+| `views/src/photo_library.cpp` | absent | 1,947 | +1,947 |
+| `photos/src/catalog.cpp` | absent | 2,627 | +2,627 |
+
+The two new large files combine several responsibilities: catalog schema/storage/indexing/queries/recovery, and photo navigation/forms/queries/background coordination respectively. This raises review and compile/change-coupling costs, but line count alone is not a defect. Incremental extraction of storage/query/jobs and controller/dialog logic is a P3 maintenance option after behavioral tests stabilize.
+
+### Exact clone scan and manual classification
+
+Method: consecutive 12-line windows after removing blank/comment/preprocessor/punctuation-only lines and collapsing whitespace, minimum 320 characters; exact identifiers/literals retained; overlapping windows coalesced. This conservative scan does **not** detect semantically equivalent code with different names and does **not** prove absence of duplication.
+
+It found four candidates, all manually checked against baseline blobs (`clone-candidates-reviewed.json`):
+
+| Head locations | Significant matched lines | Baseline classification | Assessment |
+|---|---:|---|---|
+| `app/main.cpp:1433` / `:1778` | 17 | Both existed | Repeated native title-bar callback assembly. A small factory is possible; lifetime captures must remain clear. P3 only. |
+| `isolate/helpers.cpp:630` / `:743` | 17 | Both existed | Identical ArchiveReadResponse validation for two request paths. A shared narrow validator would reduce divergence risk; retain protocol-specific checks. P3. |
+| `views/column.cpp:53` / `details_view.cpp:485` | 16 | Both existed | Shared row-scroll/reveal math; a small row helper is plausible. Different coordinate/row mappings are significant, so do not merge whole views. P3. |
+| `views/browser.cpp:5932` / `:6035` | 12 | Both existed | Similar successful archive-location retargeting callbacks, not a new photo operation stack. P3. |
+
+A manual below-threshold pair is path-component containment: `photo_client/source_watcher.cpp:16` and `photos/catalog.cpp:306`. The algorithm is equivalent, but the optional catalog deliberately does not link the filesystem/application stack. A tiny dependency-free path helper could be shared later; this is not worth weakening that boundary or changing symlink/canonicalization policy merely to remove eight lines.
+
+I found no evidence in this scan of a large newly copied Grid/Details/Properties renderer. The branch actually reuses those components. The important duplicate **work**, rather than duplicate source text, is ARCH-03/04.
+
+### Positive boundaries verified by inspection
+
+- `Folder` has an externally supplied collection mode, stable `Entry::key()`, real paths in `location`, and no fabricated filesystem root. Native Grid/Details/Columns share selection, hit testing, preview and viewport notifications.
+- Directory source selection and annotation Save/Open reuse native picker lifecycle rather than a second chooser implementation.
+- Photo edits use the existing Properties dialog and InfoPane; duplicate trash/restore dispatches through the existing transfer queue with captured source/keeper identities.
+- Changed-location preview capability is separate from `available`; copy/cut still check the catalog availability, and destructive guards compare full captured identities.
+- The ABI-only photo module links SQLite and JSON, not decoders or views. `photo_client` has no SQLite link. Metadata decodes reuse isolated picture/thumb services.
+- Media/PDF still link their parsers only in the helpers. Their backend sources and sandbox/protocol implementation are unchanged from the baseline; packaging changes do not move decoders into the main process.
+- Preview enable flags are shared atomics across Registry copies, so the loader's copied routing registry sees Settings changes. Documentation explicitly permits in-flight/cache results to remain visible; this is not a toggle failure.
+
+## Packaging and build review
+
+| Surface | Observed contract | Caveat |
+|---|---|---|
+| CMake | Media/PDF ON by default, Photos OFF; separate `photos` install component; SQLite REQUIRED only in optional subdirectory | No fresh configure/build executed here |
+| Nix package | `withPhotos`; separate module output moved out of `out`; application wrapper pins exact module via `RUMMAGE_PHOTOS_LIBRARY` | Parse only; full evaluation/build/install owned by parent |
+| NixOS module | `photos.enable` overrides same package with `withPhotos=true`; same selected launcher passed to portal | Static module assertions exist, not rerun here |
+| Debian | Base owns previews; Photos exact-version depends on base; old media/pdf/previews Conflicts+Replaces | Fresh install/removal script exists; old-addon upgrade not exercised |
+| RPM/openSUSE | Base owns private PDFium/helper notices; Photos exact-version dependency; old previews Obsoletes; private library provides excluded | No RPM solver/upgrade transaction run |
+| Arch | Split only base/photos; base conflicts/replaces old siblings; photos owns module component and depends on base+SQLite | No pacman old-addon upgrade run |
+| Void | Base replaces old preview packages; module moved only into photos sibling | Rolling/pinned dependency mismatch remains an environment/build-matrix concern; not retried here |
+| Downloads/cache scripts | Asset names changed to photo add-on; tests reject missing add-on/mixed-source artifacts; Nix cache list includes both smoke variants | Tests use mocks; no publication performed |
+| Installed checks | Reject direct SQLite/PDFium/FFmpeg linkage in main binary; exercise base/module presence, ABI fixtures, diagnostics-no-catalog, addon removal | Static review only in this track; existing script coverage does not certify an old-package upgrade |
+| Public web/docs | Markdown docs updated, website template/navigation not updated | Confirmed failing gate, ARCH-01 |
+
+Potential small footprint optimization: `isolate::use_engines` constructs one Helpers object for each installed engine (`helpers.cpp:810–812`), and each Helpers constructor starts an idle reaper thread (`:146–147`). Bundling media/PDF therefore adds two sleeping reaper threads to an otherwise base-only install, even with both toggles disabled. This is bounded and inherited helper behavior, not an observed CPU leak; lazy pool/reaper creation is only a P3 option. It is separate from the intended additional installed decoder footprint.
+
+## Coverage map and explicit limits
+
+Inventory covers every tracked repository area. Manual semantic review is selective, not a claim to have read all 106,965 first-party C++ lines or every decoder.
+
+| Area | Review performed | Explicit gap |
+|---|---|---|
+| Root/CMake, `cmake` | Options, target/module linkage, install components, private PDFium rules | Fresh configure and compiled graph not regenerated |
+| `src/app` | Config reload, addon availability/activation, native chooser wiring, baseline clones | Full Wayland lifecycle stress belongs parent |
+| `src/core` | Added config parsing/defaults, WorkerPool cancellation/priority contract; 21-case targeted EventLoop/WorkerPool TSan harness, three runs | File/parser internals and full-application race behavior not exhaustively audited |
+| `src/fs` | Entry identity/availability, shared DirectoryWatcher, added guarded trash/restore flow | Race fault injection and all inherited copy/move/search cases not run here |
+| `src/ui` | Shared scrolling/rendering boundaries; source inventory confirms no changes | Renderer/text/input internals and GPU memory stress not audited dynamically |
+| `src/views` | New photo controller/native integration, collection draw flow, InfoPane/Properties costs, Sidebar/Gallery architecture, exact clones | All ordinary browser modes/dialogs not manually exercised by this track |
+| `src/isolate` | Routing-copy flags, pool construction, protocol clone and sandbox/limit boundaries | No seccomp/fuzzer/adversarial decoder executions here |
+| `src/formats` | CMake helper-only reader boundary and unchanged inventory | Format-by-format parser/security review not performed |
+| `src/media`, `src/pdf` | Helper linkage, existing 32M pixel/size/deadline entry points; backend source unchanged | No codec PDF/FFmpeg performance or malformed-file suite here |
+| `src/engines` | Shared runtime enable flags, routing and tests, no disabled-helper fallback bug found in standard layout | Third-party custom manifests not exhaustively exercised |
+| `src/photo_client` | Module/ABI discovery, metadata orchestration, watch registration and refresh | Live mount fault injection not performed |
+| `src/photos` | Request/connection lifecycle, query enrichment and work protocol | Database correctness/migration/import/stress owned by catalog audit agent |
+| `src/thumbs` | Offline/cache-only versus changed-location paths, shared cache reuse | No GPU/cache long-run benchmark here |
+| `src/platform` | Native chooser reuse and async lifetime path | Portal/D-Bus/launch integration runtime suites belong parent |
+| `src/picture`, `src/text`, `src/archive`, `src/preview`, `src/svg`, `src/theme` | Inventory, linkage boundaries and selected call contracts; unchanged sources | No exhaustive independent semantic or visual audit |
+| `src/tools` | Benchmark entry point inventory | No performance numbers from these tools claimed here |
+| `tests` | New test inventory and CI/performance script test execution | Full native suite, stress, visual and sanitizer results separate |
+| `scripts` | Python/shell syntax, CI tooling tests, downloads/cache/install/check plumbing | No native packaging builds or real remote publishing |
+| `nix`, `packaging` | All changed package definitions/ownership/version relationships; parser/shell checks | No dependency solver or old-addon upgrade proof |
+| `docs`, `contributing`, `website` | Real docs and generated-site validators, instructions, source-map drift | No comprehensive visual website review or external link checking |
+| `data` | Seven message catalogs, new setting/menu translation gaps, engine manifests | All icon/theme assets not visually inspected |
+| `third_party` | Inventory and no-change confirmation only | No vendored dependency security review |
+| `.github` | Actionlint and workflow unit tests, website gate | No CI dispatch |
+| `.vscode` | Inventory; unchanged editor settings | No editor integration execution |
+
+## Suggested order of follow-up work
+
+1. Repair and rerun the generated-site gate (ARCH-01).
+2. Fix the focused/bulk Properties lookup and avoid hidden-pane work (ARCH-02); measure native UI, including a large selection.
+3. Separate discovery/watch invalidation from metadata updates and avoid refreshing all loaded rows for a four-photo batch (ARCH-03).
+4. Remove duplicate pending lookups, then use measured connection/query costs to decide whether to add a catalog session/prepared-statement cache (ARCH-04).
+5. Fault-inject slow FUSE watch registration and address main-thread path lookup if it reproduces (ARCH-05).
+6. Complete extraction/translations (ARCH-06), then run native feature paths in a non-English locale.
+7. Run explicit old-preview-package upgrade fixtures in each native manager before calling packaging migration fully validated. Keep broader class/file splits and inherited clone cleanup separate from functional fixes.
+
+## Artifacts and reproduction
+
+- `inventory.py`, `inventory.json`, `inventory.tsv`: all-file/module inventory, metrics and scan implementation.
+- `clone-candidates.json`, `clone-candidates-reviewed.json`: exact candidate regions, samples and baseline presence.
+- `metrics-summary.json`, `hotspot-growth.json`: physical size and change metrics.
+- `cmake-target-inventory.json`: textual target/link/subdirectory declarations; not a configured link graph.
+- `checks.py`, `checks.json`, `extra-checks.json`, `syntax-checks.json`: commands and exits.
+- `website-public/`: locally generated site used by the failing check; no server/publication.
+- `reproduce.md`: exact commands and limitations.
+- `source-evidence.json`: frozen-source excerpts for findings.
+
+The worktree was checked clean at the end. Any fixes made after this snapshot require rerunning the affected checks; this report describes the frozen snapshot only.
+
+## Targeted core ThreadSanitizer validation
+
+Executed after all serial performance measurements finished, against unchanged HEAD `1dd2368783d814e86268fd2c388ee41671c66ae8`. Direct compilation used GCC 16.2.0 with `-std=c++20 -O1 -g -fno-omit-frame-pointer -fsanitize=thread -pthread -fPIE -pie`. The instrumented production translation units are EventLoop, WorkerPool and logging; unchanged existing EventLoop/WorkerPool tests include the header-only WindowSession lifetime checks. Scratch-only test files and binaries are under `architecture/tsan/`; no shared build directory or tracked source was changed.
+
+The deliberate data-race positive control emitted a full `WARNING: ThreadSanitizer: data race` report and expected exit 66. This confirms the selected runtime detects a race on this host; no startup mapping limitation was encountered. It is an intentional control, not a production finding. No suppression lists or ASan preload were used.
+
+| Run | Result | Cases | Assertions | Elapsed |
+|---|---|---:|---:|---:|
+| Positive control | Expected race report, exit 66 | — | — | 0.032 s |
+| Core, randomized seed 731 | Exit 0, no TSan diagnostics | 21 passed | 46,199 passed | 0.414 s |
+| Core, randomized seed 732 | Exit 0, no TSan diagnostics | 21 passed | 46,199 passed | 0.414 s |
+| Core, randomized seed 733 | Exit 0, no TSan diagnostics | 21 passed | 46,199 passed | 0.414 s |
+
+Each core run includes all 18 existing cases plus three added stress cases: four concurrent streaming workers cancelled from another thread over 20 rounds, eight concurrent EventLoop producers delivering 4,096 callbacks exactly once over 10 rounds, and pool teardown with 64 submitted streaming jobs and later-destroyed callback owners over 20 rounds. The cancellation test waits for all workers to start and emit before cancellation; it then drains pending deliveries after pool destruction. Submission and destruction obey the loop-thread contract. Process timeouts bound the control (30 s) and each core run (120 s), with inner 20 s watchdogs for posting/cancellation tests. Core compilation succeeded in 21.854 s. Durations describe this validation run, not performance benchmarks.
+
+Conclusion: no race report was observed in these exercised core paths. This is targeted concurrency/lifetime coverage, not proof that the entire application or uninstrumented libraries are race-free. UI, decoder, SQLite, platform, source watcher and real network filesystem concurrency are outside this harness. Detailed commands, source hashes, runtime options and exits are in `tsan/results.json`; complete output is in `tsan/control.log` and `tsan/core-{1,2,3}.log`; reproduction instructions and test source are alongside them.

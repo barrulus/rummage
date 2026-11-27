@@ -1,0 +1,95 @@
+[
+  {
+    "program": "rummage",
+    "trial": 0,
+    "exit": 0,
+    "files": 1001,
+    "bytes": 269624456,
+    "copy_seconds": 0.11381756400078302,
+    "synced_seconds": 4.158633428996836,
+    "verified_all_sha256": true,
+    "command": [
+      "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage-transfer",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-source",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-rummage-0"
+    ]
+  },
+  {
+    "program": "rummage",
+    "trial": 1,
+    "exit": 0,
+    "files": 1001,
+    "bytes": 269624456,
+    "copy_seconds": 0.11453864699433325,
+    "synced_seconds": 4.131483417993877,
+    "verified_all_sha256": true,
+    "command": [
+      "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage-transfer",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-source",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-rummage-1"
+    ]
+  },
+  {
+    "program": "rummage",
+    "trial": 2,
+    "exit": 0,
+    "files": 1001,
+    "bytes": 269624456,
+    "copy_seconds": 0.11460320799960755,
+    "synced_seconds": 4.073070179001661,
+    "verified_all_sha256": true,
+    "command": [
+      "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage-transfer",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-source",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-rummage-2"
+    ]
+  },
+  {
+    "program": "cp",
+    "trial": 0,
+    "exit": 0,
+    "files": 1001,
+    "bytes": 269624456,
+    "copy_seconds": 0.06409426399477525,
+    "synced_seconds": 4.2132239739949,
+    "verified_all_sha256": true,
+    "command": [
+      "/nix/store/a50ml7za6h61m4mv4cdbvkl33c6sx5yn-coreutils-9.12/bin/cp",
+      "-a",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-source/.",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-cp-0"
+    ]
+  },
+  {
+    "program": "cp",
+    "trial": 1,
+    "exit": 0,
+    "files": 1001,
+    "bytes": 269624456,
+    "copy_seconds": 0.06408153899974423,
+    "synced_seconds": 3.955740118995891,
+    "verified_all_sha256": true,
+    "command": [
+      "/nix/store/a50ml7za6h61m4mv4cdbvkl33c6sx5yn-coreutils-9.12/bin/cp",
+      "-a",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-source/.",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-cp-1"
+    ]
+  },
+  {
+    "program": "cp",
+    "trial": 2,
+    "exit": 0,
+    "files": 1001,
+    "bytes": 269624456,
+    "copy_seconds": 0.06399286099622259,
+    "synced_seconds": 4.167636910999136,
+    "verified_all_sha256": true,
+    "command": [
+      "/nix/store/a50ml7za6h61m4mv4cdbvkl33c6sx5yn-coreutils-9.12/bin/cp",
+      "-a",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-source/.",
+      "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/copy-cp-2"
+    ]
+  }
+]

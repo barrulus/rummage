@@ -1,0 +1,9 @@
+/tmp/rummage-branch-audit-2026-11-27/root/fixtures/entries-10000: 10000 entries, 7 runs, 12 worker threads
+
+MIME database loaded in 2.74 ms; 6600 of 10000 entries typed by name alone
+
+ms           readdir     +stat      sort      mime   1st chunk   complete
+run 1           1.68     12.09      4.67      2.11        1.30      18.51
+min             1.26      9.31      4.04      1.62        0.76      12.17
+median          1.30     10.31      4.08      1.65        0.87      12.58
+max             1.69     11.99      4.47      2.06        1.37      13.33

@@ -1,0 +1,10 @@
+[    0.000] info  rummage 0.6.1
+[    0.000] info  config: /tmp/rummage-branch-audit-2026-11-27/root/live/config.toml
+[    0.032] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    0.032] info  theme: default palette
+[    0.032] info  portal: no session bus (Failed to open bus (No such file or directory)): the desktop's colours are not followed
+[    0.048] warn  udisks: no system bus or udisks2 (Failed to open bus (No such file or directory)): disks are not mounted from rummage
+[    0.048] warn  gvfs: no session bus (Failed to open bus (No such file or directory)): network folders are not mounted from rummage
+[    0.048] warn  window reuse unavailable: [org.freedesktop.DBus.Error.FileNotFound] Failed to open bus (No such file or directory)
+[    0.050] info  GL: Mesa Intel(R) Graphics (ARL) | OpenGL ES 3.2 Mesa 26.3.1
+[   14.012] info  signal received, closing

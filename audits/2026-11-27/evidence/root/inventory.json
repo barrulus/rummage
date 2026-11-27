@@ -1,0 +1,98 @@
+{
+  "src/core": {
+    "files": 28,
+    "lines": 4104
+  },
+  "src/fs": {
+    "files": 56,
+    "lines": 12761
+  },
+  "src/ui": {
+    "files": 40,
+    "lines": 7758
+  },
+  "src/views": {
+    "files": 120,
+    "lines": 45027
+  },
+  "src/isolate": {
+    "files": 10,
+    "lines": 2529
+  },
+  "src/formats": {
+    "files": 61,
+    "lines": 13343
+  },
+  "src/media": {
+    "files": 1,
+    "lines": 512
+  },
+  "src/pdf": {
+    "files": 1,
+    "lines": 418
+  },
+  "src/photos": {
+    "files": 2,
+    "lines": 2640
+  },
+  "src/photo_client": {
+    "files": 4,
+    "lines": 751
+  },
+  "src/platform": {
+    "files": 45,
+    "lines": 7490
+  },
+  "src/theme": {
+    "files": 14,
+    "lines": 1604
+  },
+  "src/engines": {
+    "files": 3,
+    "lines": 525
+  },
+  "src/preview": {
+    "files": 5,
+    "lines": 394
+  },
+  "src/thumbs": {
+    "files": 4,
+    "lines": 553
+  },
+  "src/picture": {
+    "files": 13,
+    "lines": 881
+  },
+  "src/archive": {
+    "files": 2,
+    "lines": 237
+  },
+  "src/text": {
+    "files": 4,
+    "lines": 349
+  },
+  "src/svg": {
+    "files": 2,
+    "lines": 147
+  },
+  "tests": {
+    "files": 148,
+    "lines": 52642
+  },
+  "scripts": {
+    "files": 44,
+    "lines": 4159
+  },
+  "packaging": {
+    "files": 3,
+    "lines": 219
+  },
+  "nix": {
+    "files": 7,
+    "lines": 647
+  },
+  "website": {
+    "files": 3,
+    "lines": 190
+  }
+}

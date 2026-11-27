@@ -1,0 +1,17 @@
+{
+  "utc": "2026-11-27T00:49:57.330750+00:00",
+  "command": [
+    "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage-bench-dir",
+    "--runs",
+    "7",
+    "/tmp/rummage-branch-audit-2026-11-27/root/fixtures/entries-100000"
+  ],
+  "exit": 0,
+  "wall_seconds": 2.369657758004905,
+  "user_seconds": 1.396428,
+  "system_seconds": 1.404177,
+  "child_maxrss_KiB": 148316,
+  "load_before": "2.65 5.34 6.84 2/2948 1974951",
+  "load_after": "2.65 5.34 6.84 3/2946 1975051",
+  "note": "Warm filesystem caches; shared host, no competing audit benchmark/build during timing. maxrss is child rusage, not aggregate process-tree memory."
+}

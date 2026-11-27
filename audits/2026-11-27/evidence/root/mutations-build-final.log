@@ -1,0 +1,9 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+/tmp/rummage-photo-library/tests/fuzz/fuzz_archive.cpp: In function ‘int LLVMFuzzerTestOneInput(const uint8_t*, std::size_t)’:
+/tmp/rummage-photo-library/tests/fuzz/fuzz_archive.cpp:24:38: warning: ignoring return value of ‘int ftruncate(int, __off_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   24 |         static_cast<void>(::ftruncate(out, 0));
+      |                           ~~~~~~~~~~~^~~~~~~~
+/tmp/rummage-photo-library/tests/fuzz/fuzz_archive.cpp:31:38: warning: ignoring return value of ‘int ftruncate(int, __off_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+   31 |         static_cast<void>(::ftruncate(out, 0));
+      |                           ~~~~~~~~~~~^~~~~~~~

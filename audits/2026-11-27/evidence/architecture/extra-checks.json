@@ -1,0 +1,56 @@
+{
+  "website-build": {
+    "command": [
+      "/tmp/rummage-hugo/hugo",
+      "--source",
+      "website",
+      "--destination",
+      "/tmp/rummage-branch-audit-2026-11-27/architecture/website-public",
+      "--cacheDir",
+      "/tmp/rummage-branch-audit-2026-11-27/architecture/website-cache",
+      "--noBuildLock",
+      "--minify",
+      "--panicOnWarning",
+      "--printPathWarnings"
+    ],
+    "exit": 0,
+    "seconds": 0.164
+  },
+  "website-check": {
+    "command": [
+      "python3",
+      "website/check.py",
+      "/tmp/rummage-branch-audit-2026-11-27/architecture/website-public"
+    ],
+    "exit": 1,
+    "seconds": 0.164
+  },
+  "shellcheck": {
+    "command": [
+      "shellcheck",
+      "-x",
+      "scripts/ci/check-installed.sh",
+      "scripts/ci/check-wayland.sh",
+      "scripts/ci/export-source.sh",
+      "scripts/ci/lint.sh",
+      "scripts/ci/native-build.sh",
+      "scripts/ci/native-install.sh",
+      "scripts/ci/native.sh",
+      "scripts/ci/publish-downloads.sh",
+      "scripts/ci/void-build.sh",
+      "scripts/ci/void-install.sh",
+      "scripts/ci/void.sh",
+      "packaging/pdfium/build.sh"
+    ],
+    "exit": 0,
+    "seconds": 0.315
+  },
+  "actionlint": {
+    "command": [
+      "/nix/store/0zz68d2xnndpdarg0jy642l7nl3mcn9l-actionlint-1.7.12/bin/actionlint",
+      ".github/workflows/ci.yml",
+      ".github/workflows/noctalia-template.yml"
+    ],
+    "exit": 0
+  }
+}

@@ -1,0 +1,1336 @@
+{
+  "date": "2026-11-27",
+  "audited_revision": "1dd2368783d814e86268fd2c388ee41671c66ae8",
+  "branch": "feat/photo-library",
+  "baseline": "63ca25bc8ba464d42dfa315d180354892137e792",
+  "scope": "Whole-branch audit with selective semantic review and bounded dynamic tests; no production fixes",
+  "verdict": "Not ready for broad large-library use until selection/frame amplification and indexing/recovery failures are repaired. Ordinary filesystem browsing and existing test coverage were substantially healthier.",
+  "findings": [
+    {
+      "id": "F01",
+      "priority": "P1",
+      "title": "Large photo selections can stall every frame, even with the inspector hidden",
+      "origin": "Introduced",
+      "confidence": "Reproduced; native harness timing",
+      "detail": "Rubber-band selection can leave the cursor unset. properties(true) then falls back to every selected ID and scans the selected-ID vector for every loaded row. Browser constructs this snapshot every frame, including when InfoPane is hidden. At 100,000 selected rows the membership loop entails roughly five billion comparisons per frame. Bulk Properties uses the same quadratic path.",
+      "recommendation": "Use direct ID lookup for focused metadata and hashed membership or selected_snapshots_ for bulk summaries. Cache summaries by selection/data revision, return no focused snapshot without a cursor, and skip hidden-pane work. Verify rubber-band selection and cross-scope selections at 1k/10k/100k.",
+      "locations": [
+        "src/views/src/folder.cpp:283",
+        "src/views/src/photo_library.cpp:993",
+        "src/views/src/browser.cpp:4188"
+      ],
+      "evidence": [
+        "ui/findings.txt",
+        "ui/release-photo-10000.csv",
+        "ui/release-photo-100000.csv"
+      ]
+    },
+    {
+      "id": "F02",
+      "priority": "P2",
+      "title": "A small background metadata batch reloads the entire browsed collection",
+      "origin": "Introduced",
+      "confidence": "Confirmed call path; catalog and controller timings",
+      "detail": "A successful work response refreshes the loaded prefix and watcher subscriptions even for metadata-only changes. At 30,000 loaded rows one refresh makes thirty 1,000-row requests, thirty COUNTs and 60,000 per-row tag/album SELECTs, then reconstructs all fs::Entry objects. Coalescing limits simultaneous work but not the cost of each refresh. Watch subscriptions also revisit already registered directories.",
+      "recommendation": "Return changed IDs and discovery/watch revisions. Update affected rows or a bounded window; refresh watches only when directory availability/topology changes. Batch row enrichment and reuse prepared statements without removing identity or durability checks.",
+      "locations": [
+        "src/views/src/photo_library.cpp:568",
+        "src/views/src/photo_library.cpp:832",
+        "src/photos/src/catalog.cpp:574",
+        "src/photo_client/src/source_watcher.cpp:160"
+      ],
+      "evidence": [
+        "architecture/report.txt",
+        "catalog/stress-release-100000.json"
+      ]
+    },
+    {
+      "id": "F03",
+      "priority": "P2",
+      "title": "Malformed derived camera text can stop a metadata work batch",
+      "origin": "Inherited protocol truncation; new photo consumer exposes failure",
+      "confidence": "Reproduced end to end",
+      "detail": "The helper protocol truncates camera text to 255 raw bytes and can split a UTF-8 character. A decodable fixture JPEG containing a long non-ASCII EXIF Make value reaches the real helper/client pipeline, where JSON serialization throws. The work request fails, leaving one unfinished metadata claim and no per-photo outcome. This is adversarial metadata, not evidence that every long EXIF value is standards-compliant.",
+      "recommendation": "Bound or normalize protocol text at UTF-8 boundaries and contain serialization/decode failures per photo. Durably complete or release the claim and continue healthy photos. Add the actual helper-to-client regression fixture.",
+      "locations": [
+        "src/isolate/src/protocol.cpp:138",
+        "src/photo_client/src/client.cpp:203",
+        "src/photo_client/src/client.cpp:228"
+      ],
+      "evidence": [
+        "catalog/protocol_utf8.log",
+        "catalog/metadata_utf8_real.json",
+        "catalog/metadata_utf8_real.py"
+      ]
+    },
+    {
+      "id": "F04",
+      "priority": "P2",
+      "title": "Restore accepts exclusions that make future source scans fail",
+      "origin": "Introduced",
+      "confidence": "Reproduced",
+      "detail": "Restore accepts sources[].exclusions=[7] because it validates only the array container, reports success, and commits. Later scanning expects strings and fails. Re-adding the source with [] preserves the bad stored exclusions. The oldest failing scan can prevent later queued jobs from running.",
+      "recommendation": "Reuse the add-source validator for restore, including element types and bounds, before any commit. Reject an invalid restore atomically and test subsequent scans.",
+      "locations": [
+        "src/photos/src/catalog.cpp:479",
+        "src/photos/src/catalog.cpp:516",
+        "src/photos/src/catalog.cpp:1111",
+        "src/photos/src/catalog.cpp:1711"
+      ],
+      "evidence": [
+        "catalog/correctness-debug.json",
+        "catalog/correctness_repros.py"
+      ]
+    },
+    {
+      "id": "F05",
+      "priority": "P2",
+      "title": "An interrupted migration cannot retry while its valid backup exists",
+      "origin": "Introduced",
+      "confidence": "Reproduced twice",
+      "detail": "If a process exits after creating .before-schema-2.backup but before committing migration, reopening refuses to overwrite that backup. It tells the user to choose a new path, but the UI exposes no such internal path choice. The catalog and backup remain intact; this is an availability/recovery defect.",
+      "recommendation": "Preserve the backup and create a unique new one, or validate and safely reuse the existing snapshot. Add interrupted-backup retry coverage. Never delete the only backup automatically.",
+      "locations": [
+        "src/photos/src/catalog.cpp:164",
+        "src/photos/src/catalog.cpp:221",
+        "tests/photos_migration.py:65"
+      ],
+      "evidence": [
+        "catalog/correctness-debug.json",
+        "catalog/correctness_repros.py"
+      ]
+    },
+    {
+      "id": "F06",
+      "priority": "P2",
+      "title": "Catalog timestamp conversion overflows signed nanoseconds",
+      "origin": "Introduced; a checked shared filesystem conversion already exists",
+      "confidence": "Reproduced; strict-overflow UBSan diagnostic",
+      "detail": "A real temporary file with mtime 10^19 ns is representable by the filesystem but cannot fit signed 64-bit nanoseconds. Query returns -8446744073709551616. A companion build with -fstrict-overflow diagnoses signed overflow. The normal Nix wrapper supplies -fno-strict-overflow, so the standard sanitizer build silently returned the wrong value.",
+      "recommendation": "Use a checked conversion and explicit out-of-range representation or handled error. Retain seconds/subseconds for identity checks; apply the same policy to all three catalog conversions.",
+      "locations": [
+        "src/photos/src/catalog.cpp:572",
+        "src/photos/src/catalog.cpp:1952",
+        "src/photos/src/catalog.cpp:1999",
+        "src/fs/src/trash.cpp:1012"
+      ],
+      "evidence": [
+        "root/ubsan-timestamp-strict.log",
+        "root/strict-catalog-commands.json",
+        "catalog/timestamp_overflow.py"
+      ]
+    },
+    {
+      "id": "F07",
+      "priority": "P2",
+      "title": "Album counts include hidden replacements and can open to no results",
+      "origin": "Introduced",
+      "confidence": "Reproduced with a synthetic recorded-inode mismatch",
+      "detail": "After inode replacement, the old photo ID retains annotations and album membership but is hidden as replaced; the new visible ID has no annotations. Albums count all memberships while default queries hide replaced/inactive rows, producing count 1 and zero visible results. This is not annotation erasure. It explains a class of empty-album behavior, not proof of the cause of the user\u2019s earlier incident. Inode-unstable mounts require an explicit reconciliation policy.",
+      "recommendation": "Make counts match visible results or show visible/retained counts and provide access to retained associations. Design reviewed reconciliation for unstable identities; do not automatically equate filenames or weaken destructive-operation guards.",
+      "locations": [
+        "src/photos/src/catalog.cpp:603",
+        "src/photos/src/catalog.cpp:1005",
+        "src/photos/src/catalog.cpp:2524"
+      ],
+      "evidence": [
+        "catalog/inode_replacement_policy.json",
+        "catalog/inode_replacement_policy.py"
+      ]
+    },
+    {
+      "id": "F08",
+      "priority": "P2",
+      "title": "Generated website fails its link gate and advertises removed packages",
+      "origin": "Introduced integration regression",
+      "confidence": "Reproduced generated-site check",
+      "detail": "The downloads template still advertises separate media/pdf packages and links to the removed optional-preview-packages anchor. The new Photo Library guide is absent from website navigation/content generation, so configuration links to a missing route. Hugo build and the Markdown documentation checker pass; the actual generated-site check fails twice.",
+      "recommendation": "Update package copy, register the guide, and rerun website/check.py. Align THIRD_PARTY.md and architecture documentation with the single optional photo add-on.",
+      "locations": [
+        "website/layouts/downloads.html:22",
+        "website/data/navigation.toml:1",
+        "docs/configuration.md:92",
+        "THIRD_PARTY.md:22"
+      ],
+      "evidence": [
+        "architecture/website-check.log",
+        "architecture/extra-checks.json"
+      ]
+    },
+    {
+      "id": "F09",
+      "priority": "P2",
+      "title": "Photo UI strings bypass translation extraction",
+      "origin": "Introduced",
+      "confidence": "Static verified; strict catalog checker does not detect unmarked text",
+      "detail": "PhotoLibrary.cpp contains no i18n tr/trf/mark calls. Add folder, pause/resume work, gentle pace and progress text are raw English. Enable Photo Library also lacks catalog coverage. Seven-language catalog checks pass because they validate marked messages, not all user-facing literals.",
+      "recommendation": "Mark every new user-facing string, use plural-aware formats, extract messages, and test a non-English locale through source/album/restore/error paths.",
+      "locations": [
+        "src/views/src/photo_library.cpp:939",
+        "src/views/src/photo_library.cpp:1167",
+        "src/views/src/settings_dialog.cpp:226"
+      ],
+      "evidence": [
+        "architecture/report.txt",
+        "architecture/i18n.log"
+      ]
+    },
+    {
+      "id": "F10",
+      "priority": "P2",
+      "title": "Ordinary Details view rebuilds all rows on draw and input",
+      "origin": "Inherited from main",
+      "confidence": "Confirmed code path; native harness timing",
+      "detail": "Details reconstructs the flattened shared_ptr row list and searches the cursor across all entries even when only a small viewport is visible. This makes deep folder drawing and navigation scale with total folder size. Grid and Columns primarily visit visible entries.",
+      "recommendation": "Cache flattening against folder/expansion revisions or directly index the root list when there are no expanded rows. Preserve cursor/reveal behavior and compare 1k/10k/100k draw/input samples.",
+      "locations": [
+        "src/views/src/details_view.cpp:94",
+        "src/views/src/details_view.cpp:567",
+        "src/views/src/details_view.cpp:586"
+      ],
+      "evidence": [
+        "ui/findings.txt",
+        "ui/release-view-100000.csv"
+      ]
+    },
+    {
+      "id": "F11",
+      "priority": "P2",
+      "title": "Slow mount pathname lookups can block the UI thread",
+      "origin": "Inherited operations; new source-watch traversal amplifies exposure",
+      "confidence": "Static call-path risk; no slow-mount fault injection",
+      "detail": "Restored tabs, folder shortcuts and picker acceptance perform synchronous status/access checks. Source watcher registration calls inotify_add_watch on the event loop; pathname resolution can wait on FUSE/network mounts. A batch limit bounds the number of calls, not the duration of one blocked syscall. No live user mount was touched.",
+      "recommendation": "Move cancellable path validation away from UI work and design safe asynchronous watch registration around the shared watcher\u2019s ownership rules. Test with an isolated delayed/unresponsive FUSE fixture, not the user\u2019s mount.",
+      "locations": [
+        "src/views/src/browser.cpp:3806",
+        "src/views/src/browser.cpp:6442",
+        "src/views/src/file_picker.cpp:116",
+        "src/photo_client/src/source_watcher.cpp:187",
+        "src/fs/src/directory_watcher.cpp:38"
+      ],
+      "evidence": [
+        "ui/findings.txt",
+        "architecture/report.txt"
+      ]
+    },
+    {
+      "id": "F12",
+      "priority": "P2",
+      "title": "Ordinary bulk drag and context menus use quadratic membership scans",
+      "origin": "Inherited from main",
+      "confidence": "Static complexity finding; no latency measurement",
+      "detail": "Loops over every folder entry repeatedly search a selected-name vector. The drag loop keeps running after determining that not every selected entry is a folder. Folder already exposes hashed selection membership.",
+      "recommendation": "Use Folder::is_selected for the full current selection, or a captured hash set for cursor-scoped operations. Add large-selection interaction benchmarks before changing behavior.",
+      "locations": [
+        "src/views/src/browser.cpp:2524",
+        "src/views/src/browser.cpp:5243",
+        "src/views/src/browser_palette.cpp:201"
+      ],
+      "evidence": [
+        "ui/findings.txt"
+      ]
+    },
+    {
+      "id": "F13",
+      "priority": "P2",
+      "title": "Metadata orchestration duplicates pending lookup and catalog initialization",
+      "origin": "Introduced",
+      "confidence": "Confirmed call counts; timings in catalog appendix",
+      "detail": "Backend work returns pending metadata candidates; Client discards them and asks again. A normal four-photo batch performs ten ABI requests/database opens: work, pending, four claims and four submissions. Each opens SQLite, takes the schema lock, configures PRAGMAs and reads the schema. A pending tail may also scan many already completed photos. Restore preparation separately rescans all trash-operation payloads for each selected ID.",
+      "recommendation": "Consume the first bounded candidate batch while retaining claim-time validation. Consider bounded connection ownership/prepared statements and indexed pending state. Batch receipt lookup rather than repeatedly parsing history. Prioritize using the measured end-to-end cost, not call counts alone.",
+      "locations": [
+        "src/photos/src/catalog.cpp:126",
+        "src/photos/src/catalog.cpp:1503",
+        "src/photos/src/catalog.cpp:1930",
+        "src/photos/src/catalog.cpp:2608",
+        "src/photo_client/src/client.cpp:219"
+      ],
+      "evidence": [
+        "architecture/report.txt",
+        "catalog/stress-release-100000.json"
+      ]
+    },
+    {
+      "id": "F14",
+      "priority": "P3",
+      "title": "Restore behavior needs one clear user-facing contract",
+      "origin": "Introduced",
+      "confidence": "Merge reproduced; automatic-scan path is static evidence",
+      "detail": "Restore replaces scalar annotations but merges tags and album membership, so it is not a faithful rollback. The guide does not explain this distinction. Separately, frontend restore refreshes subscriptions, and newly seen source IDs are queued for discovery, despite the guide saying registration does not automatically scan. Backend-only restore does not reproduce that frontend behavior.",
+      "recommendation": "Decide and document merge/replace and scan semantics. Add a full frontend-plus-watcher restore regression. If scanning is intended, show it clearly; if not, distinguish restored sources from newly added sources.",
+      "locations": [
+        "src/photos/src/catalog.cpp:1814",
+        "src/views/src/photo_library.cpp:845",
+        "src/views/src/photo_library.cpp:1678",
+        "src/photo_client/src/source_watcher.cpp:125",
+        "docs/photo-library.md:203"
+      ],
+      "evidence": [
+        "catalog/correctness-debug.json",
+        "catalog/FINDINGS.txt"
+      ]
+    },
+    {
+      "id": "F15",
+      "priority": "P3",
+      "title": "Photo drag and several scale limits need clearer affordances",
+      "origin": "Introduced restrictions or known documented limits",
+      "confidence": "Static verified",
+      "detail": "Collection rows cannot be dragged to ordinary folders, while copy/cut provides a guarded alternative. End/scrollbar and Select loaded photos refer only to the loaded prefix. Duplicate groups stop at 1,000 without pagination. Export can exceed the restore interface\u2019s limit. These are product limitations, not a total-photo cap.",
+      "recommendation": "Explain unavailable actions in context; decide whether guarded photo drag is in scope. Show total versus loaded consistently, paginate duplicates/history where needed, and make export/restore capacity symmetric. See the limits appendix before changing defaults.",
+      "locations": [
+        "src/views/src/browser.cpp:5227",
+        "docs/photo-library.md:229"
+      ],
+      "evidence": [
+        "ui/findings.txt",
+        "catalog/FINDINGS.txt"
+      ]
+    },
+    {
+      "id": "F16",
+      "priority": "P3",
+      "title": "Sanitizer migration test needs an instrumented-library host launcher",
+      "origin": "Test harness integration",
+      "confidence": "Reproduced; corrected invocation passes",
+      "detail": "Standard ASan/UBSan CTest passes 15 of 16 suites. photos-migration starts uninstrumented Python and ctypes-loads the instrumented module without preloading libasan; the runtime rejects its load order. Running the same migration test with matching libasan preloaded passes. Leak detection was disabled only for this CPython-hosted rerun.",
+      "recommendation": "Configure the sanitizer test launcher/environment explicitly for Python-hosted modules and keep the runtime path toolchain-matched. Do not report this harness abort as a product memory error.",
+      "locations": [
+        "tests/CMakeLists.txt:144"
+      ],
+      "evidence": [
+        "root/asan-ctest.log",
+        "root/asan-migration-preload.json",
+        "root/asan-migration-preload.log"
+      ]
+    }
+  ],
+  "checks": [
+    [
+      "Release build + CTest",
+      "PASS: 16 / 16 suites",
+      "Fresh GCC 16.2.0, all preview helpers and photos enabled. Main suite: 1,272 cases / 242,673 assertions. Test runtime 88.84 s was under concurrent build load; not a performance baseline.",
+      "root/release-ctest.log"
+    ],
+    [
+      "Address/undefined sanitizers",
+      "15 / 16 standard suites; migration passes with corrected launcher",
+      "Python ctypes needed matching libasan preloaded. Leak detection disabled only for that CPython-hosted rerun; existing libfontconfig suppression used elsewhere. Optional external image corpora and sanitizer-incompatible address-limit test remain skipped.",
+      "root/asan-ctest.log"
+    ],
+    [
+      "Strict timestamp UBSan probe",
+      "FAIL: confirmed signed overflow",
+      "Companion catalog build adds -fstrict-overflow to override Nix\u2019s -fno-strict-overflow. Ordinary ASan build returns the incorrect negative timestamp without a diagnostic. F06.",
+      "root/ubsan-timestamp-strict.log"
+    ],
+    [
+      "Deterministic parser mutations",
+      "PASS: 190,000 cases",
+      "50k each text/TIFF/archive; 20k each picture/SVG. Existing fuzz entrypoints, seed 20261127, 1 MiB input cap, per-target time/RSS guards. No sanitizer finding; not coverage-guided fuzzing, external libraries uninstrumented.",
+      "root/mutations/results.json"
+    ],
+    [
+      "Native UI stress",
+      "PASS correctness; performance defects reproduced",
+      "1k/10k/100k, 200 rapid folder opens, 100 snapshot/view churns, 30 refreshes and 30 filters per size; selection/cursor and final-generation assertions. Six Release processes exit 0.",
+      "ui/findings.txt"
+    ],
+    [
+      "100k catalog stress",
+      "PASS consistency and roundtrips",
+      "500 pages / 100,000 unique IDs; 100,256-record export/existing restore; 256 real-file fresh restore; 120 concurrent requests, zero errors, integrity OK, zero foreign-key errors. Synthetic metadata is not decode throughput.",
+      "catalog/stress-release-100000.json"
+    ],
+    [
+      "Copy correctness",
+      "PASS every byte hash",
+      "1,001 files / 269,624,456 bytes copied three times by each tool; all SHA-256 values verified. Only disposable destinations removed.",
+      "root/filesystem/copy-results.json"
+    ],
+    [
+      "CI and performance tooling",
+      "PASS: 73 + 6 tests",
+      "Also ShellCheck, Actionlint, 20 Bash syntax, 8 Nix parse and 38 Python AST checks. Nix parse is not a fresh package build.",
+      "architecture/checks.json"
+    ],
+    [
+      "Docs / localization checks",
+      "PASS with coverage caveats",
+      "28 pages, 288 links, 24 TOML blocks; seven message catalogs. Unmarked new UI strings escape this check (F09).",
+      "architecture/extra-checks.json"
+    ],
+    [
+      "Website generation / link gate",
+      "Hugo PASS; link gate FAIL (2)",
+      "Stale package anchor and missing Photo Library page. Reproduced locally; nothing published. F08.",
+      "architecture/website-check.log"
+    ],
+    [
+      "Staged install / add-on removal",
+      "PASS",
+      "CMake base+media+PDF components, separate photo-only ownership, installed ABI/diagnostics, then module removal. HOME preserved; desktop-file-utils added from the existing Nix store. No package-manager upgrade or system install.",
+      "root/staged-install/results.json"
+    ],
+    [
+      "ThreadSanitizer core stress",
+      "PASS: 21 cases \u00d7 3 randomized runs",
+      "Intentional-race control produced the expected diagnostic/exit 66. Each core run passed 21 cases / 46,199 assertions with no diagnostics. Targeted EventLoop/WorkerPool coverage, not whole-application race certification.",
+      "architecture/tsan/results.json"
+    ]
+  ],
+  "performance": {
+    "startup": {
+      "20": {
+        "samples": [
+          103.48,
+          98.14,
+          94.0,
+          105.48,
+          100.72,
+          96.11,
+          100.54
+        ],
+        "median": 100.54,
+        "p95": 105.48,
+        "max": 105.48
+      },
+      "10000": {
+        "samples": [
+          105.33,
+          101.53,
+          105.72,
+          109.96,
+          106.23,
+          102.96,
+          107.12
+        ],
+        "median": 105.72,
+        "p95": 109.96,
+        "max": 109.96
+      },
+      "100000": {
+        "samples": [
+          237.33,
+          241.34,
+          244.16,
+          248.54,
+          245.29,
+          249.16,
+          246.02
+        ],
+        "median": 245.29,
+        "p95": 249.16,
+        "max": 249.16
+      }
+    },
+    "photo_ui": {
+      "1000": {
+        "controller_load": {
+          "operation": "controller_load",
+          "rows": "1000",
+          "median_ms": "42.4213",
+          "p95_ms": "42.4213",
+          "max_ms": "42.4213",
+          "rss_kib": "269036",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_focused": {
+          "operation": "properties_focused",
+          "rows": "1000",
+          "median_ms": "0.037926",
+          "p95_ms": "0.041955",
+          "max_ms": "0.060699",
+          "rss_kib": "269036",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_1": {
+          "operation": "browser_hidden_info_draw_1",
+          "rows": "1000",
+          "median_ms": "1.2316",
+          "p95_ms": "1.92534",
+          "max_ms": "2.22941",
+          "rss_kib": "280316",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_2": {
+          "operation": "browser_hidden_info_draw_2",
+          "rows": "1000",
+          "median_ms": "1.78187",
+          "p95_ms": "2.90176",
+          "max_ms": "2.9868",
+          "rss_kib": "281452",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_0": {
+          "operation": "browser_hidden_info_draw_0",
+          "rows": "1000",
+          "median_ms": "1.22541",
+          "p95_ms": "1.76173",
+          "max_ms": "2.01062",
+          "rss_kib": "280440",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_visible_info_grid_draw": {
+          "operation": "browser_visible_info_grid_draw",
+          "rows": "1000",
+          "median_ms": "1.1264",
+          "p95_ms": "2.07823",
+          "max_ms": "2.07823",
+          "rss_kib": "280992",
+          "samples": 15,
+          "measurement_note": "timed repeated samples"
+        },
+        "controller_select_all_sync": {
+          "operation": "controller_select_all_sync",
+          "rows": "1000",
+          "median_ms": "1.54566",
+          "p95_ms": "1.54566",
+          "max_ms": "1.54566",
+          "rss_kib": "283384",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_bulk": {
+          "operation": "properties_bulk",
+          "rows": "1000",
+          "median_ms": "2.69151",
+          "p95_ms": "2.69151",
+          "max_ms": "2.69151",
+          "rss_kib": "286520",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_focused_no_cursor_band": {
+          "operation": "properties_focused_no_cursor_band",
+          "rows": "1000",
+          "median_ms": "3.28224",
+          "p95_ms": "3.28224",
+          "max_ms": "3.28224",
+          "rss_kib": "286532",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "browser_hidden_info_band_draw": {
+          "operation": "browser_hidden_info_band_draw",
+          "rows": "1000",
+          "median_ms": "4.45668",
+          "p95_ms": "4.45668",
+          "max_ms": "4.45668",
+          "rss_kib": "287228",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "controller_refresh30_coalesced": {
+          "operation": "controller_refresh30_coalesced",
+          "rows": "1000",
+          "median_ms": "78.1076",
+          "p95_ms": "78.1076",
+          "max_ms": "78.1076",
+          "rss_kib": "292484",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence; burst coalesces into two full-prefix loads, not one"
+        },
+        "filter_churn_pass": {
+          "operation": "filter_churn_pass",
+          "rows": "30",
+          "median_ms": "0",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "292548",
+          "samples": 0,
+          "measurement_note": "correctness sequence only"
+        }
+      },
+      "10000": {
+        "controller_load": {
+          "operation": "controller_load",
+          "rows": "10000",
+          "median_ms": "648.234",
+          "p95_ms": "648.234",
+          "max_ms": "648.234",
+          "rss_kib": "356420",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_focused": {
+          "operation": "properties_focused",
+          "rows": "10000",
+          "median_ms": "0.770882",
+          "p95_ms": "0.838281",
+          "max_ms": "1.67543",
+          "rss_kib": "356420",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_1": {
+          "operation": "browser_hidden_info_draw_1",
+          "rows": "10000",
+          "median_ms": "2.07778",
+          "p95_ms": "3.0222",
+          "max_ms": "3.18912",
+          "rss_kib": "362608",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_2": {
+          "operation": "browser_hidden_info_draw_2",
+          "rows": "10000",
+          "median_ms": "2.47187",
+          "p95_ms": "2.96896",
+          "max_ms": "2.98555",
+          "rss_kib": "362732",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_0": {
+          "operation": "browser_hidden_info_draw_0",
+          "rows": "10000",
+          "median_ms": "1.68242",
+          "p95_ms": "2.16382",
+          "max_ms": "2.32958",
+          "rss_kib": "362732",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_visible_info_grid_draw": {
+          "operation": "browser_visible_info_grid_draw",
+          "rows": "10000",
+          "median_ms": "1.91824",
+          "p95_ms": "2.48371",
+          "max_ms": "2.48371",
+          "rss_kib": "362792",
+          "samples": 15,
+          "measurement_note": "timed repeated samples"
+        },
+        "controller_select_all_sync": {
+          "operation": "controller_select_all_sync",
+          "rows": "10000",
+          "median_ms": "17.0027",
+          "p95_ms": "17.0027",
+          "max_ms": "17.0027",
+          "rss_kib": "394836",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_bulk": {
+          "operation": "properties_bulk",
+          "rows": "10000",
+          "median_ms": "38.8769",
+          "p95_ms": "38.8769",
+          "max_ms": "38.8769",
+          "rss_kib": "426176",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_focused_no_cursor_band": {
+          "operation": "properties_focused_no_cursor_band",
+          "rows": "10000",
+          "median_ms": "55.5504",
+          "p95_ms": "55.5504",
+          "max_ms": "55.5504",
+          "rss_kib": "426396",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "browser_hidden_info_band_draw": {
+          "operation": "browser_hidden_info_band_draw",
+          "rows": "10000",
+          "median_ms": "36.522",
+          "p95_ms": "36.522",
+          "max_ms": "36.522",
+          "rss_kib": "426460",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "controller_refresh30_coalesced": {
+          "operation": "controller_refresh30_coalesced",
+          "rows": "10000",
+          "median_ms": "575.236",
+          "p95_ms": "575.236",
+          "max_ms": "575.236",
+          "rss_kib": "454116",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence; burst coalesces into two full-prefix loads, not one"
+        },
+        "filter_churn_pass": {
+          "operation": "filter_churn_pass",
+          "rows": "30",
+          "median_ms": "0",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "454244",
+          "samples": 0,
+          "measurement_note": "correctness sequence only"
+        }
+      },
+      "100000": {
+        "controller_load": {
+          "operation": "controller_load",
+          "rows": "100000",
+          "median_ms": "9457.93",
+          "p95_ms": "9457.93",
+          "max_ms": "9457.93",
+          "rss_kib": "1077792",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_focused": {
+          "operation": "properties_focused",
+          "rows": "100000",
+          "median_ms": "23.1672",
+          "p95_ms": "24.0593",
+          "max_ms": "24.1976",
+          "rss_kib": "1077792",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_1": {
+          "operation": "browser_hidden_info_draw_1",
+          "rows": "100000",
+          "median_ms": "26.1632",
+          "p95_ms": "27.2236",
+          "max_ms": "27.5413",
+          "rss_kib": "1083792",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_2": {
+          "operation": "browser_hidden_info_draw_2",
+          "rows": "100000",
+          "median_ms": "28.9222",
+          "p95_ms": "30.4661",
+          "max_ms": "30.8053",
+          "rss_kib": "1083916",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_hidden_info_draw_0": {
+          "operation": "browser_hidden_info_draw_0",
+          "rows": "100000",
+          "median_ms": "26.2841",
+          "p95_ms": "27.2638",
+          "max_ms": "27.4231",
+          "rss_kib": "1083916",
+          "samples": 30,
+          "measurement_note": "timed repeated samples"
+        },
+        "browser_visible_info_grid_draw": {
+          "operation": "browser_visible_info_grid_draw",
+          "rows": "100000",
+          "median_ms": "25.9873",
+          "p95_ms": "26.6664",
+          "max_ms": "26.6664",
+          "rss_kib": "1083980",
+          "samples": 15,
+          "measurement_note": "timed repeated samples"
+        },
+        "controller_select_all_sync": {
+          "operation": "controller_select_all_sync",
+          "rows": "100000",
+          "median_ms": "182.722",
+          "p95_ms": "182.722",
+          "max_ms": "182.722",
+          "rss_kib": "1348008",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_bulk": {
+          "operation": "properties_bulk",
+          "rows": "100000",
+          "median_ms": "1163.95",
+          "p95_ms": "1163.95",
+          "max_ms": "1163.95",
+          "rss_kib": "1661760",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "properties_focused_no_cursor_band": {
+          "operation": "properties_focused_no_cursor_band",
+          "rows": "100000",
+          "median_ms": "1300.96",
+          "p95_ms": "1300.96",
+          "max_ms": "1300.96",
+          "rss_kib": "1663592",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "browser_hidden_info_band_draw": {
+          "operation": "browser_hidden_info_band_draw",
+          "rows": "100000",
+          "median_ms": "1072.69",
+          "p95_ms": "1072.69",
+          "max_ms": "1072.69",
+          "rss_kib": "1663592",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence"
+        },
+        "controller_refresh30_coalesced": {
+          "operation": "controller_refresh30_coalesced",
+          "rows": "100000",
+          "median_ms": "9065.46",
+          "p95_ms": "9065.46",
+          "max_ms": "9065.46",
+          "rss_kib": "1630856",
+          "samples": 1,
+          "measurement_note": "single observation; percentile fields are not distribution evidence; burst coalesces into two full-prefix loads, not one"
+        },
+        "filter_churn_pass": {
+          "operation": "filter_churn_pass",
+          "rows": "30",
+          "median_ms": "0",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "1624720",
+          "samples": 0,
+          "measurement_note": "correctness sequence only"
+        }
+      }
+    },
+    "native_views": {
+      "1000": {
+        "select_all": {
+          "operation": "select_all",
+          "rows": "1000",
+          "median_ms": "0.03713",
+          "p95_ms": "0.051472",
+          "max_ms": "0.051472",
+          "rss_kib": "253124",
+          "samples": 7
+        },
+        "selected_names": {
+          "operation": "selected_names",
+          "rows": "1000",
+          "median_ms": "0.013523",
+          "p95_ms": "0.024343",
+          "max_ms": "0.024343",
+          "rss_kib": "253148",
+          "samples": 7
+        },
+        "refresh_preserve_selection": {
+          "operation": "refresh_preserve_selection",
+          "rows": "1000",
+          "median_ms": "0.202749",
+          "p95_ms": "0.336902",
+          "max_ms": "0.336902",
+          "rss_kib": "253768",
+          "samples": 7
+        },
+        "sort_initial": {
+          "operation": "sort_initial",
+          "rows": "1000",
+          "median_ms": "0.769768",
+          "p95_ms": "0.769768",
+          "max_ms": "0.769768",
+          "rss_kib": "254228",
+          "samples": 1
+        },
+        "sort_change": {
+          "operation": "sort_change",
+          "rows": "1000",
+          "median_ms": "0.133411",
+          "p95_ms": "0.133865",
+          "max_ms": "0.133865",
+          "rss_kib": "254228",
+          "samples": 4
+        },
+        "grid_draw_end": {
+          "operation": "grid_draw_end",
+          "rows": "1000",
+          "median_ms": "0.413276",
+          "p95_ms": "1.40089",
+          "max_ms": "1.54157",
+          "rss_kib": "263876",
+          "samples": 60
+        },
+        "grid_arrow_draw": {
+          "operation": "grid_arrow_draw",
+          "rows": "1000",
+          "median_ms": "0.804004",
+          "p95_ms": "1.62649",
+          "max_ms": "1.73347",
+          "rss_kib": "263876",
+          "samples": 30
+        },
+        "details_draw_end": {
+          "operation": "details_draw_end",
+          "rows": "1000",
+          "median_ms": "0.966192",
+          "p95_ms": "2.12266",
+          "max_ms": "2.43259",
+          "rss_kib": "267644",
+          "samples": 60
+        },
+        "details_arrow_draw": {
+          "operation": "details_arrow_draw",
+          "rows": "1000",
+          "median_ms": "0.85623",
+          "p95_ms": "1.64577",
+          "max_ms": "1.66239",
+          "rss_kib": "267624",
+          "samples": 30
+        },
+        "columns_draw_end": {
+          "operation": "columns_draw_end",
+          "rows": "1000",
+          "median_ms": "0.942785",
+          "p95_ms": "1.62986",
+          "max_ms": "1.68894",
+          "rss_kib": "266688",
+          "samples": 60
+        },
+        "columns_arrow_draw": {
+          "operation": "columns_arrow_draw",
+          "rows": "1000",
+          "median_ms": "1.21471",
+          "p95_ms": "1.69888",
+          "max_ms": "1.71484",
+          "rss_kib": "266780",
+          "samples": 30
+        },
+        "replace_200_append": {
+          "operation": "replace_200_append",
+          "rows": "1000",
+          "median_ms": "0.311537",
+          "p95_ms": "0.505201",
+          "max_ms": "0.505201",
+          "rss_kib": "268340",
+          "samples": 5
+        },
+        "churn_rss_delta_kib": {
+          "operation": "churn_rss_delta_kib",
+          "rows": "1000",
+          "median_ms": "-796",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "267544",
+          "samples": 0
+        },
+        "navigation_churn_pass": {
+          "operation": "navigation_churn_pass",
+          "rows": "200",
+          "median_ms": "0",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "269360",
+          "samples": 0
+        }
+      },
+      "10000": {
+        "select_all": {
+          "operation": "select_all",
+          "rows": "10000",
+          "median_ms": "0.385873",
+          "p95_ms": "0.498807",
+          "max_ms": "0.498807",
+          "rss_kib": "265672",
+          "samples": 7
+        },
+        "selected_names": {
+          "operation": "selected_names",
+          "rows": "10000",
+          "median_ms": "0.167676",
+          "p95_ms": "0.239687",
+          "max_ms": "0.239687",
+          "rss_kib": "265980",
+          "samples": 7
+        },
+        "refresh_preserve_selection": {
+          "operation": "refresh_preserve_selection",
+          "rows": "10000",
+          "median_ms": "2.94156",
+          "p95_ms": "3.98392",
+          "max_ms": "3.98392",
+          "rss_kib": "269068",
+          "samples": 7
+        },
+        "sort_initial": {
+          "operation": "sort_initial",
+          "rows": "10000",
+          "median_ms": "4.81122",
+          "p95_ms": "4.81122",
+          "max_ms": "4.81122",
+          "rss_kib": "275632",
+          "samples": 1
+        },
+        "sort_change": {
+          "operation": "sort_change",
+          "rows": "10000",
+          "median_ms": "1.94917",
+          "p95_ms": "1.98024",
+          "max_ms": "1.98024",
+          "rss_kib": "275632",
+          "samples": 4
+        },
+        "grid_draw_end": {
+          "operation": "grid_draw_end",
+          "rows": "10000",
+          "median_ms": "0.454288",
+          "p95_ms": "0.976395",
+          "max_ms": "1.68949",
+          "rss_kib": "281856",
+          "samples": 60
+        },
+        "grid_arrow_draw": {
+          "operation": "grid_arrow_draw",
+          "rows": "10000",
+          "median_ms": "0.479006",
+          "p95_ms": "1.5985",
+          "max_ms": "3.18421",
+          "rss_kib": "281856",
+          "samples": 30
+        },
+        "details_draw_end": {
+          "operation": "details_draw_end",
+          "rows": "10000",
+          "median_ms": "1.34205",
+          "p95_ms": "2.05897",
+          "max_ms": "3.01079",
+          "rss_kib": "286056",
+          "samples": 60
+        },
+        "details_arrow_draw": {
+          "operation": "details_arrow_draw",
+          "rows": "10000",
+          "median_ms": "1.46214",
+          "p95_ms": "1.94909",
+          "max_ms": "2.15234",
+          "rss_kib": "286140",
+          "samples": 30
+        },
+        "columns_draw_end": {
+          "operation": "columns_draw_end",
+          "rows": "10000",
+          "median_ms": "0.303206",
+          "p95_ms": "0.866066",
+          "max_ms": "1.01688",
+          "rss_kib": "286304",
+          "samples": 60
+        },
+        "columns_arrow_draw": {
+          "operation": "columns_arrow_draw",
+          "rows": "10000",
+          "median_ms": "0.36156",
+          "p95_ms": "0.450601",
+          "max_ms": "0.497884",
+          "rss_kib": "286304",
+          "samples": 30
+        },
+        "replace_200_append": {
+          "operation": "replace_200_append",
+          "rows": "10000",
+          "median_ms": "2.82553",
+          "p95_ms": "4.09243",
+          "max_ms": "4.09243",
+          "rss_kib": "298796",
+          "samples": 5
+        },
+        "churn_rss_delta_kib": {
+          "operation": "churn_rss_delta_kib",
+          "rows": "10000",
+          "median_ms": "-6652",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "292144",
+          "samples": 0
+        },
+        "navigation_churn_pass": {
+          "operation": "navigation_churn_pass",
+          "rows": "200",
+          "median_ms": "0",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "294020",
+          "samples": 0
+        }
+      },
+      "100000": {
+        "select_all": {
+          "operation": "select_all",
+          "rows": "100000",
+          "median_ms": "4.29587",
+          "p95_ms": "7.42186",
+          "max_ms": "7.42186",
+          "rss_kib": "391832",
+          "samples": 7
+        },
+        "selected_names": {
+          "operation": "selected_names",
+          "rows": "100000",
+          "median_ms": "2.69424",
+          "p95_ms": "3.57749",
+          "max_ms": "3.57749",
+          "rss_kib": "395020",
+          "samples": 7
+        },
+        "refresh_preserve_selection": {
+          "operation": "refresh_preserve_selection",
+          "rows": "100000",
+          "median_ms": "42.3899",
+          "p95_ms": "45.3821",
+          "max_ms": "45.3821",
+          "rss_kib": "424700",
+          "samples": 7
+        },
+        "sort_initial": {
+          "operation": "sort_initial",
+          "rows": "100000",
+          "median_ms": "65.6614",
+          "p95_ms": "65.6614",
+          "max_ms": "65.6614",
+          "rss_kib": "457644",
+          "samples": 1
+        },
+        "sort_change": {
+          "operation": "sort_change",
+          "rows": "100000",
+          "median_ms": "31.2754",
+          "p95_ms": "31.3219",
+          "max_ms": "31.3219",
+          "rss_kib": "457644",
+          "samples": 4
+        },
+        "grid_draw_end": {
+          "operation": "grid_draw_end",
+          "rows": "100000",
+          "median_ms": "0.654397",
+          "p95_ms": "1.45086",
+          "max_ms": "1.46091",
+          "rss_kib": "463784",
+          "samples": 60
+        },
+        "grid_arrow_draw": {
+          "operation": "grid_arrow_draw",
+          "rows": "100000",
+          "median_ms": "1.12516",
+          "p95_ms": "1.60226",
+          "max_ms": "2.08766",
+          "rss_kib": "463784",
+          "samples": 30
+        },
+        "details_draw_end": {
+          "operation": "details_draw_end",
+          "rows": "100000",
+          "median_ms": "3.07634",
+          "p95_ms": "3.63323",
+          "max_ms": "3.78906",
+          "rss_kib": "470012",
+          "samples": 60
+        },
+        "details_arrow_draw": {
+          "operation": "details_arrow_draw",
+          "rows": "100000",
+          "median_ms": "2.867",
+          "p95_ms": "3.42508",
+          "max_ms": "4.41987",
+          "rss_kib": "470012",
+          "samples": 30
+        },
+        "columns_draw_end": {
+          "operation": "columns_draw_end",
+          "rows": "100000",
+          "median_ms": "0.306101",
+          "p95_ms": "0.947032",
+          "max_ms": "1.03471",
+          "rss_kib": "470036",
+          "samples": 60
+        },
+        "columns_arrow_draw": {
+          "operation": "columns_arrow_draw",
+          "rows": "100000",
+          "median_ms": "0.404429",
+          "p95_ms": "1.4016",
+          "max_ms": "1.409",
+          "rss_kib": "470036",
+          "samples": 30
+        },
+        "replace_200_append": {
+          "operation": "replace_200_append",
+          "rows": "100000",
+          "median_ms": "40.9343",
+          "p95_ms": "49.8939",
+          "max_ms": "49.8939",
+          "rss_kib": "499868",
+          "samples": 5
+        },
+        "churn_rss_delta_kib": {
+          "operation": "churn_rss_delta_kib",
+          "rows": "100000",
+          "median_ms": "-64",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "499804",
+          "samples": 0
+        },
+        "navigation_churn_pass": {
+          "operation": "navigation_churn_pass",
+          "rows": "200",
+          "median_ms": "0",
+          "p95_ms": "0",
+          "max_ms": "0",
+          "rss_kib": "501880",
+          "samples": 0
+        }
+      }
+    },
+    "catalog": {
+      "first_page": {
+        "samples": 10,
+        "p50_ms": 15.18390549972537,
+        "p95_ms": 20.163825996860396,
+        "max_ms": 20.163825996860396,
+        "total_ms": 157.54124800150748
+      },
+      "mid_offset": {
+        "samples": 10,
+        "p50_ms": 23.44745050140773,
+        "p95_ms": 24.0011899950332,
+        "max_ms": 24.0011899950332,
+        "total_ms": 234.77045799518237
+      },
+      "last_offset": {
+        "samples": 10,
+        "p50_ms": 31.60117699735565,
+        "p95_ms": 31.85640300216619,
+        "max_ms": 31.85640300216619,
+        "total_ms": 315.7505490016774
+      },
+      "text": {
+        "samples": 10,
+        "p50_ms": 21.64031000211253,
+        "p95_ms": 22.19150999735575,
+        "max_ms": 22.19150999735575,
+        "total_ms": 216.49744098976953
+      },
+      "rating": {
+        "samples": 10,
+        "p50_ms": 38.67170749799698,
+        "p95_ms": 39.226132998010144,
+        "max_ms": 39.226132998010144,
+        "total_ms": 386.2943410058506
+      },
+      "capture_date": {
+        "samples": 10,
+        "p50_ms": 60.80457349889912,
+        "p95_ms": 64.82137800048804,
+        "max_ms": 64.82137800048804,
+        "total_ms": 618.3104089868721
+      },
+      "size": {
+        "samples": 10,
+        "p50_ms": 14.829168998403475,
+        "p95_ms": 15.134111003135331,
+        "max_ms": 15.134111003135331,
+        "total_ms": 148.6676560016349
+      },
+      "modified": {
+        "samples": 10,
+        "p50_ms": 36.68231450137682,
+        "p95_ms": 36.94542300218018,
+        "max_ms": 36.94542300218018,
+        "total_ms": 367.009453009814
+      },
+      "location": {
+        "samples": 10,
+        "p50_ms": 49.47911899944302,
+        "p95_ms": 49.79399799776729,
+        "max_ms": 49.79399799776729,
+        "total_ms": 495.30171899095876
+      },
+      "continuous_append_pages": {
+        "samples": 500,
+        "p50_ms": 23.372783500235528,
+        "p95_ms": 31.266701997083146,
+        "max_ms": 32.53074999520322,
+        "total_ms": 11682.13185788045
+      },
+      "jobs_1000_history": {
+        "samples": 10,
+        "p50_ms": 97.34635650238488,
+        "p95_ms": 102.39731500041671,
+        "max_ms": 102.39731500041671,
+        "total_ms": 978.0229790121666
+      },
+      "controller_prefix_10000": {
+        "samples": 1,
+        "p50_ms": 335.67505599785363,
+        "p95_ms": 335.67505599785363,
+        "max_ms": 335.67505599785363,
+        "total_ms": 335.67505599785363
+      },
+      "controller_prefix_30000": {
+        "samples": 1,
+        "p50_ms": 1106.680853998114,
+        "p95_ms": 1106.680853998114,
+        "max_ms": 1106.680853998114,
+        "total_ms": 1106.680853998114
+      },
+      "controller_prefix_100000": {
+        "samples": 1,
+        "p50_ms": 4410.427483999229,
+        "p95_ms": 4410.427483999229,
+        "max_ms": 4410.427483999229,
+        "total_ms": 4410.427483999229
+      },
+      "metadata_pending_tail": {
+        "samples": 10,
+        "p50_ms": 10.003946499637095,
+        "p95_ms": 11.035541996534448,
+        "max_ms": 11.035541996534448,
+        "total_ms": 101.44610899442341
+      },
+      "metadata_claim": {
+        "samples": 256,
+        "p50_ms": 9.335564998764312,
+        "p95_ms": 18.032383995887358,
+        "max_ms": 96.62105799361598,
+        "total_ms": 3008.9791719728964
+      },
+      "metadata_persist": {
+        "samples": 256,
+        "p50_ms": 9.379369501402834,
+        "p95_ms": 16.654931998346,
+        "max_ms": 52.49028700200142,
+        "total_ms": 2772.180590960488
+      },
+      "export": {
+        "ms": 2354.4691509960103,
+        "photo_count": 100256,
+        "json_bytes": 64657204
+      },
+      "restore_existing_matches": {
+        "ms": 6341.972143003659,
+        "restored": 100256
+      },
+      "restore_fresh_256_real_identities": {
+        "samples": 1,
+        "p50_ms": 70.08120999671519,
+        "p95_ms": 70.08120999671519,
+        "max_ms": 70.08120999671519,
+        "total_ms": 70.08120999671519
+      },
+      "concurrent_read_write": {
+        "ms": 778.9168660019641,
+        "requests": 120,
+        "errors": []
+      }
+    }
+  },
+  "limits": [
+    "No total photo/source/album/saved-search cap",
+    "1,000 records per query response; UI fetches additional batches and retains browsed prefix",
+    "4,096 watched folders per window",
+    "100,000 IDs per edit/new album request",
+    "1,000 duplicate groups, no further-group pagination",
+    "Latest 1,000 jobs/operations and 100 outcomes per job; recovery separately paginated",
+    "Restore 256 MiB / 1,000,000 records; export unbounded",
+    "100,000 selected workspace IDs within 4 MiB overall state",
+    "200 MP, 3 s and 4 GiB shared image helper safety bounds"
+  ],
+  "completed_utc": "2026-11-27T01:03:45.827644+00:00"
+}

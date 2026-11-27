@@ -1,0 +1,23 @@
+anonymous memory at start: 2.9 MB
+12 workers
+run 1  IMG          first     1.90 ms  listed     22.58 ms    100000 entries  match all    2.03 ms  paths   1.9 MB  best: IMG_2.JPG
+  anonymous memory with the paths: 6.2 MB
+run 1  Session      first     1.39 ms  listed     22.29 ms    100000 entries  match all    1.23 ms  paths   1.9 MB  best: Session 0
+  anonymous memory with the paths: 7.5 MB
+run 1  not-present-fixture first    23.08 ms  listed     23.07 ms    100000 entries  match all    1.02 ms  paths   1.9 MB  best: -
+  anonymous memory with the paths: 8.8 MB
+  anonymous memory once let go: 4.4 MB
+run 2  IMG          first     1.73 ms  listed     22.04 ms    100000 entries  match all    2.03 ms  paths   1.9 MB  best: IMG_2.JPG
+  anonymous memory with the paths: 6.8 MB
+run 2  Session      first     1.25 ms  listed     21.25 ms    100000 entries  match all    1.13 ms  paths   1.9 MB  best: Session 0
+  anonymous memory with the paths: 6.7 MB
+run 2  not-present-fixture first    21.76 ms  listed     21.75 ms    100000 entries  match all    1.03 ms  paths   1.9 MB  best: -
+  anonymous memory with the paths: 8.1 MB
+  anonymous memory once let go: 4.8 MB
+run 3  IMG          first     1.67 ms  listed     17.60 ms    100000 entries  match all    2.05 ms  paths   1.9 MB  best: IMG_2.JPG
+  anonymous memory with the paths: 7.3 MB
+run 3  Session      first     1.49 ms  listed     22.26 ms    100000 entries  match all    1.02 ms  paths   1.9 MB  best: Session 0
+  anonymous memory with the paths: 8.3 MB
+run 3  not-present-fixture first    17.01 ms  listed     17.00 ms    100000 entries  match all    1.02 ms  paths   1.9 MB  best: -
+  anonymous memory with the paths: 8.8 MB
+  anonymous memory once let go: 5.0 MB

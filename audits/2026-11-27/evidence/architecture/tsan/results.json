@@ -1,0 +1,120 @@
+{
+  "head": "1dd2368783d814e86268fd2c388ee41671c66ae8",
+  "compiler": "/nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++",
+  "flags": [
+    "-std=c++20",
+    "-O1",
+    "-g",
+    "-fno-omit-frame-pointer",
+    "-fsanitize=thread",
+    "-pthread",
+    "-fPIE",
+    "-pie",
+    "-I/tmp/rummage-photo-library/src/core/include",
+    "-I/nix/store/mncfvp2l78ascq4qsd7f7zkmma1rz0wp-doctest-2.5.3/include"
+  ],
+  "environment": {
+    "TSAN_OPTIONS": "halt_on_error=1:exitcode=66:history_size=7",
+    "RUMMAGE_LOG": "off"
+  },
+  "source_sha256": {
+    "/tmp/rummage-photo-library/src/core/src/event_loop.cpp": "e863fdfb442e205bf58eb77ff715b52f6bcae4cc59498fcf9d368129688d57d5",
+    "/tmp/rummage-photo-library/src/core/src/worker_pool.cpp": "247f754439725de6f8059a2f8de0b3d44079faa8d43d98f9b459baabe150dea3",
+    "/tmp/rummage-photo-library/src/core/src/log.cpp": "bb64006e6f6f6938173040b7ae62c5455c74834f67221f18d1ee11f477821c6b",
+    "/tmp/rummage-photo-library/tests/worker_pool_test.cpp": "661520b23b8b79441ed169814c8eafdb4c93c12049e56633f03f41e8f741a475",
+    "/tmp/rummage-photo-library/tests/event_loop_test.cpp": "113f53670b80a060feba8f99c7e0c5ee760076d8687b06172b1af3d5ceaf0426",
+    "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/main.cpp": "010cc5d71fa312cc2aef083c5a8ecbcfa076db95fd50a3761df2d3e5b29b12a5",
+    "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/stress.cpp": "eb4ef9fdf29f651d05bf48fe0ba200b797ad17280a94502b62d9840b13b64259"
+  },
+  "steps": [
+    {
+      "name": "compile-control",
+      "command": [
+        "/nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++",
+        "-std=c++20",
+        "-O1",
+        "-g",
+        "-fno-omit-frame-pointer",
+        "-fsanitize=thread",
+        "-pthread",
+        "-fPIE",
+        "-pie",
+        "-I/tmp/rummage-photo-library/src/core/include",
+        "-I/nix/store/mncfvp2l78ascq4qsd7f7zkmma1rz0wp-doctest-2.5.3/include",
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/race_control.cpp",
+        "-o",
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/race-control"
+      ],
+      "exit": 0,
+      "seconds": 0.415
+    },
+    {
+      "name": "control",
+      "command": [
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/race-control"
+      ],
+      "exit": 66,
+      "seconds": 0.032
+    },
+    {
+      "name": "compile-core",
+      "command": [
+        "/nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++",
+        "-std=c++20",
+        "-O1",
+        "-g",
+        "-fno-omit-frame-pointer",
+        "-fsanitize=thread",
+        "-pthread",
+        "-fPIE",
+        "-pie",
+        "-I/tmp/rummage-photo-library/src/core/include",
+        "-I/nix/store/mncfvp2l78ascq4qsd7f7zkmma1rz0wp-doctest-2.5.3/include",
+        "/tmp/rummage-photo-library/src/core/src/event_loop.cpp",
+        "/tmp/rummage-photo-library/src/core/src/worker_pool.cpp",
+        "/tmp/rummage-photo-library/src/core/src/log.cpp",
+        "/tmp/rummage-photo-library/tests/worker_pool_test.cpp",
+        "/tmp/rummage-photo-library/tests/event_loop_test.cpp",
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/main.cpp",
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/stress.cpp",
+        "-o",
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/core-tsan"
+      ],
+      "exit": 0,
+      "seconds": 21.854
+    },
+    {
+      "name": "core-1",
+      "command": [
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/core-tsan",
+        "--no-skip",
+        "--order-by=rand",
+        "--rand-seed=731"
+      ],
+      "exit": 0,
+      "seconds": 0.414
+    },
+    {
+      "name": "core-2",
+      "command": [
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/core-tsan",
+        "--no-skip",
+        "--order-by=rand",
+        "--rand-seed=732"
+      ],
+      "exit": 0,
+      "seconds": 0.414
+    },
+    {
+      "name": "core-3",
+      "command": [
+        "/tmp/rummage-branch-audit-2026-11-27/architecture/tsan/core-tsan",
+        "--no-skip",
+        "--order-by=rand",
+        "--rand-seed=733"
+      ],
+      "exit": 0,
+      "seconds": 0.414
+    }
+  ]
+}

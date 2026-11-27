@@ -1,0 +1,13 @@
+operation,rows,median_ms,p95_ms,max_ms,rss_kib
+controller_load,1000,53.5319,53.5319,53.5319,270860
+properties_focused,1000,0.054123,0.060255,0.085024,270860
+browser_hidden_info_draw_1,1000,1.06174,1.43493,3.35885,281876
+browser_hidden_info_draw_2,1000,1.40956,1.60898,2.73501,310132
+browser_hidden_info_draw_0,1000,6.40303,8.96439,9.12914,314508
+browser_visible_info_grid_draw,1000,6.93555,9.00849,9.00849,314636
+controller_select_all_sync,1000,1.77045,1.77045,1.77045,314636
+properties_bulk,1000,3.02608,3.02608,3.02608,314636
+properties_focused_no_cursor_band,1000,5.40644,5.40644,5.40644,314636
+browser_hidden_info_band_draw,1000,11.485,11.485,11.485,314636
+controller_refresh30_coalesced,1000,111.166,111.166,111.166,319840
+filter_churn_pass,30,0,0,0,319968

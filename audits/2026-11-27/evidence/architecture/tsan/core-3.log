@@ -1,0 +1,54 @@
+[    0.000] debug worker pool: 4 threads
+[    0.175] debug worker pool: 4 threads
+[    0.176] debug worker pool: 4 threads
+[    0.176] debug worker pool: 4 threads
+[    0.177] debug worker pool: 4 threads
+[    0.177] debug worker pool: 4 threads
+[    0.178] debug worker pool: 4 threads
+[    0.178] debug worker pool: 4 threads
+[    0.178] debug worker pool: 4 threads
+[    0.179] debug worker pool: 4 threads
+[    0.180] debug worker pool: 4 threads
+[    0.180] debug worker pool: 4 threads
+[    0.180] debug worker pool: 4 threads
+[    0.181] debug worker pool: 4 threads
+[    0.181] debug worker pool: 4 threads
+[    0.182] debug worker pool: 4 threads
+[    0.182] debug worker pool: 4 threads
+[    0.183] debug worker pool: 4 threads
+[    0.183] debug worker pool: 4 threads
+[    0.184] debug worker pool: 4 threads
+[    0.184] debug worker pool: 4 threads
+[    0.185] debug worker pool: 1 threads
+[    0.205] debug worker pool: 1 threads
+[    0.206] debug worker pool: 2 threads
+[    0.280] debug worker pool: 2 threads
+[    0.281] debug worker pool: 4 threads
+[    0.281] debug worker pool: 4 threads
+[    0.282] debug worker pool: 4 threads
+[    0.283] debug worker pool: 4 threads
+[    0.283] debug worker pool: 4 threads
+[    0.284] debug worker pool: 4 threads
+[    0.285] debug worker pool: 4 threads
+[    0.286] debug worker pool: 4 threads
+[    0.286] debug worker pool: 4 threads
+[    0.287] debug worker pool: 4 threads
+[    0.287] debug worker pool: 4 threads
+[    0.288] debug worker pool: 4 threads
+[    0.289] debug worker pool: 4 threads
+[    0.289] debug worker pool: 4 threads
+[    0.290] debug worker pool: 4 threads
+[    0.291] debug worker pool: 4 threads
+[    0.291] debug worker pool: 4 threads
+[    0.292] debug worker pool: 4 threads
+[    0.293] debug worker pool: 4 threads
+[    0.293] debug worker pool: 4 threads
+[    0.306] debug worker pool: 1 threads
+[    0.306] debug worker pool: 1 threads
+[    0.308] debug worker pool: 12 threads
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:    21 |    21 passed | 0 failed | 0 skipped
+[doctest] assertions: 46199 | 46199 passed | 0 failed |
+[doctest] Status: SUCCESS!

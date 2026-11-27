@@ -1,0 +1,26 @@
+{
+  "rummage": {
+    "bytes": 12974184,
+    "sha256": "c985f4b369606504aa7e475be9724ed3a276f5c38b13798e502fc41baf5d2cdc"
+  },
+  "rummage-preview": {
+    "bytes": 1644576,
+    "sha256": "95d0ae674777b51b2a01b0e2d60a2c5cd281134c0bcfe57b230a02111c086603"
+  },
+  "librummage-photos.so": {
+    "bytes": 858320,
+    "sha256": "05fb4ea3f4512cb1929c8121bcdddcef8adbbdd1eb27be38f1ac3ce42d0771c7"
+  },
+  "rummage-bench-dir": {
+    "bytes": 1762520,
+    "sha256": "3627cf4be19216aa655c4d7396b0e926ba271196b45a530490420390a1b8ca04"
+  },
+  "rummage-bench-find": {
+    "bytes": 1076016,
+    "sha256": "f83178e8588aa86e4ec1adf013695b63995ceb43041e098cdb25d42a6cdb482d"
+  },
+  "rummage-transfer": {
+    "bytes": 1429536,
+    "sha256": "7a3a97966ee42ee9d2d8045884044d8e777641f60df59ba823ff1974a5b4636f"
+  }
+}

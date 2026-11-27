@@ -1,0 +1,38 @@
+[
+  {
+    "path": "src/views/src/browser.cpp",
+    "base_lines": 6655,
+    "head_lines": 7053,
+    "delta": 398
+  },
+  {
+    "path": "src/views/include/rummage/views/browser.hpp",
+    "base_lines": 1419,
+    "head_lines": 1464,
+    "delta": 45
+  },
+  {
+    "path": "src/views/src/properties_dialog.cpp",
+    "base_lines": 971,
+    "head_lines": 1227,
+    "delta": 256
+  },
+  {
+    "path": "src/views/src/details_view.cpp",
+    "base_lines": 1153,
+    "head_lines": 1163,
+    "delta": 10
+  },
+  {
+    "path": "src/views/src/photo_library.cpp",
+    "base_lines": 0,
+    "head_lines": 1947,
+    "delta": 1947
+  },
+  {
+    "path": "src/photos/src/catalog.cpp",
+    "base_lines": 0,
+    "head_lines": 2627,
+    "delta": 2627
+  }
+]

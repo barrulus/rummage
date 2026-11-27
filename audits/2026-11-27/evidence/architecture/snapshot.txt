@@ -1,0 +1,9 @@
+commit 1dd2368783d814e86268fd2c388ee41671c66ae8
+Author:     barrulus <b@rry.im>
+AuthorDate: Fri Nov 27 00:10:08 2026 +0000
+Commit:     barrulus <b@rry.im>
+CommitDate: Fri Nov 27 00:10:08 2026 +0000
+
+    Keep image preview pane blank until thumbnail is ready
+
+BASE 63ca25bc8ba464d42dfa315d180354892137e792

@@ -1,0 +1,7700 @@
+{
+  "head": "1dd2368783d814e86268fd2c388ee41671c66ae8",
+  "base": "63ca25bc8ba464d42dfa315d180354892137e792",
+  "areas": {
+    "(root files)": {
+      "files": 12,
+      "bytes": 43443,
+      "lines": 879,
+      "changed_files": 3,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    ".github": {
+      "files": 3,
+      "bytes": 19115,
+      "lines": 420,
+      "changed_files": 0,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    ".vscode": {
+      "files": 1,
+      "bytes": 100,
+      "lines": 5,
+      "changed_files": 0,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "cmake": {
+      "files": 2,
+      "bytes": 2386,
+      "lines": 53,
+      "changed_files": 0,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "contributing": {
+      "files": 5,
+      "bytes": 66736,
+      "lines": 1154,
+      "changed_files": 4,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "data": {
+      "files": 19,
+      "bytes": 635865,
+      "lines": 10426,
+      "changed_files": 7,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "docs": {
+      "files": 51,
+      "bytes": 5780650,
+      "lines": 27768,
+      "changed_files": 8,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "nix": {
+      "files": 9,
+      "bytes": 21027,
+      "lines": 680,
+      "changed_files": 4,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "packaging": {
+      "files": 14,
+      "bytes": 25787,
+      "lines": 593,
+      "changed_files": 8,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    },
+    "scripts": {
+      "files": 46,
+      "bytes": 207357,
+      "lines": 4170,
+      "changed_files": 15,
+      "cpp_files": 1,
+      "cpp_lines": 55
+    },
+    "src/app": {
+      "files": 4,
+      "bytes": 111130,
+      "lines": 2335,
+      "changed_files": 1,
+      "cpp_files": 4,
+      "cpp_lines": 2335
+    },
+    "src/archive": {
+      "files": 3,
+      "bytes": 8531,
+      "lines": 243,
+      "changed_files": 0,
+      "cpp_files": 2,
+      "cpp_lines": 237
+    },
+    "src/core": {
+      "files": 30,
+      "bytes": 164894,
+      "lines": 4167,
+      "changed_files": 2,
+      "cpp_files": 28,
+      "cpp_lines": 4104
+    },
+    "src/engines": {
+      "files": 4,
+      "bytes": 21135,
+      "lines": 544,
+      "changed_files": 2,
+      "cpp_files": 3,
+      "cpp_lines": 525
+    },
+    "src/formats": {
+      "files": 65,
+      "bytes": 544986,
+      "lines": 13406,
+      "changed_files": 0,
+      "cpp_files": 61,
+      "cpp_lines": 13343
+    },
+    "src/fs": {
+      "files": 57,
+      "bytes": 494727,
+      "lines": 12794,
+      "changed_files": 4,
+      "cpp_files": 56,
+      "cpp_lines": 12761
+    },
+    "src/isolate": {
+      "files": 11,
+      "bytes": 109157,
+      "lines": 2574,
+      "changed_files": 0,
+      "cpp_files": 10,
+      "cpp_lines": 2529
+    },
+    "src/media": {
+      "files": 2,
+      "bytes": 22803,
+      "lines": 524,
+      "changed_files": 1,
+      "cpp_files": 1,
+      "cpp_lines": 512
+    },
+    "src/pdf": {
+      "files": 2,
+      "bytes": 17204,
+      "lines": 433,
+      "changed_files": 1,
+      "cpp_files": 1,
+      "cpp_lines": 418
+    },
+    "src/photo_client": {
+      "files": 5,
+      "bytes": 31693,
+      "lines": 757,
+      "changed_files": 5,
+      "cpp_files": 4,
+      "cpp_lines": 751
+    },
+    "src/photos": {
+      "files": 3,
+      "bytes": 124938,
+      "lines": 2647,
+      "changed_files": 3,
+      "cpp_files": 2,
+      "cpp_lines": 2640
+    },
+    "src/picture": {
+      "files": 14,
+      "bytes": 35143,
+      "lines": 904,
+      "changed_files": 0,
+      "cpp_files": 13,
+      "cpp_lines": 881
+    },
+    "src/platform": {
+      "files": 46,
+      "bytes": 301013,
+      "lines": 7525,
+      "changed_files": 2,
+      "cpp_files": 45,
+      "cpp_lines": 7490
+    },
+    "src/preview": {
+      "files": 6,
+      "bytes": 16163,
+      "lines": 405,
+      "changed_files": 0,
+      "cpp_files": 5,
+      "cpp_lines": 394
+    },
+    "src/svg": {
+      "files": 3,
+      "bytes": 6929,
+      "lines": 153,
+      "changed_files": 0,
+      "cpp_files": 2,
+      "cpp_lines": 147
+    },
+    "src/text": {
+      "files": 5,
+      "bytes": 12017,
+      "lines": 355,
+      "changed_files": 0,
+      "cpp_files": 4,
+      "cpp_lines": 349
+    },
+    "src/theme": {
+      "files": 16,
+      "bytes": 61944,
+      "lines": 1629,
+      "changed_files": 0,
+      "cpp_files": 14,
+      "cpp_lines": 1604
+    },
+    "src/thumbs": {
+      "files": 5,
+      "bytes": 22263,
+      "lines": 560,
+      "changed_files": 2,
+      "cpp_files": 4,
+      "cpp_lines": 553
+    },
+    "src/tools": {
+      "files": 13,
+      "bytes": 111354,
+      "lines": 2607,
+      "changed_files": 1,
+      "cpp_files": 13,
+      "cpp_lines": 2607
+    },
+    "src/ui": {
+      "files": 41,
+      "bytes": 307804,
+      "lines": 7855,
+      "changed_files": 0,
+      "cpp_files": 40,
+      "cpp_lines": 7758
+    },
+    "src/views": {
+      "files": 121,
+      "bytes": 1834247,
+      "lines": 45105,
+      "changed_files": 42,
+      "cpp_files": 120,
+      "cpp_lines": 45027
+    },
+    "tests": {
+      "files": 398,
+      "bytes": 3167102,
+      "lines": 57077,
+      "changed_files": 20,
+      "cpp_files": 133,
+      "cpp_lines": 51588
+    },
+    "third_party": {
+      "files": 13,
+      "bytes": 3733640,
+      "lines": 99585,
+      "changed_files": 0,
+      "cpp_files": 5,
+      "cpp_lines": 99067
+    },
+    "website": {
+      "files": 31,
+      "bytes": 108357,
+      "lines": 3000,
+      "changed_files": 0,
+      "cpp_files": 0,
+      "cpp_lines": 0
+    }
+  },
+  "files": [
+    {
+      "path": ".clang-format",
+      "area": "(root files)",
+      "bytes": 1117,
+      "lines": 43,
+      "changed": false
+    },
+    {
+      "path": ".clang-tidy",
+      "area": "(root files)",
+      "bytes": 2975,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": ".clangd",
+      "area": "(root files)",
+      "bytes": 315,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": ".editorconfig",
+      "area": "(root files)",
+      "bytes": 262,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": ".github/FUNDING.yml",
+      "area": ".github",
+      "bytes": 16,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "area": ".github",
+      "bytes": 16141,
+      "lines": 352,
+      "changed": false
+    },
+    {
+      "path": ".github/workflows/noctalia-template.yml",
+      "area": ".github",
+      "bytes": 2958,
+      "lines": 67,
+      "changed": false
+    },
+    {
+      "path": ".gitignore",
+      "area": "(root files)",
+      "bytes": 587,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": ".vscode/settings.json",
+      "area": ".vscode",
+      "bytes": 100,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "CMakeLists.txt",
+      "area": "(root files)",
+      "bytes": 18025,
+      "lines": 334,
+      "changed": true
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "area": "(root files)",
+      "bytes": 5653,
+      "lines": 106,
+      "changed": false
+    },
+    {
+      "path": "LICENSE",
+      "area": "(root files)",
+      "bytes": 1065,
+      "lines": 21,
+      "changed": false
+    },
+    {
+      "path": "README.md",
+      "area": "(root files)",
+      "bytes": 5869,
+      "lines": 109,
+      "changed": true
+    },
+    {
+      "path": "THIRD_PARTY.md",
+      "area": "(root files)",
+      "bytes": 3783,
+      "lines": 26,
+      "changed": false
+    },
+    {
+      "path": "cmake/PrivatePDFium.cmake",
+      "area": "cmake",
+      "bytes": 1464,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "cmake/embed.cmake",
+      "area": "cmake",
+      "bytes": 922,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "contributing/architecture.md",
+      "area": "contributing",
+      "bytes": 12068,
+      "lines": 202,
+      "changed": true
+    },
+    {
+      "path": "contributing/ci-packaging.md",
+      "area": "contributing",
+      "bytes": 28489,
+      "lines": 475,
+      "changed": true
+    },
+    {
+      "path": "contributing/development.md",
+      "area": "contributing",
+      "bytes": 9994,
+      "lines": 203,
+      "changed": true
+    },
+    {
+      "path": "contributing/performance.md",
+      "area": "contributing",
+      "bytes": 10338,
+      "lines": 174,
+      "changed": true
+    },
+    {
+      "path": "contributing/svg-validation.md",
+      "area": "contributing",
+      "bytes": 5847,
+      "lines": 100,
+      "changed": false
+    },
+    {
+      "path": "data/completions/_rummage",
+      "area": "data",
+      "bytes": 1203,
+      "lines": 33,
+      "changed": false
+    },
+    {
+      "path": "data/completions/rummage.bash",
+      "area": "data",
+      "bytes": 1390,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "data/completions/rummage.fish",
+      "area": "data",
+      "bytes": 1584,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "data/engines/base.toml",
+      "area": "data",
+      "bytes": 1485,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "data/engines/media.toml",
+      "area": "data",
+      "bytes": 431,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "data/engines/pdf.toml",
+      "area": "data",
+      "bytes": 342,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "data/i18n/de.toml",
+      "area": "data",
+      "bytes": 82825,
+      "lines": 1461,
+      "changed": true
+    },
+    {
+      "path": "data/i18n/es.toml",
+      "area": "data",
+      "bytes": 85765,
+      "lines": 1457,
+      "changed": true
+    },
+    {
+      "path": "data/i18n/fr.toml",
+      "area": "data",
+      "bytes": 88839,
+      "lines": 1456,
+      "changed": true
+    },
+    {
+      "path": "data/i18n/ja.toml",
+      "area": "data",
+      "bytes": 92325,
+      "lines": 1447,
+      "changed": true
+    },
+    {
+      "path": "data/i18n/pt_BR.toml",
+      "area": "data",
+      "bytes": 85042,
+      "lines": 1448,
+      "changed": true
+    },
+    {
+      "path": "data/i18n/ru.toml",
+      "area": "data",
+      "bytes": 115661,
+      "lines": 1450,
+      "changed": true
+    },
+    {
+      "path": "data/i18n/zh_CN.toml",
+      "area": "data",
+      "bytes": 74718,
+      "lines": 1448,
+      "changed": true
+    },
+    {
+      "path": "data/matugen/rummage.toml",
+      "area": "data",
+      "bytes": 2085,
+      "lines": 39,
+      "changed": false
+    },
+    {
+      "path": "data/noctalia/rummage",
+      "area": "data",
+      "bytes": 271,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "data/org.freedesktop.impl.portal.desktop.rummage.service.in",
+      "area": "data",
+      "bytes": 114,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "data/rummage.desktop",
+      "area": "data",
+      "bytes": 283,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "data/rummage.portal",
+      "area": "data",
+      "bytes": 129,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "data/rummage.svg",
+      "area": "data",
+      "bytes": 1373,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "docs/README.md",
+      "area": "docs",
+      "bytes": 2560,
+      "lines": 49,
+      "changed": true
+    },
+    {
+      "path": "docs/actions.md",
+      "area": "docs",
+      "bytes": 17142,
+      "lines": 305,
+      "changed": false
+    },
+    {
+      "path": "docs/appearance.md",
+      "area": "docs",
+      "bytes": 22713,
+      "lines": 454,
+      "changed": false
+    },
+    {
+      "path": "docs/command-line.md",
+      "area": "docs",
+      "bytes": 8447,
+      "lines": 176,
+      "changed": false
+    },
+    {
+      "path": "docs/compatibility.md",
+      "area": "docs",
+      "bytes": 2292,
+      "lines": 39,
+      "changed": false
+    },
+    {
+      "path": "docs/config.example.toml",
+      "area": "docs",
+      "bytes": 33406,
+      "lines": 656,
+      "changed": true
+    },
+    {
+      "path": "docs/configuration.md",
+      "area": "docs",
+      "bytes": 20133,
+      "lines": 330,
+      "changed": true
+    },
+    {
+      "path": "docs/features.md",
+      "area": "docs",
+      "bytes": 7720,
+      "lines": 129,
+      "changed": false
+    },
+    {
+      "path": "docs/file-operations.md",
+      "area": "docs",
+      "bytes": 23331,
+      "lines": 404,
+      "changed": false
+    },
+    {
+      "path": "docs/file-picker.md",
+      "area": "docs",
+      "bytes": 12343,
+      "lines": 236,
+      "changed": true
+    },
+    {
+      "path": "docs/images/rummage-dark-columns.webp",
+      "area": "docs",
+      "bytes": 69962,
+      "lines": 285,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-details.webp",
+      "area": "docs",
+      "bytes": 72664,
+      "lines": 293,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-grid.webp",
+      "area": "docs",
+      "bytes": 74950,
+      "lines": 308,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-quicklook.webp",
+      "area": "docs",
+      "bytes": 656798,
+      "lines": 2822,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-shortcuts.webp",
+      "area": "docs",
+      "bytes": 95508,
+      "lines": 373,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-sidebar.webp",
+      "area": "docs",
+      "bytes": 59336,
+      "lines": 250,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-transfer.webp",
+      "area": "docs",
+      "bytes": 57336,
+      "lines": 204,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-dark-video-grid.webp",
+      "area": "docs",
+      "bytes": 183684,
+      "lines": 750,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-desktop-gnome.webp",
+      "area": "docs",
+      "bytes": 143916,
+      "lines": 576,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-desktop-hyprland.webp",
+      "area": "docs",
+      "bytes": 853706,
+      "lines": 3291,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-desktop-kde.webp",
+      "area": "docs",
+      "bytes": 500356,
+      "lines": 2208,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-desktop-niri.webp",
+      "area": "docs",
+      "bytes": 130540,
+      "lines": 486,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-desktop-umbriel.webp",
+      "area": "docs",
+      "bytes": 711028,
+      "lines": 2706,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-effects-preview.webp",
+      "area": "docs",
+      "bytes": 65398,
+      "lines": 217,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-file-picker.webp",
+      "area": "docs",
+      "bytes": 49270,
+      "lines": 177,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-insights-iris.webp",
+      "area": "docs",
+      "bytes": 72442,
+      "lines": 291,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-insights-scope.webp",
+      "area": "docs",
+      "bytes": 68908,
+      "lines": 271,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-insights-space-map.webp",
+      "area": "docs",
+      "bytes": 69604,
+      "lines": 280,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-insights-types-count.webp",
+      "area": "docs",
+      "bytes": 62400,
+      "lines": 222,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-insights-types-size.webp",
+      "area": "docs",
+      "bytes": 58992,
+      "lines": 240,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-columns.webp",
+      "area": "docs",
+      "bytes": 69318,
+      "lines": 264,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-details.webp",
+      "area": "docs",
+      "bytes": 73610,
+      "lines": 291,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-grid.webp",
+      "area": "docs",
+      "bytes": 75782,
+      "lines": 304,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-quicklook.webp",
+      "area": "docs",
+      "bytes": 659324,
+      "lines": 2994,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-shortcuts.webp",
+      "area": "docs",
+      "bytes": 97242,
+      "lines": 397,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-sidebar.webp",
+      "area": "docs",
+      "bytes": 59080,
+      "lines": 229,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-transfer.webp",
+      "area": "docs",
+      "bytes": 57356,
+      "lines": 226,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-light-video-grid.webp",
+      "area": "docs",
+      "bytes": 184542,
+      "lines": 734,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-settings-general.webp",
+      "area": "docs",
+      "bytes": 68318,
+      "lines": 251,
+      "changed": false
+    },
+    {
+      "path": "docs/images/rummage-settings-keybindings.webp",
+      "area": "docs",
+      "bytes": 64044,
+      "lines": 204,
+      "changed": false
+    },
+    {
+      "path": "docs/insights.md",
+      "area": "docs",
+      "bytes": 10278,
+      "lines": 162,
+      "changed": false
+    },
+    {
+      "path": "docs/install.md",
+      "area": "docs",
+      "bytes": 20921,
+      "lines": 435,
+      "changed": true
+    },
+    {
+      "path": "docs/motion.md",
+      "area": "docs",
+      "bytes": 10011,
+      "lines": 197,
+      "changed": false
+    },
+    {
+      "path": "docs/photo-library.md",
+      "area": "docs",
+      "bytes": 18504,
+      "lines": 255,
+      "changed": true
+    },
+    {
+      "path": "docs/previews.md",
+      "area": "docs",
+      "bytes": 19747,
+      "lines": 315,
+      "changed": true
+    },
+    {
+      "path": "docs/releases.md",
+      "area": "docs",
+      "bytes": 9458,
+      "lines": 166,
+      "changed": false
+    },
+    {
+      "path": "docs/security.md",
+      "area": "docs",
+      "bytes": 7330,
+      "lines": 113,
+      "changed": true
+    },
+    {
+      "path": "docs/shortcuts.md",
+      "area": "docs",
+      "bytes": 15734,
+      "lines": 284,
+      "changed": false
+    },
+    {
+      "path": "docs/translations.md",
+      "area": "docs",
+      "bytes": 8972,
+      "lines": 189,
+      "changed": false
+    },
+    {
+      "path": "docs/troubleshooting.md",
+      "area": "docs",
+      "bytes": 8702,
+      "lines": 168,
+      "changed": false
+    },
+    {
+      "path": "docs/usage.md",
+      "area": "docs",
+      "bytes": 35492,
+      "lines": 562,
+      "changed": false
+    },
+    {
+      "path": "flake.lock",
+      "area": "(root files)",
+      "bytes": 619,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "flake.nix",
+      "area": "(root files)",
+      "bytes": 3173,
+      "lines": 94,
+      "changed": true
+    },
+    {
+      "path": "nix/module-check.nix",
+      "area": "nix",
+      "bytes": 3504,
+      "lines": 103,
+      "changed": true
+    },
+    {
+      "path": "nix/module.nix",
+      "area": "nix",
+      "bytes": 2412,
+      "lines": 76,
+      "changed": true
+    },
+    {
+      "path": "nix/package.nix",
+      "area": "nix",
+      "bytes": 4413,
+      "lines": 185,
+      "changed": true
+    },
+    {
+      "path": "nix/pdfium-icu.gn",
+      "area": "nix",
+      "bytes": 509,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "nix/pdfium-icu.nix",
+      "area": "nix",
+      "bytes": 1703,
+      "lines": 61,
+      "changed": false
+    },
+    {
+      "path": "nix/pdfium-read-error.patch",
+      "area": "nix",
+      "bytes": 648,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "nix/pdfium-sources.nix",
+      "area": "nix",
+      "bytes": 2402,
+      "lines": 69,
+      "changed": false
+    },
+    {
+      "path": "nix/pdfium.nix",
+      "area": "nix",
+      "bytes": 4344,
+      "lines": 113,
+      "changed": false
+    },
+    {
+      "path": "nix/smoke-test.nix",
+      "area": "nix",
+      "bytes": 1092,
+      "lines": 40,
+      "changed": true
+    },
+    {
+      "path": "packaging/arch/PKGBUILD",
+      "area": "packaging",
+      "bytes": 2742,
+      "lines": 44,
+      "changed": true
+    },
+    {
+      "path": "packaging/debian/changelog",
+      "area": "packaging",
+      "bytes": 997,
+      "lines": 26,
+      "changed": false
+    },
+    {
+      "path": "packaging/debian/control",
+      "area": "packaging",
+      "bytes": 1571,
+      "lines": 33,
+      "changed": true
+    },
+    {
+      "path": "packaging/debian/copyright",
+      "area": "packaging",
+      "bytes": 2902,
+      "lines": 68,
+      "changed": false
+    },
+    {
+      "path": "packaging/debian/docs",
+      "area": "packaging",
+      "bytes": 15,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "packaging/debian/rules",
+      "area": "packaging",
+      "bytes": 679,
+      "lines": 17,
+      "changed": true
+    },
+    {
+      "path": "packaging/debian/rummage-photos.install",
+      "area": "packaging",
+      "bytes": 41,
+      "lines": 1,
+      "changed": true
+    },
+    {
+      "path": "packaging/debian/rummage.install",
+      "area": "packaging",
+      "bytes": 607,
+      "lines": 19,
+      "changed": true
+    },
+    {
+      "path": "packaging/debian/source/format",
+      "area": "packaging",
+      "bytes": 12,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "packaging/pdfium/build.sh",
+      "area": "packaging",
+      "bytes": 6014,
+      "lines": 141,
+      "changed": false
+    },
+    {
+      "path": "packaging/pdfium/configure.py",
+      "area": "packaging",
+      "bytes": 2332,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "packaging/pdfium/copyright.py",
+      "area": "packaging",
+      "bytes": 1424,
+      "lines": 28,
+      "changed": true
+    },
+    {
+      "path": "packaging/rpm/rummage.spec",
+      "area": "packaging",
+      "bytes": 4662,
+      "lines": 126,
+      "changed": true
+    },
+    {
+      "path": "packaging/void/rummage/template",
+      "area": "packaging",
+      "bytes": 1789,
+      "lines": 38,
+      "changed": true
+    },
+    {
+      "path": "scripts/check-docs.py",
+      "area": "scripts",
+      "bytes": 4504,
+      "lines": 113,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/check-installed.sh",
+      "area": "scripts",
+      "bytes": 2395,
+      "lines": 57,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/check-pdf.py",
+      "area": "scripts",
+      "bytes": 2899,
+      "lines": 69,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/check-photos-installed.py",
+      "area": "scripts",
+      "bytes": 5687,
+      "lines": 115,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/check-wayland.sh",
+      "area": "scripts",
+      "bytes": 2633,
+      "lines": 62,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/check-windows.py",
+      "area": "scripts",
+      "bytes": 3325,
+      "lines": 73,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/export-source.sh",
+      "area": "scripts",
+      "bytes": 2085,
+      "lines": 41,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/lint.sh",
+      "area": "scripts",
+      "bytes": 519,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/native-build.sh",
+      "area": "scripts",
+      "bytes": 5650,
+      "lines": 111,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/native-env",
+      "area": "scripts",
+      "bytes": 558,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/native-install.sh",
+      "area": "scripts",
+      "bytes": 4629,
+      "lines": 95,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/native.sh",
+      "area": "scripts",
+      "bytes": 1235,
+      "lines": 26,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/nix-cache.py",
+      "area": "scripts",
+      "bytes": 1973,
+      "lines": 48,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/noctalia-template.py",
+      "area": "scripts",
+      "bytes": 8346,
+      "lines": 196,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/preflight.py",
+      "area": "scripts",
+      "bytes": 4944,
+      "lines": 105,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/prepare-downloads.py",
+      "area": "scripts",
+      "bytes": 7686,
+      "lines": 138,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/promote-downloads.py",
+      "area": "scripts",
+      "bytes": 3166,
+      "lines": 63,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/publish-downloads.sh",
+      "area": "scripts",
+      "bytes": 2947,
+      "lines": 57,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/reuse-build.py",
+      "area": "scripts",
+      "bytes": 2983,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/tests/test_completions.py",
+      "area": "scripts",
+      "bytes": 2968,
+      "lines": 59,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/tests/test_downloads.py",
+      "area": "scripts",
+      "bytes": 12320,
+      "lines": 236,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/tests/test_i18n.py",
+      "area": "scripts",
+      "bytes": 4385,
+      "lines": 84,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/tests/test_noctalia_template.py",
+      "area": "scripts",
+      "bytes": 6911,
+      "lines": 153,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/tests/test_preflight.py",
+      "area": "scripts",
+      "bytes": 4781,
+      "lines": 100,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/tests/test_reuse.py",
+      "area": "scripts",
+      "bytes": 10021,
+      "lines": 201,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/tests/test_workflow.py",
+      "area": "scripts",
+      "bytes": 3524,
+      "lines": 68,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/void-build.sh",
+      "area": "scripts",
+      "bytes": 1414,
+      "lines": 33,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/void-env",
+      "area": "scripts",
+      "bytes": 469,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/void-install.sh",
+      "area": "scripts",
+      "bytes": 1843,
+      "lines": 38,
+      "changed": true
+    },
+    {
+      "path": "scripts/ci/void-source.py",
+      "area": "scripts",
+      "bytes": 1526,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "scripts/ci/void.sh",
+      "area": "scripts",
+      "bytes": 981,
+      "lines": 17,
+      "changed": false
+    },
+    {
+      "path": "scripts/format.sh",
+      "area": "scripts",
+      "bytes": 892,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "scripts/i18n-check.py",
+      "area": "scripts",
+      "bytes": 11697,
+      "lines": 290,
+      "changed": false
+    },
+    {
+      "path": "scripts/make-icon-font.sh",
+      "area": "scripts",
+      "bytes": 1672,
+      "lines": 39,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/build_input.py",
+      "area": "scripts",
+      "bytes": 2143,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/display.py",
+      "area": "scripts",
+      "bytes": 3733,
+      "lines": 75,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/instrument.py",
+      "area": "scripts",
+      "bytes": 3545,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/probe.hpp",
+      "area": "scripts",
+      "bytes": 1783,
+      "lines": 55,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/report.py",
+      "area": "scripts",
+      "bytes": 13715,
+      "lines": 184,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/run.py",
+      "area": "scripts",
+      "bytes": 30997,
+      "lines": 555,
+      "changed": false
+    },
+    {
+      "path": "scripts/performance/test_metrics.py",
+      "area": "scripts",
+      "bytes": 3343,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "scripts/svg-capture-references.sh",
+      "area": "scripts",
+      "bytes": 208,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "scripts/svg-corpus.sh",
+      "area": "scripts",
+      "bytes": 102,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "scripts/svg_capture_references.py",
+      "area": "scripts",
+      "bytes": 4509,
+      "lines": 90,
+      "changed": false
+    },
+    {
+      "path": "scripts/svg_corpus.py",
+      "area": "scripts",
+      "bytes": 4257,
+      "lines": 83,
+      "changed": false
+    },
+    {
+      "path": "scripts/svg_review.py",
+      "area": "scripts",
+      "bytes": 5454,
+      "lines": 94,
+      "changed": false
+    },
+    {
+      "path": "src/app/main.cpp",
+      "area": "src/app",
+      "bytes": 97866,
+      "lines": 1977,
+      "changed": true
+    },
+    {
+      "path": "src/app/test_scene.cpp",
+      "area": "src/app",
+      "bytes": 9695,
+      "lines": 245,
+      "changed": false
+    },
+    {
+      "path": "src/app/test_scene.hpp",
+      "area": "src/app",
+      "bytes": 603,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "src/app/window_session.hpp",
+      "area": "src/app",
+      "bytes": 2966,
+      "lines": 98,
+      "changed": false
+    },
+    {
+      "path": "src/archive/CMakeLists.txt",
+      "area": "src/archive",
+      "bytes": 380,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "src/archive/include/rummage/archive/archive.hpp",
+      "area": "src/archive",
+      "bytes": 5060,
+      "lines": 125,
+      "changed": false
+    },
+    {
+      "path": "src/archive/src/archive.cpp",
+      "area": "src/archive",
+      "bytes": 3091,
+      "lines": 112,
+      "changed": false
+    },
+    {
+      "path": "src/core/CMakeLists.txt",
+      "area": "src/core",
+      "bytes": 2988,
+      "lines": 58,
+      "changed": false
+    },
+    {
+      "path": "src/core/config_template.hpp.in",
+      "area": "src/core",
+      "bytes": 174,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/actions.hpp",
+      "area": "src/core",
+      "bytes": 1818,
+      "lines": 51,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/config.hpp",
+      "area": "src/core",
+      "bytes": 4843,
+      "lines": 144,
+      "changed": true
+    },
+    {
+      "path": "src/core/include/rummage/core/config_edit.hpp",
+      "area": "src/core",
+      "bytes": 747,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/event_loop.hpp",
+      "area": "src/core",
+      "bytes": 2653,
+      "lines": 76,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/file.hpp",
+      "area": "src/core",
+      "bytes": 2265,
+      "lines": 49,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/file_picker.hpp",
+      "area": "src/core",
+      "bytes": 1971,
+      "lines": 68,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/file_watcher.hpp",
+      "area": "src/core",
+      "bytes": 1524,
+      "lines": 46,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/i18n.hpp",
+      "area": "src/core",
+      "bytes": 5441,
+      "lines": 121,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/log.hpp",
+      "area": "src/core",
+      "bytes": 1795,
+      "lines": 59,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/memory.hpp",
+      "area": "src/core",
+      "bytes": 2646,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/menu_layout.hpp",
+      "area": "src/core",
+      "bytes": 733,
+      "lines": 27,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/motion.hpp",
+      "area": "src/core",
+      "bytes": 4965,
+      "lines": 143,
+      "changed": false
+    },
+    {
+      "path": "src/core/include/rummage/core/worker_pool.hpp",
+      "area": "src/core",
+      "bytes": 5517,
+      "lines": 140,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/actions.cpp",
+      "area": "src/core",
+      "bytes": 9192,
+      "lines": 193,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/config.cpp",
+      "area": "src/core",
+      "bytes": 47702,
+      "lines": 989,
+      "changed": true
+    },
+    {
+      "path": "src/core/src/config_edit.cpp",
+      "area": "src/core",
+      "bytes": 7496,
+      "lines": 143,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/event_loop.cpp",
+      "area": "src/core",
+      "bytes": 7548,
+      "lines": 229,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/file.cpp",
+      "area": "src/core",
+      "bytes": 9120,
+      "lines": 257,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/file_picker.cpp",
+      "area": "src/core",
+      "bytes": 7703,
+      "lines": 254,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/file_watcher.cpp",
+      "area": "src/core",
+      "bytes": 3151,
+      "lines": 90,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/i18n.cpp",
+      "area": "src/core",
+      "bytes": 13637,
+      "lines": 367,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/i18n_catalogs.hpp",
+      "area": "src/core",
+      "bytes": 464,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/i18n_rules.cpp",
+      "area": "src/core",
+      "bytes": 3211,
+      "lines": 106,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/i18n_rules.hpp",
+      "area": "src/core",
+      "bytes": 985,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/log.cpp",
+      "area": "src/core",
+      "bytes": 2086,
+      "lines": 69,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/lsan_suppressions.cpp",
+      "area": "src/core",
+      "bytes": 1815,
+      "lines": 32,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/memory.cpp",
+      "area": "src/core",
+      "bytes": 8209,
+      "lines": 230,
+      "changed": false
+    },
+    {
+      "path": "src/core/src/worker_pool.cpp",
+      "area": "src/core",
+      "bytes": 2495,
+      "lines": 86,
+      "changed": false
+    },
+    {
+      "path": "src/engines/CMakeLists.txt",
+      "area": "src/engines",
+      "bytes": 886,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "src/engines/include/rummage/engines/engines.hpp",
+      "area": "src/engines",
+      "bytes": 5659,
+      "lines": 136,
+      "changed": true
+    },
+    {
+      "path": "src/engines/src/manifest.cpp",
+      "area": "src/engines",
+      "bytes": 7090,
+      "lines": 180,
+      "changed": false
+    },
+    {
+      "path": "src/engines/src/registry.cpp",
+      "area": "src/engines",
+      "bytes": 7500,
+      "lines": 209,
+      "changed": true
+    },
+    {
+      "path": "src/formats/CMakeLists.txt",
+      "area": "src/formats",
+      "bytes": 602,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/CMakeLists.txt",
+      "area": "src/formats",
+      "bytes": 543,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/include/rummage/formats/archive/archive.hpp",
+      "area": "src/formats",
+      "bytes": 2282,
+      "lines": 52,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/src/archive.cpp",
+      "area": "src/formats",
+      "bytes": 10319,
+      "lines": 292,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/src/readers.hpp",
+      "area": "src/formats",
+      "bytes": 1216,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/src/stream.cpp",
+      "area": "src/formats",
+      "bytes": 9424,
+      "lines": 289,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/src/stream.hpp",
+      "area": "src/formats",
+      "bytes": 5212,
+      "lines": 162,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/src/tar.cpp",
+      "area": "src/formats",
+      "bytes": 11524,
+      "lines": 313,
+      "changed": false
+    },
+    {
+      "path": "src/formats/archive/src/zip.cpp",
+      "area": "src/formats",
+      "bytes": 20369,
+      "lines": 482,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/CMakeLists.txt",
+      "area": "src/formats",
+      "bytes": 1325,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/include/rummage/formats/image/decode.hpp",
+      "area": "src/formats",
+      "bytes": 2547,
+      "lines": 61,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/include/rummage/formats/image/load.hpp",
+      "area": "src/formats",
+      "bytes": 1876,
+      "lines": 38,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/include/rummage/formats/image/photo.hpp",
+      "area": "src/formats",
+      "bytes": 525,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/include/rummage/formats/image/preview.hpp",
+      "area": "src/formats",
+      "bytes": 2292,
+      "lines": 53,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/include/rummage/formats/image/svg.hpp",
+      "area": "src/formats",
+      "bytes": 269,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/camera/info.cpp",
+      "area": "src/formats",
+      "bytes": 17657,
+      "lines": 467,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/camera/info.hpp",
+      "area": "src/formats",
+      "bytes": 711,
+      "lines": 16,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/camera/previews.cpp",
+      "area": "src/formats",
+      "bytes": 19151,
+      "lines": 445,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/camera/previews.hpp",
+      "area": "src/formats",
+      "bytes": 1880,
+      "lines": 52,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/decode.cpp",
+      "area": "src/formats",
+      "bytes": 7659,
+      "lines": 205,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/decoders.hpp",
+      "area": "src/formats",
+      "bytes": 1214,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/colour.cpp",
+      "area": "src/formats",
+      "bytes": 12393,
+      "lines": 308,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/colour.hpp",
+      "area": "src/formats",
+      "bytes": 2122,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/develop.cpp",
+      "area": "src/formats",
+      "bytes": 38649,
+      "lines": 807,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/develop.hpp",
+      "area": "src/formats",
+      "bytes": 2211,
+      "lines": 47,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/ljpeg.cpp",
+      "area": "src/formats",
+      "bytes": 19230,
+      "lines": 468,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/ljpeg.hpp",
+      "area": "src/formats",
+      "bytes": 1686,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/opcodes.cpp",
+      "area": "src/formats",
+      "bytes": 10627,
+      "lines": 290,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/opcodes.hpp",
+      "area": "src/formats",
+      "bytes": 4138,
+      "lines": 106,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/raw.cpp",
+      "area": "src/formats",
+      "bytes": 25132,
+      "lines": 560,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/dng/raw.hpp",
+      "area": "src/formats",
+      "bytes": 3349,
+      "lines": 76,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/fd_file.cpp",
+      "area": "src/formats",
+      "bytes": 1880,
+      "lines": 65,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/fd_file.hpp",
+      "area": "src/formats",
+      "bytes": 1451,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/heif_decoder.cpp",
+      "area": "src/formats",
+      "bytes": 16532,
+      "lines": 352,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/jpeg_segments.cpp",
+      "area": "src/formats",
+      "bytes": 4206,
+      "lines": 123,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/jpeg_segments.hpp",
+      "area": "src/formats",
+      "bytes": 1197,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/jxl_decoder.cpp",
+      "area": "src/formats",
+      "bytes": 3191,
+      "lines": 76,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/load.cpp",
+      "area": "src/formats",
+      "bytes": 12148,
+      "lines": 312,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/metadata.cpp",
+      "area": "src/formats",
+      "bytes": 26416,
+      "lines": 579,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/metadata.hpp",
+      "area": "src/formats",
+      "bytes": 310,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/photo.cpp",
+      "area": "src/formats",
+      "bytes": 885,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/pnm.cpp",
+      "area": "src/formats",
+      "bytes": 4022,
+      "lines": 122,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/preview.cpp",
+      "area": "src/formats",
+      "bytes": 12681,
+      "lines": 298,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/svg_fonts.cpp",
+      "area": "src/formats",
+      "bytes": 8129,
+      "lines": 189,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/codecs.cpp",
+      "area": "src/formats",
+      "bytes": 9897,
+      "lines": 260,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/codecs.hpp",
+      "area": "src/formats",
+      "bytes": 1920,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/container.cpp",
+      "area": "src/formats",
+      "bytes": 14045,
+      "lines": 367,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/container.hpp",
+      "area": "src/formats",
+      "bytes": 9483,
+      "lines": 225,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/decode.cpp",
+      "area": "src/formats",
+      "bytes": 28675,
+      "lines": 634,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/decode.hpp",
+      "area": "src/formats",
+      "bytes": 1451,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/extract.cpp",
+      "area": "src/formats",
+      "bytes": 7843,
+      "lines": 196,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/tiff/extract.hpp",
+      "area": "src/formats",
+      "bytes": 889,
+      "lines": 21,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/webp_decoder.cpp",
+      "area": "src/formats",
+      "bytes": 2939,
+      "lines": 78,
+      "changed": false
+    },
+    {
+      "path": "src/formats/image/src/wuffs_decoder.cpp",
+      "area": "src/formats",
+      "bytes": 731,
+      "lines": 22,
+      "changed": false
+    },
+    {
+      "path": "src/formats/include/rummage/formats/formats.hpp",
+      "area": "src/formats",
+      "bytes": 1115,
+      "lines": 27,
+      "changed": false
+    },
+    {
+      "path": "src/formats/src/registry.cpp",
+      "area": "src/formats",
+      "bytes": 2022,
+      "lines": 63,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/CMakeLists.txt",
+      "area": "src/formats",
+      "bytes": 485,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/include/rummage/formats/text/markdown.hpp",
+      "area": "src/formats",
+      "bytes": 294,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/include/rummage/formats/text/read.hpp",
+      "area": "src/formats",
+      "bytes": 1739,
+      "lines": 33,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/include/rummage/formats/text/syntax.hpp",
+      "area": "src/formats",
+      "bytes": 1461,
+      "lines": 32,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/src/languages.cpp",
+      "area": "src/formats",
+      "bytes": 24212,
+      "lines": 593,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/src/languages.hpp",
+      "area": "src/formats",
+      "bytes": 5677,
+      "lines": 114,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/src/markdown.cpp",
+      "area": "src/formats",
+      "bytes": 14157,
+      "lines": 332,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/src/read.cpp",
+      "area": "src/formats",
+      "bytes": 13381,
+      "lines": 378,
+      "changed": false
+    },
+    {
+      "path": "src/formats/text/src/syntax.cpp",
+      "area": "src/formats",
+      "bytes": 71388,
+      "lines": 1896,
+      "changed": false
+    },
+    {
+      "path": "src/fs/CMakeLists.txt",
+      "area": "src/fs",
+      "bytes": 871,
+      "lines": 33,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/archive_folder.hpp",
+      "area": "src/fs",
+      "bytes": 4996,
+      "lines": 112,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/batch_rename.hpp",
+      "area": "src/fs",
+      "bytes": 3289,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/compress.hpp",
+      "area": "src/fs",
+      "bytes": 1847,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/directory.hpp",
+      "area": "src/fs",
+      "bytes": 2381,
+      "lines": 52,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/directory_model.hpp",
+      "area": "src/fs",
+      "bytes": 7510,
+      "lines": 176,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/directory_watcher.hpp",
+      "area": "src/fs",
+      "bytes": 2706,
+      "lines": 74,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/entry.hpp",
+      "area": "src/fs",
+      "bytes": 3141,
+      "lines": 70,
+      "changed": true
+    },
+    {
+      "path": "src/fs/include/rummage/fs/erase.hpp",
+      "area": "src/fs",
+      "bytes": 2697,
+      "lines": 49,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/extract.hpp",
+      "area": "src/fs",
+      "bytes": 3029,
+      "lines": 57,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/filesystem.hpp",
+      "area": "src/fs",
+      "bytes": 813,
+      "lines": 22,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/folder_icon.hpp",
+      "area": "src/fs",
+      "bytes": 1638,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/group.hpp",
+      "area": "src/fs",
+      "bytes": 385,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/icon.hpp",
+      "area": "src/fs",
+      "bytes": 1056,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/insights.hpp",
+      "area": "src/fs",
+      "bytes": 2186,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/links.hpp",
+      "area": "src/fs",
+      "bytes": 3154,
+      "lines": 55,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/measure.hpp",
+      "area": "src/fs",
+      "bytes": 3950,
+      "lines": 95,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/mime.hpp",
+      "area": "src/fs",
+      "bytes": 4770,
+      "lines": 109,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/name_pattern.hpp",
+      "area": "src/fs",
+      "bytes": 1267,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/operations.hpp",
+      "area": "src/fs",
+      "bytes": 4409,
+      "lines": 86,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/path_completion.hpp",
+      "area": "src/fs",
+      "bytes": 680,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/permissions.hpp",
+      "area": "src/fs",
+      "bytes": 1863,
+      "lines": 41,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/places.hpp",
+      "area": "src/fs",
+      "bytes": 9753,
+      "lines": 205,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/sort.hpp",
+      "area": "src/fs",
+      "bytes": 3678,
+      "lines": 111,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/subfolders.hpp",
+      "area": "src/fs",
+      "bytes": 1658,
+      "lines": 52,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/transfer.hpp",
+      "area": "src/fs",
+      "bytes": 8803,
+      "lines": 178,
+      "changed": true
+    },
+    {
+      "path": "src/fs/include/rummage/fs/transfer_queue.hpp",
+      "area": "src/fs",
+      "bytes": 2586,
+      "lines": 76,
+      "changed": false
+    },
+    {
+      "path": "src/fs/include/rummage/fs/trash.hpp",
+      "area": "src/fs",
+      "bytes": 7702,
+      "lines": 156,
+      "changed": true
+    },
+    {
+      "path": "src/fs/include/rummage/fs/walk.hpp",
+      "area": "src/fs",
+      "bytes": 2754,
+      "lines": 73,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/archive_folder.cpp",
+      "area": "src/fs",
+      "bytes": 14714,
+      "lines": 385,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/batch_rename.cpp",
+      "area": "src/fs",
+      "bytes": 19570,
+      "lines": 469,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/compress.cpp",
+      "area": "src/fs",
+      "bytes": 30047,
+      "lines": 807,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/directory.cpp",
+      "area": "src/fs",
+      "bytes": 10739,
+      "lines": 312,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/directory_model.cpp",
+      "area": "src/fs",
+      "bytes": 17094,
+      "lines": 493,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/directory_watcher.cpp",
+      "area": "src/fs",
+      "bytes": 5314,
+      "lines": 143,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/erase.cpp",
+      "area": "src/fs",
+      "bytes": 12539,
+      "lines": 351,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/extract.cpp",
+      "area": "src/fs",
+      "bytes": 24896,
+      "lines": 611,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/filesystem.cpp",
+      "area": "src/fs",
+      "bytes": 3187,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/folder_icon.cpp",
+      "area": "src/fs",
+      "bytes": 5610,
+      "lines": 165,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/folder_icon_store.cpp",
+      "area": "src/fs",
+      "bytes": 5221,
+      "lines": 155,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/group.cpp",
+      "area": "src/fs",
+      "bytes": 3583,
+      "lines": 95,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/icon.cpp",
+      "area": "src/fs",
+      "bytes": 5139,
+      "lines": 147,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/insights.cpp",
+      "area": "src/fs",
+      "bytes": 10365,
+      "lines": 272,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/links.cpp",
+      "area": "src/fs",
+      "bytes": 11270,
+      "lines": 280,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/measure.cpp",
+      "area": "src/fs",
+      "bytes": 6959,
+      "lines": 222,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/mime.cpp",
+      "area": "src/fs",
+      "bytes": 28291,
+      "lines": 718,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/name_pattern.cpp",
+      "area": "src/fs",
+      "bytes": 5608,
+      "lines": 153,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/operations.cpp",
+      "area": "src/fs",
+      "bytes": 13618,
+      "lines": 356,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/path_completion.cpp",
+      "area": "src/fs",
+      "bytes": 3402,
+      "lines": 84,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/permissions.cpp",
+      "area": "src/fs",
+      "bytes": 3901,
+      "lines": 104,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/places.cpp",
+      "area": "src/fs",
+      "bytes": 28481,
+      "lines": 790,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/sort.cpp",
+      "area": "src/fs",
+      "bytes": 7021,
+      "lines": 196,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/subfolders.cpp",
+      "area": "src/fs",
+      "bytes": 3603,
+      "lines": 111,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/transfer.cpp",
+      "area": "src/fs",
+      "bytes": 51799,
+      "lines": 1285,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/transfer_queue.cpp",
+      "area": "src/fs",
+      "bytes": 13157,
+      "lines": 357,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/trash.cpp",
+      "area": "src/fs",
+      "bytes": 47812,
+      "lines": 1241,
+      "changed": true
+    },
+    {
+      "path": "src/fs/src/walk.cpp",
+      "area": "src/fs",
+      "bytes": 6215,
+      "lines": 196,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/CMakeLists.txt",
+      "area": "src/isolate",
+      "bytes": 2774,
+      "lines": 45,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/include/rummage/isolate/helpers.hpp",
+      "area": "src/isolate",
+      "bytes": 5707,
+      "lines": 124,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/backend.hpp",
+      "area": "src/isolate",
+      "bytes": 1316,
+      "lines": 33,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/base_backend.cpp",
+      "area": "src/isolate",
+      "bytes": 2835,
+      "lines": 80,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/helper_main.cpp",
+      "area": "src/isolate",
+      "bytes": 15857,
+      "lines": 347,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/helpers.cpp",
+      "area": "src/isolate",
+      "bytes": 36347,
+      "lines": 881,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/protocol.cpp",
+      "area": "src/isolate",
+      "bytes": 20452,
+      "lines": 481,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/protocol.hpp",
+      "area": "src/isolate",
+      "bytes": 10482,
+      "lines": 231,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/sandbox.cpp",
+      "area": "src/isolate",
+      "bytes": 11518,
+      "lines": 299,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/sandbox.hpp",
+      "area": "src/isolate",
+      "bytes": 1423,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "src/isolate/src/warm_up.hpp",
+      "area": "src/isolate",
+      "bytes": 446,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "src/media/CMakeLists.txt",
+      "area": "src/media",
+      "bytes": 901,
+      "lines": 12,
+      "changed": true
+    },
+    {
+      "path": "src/media/backend.cpp",
+      "area": "src/media",
+      "bytes": 21902,
+      "lines": 512,
+      "changed": false
+    },
+    {
+      "path": "src/pdf/CMakeLists.txt",
+      "area": "src/pdf",
+      "bytes": 921,
+      "lines": 15,
+      "changed": true
+    },
+    {
+      "path": "src/pdf/backend.cpp",
+      "area": "src/pdf",
+      "bytes": 16283,
+      "lines": 418,
+      "changed": false
+    },
+    {
+      "path": "src/photo_client/CMakeLists.txt",
+      "area": "src/photo_client",
+      "bytes": 399,
+      "lines": 6,
+      "changed": true
+    },
+    {
+      "path": "src/photo_client/include/rummage/photos/client.hpp",
+      "area": "src/photo_client",
+      "bytes": 1183,
+      "lines": 36,
+      "changed": true
+    },
+    {
+      "path": "src/photo_client/include/rummage/photos/source_watcher.hpp",
+      "area": "src/photo_client",
+      "bytes": 3230,
+      "lines": 95,
+      "changed": true
+    },
+    {
+      "path": "src/photo_client/src/client.cpp",
+      "area": "src/photo_client",
+      "bytes": 14099,
+      "lines": 280,
+      "changed": true
+    },
+    {
+      "path": "src/photo_client/src/source_watcher.cpp",
+      "area": "src/photo_client",
+      "bytes": 12782,
+      "lines": 340,
+      "changed": true
+    },
+    {
+      "path": "src/photos/CMakeLists.txt",
+      "area": "src/photos",
+      "bytes": 463,
+      "lines": 7,
+      "changed": true
+    },
+    {
+      "path": "src/photos/include/rummage/photos/api.h",
+      "area": "src/photos",
+      "bytes": 406,
+      "lines": 13,
+      "changed": true
+    },
+    {
+      "path": "src/photos/src/catalog.cpp",
+      "area": "src/photos",
+      "bytes": 124069,
+      "lines": 2627,
+      "changed": true
+    },
+    {
+      "path": "src/picture/CMakeLists.txt",
+      "area": "src/picture",
+      "bytes": 1074,
+      "lines": 23,
+      "changed": false
+    },
+    {
+      "path": "src/picture/include/rummage/picture/image.hpp",
+      "area": "src/picture",
+      "bytes": 1001,
+      "lines": 29,
+      "changed": false
+    },
+    {
+      "path": "src/picture/include/rummage/picture/load.hpp",
+      "area": "src/picture",
+      "bytes": 3438,
+      "lines": 78,
+      "changed": false
+    },
+    {
+      "path": "src/picture/include/rummage/picture/photo_info.hpp",
+      "area": "src/picture",
+      "bytes": 3447,
+      "lines": 86,
+      "changed": false
+    },
+    {
+      "path": "src/picture/include/rummage/picture/png.hpp",
+      "area": "src/picture",
+      "bytes": 804,
+      "lines": 23,
+      "changed": false
+    },
+    {
+      "path": "src/picture/include/rummage/picture/scale.hpp",
+      "area": "src/picture",
+      "bytes": 554,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "src/picture/include/rummage/picture/wuffs.hpp",
+      "area": "src/picture",
+      "bytes": 1103,
+      "lines": 29,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/load.cpp",
+      "area": "src/picture",
+      "bytes": 2097,
+      "lines": 74,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/orientation.cpp",
+      "area": "src/picture",
+      "bytes": 2889,
+      "lines": 83,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/png.cpp",
+      "area": "src/picture",
+      "bytes": 5910,
+      "lines": 151,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/scale.cpp",
+      "area": "src/picture",
+      "bytes": 7682,
+      "lines": 185,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/wuffs.cpp",
+      "area": "src/picture",
+      "bytes": 4151,
+      "lines": 102,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/wuffs_config.hpp",
+      "area": "src/picture",
+      "bytes": 730,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "src/picture/src/wuffs_impl.cpp",
+      "area": "src/picture",
+      "bytes": 263,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "src/platform/CMakeLists.txt",
+      "area": "src/platform",
+      "bytes": 1081,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/about.hpp",
+      "area": "src/platform",
+      "bytes": 1882,
+      "lines": 46,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/action_handoff.hpp",
+      "area": "src/platform",
+      "bytes": 3707,
+      "lines": 77,
+      "changed": true
+    },
+    {
+      "path": "src/platform/include/rummage/platform/applications.hpp",
+      "area": "src/platform",
+      "bytes": 5099,
+      "lines": 102,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/archives.hpp",
+      "area": "src/platform",
+      "bytes": 2207,
+      "lines": 45,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/browser_instance.hpp",
+      "area": "src/platform",
+      "bytes": 1468,
+      "lines": 44,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/code_stats.hpp",
+      "area": "src/platform",
+      "bytes": 2567,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/desktop_entry.hpp",
+      "area": "src/platform",
+      "bytes": 3355,
+      "lines": 71,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/exec.hpp",
+      "area": "src/platform",
+      "bytes": 2079,
+      "lines": 41,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/file_manager.hpp",
+      "area": "src/platform",
+      "bytes": 1146,
+      "lines": 31,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/file_manager_config.hpp",
+      "area": "src/platform",
+      "bytes": 2690,
+      "lines": 54,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/file_picker_portal.hpp",
+      "area": "src/platform",
+      "bytes": 494,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/gvfs.hpp",
+      "area": "src/platform",
+      "bytes": 6147,
+      "lines": 150,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/launcher.hpp",
+      "area": "src/platform",
+      "bytes": 2697,
+      "lines": 72,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/notifications.hpp",
+      "area": "src/platform",
+      "bytes": 616,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/opener.hpp",
+      "area": "src/platform",
+      "bytes": 7071,
+      "lines": 158,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/portal.hpp",
+      "area": "src/platform",
+      "bytes": 2340,
+      "lines": 61,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/program.hpp",
+      "area": "src/platform",
+      "bytes": 1377,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/program_output.hpp",
+      "area": "src/platform",
+      "bytes": 1857,
+      "lines": 57,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/terminal_navigation.hpp",
+      "area": "src/platform",
+      "bytes": 1956,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/udisks.hpp",
+      "area": "src/platform",
+      "bytes": 1788,
+      "lines": 54,
+      "changed": false
+    },
+    {
+      "path": "src/platform/include/rummage/platform/volumes.hpp",
+      "area": "src/platform",
+      "bytes": 3230,
+      "lines": 78,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/about.cpp",
+      "area": "src/platform",
+      "bytes": 10370,
+      "lines": 285,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/action_handoff.cpp",
+      "area": "src/platform",
+      "bytes": 40869,
+      "lines": 936,
+      "changed": true
+    },
+    {
+      "path": "src/platform/src/applications.cpp",
+      "area": "src/platform",
+      "bytes": 9788,
+      "lines": 261,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/archives.cpp",
+      "area": "src/platform",
+      "bytes": 15707,
+      "lines": 322,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/browser_instance.cpp",
+      "area": "src/platform",
+      "bytes": 5111,
+      "lines": 122,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/bus_loop.cpp",
+      "area": "src/platform",
+      "bytes": 1970,
+      "lines": 64,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/bus_loop.hpp",
+      "area": "src/platform",
+      "bytes": 1329,
+      "lines": 45,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/code_report.cpp",
+      "area": "src/platform",
+      "bytes": 5331,
+      "lines": 137,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/code_stats.cpp",
+      "area": "src/platform",
+      "bytes": 3905,
+      "lines": 124,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/desktop_entry.cpp",
+      "area": "src/platform",
+      "bytes": 10329,
+      "lines": 293,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/exec.cpp",
+      "area": "src/platform",
+      "bytes": 11144,
+      "lines": 289,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/file_manager.cpp",
+      "area": "src/platform",
+      "bytes": 5017,
+      "lines": 130,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/file_manager_config.cpp",
+      "area": "src/platform",
+      "bytes": 7031,
+      "lines": 171,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/file_picker_portal.cpp",
+      "area": "src/platform",
+      "bytes": 16604,
+      "lines": 404,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/gvfs.cpp",
+      "area": "src/platform",
+      "bytes": 23887,
+      "lines": 602,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/launcher.cpp",
+      "area": "src/platform",
+      "bytes": 5801,
+      "lines": 163,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/notifications.cpp",
+      "area": "src/platform",
+      "bytes": 1987,
+      "lines": 54,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/opener.cpp",
+      "area": "src/platform",
+      "bytes": 16925,
+      "lines": 409,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/portal.cpp",
+      "area": "src/platform",
+      "bytes": 7244,
+      "lines": 202,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/program.cpp",
+      "area": "src/platform",
+      "bytes": 3739,
+      "lines": 103,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/program_output.cpp",
+      "area": "src/platform",
+      "bytes": 6307,
+      "lines": 192,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/terminal_navigation.cpp",
+      "area": "src/platform",
+      "bytes": 17360,
+      "lines": 397,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/udisks.cpp",
+      "area": "src/platform",
+      "bytes": 11777,
+      "lines": 311,
+      "changed": false
+    },
+    {
+      "path": "src/platform/src/volumes.cpp",
+      "area": "src/platform",
+      "bytes": 4627,
+      "lines": 126,
+      "changed": false
+    },
+    {
+      "path": "src/preview/CMakeLists.txt",
+      "area": "src/preview",
+      "bytes": 390,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "src/preview/include/rummage/preview/preview.hpp",
+      "area": "src/preview",
+      "bytes": 5450,
+      "lines": 125,
+      "changed": false
+    },
+    {
+      "path": "src/preview/src/archive.cpp",
+      "area": "src/preview",
+      "bytes": 1829,
+      "lines": 43,
+      "changed": false
+    },
+    {
+      "path": "src/preview/src/info.cpp",
+      "area": "src/preview",
+      "bytes": 2343,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "src/preview/src/providers.cpp",
+      "area": "src/preview",
+      "bytes": 4909,
+      "lines": 124,
+      "changed": false
+    },
+    {
+      "path": "src/preview/src/summary.cpp",
+      "area": "src/preview",
+      "bytes": 1242,
+      "lines": 32,
+      "changed": false
+    },
+    {
+      "path": "src/svg/CMakeLists.txt",
+      "area": "src/svg",
+      "bytes": 350,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "src/svg/include/rummage/svg/svg.hpp",
+      "area": "src/svg",
+      "bytes": 1082,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "src/svg/src/render.cpp",
+      "area": "src/svg",
+      "bytes": 5497,
+      "lines": 123,
+      "changed": false
+    },
+    {
+      "path": "src/text/CMakeLists.txt",
+      "area": "src/text",
+      "bytes": 384,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "src/text/include/rummage/text/markdown.hpp",
+      "area": "src/text",
+      "bytes": 1839,
+      "lines": 65,
+      "changed": false
+    },
+    {
+      "path": "src/text/include/rummage/text/text.hpp",
+      "area": "src/text",
+      "bytes": 4287,
+      "lines": 108,
+      "changed": false
+    },
+    {
+      "path": "src/text/src/markdown.cpp",
+      "area": "src/text",
+      "bytes": 4160,
+      "lines": 120,
+      "changed": false
+    },
+    {
+      "path": "src/text/src/text.cpp",
+      "area": "src/text",
+      "bytes": 1347,
+      "lines": 56,
+      "changed": false
+    },
+    {
+      "path": "src/theme/CMakeLists.txt",
+      "area": "src/theme",
+      "bytes": 778,
+      "lines": 20,
+      "changed": false
+    },
+    {
+      "path": "src/theme/app_icon_template.hpp.in",
+      "area": "src/theme",
+      "bytes": 164,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "src/theme/include/rummage/theme/app_icon.hpp",
+      "area": "src/theme",
+      "bytes": 4348,
+      "lines": 107,
+      "changed": false
+    },
+    {
+      "path": "src/theme/include/rummage/theme/desktop.hpp",
+      "area": "src/theme",
+      "bytes": 1090,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/theme/include/rummage/theme/kde.hpp",
+      "area": "src/theme",
+      "bytes": 625,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "src/theme/include/rummage/theme/palette.hpp",
+      "area": "src/theme",
+      "bytes": 3748,
+      "lines": 90,
+      "changed": false
+    },
+    {
+      "path": "src/theme/include/rummage/theme/syntax.hpp",
+      "area": "src/theme",
+      "bytes": 907,
+      "lines": 22,
+      "changed": false
+    },
+    {
+      "path": "src/theme/include/rummage/theme/theme.hpp",
+      "area": "src/theme",
+      "bytes": 3794,
+      "lines": 104,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/app_icon.cpp",
+      "area": "src/theme",
+      "bytes": 7129,
+      "lines": 201,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/desktop.cpp",
+      "area": "src/theme",
+      "bytes": 8979,
+      "lines": 222,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/kde.cpp",
+      "area": "src/theme",
+      "bytes": 10506,
+      "lines": 264,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/oklch.cpp",
+      "area": "src/theme",
+      "bytes": 2731,
+      "lines": 75,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/oklch.hpp",
+      "area": "src/theme",
+      "bytes": 711,
+      "lines": 26,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/palette.cpp",
+      "area": "src/theme",
+      "bytes": 8957,
+      "lines": 231,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/syntax.cpp",
+      "area": "src/theme",
+      "bytes": 2386,
+      "lines": 63,
+      "changed": false
+    },
+    {
+      "path": "src/theme/src/theme.cpp",
+      "area": "src/theme",
+      "bytes": 5091,
+      "lines": 155,
+      "changed": false
+    },
+    {
+      "path": "src/thumbs/CMakeLists.txt",
+      "area": "src/thumbs",
+      "bytes": 273,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "src/thumbs/include/rummage/thumbs/cache.hpp",
+      "area": "src/thumbs",
+      "bytes": 4464,
+      "lines": 101,
+      "changed": true
+    },
+    {
+      "path": "src/thumbs/include/rummage/thumbs/md5.hpp",
+      "area": "src/thumbs",
+      "bytes": 336,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "src/thumbs/src/cache.cpp",
+      "area": "src/thumbs",
+      "bytes": 13337,
+      "lines": 340,
+      "changed": true
+    },
+    {
+      "path": "src/thumbs/src/md5.cpp",
+      "area": "src/thumbs",
+      "bytes": 3853,
+      "lines": 100,
+      "changed": false
+    },
+    {
+      "path": "src/tools/bench_dir.cpp",
+      "area": "src/tools",
+      "bytes": 8922,
+      "lines": 243,
+      "changed": false
+    },
+    {
+      "path": "src/tools/bench_find.cpp",
+      "area": "src/tools",
+      "bytes": 5145,
+      "lines": 124,
+      "changed": false
+    },
+    {
+      "path": "src/tools/bench_jpeg.cpp",
+      "area": "src/tools",
+      "bytes": 4412,
+      "lines": 119,
+      "changed": false
+    },
+    {
+      "path": "src/tools/bench_photos.cpp",
+      "area": "src/tools",
+      "bytes": 4553,
+      "lines": 93,
+      "changed": true
+    },
+    {
+      "path": "src/tools/bench_start.cpp",
+      "area": "src/tools",
+      "bytes": 6755,
+      "lines": 199,
+      "changed": false
+    },
+    {
+      "path": "src/tools/decode.cpp",
+      "area": "src/tools",
+      "bytes": 11590,
+      "lines": 284,
+      "changed": false
+    },
+    {
+      "path": "src/tools/mime.cpp",
+      "area": "src/tools",
+      "bytes": 3790,
+      "lines": 94,
+      "changed": false
+    },
+    {
+      "path": "src/tools/open.cpp",
+      "area": "src/tools",
+      "bytes": 7695,
+      "lines": 186,
+      "changed": false
+    },
+    {
+      "path": "src/tools/snapshot.cpp",
+      "area": "src/tools",
+      "bytes": 41366,
+      "lines": 834,
+      "changed": false
+    },
+    {
+      "path": "src/tools/svg_render.cpp",
+      "area": "src/tools",
+      "bytes": 2769,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "src/tools/thumb.cpp",
+      "area": "src/tools",
+      "bytes": 4480,
+      "lines": 118,
+      "changed": false
+    },
+    {
+      "path": "src/tools/transfer.cpp",
+      "area": "src/tools",
+      "bytes": 5640,
+      "lines": 132,
+      "changed": false
+    },
+    {
+      "path": "src/tools/watch.cpp",
+      "area": "src/tools",
+      "bytes": 4237,
+      "lines": 111,
+      "changed": false
+    },
+    {
+      "path": "src/ui/CMakeLists.txt",
+      "area": "src/ui",
+      "bytes": 4612,
+      "lines": 97,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/activation.hpp",
+      "area": "src/ui",
+      "bytes": 2116,
+      "lines": 59,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/clipboard.hpp",
+      "area": "src/ui",
+      "bytes": 8863,
+      "lines": 201,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/color.hpp",
+      "area": "src/ui",
+      "bytes": 1209,
+      "lines": 39,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/content_map.hpp",
+      "area": "src/ui",
+      "bytes": 1530,
+      "lines": 43,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/display.hpp",
+      "area": "src/ui",
+      "bytes": 3973,
+      "lines": 99,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/egl_context.hpp",
+      "area": "src/ui",
+      "bytes": 961,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/geometry.hpp",
+      "area": "src/ui",
+      "bytes": 2851,
+      "lines": 81,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/icon_theme.hpp",
+      "area": "src/ui",
+      "bytes": 2356,
+      "lines": 68,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/icons.hpp",
+      "area": "src/ui",
+      "bytes": 3875,
+      "lines": 92,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/motion.hpp",
+      "area": "src/ui",
+      "bytes": 2420,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/offscreen.hpp",
+      "area": "src/ui",
+      "bytes": 885,
+      "lines": 32,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/renderer.hpp",
+      "area": "src/ui",
+      "bytes": 7114,
+      "lines": 169,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/scrollbar.hpp",
+      "area": "src/ui",
+      "bytes": 1122,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/scroller.hpp",
+      "area": "src/ui",
+      "bytes": 3331,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/seat.hpp",
+      "area": "src/ui",
+      "bytes": 10167,
+      "lines": 249,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/text.hpp",
+      "area": "src/ui",
+      "bytes": 5359,
+      "lines": 120,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/text_field.hpp",
+      "area": "src/ui",
+      "bytes": 5765,
+      "lines": 143,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/texture.hpp",
+      "area": "src/ui",
+      "bytes": 1172,
+      "lines": 38,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/window.hpp",
+      "area": "src/ui",
+      "bytes": 9571,
+      "lines": 237,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/wl_ptr.hpp",
+      "area": "src/ui",
+      "bytes": 2618,
+      "lines": 64,
+      "changed": false
+    },
+    {
+      "path": "src/ui/include/rummage/ui/xcursor.hpp",
+      "area": "src/ui",
+      "bytes": 2372,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/activation.cpp",
+      "area": "src/ui",
+      "bytes": 2352,
+      "lines": 63,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/clipboard.cpp",
+      "area": "src/ui",
+      "bytes": 15713,
+      "lines": 434,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/display.cpp",
+      "area": "src/ui",
+      "bytes": 7491,
+      "lines": 163,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/egl_context.cpp",
+      "area": "src/ui",
+      "bytes": 2280,
+      "lines": 74,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/icon_theme.cpp",
+      "area": "src/ui",
+      "bytes": 18211,
+      "lines": 478,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/icons.cpp",
+      "area": "src/ui",
+      "bytes": 9277,
+      "lines": 252,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/motion.cpp",
+      "area": "src/ui",
+      "bytes": 4120,
+      "lines": 109,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/motion_shaders.hpp",
+      "area": "src/ui",
+      "bytes": 14945,
+      "lines": 319,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/offscreen.cpp",
+      "area": "src/ui",
+      "bytes": 2039,
+      "lines": 51,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/renderer.cpp",
+      "area": "src/ui",
+      "bytes": 45762,
+      "lines": 1161,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/scrollbar.cpp",
+      "area": "src/ui",
+      "bytes": 3186,
+      "lines": 84,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/scroller.cpp",
+      "area": "src/ui",
+      "bytes": 3987,
+      "lines": 131,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/seat.cpp",
+      "area": "src/ui",
+      "bytes": 20790,
+      "lines": 555,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/text.cpp",
+      "area": "src/ui",
+      "bytes": 32294,
+      "lines": 737,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/text_field.cpp",
+      "area": "src/ui",
+      "bytes": 11174,
+      "lines": 377,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/texture.cpp",
+      "area": "src/ui",
+      "bytes": 1603,
+      "lines": 38,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/window.cpp",
+      "area": "src/ui",
+      "bytes": 18354,
+      "lines": 435,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/wl_ptr.cpp",
+      "area": "src/ui",
+      "bytes": 3332,
+      "lines": 99,
+      "changed": false
+    },
+    {
+      "path": "src/ui/src/xcursor.cpp",
+      "area": "src/ui",
+      "bytes": 6652,
+      "lines": 173,
+      "changed": false
+    },
+    {
+      "path": "src/views/CMakeLists.txt",
+      "area": "src/views",
+      "bytes": 2392,
+      "lines": 78,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/batch_rename_dialog.hpp",
+      "area": "src/views",
+      "bytes": 2442,
+      "lines": 76,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/breadcrumb.hpp",
+      "area": "src/views",
+      "bytes": 5266,
+      "lines": 155,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/browser.hpp",
+      "area": "src/views",
+      "bytes": 67706,
+      "lines": 1464,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/column.hpp",
+      "area": "src/views",
+      "bytes": 4538,
+      "lines": 111,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/column_view.hpp",
+      "area": "src/views",
+      "bytes": 11854,
+      "lines": 263,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/command_palette.hpp",
+      "area": "src/views",
+      "bytes": 7856,
+      "lines": 179,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/confirm_dialog.hpp",
+      "area": "src/views",
+      "bytes": 3344,
+      "lines": 96,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/conflict_dialog.hpp",
+      "area": "src/views",
+      "bytes": 2554,
+      "lines": 78,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/context_menu.hpp",
+      "area": "src/views",
+      "bytes": 5179,
+      "lines": 121,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/cut_marks.hpp",
+      "area": "src/views",
+      "bytes": 567,
+      "lines": 21,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/details_columns.hpp",
+      "area": "src/views",
+      "bytes": 2240,
+      "lines": 53,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/details_view.hpp",
+      "area": "src/views",
+      "bytes": 13291,
+      "lines": 322,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/dialog_chrome.hpp",
+      "area": "src/views",
+      "bytes": 1800,
+      "lines": 41,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/drop_mark.hpp",
+      "area": "src/views",
+      "bytes": 1672,
+      "lines": 48,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/edit_slot.hpp",
+      "area": "src/views",
+      "bytes": 940,
+      "lines": 32,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/error_dialog.hpp",
+      "area": "src/views",
+      "bytes": 1587,
+      "lines": 53,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/file_clipboard.hpp",
+      "area": "src/views",
+      "bytes": 4088,
+      "lines": 85,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/file_finder.hpp",
+      "area": "src/views",
+      "bytes": 4477,
+      "lines": 131,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/file_picker.hpp",
+      "area": "src/views",
+      "bytes": 3430,
+      "lines": 90,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/folder.hpp",
+      "area": "src/views",
+      "bytes": 13761,
+      "lines": 309,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/format.hpp",
+      "area": "src/views",
+      "bytes": 1448,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/fuzzy.hpp",
+      "area": "src/views",
+      "bytes": 4054,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/grid_size.hpp",
+      "area": "src/views",
+      "bytes": 361,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/grid_view.hpp",
+      "area": "src/views",
+      "bytes": 9441,
+      "lines": 227,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/info_pane.hpp",
+      "area": "src/views",
+      "bytes": 11140,
+      "lines": 272,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/insights_view.hpp",
+      "area": "src/views",
+      "bytes": 10571,
+      "lines": 287,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/item_bounds.hpp",
+      "area": "src/views",
+      "bytes": 1239,
+      "lines": 41,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/list_size.hpp",
+      "area": "src/views",
+      "bytes": 956,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/location_dialog.hpp",
+      "area": "src/views",
+      "bytes": 2628,
+      "lines": 78,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/markdown_view.hpp",
+      "area": "src/views",
+      "bytes": 1788,
+      "lines": 57,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/media_details.hpp",
+      "area": "src/views",
+      "bytes": 8976,
+      "lines": 217,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/menu_editor.hpp",
+      "area": "src/views",
+      "bytes": 3168,
+      "lines": 96,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/name_editor.hpp",
+      "area": "src/views",
+      "bytes": 2919,
+      "lines": 84,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/pane.hpp",
+      "area": "src/views",
+      "bytes": 2717,
+      "lines": 71,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/password_dialog.hpp",
+      "area": "src/views",
+      "bytes": 3763,
+      "lines": 120,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/photo_library.hpp",
+      "area": "src/views",
+      "bytes": 9645,
+      "lines": 243,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/photo_properties.hpp",
+      "area": "src/views",
+      "bytes": 1386,
+      "lines": 47,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/properties_dialog.hpp",
+      "area": "src/views",
+      "bytes": 6445,
+      "lines": 178,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/quick_look.hpp",
+      "area": "src/views",
+      "bytes": 10425,
+      "lines": 232,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/search_query.hpp",
+      "area": "src/views",
+      "bytes": 1073,
+      "lines": 38,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/search_results.hpp",
+      "area": "src/views",
+      "bytes": 3042,
+      "lines": 107,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/selectable_text.hpp",
+      "area": "src/views",
+      "bytes": 15772,
+      "lines": 367,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/settings_dialog.hpp",
+      "area": "src/views",
+      "bytes": 6942,
+      "lines": 192,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/settings_editors.hpp",
+      "area": "src/views",
+      "bytes": 3620,
+      "lines": 113,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/shortcuts.hpp",
+      "area": "src/views",
+      "bytes": 5011,
+      "lines": 152,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/shortcuts_overlay.hpp",
+      "area": "src/views",
+      "bytes": 1850,
+      "lines": 69,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/sidebar.hpp",
+      "area": "src/views",
+      "bytes": 13953,
+      "lines": 341,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/state.hpp",
+      "area": "src/views",
+      "bytes": 8731,
+      "lines": 227,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/status_bar.hpp",
+      "area": "src/views",
+      "bytes": 5997,
+      "lines": 160,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/tab_bar.hpp",
+      "area": "src/views",
+      "bytes": 2461,
+      "lines": 79,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/text_selection.hpp",
+      "area": "src/views",
+      "bytes": 2483,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/thumbnails.hpp",
+      "area": "src/views",
+      "bytes": 3999,
+      "lines": 97,
+      "changed": true
+    },
+    {
+      "path": "src/views/include/rummage/views/title_bar.hpp",
+      "area": "src/views",
+      "bytes": 3111,
+      "lines": 87,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/undo.hpp",
+      "area": "src/views",
+      "bytes": 2134,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/archive_text.cpp",
+      "area": "src/views",
+      "bytes": 1990,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/archive_text.hpp",
+      "area": "src/views",
+      "bytes": 811,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/batch_rename_dialog.cpp",
+      "area": "src/views",
+      "bytes": 19481,
+      "lines": 477,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/breadcrumb.cpp",
+      "area": "src/views",
+      "bytes": 13966,
+      "lines": 385,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser.cpp",
+      "area": "src/views",
+      "bytes": 295085,
+      "lines": 7053,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_actions.cpp",
+      "area": "src/views",
+      "bytes": 5331,
+      "lines": 140,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_archive.cpp",
+      "area": "src/views",
+      "bytes": 3858,
+      "lines": 96,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_batch_rename.cpp",
+      "area": "src/views",
+      "bytes": 4375,
+      "lines": 107,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_drives.cpp",
+      "area": "src/views",
+      "bytes": 1725,
+      "lines": 36,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/browser_folder_settings.cpp",
+      "area": "src/views",
+      "bytes": 1192,
+      "lines": 30,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/browser_links.cpp",
+      "area": "src/views",
+      "bytes": 8290,
+      "lines": 197,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_motion.cpp",
+      "area": "src/views",
+      "bytes": 16689,
+      "lines": 350,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/browser_navigation.cpp",
+      "area": "src/views",
+      "bytes": 6358,
+      "lines": 174,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_organise.cpp",
+      "area": "src/views",
+      "bytes": 14034,
+      "lines": 317,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_palette.cpp",
+      "area": "src/views",
+      "bytes": 38795,
+      "lines": 886,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_panes.cpp",
+      "area": "src/views",
+      "bytes": 16705,
+      "lines": 425,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_photo_operations.cpp",
+      "area": "src/views",
+      "bytes": 8234,
+      "lines": 179,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_photos.cpp",
+      "area": "src/views",
+      "bytes": 8532,
+      "lines": 230,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/browser_search.cpp",
+      "area": "src/views",
+      "bytes": 9652,
+      "lines": 230,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/column.cpp",
+      "area": "src/views",
+      "bytes": 9251,
+      "lines": 218,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/column_view.cpp",
+      "area": "src/views",
+      "bytes": 32051,
+      "lines": 889,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/command_palette.cpp",
+      "area": "src/views",
+      "bytes": 22599,
+      "lines": 619,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/confirm_dialog.cpp",
+      "area": "src/views",
+      "bytes": 7893,
+      "lines": 238,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/conflict_dialog.cpp",
+      "area": "src/views",
+      "bytes": 7617,
+      "lines": 212,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/content_details.hpp",
+      "area": "src/views",
+      "bytes": 1784,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/context_menu.cpp",
+      "area": "src/views",
+      "bytes": 18418,
+      "lines": 461,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/details_view.cpp",
+      "area": "src/views",
+      "bytes": 44887,
+      "lines": 1163,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/dialog_chrome.cpp",
+      "area": "src/views",
+      "bytes": 5346,
+      "lines": 104,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/draw_helpers.cpp",
+      "area": "src/views",
+      "bytes": 9449,
+      "lines": 197,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/draw_helpers.hpp",
+      "area": "src/views",
+      "bytes": 3289,
+      "lines": 73,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/error_dialog.cpp",
+      "area": "src/views",
+      "bytes": 7296,
+      "lines": 192,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/file_clipboard.cpp",
+      "area": "src/views",
+      "bytes": 6651,
+      "lines": 195,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/file_finder.cpp",
+      "area": "src/views",
+      "bytes": 23258,
+      "lines": 607,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/file_picker.cpp",
+      "area": "src/views",
+      "bytes": 29325,
+      "lines": 749,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/folder.cpp",
+      "area": "src/views",
+      "bytes": 18978,
+      "lines": 577,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/format.cpp",
+      "area": "src/views",
+      "bytes": 2503,
+      "lines": 69,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/fuzzy.cpp",
+      "area": "src/views",
+      "bytes": 7039,
+      "lines": 212,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/grid_view.cpp",
+      "area": "src/views",
+      "bytes": 29091,
+      "lines": 737,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/info_pane.cpp",
+      "area": "src/views",
+      "bytes": 34504,
+      "lines": 817,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/insights_charts.cpp",
+      "area": "src/views",
+      "bytes": 11026,
+      "lines": 228,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/insights_iris.cpp",
+      "area": "src/views",
+      "bytes": 20224,
+      "lines": 402,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/insights_view.cpp",
+      "area": "src/views",
+      "bytes": 62326,
+      "lines": 1450,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/item_style.hpp",
+      "area": "src/views",
+      "bytes": 3214,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/location_dialog.cpp",
+      "area": "src/views",
+      "bytes": 8111,
+      "lines": 249,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/markdown_view.cpp",
+      "area": "src/views",
+      "bytes": 13385,
+      "lines": 298,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/menu_editor.cpp",
+      "area": "src/views",
+      "bytes": 33168,
+      "lines": 891,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/menu_layout.cpp",
+      "area": "src/views",
+      "bytes": 3726,
+      "lines": 98,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/name_editor.cpp",
+      "area": "src/views",
+      "bytes": 3952,
+      "lines": 149,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/pane.cpp",
+      "area": "src/views",
+      "bytes": 698,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/password_dialog.cpp",
+      "area": "src/views",
+      "bytes": 15354,
+      "lines": 427,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/photo_library.cpp",
+      "area": "src/views",
+      "bytes": 81327,
+      "lines": 1947,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/properties_dialog.cpp",
+      "area": "src/views",
+      "bytes": 54605,
+      "lines": 1227,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/quick_look.cpp",
+      "area": "src/views",
+      "bytes": 60959,
+      "lines": 1333,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/search_results.cpp",
+      "area": "src/views",
+      "bytes": 17347,
+      "lines": 477,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/settings_dialog.cpp",
+      "area": "src/views",
+      "bytes": 92889,
+      "lines": 2094,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/settings_editors.cpp",
+      "area": "src/views",
+      "bytes": 29235,
+      "lines": 788,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/shortcuts.cpp",
+      "area": "src/views",
+      "bytes": 53337,
+      "lines": 1269,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/shortcuts_overlay.cpp",
+      "area": "src/views",
+      "bytes": 10858,
+      "lines": 281,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/sidebar.cpp",
+      "area": "src/views",
+      "bytes": 46993,
+      "lines": 1222,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/state.cpp",
+      "area": "src/views",
+      "bytes": 37846,
+      "lines": 864,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/status_bar.cpp",
+      "area": "src/views",
+      "bytes": 12053,
+      "lines": 307,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/tab_bar.cpp",
+      "area": "src/views",
+      "bytes": 6409,
+      "lines": 156,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/text_selection.cpp",
+      "area": "src/views",
+      "bytes": 5297,
+      "lines": 176,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/thumbnails.cpp",
+      "area": "src/views",
+      "bytes": 6911,
+      "lines": 176,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/title_bar.cpp",
+      "area": "src/views",
+      "bytes": 10059,
+      "lines": 298,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/undo.cpp",
+      "area": "src/views",
+      "bytes": 2373,
+      "lines": 59,
+      "changed": false
+    },
+    {
+      "path": "tests/CMakeLists.txt",
+      "area": "tests",
+      "bytes": 14745,
+      "lines": 302,
+      "changed": true
+    },
+    {
+      "path": "tests/about_test.cpp",
+      "area": "tests",
+      "bytes": 2779,
+      "lines": 72,
+      "changed": false
+    },
+    {
+      "path": "tests/actions_test.cpp",
+      "area": "tests",
+      "bytes": 26276,
+      "lines": 603,
+      "changed": true
+    },
+    {
+      "path": "tests/app_icon_test.cpp",
+      "area": "tests",
+      "bytes": 6872,
+      "lines": 168,
+      "changed": false
+    },
+    {
+      "path": "tests/archive_folder_test.cpp",
+      "area": "tests",
+      "bytes": 24713,
+      "lines": 569,
+      "changed": false
+    },
+    {
+      "path": "tests/archive_test.cpp",
+      "area": "tests",
+      "bytes": 18988,
+      "lines": 490,
+      "changed": false
+    },
+    {
+      "path": "tests/archives_test.cpp",
+      "area": "tests",
+      "bytes": 45256,
+      "lines": 978,
+      "changed": false
+    },
+    {
+      "path": "tests/batch_rename_test.cpp",
+      "area": "tests",
+      "bytes": 30473,
+      "lines": 742,
+      "changed": false
+    },
+    {
+      "path": "tests/bench_previews.cpp",
+      "area": "tests",
+      "bytes": 2484,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "tests/breadcrumb_test.cpp",
+      "area": "tests",
+      "bytes": 12960,
+      "lines": 328,
+      "changed": false
+    },
+    {
+      "path": "tests/clipboard_test.cpp",
+      "area": "tests",
+      "bytes": 26980,
+      "lines": 630,
+      "changed": false
+    },
+    {
+      "path": "tests/code_report_test.cpp",
+      "area": "tests",
+      "bytes": 3677,
+      "lines": 73,
+      "changed": false
+    },
+    {
+      "path": "tests/code_stats_fixture.cpp",
+      "area": "tests",
+      "bytes": 1435,
+      "lines": 43,
+      "changed": false
+    },
+    {
+      "path": "tests/code_stats_test.cpp",
+      "area": "tests",
+      "bytes": 3558,
+      "lines": 86,
+      "changed": false
+    },
+    {
+      "path": "tests/column_view_test.cpp",
+      "area": "tests",
+      "bytes": 34297,
+      "lines": 823,
+      "changed": true
+    },
+    {
+      "path": "tests/command_palette_test.cpp",
+      "area": "tests",
+      "bytes": 35351,
+      "lines": 891,
+      "changed": false
+    },
+    {
+      "path": "tests/compress_test.cpp",
+      "area": "tests",
+      "bytes": 14145,
+      "lines": 330,
+      "changed": false
+    },
+    {
+      "path": "tests/config_test.cpp",
+      "area": "tests",
+      "bytes": 30043,
+      "lines": 697,
+      "changed": true
+    },
+    {
+      "path": "tests/content_map_test.cpp",
+      "area": "tests",
+      "bytes": 1806,
+      "lines": 44,
+      "changed": false
+    },
+    {
+      "path": "tests/context_menu_test.cpp",
+      "area": "tests",
+      "bytes": 108247,
+      "lines": 2494,
+      "changed": true
+    },
+    {
+      "path": "tests/data/archive/aes.zip",
+      "area": "tests",
+      "bytes": 207,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/basic.zip",
+      "area": "tests",
+      "bytes": 1137,
+      "lines": 22,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/bzip2.zip",
+      "area": "tests",
+      "bytes": 229,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/gnu.tar",
+      "area": "tests",
+      "bytes": 20480,
+      "lines": 260,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/make-fixtures.sh",
+      "area": "tests",
+      "bytes": 2399,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/notes.txt.gz",
+      "area": "tests",
+      "bytes": 44,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/pax.tar",
+      "area": "tests",
+      "bytes": 20480,
+      "lines": 278,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/pax.tar.gz",
+      "area": "tests",
+      "bytes": 558,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/pictures.zip",
+      "area": "tests",
+      "bytes": 957,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/symlink.zip",
+      "area": "tests",
+      "bytes": 222,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archive/zipcrypto.zip",
+      "area": "tests",
+      "bytes": 169,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/README.md",
+      "area": "tests",
+      "bytes": 2613,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-aes.zip",
+      "area": "tests",
+      "bytes": 222,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-content-rar5.rar",
+      "area": "tests",
+      "bytes": 475,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-content.7z",
+      "area": "tests",
+      "bytes": 178,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-content.rar",
+      "area": "tests",
+      "bytes": 323,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-headers-rar5.rar",
+      "area": "tests",
+      "bytes": 718,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-headers.7z",
+      "area": "tests",
+      "bytes": 239,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-headers.rar",
+      "area": "tests",
+      "bytes": 460,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-unicode.7z",
+      "area": "tests",
+      "bytes": 239,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted-zipcrypto.zip",
+      "area": "tests",
+      "bytes": 184,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/encrypted.7z",
+      "area": "tests",
+      "bytes": 253,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/libarchive-COPYING",
+      "area": "tests",
+      "bytes": 3089,
+      "lines": 65,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/message.txt.gz",
+      "area": "tests",
+      "bytes": 36,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/multipart.part1.rar",
+      "area": "tests",
+      "bytes": 7000,
+      "lines": 151,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/multipart.part2.rar",
+      "area": "tests",
+      "bytes": 7000,
+      "lines": 167,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/multipart.part3.rar",
+      "area": "tests",
+      "bytes": 6432,
+      "lines": 127,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/sample.7z",
+      "area": "tests",
+      "bytes": 190,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/sample.tar.bz2",
+      "area": "tests",
+      "bytes": 130,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/sample.tar.gz",
+      "area": "tests",
+      "bytes": 127,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/archives/sample.zip",
+      "area": "tests",
+      "bytes": 150,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/feature-integration/make-fixture.py",
+      "area": "tests",
+      "bytes": 520,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/feature-integration/notes.zip",
+      "area": "tests",
+      "bytes": 274,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/fonts/positioning.bdf",
+      "area": "tests",
+      "bytes": 361,
+      "lines": 26,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks-anim.webp",
+      "area": "tests",
+      "bytes": 194,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks-mirrored.heic",
+      "area": "tests",
+      "bytes": 2676,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks-orient6.jpg",
+      "area": "tests",
+      "bytes": 452,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks-rotated.heic",
+      "area": "tests",
+      "bytes": 2676,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks.gif",
+      "area": "tests",
+      "bytes": 221,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks.heic",
+      "area": "tests",
+      "bytes": 2665,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks.jpg",
+      "area": "tests",
+      "bytes": 352,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks.jxl",
+      "area": "tests",
+      "bytes": 62,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks.png",
+      "area": "tests",
+      "bytes": 232,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/blocks.webp",
+      "area": "tests",
+      "bytes": 78,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/crop.heic",
+      "area": "tests",
+      "bytes": 927,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray12-p1-pt2.ljpg",
+      "area": "tests",
+      "bytes": 1179,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray12-p1-pt2.pnm",
+      "area": "tests",
+      "bytes": 2160,
+      "lines": 88,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p1.ljpg",
+      "area": "tests",
+      "bytes": 1644,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p1.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p2.ljpg",
+      "area": "tests",
+      "bytes": 2190,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p2.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p3.ljpg",
+      "area": "tests",
+      "bytes": 2191,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p3.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p4.ljpg",
+      "area": "tests",
+      "bytes": 1711,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p4.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p5.ljpg",
+      "area": "tests",
+      "bytes": 1705,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p5.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p6.ljpg",
+      "area": "tests",
+      "bytes": 2179,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p6.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p7.ljpg",
+      "area": "tests",
+      "bytes": 2165,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-p7.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-restart.ljpg",
+      "area": "tests",
+      "bytes": 1666,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray16-restart.pnm",
+      "area": "tests",
+      "bytes": 2161,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray8-p7.ljpg",
+      "area": "tests",
+      "bytes": 1149,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/gray8-p7.pnm",
+      "area": "tests",
+      "bytes": 1086,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/make.sh",
+      "area": "tests",
+      "bytes": 1595,
+      "lines": 38,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/rgb14-p1.ljpg",
+      "area": "tests",
+      "bytes": 4463,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/rgb14-p1.pnm",
+      "area": "tests",
+      "bytes": 6453,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/rgb14-p6-restart.ljpg",
+      "area": "tests",
+      "bytes": 5761,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/dng/rgb14-p6-restart.pnm",
+      "area": "tests",
+      "bytes": 6453,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/grid.heic",
+      "area": "tests",
+      "bytes": 21778,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/hlg.heic",
+      "area": "tests",
+      "bytes": 2053,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/make-heif.py",
+      "area": "tests",
+      "bytes": 4616,
+      "lines": 91,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/make.sh",
+      "area": "tests",
+      "bytes": 2271,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/p3-nclx.heic",
+      "area": "tests",
+      "bytes": 769,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/p3.heic",
+      "area": "tests",
+      "bytes": 1366,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/pq.heic",
+      "area": "tests",
+      "bytes": 2053,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/premultiplied.heic",
+      "area": "tests",
+      "bytes": 1213,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/shot.jpg",
+      "area": "tests",
+      "bytes": 698,
+      "lines": 63,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/shot.jpg.xmp",
+      "area": "tests",
+      "bytes": 1892,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/svg-warmup.svg",
+      "area": "tests",
+      "bytes": 436,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff-preview.tif",
+      "area": "tests",
+      "bytes": 18768,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/bigtiff-lzw.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/bigtiff-lzw.tif",
+      "area": "tests",
+      "bytes": 3444,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/broken-exiv2-overflow.tif",
+      "area": "tests",
+      "bytes": 7624,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/broken-huge-none-2.tif",
+      "area": "tests",
+      "bytes": 3325,
+      "lines": 26,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/broken-huge-none.tif",
+      "area": "tests",
+      "bytes": 3292,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/broken-tile-tag.tif",
+      "area": "tests",
+      "bytes": 5964,
+      "lines": 46,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/broken-truncated.tif",
+      "area": "tests",
+      "bytes": 1500,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/cmyk8-lzw.png",
+      "area": "tests",
+      "bytes": 2825,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/cmyk8-lzw.tif",
+      "area": "tests",
+      "bytes": 4078,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/float16-zip.png",
+      "area": "tests",
+      "bytes": 2860,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/float16-zip.tif",
+      "area": "tests",
+      "bytes": 4028,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/float32-predictor.png",
+      "area": "tests",
+      "bytes": 2860,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/float32-predictor.tif",
+      "area": "tests",
+      "bytes": 3952,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/float32-zip.png",
+      "area": "tests",
+      "bytes": 2860,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/float32-zip.tif",
+      "area": "tests",
+      "bytes": 3952,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray1-none.png",
+      "area": "tests",
+      "bytes": 301,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray1-none.tif",
+      "area": "tests",
+      "bytes": 316,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray1-white.png",
+      "area": "tests",
+      "bytes": 301,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray1-white.tif",
+      "area": "tests",
+      "bytes": 316,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray16-none.png",
+      "area": "tests",
+      "bytes": 2007,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray16-none.tif",
+      "area": "tests",
+      "bytes": 2316,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray4-none.png",
+      "area": "tests",
+      "bytes": 651,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray4-none.tif",
+      "area": "tests",
+      "bytes": 722,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray8-lzw.png",
+      "area": "tests",
+      "bytes": 2007,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/gray8-lzw.tif",
+      "area": "tests",
+      "bytes": 1162,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-gray.png",
+      "area": "tests",
+      "bytes": 1887,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-gray.tif",
+      "area": "tests",
+      "bytes": 853,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-rgb-444.png",
+      "area": "tests",
+      "bytes": 2793,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-rgb-444.tif",
+      "area": "tests",
+      "bytes": 1842,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-rgb.png",
+      "area": "tests",
+      "bytes": 2793,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-rgb.tif",
+      "area": "tests",
+      "bytes": 1842,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-strips.png",
+      "area": "tests",
+      "bytes": 2793,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-strips.tif",
+      "area": "tests",
+      "bytes": 1890,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-tiled.png",
+      "area": "tests",
+      "bytes": 2809,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-tiled.tif",
+      "area": "tests",
+      "bytes": 2636,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-ycbcr-tiled.png",
+      "area": "tests",
+      "bytes": 2569,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-ycbcr-tiled.tif",
+      "area": "tests",
+      "bytes": 1810,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-ycbcr.png",
+      "area": "tests",
+      "bytes": 2541,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/jpeg-ycbcr.tif",
+      "area": "tests",
+      "bytes": 1412,
+      "lines": 12,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/make.sh",
+      "area": "tests",
+      "bytes": 4873,
+      "lines": 82,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/orient6.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/orient6.tif",
+      "area": "tests",
+      "bytes": 3304,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/palette8-lzw.png",
+      "area": "tests",
+      "bytes": 2461,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/palette8-lzw.tif",
+      "area": "tests",
+      "bytes": 2848,
+      "lines": 15,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/planar-tiled.png",
+      "area": "tests",
+      "bytes": 3197,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/planar-tiled.tif",
+      "area": "tests",
+      "bytes": 5964,
+      "lines": 41,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/planar-zip.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/planar-zip.tif",
+      "area": "tests",
+      "bytes": 2666,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb16-big-endian.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb16-big-endian.tif",
+      "area": "tests",
+      "bytes": 6702,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb16-zip-predictor.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb16-zip-predictor.tif",
+      "area": "tests",
+      "bytes": 3946,
+      "lines": 16,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-big-endian.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-big-endian.tif",
+      "area": "tests",
+      "bytes": 3304,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-lzw-predictor.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-lzw-predictor.tif",
+      "area": "tests",
+      "bytes": 3304,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-lzw.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-lzw.tif",
+      "area": "tests",
+      "bytes": 4380,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-none.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-none.tif",
+      "area": "tests",
+      "bytes": 3484,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-packbits.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-packbits.tif",
+      "area": "tests",
+      "bytes": 3512,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-strips.png",
+      "area": "tests",
+      "bytes": 2818,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-strips.tif",
+      "area": "tests",
+      "bytes": 3632,
+      "lines": 20,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-zip-predictor.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-zip-predictor.tif",
+      "area": "tests",
+      "bytes": 2590,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-zip.png",
+      "area": "tests",
+      "bytes": 2819,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgb8-zip.tif",
+      "area": "tests",
+      "bytes": 3362,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgba8-associated.png",
+      "area": "tests",
+      "bytes": 2613,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgba8-associated.tif",
+      "area": "tests",
+      "bytes": 3292,
+      "lines": 16,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgba8-lzw.png",
+      "area": "tests",
+      "bytes": 3231,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/rgba8-lzw.tif",
+      "area": "tests",
+      "bytes": 4308,
+      "lines": 29,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/source.png",
+      "area": "tests",
+      "bytes": 3090,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/tiled-lzw.png",
+      "area": "tests",
+      "bytes": 2785,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/tiled-lzw.tif",
+      "area": "tests",
+      "bytes": 5138,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/tiled-zip-predictor.png",
+      "area": "tests",
+      "bytes": 3197,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/tiled-zip-predictor.tif",
+      "area": "tests",
+      "bytes": 8890,
+      "lines": 36,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/two-pages.png",
+      "area": "tests",
+      "bytes": 2852,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/tiff/two-pages.tif",
+      "area": "tests",
+      "bytes": 7624,
+      "lines": 45,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/truncated.jpg",
+      "area": "tests",
+      "bytes": 176,
+      "lines": 60,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/unsupported-codec.heif",
+      "area": "tests",
+      "bytes": 539,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/image/with-thumbnail.jpg",
+      "area": "tests",
+      "bytes": 3460,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/black.mp4",
+      "area": "tests",
+      "bytes": 1836,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/fade.mp4",
+      "area": "tests",
+      "bytes": 2116,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/generate.py",
+      "area": "tests",
+      "bytes": 1369,
+      "lines": 23,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/metadata.mp4",
+      "area": "tests",
+      "bytes": 10915,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/red-av1.mkv",
+      "area": "tests",
+      "bytes": 1137,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/red-hevc.mp4",
+      "area": "tests",
+      "bytes": 3349,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/red-vp9.webm",
+      "area": "tests",
+      "bytes": 587,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/red.mp4",
+      "area": "tests",
+      "bytes": 1599,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/media/rotated.mp4",
+      "area": "tests",
+      "bytes": 1599,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/bomb-cpu.pdf",
+      "area": "tests",
+      "bytes": 1815,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/bomb-font.pdf",
+      "area": "tests",
+      "bytes": 3508,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/bomb-image.pdf",
+      "area": "tests",
+      "bytes": 33708,
+      "lines": 37,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/cbz-named.pdf",
+      "area": "tests",
+      "bytes": 346,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/deep.pdf",
+      "area": "tests",
+      "bytes": 330438,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/external.pdf",
+      "area": "tests",
+      "bytes": 527,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/html-named.pdf",
+      "area": "tests",
+      "bytes": 79,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/huge-page.pdf",
+      "area": "tests",
+      "bytes": 425,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/javascript.pdf",
+      "area": "tests",
+      "bytes": 527,
+      "lines": 32,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/lying-count.pdf",
+      "area": "tests",
+      "bytes": 432,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/nan-page.pdf",
+      "area": "tests",
+      "bytes": 423,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/no-pages.pdf",
+      "area": "tests",
+      "bytes": 226,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/recursive-form.pdf",
+      "area": "tests",
+      "bytes": 612,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/recursive-pages.pdf",
+      "area": "tests",
+      "bytes": 429,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/svg-named.pdf",
+      "area": "tests",
+      "bytes": 115,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/attack/tiny-page.pdf",
+      "area": "tests",
+      "bytes": 427,
+      "lines": 28,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/form-rotated.pdf",
+      "area": "tests",
+      "bytes": 1607,
+      "lines": 66,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/form.pdf",
+      "area": "tests",
+      "bytes": 1596,
+      "lines": 66,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/locked.pdf",
+      "area": "tests",
+      "bytes": 1216,
+      "lines": 31,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/owner-only.pdf",
+      "area": "tests",
+      "bytes": 1216,
+      "lines": 31,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/red.pdf",
+      "area": "tests",
+      "bytes": 417,
+      "lines": 27,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/rotated.pdf",
+      "area": "tests",
+      "bytes": 427,
+      "lines": 27,
+      "changed": false
+    },
+    {
+      "path": "tests/data/pdf/text.pdf",
+      "area": "tests",
+      "bytes": 542,
+      "lines": 31,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg-review.tsv",
+      "area": "tests",
+      "bytes": 2769,
+      "lines": 35,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/adwaita-mask.png",
+      "area": "tests",
+      "bytes": 181,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/adwaita-mask.svg",
+      "area": "tests",
+      "bytes": 367,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/aspect-ratio.png",
+      "area": "tests",
+      "bytes": 130,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/aspect-ratio.svg",
+      "area": "tests",
+      "bytes": 167,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/blur.png",
+      "area": "tests",
+      "bytes": 807,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/blur.svg",
+      "area": "tests",
+      "bytes": 285,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/clip-bbox.png",
+      "area": "tests",
+      "bytes": 202,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/clip-bbox.svg",
+      "area": "tests",
+      "bytes": 305,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/clips.png",
+      "area": "tests",
+      "bytes": 808,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/clips.svg",
+      "area": "tests",
+      "bytes": 268,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/colours.png",
+      "area": "tests",
+      "bytes": 180,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/colours.svg",
+      "area": "tests",
+      "bytes": 311,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/compact-path.png",
+      "area": "tests",
+      "bytes": 365,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/compact-path.svg",
+      "area": "tests",
+      "bytes": 173,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/css.png",
+      "area": "tests",
+      "bytes": 741,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/css.svg",
+      "area": "tests",
+      "bytes": 495,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/filter-chain.png",
+      "area": "tests",
+      "bytes": 189,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/filter-chain.svg",
+      "area": "tests",
+      "bytes": 306,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/gradient-inheritance.png",
+      "area": "tests",
+      "bytes": 1302,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/gradient-inheritance.svg",
+      "area": "tests",
+      "bytes": 397,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/gradient-repeat.png",
+      "area": "tests",
+      "bytes": 3512,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/gradient-repeat.svg",
+      "area": "tests",
+      "bytes": 328,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/group-opacity.png",
+      "area": "tests",
+      "bytes": 207,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/group-opacity.svg",
+      "area": "tests",
+      "bytes": 221,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/linear-gradient.png",
+      "area": "tests",
+      "bytes": 235,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/linear-gradient.svg",
+      "area": "tests",
+      "bytes": 305,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/mask.png",
+      "area": "tests",
+      "bytes": 189,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/mask.svg",
+      "area": "tests",
+      "bytes": 329,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/paths.png",
+      "area": "tests",
+      "bytes": 1221,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/paths.svg",
+      "area": "tests",
+      "bytes": 346,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/pattern.png",
+      "area": "tests",
+      "bytes": 3775,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/pattern.svg",
+      "area": "tests",
+      "bytes": 350,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/radial-gradient.png",
+      "area": "tests",
+      "bytes": 1793,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/radial-gradient.svg",
+      "area": "tests",
+      "bytes": 299,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/shapes.png",
+      "area": "tests",
+      "bytes": 1985,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/shapes.svg",
+      "area": "tests",
+      "bytes": 446,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/solid.png",
+      "area": "tests",
+      "bytes": 164,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/solid.svg",
+      "area": "tests",
+      "bytes": 151,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/strokes.png",
+      "area": "tests",
+      "bytes": 1186,
+      "lines": 8,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/strokes.svg",
+      "area": "tests",
+      "bytes": 539,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/transforms.png",
+      "area": "tests",
+      "bytes": 1237,
+      "lines": 14,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/transforms.svg",
+      "area": "tests",
+      "bytes": 325,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/units.png",
+      "area": "tests",
+      "bytes": 123,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/units.svg",
+      "area": "tests",
+      "bytes": 139,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/uses.png",
+      "area": "tests",
+      "bytes": 571,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/uses.svg",
+      "area": "tests",
+      "bytes": 408,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/visibility.png",
+      "area": "tests",
+      "bytes": 186,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "tests/data/svg/visibility.svg",
+      "area": "tests",
+      "bytes": 308,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "tests/data/theme/matugen-dark.toml",
+      "area": "tests",
+      "bytes": 1117,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "tests/data/theme/matugen-light.toml",
+      "area": "tests",
+      "bytes": 1119,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "tests/desktop_palette_test.cpp",
+      "area": "tests",
+      "bytes": 12983,
+      "lines": 276,
+      "changed": false
+    },
+    {
+      "path": "tests/desktop_portal_test.cpp",
+      "area": "tests",
+      "bytes": 4658,
+      "lines": 107,
+      "changed": false
+    },
+    {
+      "path": "tests/details_view_test.cpp",
+      "area": "tests",
+      "bytes": 27349,
+      "lines": 659,
+      "changed": false
+    },
+    {
+      "path": "tests/devices_test.cpp",
+      "area": "tests",
+      "bytes": 18056,
+      "lines": 438,
+      "changed": false
+    },
+    {
+      "path": "tests/directory_model_test.cpp",
+      "area": "tests",
+      "bytes": 8407,
+      "lines": 235,
+      "changed": false
+    },
+    {
+      "path": "tests/directory_test.cpp",
+      "area": "tests",
+      "bytes": 7670,
+      "lines": 202,
+      "changed": false
+    },
+    {
+      "path": "tests/dng_libraw_test.cpp",
+      "area": "tests",
+      "bytes": 7528,
+      "lines": 184,
+      "changed": false
+    },
+    {
+      "path": "tests/dng_test.cpp",
+      "area": "tests",
+      "bytes": 56303,
+      "lines": 1259,
+      "changed": false
+    },
+    {
+      "path": "tests/drag_drop_test.cpp",
+      "area": "tests",
+      "bytes": 59950,
+      "lines": 1395,
+      "changed": false
+    },
+    {
+      "path": "tests/engines_test.cpp",
+      "area": "tests",
+      "bytes": 15732,
+      "lines": 315,
+      "changed": true
+    },
+    {
+      "path": "tests/erase_test.cpp",
+      "area": "tests",
+      "bytes": 7757,
+      "lines": 187,
+      "changed": false
+    },
+    {
+      "path": "tests/erase_view_test.cpp",
+      "area": "tests",
+      "bytes": 11587,
+      "lines": 296,
+      "changed": false
+    },
+    {
+      "path": "tests/event_loop_test.cpp",
+      "area": "tests",
+      "bytes": 9169,
+      "lines": 303,
+      "changed": false
+    },
+    {
+      "path": "tests/exiv2_reference.cpp",
+      "area": "tests",
+      "bytes": 23066,
+      "lines": 584,
+      "changed": false
+    },
+    {
+      "path": "tests/exiv2_reference.hpp",
+      "area": "tests",
+      "bytes": 649,
+      "lines": 19,
+      "changed": false
+    },
+    {
+      "path": "tests/exiv2_reference_test.cpp",
+      "area": "tests",
+      "bytes": 11763,
+      "lines": 292,
+      "changed": false
+    },
+    {
+      "path": "tests/extract_test.cpp",
+      "area": "tests",
+      "bytes": 14583,
+      "lines": 324,
+      "changed": false
+    },
+    {
+      "path": "tests/fake_preview_helper.cpp",
+      "area": "tests",
+      "bytes": 4163,
+      "lines": 101,
+      "changed": false
+    },
+    {
+      "path": "tests/feature_integration_test.cpp",
+      "area": "tests",
+      "bytes": 5271,
+      "lines": 134,
+      "changed": false
+    },
+    {
+      "path": "tests/file_finder_test.cpp",
+      "area": "tests",
+      "bytes": 34717,
+      "lines": 810,
+      "changed": false
+    },
+    {
+      "path": "tests/file_manager_activation.cmake",
+      "area": "tests",
+      "bytes": 3574,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "tests/file_manager_bus_test.cpp",
+      "area": "tests",
+      "bytes": 9117,
+      "lines": 200,
+      "changed": false
+    },
+    {
+      "path": "tests/file_manager_cli.cmake",
+      "area": "tests",
+      "bytes": 2460,
+      "lines": 57,
+      "changed": false
+    },
+    {
+      "path": "tests/file_manager_test.cpp",
+      "area": "tests",
+      "bytes": 6940,
+      "lines": 131,
+      "changed": false
+    },
+    {
+      "path": "tests/file_picker_portal_test.cpp",
+      "area": "tests",
+      "bytes": 10614,
+      "lines": 251,
+      "changed": false
+    },
+    {
+      "path": "tests/file_picker_test.cpp",
+      "area": "tests",
+      "bytes": 37224,
+      "lines": 865,
+      "changed": false
+    },
+    {
+      "path": "tests/file_watcher_test.cpp",
+      "area": "tests",
+      "bytes": 2253,
+      "lines": 75,
+      "changed": false
+    },
+    {
+      "path": "tests/filesystem_test.cpp",
+      "area": "tests",
+      "bytes": 2308,
+      "lines": 47,
+      "changed": false
+    },
+    {
+      "path": "tests/folder_icon_test.cpp",
+      "area": "tests",
+      "bytes": 8462,
+      "lines": 164,
+      "changed": false
+    },
+    {
+      "path": "tests/format_test.cpp",
+      "area": "tests",
+      "bytes": 3934,
+      "lines": 97,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/CMakeLists.txt",
+      "area": "tests",
+      "bytes": 2173,
+      "lines": 38,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_archive.cpp",
+      "area": "tests",
+      "bytes": 1886,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_camera.cpp",
+      "area": "tests",
+      "bytes": 947,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_dng.cpp",
+      "area": "tests",
+      "bytes": 1484,
+      "lines": 40,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_ljpeg.cpp",
+      "area": "tests",
+      "bytes": 885,
+      "lines": 27,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_picture.cpp",
+      "area": "tests",
+      "bytes": 715,
+      "lines": 21,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_svg.cpp",
+      "area": "tests",
+      "bytes": 370,
+      "lines": 11,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_text.cpp",
+      "area": "tests",
+      "bytes": 3389,
+      "lines": 62,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/fuzz_tiff.cpp",
+      "area": "tests",
+      "bytes": 715,
+      "lines": 18,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/make_dng_seeds.py",
+      "area": "tests",
+      "bytes": 8265,
+      "lines": 191,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/collapsed-dash.svg",
+      "area": "tests",
+      "bytes": 148,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/embedded-png.svg",
+      "area": "tests",
+      "bytes": 192,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/empty-strokes.svg",
+      "area": "tests",
+      "bytes": 125,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/extreme-arc-aspect.svg",
+      "area": "tests",
+      "bytes": 73,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/extreme-arc.svg",
+      "area": "tests",
+      "bytes": 76,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/large-pattern-translation.svg",
+      "area": "tests",
+      "bytes": 245,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/references.svg",
+      "area": "tests",
+      "bytes": 207,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/tiny-curve.svg",
+      "area": "tests",
+      "bytes": 80,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/viewport.svg",
+      "area": "tests",
+      "bytes": 169,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/fuzz/svg/zero-dashes.svg",
+      "area": "tests",
+      "bytes": 121,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "tests/glyph_test.cpp",
+      "area": "tests",
+      "bytes": 4054,
+      "lines": 98,
+      "changed": false
+    },
+    {
+      "path": "tests/group_test.cpp",
+      "area": "tests",
+      "bytes": 3600,
+      "lines": 92,
+      "changed": false
+    },
+    {
+      "path": "tests/heif_test.cpp",
+      "area": "tests",
+      "bytes": 11829,
+      "lines": 272,
+      "changed": false
+    },
+    {
+      "path": "tests/helpers_test.cpp",
+      "area": "tests",
+      "bytes": 31944,
+      "lines": 690,
+      "changed": false
+    },
+    {
+      "path": "tests/i18n_runtime_test.cpp",
+      "area": "tests",
+      "bytes": 6828,
+      "lines": 180,
+      "changed": false
+    },
+    {
+      "path": "tests/i18n_test.cpp",
+      "area": "tests",
+      "bytes": 13377,
+      "lines": 300,
+      "changed": false
+    },
+    {
+      "path": "tests/icon_test.cpp",
+      "area": "tests",
+      "bytes": 10850,
+      "lines": 250,
+      "changed": false
+    },
+    {
+      "path": "tests/icon_theme_test.cpp",
+      "area": "tests",
+      "bytes": 16895,
+      "lines": 388,
+      "changed": false
+    },
+    {
+      "path": "tests/image_test.cpp",
+      "area": "tests",
+      "bytes": 27435,
+      "lines": 595,
+      "changed": false
+    },
+    {
+      "path": "tests/info_pane_test.cpp",
+      "area": "tests",
+      "bytes": 29497,
+      "lines": 763,
+      "changed": true
+    },
+    {
+      "path": "tests/insights_test.cpp",
+      "area": "tests",
+      "bytes": 73331,
+      "lines": 1614,
+      "changed": false
+    },
+    {
+      "path": "tests/kde_palette_test.cpp",
+      "area": "tests",
+      "bytes": 9098,
+      "lines": 203,
+      "changed": false
+    },
+    {
+      "path": "tests/links_test.cpp",
+      "area": "tests",
+      "bytes": 18494,
+      "lines": 420,
+      "changed": false
+    },
+    {
+      "path": "tests/load_test.cpp",
+      "area": "tests",
+      "bytes": 5614,
+      "lines": 121,
+      "changed": false
+    },
+    {
+      "path": "tests/main.cpp",
+      "area": "tests",
+      "bytes": 4915,
+      "lines": 101,
+      "changed": false
+    },
+    {
+      "path": "tests/markdown_test.cpp",
+      "area": "tests",
+      "bytes": 6137,
+      "lines": 131,
+      "changed": false
+    },
+    {
+      "path": "tests/markdown_view_test.cpp",
+      "area": "tests",
+      "bytes": 5129,
+      "lines": 114,
+      "changed": false
+    },
+    {
+      "path": "tests/measure_test.cpp",
+      "area": "tests",
+      "bytes": 7413,
+      "lines": 204,
+      "changed": false
+    },
+    {
+      "path": "tests/media_test.cpp",
+      "area": "tests",
+      "bytes": 9975,
+      "lines": 212,
+      "changed": false
+    },
+    {
+      "path": "tests/memory_test.cpp",
+      "area": "tests",
+      "bytes": 4789,
+      "lines": 100,
+      "changed": false
+    },
+    {
+      "path": "tests/menu_editor_test.cpp",
+      "area": "tests",
+      "bytes": 14759,
+      "lines": 350,
+      "changed": false
+    },
+    {
+      "path": "tests/mime_test.cpp",
+      "area": "tests",
+      "bytes": 13892,
+      "lines": 333,
+      "changed": false
+    },
+    {
+      "path": "tests/motion_test.cpp",
+      "area": "tests",
+      "bytes": 47050,
+      "lines": 1060,
+      "changed": false
+    },
+    {
+      "path": "tests/navigation_test.cpp",
+      "area": "tests",
+      "bytes": 20468,
+      "lines": 540,
+      "changed": false
+    },
+    {
+      "path": "tests/notifications_test.cpp",
+      "area": "tests",
+      "bytes": 5329,
+      "lines": 112,
+      "changed": false
+    },
+    {
+      "path": "tests/palette_test.cpp",
+      "area": "tests",
+      "bytes": 24312,
+      "lines": 561,
+      "changed": false
+    },
+    {
+      "path": "tests/panes_test.cpp",
+      "area": "tests",
+      "bytes": 52953,
+      "lines": 1311,
+      "changed": false
+    },
+    {
+      "path": "tests/paste_test.cpp",
+      "area": "tests",
+      "bytes": 14897,
+      "lines": 366,
+      "changed": false
+    },
+    {
+      "path": "tests/path_completion_test.cpp",
+      "area": "tests",
+      "bytes": 2393,
+      "lines": 48,
+      "changed": false
+    },
+    {
+      "path": "tests/pdf_test.cpp",
+      "area": "tests",
+      "bytes": 17639,
+      "lines": 385,
+      "changed": false
+    },
+    {
+      "path": "tests/permissions_test.cpp",
+      "area": "tests",
+      "bytes": 5162,
+      "lines": 135,
+      "changed": false
+    },
+    {
+      "path": "tests/photo_client_test.cpp",
+      "area": "tests",
+      "bytes": 2193,
+      "lines": 47,
+      "changed": true
+    },
+    {
+      "path": "tests/photo_library_ui_test.cpp",
+      "area": "tests",
+      "bytes": 63881,
+      "lines": 1330,
+      "changed": true
+    },
+    {
+      "path": "tests/photo_recovery_test.cpp",
+      "area": "tests",
+      "bytes": 5815,
+      "lines": 103,
+      "changed": true
+    },
+    {
+      "path": "tests/photos_import.py",
+      "area": "tests",
+      "bytes": 3348,
+      "lines": 67,
+      "changed": true
+    },
+    {
+      "path": "tests/photos_migration.py",
+      "area": "tests",
+      "bytes": 6102,
+      "lines": 117,
+      "changed": true
+    },
+    {
+      "path": "tests/photos_scale.py",
+      "area": "tests",
+      "bytes": 6376,
+      "lines": 146,
+      "changed": true
+    },
+    {
+      "path": "tests/photos_test.cpp",
+      "area": "tests",
+      "bytes": 36984,
+      "lines": 818,
+      "changed": true
+    },
+    {
+      "path": "tests/photos_watcher_test.cpp",
+      "area": "tests",
+      "bytes": 8149,
+      "lines": 199,
+      "changed": true
+    },
+    {
+      "path": "tests/places_test.cpp",
+      "area": "tests",
+      "bytes": 40447,
+      "lines": 876,
+      "changed": true
+    },
+    {
+      "path": "tests/platform_test.cpp",
+      "area": "tests",
+      "bytes": 28995,
+      "lines": 592,
+      "changed": false
+    },
+    {
+      "path": "tests/pointer_shapes_test.cpp",
+      "area": "tests",
+      "bytes": 19473,
+      "lines": 480,
+      "changed": false
+    },
+    {
+      "path": "tests/preview_test.cpp",
+      "area": "tests",
+      "bytes": 7496,
+      "lines": 166,
+      "changed": false
+    },
+    {
+      "path": "tests/program_fixture.cpp",
+      "area": "tests",
+      "bytes": 117,
+      "lines": 2,
+      "changed": false
+    },
+    {
+      "path": "tests/program_test.cpp",
+      "area": "tests",
+      "bytes": 10598,
+      "lines": 273,
+      "changed": false
+    },
+    {
+      "path": "tests/quick_look_test.cpp",
+      "area": "tests",
+      "bytes": 27299,
+      "lines": 681,
+      "changed": true
+    },
+    {
+      "path": "tests/remote_test.cpp",
+      "area": "tests",
+      "bytes": 33877,
+      "lines": 736,
+      "changed": false
+    },
+    {
+      "path": "tests/rename_test.cpp",
+      "area": "tests",
+      "bytes": 23776,
+      "lines": 593,
+      "changed": false
+    },
+    {
+      "path": "tests/renderer_runs_test.cpp",
+      "area": "tests",
+      "bytes": 20675,
+      "lines": 483,
+      "changed": false
+    },
+    {
+      "path": "tests/sandbox_probe.cpp",
+      "area": "tests",
+      "bytes": 4789,
+      "lines": 131,
+      "changed": false
+    },
+    {
+      "path": "tests/sandbox_test.cpp",
+      "area": "tests",
+      "bytes": 2957,
+      "lines": 95,
+      "changed": false
+    },
+    {
+      "path": "tests/scoped_env.hpp",
+      "area": "tests",
+      "bytes": 821,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "tests/scrollbar_test.cpp",
+      "area": "tests",
+      "bytes": 3648,
+      "lines": 82,
+      "changed": false
+    },
+    {
+      "path": "tests/scroller_test.cpp",
+      "area": "tests",
+      "bytes": 4397,
+      "lines": 139,
+      "changed": false
+    },
+    {
+      "path": "tests/settings_editors_test.cpp",
+      "area": "tests",
+      "bytes": 14787,
+      "lines": 355,
+      "changed": false
+    },
+    {
+      "path": "tests/settings_test.cpp",
+      "area": "tests",
+      "bytes": 57319,
+      "lines": 1236,
+      "changed": false
+    },
+    {
+      "path": "tests/shortcuts_test.cpp",
+      "area": "tests",
+      "bytes": 54284,
+      "lines": 1144,
+      "changed": false
+    },
+    {
+      "path": "tests/sort_test.cpp",
+      "area": "tests",
+      "bytes": 7582,
+      "lines": 194,
+      "changed": false
+    },
+    {
+      "path": "tests/state_test.cpp",
+      "area": "tests",
+      "bytes": 26253,
+      "lines": 670,
+      "changed": true
+    },
+    {
+      "path": "tests/svg_compare.hpp",
+      "area": "tests",
+      "bytes": 1561,
+      "lines": 42,
+      "changed": false
+    },
+    {
+      "path": "tests/svg_effects_test.cpp",
+      "area": "tests",
+      "bytes": 7155,
+      "lines": 154,
+      "changed": false
+    },
+    {
+      "path": "tests/svg_features_test.cpp",
+      "area": "tests",
+      "bytes": 12466,
+      "lines": 251,
+      "changed": false
+    },
+    {
+      "path": "tests/svg_layers_test.cpp",
+      "area": "tests",
+      "bytes": 4774,
+      "lines": 103,
+      "changed": false
+    },
+    {
+      "path": "tests/svg_preview_test.cpp",
+      "area": "tests",
+      "bytes": 11338,
+      "lines": 225,
+      "changed": false
+    },
+    {
+      "path": "tests/svg_test.cpp",
+      "area": "tests",
+      "bytes": 6172,
+      "lines": 145,
+      "changed": false
+    },
+    {
+      "path": "tests/syntax_colors_test.cpp",
+      "area": "tests",
+      "bytes": 3369,
+      "lines": 96,
+      "changed": false
+    },
+    {
+      "path": "tests/syntax_test.cpp",
+      "area": "tests",
+      "bytes": 32788,
+      "lines": 635,
+      "changed": false
+    },
+    {
+      "path": "tests/tabs_test.cpp",
+      "area": "tests",
+      "bytes": 57156,
+      "lines": 1359,
+      "changed": false
+    },
+    {
+      "path": "tests/temp_dir.hpp",
+      "area": "tests",
+      "bytes": 1130,
+      "lines": 44,
+      "changed": false
+    },
+    {
+      "path": "tests/terminal_navigation_test.cpp",
+      "area": "tests",
+      "bytes": 14447,
+      "lines": 386,
+      "changed": false
+    },
+    {
+      "path": "tests/text_selection_test.cpp",
+      "area": "tests",
+      "bytes": 3313,
+      "lines": 82,
+      "changed": false
+    },
+    {
+      "path": "tests/text_test.cpp",
+      "area": "tests",
+      "bytes": 10155,
+      "lines": 221,
+      "changed": false
+    },
+    {
+      "path": "tests/thumbs_test.cpp",
+      "area": "tests",
+      "bytes": 15645,
+      "lines": 388,
+      "changed": true
+    },
+    {
+      "path": "tests/tiff_test.cpp",
+      "area": "tests",
+      "bytes": 10731,
+      "lines": 252,
+      "changed": false
+    },
+    {
+      "path": "tests/title_bar_test.cpp",
+      "area": "tests",
+      "bytes": 6621,
+      "lines": 165,
+      "changed": false
+    },
+    {
+      "path": "tests/transfer_test.cpp",
+      "area": "tests",
+      "bytes": 56874,
+      "lines": 1246,
+      "changed": false
+    },
+    {
+      "path": "tests/trash_test.cpp",
+      "area": "tests",
+      "bytes": 21620,
+      "lines": 491,
+      "changed": true
+    },
+    {
+      "path": "tests/trash_view_test.cpp",
+      "area": "tests",
+      "bytes": 20532,
+      "lines": 478,
+      "changed": false
+    },
+    {
+      "path": "tests/undo_test.cpp",
+      "area": "tests",
+      "bytes": 25156,
+      "lines": 608,
+      "changed": false
+    },
+    {
+      "path": "tests/worker_pool_test.cpp",
+      "area": "tests",
+      "bytes": 10378,
+      "lines": 333,
+      "changed": false
+    },
+    {
+      "path": "tests/xcursor_test.cpp",
+      "area": "tests",
+      "bytes": 2117,
+      "lines": 59,
+      "changed": false
+    },
+    {
+      "path": "third_party/fzy/LICENSE",
+      "area": "third_party",
+      "bytes": 1080,
+      "lines": 21,
+      "changed": false
+    },
+    {
+      "path": "third_party/fzy/config.h",
+      "area": "third_party",
+      "bytes": 605,
+      "lines": 27,
+      "changed": false
+    },
+    {
+      "path": "third_party/fzy/src/bonus.h",
+      "area": "third_party",
+      "bytes": 1911,
+      "lines": 116,
+      "changed": false
+    },
+    {
+      "path": "third_party/fzy/src/match.c",
+      "area": "third_party",
+      "bytes": 5849,
+      "lines": 224,
+      "changed": false
+    },
+    {
+      "path": "third_party/fzy/src/match.h",
+      "area": "third_party",
+      "bytes": 445,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "third_party/tabler-icons/LICENSE",
+      "area": "third_party",
+      "bytes": 1073,
+      "lines": 21,
+      "changed": false
+    },
+    {
+      "path": "third_party/tabler-icons/icons-filled.txt",
+      "area": "third_party",
+      "bytes": 186,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "third_party/tabler-icons/icons.txt",
+      "area": "third_party",
+      "bytes": 676,
+      "lines": 52,
+      "changed": false
+    },
+    {
+      "path": "third_party/tabler-icons/tabler-icons-filled.ttf",
+      "area": "third_party",
+      "bytes": 1444,
+      "lines": 9,
+      "changed": false
+    },
+    {
+      "path": "third_party/tabler-icons/tabler-icons.ttf",
+      "area": "third_party",
+      "bytes": 14416,
+      "lines": 208,
+      "changed": false
+    },
+    {
+      "path": "third_party/wuffs/LICENSE-APACHE",
+      "area": "third_party",
+      "bytes": 10174,
+      "lines": 177,
+      "changed": false
+    },
+    {
+      "path": "third_party/wuffs/LICENSE-MIT",
+      "area": "third_party",
+      "bytes": 1057,
+      "lines": 25,
+      "changed": false
+    },
+    {
+      "path": "third_party/wuffs/wuffs-v0.4.c",
+      "area": "third_party",
+      "bytes": 3694724,
+      "lines": 98676,
+      "changed": false
+    },
+    {
+      "path": "website/.gitignore",
+      "area": "website",
+      "bytes": 39,
+      "lines": 3,
+      "changed": false
+    },
+    {
+      "path": "website/CAPTURE-CHECKLIST.md",
+      "area": "website",
+      "bytes": 23532,
+      "lines": 338,
+      "changed": false
+    },
+    {
+      "path": "website/README.md",
+      "area": "website",
+      "bytes": 7791,
+      "lines": 146,
+      "changed": false
+    },
+    {
+      "path": "website/assets/site.css",
+      "area": "website",
+      "bytes": 24253,
+      "lines": 1615,
+      "changed": false
+    },
+    {
+      "path": "website/assets/site.js",
+      "area": "website",
+      "bytes": 4749,
+      "lines": 98,
+      "changed": false
+    },
+    {
+      "path": "website/check.py",
+      "area": "website",
+      "bytes": 4252,
+      "lines": 104,
+      "changed": false
+    },
+    {
+      "path": "website/content/docs/_content.gotmpl",
+      "area": "website",
+      "bytes": 883,
+      "lines": 17,
+      "changed": false
+    },
+    {
+      "path": "website/content/docs/_index.md",
+      "area": "website",
+      "bytes": 101,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "website/content/downloads.md",
+      "area": "website",
+      "bytes": 157,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "website/content/pricing.md",
+      "area": "website",
+      "bytes": 142,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "website/content/support.md",
+      "area": "website",
+      "bytes": 148,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "website/data/navigation.toml",
+      "area": "website",
+      "bytes": 2204,
+      "lines": 34,
+      "changed": false
+    },
+    {
+      "path": "website/data/screenshots.json",
+      "area": "website",
+      "bytes": 12453,
+      "lines": 287,
+      "changed": false
+    },
+    {
+      "path": "website/hugo.toml",
+      "area": "website",
+      "bytes": 1510,
+      "lines": 52,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/404.html",
+      "area": "website",
+      "bytes": 388,
+      "lines": 1,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/_markup/render-image.html",
+      "area": "website",
+      "bytes": 647,
+      "lines": 7,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/_markup/render-link.html",
+      "area": "website",
+      "bytes": 1318,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/_markup/render-table.html",
+      "area": "website",
+      "bytes": 297,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/baseof.html",
+      "area": "website",
+      "bytes": 2966,
+      "lines": 39,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/docs/list.html",
+      "area": "website",
+      "bytes": 869,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/docs/single.html",
+      "area": "website",
+      "bytes": 987,
+      "lines": 13,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/downloads.html",
+      "area": "website",
+      "bytes": 3145,
+      "lines": 24,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/home.html",
+      "area": "website",
+      "bytes": 7417,
+      "lines": 70,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/home.json",
+      "area": "website",
+      "bytes": 235,
+      "lines": 5,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/partials/docs-sidebar.html",
+      "area": "website",
+      "bytes": 658,
+      "lines": 10,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/partials/screenshot.html",
+      "area": "website",
+      "bytes": 461,
+      "lines": 4,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/partials/search.html",
+      "area": "website",
+      "bytes": 485,
+      "lines": 6,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/pricing.html",
+      "area": "website",
+      "bytes": 3737,
+      "lines": 50,
+      "changed": false
+    },
+    {
+      "path": "website/layouts/support.html",
+      "area": "website",
+      "bytes": 2518,
+      "lines": 16,
+      "changed": false
+    },
+    {
+      "path": "website/static/.nojekyll",
+      "area": "website",
+      "bytes": 0,
+      "lines": 0,
+      "changed": false
+    },
+    {
+      "path": "website/static/CNAME",
+      "area": "website",
+      "bytes": 15,
+      "lines": 1,
+      "changed": false
+    }
+  ]
+}

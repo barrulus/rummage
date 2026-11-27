@@ -1,0 +1,9 @@
+{
+  "exit": 1,
+  "command": [
+    "python3",
+    "/tmp/rummage-branch-audit-2026-11-27/catalog/timestamp_overflow.py",
+    "/tmp/rummage-branch-audit-2026-11-27/root/catalog-strict.so"
+  ],
+  "note": "Only audit companion compiled with explicit -fstrict-overflow; production sources unchanged"
+}

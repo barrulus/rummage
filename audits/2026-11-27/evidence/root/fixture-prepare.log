@@ -1,0 +1,6 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+created 1000 entries in /tmp/rummage-branch-audit-2026-11-27/root/fixtures/entries-1000
+created 10000 entries in /tmp/rummage-branch-audit-2026-11-27/root/fixtures/entries-10000
+created 100000 entries in /tmp/rummage-branch-audit-2026-11-27/root/fixtures/entries-100000
+{'directory_entries': [1000, 10000, 100000], 'large_copy_bytes': 268435456, 'small_copy_files': 1000, 'seed_block_sha256': 'a308349ffbea9640aadccf54602619e63de6625dfe8cc304383c9d88869b66b6', 'fixture_type': 'empty camera-style files for listing; deterministic dense repeated bytes forcopy; not real photos'}
