@@ -657,9 +657,8 @@ TEST_CASE("gallery: offline cached media hides names only until focused or hover
     auto missing = first;
     missing.identity = "photo:101";
     missing.location = directory.path / "missing" / "same.jpg";
-    rummage::fs::Entry logical;
+    auto logical = first;
     logical.name = "Album";
-    logical.kind = rummage::fs::EntryKind::directory;
     logical.identity = "album:1";
     logical.available = false;
     folder->replace_collection({first, missing, logical}, "Photos", 3);

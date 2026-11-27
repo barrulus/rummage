@@ -55,7 +55,6 @@ struct Pane {
     // Collection destinations share the real browser views and frame. They have no
     // filesystem root and must not be passed to directory mutation operations.
     bool photos{false};
-    ViewMode photo_view{ViewMode::grid};
     bool photo_records{false};
     std::vector<fs::SortKey> photo_columns;
     ViewMode mode{ViewMode::columns};

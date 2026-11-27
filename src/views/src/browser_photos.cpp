@@ -240,7 +240,6 @@ void Browser::open_photo_library(std::filesystem::path add_folder) {
         pane().details.set_columns(
             {fs::SortKey::name, fs::SortKey::size, fs::SortKey::modified, fs::SortKey::location});
         set_mode(Mode::grid);
-        pane().photo_view = Mode::grid;
     }
     photo_library_->open();
     if (found && add_folder.empty())
@@ -328,13 +327,11 @@ void Browser::sync_photo_view() {
             const bool records = !photo_library_->photo_rows();
             if (records != pane().photo_records) {
                 if (records) {
-                    pane().photo_view = pane().mode;
                     pane().photo_columns = pane().details.columns();
                 }
                 pane().photo_records = records;
                 pane().details.set_columns(records ? std::vector<fs::SortKey>{fs::SortKey::name}
                                                    : pane().photo_columns);
-                set_mode(records ? Mode::details : pane().photo_view);
             }
         }
         area().active = active;

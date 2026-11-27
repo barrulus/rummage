@@ -3857,7 +3857,6 @@ State::Tab Browser::tab_of(const Pane& each, std::size_t side) {
         tab.root.clear();
         tab.cursor.clear();
         if (each.photo_records) {
-            tab.mode = static_cast<State::Mode>(each.photo_view);
             tab.details_columns = each.photo_columns;
             tab.cursor.clear();
         }
@@ -3889,7 +3888,6 @@ void Browser::restore_tab(const State::Tab& tab, std::size_t window_list, std::s
         if (tab.details_widths)
             pane().details.set_widths(*tab.details_widths);
         set_mode(static_cast<Mode>(tab.mode));
-        pane().photo_view = pane().mode;
         set_list_size(tab.list_size.value_or(window_list));
         set_grid_size(tab.grid_icon ? grid_index(*tab.grid_icon) : window_grid);
         const auto sort = tab.sort_key.value_or(fs::SortKey::name);

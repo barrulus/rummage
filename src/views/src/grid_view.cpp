@@ -353,10 +353,11 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             const float gallery_icon =
                 std::min(cell_width_ - kCellExtraWidth, height - 2 * kIconTop);
             bool gallery_item = false;
+            // Album covers are images, but their labels name collections, not media files.
             if (gallery_ && show_thumbnails_ && thumbnails_ && !entry.is_directory() &&
-                !folder_->is_archive() && cursor != i && hovered_ != i &&
-                !folder_->is_selected(entry.key()) && !(edit_ && edit_->holds(*folder_, entry)) &&
-                !folder_->path_of(entry).empty()) {
+                !entry.identity.starts_with("album:") && !folder_->is_archive() && cursor != i &&
+                hovered_ != i && !folder_->is_selected(entry.key()) &&
+                !(edit_ && edit_->holds(*folder_, entry)) && !folder_->path_of(entry).empty()) {
                 const auto type = folder_->mime().name(folder_->mime_of(entry));
                 if (type.starts_with("image/") || type.starts_with("video/"))
                     gallery_item =

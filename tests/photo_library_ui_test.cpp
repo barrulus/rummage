@@ -106,6 +106,23 @@ TEST_CASE("photo workspace: ordinary browser and picker remain inert until expli
     REQUIRE(browser.showing_photos());
     REQUIRE(settle_photos(loop, [&] { return !browser.photo_library()->loading(); }));
     CHECK(std::filesystem::exists(catalog));
+    CHECK(browser.mode() == Browser::Mode::grid);
+    for (const auto destination :
+         {PhotoLibrary::Destination::albums, PhotoLibrary::Destination::sources,
+          PhotoLibrary::Destination::filters, PhotoLibrary::Destination::review,
+          PhotoLibrary::Destination::activity}) {
+        browser.photo_library()->show(destination);
+        CHECK(browser.mode() == Browser::Mode::grid);
+        browser.photo_library()->show_all_photos();
+        CHECK(browser.mode() == Browser::Mode::grid);
+    }
+    browser.set_mode(Browser::Mode::details);
+    browser.photo_library()->show(PhotoLibrary::Destination::albums);
+    CHECK(browser.mode() == Browser::Mode::details);
+    browser.set_mode(Browser::Mode::grid);
+    browser.photo_library()->show_all_photos();
+    browser.photo_library()->show(PhotoLibrary::Destination::albums);
+    CHECK(browser.mode() == Browser::Mode::grid);
     browser.set_photos_enabled(false);
     CHECK_FALSE(browser.showing_photos());
     CHECK(browser.photo_library() == nullptr);
@@ -511,7 +528,7 @@ TEST_CASE(
     library->refresh();
     REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
     draw("native-duplicate-groups");
-    CHECK(browser.mode() == Browser::Mode::details);
+    CHECK(browser.mode() == Browser::Mode::grid);
     CHECK(browser.key(photo_key(XKB_KEY_Home), Browser::Clock::now()));
     CHECK(browser.key(photo_key(XKB_KEY_Return), Browser::Clock::now()));
     REQUIRE(library->destination() == PhotoLibrary::Destination::duplicate_group);
@@ -983,6 +1000,9 @@ TEST_CASE(
     REQUIRE(browser.sidebar().place_icon_rect_for_uri(weekend_uri));
     REQUIRE(browser.sidebar().place_icon_rect_for_uri(target_uri));
     press(photo_key(XKB_KEY_F6, {.shift = true}));
+    // Reopening Albums through its Create action refreshes the list asynchronously.
+    REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    REQUIRE(library->destination() == PhotoLibrary::Destination::albums);
     const auto& album_entries = library->folder()->entries();
     const auto target_row =
         std::ranges::find(album_entries, "Target album", &rummage::fs::Entry::name);

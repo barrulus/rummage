@@ -37,7 +37,9 @@ an option to include inactive sources. **Sources** and **Albums** can narrow the
 query and filters for reuse under **Saved searches**. Search is indexed text search; there is
 no visual or semantic search.
 
-Use the browser’s existing **Grid**, **Columns** or **Details** view. They share the result set
+All Photo Library sections default to **Grid**, including Albums, Sources and Saved searches.
+Switching sections preserves your chosen view instead of resetting it to Details. You can also
+use the browser’s existing **Columns** or **Details** view. They share the result set
 and selected photo identities. The ordinary sort controls order results by name, size,
 modification time or original location; Details includes the location so same-name photographs
 from different folders remain distinguishable. The information pane shows the focused photo’s
@@ -45,6 +47,7 @@ preview, cached metadata and catalog annotations.
 
 The view menu’s **Gallery: hide media filenames** option switches to Grid and enlarges ready
 image and video thumbnails into the label area. It works in the full library and inside albums.
+Album names remain visible on their covers in the Albums grid.
 Selected, focused and hovered photos retain their names; missing thumbnails retain their labels.
 The Gallery preference is remembered between sessions.
 
@@ -170,7 +173,7 @@ provided.
 ## Sources and background work
 
 **Activity** lists discovery and duplicate-review jobs, their states, known progress and file
-errors in the existing Details view. The status bar distinguishes folder discovery from metadata
+errors in the existing browser view. The status bar distinguishes folder discovery from metadata
 processing. Discovery counts entries examined (including folders and skipped files); it is not
 a count of finished photo metadata. After discovery, metadata progress shows checked and pending
 eligible photos. Changed or unavailable originals are reported separately and need source refresh;
