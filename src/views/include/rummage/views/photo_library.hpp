@@ -167,6 +167,7 @@ private:
     void index_rows();
     PhotoProperties build_properties(bool focused_only) const;
     void sync_selection() const;
+    void clear_photo_selection();
     void work();
     void schedule_work(bool busy = false);
     void refresh_progress();
@@ -213,6 +214,7 @@ private:
     std::string catalog_identity_, restored_catalog_identity_;
     bool catalog_identity_ready_{false}, catalog_identity_loading_{false};
     bool restored_catalog_state_{false}, pending_album_creation_{false}, resume_requested_{false};
+    mutable bool restored_selection_pending_{false};
     std::shared_ptr<photos::Client> client_;
     std::shared_ptr<Folder> folder_;
     std::unique_ptr<photos::SourceWatcher> source_watcher_;
@@ -272,6 +274,6 @@ private:
     std::string form_title_, form_message_, form_detail_;
     std::filesystem::path source_path_;
     Id source_id_{};
-    bool recursive_{true}, relink_reviewed_{false};
+    bool recursive_{true}, relink_reviewed_{false}, relink_remount_confirmation_{false};
 };
 }  // namespace rummage::views

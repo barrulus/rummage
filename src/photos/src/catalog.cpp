@@ -11,6 +11,8 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <linux/fs.h>
+#include <linux/magic.h>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -24,7 +26,9 @@
 #include <string>
 #include <string_view>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <unistd.h>
 #include <vector>
 
@@ -252,9 +256,10 @@ public:
             Statement album_metadata(
                 db_,
                 "SELECT count(*) FROM sqlite_master WHERE type='table' "
-                "AND name IN ('album_covers','album_sequence','catalog_identity')");
+                "AND name IN "
+                "('album_covers','album_sequence','catalog_identity','source_filesystems')");
             (void)album_metadata.row();
-            if (album_metadata.number(0) != 3)
+            if (album_metadata.number(0) != 4)
                 exec(
                     "BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS album_covers(album_id INTEGER "
                     "PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,photo_id INTEGER NOT "
@@ -266,7 +271,8 @@ public:
                     "CREATE TABLE IF NOT EXISTS catalog_identity(id INTEGER PRIMARY KEY "
                     "CHECK(id=1),identity TEXT NOT NULL); "
                     "INSERT OR IGNORE INTO catalog_identity VALUES(1,lower(hex(randomblob(16)))); "
-                    "COMMIT;");
+                    "CREATE TABLE IF NOT EXISTS source_filesystems(source_id INTEGER PRIMARY KEY "
+                    "REFERENCES sources(id) ON DELETE CASCADE,identity TEXT NOT NULL); COMMIT;");
         } catch (...) {
             sqlite3_close(db_);
             db_ = nullptr;
@@ -546,15 +552,163 @@ Id queue_scan(Database& db, Id source_id, bool reconcile = false) {
     return id;
 }
 
+// st_dev is a mount-time number and may change after reboot. Only actual UUIDs from
+// supported local filesystems provide a durable bridge; network/FUSE and btrfs subvolume
+// identities retain the strict device/inode checks until they have a dedicated design.
+std::string filesystem_identity(const fs::path& path, const struct stat& expected) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0)
+        return {};
+
+    struct Close {
+        int fd;
+
+        ~Close() { ::close(fd); }
+    } close{fd};
+    struct stat current{};
+    struct statfs filesystem{};
+    if (::fstat(fd, &current) != 0 || current.st_dev != expected.st_dev ||
+        current.st_ino != expected.st_ino || ::fstatfs(fd, &filesystem) != 0 ||
+        (filesystem.f_type != EXT4_SUPER_MAGIC && filesystem.f_type != XFS_SUPER_MAGIC))
+        return {};
+    std::string uuid;
+#ifdef FS_IOC_GETFSUUID
+    struct fsuuid2 value{};
+    if (::ioctl(fd, FS_IOC_GETFSUUID, &value) == 0 && value.len == sizeof(value.uuid)) {
+        std::ostringstream encoded;
+        for (const auto byte : value.uuid)
+            encoded << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned>(byte);
+        uuid = encoded.str();
+    }
+#endif
+    if (uuid.empty()) {
+        std::error_code error;
+        for (fs::directory_iterator it("/dev/disk/by-uuid", error), end; !error && it != end;
+             it.increment(error)) {
+            struct stat device{};
+            if (::stat(it->path().c_str(), &device) != 0 || !S_ISBLK(device.st_mode) ||
+                device.st_rdev != current.st_dev)
+                continue;
+            uuid = it->path().filename().string();
+            std::erase(uuid, '-');
+            std::transform(uuid.begin(), uuid.end(), uuid.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            break;
+        }
+    }
+    if (uuid.size() != 32 || uuid.find_first_not_of('0') == std::string::npos ||
+        !std::all_of(uuid.begin(), uuid.end(), [](unsigned char c) { return std::isxdigit(c); }))
+        return {};
+    return std::to_string(filesystem.f_type) + ":" + uuid;
+}
+
+void remember_filesystem(Database& db, Id source, const std::string& identity) {
+    if (identity.empty())
+        return;
+    Statement remember(db.get(),
+                       "INSERT INTO source_filesystems(source_id,identity) VALUES(?,?) "
+                       "ON CONFLICT(source_id) DO UPDATE SET identity=excluded.identity");
+    remember.bind(1, source).bind(2, identity).run();
+}
+
+bool same_photo_stat(const struct stat& actual, Statement& photo, int inode_column) {
+    return S_ISREG(actual.st_mode) &&
+           static_cast<Id>(actual.st_ino) == photo.number(inode_column) &&
+           static_cast<Id>(actual.st_size) == photo.number(inode_column + 1) &&
+           static_cast<Id>(actual.st_mtim.tv_sec) == photo.number(inode_column + 2) &&
+           static_cast<Id>(actual.st_mtim.tv_nsec) == photo.number(inode_column + 3);
+}
+
+void rebind_source_device(Database& db, Id source, const fs::path& path, Id previous_device,
+                          const struct stat& root, const std::string& identity,
+                          bool allow_edits = true) {
+    Transaction transaction(db);
+    Statement photos(
+        db.get(),
+        "SELECT id,relative_path,device,inode,size,mtime,mtime_ns FROM photos "
+        "WHERE source_id=? AND device=? AND availability NOT IN ('replaced','trashed')");
+    photos.bind(1, source).bind(2, previous_device);
+    while (photos.row()) {
+        // Claims encode the old mount device; stale callbacks retain their signature checks.
+        Statement release(db.get(), "DELETE FROM metadata_claims WHERE photo_id=?");
+        release.bind(1, photos.number(0)).run();
+        struct stat actual{};
+        const bool present = ::lstat((path / photos.text(1)).c_str(), &actual) == 0;
+        if (!present || actual.st_dev != root.st_dev || !same_photo_stat(actual, photos, 3)) {
+            if (!allow_edits)
+                throw std::runtime_error(
+                    "A photo changed during reconnect review; retry source review");
+            if (present && S_ISREG(actual.st_mode) && actual.st_dev == root.st_dev &&
+                static_cast<Id>(actual.st_ino) == photos.number(3)) {
+                // A proven filesystem UUID plus inode preserves identity across an edit.
+                // Keep the old stat fields until scanning, and invalidate derived content.
+                Statement changed(db.get(),
+                                  "UPDATE photos SET device=?,availability='changed',"
+                                  "metadata_signature='',fingerprint='' WHERE id=?");
+                changed.bind(1, static_cast<Id>(actual.st_dev)).bind(2, photos.number(0)).run();
+            } else {
+                Statement changed(db.get(), "UPDATE photos SET availability='changed' WHERE id=?");
+                changed.bind(1, photos.number(0)).run();
+            }
+            continue;
+        }
+        std::string previous;
+        for (int column = 2; column <= 6; ++column) {
+            if (!previous.empty())
+                previous += ':';
+            previous += std::to_string(photos.number(column));
+        }
+        Statement update(db.get(),
+                         "UPDATE photos SET device=?,metadata_signature=CASE WHEN "
+                         "metadata_signature=? THEN ? ELSE metadata_signature END WHERE id=?");
+        update.bind(1, static_cast<Id>(actual.st_dev))
+            .bind(2, previous)
+            .bind(3, signature(actual))
+            .bind(4, photos.number(0))
+            .run();
+        // Destructive intents and trash receipts deliberately retain their original guards.
+    }
+    struct stat final_root{};
+    if (::stat(path.c_str(), &final_root) != 0 || final_root.st_dev != root.st_dev ||
+        final_root.st_ino != root.st_ino || filesystem_identity(path, final_root) != identity)
+        throw std::runtime_error("Source changed while reconnecting; retry source review");
+    Statement update(db.get(), "UPDATE sources SET device=?,availability='online' WHERE id=?");
+    update.bind(1, static_cast<Id>(root.st_dev)).bind(2, source).run();
+    (void)queue_scan(db, source);
+    transaction.commit();
+}
+
+bool reconcile_source_identity(Database& db, Id source, const fs::path& path, Id device, Id inode,
+                               const std::string& known, const struct stat& current) {
+    if (!S_ISDIR(current.st_mode) || static_cast<Id>(current.st_ino) != inode)
+        return false;
+    const auto identity = filesystem_identity(path, current);
+    if (static_cast<Id>(current.st_dev) == device) {
+        if (!known.empty() && known != identity)
+            return false;
+        if (known.empty())
+            remember_filesystem(db, source, identity);
+        return true;
+    }
+    if (known.empty() || identity.empty() || known != identity)
+        return false;
+    rebind_source_device(db, source, path, device, current, identity);
+    return true;
+}
+
 void check_sources(Database& db) {
-    Statement sources(db.get(),
-                      "SELECT id,path,device,inode,availability FROM sources WHERE active=1");
+    Statement sources(
+        db.get(),
+        "SELECT s.id,s.path,s.device,s.inode,s.availability,COALESCE(f.identity,'') "
+        "FROM sources s LEFT JOIN source_filesystems f ON f.source_id=s.id WHERE s.active=1");
     while (sources.row()) {
         struct stat st{};
-        const bool available = ::stat(sources.text(1).c_str(), &st) == 0 && S_ISDIR(st.st_mode) &&
-                               static_cast<Id>(st.st_dev) == sources.number(2) &&
-                               static_cast<Id>(st.st_ino) == sources.number(3);
-        const std::string state = available ? "online" : "offline";
+        const auto path = sources.text(1);
+        const bool reachable = ::stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+        const bool available =
+            reachable && reconcile_source_identity(db, sources.number(0), path, sources.number(2),
+                                                   sources.number(3), sources.text(5), st);
+        const std::string state = available ? "online" : reachable ? "changed" : "offline";
         if (state != sources.text(4)) {
             Statement update(db.get(), "UPDATE sources SET availability=? WHERE id=?");
             update.bind(1, state).bind(2, sources.number(0)).run();
@@ -612,6 +766,7 @@ Json add_source(Database& db, const Json& request) {
             .bind(5, static_cast<Id>(root_stat.st_ino))
             .run();
         id = db.last_id();
+        remember_filesystem(db, id, filesystem_identity(path, root_stat));
     } else {
         Statement activate(
             db.get(),
@@ -696,7 +851,9 @@ Json photo_json(Database& db, Statement& row, bool annotations = true) {
 
 const std::string photo_columns =
     "p.id,p.source_id,s.path,p.relative_path,p.filename,p.size,p.mtime,CASE WHEN "
-    "s.active=0 THEN 'inactive' WHEN s.availability='offline' THEN 'offline' ELSE p.availability "
+    "s.active=0 THEN 'inactive' WHEN s.availability='offline' THEN 'offline' "
+    "WHEN s.availability='changed' AND p.availability NOT IN ('replaced','trashed') THEN 'changed' "
+    "ELSE p.availability "
     "END,p.description,p.rating,COALESCE(p.date_override,p.capture_date),CASE WHEN p.date_override "
     "IS NOT NULL THEN 'user' WHEN p.capture_date IS NOT NULL THEN 'embedded' ELSE 'unknown' "
     "END,p.width,p.height,p.camera,p.capture_date,p.date_override,CAST(p.device AS "
@@ -1326,9 +1483,11 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
                WorkErrors& errors) {
     Json changed = Json::array();
     bool topology_changed = false, discovery_changed = false;
-    Statement root(db.get(),
-                   "SELECT path,recursive,exclusions,active,device,inode,availability FROM sources "
-                   "WHERE id=?");
+    Statement root(
+        db.get(),
+        "SELECT s.path,s.recursive,s.exclusions,s.active,s.device,s.inode,s.availability,"
+        "COALESCE(f.identity,'') FROM sources s LEFT JOIN source_filesystems f "
+        "ON f.source_id=s.id WHERE s.id=?");
     root.bind(1, source);
     if (!root.row() || root.number(3) == 0) {
         Statement cancel(db.get(), "UPDATE jobs SET state='cancelled' WHERE id=?");
@@ -1349,18 +1508,20 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
 
     std::unique_ptr<DIR, DirectoryCloser> root_check(::opendir(path.c_str()));
     struct stat root_stat{};
-    if (!root_check || ::fstat(::dirfd(root_check.get()), &root_stat) != 0 ||
-        static_cast<Id>(root_stat.st_dev) != root.number(4) ||
-        static_cast<Id>(root_stat.st_ino) != root.number(5)) {
+    const bool reachable = root_check && ::fstat(::dirfd(root_check.get()), &root_stat) == 0;
+    if (!reachable || !reconcile_source_identity(db, source, path, root.number(4), root.number(5),
+                                                 root.text(7), root_stat)) {
         Transaction transaction(db);
-        Statement offline(db.get(), "UPDATE sources SET availability='offline' WHERE id=?");
-        offline.bind(1, source).run();
-        Statement waiting(db.get(),
-                          "UPDATE jobs SET state='waiting',error='Source is unavailable. Reconnect "
-                          "it and retry.' WHERE id=?");
-        waiting.bind(1, job).run();
+        const std::string state = reachable ? "changed" : "offline";
+        const std::string reason =
+            reachable ? "Source identity changed. Review and reconnect this source before indexing."
+                      : "Source is unavailable. Reconnect it and retry.";
+        Statement offline(db.get(), "UPDATE sources SET availability=? WHERE id=?");
+        offline.bind(1, state).bind(2, source).run();
+        Statement waiting(db.get(), "UPDATE jobs SET state='waiting',error=? WHERE id=?");
+        waiting.bind(1, reason).bind(2, job).run();
         transaction.commit();
-        errors.add("Source is unavailable. Reconnect it and retry.");
+        errors.add(reason);
         return {{"worked", true},
                 {"waiting", true},
                 {"discovery_changed", true},
@@ -1413,8 +1574,8 @@ Json scan_work(Database& db, Id job, Id source, Id budget, const std::vector<fs:
             (void)problems.row();
             struct stat final_root{};
             const bool same_root = ::stat(path.c_str(), &final_root) == 0 &&
-                                   static_cast<Id>(final_root.st_dev) == root.number(4) &&
-                                   static_cast<Id>(final_root.st_ino) == root.number(5);
+                                   final_root.st_dev == root_stat.st_dev &&
+                                   final_root.st_ino == root_stat.st_ino;
             if (!same_root) {
                 Statement offline(db.get(), "UPDATE sources SET availability='offline' WHERE id=?");
                 offline.bind(1, source).run();
@@ -2687,19 +2848,36 @@ Json reconcile_operations(Database& db) {
 Json relink(Database& db, const Json& request) {
     const Id source = request.at("source_id").get<Id>();
     const auto new_root = fs::canonical(fs::path(checked_text(request, "path")));
-    if (!fs::is_directory(new_root))
+    struct stat root{};
+    if (::stat(new_root.c_str(), &root) != 0 || !S_ISDIR(root.st_mode))
         throw std::runtime_error("Choose an available source folder");
+    Statement original(db.get(),
+                       "SELECT s.path,s.device,s.inode,COALESCE(f.identity,'') FROM sources s "
+                       "LEFT JOIN source_filesystems f ON f.source_id=s.id WHERE s.id=?");
+    original.bind(1, source);
+    if (!original.row())
+        throw std::runtime_error("Source no longer exists");
+    const auto identity = filesystem_identity(new_root, root);
+    if (!original.text(3).empty() && original.text(3) != identity)
+        throw std::runtime_error(
+            "The selected folder belongs to a different or unverified filesystem");
+    const bool remount = new_root == fs::path(original.text(0)) &&
+                         static_cast<Id>(root.st_ino) == original.number(2) &&
+                         static_cast<Id>(root.st_dev) != original.number(1) && !identity.empty() &&
+                         (original.text(3).empty() || original.text(3) == identity);
     Statement overlap(db.get(), "SELECT path FROM sources WHERE id<>?");
     overlap.bind(1, source);
     while (overlap.row())
         if (contains(fs::path(overlap.text(0)), new_root) ||
             contains(new_root, fs::path(overlap.text(0))))
             throw std::runtime_error("Relink would overlap another source");
-    Statement photos(
-        db.get(),
-        "SELECT id,relative_path,device,inode,size,mtime,mtime_ns FROM photos WHERE source_id=?");
+    Transaction transaction(db);
+    Statement photos(db.get(),
+                     "SELECT id,relative_path,device,inode,size,mtime,mtime_ns FROM photos "
+                     "WHERE source_id=? AND availability NOT IN ('replaced','trashed')");
     photos.bind(1, source);
-    Json matched = Json::array(), missing = Json::array(), ambiguous = Json::array();
+    Json matched = Json::array(), missing = Json::array(), ambiguous = Json::array(),
+         candidates = Json::array();
     while (photos.row()) {
         struct stat st{};
         const auto path = new_root / photos.text(1);
@@ -2707,22 +2885,34 @@ Json relink(Database& db, const Json& request) {
             missing.push_back(photos.number(0));
             continue;
         }
-        if (static_cast<Id>(st.st_dev) == photos.number(2) &&
-            static_cast<Id>(st.st_ino) == photos.number(3) &&
-            static_cast<Id>(st.st_size) == photos.number(4) &&
-            static_cast<Id>(st.st_mtim.tv_sec) == photos.number(5) &&
-            static_cast<Id>(st.st_mtim.tv_nsec) == photos.number(6))
-            matched.push_back(photos.number(0));
-        else
-            ambiguous.push_back(photos.number(0));
+        if (same_photo_stat(st, photos, 3)) {
+            if (static_cast<Id>(st.st_dev) == photos.number(2)) {
+                matched.push_back(photos.number(0));
+                continue;
+            }
+            if (remount && photos.number(2) == original.number(1) && st.st_dev == root.st_dev) {
+                candidates.push_back(photos.number(0));
+                continue;
+            }
+        }
+        ambiguous.push_back(photos.number(0));
     }
+    const bool requires_confirmation =
+        remount && !candidates.empty() && missing.empty() && ambiguous.empty();
     if (request.value("confirm", false)) {
-        if (!ambiguous.empty() || matched.empty())
+        if (!ambiguous.empty() ||
+            (!candidates.empty() &&
+             (!requires_confirmation || !request.value("confirm_remount", false))) ||
+            (matched.empty() && candidates.empty()))
             throw std::runtime_error(
-                "Relink has ambiguous identities; original source mapping was preserved");
-        struct stat root{};
-        if (::stat(new_root.c_str(), &root) != 0)
-            throw std::runtime_error("Relink folder became unavailable");
+                "Relink needs a confirmed identity review; original source mapping was preserved");
+        if (!candidates.empty())
+            rebind_source_device(db, source, new_root, original.number(1), root, identity, false);
+        struct stat final_root{};
+        if (::stat(new_root.c_str(), &final_root) != 0 || final_root.st_dev != root.st_dev ||
+            final_root.st_ino != root.st_ino ||
+            filesystem_identity(new_root, final_root) != identity)
+            throw std::runtime_error("Relink folder changed during review; retry");
         Statement update(
             db.get(),
             "UPDATE sources SET path=?,availability='online',device=?,inode=? WHERE id=?");
@@ -2731,10 +2921,14 @@ Json relink(Database& db, const Json& request) {
             .bind(3, static_cast<Id>(root.st_ino))
             .bind(4, source)
             .run();
+        remember_filesystem(db, source, identity);
     }
+    transaction.commit();
     return {{"matched", matched},
             {"missing", missing},
             {"ambiguous", ambiguous},
+            {"remount_candidates", candidates},
+            {"requires_confirmation", requires_confirmation},
             {"applied", request.value("confirm", false)}};
 }
 

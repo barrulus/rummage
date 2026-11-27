@@ -219,8 +219,11 @@ void PhotoLibrary::sync_selection() const {
     selection_revision_ = folder_->selection_revision();
     if (!photo_rows())
         return;
-    for (const auto& row : rows_)
-        selected_.erase(row.value("id", Id{}));
+    // Native selection is authoritative after a user gesture. In particular, plain clicks
+    // and keyboard movement replace every bulk target, including any no-longer-visible IDs.
+    // Programmatic refresh/append publication records its revision separately below.
+    selected_.clear();
+    restored_selection_pending_ = false;
     for (const auto& key : folder_->selected_names())
         if (const auto id = photo_id(key); id > 0)
             selected_.insert(id);
@@ -235,6 +238,20 @@ void PhotoLibrary::sync_selection() const {
         cursor_ = photo_id(entry->key());
     else
         cursor_ = 0;
+    state_dirty_ = true;
+}
+
+void PhotoLibrary::clear_photo_selection() {
+    publishing_ = true;
+    folder_->set_cursor(std::nullopt);
+    publishing_ = false;
+    selected_.clear();
+    selected_snapshots_.clear();
+    restored_selection_pending_ = false;
+    focused_properties_.reset();
+    selected_properties_.reset();
+    cursor_ = 0;
+    selection_revision_ = folder_->selection_revision();
     state_dirty_ = true;
 }
 
@@ -337,6 +354,7 @@ void PhotoLibrary::restore_state(std::string_view value) {
         search_ = std::move(text);
         filter_ = std::move(filter);
         selected_ = std::move(selected);
+        restored_selection_pending_ = true;
         offset_ = static_cast<std::size_t>(loaded);
         cursor_ = cursor;
         active_saved_search_ = saved_search;
@@ -451,9 +469,13 @@ void PhotoLibrary::open_album(Id id, std::string name) {
     if (id <= 0)
         return;
     sync_selection();
+    auto next_filter = sort_filter(filter_);
+    next_filter["album_id"] = id;
+    if (filter_ != next_filter || !search_.empty() || active_saved_search_ > 0 ||
+        destination_ == Destination::duplicate_group)
+        clear_photo_selection();
     active_saved_search_ = 0;
-    filter_ = sort_filter(filter_);
-    filter_["album_id"] = id;
+    filter_ = std::move(next_filter);
     search_.clear();
     collection_name_ = std::move(name);
     offset_ = 0;
@@ -465,9 +487,13 @@ void PhotoLibrary::open_source(Id id, std::string path) {
     if (id <= 0)
         return;
     sync_selection();
+    auto next_filter = sort_filter(filter_);
+    next_filter["source_id"] = id;
+    if (filter_ != next_filter || !search_.empty() || active_saved_search_ > 0 ||
+        destination_ == Destination::duplicate_group)
+        clear_photo_selection();
     active_saved_search_ = 0;
-    filter_ = sort_filter(filter_);
-    filter_["source_id"] = id;
+    filter_ = std::move(next_filter);
     search_.clear();
     collection_name_ = std::move(path);
     offset_ = 0;
@@ -479,6 +505,10 @@ void PhotoLibrary::open_saved_search(Json record) {
     if (!record.is_object() || !record.contains("filter") || !record["filter"].is_object())
         return;
     sync_selection();
+    if (filter_ != record["filter"] || active_saved_search_ != record.value("id", Id{}) ||
+        search_ != record["filter"].value("text", "") ||
+        destination_ == Destination::duplicate_group)
+        clear_photo_selection();
     active_saved_search_ = record.value("id", Id{});
     filter_ = record["filter"];
     search_ = filter_.value("text", "");
@@ -508,6 +538,7 @@ void PhotoLibrary::clear_catalog_state() {
     publishing_ = false;
     selection_revision_ = folder_->selection_revision();
     restored_catalog_state_ = false;
+    restored_selection_pending_ = false;
     restored_catalog_identity_.clear();
     state_dirty_ = true;
 }
@@ -894,6 +925,18 @@ void PhotoLibrary::query(bool reset) {
                         rows_.push_back(std::move(row));
                 offset_ = response.value("fetched", std::size_t{});
                 total_ = response.value("total", std::size_t{});
+                if (std::exchange(restored_selection_pending_, false)) {
+                    // Old sessions could carry picks from unrelated collections. The restored
+                    // loaded prefix is complete now; only its visible identities remain targets.
+                    std::erase_if(selected_, [&](Id id) { return !seen.contains(id); });
+                    std::erase_if(selected_snapshots_, [&](const auto& item) {
+                        return !selected_.contains(item.first);
+                    });
+                    if (!seen.contains(cursor_))
+                        cursor_ = 0;
+                    selected_properties_.reset();
+                    state_dirty_ = true;
+                }
                 publish();
                 drain_metadata();
                 if (std::exchange(refresh_again_, false))
@@ -1039,8 +1082,18 @@ bool PhotoLibrary::at_all_photos() const {
 void PhotoLibrary::show_all_photos() {
     discard_pending_restore();
     sync_selection();
+    const auto next_filter = sort_filter(filter_);
+    const bool changed_scope = filter_ != next_filter || !search_.empty() ||
+                               active_saved_search_ > 0 ||
+                               destination_ == Destination::duplicate_group;
+    if (!changed_scope && destination_ == Destination::library) {
+        refresh();
+        return;
+    }
+    if (changed_scope)
+        clear_photo_selection();
     active_saved_search_ = 0;
-    filter_ = sort_filter(filter_);
+    filter_ = next_filter;
     search_.clear();
     collection_name_.clear();
     offset_ = 0;
@@ -1086,13 +1139,7 @@ void PhotoLibrary::set_query(std::string query_text) {
         collection_name_.clear();
     active_saved_search_ = 0;
     offset_ = 0;
-    selected_.clear();
-    selected_snapshots_.clear();
-    cursor_ = 0;
-    publishing_ = true;
-    folder_->set_cursor(std::nullopt);
-    publishing_ = false;
-    selection_revision_ = folder_->selection_revision();
+    clear_photo_selection();
     if (destination_ != Destination::library)
         destination_ = Destination::library;
     query(true);
@@ -1689,7 +1736,7 @@ std::vector<MenuItem> PhotoLibrary::menu_items() {
     });
     add("photos:clear", tr("Clear photo filters"), [this] { show_all_photos(); });
     add("photos:retained", tr("Review retained photo associations"), [this] {
-        sync_selection();
+        clear_photo_selection();
         if (filter_.value("retained_only", false))
             filter_.erase("retained_only");
         else
@@ -2045,8 +2092,7 @@ void PhotoLibrary::review_group(const Json& group) {
     keepers_.clear();
     keepers_.insert(group.value("keeper_id", Id{}));
     destination_ = Destination::duplicate_group;
-    selected_.clear();
-    cursor_ = 0;
+    clear_photo_selection();
     publishing_ = true;
     folder_->replace_collection({}, title(), 0);
     publishing_ = false;
@@ -2114,7 +2160,6 @@ void PhotoLibrary::relink_source(const Json& source) {
             return;
         source_id_ = source.value("id", Id{});
         source_path_ = std::move(path);
-        relink_reviewed_ = false;
         open_form(Form::relink);
         form_detail_ = source_path_.string() + "\n" + tr("Checking photo identities…");
         const auto form_generation = form_generation_;
@@ -2128,10 +2173,25 @@ void PhotoLibrary::relink_source(const Json& source) {
                     const auto matched = result.value("matched", Json::array()).size();
                     const auto missing = result.value("missing", Json::array()).size();
                     const auto ambiguous = result.value("ambiguous", Json::array()).size();
+                    const auto remounts = result.value("remount_candidates", Json::array()).size();
                     form_detail_ = source_path_.string() + "\n" +
-                                   i18n::trf("Matched: {} · Missing: {} · Ambiguous: {}", matched,
-                                             missing, ambiguous);
-                    relink_reviewed_ = matched > 0 && ambiguous == 0;
+                                   i18n::trf("Matched: {} · Missing: {} · Ambiguous: {}",
+                                             matched + remounts, missing, ambiguous);
+                    relink_remount_confirmation_ = result.value("requires_confirmation", false);
+                    if (relink_remount_confirmation_) {
+                        form_title_ = tr("Reconnect photo source");
+                        form_detail_ +=
+                            "\n\n" +
+                            tr("This folder is present, but its device number has changed.") +
+                            "\n" +
+                            i18n::trf("{} photos match their recorded file details.",
+                                      matched + remounts) +
+                            "\n" + tr("Confirm this is the original folder to reconnect it.") +
+                            "\n" + tr("Existing albums and annotations will be kept.");
+                    }
+                    relink_reviewed_ =
+                        ambiguous == 0 &&
+                        (relink_remount_confirmation_ ? remounts > 0 && missing == 0 : matched > 0);
                 });
     });
 }
@@ -2146,6 +2206,8 @@ void PhotoLibrary::open_form(Form form, std::vector<std::pair<std::string, std::
     focus_ = 0;
     form_message_.clear();
     form_detail_.clear();
+    relink_reviewed_ = false;
+    relink_remount_confirmation_ = false;
     controls_.clear();
     form_scroll_.jump_to(0);
     form_height_ = 0;
@@ -2199,6 +2261,10 @@ void PhotoLibrary::submit_form() {
             changed();
             return;
         }
+        if (filter_.value("rating_min", 0) != rating ||
+            filter_.value("date_from", "") != fields_[1].text() ||
+            filter_.value("date_to", "") != fields_[2].text())
+            clear_photo_selection();
         active_saved_search_ = 0;
         filter_["rating_min"] = rating;
         filter_["date_from"] = fields_[1].text();
@@ -2207,11 +2273,15 @@ void PhotoLibrary::submit_form() {
         close_form();
         show(Destination::library);
     } else if (form_ == Form::relink && relink_reviewed_) {
-        mutate({{"op", "relink_source"},
-                {"source_id", source_id_},
-                {"path", source_path_.string()},
-                {"confirm", true}},
-               tr("Source relinked; existing organisation retained"));
+        Json input{{"op", "relink_source"},
+                   {"source_id", source_id_},
+                   {"path", source_path_.string()},
+                   {"confirm", true}};
+        // This permission is granted only by submitting the explicit remount review above.
+        // The backend revalidates the source and every candidate before accepting it.
+        if (relink_remount_confirmation_)
+            input["confirm_remount"] = true;
+        mutate(std::move(input), tr("Source relinked; existing organisation retained"));
     }
 }
 
@@ -2581,9 +2651,10 @@ void PhotoLibrary::draw_dialogs(ui::Renderer& renderer, const ui::Rect& bounds,
     if (form_ != Form::outcome)
         form_button(
             renderer, palette, {frame.footer.right() - 116, footer_y, 96, 34},
-            form_ == Form::source   ? tr("Add folder")
-            : form_ == Form::relink ? tr("Relink")
-                                    : tr("Apply"),
+            form_ == Form::source ? tr("Add folder")
+            : form_ == Form::relink
+                ? (relink_remount_confirmation_ ? tr("Reconnect") : tr("Relink"))
+                : tr("Apply"),
             [this] { submit_form(); }, form_ != Form::relink || relink_reviewed_);
     renderer.draw_text(form_message_, frame.footer.x + 20, footer_y + 44, 12,
                        palette.on_surface_variant, frame.footer.width - 40);

@@ -237,9 +237,10 @@ endif()
 if(RUMMAGE_PHOTOS)
     # Native photo workflows have their own executable so UI iteration does not rebuild the
     # unrelated format, filesystem and preview test translation units.
+    find_package(SQLite3 REQUIRED)
     add_executable(rummage-photo-ui-tests main.cpp photo_library_ui_test.cpp)
     target_link_libraries(rummage-photo-ui-tests PRIVATE
-        $<TARGET_PROPERTY:rummage-tests,LINK_LIBRARIES>)
+        $<TARGET_PROPERTY:rummage-tests,LINK_LIBRARIES> SQLite::SQLite3)
     target_compile_definitions(rummage-photo-ui-tests PRIVATE
         $<TARGET_PROPERTY:rummage-tests,COMPILE_DEFINITIONS>)
     if(RUMMAGE_SANITIZER)

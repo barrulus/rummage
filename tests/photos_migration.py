@@ -213,6 +213,111 @@ def main():
         assert {key: summary[key] for key in keys} == {key: detailed[key] for key in keys}
         assert summary["metadata_total"] == summary["metadata_unavailable"] == summary["in_flight"] == 0
 
+        # Mount device numbers are ephemeral. Only a previously recorded local UUID
+        # permits automatic rebasing; old catalogs require an explicit same-root review.
+        def remount_fixture(name):
+            database = root / name / "catalog.db"
+            folder = root / (name + "-photos")
+            folder.mkdir()
+            for filename in ("one.jpg", "two.jpg"):
+                (folder / filename).write_bytes(b"original image")
+            added = call(database, {"op": "add_source", "path": str(folder)})
+            for _ in range(10):
+                work = call(database, {"op": "work", "budget": 64})
+                for item in work.get("metadata", []):
+                    call(database, {"op": "metadata", "id": item["id"],
+                                    "signature": item["signature"], "width": 12, "height": 8})
+                if not work.get("worked") and not work.get("metadata"):
+                    break
+            photos = call(database, {"op": "query"})["photos"]
+            album = call(database, {"op": "create_album", "name": "Preserved",
+                                    "ids": [photo["id"] for photo in photos]})["id"]
+            with sqlite3.connect(database) as connection:
+                identity = connection.execute("SELECT identity FROM source_filesystems").fetchone()
+            return database, folder, added["source"]["id"], photos, album, bool(identity)
+
+        def renumber(database, sid, legacy=False):
+            with sqlite3.connect(database) as connection:
+                old_device = connection.execute("SELECT device FROM sources WHERE id=?", (sid,)).fetchone()[0]
+                connection.execute("UPDATE sources SET device=device+1000 WHERE id=?", (sid,))
+                connection.execute("UPDATE photos SET metadata_signature=CASE WHEN metadata_signature<>'' THEN CAST(device+1000 AS TEXT)||substr(metadata_signature,instr(metadata_signature,':')) ELSE '' END,device=device+1000 WHERE source_id=?", (sid,))
+                if legacy:
+                    connection.execute("DELETE FROM source_filesystems WHERE source_id=?", (sid,))
+            return old_device
+
+        remount, photos_root, sid, original_photos, album, supported = remount_fixture("remount")
+        actual_device = renumber(remount, sid)
+        if supported:
+            with sqlite3.connect(remount) as connection:
+                connection.execute("INSERT INTO operations(kind,state,payload) VALUES('trash','needs_review','{\"guard\":\"unchanged\"}')")
+                connection.execute("INSERT INTO photo_receipts(photo_id,operation_id,path,signature) VALUES(?,1,?,'old-device-receipt')", (original_photos[0]["id"], str(photos_root / "one.jpg")))
+            rebased = call(remount, {"op": "query"})["photos"]
+            assert [p["id"] for p in rebased] == [p["id"] for p in original_photos]
+            assert all(p["device"] == actual_device and p["availability"] == "online" for p in rebased)
+            assert call(remount, {"op": "query", "album_id": album})["total"] == 2
+            with sqlite3.connect(remount) as connection:
+                assert connection.execute("SELECT count(*) FROM photos WHERE metadata_signature LIKE ?", (str(actual_device) + ":%",)).fetchone()[0] == 2
+                assert connection.execute("SELECT payload FROM operations").fetchone()[0] == '{"guard":"unchanged"}'
+                assert connection.execute("SELECT signature FROM photo_receipts").fetchone()[0] == "old-device-receipt"
+            # In-place edits keep identity on a proven filesystem; replacement inodes do not.
+            edited, edited_root, edited_sid, old, edited_album, _ = remount_fixture("edited-remount")
+            renumber(edited, edited_sid)
+            (edited_root / "one.jpg").write_bytes(b"edited in place, same inode")
+            replacement = edited_root / "replacement.tmp"
+            replacement.write_bytes(b"replacement inode")
+            replacement.replace(edited_root / "two.jpg")
+            stale = call(edited, {"op": "query"})["photos"]
+            assert all(p["availability"] == "changed" for p in stale)
+            for _ in range(10):
+                work = call(edited, {"op": "work", "budget": 64})
+                for item in work.get("metadata", []):
+                    call(edited, {"op": "metadata", "id": item["id"], "signature": item["signature"]})
+                if not work.get("worked") and not work.get("metadata"):
+                    break
+            current = {p["filename"]: p for p in call(edited, {"op": "query"})["photos"]}
+            old_by_name = {p["filename"]: p for p in old}
+            assert current["one.jpg"]["id"] == old_by_name["one.jpg"]["id"]
+            assert current["two.jpg"]["id"] != old_by_name["two.jpg"]["id"]
+            assert call(edited, {"op": "query", "album_id": edited_album})["total"] == 1
+
+        legacy, legacy_root, sid, old, album, legacy_supported = remount_fixture("legacy-remount")
+        actual_device = renumber(legacy, sid, legacy=True)
+        changed = call(legacy, {"op": "query"})["photos"]
+        assert all(p["availability"] == "changed" and p["device"] != actual_device for p in changed)
+        preview = call(legacy, {"op": "relink_source", "source_id": sid, "path": str(legacy_root)})
+        if legacy_supported:
+            assert preview["requires_confirmation"] and len(preview["remount_candidates"]) == 2
+            call(legacy, {"op": "relink_source", "source_id": sid, "path": str(legacy_root), "confirm": True}, success=False)
+            confirmed = call(legacy, {"op": "relink_source", "source_id": sid, "path": str(legacy_root), "confirm": True, "confirm_remount": True})
+            assert confirmed["applied"]
+            assert call(legacy, {"op": "query", "album_id": album})["total"] == 2
+            assert all(p["device"] == actual_device for p in call(legacy, {"op": "query"})["photos"])
+            # A recorded UUID mismatch never gains trust from matching inode/stat fields.
+            renumber(legacy, sid)
+            with sqlite3.connect(legacy) as connection:
+                connection.execute("UPDATE source_filesystems SET identity='different-filesystem'")
+            assert all(p["availability"] == "changed" for p in call(legacy, {"op": "query"})["photos"])
+            call(legacy, {"op": "relink_source", "source_id": sid, "path": str(legacy_root), "confirm": True, "confirm_remount": True}, success=False)
+            # Reusing the same mount device number does not override a known UUID mismatch.
+            with sqlite3.connect(legacy) as connection:
+                connection.execute("UPDATE sources SET device=? WHERE id=?", (actual_device, sid))
+                connection.execute("UPDATE photos SET device=? WHERE source_id=?", (actual_device, sid))
+            assert all(p["availability"] == "changed" for p in call(legacy, {"op": "query"})["photos"])
+            call(legacy, {"op": "relink_source", "source_id": sid, "path": str(legacy_root), "confirm": True}, success=False)
+            with sqlite3.connect(legacy) as connection:
+                assert connection.execute("SELECT identity FROM source_filesystems").fetchone()[0] == "different-filesystem"
+        else:
+            assert not preview["requires_confirmation"]
+            print("Durable remount acceptance skipped: test filesystem exposes no supported UUID")
+        # No legacy confirmation may silently accept a photo edited after its saved snapshot.
+        refused, refused_root, sid, old, album, _ = remount_fixture("changed-legacy")
+        renumber(refused, sid, legacy=True)
+        (refused_root / "one.jpg").write_bytes(b"changed after catalog snapshot")
+        preview = call(refused, {"op": "relink_source", "source_id": sid, "path": str(refused_root)})
+        assert not preview["requires_confirmation"] and preview["ambiguous"]
+        call(refused, {"op": "relink_source", "source_id": sid, "path": str(refused_root), "confirm": True, "confirm_remount": True}, success=False)
+        assert call(refused, {"op": "query", "album_id": album})["total"] == 2
+
         context = multiprocessing.get_context("fork")
         for upgrade in (False, True):
             concurrent_catalog = root / ("process-upgrade" if upgrade else "process-fresh") / "catalog.db"

@@ -75,8 +75,12 @@ sources and saved searches. The initial 200 photos are a loading batch, not a co
 more are appended near the end without changing your selection or resetting your scroll.
 The status bar distinguishes the full matching count from the number currently loaded.
 **Select loaded photos** and the ordinary Select All shortcut select the loaded entries;
-they do not select matching photos that have not loaded yet. Selection can span collections.
-Use **Clear all photo selection** before beginning an unrelated bulk edit.
+they do not select matching photos that have not loaded yet.
+Selections belong to the current photo collection. Entering another album, source or saved
+search clears the previous selection; a normal click or arrow-key move replaces it. Loading
+more photos and refreshing the same collection preserve it. **Clear all photo selection** also
+clears it explicitly. The Albums manager can still use **Add selected photos to album** for
+the selection you brought from the library.
 
 Enter or Space opens the focused photo in **Quick Look**, using Rummage's existing
 preview. **Show in Folder** opens the original location in a folder tab. An offline original
@@ -248,7 +252,18 @@ made while Rummage was closed. Nearby filesystem events are collected for 150 ms
 queuing a source refresh. Watcher overflow also queues reconciliation; unchanged signatures retain
 derived metadata and duplicate fingerprints. Source availability is checked every 30 seconds,
 and a reconnected source queues a refresh. An unavailable source is marked offline; failure
-to read a drive is not treated as mass deletion. Sources must expose stable file identities.
+to read a drive is not treated as mass deletion. A reachable source whose identity cannot yet
+be verified is marked changed instead. Its current-file preview and metadata remain available,
+while operations on the catalog's original identities remain guarded.
+
+For supported local ext filesystems and XFS, the catalog records a filesystem UUID so device
+renumbering after a restart does not make an established source appear offline. Older catalogs
+without that identifier need a one-time review: use **Relink source…**, choose the same folder,
+and review **Reconnect**. It reports matching originals and requires confirmation; missing or
+ambiguous originals block this device-change reconnect. Album memberships and annotations stay
+attached to verified photo identities.
+
+Sources must expose stable file identities.
 Some SSHFS mounts change child inode numbers between reads; those originals can be marked
 changed and have metadata rejected even when size and modification time match. The status
 reports them separately. Refresh can retry, but does not resolve continuing inode instability;
