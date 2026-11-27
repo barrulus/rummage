@@ -12,8 +12,9 @@ struct DialogFrame {
     ui::Rect card, header, body, footer;
     static DialogFrame fit(const ui::Rect& window, float width, float height,
                            float footer_height = 56.0F);
+    static DialogFrame fill(const ui::Rect& window, float footer_height = 56.0F);
     void draw(ui::Renderer& renderer, const ui::Rect& window, const theme::Palette& palette,
-              std::string_view title) const;
+              std::string_view title, bool window_content = false) const;
 };
 
 // Shared surface for dialogs with specialized body geometry.

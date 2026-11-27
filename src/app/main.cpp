@@ -1671,11 +1671,13 @@ int main(int argc, char** argv) {
                                    : i18n::trf("Properties — {}",
                                                label.empty() ? path.filename().string() : label),
                  .app_id = "rummage",
-                 .width = settings ? 1080 : 760,
-                 .height = 820,
+                 .width = settings ? 880 : 760,
+                 .height = settings ? 780 : 820,
                  .background = theme.palette().surface,
                  .force_client_decorations = client_decorations_forced(),
-                 .background_opacity = config.appearance.background_opacity,
+                 .background_opacity = settings && !config.appearance.transparent_settings
+                                           ? 1.0F
+                                           : config.appearance.background_opacity,
                  .parent_window = {}}};
             window.set_zoom(config.font.zoom());
             auto binding = std::make_shared<Binding>();
@@ -1825,7 +1827,10 @@ int main(int argc, char** argv) {
             };
             binding->config = [&](const core::ConfigResult& fresh) {
                 window.set_zoom(fresh.config.font.zoom());
-                window.set_background_opacity(fresh.config.appearance.background_opacity);
+                window.set_background_opacity(settings &&
+                                                      !fresh.config.appearance.transparent_settings
+                                                  ? 1.0F
+                                                  : fresh.config.appearance.background_opacity);
                 window.request_redraw();
             };
             // Disconnect while every captured local is still alive, including on exceptions.
@@ -1865,7 +1870,7 @@ int main(int argc, char** argv) {
                     content = title_bar.content(bounds);
                 }
                 if (settings) {
-                    preferences.draw(renderer, content, theme.palette(), icons);
+                    preferences.draw(renderer, content, theme.palette(), icons, true);
                     if (preferences.animating())
                         window.request_redraw();
                     else if (const auto interval = preferences.ambient_interval())

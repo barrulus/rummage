@@ -410,6 +410,13 @@ opaque and `0.0` transparent. Keep compositor window opacity at `1.0`, since a
 compositor opacity rule fades all content. rummage supplies transparency; any blur
 comes from the compositor. The setting reloads live.
 
+Settings fills its separate window, including when resized or tiled. Its background
+is opaque by default. Enable **Settings → Appearance → Transparent Settings**
+(`appearance.transparent_settings = true`) to use the same background opacity there.
+Text and controls stay solid. When Settings is embedded in a browser window
+(`windows.separate_settings = false`), this toggle blends the Settings panel over
+the browser content instead. Both opacity controls apply immediately.
+
 ## Scale, decorations and pointers
 
 Fractional scaling uses the compositor's fractional-scale and viewporter protocols.

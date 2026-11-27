@@ -39,6 +39,8 @@ wrap = false
 # Transparency is disabled by default (1.0). Keep compositor window opacity at 1.0.
 # Compositor blur can still be enabled.
 background_opacity = 1.0
+# Apply background opacity to Settings too; text and controls stay solid.
+transparent_settings = false
 # "auto" prefers colors.toml, then desktop preferences, then the built-in palette.
 # "desktop" ignores colors.toml; "file" uses it; "builtin" ignores both sources.
 # "kde" imports the active colours from $XDG_CONFIG_HOME/kdeglobals (normally ~/.config/kdeglobals).
