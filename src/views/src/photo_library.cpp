@@ -420,6 +420,20 @@ std::string PhotoLibrary::navigation_uri() const {
     return std::string(root);
 }
 
+PhotoLibrary::Id PhotoLibrary::active_album() const {
+    return destination_ == Destination::library && active_saved_search_ == 0
+               ? filter_.value("album_id", Id{})
+               : 0;
+}
+
+void PhotoLibrary::add_album_paths(Id album, const std::vector<std::filesystem::path>& paths) {
+    Json values = Json::array();
+    for (const auto& path : paths)
+        values.push_back(path.string());
+    mutate({{"op", "album_add_paths"}, {"id", album}, {"paths", std::move(values)}},
+           tr("Photos added to album; original files kept in place"));
+}
+
 void PhotoLibrary::open_album(Id id, std::string name) {
     if (id <= 0)
         return;
@@ -1059,10 +1073,10 @@ void PhotoLibrary::mutate(Json input, std::string success) {
     const auto album_id = input.value("id", Id{});
     const auto album_name = input.value("name", std::string{});
     const bool navigation_changed =
-        op == "rename_album" || op == "delete_album" || op == "set_album_cover" ||
-        op == "create_album" || op == "save_filter" || op == "restore" || op == "add_source" ||
-        op == "remove_source" || op == "forget_source" || op == "relink_source" ||
-        op == "refresh" ||
+        op == "album_add_paths" || op == "rename_album" || op == "delete_album" ||
+        op == "set_album_cover" || op == "create_album" || op == "save_filter" || op == "restore" ||
+        op == "add_source" || op == "remove_source" || op == "forget_source" ||
+        op == "relink_source" || op == "refresh" ||
         (op == "edit" && (input.contains("add_albums") || input.contains("remove_albums")));
     const bool watches_changed = op == "add_source" || op == "remove_source" ||
                                  op == "forget_source" || op == "relink_source" || op == "refresh";
@@ -1299,11 +1313,21 @@ PhotoProperties PhotoLibrary::build_properties(bool focused_only) const {
             result.rows.emplace_back(
                 tr("Preview"), tr("Current file at this location; catalog identity has changed"));
         result.rows.emplace_back(tr("Location"), shown.value("path", ""));
-        result.rows.emplace_back(tr("Dimensions"), std::format("{} × {}", shown.value("width", 0),
-                                                               shown.value("height", 0)));
-        result.rows.emplace_back(tr("Camera"), text_value(shown, "camera"));
-        result.rows.emplace_back(tr("Capture date"), text_value(shown, "capture_date"));
-        result.rows.emplace_back(tr("Date origin"), photo_label(text_value(shown, "date_origin")));
+        const bool changed = result.entry.preview_current_location;
+        const auto width = shown.value("width", 0), height = shown.value("height", 0);
+        if (width > 0 && height > 0)
+            result.rows.emplace_back(changed ? tr("Catalog dimensions") : tr("Dimensions"),
+                                     std::format("{} × {}", width, height));
+        const auto camera = text_value(shown, "camera");
+        if (!camera.empty())
+            result.rows.emplace_back(changed ? tr("Catalog camera") : tr("Camera"), camera);
+        const auto capture_date = text_value(shown, "capture_date");
+        if (!capture_date.empty()) {
+            result.rows.emplace_back(changed ? tr("Catalog capture date") : tr("Capture date"),
+                                     capture_date);
+            result.rows.emplace_back(tr("Date origin"),
+                                     photo_label(text_value(shown, "date_origin")));
+        }
         result.rows.emplace_back(tr("Albums"), text_value(shown, "albums"));
     }
     if (!selected.empty() && selected.size() == result.ids.size()) {

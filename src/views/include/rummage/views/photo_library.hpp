@@ -61,6 +61,8 @@ public:
 
     [[nodiscard]] std::string navigation_uri() const;
     void open_album(Id id, std::string name);
+    [[nodiscard]] Id active_album() const;
+    void add_album_paths(Id album, const std::vector<std::filesystem::path>& paths);
     void open_source(Id id, std::string path);
     void open_saved_search(Json record);
 

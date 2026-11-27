@@ -1025,6 +1025,73 @@ TEST_CASE("album covers restore with identity mapping and fall back after source
     CHECK(fixture.call({{"op", "query"}, {"album_id", restored["id"]}})["total"] == 2);
 }
 
+TEST_CASE("pasting photo paths into albums is atomic and preserves originals") {
+    Fixture fixture;
+    const auto first = fixture.file("a/same.jpg", "first original");
+    const auto second = fixture.file("b/same.jpg", "second original");
+    fixture.add("a");
+    fixture.add("b");
+    fixture.drain();
+    const auto photos = fixture.call({{"op", "query"}})["photos"];
+    REQUIRE(photos.size() == 2);
+    const auto album = fixture.call({{"op", "create_album"}, {"name", "Pasted"}})["id"];
+    const auto first_time = fs::last_write_time(first), second_time = fs::last_write_time(second);
+    const Json paths = Json::array({first.string(), second.string(), first.string()});
+    CHECK(fixture.call({{"op", "album_add_paths"}, {"id", album}, {"paths", paths}})["count"] == 2);
+    CHECK(fixture.call({{"op", "album_add_paths"}, {"id", album}, {"paths", paths}})["count"] == 2);
+    const auto members = fixture.call({{"op", "query"}, {"album_id", album}})["photos"];
+    REQUIRE(members.size() == 2);
+    CHECK(members[0]["id"] != members[1]["id"]);
+    CHECK(members[0]["path"] != members[1]["path"]);
+    CHECK(fs::file_size(first) == std::string("first original").size());
+    CHECK(fs::file_size(second) == std::string("second original").size());
+    CHECK(fs::last_write_time(first) == first_time);
+    CHECK(fs::last_write_time(second) == second_time);
+    const auto empty = fixture.call({{"op", "create_album"}, {"name", "Atomic"}})["id"];
+    fixture.call(
+        {{"op", "album_add_paths"},
+         {"id", empty},
+         {"paths", Json::array({first.string(), (fixture.root / "a/unknown.jpg").string()})}},
+        false);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", empty}})["total"] == 0);
+    fixture.call({{"op", "album_add_paths"}, {"id", empty}, {"paths", Json::array()}}, false);
+    fixture.call({{"op", "album_add_paths"},
+                  {"id", empty},
+                  {"paths", Json::array({first.string(), "relative.jpg"})}},
+                 false);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", empty}})["total"] == 0);
+    fixture.call({{"op", "delete_album"}, {"id", empty}});
+    fixture.call({{"op", "album_add_paths"}, {"id", empty}, {"paths", paths}}, false);
+    CHECK(fixture.call({{"op", "query"}, {"album_id", album}})["total"] == 2);
+}
+
+TEST_CASE("album paste accepts changed current locations and rejects inactive sources") {
+    Fixture fixture;
+    const auto path = fixture.file("source/photo.jpg", "before change");
+    const auto source = fixture.add("source")["source"]["id"];
+    fixture.drain();
+    const auto photo = fixture.call({{"op", "query"}})["photos"][0];
+    fixture.file("source/photo.jpg", "current changed bytes");
+    CHECK(fixture.call({{"op", "metadata"},
+                        {"id", photo["id"]},
+                        {"signature", photo["signature"]}})["stale"] == true);
+    CHECK(fixture.call({{"op", "query"}})["photos"][0]["availability"] == "changed");
+    const auto modified = fs::last_write_time(path);
+    const auto album = fixture.call({{"op", "create_album"}, {"name", "Changed"}})["id"];
+    const Json paths = Json::array({path.string()});
+    fixture.call({{"op", "album_add_paths"}, {"id", album}, {"paths", paths}});
+    CHECK(fixture.call({{"op", "query"}, {"album_id", album}})["photos"][0]["id"] == photo["id"]);
+    CHECK(fs::file_size(path) == std::string("current changed bytes").size());
+    CHECK(fs::last_write_time(path) == modified);
+    fixture.call({{"op", "remove_source"}, {"id", source}});
+    const auto empty = fixture.call({{"op", "create_album"}, {"name", "Inactive"}})["id"];
+    fixture.call({{"op", "album_add_paths"}, {"id", empty}, {"paths", paths}}, false);
+    CHECK(fixture.call(
+              {{"op", "query"}, {"album_id", empty}, {"include_inactive", true}})["total"] == 0);
+    CHECK(fs::exists(path));
+    CHECK(fs::file_size(path) == std::string("current changed bytes").size());
+}
+
 TEST_CASE("retained associations remain reviewable and album counts match visible photos") {
     Fixture fixture;
     fixture.file("source/photo.jpg");

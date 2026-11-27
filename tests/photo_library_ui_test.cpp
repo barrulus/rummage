@@ -5,11 +5,13 @@
 #include <fstream>
 #include <functional>
 #include <future>
+#include <iterator>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include <doctest/doctest.h>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/picture/wuffs.hpp"
 #include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "rummage/views/photo_library.hpp"
@@ -1397,13 +1399,56 @@ TEST_CASE("photo workspace: changed originals preview freshly without accepting 
     CHECK_FALSE(properties.available);
     CHECK(std::ranges::any_of(properties.rows,
                               [](const auto& row) { return row.first == "Preview"; }));
+    CHECK(std::ranges::none_of(properties.rows, [](const auto& row) {
+        return row.second == "0 × 0" || (row.first == "Date origin" && row.second == "Unknown");
+    }));
     int offers = 0;
+    std::vector<rummage::views::SystemClipboard::Format> copied_formats;
     rummage::views::SystemClipboard clipboard{};
-    clipboard.offer = [&](auto) { ++offers; };
+    clipboard.offer = [&](auto formats) {
+        ++offers;
+        copied_formats = std::move(formats);
+    };
+    clipboard.owned = [] { return true; };
+    clipboard.generation = [&] { return static_cast<std::uint64_t>(offers); };
     browser.set_system_clipboard(std::move(clipboard));
-    browser.take_selection(false);
+    REQUIRE(browser.key(photo_key(XKB_KEY_Menu), Browser::Clock::now()));
+    const auto changed_actions = browser.context_menu().items();
+    REQUIRE(browser.key(photo_key(XKB_KEY_Escape), Browser::Clock::now()));
+    for (const auto* action_id :
+         {"copy", "cut", "copy_path", "properties", "photos:edit", "photos:add-to-album"}) {
+        const auto action =
+            std::ranges::find(changed_actions, action_id, &rummage::views::MenuItem::id);
+        REQUIRE(action != changed_actions.end());
+        CHECK(action->enabled == (std::string_view{action_id} != "cut"));
+    }
+    invoke(changed_actions, "properties");
+    CHECK(browser.properties_dialog().is_open());
+    browser.properties_dialog().close();
+    invoke(changed_actions, "copy");
+    REQUIRE(settle_photos(loop, [&] {
+        return !browser.loading() && std::ranges::any_of(copied_formats, [](const auto& format) {
+            return format.first == "image/png";
+        });
+    }));
+    const auto file_offer =
+        std::ranges::find(copied_formats, std::string{rummage::views::kGnomeFiles},
+                          &rummage::views::SystemClipboard::Format::first);
+    REQUIRE(file_offer != copied_formats.end());
+    const auto files = rummage::views::parse_gnome_copied_files(file_offer->second);
+    REQUIRE(files);
+    CHECK_FALSE(files->cut);
+    CHECK(files->paths == std::vector<std::filesystem::path>{original});
+    const auto image_offer = std::ranges::find(copied_formats, "image/png",
+                                               &rummage::views::SystemClipboard::Format::first);
+    REQUIRE(image_offer != copied_formats.end());
+    std::ifstream copied_original{original, std::ios::binary};
+    const std::string current_bytes{std::istreambuf_iterator<char>{copied_original},
+                                    std::istreambuf_iterator<char>{}};
+    CHECK(image_offer->second == current_bytes);
+    const auto copy_offers = offers;
     browser.take_selection(true);
-    CHECK(offers == 0);
+    CHECK(offers == copy_offers);
 
     const auto cache =
         std::make_shared<rummage::thumbs::Cache>(directory.path / "fresh-cache", "changed-preview");
@@ -1754,5 +1799,377 @@ TEST_CASE("photo workspace: album management preserves originals and renders cho
     CHECK(library.rows().size() == 2);
     CHECK(std::filesystem::exists(source / "First.png"));
     CHECK(std::filesystem::exists(source / "Second.png"));
+}
+
+TEST_CASE(
+    "photo workspace: library and album file copies preserve originals across source folders") {
+    rummage::ui::Offscreen offscreen{900, 700};
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto first = directory.path / "First source" / "First photo.png";
+    const auto second = directory.path / "Second source" / "Second photo.png";
+    const auto destination = directory.path / "Copies";
+    fixture(first);
+    fixture(second);
+    std::filesystem::create_directories(destination);
+    const auto bytes = [](const std::filesystem::path& path) {
+        std::ifstream input{path, std::ios::binary};
+        return std::string{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+    };
+    const auto first_bytes = bytes(first), second_bytes = bytes(second);
+    rummage::photos::Client catalog;
+    for (const auto& source : {first.parent_path(), second.parent_path()})
+        REQUIRE(
+            catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    nlohmann::json rows;
+    for (int i = 0; i < 16; ++i) {
+        REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+        rows = catalog.request({{"op", "query"}}).at("photos");
+        if (rows.size() == 2)
+            break;
+    }
+    REQUIRE(rows.size() == 2);
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    const auto album = catalog.request({{"op", "create_album"},
+                                        {"name", "Copy test"},
+                                        {"ids", {rows[0].at("id"), rows[1].at("id")}}});
+    REQUIRE(album.value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    std::vector<rummage::views::SystemClipboard::Format> formats;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto offered) { formats = std::move(offered); };
+    clipboard.owned = [] { return true; };
+    clipboard.types = [&] {
+        std::vector<std::string> types;
+        for (const auto& [type, value] : formats)
+            types.push_back(type);
+        return types;
+    };
+    clipboard.read = [&](const std::string& type, auto done) {
+        const auto found =
+            std::ranges::find(formats, type, &rummage::views::SystemClipboard::Format::first);
+        REQUIRE(found != formats.end());
+        loop.post([done, value = found->second] { done(value); });
+    };
+    browser.set_system_clipboard(std::move(clipboard));
+    browser.open(destination);
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(
+        settle_photos(loop, [&] { return !library->loading() && library->rows().size() == 2; }));
+    bool open_album = false, use_menu = false;
+    SUBCASE("Library context Copy") { use_menu = true; }
+    SUBCASE("Library Ctrl+C") {}
+    SUBCASE("Album context Copy") { open_album = use_menu = true; }
+    SUBCASE("Album Ctrl+C") { open_album = true; }
+    if (open_album) {
+        library->open_album(album.at("id"), "Copy test");
+        REQUIRE(settle_photos(loop, [&] { return !library->loading(); }));
+    }
+    browser.set_mode(Browser::Mode::details);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    renderer.begin_frame(900, 700, 1, {});
+    browser.draw(renderer, {0, 0, 900, 700}, {}, icons, Browser::Clock::now());
+    renderer.end_frame();
+    library->folder()->select_all();
+    REQUIRE(library->selected_ids().size() == 2);
+    const auto press = [&](KeyEvent key) { REQUIRE(browser.key(key, Browser::Clock::now())); };
+    if (use_menu) {
+        press(photo_key(XKB_KEY_Menu));
+        const auto actions = browser.context_menu().items();
+        press(photo_key(XKB_KEY_Escape));
+        for (const auto* action_id :
+             {"copy", "cut", "copy_path", "properties", "photos:edit", "photos:add-to-album"}) {
+            const auto action =
+                std::ranges::find(actions, action_id, &rummage::views::MenuItem::id);
+            REQUIRE(action != actions.end());
+            CHECK(action->enabled);
+        }
+        invoke(actions, "copy");
+    } else {
+        press(photo_key(XKB_KEY_c, {.ctrl = true}));
+    }
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading() && !formats.empty(); }));
+    const auto offered = std::ranges::find(formats, std::string{rummage::views::kGnomeFiles},
+                                           &rummage::views::SystemClipboard::Format::first);
+    REQUIRE(offered != formats.end());
+    const auto copied = rummage::views::parse_gnome_copied_files(offered->second);
+    REQUIRE(copied);
+    CHECK_FALSE(copied->cut);
+    REQUIRE(copied->paths.size() == 2);
+    CHECK(std::ranges::find(copied->paths, first) != copied->paths.end());
+    CHECK(std::ranges::find(copied->paths, second) != copied->paths.end());
+    const auto pasted_album = catalog.request({{"op", "create_album"}, {"name", "Pasted photos"}});
+    REQUIRE(pasted_album.value("ok", false));
+    library->open_album(pasted_album.at("id").get<PhotoLibrary::Id>(), "Pasted photos");
+    REQUIRE(settle_photos(loop, [&] { return !library->loading() && library->rows().empty(); }));
+    if (use_menu) {
+        press(photo_key(XKB_KEY_Menu));
+        const auto paste_actions = browser.context_menu().items();
+        press(photo_key(XKB_KEY_Escape));
+        invoke(paste_actions, "paste");
+    } else {
+        press(photo_key(XKB_KEY_v, {.ctrl = true}));
+    }
+    REQUIRE(settle_photos(loop, [&] {
+        return !library->loading() && library->rows().size() == 2 &&
+               catalog.request({{"op", "query"}, {"album_id", pasted_album.at("id")}})
+                       .value("total", 0) == 2;
+    }));
+    // Pasting in an album changes membership; the same clipboard still copies files to a folder.
+    CHECK(bytes(first) == first_bytes);
+    CHECK(bytes(second) == second_bytes);
+    browser.open(destination);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    CHECK_FALSE(browser.showing_photos());
+    press(photo_key(XKB_KEY_v, {.ctrl = true}));
+    REQUIRE(settle_photos(loop, [&] {
+        return !browser.loading() && std::filesystem::exists(destination / first.filename()) &&
+               std::filesystem::exists(destination / second.filename());
+    }));
+    CHECK(bytes(destination / first.filename()) == first_bytes);
+    CHECK(bytes(destination / second.filename()) == second_bytes);
+    CHECK(bytes(first) == first_bytes);
+    CHECK(bytes(second) == second_bytes);
+    CHECK(catalog.request({{"op", "query"}, {"album_id", album.at("id")}}).value("total", 0) == 2);
+}
+
+TEST_CASE(
+    "photo workspace: delayed image clipboard enrichment never replaces newer clipboard data") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto original = directory.path / "Photos" / "Image.png";
+    fixture(original);
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", original.parent_path().string()}})
+                .value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    // One worker makes the marker below a deterministic barrier after the image read.
+    rummage::core::WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(
+        settle_photos(loop, [&] { return !library->loading() && library->rows().size() == 1; }));
+    library->folder()->set_cursor(0);
+    std::vector<rummage::views::SystemClipboard::Format> formats;
+    std::uint64_t generation = 0;
+    int offers = 0;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto value) {
+        formats = std::move(value);
+        ++generation;
+        ++offers;
+    };
+    clipboard.owned = [] { return true; };
+    clipboard.generation = [&] { return generation; };
+    browser.set_system_clipboard(std::move(clipboard));
+    const auto drain_image_work = [&] {
+        bool complete = false;
+        pool.submit(
+            rummage::core::Priority::prefetch, [](const auto&) { return true; },
+            [&](bool ready) { complete = ready; });
+        REQUIRE(settle_photos(loop, [&] { return complete; }));
+    };
+    browser.take_selection(false);
+    browser.copy_text("New text");
+    const auto text_formats = formats;
+    const auto text_offers = offers;
+    drain_image_work();
+    CHECK(formats == text_formats);
+    CHECK(offers == text_offers);
+
+    browser.take_selection(false);
+    // Simulate another application's ownership generation without calling clipboard_lost().
+    ++generation;
+    formats = {{"text/plain", "External clipboard"}};
+    const auto external_formats = formats;
+    const auto external_offers = offers;
+    drain_image_work();
+    CHECK(formats == external_formats);
+    CHECK(offers == external_offers);
+}
+
+TEST_CASE("photo workspace: JPEG copy offers original bytes and a full upright PNG") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    const auto original = source / "Rotated photo.jpg";
+    std::filesystem::create_directories(source);
+    std::filesystem::copy_file(
+        std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks-orient6.jpg", original);
+    std::ifstream input{original, std::ios::binary};
+    const std::string original_bytes{std::istreambuf_iterator<char>{input},
+                                     std::istreambuf_iterator<char>{}};
+    REQUIRE(!original_bytes.empty());
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(
+        settle_photos(loop, [&] { return !library->loading() && library->rows().size() == 1; }));
+    library->folder()->set_cursor(0);
+    std::vector<rummage::views::SystemClipboard::Format> formats;
+    std::uint64_t generation = 0;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto value) {
+        formats = std::move(value);
+        ++generation;
+    };
+    clipboard.owned = [] { return true; };
+    clipboard.generation = [&] { return generation; };
+    browser.set_system_clipboard(std::move(clipboard));
+    browser.take_selection(false);
+    REQUIRE(settle_photos(loop, [&] {
+        return std::ranges::any_of(formats,
+                                   [](const auto& format) { return format.first == "image/png"; });
+    }));
+    const auto offered = [&](std::string_view type) -> const std::string& {
+        const auto found =
+            std::ranges::find(formats, type, &rummage::views::SystemClipboard::Format::first);
+        REQUIRE(found != formats.end());
+        return found->second;
+    };
+    CHECK(offered("image/jpeg") == original_bytes);
+    const auto files =
+        rummage::views::parse_gnome_copied_files(offered(rummage::views::kGnomeFiles));
+    REQUIRE(files);
+    CHECK_FALSE(files->cut);
+    CHECK(files->paths == std::vector<std::filesystem::path>{original});
+    const auto& png_bytes = offered("image/png");
+    std::string error;
+    const auto png = rummage::picture::decode_png(
+        {reinterpret_cast<const std::uint8_t*>(png_bytes.data()), png_bytes.size()}, error);
+    REQUIRE(png);
+    CHECK(error.empty());
+    CHECK(png->width == 32);
+    CHECK(png->height == 48);
+    REQUIRE(png->rgba.size() == 32 * 48 * 4);
+    // Orientation 6 is a clockwise quarter-turn: white top-left, red top-right, blue bottom-right.
+    const auto channel = [&](std::size_t x, std::size_t y, std::size_t c) {
+        return png->rgba[(y * png->width + x) * 4 + c];
+    };
+    CHECK(channel(8, 8, 0) > 240);
+    CHECK(channel(8, 8, 2) > 240);
+    CHECK(channel(24, 8, 0) > 240);
+    CHECK(channel(24, 8, 1) < 16);
+    CHECK(channel(24, 40, 2) > 240);
+    CHECK(channel(24, 40, 0) < 16);
+}
+
+TEST_CASE("photo workspace: album paste reads shared clipboard and respects KDE cut markers") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    const auto first = source / "First.png", second = source / "Second.png";
+    fixture(first);
+    fixture(second);
+    const auto bytes = [](const std::filesystem::path& path) {
+        std::ifstream input{path, std::ios::binary};
+        return std::string{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+    };
+    const auto first_bytes = bytes(first), second_bytes = bytes(second);
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    const auto shared_album =
+        catalog.request({{"op", "create_album"}, {"name", "Shared clipboard"}});
+    const auto kde_album = catalog.request({{"op", "create_album"}, {"name", "KDE clipboard"}});
+    REQUIRE(shared_album.value("ok", false));
+    REQUIRE(kde_album.value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.open_photo_library();
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(
+        settle_photos(loop, [&] { return !library->loading() && library->rows().size() == 2; }));
+    std::vector<rummage::views::SystemClipboard::Format> formats;
+    std::uint64_t generation = 0;
+    int delivered = 0;
+    rummage::views::SystemClipboard clipboard;
+    clipboard.offer = [&](auto value) {
+        formats = std::move(value);
+        ++generation;
+    };
+    clipboard.owned = [] { return true; };
+    clipboard.generation = [&] { return generation; };
+    clipboard.types = [&] {
+        std::vector<std::string> types;
+        for (const auto& [type, value] : formats)
+            types.push_back(type);
+        return types;
+    };
+    clipboard.read = [&](const std::string& type, auto done) {
+        const auto found =
+            std::ranges::find(formats, type, &rummage::views::SystemClipboard::Format::first);
+        REQUIRE(found != formats.end());
+        loop.post([&, done, value = found->second] {
+            done(value);
+            ++delivered;
+        });
+    };
+    browser.set_system_clipboard(std::move(clipboard));
+    library->folder()->set_cursor(0);
+    REQUIRE(library->focused_photo().at("path") == first.string());
+    browser.take_selection(false);
+    REQUIRE(!formats.empty());
+    // A second Rummage window changes the shared clipboard; owned() still returns true.
+    ++generation;
+    formats = {{std::string{rummage::views::kUriList},
+                rummage::views::uri_list(std::vector<std::filesystem::path>{second})}};
+    library->open_album(shared_album.at("id").get<PhotoLibrary::Id>(), "Shared clipboard");
+    REQUIRE(settle_photos(loop, [&] { return !library->loading() && library->rows().empty(); }));
+    browser.paste();
+    REQUIRE(
+        settle_photos(loop, [&] { return !library->loading() && library->rows().size() == 1; }));
+    CHECK(library->rows().front().at("path") == second.string());
+
+    library->open_album(kde_album.at("id").get<PhotoLibrary::Id>(), "KDE clipboard");
+    REQUIRE(settle_photos(loop, [&] { return !library->loading() && library->rows().empty(); }));
+    ++generation;
+    formats = {{std::string{rummage::views::kUriList},
+                rummage::views::uri_list(std::vector<std::filesystem::path>{first})},
+               {std::string{rummage::views::kKdeCut}, "1"}};
+    delivered = 0;
+    browser.paste();
+    REQUIRE(settle_photos(loop, [&] { return delivered == 2 && !library->loading(); }));
+    CHECK(library->rows().empty());
+    CHECK(catalog.request({{"op", "query"}, {"album_id", kde_album.at("id")}}).value("total", -1) ==
+          0);
+    CHECK(bytes(first) == first_bytes);
+    CHECK(bytes(second) == second_bytes);
+    ++generation;
+    formats.back().second = "0";
+    browser.paste();
+    REQUIRE(
+        settle_photos(loop, [&] { return !library->loading() && library->rows().size() == 1; }));
+    CHECK(library->rows().front().at("path") == first.string());
+    CHECK(bytes(first) == first_bytes);
+    CHECK(bytes(second) == second_bytes);
 }
 #endif

@@ -171,6 +171,7 @@ private:
     ui::Scroller scroller_;
     ui::Scrollbar scrollbar_;
     std::uint64_t generation_{0};
+    std::uint64_t photo_metadata_generation_{0};
     std::unique_ptr<ui::IconSet> preview_icons_;
     static constexpr std::size_t kPageSize = 15;
 };

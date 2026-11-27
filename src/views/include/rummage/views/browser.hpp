@@ -1262,6 +1262,10 @@ private:
     std::unique_ptr<SearchResults> search_results_;
     std::unique_ptr<PhotoLibrary> photo_library_;
     nlohmann::json photo_navigation_ = nlohmann::json::object();
+    void copy_photo_files(bool cut);
+    void paste_photo_files();
+    core::CancelToken photo_copy_job_;
+    std::uint64_t photo_copy_epoch_{};
     void photo_operation(const nlohmann::json& request);
     void photo_transfer_done(const fs::TransferRequest&, const fs::TransferResult&);
     void photo_reconcile(const FileOperation&);

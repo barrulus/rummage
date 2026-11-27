@@ -531,7 +531,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     } else {
         measure(folder_measure_, {}, {});
     }
-    if (logical || folder.is_archive() || path.empty() || (single && !single->available)) {
+    if (logical || folder.is_archive() || path.empty() || (single && !single->can_preview())) {
         forget_summary();
     } else {
         request(path, single == nullptr ? 0 : single->modified_ns,
@@ -655,7 +655,8 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                                             count_of(folder_measure_.size->folders - 1, "folder")));
         }
     } else if (!logical) {
-        out.row("Size", format_size(single->size));
+        out.row(single->preview_current_location ? i18n::tr("Catalog size") : i18n::tr("Size"),
+                format_size(single->size));
         if (const archive::Entry* const packed = folder.model().archive_entry(single->name);
             packed != nullptr && packed->packed != packed->size) {
             out.row(i18n::tr("Compressed"), format_size(packed->packed));
@@ -681,7 +682,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         out.row("Created", format_time(*info->created_ns));
     }
     if (single != nullptr && !logical) {
-        out.row("Modified", single->modified_known ? format_time(single->modified_ns) : "—");
+        out.row(
+            single->preview_current_location ? i18n::tr("Catalog modified") : i18n::tr("Modified"),
+            single->modified_known ? format_time(single->modified_ns) : "—");
         // In the trash: where it was, and when it went.
         if (const fs::TrashedItem* const item = folder.model().trashed(single->name)) {
             out.row("Original location", item->info.original.parent_path().string());
@@ -725,7 +728,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     }
 
     if (photo != nullptr && !media_details(*photo, MediaDetails::summary).empty()) {
-        out.section(photo->video_codec.empty() ? i18n::tr("MEDIA") : i18n::tr("VIDEO"));
+        out.section(single && single->preview_current_location ? i18n::tr("Current file metadata")
+                    : photo->video_codec.empty()               ? i18n::tr("MEDIA")
+                                                               : i18n::tr("VIDEO"));
         for (const auto& [label, value] : media_details(*photo, MediaDetails::summary))
             out.row(label, value);
     }

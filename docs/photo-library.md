@@ -64,8 +64,10 @@ thumbnail is shown as a placeholder, without discarding the photo's organisation
 A photo marked **changed** can still show a thumbnail and open in Quick Look by reading the
 file at its recorded location. The preview notice makes clear that the catalog identity is
 unverified; it does not confirm that the current file is the original catalogued photo.
-Catalog annotations and captured identity remain unchanged, and file-operation guards still
-refuse the changed record. Offline, missing, trashed and replaced records remain cache-only.
+**Copy** copies the current file at that location, and **Properties…** reads its current
+metadata separately from the saved catalog values. Catalog annotations and captured identity
+remain unchanged. **Cut** and destructive operations still require a verified original.
+Offline, missing, trashed and replaced records remain cache-only.
 
 Album counts describe visible photos. Replaced originals and inactive sources retain their
 annotations separately: choose **Review retained photo associations** in the Photo Library
@@ -76,6 +78,21 @@ the same. Sources whose inode identities change across reconnects may require th
 Dragging from Photo Library explains the supported alternative: **Copy** or **Cut**, then
 **Paste** in a folder. Collection dragging remains unavailable; the ordinary folder browser's
 drag behavior is unchanged.
+
+Right-click selected photos for **Copy**, **Cut**, **Copy Path** and **Properties…**, or use
+the normal keyboard shortcuts. Paste copied files into an ordinary folder to copy the originals.
+Open an album and choose **Paste** to add memberships instead: no files move or duplicate.
+All pasted files must already belong to an active Photo Library source; otherwise add or refresh
+their source first. Album paste accepts Copy, while Cut is reserved for moving originals into
+an ordinary folder.
+
+Copying one photo also prepares image clipboard data in the background for websites and
+applications that accept pasted images. File clipboard data is available immediately. Image
+data is limited to 64 MiB; supported original image formats are offered directly, with a PNG
+alternative for decoded images up to 4,096 pixels per side. Larger images retain their original
+format and file clipboard data rather than being silently reduced. The receiving application
+chooses which clipboard formats it supports. Copying several photos offers files, not a composite
+image.
 
 
 ## Edit and organise
@@ -89,6 +106,11 @@ and **Tags to remove** accept comma-separated tags and preserve unrelated tags. 
 **Apply** saves the checked changes, while **Cancel** discards the draft. Failed writes leave
 the draft available to correct or retry. Catalog annotations remain editable while originals
 are offline.
+
+For a single available photo, Properties also loads read-only metadata from the current file.
+For a **changed** entry, these details are labeled separately from catalog values and do not
+accept the new filesystem identity. Unknown catalog dimensions are omitted rather than shown
+as `0 × 0`.
 
 The catalog owns these edits:
 

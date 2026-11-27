@@ -503,43 +503,9 @@ std::vector<std::string> Browser::targets(const Folder& folder) {
 }
 
 void Browser::take_selection(bool cut) {
+    photo_copy_job_.cancel();
     if (showing_photos()) {
-        if (!photo_library_->photo_rows())
-            return;
-        const auto rows = photo_library_->selected_photos();
-        if (rows.size() != photo_library_->selected_ids().size()) {
-            show_message(std::string{i18n::tr(
-                             "Load the selected photos before copying or moving this selection")},
-                         true);
-            return;
-        }
-        if (rows.empty())
-            return;
-        std::vector<std::filesystem::path> paths;
-        for (const auto& row : rows) {
-            if (row.value("availability", "") != "online") {
-                show_message("Some selected originals are unavailable", true);
-                return;
-            }
-            paths.emplace_back(row.at("path").get<std::string>());
-        }
-        clipboard_ = {.directory = {}, .names = {}, .cut = cut, .paths = paths};
-        cut_marks_ = {};
-        if (system_.offer) {
-            const auto text = path_lines(paths);
-            std::vector<SystemClipboard::Format> formats{
-                {std::string{kGnomeFiles}, gnome_copied_files(cut, paths)},
-                {std::string{kUriList}, uri_list(paths)},
-                {std::string{kText}, text},
-                {"UTF8_STRING", text},
-                {"text/plain", text}};
-            if (cut)
-                formats.emplace_back(std::string{kKdeCut}, "1");
-            system_.offer(std::move(formats));
-        }
-        show_message(cut ? "Paste in a folder to move the selected originals"
-                         : "Paste in a folder to copy the selected originals",
-                     false);
+        copy_photo_files(cut);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -597,6 +563,7 @@ void Browser::take_selection(bool cut) {
 }
 
 void Browser::copy_text(std::string text, std::string message) {
+    photo_copy_job_.cancel();
     // Text replaces the file clipboard; a later paste can create a text file.
     clipboard_ = {};
     cut_marks_ = {};
@@ -640,11 +607,83 @@ void Browser::copy_path() {
     copy_text(std::move(path), std::move(message));
 }
 
+void Browser::paste_photo_files() {
+    if (!showing_photos())
+        return;
+    const auto album = photo_library_->active_album();
+    if (album <= 0) {
+        show_message(
+            std::string{i18n::tr(
+                "Open an album to paste photos into it, or paste into a folder to copy files")},
+            false);
+        return;
+    }
+    const auto accept = [this, alive = alive_, album](const ClipboardFiles& files) {
+        if (!*alive || !photos_enabled_ || !photo_library_)
+            return;
+        if (files.cut) {
+            show_message(std::string{i18n::tr("Use Copy to add photos to an album. Cut moves "
+                                              "originals when pasted into a folder.")},
+                         false);
+            return;
+        }
+        if (files.paths.empty() || files.refused > 0) {
+            show_message(
+                std::string{i18n::tr(
+                    "Copy photo files from Photo Library or a registered source folder first")},
+                false);
+            return;
+        }
+        photo_library_->add_album_paths(album, files.paths);
+    };
+    if (system_.types && system_.read) {
+        const auto types = system_.types();
+        const bool gnome = std::ranges::find(types, kGnomeFiles) != types.end();
+        if (!gnome && std::ranges::find(types, kUriList) == types.end()) {
+            show_message(
+                std::string{i18n::tr(
+                    "Copy photo files from Photo Library or a registered source folder first")},
+                false);
+            return;
+        }
+        const auto generation = system_.generation ? system_.generation() : 0;
+        const auto read_files = [this, accept, gnome, generation](bool cut) {
+            system_.read(
+                std::string{gnome ? kGnomeFiles : kUriList},
+                [this, alive = alive_, accept, gnome, cut,
+                 generation](const std::optional<std::string>& bytes) {
+                    if (!*alive || (system_.generation && system_.generation() != generation))
+                        return;
+                    auto files = !bytes  ? std::optional<ClipboardFiles>{}
+                                 : gnome ? parse_gnome_copied_files(*bytes)
+                                         : std::optional{parse_uri_list(*bytes)};
+                    if (files) {
+                        files->cut = files->cut || cut;
+                        accept(*files);
+                    } else
+                        show_message(std::string{i18n::tr("The clipboard could not be read")},
+                                     true);
+                });
+        };
+        if (!gnome && std::ranges::find(types, kKdeCut) != types.end())
+            system_.read(std::string{kKdeCut}, [this, alive = alive_, generation, read_files](
+                                                   const std::optional<std::string>& bytes) {
+                if (*alive && (!system_.generation || system_.generation() == generation))
+                    read_files(bytes && bytes->starts_with('1'));
+            });
+        else
+            read_files(false);
+        return;
+    }
+    auto paths = clipboard_.paths;
+    for (const auto& name : clipboard_.names)
+        paths.push_back(clipboard_.directory / name);
+    accept({.cut = clipboard_.cut, .paths = std::move(paths)});
+}
+
 void Browser::paste() {
     if (showing_photos()) {
-        show_message(std::string{i18n::tr("Use Show in Folder for filesystem changes; duplicate "
-                                          "cleanup is in Photo Library Review")},
-                     false);
+        paste_photo_files();
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();
@@ -1054,6 +1093,7 @@ bool Browser::text_field_key(const ui::KeyEvent& event) {
 }
 
 void Browser::clipboard_lost() {
+    photo_copy_job_.cancel();
     clipboard_ = {};
     if (!cut_marks_.names.empty()) {
         cut_marks_ = {};
@@ -2304,6 +2344,7 @@ void Browser::start_inverse(const FileOperation& operation, Purpose purpose) {
 }
 
 Browser::~Browser() {
+    photo_copy_job_.cancel();
     for (const auto& [id, token] : content_jobs_)
         token.cancel();
     loop_.remove(type_jump_timer_);
@@ -2894,7 +2935,51 @@ std::vector<MenuItem> default_context_menu(std::vector<MenuItem> items, bool bac
 
 void Browser::open_menu(float x, float y, bool keyboard) {
     if (showing_photos()) {
-        menu_.open(x, y, photo_library_->context_menu_items(), keyboard);
+        auto items = photo_library_->context_menu_items();
+        if (photo_library_->photo_rows()) {
+            const auto ids = photo_library_->selected_ids();
+            const auto photos = photo_library_->selected_photos();
+            const bool complete = !ids.empty() && photos.size() == ids.size();
+            const bool available = complete && std::ranges::all_of(photos, [](const auto& photo) {
+                                       return photo.value("availability", "") == "online";
+                                   });
+            const bool copyable = complete && std::ranges::all_of(photos, [](const auto& photo) {
+                                      const auto state = photo.value("availability", "");
+                                      return state == "online" || state == "changed";
+                                  });
+            std::vector<MenuItem> clipboard;
+            for (const auto& [id, label, command] :
+                 {std::tuple{"copy", "Copy", Command::copy}, std::tuple{"cut", "Cut", Command::cut},
+                  std::tuple{"copy_path", "Copy Path", Command::copy_path},
+                  std::tuple{"paste", "Paste", Command::paste},
+                  std::tuple{"properties", "Properties…", Command::properties}}) {
+                MenuItem item;
+                item.id = id;
+                item.label = i18n::tr(label);
+                item.keys = keys_for(command);
+                item.enabled = command == Command::copy    ? copyable
+                               : command == Command::cut   ? available
+                               : command == Command::paste ? photo_library_->active_album() > 0
+                                                           : complete;
+                item.action = [this, command] {
+                    if (command == Command::copy_path)
+                        copy_path();
+                    else if (command == Command::paste)
+                        paste();
+                    else if (command == Command::properties)
+                        show_properties();
+                    else
+                        take_selection(command == Command::cut);
+                };
+                clipboard.push_back(std::move(item));
+            }
+            if (!items.empty())
+                items.front().separator = true;
+            for (auto& item : items)
+                clipboard.push_back(std::move(item));
+            items = std::move(clipboard);
+        }
+        menu_.open(x, y, std::move(items), keyboard);
         return;
     }
     const std::shared_ptr<Folder> folder = current_folder();

@@ -2912,6 +2912,51 @@ Json dispatch(Database& db, const Json& request) {
         }
         return {{"albums", items}};
     }
+    if (op == "album_add_paths") {
+        const Id album = request.at("id").get<Id>();
+        const auto& paths = request.at("paths");
+        if (!paths.is_array() || paths.empty() || paths.size() > 100000)
+            throw std::runtime_error("Copy between 1 and 100000 photo files to add to the album");
+        Transaction transaction(db);
+        Statement exists(db.get(), "SELECT id FROM albums WHERE id=?");
+        exists.bind(1, album);
+        if (album <= 0 || !exists.row())
+            throw std::runtime_error("Album no longer exists");
+        std::map<fs::path, Id> roots;
+        Statement sources(db.get(), "SELECT path,id FROM sources WHERE active=1");
+        while (sources.row())
+            roots.emplace(fs::path{sources.text(0)}.lexically_normal(), sources.number(1));
+        std::set<Id> ids;
+        for (const auto& value : paths) {
+            if (!value.is_string())
+                throw std::runtime_error("Copy photo files to add to an album");
+            const fs::path path = fs::path{value.get<std::string>()}.lexically_normal();
+            if (!path.is_absolute())
+                throw std::runtime_error("Photo paths must be absolute");
+            auto root = path.parent_path();
+            while (!roots.contains(root) && root != root.parent_path())
+                root = root.parent_path();
+            if (!roots.contains(root))
+                throw std::runtime_error(
+                    "A copied photo is not in Photo Library. Add its source folder first.");
+            Statement photo(db.get(),
+                            "SELECT id FROM photos WHERE source_id=? AND relative_path=? "
+                            "AND availability NOT IN ('replaced','trashed')");
+            photo.bind(1, roots.at(root)).bind(2, path.lexically_relative(root).generic_string());
+            if (!photo.row())
+                throw std::runtime_error(
+                    "A copied photo is not in Photo Library. Refresh or add its source folder "
+                    "first.");
+            ids.insert(photo.number(0));
+        }
+        for (const Id id : ids) {
+            Statement add(db.get(),
+                          "INSERT OR IGNORE INTO memberships(photo_id,album_id) VALUES(?,?)");
+            add.bind(1, id).bind(2, album).run();
+        }
+        transaction.commit();
+        return {{"id", album}, {"count", ids.size()}};
+    }
     if (op == "rename_album" || op == "delete_album" || op == "set_album_cover") {
         const Id id = request.at("id").get<Id>();
         Transaction transaction(db);

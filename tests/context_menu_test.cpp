@@ -2406,6 +2406,79 @@ TEST_CASE("properties: catalog bulk edits preserve mixed and untouched fields of
     CHECK(changes == 1);
 }
 
+TEST_CASE("properties: single catalog photos expose source metadata without changing annotations") {
+    rummage::ui::Offscreen surface{800, 900};
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 1};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::PropertiesDialog dialog{pool, mime, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    rummage::views::PhotoProperties properties;
+    properties.ids = {71};
+    properties.path = fs::path{RUMMAGE_TEST_DATA} / "image/blocks.png";
+    properties.entry.name = "blocks.png";
+    properties.entry.identity = "photo:71";
+    properties.entry.location = properties.path;
+    properties.entry.kind = rummage::fs::EntryKind::file;
+    properties.entry.mime = mime->by_name("blocks.png").mime;
+    properties.annotations.description = "Catalog description";
+    properties.annotations.rating = 4;
+    properties.annotations.capture_date = "2001-02-03";
+    bool changed = false;
+    SUBCASE("Online original") {}
+    SUBCASE("Changed location") {
+        changed = true;
+        properties.entry.available = properties.available = false;
+        properties.entry.preview_current_location = true;
+        properties.rows = {
+            {"Preview", "Current file at this location; catalog identity has changed"}};
+    }
+    bool saved = false;
+    dialog.open_photo(properties, [&](auto, auto, auto) { saved = true; });
+    REQUIRE(run_until(loop, [&] { return !dialog.loading(); }));
+    CHECK(dialog.error().empty());
+    CHECK_FALSE(dialog.dirty());
+    const auto draw = [&] {
+        renderer.begin_frame(800, 900, 1, {});
+        dialog.draw(renderer, {0, 0, 800, 900}, {}, icons);
+        renderer.end_frame();
+    };
+    std::string copied;
+    dialog.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    draw();
+    const auto copy = dialog.control_bounds("copy");
+    REQUIRE_FALSE(copy.empty());
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = copy.x + 2,
+                    .y = copy.y + 2,
+                    .button = rummage::ui::PointerButton::left});
+    CHECK(copied.find("Dimensions: ") != std::string::npos);
+    CHECK(copied.find("0 × 0") == std::string::npos);
+    CHECK(copied.find(changed ? "Metadata source: Current file at this location"
+                              : "Metadata source: Original file") != std::string::npos);
+    CHECK(copied.find("Description: Catalog description") != std::string::npos);
+    CHECK(copied.find("Rating: 4") != std::string::npos);
+    CHECK(copied.find("Capture date override: 2001-02-03") != std::string::npos);
+    CHECK_FALSE(saved);
+    CHECK_FALSE(dialog.can_edit_permissions());
+    CHECK_FALSE(dialog.can_edit_icon());
+    // Offline rows stay entirely catalog-backed, including after an online summary was loaded.
+    properties.entry.available = properties.available = false;
+    properties.entry.preview_current_location = false;
+    dialog.open_photo(properties, {});
+    CHECK_FALSE(dialog.loading());
+    draw();
+    const auto offline_copy = dialog.control_bounds("copy");
+    dialog.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                    .x = offline_copy.x + 2,
+                    .y = offline_copy.y + 2,
+                    .button = rummage::ui::PointerButton::left});
+    CHECK(copied.find("Metadata source") == std::string::npos);
+    CHECK(copied.find("Dimensions: ") == std::string::npos);
+}
+
 TEST_CASE("properties: catalog edits validate rating and retain drafts on save error") {
     EventLoop loop;
     rummage::core::WorkerPool pool{loop, 1};

@@ -47,6 +47,7 @@ void PropertiesDialog::open(std::filesystem::path path, std::function<void()> ch
     if (saving_)
         return;
     ++generation_;
+    ++photo_metadata_generation_;
     photo_.reset();
     photo_save_ = {};
     scroller_.jump_to(0);
@@ -125,6 +126,7 @@ void PropertiesDialog::open_photo(PhotoProperties properties, PhotoSave save,
     if (saving_ || properties.ids.empty())
         return;
     ++generation_;
+    ++photo_metadata_generation_;
     load_job_.cancel();
     icons_job_.cancel();
     scroller_.jump_to(0);
@@ -152,6 +154,28 @@ void PropertiesDialog::open_photo(PhotoProperties properties, PhotoSave save,
     photo_fields_[3].set_text({});
     photo_fields_[4].set_text({});
     focus_ = "close";
+    if (photo_->ids.size() == 1 && !path_.empty() && photo_->entry.can_preview()) {
+        // Read-only source metadata does not validate or replace the catalog identity. In
+        // particular, changed originals remain unavailable to destructive filesystem operations.
+        loading_ = true;
+        load_job_ = pool_.submit(
+            core::Priority::visible,
+            [path = path_, mime = mime_, type = data_.entry.mime](const core::CancelToken& token) {
+                return preview::summarize(path, mime->name(type),
+                                          preview::provider_for(*mime, type).kind(), token, mime);
+            },
+            [this, alive = alive_,
+             generation = photo_metadata_generation_](preview::Summary summary) {
+                if (!*alive || !open_ || !photo_ || generation != photo_metadata_generation_)
+                    return;
+                data_.summary = std::move(summary);
+                data_.info = data_.summary.info;
+                if (error_.empty())
+                    error_ = data_.info.error;
+                loading_ = false;
+                redraw_();
+            });
+    }
     redraw_();
 }
 
@@ -780,6 +804,26 @@ ui::CursorShape PropertiesDialog::cursor_at(float x, float y) const {
 std::vector<std::pair<std::string, std::string>> PropertiesDialog::property_rows() const {
     if (photo_) {
         auto rows = photo_->rows;
+        if (data_.summary.photo) {
+            rows.emplace_back(
+                i18n::tr("Metadata source"),
+                i18n::tr(photo_->entry.preview_current_location ? "Current file at this location"
+                                                                : "Original file"));
+            auto source_rows = media_details(*data_.summary.photo, MediaDetails::summary);
+            if (data_.summary.photo->width && data_.summary.photo->height)
+                source_rows.insert(source_rows.begin(),
+                                   {std::string{i18n::tr("Dimensions")},
+                                    std::format("{} × {}", data_.summary.photo->width,
+                                                data_.summary.photo->height)});
+            for (const auto& row : source_rows) {
+                const auto existing =
+                    std::ranges::find(rows, row.first, &decltype(rows)::value_type::first);
+                if (existing == rows.end())
+                    rows.push_back(row);
+                else
+                    existing->second = row.second;
+            }
+        }
         if (!photo_->annotations.tags)
             rows.emplace_back("Tags", std::string{i18n::tr("Mixed values")});
         else {
@@ -861,7 +905,7 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         return;
     controls_.clear();
     const bool preview =
-        !loading_ && thumbnails && (!photo_ || photo_->ids.size() == 1) &&
+        (!loading_ || photo_) && thumbnails && (!photo_ || photo_->ids.size() == 1) &&
         !data_.entry.is_directory() &&
         preview::provider_for(*mime_, data_.entry.mime).kind() == preview::Kind::image;
     const float row_height = 26.0F;

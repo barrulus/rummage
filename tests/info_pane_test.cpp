@@ -782,3 +782,70 @@ TEST_CASE("info pane: logical collection records use stable identity without fil
     CHECK(copied.find("Photo count: 9") != std::string::npos);
     CHECK(copied.find("image/png") == std::string::npos);
 }
+
+TEST_CASE(
+    "info pane: changed photo exposes current file metadata without validating its identity") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::Folder collection{loop, pool, watcher, mime, [] {}};
+    InfoPane pane{loop, pool, nullptr, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    rummage::fs::Entry entry;
+    entry.name = "blocks.png";
+    entry.identity = "photo:71";
+    entry.location = std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png";
+    entry.kind = rummage::fs::EntryKind::file;
+    entry.mime = mime->by_name(entry.name).mime;
+    entry.available = false;
+    entry.preview_current_location = true;
+    collection.replace_collection({entry}, "Photo Library", 1);
+    collection.select_name(entry.key());
+    rummage::views::PhotoProperties properties;
+    properties.ids = {71};
+    properties.entry = entry;
+    properties.path = entry.location;
+    properties.available = false;
+    properties.rows = {{"Availability", "Changed"},
+                       {"Preview", "Current file at this location; catalog identity has changed"}};
+    properties.annotations.description = "Catalog description";
+    properties.annotations.rating = 4;
+    pane.set_photo_properties(properties);
+    const auto draw = [&] {
+        renderer.begin_frame(400, 900, 1, {});
+        pane.draw(renderer, {0, 0, 400, 900}, {}, icons, collection, InfoPane::Clock::now());
+        renderer.end_frame();
+    };
+    REQUIRE(run_until(loop, [&] {
+        draw();
+        return !pane.loading() && pane.summary() && pane.summary()->photo;
+    }));
+    CHECK(pane.summary()->photo->width > 0);
+    CHECK(pane.summary()->photo->height > 0);
+    CHECK_FALSE(pane.property_bounds("Dimensions.value").empty());
+    std::string copied;
+    pane.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    draw();  // Installing a copy handler adds the fixed header and its hit target.
+    const auto copy = pane.copy_bounds();
+    REQUIRE_FALSE(copy.empty());
+    REQUIRE(pane.click(copy.x + 4, copy.y + 4));
+    CHECK(copied.find("catalog identity has changed") != std::string::npos);
+    CHECK(copied.find("Catalog description") != std::string::npos);
+    CHECK(copied.find("Rating: 4") != std::string::npos);
+    CHECK_FALSE(collection.cursor_entry()->available);
+    // The same path marked offline must not retain the current-file summary.
+    entry.preview_current_location = false;
+    collection.replace_collection({entry}, "Photo Library", 1);
+    collection.select_name(entry.key());
+    properties.entry = entry;
+    pane.set_photo_properties(properties);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+}
