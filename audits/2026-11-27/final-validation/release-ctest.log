@@ -1,0 +1,45 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+[0/2] Re-checking globbed directories...
+ninja: no work to do.
+Test project /tmp/rummage-remediation-build
+      Start  8: rummage-tests
+      Start  4: photos-recovery
+      Start  5: photos-watcher
+ 1/18 Test  #5: photos-watcher ...................   Passed    3.58 sec
+      Start  3: photos-catalog
+ 2/18 Test  #3: photos-catalog ...................   Passed    7.81 sec
+      Start  7: photos-ui
+ 3/18 Test  #4: photos-recovery ..................   Passed   17.71 sec
+      Start 14: file-manager
+ 4/18 Test #14: file-manager .....................   Passed    1.53 sec
+      Start  6: photos-migration
+ 5/18 Test  #6: photos-migration .................   Passed    2.13 sec
+      Start 17: media-tests
+ 6/18 Test #17: media-tests ......................   Passed    0.31 sec
+      Start 15: file-picker-portal
+ 7/18 Test #15: file-picker-portal ...............   Passed    3.40 sec
+      Start  9: memory-tests
+ 8/18 Test  #9: memory-tests .....................   Passed    0.21 sec
+      Start 12: file-manager-activation
+ 9/18 Test #12: file-manager-activation ..........   Passed    0.17 sec
+      Start 16: action-notifications
+10/18 Test #16: action-notifications .............   Passed    0.16 sec
+      Start 10: program-output-self
+11/18 Test #10: program-output-self ..............   Passed    0.04 sec
+      Start 11: file-manager-cli
+12/18 Test #11: file-manager-cli .................   Passed    0.31 sec
+      Start 13: desktop-portal
+13/18 Test #13: desktop-portal ...................   Passed    0.02 sec
+      Start  1: i18n-runtime
+14/18 Test  #1: i18n-runtime .....................   Passed    0.00 sec
+      Start  2: log-transport
+15/18 Test  #2: log-transport ....................   Passed    0.00 sec
+16/18 Test  #7: photos-ui ........................   Passed   34.58 sec
+17/18 Test  #8: rummage-tests ....................   Passed   57.25 sec
+      Start 18: pdf-tests
+18/18 Test #18: pdf-tests ........................   Passed   10.99 sec
+
+100% tests passed out of 18
+
+Total Test time (real) =  68.25 sec

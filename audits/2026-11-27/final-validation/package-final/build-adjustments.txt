@@ -1,0 +1,15 @@
+Exact final snapshot f74efcce93b18a9daef1e09e0760babe5eeb35fe.
+The source export ignores untracked evidence, rejects tracked changes and archives
+HEAD only. Dependencies were prepared from the unchanged90bd RPM specification;
+no compilation occurred before the final source archive and snapshot Release
+were substituted and their SHA256 verified. See source.json.
+
+Native recipe uses CI_JOBS=6. A container-only ninja wrapper changes explicit
+-j2 to-j6 for private PDFium; application source/flags remain unchanged. A
+container-only rpmbuild wrapper adds--noclean, and the container is retained
+instead of auto-removed, preserving its build tree for later incremental work.
+The build-driver.sh records both wrappers. Test install/upgrade containers are
+still disposable and auto-removed.
+
+Installed-photo checker removes only the HOME override; private XDG settings
+remain. The adapted helper is adjacent. No host app or user data is accessed.

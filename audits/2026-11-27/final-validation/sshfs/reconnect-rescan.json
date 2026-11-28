@@ -1,0 +1,37 @@
+{
+  "after_explicit_rescan": {
+    "active_photos": 300,
+    "visible_album_photos": 0,
+    "albums": {
+      "albums": [
+        {
+          "count": 0,
+          "cover": null,
+          "cover_id": 0,
+          "custom_cover_id": 0,
+          "id": 1,
+          "name": "Retained over outage",
+          "retained_count": 5
+        }
+      ],
+      "ok": true
+    },
+    "retained_album_photos": 5
+  },
+  "sources": {
+    "ok": true,
+    "sources": [
+      {
+        "active": true,
+        "availability": "online",
+        "device": 56,
+        "exclusions": [],
+        "id": 1,
+        "inode": 1,
+        "path": "/tmp/rummage-final-sshfs-check/mount",
+        "recursive": true,
+        "watch_enabled": true
+      }
+    ]
+  }
+}

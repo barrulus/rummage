@@ -1,0 +1,2 @@
+# Preserve raw tool output byte-for-byte, including formatter padding.
+*.log -whitespace

@@ -1,0 +1,93 @@
+{
+  "scroll": {
+    "paused_seconds": 8.002016228,
+    "inputs_dispatched_during_outage": 71,
+    "frame_callbacks_during_outage": 381,
+    "max_input_interval_ms_during_outage": 40.854997,
+    "phases": [
+      {
+        "phase": 1,
+        "down_inputs": 90,
+        "selection_presented": 90,
+        "preview_ready_before_next_input": 19,
+        "current_photo_ready_before_next_input": 19,
+        "preview_not_ready_before_next_input": 71,
+        "last_cursor": 270,
+        "unadvanced_selections": 0,
+        "unique_selected_indices": 90,
+        "input_duration_s": 3.560131613,
+        "input_interval_ms_p50": 40.000166,
+        "input_interval_ms_p95": 40.408591,
+        "input_interval_ms_max": 41.138548,
+        "latency_ms_p50": 21.592845,
+        "latency_ms_p95": 24.050216
+      },
+      {
+        "phase": 3,
+        "down_inputs": 90,
+        "selection_presented": 90,
+        "preview_ready_before_next_input": 90,
+        "current_photo_ready_before_next_input": 90,
+        "preview_not_ready_before_next_input": 0,
+        "last_cursor": 270,
+        "unadvanced_selections": 0,
+        "unique_selected_indices": 90,
+        "input_duration_s": 3.560232165,
+        "input_interval_ms_p50": 39.999662,
+        "input_interval_ms_p95": 40.928841,
+        "input_interval_ms_max": 41.549213,
+        "latency_ms_p50": 21.344218,
+        "latency_ms_p95": 30.29644
+      },
+      {
+        "phase": 5,
+        "down_inputs": 90,
+        "selection_presented": 90,
+        "preview_ready_before_next_input": 90,
+        "current_photo_ready_before_next_input": 90,
+        "preview_not_ready_before_next_input": 0,
+        "last_cursor": 270,
+        "unadvanced_selections": 0,
+        "unique_selected_indices": 90,
+        "input_duration_s": 3.559894098,
+        "input_interval_ms_p50": 40.003453,
+        "input_interval_ms_p95": 40.37504,
+        "input_interval_ms_max": 40.88314,
+        "latency_ms_p50": 12.691575,
+        "latency_ms_p95": 15.946911
+      }
+    ],
+    "exit_code": 0
+  },
+  "refresh": {
+    "paused_seconds": 8.000800854,
+    "inputs_dispatched_during_outage": 200,
+    "frame_callbacks_during_outage": 645,
+    "max_input_interval_ms_during_outage": 40.866215,
+    "phases": [
+      {
+        "phase": 10,
+        "down_inputs": 277,
+        "selection_presented": 277,
+        "preview_ready_before_next_input": 73,
+        "current_photo_ready_before_next_input": 73,
+        "preview_not_ready_before_next_input": 204,
+        "last_cursor": 297,
+        "unadvanced_selections": 178,
+        "unique_selected_indices": 99,
+        "input_duration_s": 11.040071658,
+        "input_interval_ms_p50": 40.001584,
+        "input_interval_ms_p95": 40.18326,
+        "input_interval_ms_max": 40.866215,
+        "latency_ms_p50": 1.520418,
+        "latency_ms_p95": 26.461677
+      }
+    ],
+    "exit_code": 0,
+    "refresh_seconds": [
+      8.040942368,
+      0.040234632,
+      0.039418369
+    ]
+  }
+}

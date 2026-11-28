@@ -1,0 +1,24 @@
+{
+  "same_mount_reconnect": "pass",
+  "source": {
+    "ok": true,
+    "sources": [
+      {
+        "active": true,
+        "availability": "online",
+        "device": 56,
+        "exclusions": [],
+        "id": 1,
+        "inode": 1,
+        "path": "/tmp/rummage-final-sshfs-check/mount",
+        "recursive": true,
+        "watch_enabled": true
+      }
+    ]
+  },
+  "photos": 300,
+  "online": 300,
+  "album_members_retained": 5,
+  "qualification": "Stored catalog IDs/signatures unchanged immediately after first reconnect; this does not prove live file inode continuity. See actual identity and rescan results.",
+  "stored_signatures_unchanged": true
+}

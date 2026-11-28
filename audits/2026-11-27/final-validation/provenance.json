@@ -1,0 +1,39 @@
+{
+  "branch": "feat/photo-library",
+  "release_build": "/tmp/rummage-remediation-build",
+  "sanitizer_build": "/tmp/rummage-remediation-asan",
+  "scope": "Local validation only; no publication or user catalog changes.",
+  "merged_main_commit": "92202193f6d1cd06e8f1401101e2bd57e3a7343c",
+  "sanitizer_driver_manifest": "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json",
+  "final_source_commit": "f74efcce93b18a9daef1e09e0760babe5eeb35fe",
+  "snapshots": [
+    {
+      "label": "initial release and SSHFS tests",
+      "source_commit": "3292429d2412adf771b11547edbf6539b1b44ee6",
+      "binary_sha256": {
+        "/tmp/rummage-remediation-build/rummage": "73007c65b1681f6cdcdb171935704a1be8f8f190faf6c2a9dc2f44ec8543f2d1",
+        "/tmp/rummage-remediation-build/librummage-photos.so": "bb6d7fc8fd7f1d6163c4f90dcac9125dc853b39b983067029d6405bd317970d2"
+      }
+    },
+    {
+      "label": "translation completion and first Fedora validation",
+      "source_commit": "90bd0bda1c6ae78901f8b6a61bb4ffbc25a2e2f0",
+      "binary_sha256": {
+        "/tmp/rummage-remediation-build/rummage": "349d72b6a291809d6e24fd7e13695b3081ed27be40eb6cf723cdb602abee38cc",
+        "/tmp/rummage-remediation-build/librummage-photos.so": "bb6d7fc8fd7f1d6163c4f90dcac9125dc853b39b983067029d6405bd317970d2"
+      }
+    },
+    {
+      "label": "main integration and Settings fix; final full suites and Fedora validation",
+      "source_commit": "f74efcce93b18a9daef1e09e0760babe5eeb35fe",
+      "binary_sha256": {
+        "/tmp/rummage-remediation-build/rummage": "5f41475a789ce40520cf671cca2ca6e36c0f7aa3d15ffb2df4a403aeb0cce965",
+        "/tmp/rummage-remediation-build/librummage-photos.so": "bb6d7fc8fd7f1d6163c4f90dcac9125dc853b39b983067029d6405bd317970d2"
+      },
+      "sanitizer_binary_sha256": {
+        "/tmp/rummage-remediation-asan/rummage": "803c9681636faf4466519189223120dcb1a04ffe7f12994955ccd5f17cfdf22c",
+        "/tmp/rummage-remediation-asan/librummage-photos.so": "5ce5d886ca980b624d3a733a671b615fb4c707d7e3b6f440d39429bf8fd08a9b"
+      }
+    }
+  ]
+}

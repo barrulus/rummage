@@ -1,0 +1,34 @@
+[
+  {
+    "event": "transport_paused",
+    "monotonic_ns": 2272229370308,
+    "pids": [
+      23577,
+      27105,
+      27109,
+      27110
+    ]
+  },
+  {
+    "event": "during_outage",
+    "monotonic_ns": 2280229990051,
+    "stat_still_waiting": true,
+    "ui_alive": true
+  },
+  {
+    "event": "transport_resumed",
+    "monotonic_ns": 2280230171162
+  },
+  {
+    "event": "stat_completed",
+    "monotonic_ns": 2280395563750,
+    "exit_code": 0,
+    "stdout": "  File: /tmp/rummage-final-sshfs-check/mount/folder-2/photo-0299.png\n  Size: 779       \tBlocks: 8          IO Block: 4096   regular file\nDevice: 0,56\tInode: 483         Links: 1\nAccess: (0644/-rw-r--r--)  Uid: ( 1000/barrulus)   Gid: (  100/   users)\nAccess: 2026-11-27 23:55:55.000000000 +0000\nModify: 2026-11-27 23:54:59.000000000 +0000\nChange: 2026-11-27 23:54:59.000000000 +0000\n Birth: -\n",
+    "stderr": ""
+  },
+  {
+    "event": "ui_completed",
+    "monotonic_ns": 2321064505801,
+    "exit_code": 0
+  }
+]

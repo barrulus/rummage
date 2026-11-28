@@ -1,0 +1,23 @@
+{
+  "sources": {
+    "ok": true,
+    "sources": [
+      {
+        "active": true,
+        "availability": "offline",
+        "device": 56,
+        "exclusions": [],
+        "id": 1,
+        "inode": 1,
+        "path": "/tmp/rummage-final-sshfs-check/mount",
+        "recursive": true,
+        "watch_enabled": true
+      }
+    ]
+  },
+  "photos": 300,
+  "availability": [
+    "offline"
+  ],
+  "visible_album_photos": 5
+}
