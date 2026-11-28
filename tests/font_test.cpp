@@ -20,6 +20,7 @@ TEST_CASE("font: isolated scalable specimen, scale, cache, damaged and oversized
     struct FontconfigCleanup {
         ~FontconfigCleanup() { FcFini(); }
     } cleanup;
+
     // Fontconfig locates the test font; only the helper parses its contents.
     using Pattern = std::unique_ptr<FcPattern, decltype(&FcPatternDestroy)>;
     Pattern request{FcNameParse(reinterpret_cast<const FcChar8*>("sans")), FcPatternDestroy};

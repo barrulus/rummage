@@ -300,7 +300,8 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
                 }
             });
     }
-    if (entry.can_preview() && !slot.path.empty() && (!slot.content || slot.content_page != slot.page) && !slot.content_job) {
+    if (entry.can_preview() && !slot.path.empty() &&
+        (!slot.content || slot.content_page != slot.page) && !slot.content_job) {
         slot.requested = Clock::now();
         slot.in_advance = !current;
         const auto request_id = ++slot.request_id;
@@ -348,9 +349,9 @@ QuickLook::Slot& QuickLook::ensure(const fs::Entry& entry, bool current) {
     }
     // The first stage of an image, while the sharp one is made: the thumbnail, usually cached
     // already.
-    if (current && slot.page == 0 && !slot.path.empty() && slot.kind == preview::Kind::image && thumbnails_ &&
-        !folder_->is_archive() && !slot.content && !slot.thumbnail_job && !slot.thumbnail_pixels &&
-        !slot.thumbnail_texture && !slot.offline_thumbnail_tried) {
+    if (current && slot.page == 0 && !slot.path.empty() && slot.kind == preview::Kind::image &&
+        thumbnails_ && !folder_->is_archive() && !slot.content && !slot.thumbnail_job &&
+        !slot.thumbnail_pixels && !slot.thumbnail_texture && !slot.offline_thumbnail_tried) {
         slot.offline_thumbnail_tried = !entry.can_preview();
         // An offline thumbnail has no full-content request to start its timing.
         if (!entry.can_preview())

@@ -60,7 +60,7 @@ void Browser::toggle_split() {
             pane().mode == Mode::details ? pane().details.root_folder() : current_folder();
         const auto path = searching_results() ? pane().search_results->snapshot().root
                           : folder && !folder->is_collection() ? folder->path()
-                                              : session_fallback();
+                                                               : session_fallback();
         const auto mode = pane().mode;
         const auto list = pane().details.list_size();
         const auto grid = pane().grid.size_index();

@@ -1448,9 +1448,9 @@ int main(int argc, char** argv) {
                                     if (path.is_absolute())
                                         chosen(path);
                                 });
-                            if (!folder_chooser->start_self(
-                                    {"--pick-directory", "--title",
-                                     std::string{i18n::tr("Choose Folder")}, start.string()})) {
+                            if (!folder_chooser->start_self({"--pick-directory", "--title",
+                                                             std::string{i18n::tr("Choose Folder")},
+                                                             start.string()})) {
                                 folder_chooser.reset();
                                 columns->show_message(
                                     std::string{i18n::tr("The folder chooser could not start")},

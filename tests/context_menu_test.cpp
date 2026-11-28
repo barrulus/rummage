@@ -436,12 +436,12 @@ TEST_CASE("context menu: Sort By sorts every view, and the folders they open lat
     const MenuItem& sort = *std::ranges::find(f.menu().items(), "sort", &MenuItem::id);
     REQUIRE(sort.id == "sort");
     CHECK(sort.submenu);
-    CHECK(ids(sort.children) == Names{"sort:name", "sort:size", "sort:modified", "sort:type",
-                                      "sort:created", "sort:accessed", "sort:owner", "sort:group",
-                                      "sort:permissions", "sort:location", "sort:link_target",
-                                      "sort:dimensions", "sort:duration", "sort:bitrate",
-                                      "sort:video_codec", "sort:audio_codec", "sort:rating", "sort:ascending",
-                                      "sort:descending", "reset_folder_view"});
+    CHECK(ids(sort.children) ==
+          Names{"sort:name",        "sort:size",      "sort:modified",    "sort:type",
+                "sort:created",     "sort:accessed",  "sort:owner",       "sort:group",
+                "sort:permissions", "sort:location",  "sort:link_target", "sort:dimensions",
+                "sort:duration",    "sort:bitrate",   "sort:video_codec", "sort:audio_codec",
+                "sort:rating",      "sort:ascending", "sort:descending",  "reset_folder_view"});
     const auto checked = [](const MenuItem& submenu) {
         Names out;
         for (const MenuItem& item : submenu.children) {

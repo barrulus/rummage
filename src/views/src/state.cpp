@@ -547,7 +547,8 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                         continue;
                     }
                 } else {
-                    if (!folder || folder->empty() || (folder->front() != '/' && *folder != "rummage:recent")) {
+                    if (!folder || folder->empty() ||
+                        (folder->front() != '/' && *folder != "rummage:recent")) {
                         problem(node, "'folder' must be an absolute path");
                         continue;
                     }
@@ -565,7 +566,8 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                 }
                 if (const toml::node* from = table->get("root")) {
                     const std::optional<std::string_view> given = from->value<std::string_view>();
-                    if (tab.photos || !given || given->empty() || (given->front() != '/' && *given != "rummage:recent")) {
+                    if (tab.photos || !given || given->empty() ||
+                        (given->front() != '/' && *given != "rummage:recent")) {
                         problem(*from, tab.photos ? "a photo tab must not have a filesystem root"
                                                   : "'root' must be an absolute path");
                         continue;
@@ -574,7 +576,8 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                 }
                 if (const toml::node* name = table->get("cursor")) {
                     const std::optional<std::string_view> given = name->value<std::string_view>();
-                    if (!given || (!tab.photos && tab.folder != "rummage:recent" && given->find('/') != std::string_view::npos)) {
+                    if (!given || (!tab.photos && tab.folder != "rummage:recent" &&
+                                   given->find('/') != std::string_view::npos)) {
                         problem(*name, "'cursor' must be a name in the folder");
                         continue;
                     }

@@ -35,7 +35,7 @@ struct OpenPlan {
         std::size_t files{0};               // how many of the files it opens
         std::shared_ptr<int> executable{};  // pinned checked/approved inode, inherited as fd 3
         std::vector<std::filesystem::path> recent_paths{};
-        bool program{false};                // the file itself, started as a program
+        bool program{false};  // the file itself, started as a program
     };
 
     std::vector<Launch> launches;

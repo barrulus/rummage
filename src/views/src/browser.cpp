@@ -292,7 +292,7 @@ void Browser::enter_pane() {
 
 void Browser::new_tab() {
     const std::shared_ptr<Folder> shown = current_folder();
-    open_tab(searching_results()                  ? pane().search_results->snapshot().root
+    open_tab(searching_results()                ? pane().search_results->snapshot().root
              : shown && !shown->is_collection() ? shown->path()
                                                 : home_directory(),
              true);
@@ -4434,8 +4434,8 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         reserve(search_button_bounds_);
     const auto folder = current_folder();
     if (!picker_mode_ && folder &&
-        (showing_photos() || (panes_enabled_ && !folder->is_archive() &&
-                              !folder->is_trash() && !folder->is_collection())))
+        (showing_photos() || (panes_enabled_ && !folder->is_archive() && !folder->is_trash() &&
+                              !folder->is_collection())))
         reserve(insights_bounds_);
     reserve(sort_bounds_);
     if (showing_photos() || !folder || !folder->is_collection())
@@ -4451,7 +4451,7 @@ void Browser::draw_toolbar(ui::Renderer& renderer, const ui::Rect& bounds,
         const float height = (line.ascent + line.descent) / renderer.scale();
         renderer.draw_layout(line, rect.x, rect.y + (rect.height - height) / 2, color);
     };
-    const auto field_label = showing_photos()    ? i18n::tr("Search photos…")
+    const auto field_label = showing_photos()      ? i18n::tr("Search photos…")
                              : searching_results() ? i18n::tr("Find Files…")
                                                    : i18n::tr("Filter this folder…");
     pane().filter_field.set_accessible_name(std::string{field_label});
@@ -5744,8 +5744,7 @@ void Browser::start_drag(Press press) {
             false);
         return;
     }
-    if (folder.is_trash() || !press.hit.entry ||
-        *press.hit.entry >= folder.entries().size()) {
+    if (folder.is_trash() || !press.hit.entry || *press.hit.entry >= folder.entries().size()) {
         return;  // the trash only gives back (Restore); an archive's entries are extracted
     }
     const fs::Entry& entry = folder.entries()[*press.hit.entry];
@@ -7238,8 +7237,7 @@ void Browser::run(Command command, Clock::time_point now) {
         search_action(SearchResults::Action::close);
         return;
     }
-    if (const auto shown = current_folder();
-        shown && (shown->is_search() || shown->is_recent())) {
+    if (const auto shown = current_folder(); shown && (shown->is_search() || shown->is_recent())) {
         switch (command) {
             case Command::new_folder:
             case Command::paste:

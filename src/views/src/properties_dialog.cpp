@@ -542,7 +542,8 @@ std::vector<std::string> PropertiesDialog::focus_order() const {
     if (!loading_ && copy_)
         order.push_back("copy");
     order.push_back("close");
-    if (can_edit_icon() || can_edit_permissions() || can_edit_annotations() || (photo_ && photo_save_))
+    if (can_edit_icon() || can_edit_permissions() || can_edit_annotations() ||
+        (photo_ && photo_save_))
         order.push_back("apply");
     return order;
 }
@@ -1117,8 +1118,8 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool folder_hint =
         folder_controls && (icons.selected_theme() == "builtin" || data_.entry.is_link);
     const auto& message = !error_.empty() ? error_ : data_.icon_error;
-    const std::string name = photo_ && !photo_->title.empty()  ? photo_->title
-                             : paths_.size() > 1              ? i18n::trf("{} selected items", paths_.size())
+    const std::string name = photo_ && !photo_->title.empty() ? photo_->title
+                             : paths_.size() > 1 ? i18n::trf("{} selected items", paths_.size())
                              : drive_ && !drive_label_.empty() ? drive_label_
                              : path_.filename().empty()        ? path_.string()
                                                                : path_.filename().string();
@@ -1510,10 +1511,10 @@ void PropertiesDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
                true);
     } else {
         button("close", dirty() ? "Cancel" : "Close",
-               {card.right() -
-                    ((folder_controls || permission_controls || annotation_controls || photo_controls)
-                         ? 232
-                         : 124),
+               {card.right() - ((folder_controls || permission_controls || annotation_controls ||
+                                 photo_controls)
+                                    ? 232
+                                    : 124),
                 footer, 100, 34},
                !saving_);
         if (folder_controls || permission_controls || annotation_controls || photo_controls)
