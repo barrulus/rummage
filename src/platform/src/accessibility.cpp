@@ -807,6 +807,9 @@ Accessibility::~Accessibility() = default;
 
 void Accessibility::set_ready_handler(std::function<void()> handler) {
     impl_->ready_handler = std::move(handler);
+    // The constructor's bus pump can complete registration before a caller installs this.
+    if (impl_->ready && impl_->ready_handler)
+        impl_->ready_handler();
 }
 
 bool Accessibility::active() const { return impl_->ready; }

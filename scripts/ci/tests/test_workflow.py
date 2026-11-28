@@ -36,6 +36,22 @@ class WorkflowGateTest(unittest.TestCase):
         self.assertIn('tests', self.dependencies('downloads'))
         self.assertIn("needs.tests.result == 'success'", self.jobs['downloads'])
 
+    def test_instrumentation_is_manual_opt_in_and_not_a_normal_test_dependency(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        inputs = workflow.split('  workflow_dispatch:\n', 1)[1].split('\npermissions:', 1)[0]
+        self.assertRegex(inputs, r'(?s)instrumentation:\n.*?type: boolean\n        default: false')
+        header = self.jobs['instrumentation'].split('    steps:', 1)[0]
+        self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.instrumentation == true", header)
+        self.assertNotIn('instrumentation', self.dependencies('tests'))
+
+    def test_requested_instrumentation_must_pass_before_download_publication(self):
+        self.assertIn('instrumentation', self.dependencies('downloads'))
+        gate = self.jobs['downloads'].split('    runs-on:', 1)[0]
+        self.assertIn("!cancelled()", gate)  # Explicit status check allows the optional skipped job.
+        self.assertIn("inputs.instrumentation == true && needs.instrumentation.result == 'success'", gate)
+        self.assertIn("inputs.instrumentation != true && needs.instrumentation.result == 'skipped'", gate)
+        self.assertEqual(self.dependencies('publish'), {'downloads'})
+
     def test_application_pipeline_requires_checked_website(self):
         self.assertIn('website', self.dependencies('tests'))
         website = self.jobs['website']

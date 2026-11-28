@@ -14,6 +14,7 @@ public:
     Accessibility(const Accessibility&) = delete;
     Accessibility& operator=(const Accessibility&) = delete;
     [[nodiscard]] bool active() const;
+    // Called immediately when registration has already completed, otherwise when it completes.
     void set_ready_handler(std::function<void()> handler);
     void update_window(std::string id, std::string title, std::vector<core::AccessibleNode> nodes,
                        bool focused = false);

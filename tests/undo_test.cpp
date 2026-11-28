@@ -85,7 +85,7 @@ struct Fixture {
                     watcher, rummage::fs::MimeDatabase::load(),
                     [] {},   [](rummage::ui::CursorShape /*shape*/) {}};
 
-    Fixture() {
+    explicit Fixture(const fs::path& folder = "root") : root{dir.path / folder} {
         fs::create_directories(photos);
         fs::create_directories(album);
         for (const char* name : {"P1.ORF", "P1.ORF.xmp", "P2.ORF"}) {
@@ -573,7 +573,8 @@ TEST_CASE("transfer tasks: queued cancellation preserves another job's conflict 
 }
 
 TEST_CASE("transfer tasks: palette filters tasks and exposes completed details and clear") {
-    Fixture f;
+    // Paths are searched too: make the task match the clear action's query deterministically.
+    Fixture f{"Clear Finished Tasks"};
     f.show(f.photos, "P1.ORF");
     CHECK(f.press(key(XKB_KEY_c, kCtrl)));
     f.show(f.album, "");
@@ -597,7 +598,18 @@ TEST_CASE("transfer tasks: palette filters tasks and exposes completed details a
     CHECK(palette.external());
     f.browser.open_transfers();
     palette.set_query("Clear Finished Tasks");
-    REQUIRE(palette.items().size() == 1);
+    const auto clear = std::ranges::find(palette.items(), "tasks:clear",
+                                        &rummage::views::PaletteItem::id);
+    REQUIRE(clear != palette.items().end());
+    REQUIRE(palette.items().size() == 2);  // The completed transfer's path also matches.
+    const auto index = static_cast<std::size_t>(clear - palette.items().begin());
+    const auto row = std::ranges::find(palette.shown(), index);
+    REQUIRE(row != palette.shown().end());
+    palette.key(key(XKB_KEY_Home));
+    for (auto at = palette.shown().begin(); at != row; ++at)
+        palette.key(key(XKB_KEY_Down));
+    REQUIRE(palette.highlighted());
+    CHECK(palette.shown()[*palette.highlighted()] == index);
     palette.choose_highlighted();
     CHECK(palette.external());
     CHECK(palette.status() == "No transfers yet");

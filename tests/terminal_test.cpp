@@ -274,10 +274,16 @@ TEST_CASE("terminal: a delayed clean-editor acknowledgement cannot erase newer t
     std::filesystem::create_directory(target);
     const auto signal =
         "printf '\\033]777;" + f.terminal.session_directory().filename().string() + ";clean\\007'";
-    // Delay the editor's response so a keystroke deterministically arrives after
-    // its empty-line check but before the parent processes the acknowledgement.
-    REQUIRE(f.terminal.command("__rummage_probe() { touch probe-started; sleep 0.2; " + signal +
-                               "; }"));
+    // Hold the first response until the test releases or interrupts its foreground
+    // child. Bash can then return to Readline without running PROMPT_COMMAND.
+    const auto delay = rummage::platform::shell_argument(RUMMAGE_TEST_BASH) + " -c " +
+                       rummage::platform::shell_argument(
+                           "trap 'exit 130' INT; : > probe-started; "
+                           "while [[ ! -e probe-release ]]; do sleep 0.01; done");
+    REQUIRE(f.terminal.command(
+        "__rummage_probe_count=0; __rummage_probe() { ((__rummage_probe_count+=1)); "
+        "if [[ $__rummage_probe_count == 1 ]]; then " + delay + "; fi; " + signal +
+        "; printf '%s' \"$__rummage_probe_count\" > probe-count; }"));
     REQUIRE(until(f.loop, [&] { return f.terminal.ready(); }));
     REQUIRE(f.terminal.command(
         rummage::platform::shell_argument(RUMMAGE_TEST_BASH) + " -c " +
@@ -291,6 +297,7 @@ TEST_CASE("terminal: a delayed clean-editor acknowledgement cannot erase newer t
         f.terminal.key(EmbeddedTerminal::Key::none, "c", true);
     else {
         f.terminal.key(EmbeddedTerminal::Key::none, "touch SHOULD_NOT_RUN #");
+        f.temp.write("probe-release", "");
         wait(f.loop, 400ms);
         CHECK_FALSE(std::filesystem::exists(f.temp.path / "SHOULD_NOT_RUN"));
         CHECK(f.terminal.directory() == f.temp.path);
@@ -299,10 +306,21 @@ TEST_CASE("terminal: a delayed clean-editor acknowledgement cannot erase newer t
         f.terminal.key(EmbeddedTerminal::Key::none, "u", true);
         f.terminal.key(EmbeddedTerminal::Key::enter, "");
     }
-    REQUIRE(until(f.loop, [&] {
+    const bool synchronized = until(f.loop, [&] {
         return f.terminal.ready() && !f.terminal.directory_pending() &&
                f.terminal.directory() == target;
-    }));
+    });
+    INFO(f.terminal.text());
+    INFO(f.terminal.error());
+    INFO(f.terminal.ready());
+    INFO(f.terminal.directory_pending());
+    INFO(f.terminal.directory());
+    REQUIRE(synchronized);
+    if (interrupt) {
+        int probes = 0;
+        std::ifstream(f.temp.path / "probe-count") >> probes;
+        CHECK(probes == 2);  // Only a fresh acknowledgement may allow synchronization.
+    }
 }
 #ifdef RUMMAGE_TEST_ZSH
 TEST_CASE("terminal: zsh prompt hooks support bidirectional cwd without modifying user files") {
