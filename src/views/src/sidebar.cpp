@@ -207,16 +207,30 @@ bool Sidebar::loading() const {
            std::ranges::any_of(models_, [](const auto& entry) { return entry.second->loading(); });
 }
 
+void Sidebar::set_expand_folders(bool enabled) {
+    if (tree_enabled_ == enabled)
+        return;
+    tree_enabled_ = enabled;
+    if (!enabled) {
+        expanded_.clear();
+        models_.clear();
+        if (subfolders_)
+            subfolders_->retain({});
+    }
+    rebuild();
+}
+
 bool Sidebar::expandable(std::size_t row) const {
     if (row >= places_.size() || links_[row])
         return false;
     if (logical_groups_.contains(places_[row].uri))
         return true;
-    return subfolders_ && subfolders_->contains(places_[row].path, tree_hidden_).value_or(false);
+    return tree_enabled_ && subfolders_ &&
+           subfolders_->contains(places_[row].path, tree_hidden_).value_or(false);
 }
 
 void Sidebar::expand_folder(const std::filesystem::path& path) {
-    if (!make_model_ || models_.contains(path))
+    if (!tree_enabled_ || !make_model_ || models_.contains(path))
         return;
     auto model = make_model_();
     model->set_filter(tree_hidden_, {});
@@ -285,6 +299,8 @@ void Sidebar::toggle_row(std::size_t index) {
             logical_expand_(uri);
         return;
     }
+    if (!tree_enabled_)
+        return;
     const auto id = node_ids_[index];
     if (expanded_.contains(id)) {
         std::erase_if(expanded_, [&](const auto& other) {
@@ -565,7 +581,7 @@ void Sidebar::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::
     renderer.push_clip(bounds);
     close_bounds_ = {};
     eject_rects_.assign(places_.size(), ui::Rect{});
-    if (subfolders_) {
+    if (tree_enabled_ && subfolders_) {
         std::vector<std::filesystem::path> visible;
         for (const auto& row : rows_)
             if (row.place && !links_[*row.place] && places_[*row.place].path.is_absolute() &&

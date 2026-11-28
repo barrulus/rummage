@@ -56,6 +56,8 @@ public:
 
     void enable_tree(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
                      std::shared_ptr<const fs::MimeDatabase> mime);
+    // Turning off folder expansion releases tree models and probes; logical groups stay usable.
+    void set_expand_folders(bool enabled);
     bool loading() const;
     bool expandable(std::size_t row) const;
 
@@ -290,7 +292,7 @@ private:
     std::vector<bool> links_;
     std::vector<fs::Place> sources_;
     std::vector<std::string> order_, hidden_, collapsed_;
-    bool tree_hidden_{false}, rebuilding_{false};
+    bool tree_enabled_{true}, tree_hidden_{false}, rebuilding_{false};
     ui::Rect close_bounds_{};
     std::function<void()> close_;
     std::function<void(float, float)> background_menu_;

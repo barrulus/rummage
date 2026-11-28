@@ -683,6 +683,20 @@ hidden = ["uuid:example", "place:music"]
     CHECK_FALSE(invalid.config.sidebar.hidden);
 }
 
+TEST_CASE("sidebar configuration defaults to expandable folders and requires a boolean") {
+    CHECK(parse("").config.sidebar.expand_folders);
+    for (const auto value : {"true", "false"}) {
+        const auto result = parse(std::string{"[sidebar]\nexpand_folders = "} + value);
+        REQUIRE(result.problems.empty());
+        CHECK(result.config.sidebar.expand_folders == (std::string_view{value} == "true"));
+    }
+    for (const auto value : {"1", "0.5", "'false'", "[]"}) {
+        const auto result = parse(std::string{"[sidebar]\nexpand_folders = "} + value);
+        CHECK_FALSE(result.validation_errors.empty());
+        CHECK(result.config.sidebar.expand_folders);
+    }
+}
+
 TEST_CASE("config: keyboard navigation preferences validate independently") {
     const auto enabled = parse("[keyboard]\ntype_to_jump = false\nvim = true\nwrap = true\n");
     REQUIRE(enabled.problems.empty());

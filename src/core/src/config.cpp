@@ -559,7 +559,11 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
                 out = std::move(parsed);
             };
             reader.read_section(node, "sidebar",
-                                {{"order",
+                                {{"expand_folders",
+                                  [&](const toml::node& value, const std::string& path) {
+                                      reader.read_bool(value, path, config.sidebar.expand_folders);
+                                  }},
+                                 {"order",
                                   [&](const toml::node& value, const std::string& path) {
                                       read_list(value, path, config.sidebar.order);
                                   }},

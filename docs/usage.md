@@ -474,6 +474,13 @@ not persisted. Saved search collections are not offered inside the file picker.
 
 ## Expandable sidebar
 
+Folder expansion is enabled by default. Toggle **Settings → Appearance → Layout →
+Expandable sidebar folders** to switch between a folder tree and flat Places,
+Bookmarks and device entries. The change applies immediately. Disabling it
+collapses folder branches and stops sidebar folder discovery and branch watches;
+clicking a folder still opens it. Photo Library groups such as Albums and Saved
+searches remain expandable.
+
 Expand local folders in Places or Bookmarks using the arrow beside the icon.
 Arrows appear only when a folder has visible subfolders, and update as its
 contents change. The file list uses the same rule.

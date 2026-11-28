@@ -287,6 +287,9 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(1, "Layout", "appearance", "preview_position", "Preview placement",
         "Position of the docked preview", config.appearance.preview_position, false,
         {"right", "sidebar"});
+    add(1, "Layout", "sidebar", "expand_folders", i18n::mark("Expandable sidebar folders"),
+        i18n::mark("Expand folders in Places, Bookmarks and devices"),
+        config.sidebar.expand_folders ? "true" : "false", true, {"true", "false"});
     add(1, "Text", "font", "size", "Interface text size",
         "Logical pixels · 8–32 · applies immediately", std::format("{:g}", config.font.size), true,
         {}, Number{8, 32, 0.5F});

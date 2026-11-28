@@ -1490,6 +1490,40 @@ TEST_CASE("settings: transparency can be toggled, persisted, and reset") {
     CHECK_FALSE(core::load_config(f.path).config.appearance.transparent_settings);
 }
 
+TEST_CASE("settings: sidebar expansion toggle persists and resets without changing organization") {
+    Fixture f;
+    REQUIRE_FALSE(core::write_file_atomically(
+        f.path, "[sidebar]\norder = ['place:home', 'place:pictures']\nhidden = ['place:music']\n"));
+    f.open();
+    f.focus("Expandable sidebar folders");
+    f.dialog.key({.keysym = XKB_KEY_space, .text = {}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    const auto disabled = core::load_config(f.path);
+    REQUIRE(disabled.problems.empty());
+    CHECK_FALSE(disabled.config.sidebar.expand_folders);
+    CHECK(f.applied == 1);
+
+    f.dialog.close();
+    f.open();
+    f.focus("Expandable sidebar folders");
+    f.dialog.key({.keysym = XKB_KEY_space, .text = {}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.sidebar.expand_folders);
+
+    REQUIRE(f.dialog.edit("sidebar", "expand_folders", "false"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_FALSE(core::load_config(f.path).config.sidebar.expand_folders);
+    REQUIRE(f.dialog.reset_setting("sidebar", "expand_folders"));
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    const auto reset = core::load_config(f.path);
+    REQUIRE(reset.problems.empty());
+    CHECK(reset.config.sidebar.expand_folders);
+    CHECK(reset.config.sidebar.order == disabled.config.sidebar.order);
+    CHECK(reset.config.sidebar.hidden == disabled.config.sidebar.hidden);
+}
+
 TEST_CASE("settings: separate window fills resized content and preserves background alpha") {
     namespace ui = rummage::ui;
     Fixture f;
