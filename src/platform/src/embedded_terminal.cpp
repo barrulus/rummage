@@ -503,8 +503,14 @@ void EmbeddedTerminal::key(Key key, std::string_view text, bool ctrl, bool alt, 
     if (p.master < 0)
         return;
     p.offset = 0;
+    const bool interrupted_probe = ctrl && text == "c" && p.probing;
     p.user_input();
-    if (key == Key::enter || (ctrl && (text == "c" || text == "d"))) {
+    if (interrupted_probe) {
+        // Ctrl+C can interrupt a line-editor widget's child without a new prompt hook.
+        // Keep the known prompt, but require a fresh editor acknowledgement after the
+        // outstanding widget returns. Its old response cannot clear newer input.
+        p.probe_needed = true;
+    } else if (key == Key::enter || (ctrl && (text == "c" || text == "d"))) {
         p.prompt = false;
         p.draft = !p.prompt_seen;
     }
