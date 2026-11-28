@@ -489,7 +489,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         clear_text_focus();
         metadata_.reset();
     }
-    if (single == nullptr && folder.is_collection()) {
+    if (single == nullptr && (folder.is_search() || folder.is_recent())) {
         // Collections have no backing directory to stat or analyse. Keep their empty
         // selection summary in the ordinary info pane without requesting a virtual path.
         forget_summary();
@@ -498,10 +498,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         insights_path_.clear();
         icon(folder.is_search() ? "search" : "folder",
              theme::readable_foreground(palette.primary, palette.surface_container));
-        out.centered("name",
-                     folder.is_external_collection()
-                         ? folder.collection_label()
-                         : i18n::tr(folder.is_search() ? "Search Results" : "Recent Files"),
+        out.centered("name", i18n::tr(folder.is_search() ? "Search Results" : "Recent Files"),
                      15.0F, palette.on_surface, 22.0F);
         out.section("INFORMATION");
         out.row("Items", std::to_string(folder.total_count()));

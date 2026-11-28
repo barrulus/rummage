@@ -151,7 +151,6 @@ private:
     bool wrap_navigation_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
-    bool gallery_{false};
     ItemBounds motion_bounds_{};
     void right_click(float x, float y);
     void enter();

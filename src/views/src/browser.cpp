@@ -4116,7 +4116,6 @@ State Browser::state() {
     state.gallery = gallery_;
     state.show_extensions = show_extensions_;
     state.show_thumbnails = show_thumbnails_;
-    state.gallery = gallery_;
     state.sidebar_visible = sidebar_visible_;
     state.sidebar_width = sidebar_.width();
     state.sidebar_size = sidebar_.list_size();
@@ -4325,7 +4324,6 @@ void Browser::apply(const State& state) {
     gallery_ = state.gallery;
     show_extensions_ = state.show_extensions;
     show_thumbnails_ = state.show_thumbnails;
-    gallery_ = state.gallery;
     pane().show_hidden = state.show_hidden;
     palette_recent_ = state.palette_recent;
     saved_searches_ = state.saved_searches;
@@ -4925,7 +4923,6 @@ void Browser::draw_view(ui::Renderer& renderer, const ui::Rect& bounds,
     pane().details.set_show_thumbnails(show_thumbnails_);
     pane().columns.set_vertical(vertical_columns_);
     pane().columns.set_show_extensions(show_extensions_);
-    pane().grid.set_gallery(gallery_);
     pane().grid.set_show_extensions(show_extensions_);
     pane().details.set_show_extensions(show_extensions_);
     switch (pane().mode) {
