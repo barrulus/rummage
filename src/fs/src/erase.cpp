@@ -17,10 +17,10 @@
 #include <utility>
 #include <vector>
 
+#include "rummage/core/i18n.hpp"
 #include "rummage/fs/measure.hpp"
 #include "rummage/fs/operations.hpp"
 #include "rummage/fs/trash.hpp"
-#include "rummage/core/i18n.hpp"
 
 namespace rummage::fs {
 namespace {

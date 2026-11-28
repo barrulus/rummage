@@ -3,8 +3,8 @@
 #include <cmath>
 #include <numbers>
 
-#include "rummage/theme/desktop.hpp"
 #include "oklch.hpp"
+#include "rummage/theme/desktop.hpp"
 
 namespace rummage::theme {
 namespace {

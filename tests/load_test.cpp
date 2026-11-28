@@ -17,8 +17,8 @@ namespace fs = std::filesystem;
 namespace image = rummage::formats::image;
 namespace picture = rummage::picture;
 namespace thumbs = rummage::thumbs;
-using rummage::test::TempDir;
 using picture::Failure;
+using rummage::test::TempDir;
 
 namespace {
 
