@@ -19,7 +19,7 @@ add_executable(rummage-log-tests log_test.cpp ${PROJECT_SOURCE_DIR}/src/core/src
 target_include_directories(rummage-log-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/core/include)
 target_link_libraries(rummage-log-tests PRIVATE doctest::doctest rummage::warnings)
 target_link_options(rummage-log-tests PRIVATE
-    -Wl,--wrap=openlog -Wl,--wrap=syslog -Wl,--wrap=__syslog_chk)
+    -Wl,--wrap=openlog -Wl,--wrap=syslog -Wl,--wrap=__syslog_chk -Wl,--wrap=__vsyslog_chk)
 add_test(NAME log-transport COMMAND rummage-log-tests)
 
 add_executable(rummage-tests

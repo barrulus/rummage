@@ -55,13 +55,18 @@ extern "C" void __wrap_syslog(int priority, const char* format, ...) {
     va_end(arguments);
 }
 
-// Optimized glibc builds route syslog through this fortified entry point. Keep
-// hardening enabled in the tested production code and capture both libc paths.
+// GCC/glibc fortification calls __syslog_chk; Clang's variadic inline instead
+// forwards a va_list to __vsyslog_chk. Capture both without disabling hardening.
 extern "C" void __wrap___syslog_chk(int priority, int /*flag*/, const char* format, ...) {
     va_list arguments;
     va_start(arguments, format);
     capture_message(priority, format, arguments);
     va_end(arguments);
+}
+
+extern "C" void __wrap___vsyslog_chk(int priority, int /*flag*/, const char* format,
+                                     va_list arguments) {
+    capture_message(priority, format, arguments);
 }
 
 TEST_CASE("journal: explicit transport identifies rummage and preserves errno on failure") {
