@@ -80,6 +80,34 @@ TEST_CASE("settings editor searches commands and validates shortcut conflicts im
     CHECK_FALSE(core::parse_config(fixture.text, "test").config.keybindings.contains("copy"));
 }
 
+TEST_CASE("settings editor reports inherited shortcut problems without making a draft") {
+    EditorFixture fixture{"[keybindings]\nnew_folder = 'Ctrl+n'\n"};
+    REQUIRE(fixture.editor.shortcut_problems().size() == 1);
+    CHECK(fixture.editor.shortcut_problems().front().find("New Window") != std::string::npos);
+    CHECK(fixture.editor.error().empty());
+    CHECK_FALSE(fixture.editor.has_drafts());
+    CHECK(fixture.editor.commit());
+    CHECK(fixture.writes == 0);
+    auto accepted = core::parse_config(fixture.text, "test").config;
+    accepted.appearance.background_opacity = 0.4F;
+    fixture.editor.sync(accepted, true);
+    CHECK(fixture.editor.shortcut_problems().size() == 1);
+    CHECK(fixture.editor.error().empty());
+    REQUIRE(fixture.editor.assign_shortcut("new_folder", "Ctrl+Alt+n"));
+    CHECK(fixture.editor.shortcut_problems().empty());
+    CHECK(fixture.editor.error().empty());
+    CHECK_FALSE(fixture.editor.has_drafts());
+    fixture.editor.sync(accepted, true);
+    CHECK(fixture.editor.shortcut_problems().size() == 1);
+
+    EditorFixture missing_action{"[keybindings]\n'action:hello' = 'Ctrl+Alt+h'\n"};
+    REQUIRE(missing_action.editor.shortcut_problems().size() == 1);
+    missing_action.editor.new_action();
+    REQUIRE(missing_action.editor.update_action(
+        {.id = "hello", .label = "Hello", .argv = {"echo", "hello"}, .mime = {}}));
+    CHECK(missing_action.editor.shortcut_problems().empty());
+}
+
 TEST_CASE("settings editor translates built-in action shortcuts and searches Japanese labels") {
     struct RestoreLanguage {
         std::string previous{i18n::language()};

@@ -19,47 +19,13 @@ let
     }).config;
   disabled = evaluate { };
   app = evaluate { programs.rummage.enable = true; };
-  previewCases =
-    lib.concatMap
-      (
-        thumbnails:
-        map
-          (
-            pdf:
-            evaluate {
-              programs.rummage = {
-                enable = true;
-                preview = { inherit thumbnails pdf; };
-                filePicker.enable = true;
-              };
-            }
-          )
-          [
-            false
-            true
-          ]
-      )
-      [
-        false
-        true
-      ];
-  previewWorks =
-    config:
-    let
-      cfg = config.programs.rummage;
-      package = cfg.package;
-      expected = self.packages.${system}.rummage.override {
-        withMedia = cfg.preview.thumbnails;
-        withPdf = cfg.preview.pdf;
-      };
-    in
-    package == expected
-    && (lib.elem "media" package.outputs == cfg.preview.thumbnails)
-    && (lib.elem "pdf" package.outputs == cfg.preview.pdf)
-    && lib.elem package config.environment.systemPackages
-    && lib.elem package config.xdg.portal.extraPortals
-    && lib.elem package config.services.dbus.packages
-    && !rejected config;
+  photos = evaluate {
+    programs.rummage = {
+      enable = true;
+      photos.enable = true;
+      filePicker.enable = true;
+    };
+  };
   picker = evaluate {
     programs.rummage = {
       enable = true;
@@ -90,16 +56,6 @@ let
       };
     };
   };
-  customPreviews = evaluate {
-    programs.rummage = {
-      enable = true;
-      package = (self.packages.${system}.rummage.override { withPdf = true; }).overrideAttrs {
-        pname = "rummage-custom";
-      };
-      preview.thumbnails = true;
-      filePicker.enable = true;
-    };
-  };
   invalid = evaluate { programs.rummage.filePicker.enable = true; };
   emptyDesktops = evaluate {
     programs.rummage = {
@@ -116,16 +72,14 @@ assert !(lib.elem disabled.programs.rummage.package disabled.environment.systemP
 assert lib.elem app.programs.rummage.package app.environment.systemPackages;
 assert !app.xdg.portal.enable;
 assert app.xdg.portal.config == { };
-assert !app.programs.rummage.preview.thumbnails;
-assert !app.programs.rummage.preview.pdf;
+assert !app.programs.rummage.photos.enable;
 assert app.programs.rummage.package == self.packages.${system}.default;
-assert lib.all previewWorks previewCases;
-assert customPreviews.programs.rummage.package.pname == "rummage-custom";
-assert lib.elem "media" customPreviews.programs.rummage.package.outputs;
-assert lib.elem "pdf" customPreviews.programs.rummage.package.outputs;
-assert lib.elem customPreviews.programs.rummage.package customPreviews.environment.systemPackages;
-assert lib.elem customPreviews.programs.rummage.package customPreviews.xdg.portal.extraPortals;
-assert lib.elem customPreviews.programs.rummage.package customPreviews.services.dbus.packages;
+assert photos.programs.rummage.package == self.packages.${system}.rummage-with-photos;
+assert lib.elem "photos" photos.programs.rummage.package.outputs;
+assert !(lib.elem "photos" app.programs.rummage.package.outputs);
+assert lib.elem photos.programs.rummage.package photos.environment.systemPackages;
+assert lib.elem photos.programs.rummage.package photos.xdg.portal.extraPortals;
+assert !rejected photos;
 assert picker.xdg.portal.enable;
 assert lib.elem picker.programs.rummage.package picker.xdg.portal.extraPortals;
 assert lib.elem pkgs.xdg-desktop-portal-gtk picker.xdg.portal.extraPortals;

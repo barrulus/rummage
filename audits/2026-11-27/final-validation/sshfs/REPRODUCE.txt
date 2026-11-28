@@ -1,0 +1,66 @@
+Local-only SSHFS interruption validation
+======================================
+Run from /tmp/rummage-photo-library. Do not use the user's live SSHFS mount.
+Scripts use /tmp/rummage-final-sshfs-check as a private fixture root and port 22679.
+Before repeating, preserve earlier results and substitute a new unique root in all
+scripts, or move the old private fixture aside. prepare_fixture.py refuses overwrite.
+The private listener allows only the current test account with a generated key.
+Change AllowUsers/account name when reproducing on another host.
+
+Prepare:
+  python3 audits/2026-11-27/final-validation/sshfs/prepare_fixture.py
+  cp audits/2026-11-27/final-validation/sshfs/catalog_call.py /tmp/rummage-final-sshfs-check/
+  ssh -p 22679 -i /tmp/rummage-final-sshfs-check/client_key -o IdentitiesOnly=yes \
+    -o UserKnownHostsFile=/tmp/rummage-final-sshfs-check/known_hosts \
+    -o StrictHostKeyChecking=accept-new -o BatchMode=yes barrulus@127.0.0.1 true
+
+Default cache continuity case (self-mounting and self-unmounting):
+  python3 audits/2026-11-27/final-validation/sshfs/default_cache_transport.py
+This generates a real catalog, checks 300 records exist, waits 30 seconds with no
+fault as control, kills only sessions descended from the private sshd listener,
+requires a never-looked-up remote marker to stat successfully, waits another 30
+seconds, compares actual stats and rescans. Metadata dimensions are supplied from
+the known generated fixture; the separate UI runs exercise real image decoders.
+
+Build UI instrumentation separately, leaving the runnable production build intact:
+  nix develop --offline -c python3 scripts/performance/photo_instrument.py \
+    --source /tmp/rummage-photo-library --build /tmp/rummage-remediation-build \
+    --out /tmp/rummage-final-sshfs-check/probe
+
+For the cold-cache UI cases mount /tmp/rummage-final-sshfs-check/source over
+/tmp/rummage-final-sshfs-check/mount using sshfs in a separately recorded process
+group, with the same keys and localhost port plus:
+  reconnect,ServerAliveInterval=1,ServerAliveCountMax=2,cache=no,attr_timeout=0,entry_timeout=0
+These deliberately disable caches to force blocked I/O; they are NOT defaults.
+Create state/catalog.sqlite3 by add_source(path=mount), drain work budget=256,
+write metadata(width=320,height=240) for returned claims, query(limit=1000), and
+create_album(name='Retained over outage',ids=first five IDs). The adjacent ABI
+helper documents the exact module interface; the original pre-fault catalog rows
+are in before-catalog.json. Do not synthesize database rows for this test.
+
+Run each case on a separate private headless display:
+  python3 scripts/performance/display.py --directory UNIQUE-DISPLAY-DIRECTORY \
+    --render-device /dev/dri/renderD128 \
+    --egl-vendor /run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json -- \
+    python3 audits/2026-11-27/final-validation/sshfs/run_outage.py '{runtime}' scroll
+Repeat with another unique display directory and final argument 'refresh'.
+Pick the actual Intel render node on the current host; renderD129 was NVIDIA
+here and did not work with the explicit Mesa driver. The failed setup never ran
+an app benchmark; successful captures used renderD128 and Intel hardware.
+
+The driver pauses only the private listener/session PID tree for 8 seconds after
+20 UI inputs, concurrently issues uncached stat, resumes the tree, and waits for
+the UI's bounded completion. Original run's scroll directory was 'ui'; current
+script names it 'ui-scroll'. 300 records, 3 columns, large thumbnails, 300px info
+pane; scripted native Browser::key at nominal 25Hz. Cold run has three traversals;
+refresh case does three complete refreshes while dispatching Down.
+
+Dead mount check: kill ONLY the recorded private sshfs process group, query a
+private copy of the pre-fault catalog, verify all 300 offline and 5 album members,
+then fusermount3 -u ONLY the fixture mount. Remount it and preview relink_source;
+confirm=true must refuse ambiguous identities. Do not weaken identity safeguards.
+
+Always unmount both fixture mountpoints, then terminate ONLY the recorded private
+sshd tree, remove fixture private keys, and confirm no fixture processes/mounts
+remain. User mount, source media, catalog, running desktop app and host packages
+must remain untouched. No sudo required.

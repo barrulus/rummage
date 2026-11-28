@@ -1,0 +1,99 @@
+SSHFS preview and catalog-memory fixes — 27 November 2026
+
+Worktree /tmp/rummage-photo-library; branch feat/photo-library. Local only.
+provenance.json records the modified source hashes and normal/instrumented binaries.
+The previous measurements remain in ../sshfs-memory; these use the same catalog
+fixtures, selected path order, input cadence, grid size and private display setup.
+
+Production changes:
+- All full and incremental photo queries share one lazy application-owned worker.
+  This reuses one allocator arena during catalog activity; JSON batches move.
+- After that worker has been idle three seconds, once per activity burst, return
+  unused malloc pages if free allocator capacity is at least 64 MiB. No frame/input
+  callback runs malloc_trim. Canceled queries and closed views still reach idle.
+- Canceled queued jobs release captured data when replacement work is enqueued.
+- Cached-PNG probes have one independent worker, with selected-preview priority.
+  It never stats/opens originals; misses dispatch to source workers and unseen
+  probes cancel immediately. Cached hits remain responsive even when all remote
+  source workers are blocked.
+- Inspector source requests use two lazy application-owned workers. Queued same-size grid
+  requests can promote. At most two obsolete started inspector reads and four grid
+  reads finish warming disk cache; obsolete results keep no decoded pixels.
+- Valid larger disk thumbnails can satisfy smaller requests with worker-side
+  scaling. Known snapshot entries check disk cache before remote stat; changed
+  locations and unknown timestamps retain current-file validation. Snapshot
+  caching trusts the last listing/catalog timestamp, as the existing GPU cache
+  does; source updates are needed to detect external changes. Offline browsing
+  never opens originals. URI/mtime checks remain (disk mtime is second-resolution).
+- Inspector can immediately show an existing smaller texture of the same photo
+  while the requested tier loads. Path, nanosecond timestamp, MIME and cache
+  policy must all match. It never substitutes a previous photo or a generic icon.
+- Memory logs distinguish free allocator capacity from resident memory.
+
+No file identity policy was weakened. New regression verifies replacement with
+identical size and exact mtime but different inode retains the old album/tags on
+its old identity and does not silently apply them to the replacement.
+
+Build/checks (inside nix develop, isolated XDG homes, inherited HOME):
+  cmake --build /tmp/rummage-remediation-build -j6
+  EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1 ctest \
+    --test-dir /tmp/rummage-remediation-build --output-on-failure -j3
+  cmake --build /tmp/rummage-remediation-asan -j8
+  EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1 \
+    ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    ctest --test-dir /tmp/rummage-remediation-asan --output-on-failure -j3
+Run Release and ASan suites sequentially (process-identity test name matching).
+Existing ASan migration host setup and fontconfig suppression remain in effect.
+TSan reproduction: python3 tsan/run.py --window-authorized; adjust hard-coded
+worktree/compiler/include paths for another host. Includes positive race control.
+
+Measured UI tests:
+  python3 scripts/performance/photo_instrument.py \
+    --source /tmp/rummage-photo-library --build /tmp/rummage-remediation-build \
+    --out NEW-PROBE-DIRECTORY
+Use suite-commands.json with NEW output/display directories and the new probe.
+Each test backs up its input into isolated XDG state. They never write to original
+photos or the original user catalog, change the mount, or control the user app.
+The shared SSHFS daemon/transport are observed separately, excluded from app PSS.
+
+Cases: matched local and remote 14,268 photos, 600 Down inputs × 3 at 25 Hz;
+24 full 30,834-row refreshes while scrolling; native discovery rescan, 200 Down inputs
+× 3. Large-three grid 192 px, 300 px inspector, private 1280 × 960, 120 Hz, scale 1 display.
+Cold means empty thumbnail cache, not flushed kernel/SSHFS/server caches. Tests
+run sequentially after compilation; this is one run each, not randomized trials.
+A preview succeeds only if the actual selected image has a texture and its frame
+arrives before the next 40 ms input. No previous image or generic icon counts.
+The original preview_ready metric still requires the requested cache tier. The
+additional current_photo_ready metric also accepts a smaller current-photo image;
+these measures must not be conflated. The unchanged old binary is rerun with a
+fresh cache as a same-session control, after the fixed remote run.
+
+Final malloc_trim probe remains diagnostic: use BEFORE-trim RSS to judge the
+production fix. Free allocator capacity may stay high after pages are returned.
+Rescan final wait is input-idle, not pipeline-idle; its background job can continue.
+Raw files and detached driver: /tmp/rummage-sshfs-verified-driver and
+/tmp/rummage-sshfs-verified-{local-matched,remote-matched,remote-control,refresh-scroll,user-rescan}.
+Normal runnable build: /tmp/rummage-remediation-build/rummage.
+
+Fully warmed control
+--------------------
+prepare-warm-cache.py reproduces seed preparation using the same remote trace and
+private catalog (see its --help). Four bounded normal rummage-thumb processes
+generate 256 px PNGs first, then 512 px PNGs for selected photos. This setup is
+outside measured UI time and uses the real decoder against read-only SSHFS files.
+URI encoding follows core/file.cpp's GLib-compatible safe set; validation checks
+PNG CRC, URI, catalog mtime, dimensions and hashes, plus source size/mtime before
+and after. Three originals cannot be decoded; one is a Down target. They remain
+in both traces. Thus 599 of 600 Down targets can show an image.
+
+The prepared cache has 2,403 valid exact-tier PNGs of 2,407 requested: 1,803 large
+and 600 x-large. warm-seed-validation.json records the explicit unsupported-file
+status and manifest hash. Each UI run copies the seed with --cache-seed into its
+own fresh XDG cache. The normal fixed probe and unchanged control use identical
+inputs; warm-suite-commands.json records exact arguments. No source file, catalog
+fixture or image content was fabricated to fill the missing tiers.
+
+The cold-cache coverage diagnostic uses post-run PNG timestamps and a wall-clock
+to monotonic offset to infer which files predated each input. It checks the same
+URI/mtime validation as the app. The fully warmed control provides the stronger
+validation because seed completeness is established before app startup.

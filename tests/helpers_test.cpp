@@ -688,3 +688,48 @@ TEST_CASE("helpers: extended metadata is bounded, round trips, and rejects trunc
     CHECK(bounded->details_truncated);
     CHECK_FALSE(bounded->details.empty());
 }
+
+TEST_CASE(
+    "helpers: metadata bounds preserve UTF-8 scalar boundaries and reject malformed packets") {
+    for (const std::string& scalar : {std::string{"é"}, std::string{"旅"}, std::string{"🌷"}}) {
+        for (std::size_t prefix = 251; prefix <= 255; ++prefix) {
+            picture::PhotoInfo info;
+            info.camera = std::string(prefix, 'x') + scalar;
+            const auto decoded =
+                isolate::protocol::decode_info(isolate::protocol::encode_info(info));
+            REQUIRE(decoded);
+            CHECK(decoded->camera == std::string(prefix, 'x') +
+                                         (prefix + scalar.size() <= 255 ? scalar : std::string{}));
+        }
+    }
+    picture::PhotoInfo info;
+    info.camera = "before" + std::string{"\xed\xa0\x80"} + "after";  // UTF-8 surrogate
+    info.details.emplace_back(std::string(4095, 'x') + "旅", std::string(4094, 'v') + "🌷");
+    const auto decoded = isolate::protocol::decode_info(isolate::protocol::encode_info(info));
+    REQUIRE(decoded);
+    CHECK(decoded->camera == "before���after");
+    REQUIRE(decoded->details.size() == 1);
+    CHECK(decoded->details[0].first == std::string(4095, 'x'));
+    CHECK(decoded->details[0].second == std::string(4094, 'v'));
+    CHECK(decoded->details_truncated);
+    info = {};
+    info.camera = "é";
+    auto damaged = isolate::protocol::encode_info(info);
+    damaged.back() = std::byte{0xff};
+    CHECK_FALSE(isolate::protocol::decode_info(damaged));
+}
+
+TEST_CASE("helpers: unused bundled engines create no housekeeping threads") {
+    const auto threads = [] {
+        return std::distance(fs::directory_iterator{"/proc/self/task"}, fs::directory_iterator{});
+    };
+    const auto before = threads();
+    {
+        isolate::Helpers base{real()}, media{real()}, pdf{real()};
+        CHECK(base.running() == 0);
+        CHECK(media.running() == 0);
+        CHECK(pdf.running() == 0);
+        CHECK(threads() == before);
+    }
+    CHECK(threads() == before);
+}

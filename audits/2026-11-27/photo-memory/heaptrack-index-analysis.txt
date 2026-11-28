@@ -1,0 +1,1426 @@
+reading file "/tmp/rummage-heaptrace-index-jc54p3y6/trace.2985239.zst" - please wait, this might take some time...
+Debuggee command was: /tmp/rummage-remediation-build/rummage-bench-photos /tmp/rummage-heaptrace-index-jc54p3y6/catalog/catalog.sqlite3 /tmp/rummage-heaptrace-index-jc54p3y6/photos
+finished reading file, now analyzing data:
+
+MOST CALLS TO ALLOCATION FUNCTIONS
+351127 calls to allocation functions with 0B peak consumption from
+sqlite3MemMalloc
+  in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+11160 calls with 0B peak consumption from:
+    sqlite3Malloc
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbMallocRawFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3AddColumn
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitCallback
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitOne
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Init
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ReadSchema
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Pragma
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Database::exec(char const*)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+5208 calls with 0B peak consumption from:
+    sqlite3Malloc
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbMallocRawFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    tokenExpr
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitCallback
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitOne
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Init
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ReadSchema
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Pragma
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Database::exec(char const*)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+4836 calls with 0B peak consumption from:
+    sqlite3Malloc
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbMallocRawFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3PExpr
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Statement::Statement(sqlite3*, std::__cxx11::basic_string<> const&) [clone .isra.0]
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::index_file((anonymous namespace)::Database&, long, long, std::__cxx11::basic_string<> const&, stat const&, nlohmann::json_abi_v3_12_0::basic_json<>&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 329923 from 4953 other places
+
+26170 calls to allocation functions with 0B peak consumption from
+sqlite3MemRealloc
+  in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+8680 calls with 0B peak consumption from:
+    sqlite3Realloc.part.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbReallocFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3AddColumn
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitCallback
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitOne
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Init
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ReadSchema
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Pragma
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Database::exec(char const*)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+2310 calls with 0B peak consumption from:
+    sqlite3Realloc.part.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbReallocFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3AddColumn
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitCallback
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitOne
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Init
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ReadSchema
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Pragma
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Database::exec(char const*)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+2170 calls with 0B peak consumption from:
+    sqlite3Realloc.part.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbReallocFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3AddColumn
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitCallback
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitOne
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Init
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ReadSchema
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Pragma
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Database::exec(char const*)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 13010 from 303 other places
+
+13449 calls to allocation functions with 0B peak consumption from
+rummage::isolate::protocol::decode_info(std::span<>)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+5353 calls with 0B peak consumption from:
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+5353 calls with 0B peak consumption from:
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+1274 calls with 0B peak consumption from:
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 1469 from 2 other places
+
+10310 calls to allocation functions with 0B peak consumption from
+nlohmann::json_abi_v3_12_0::basic_json<>::basic_json(std::initializer_list<>, bool, nlohmann::json_abi_v3_12_0::detail::value_t) [clone .constprop.0]
+  in /tmp/rummage-remediation-build/librummage-photos.so
+127 calls with 0B peak consumption from:
+    (anonymous namespace)::background_state((anonymous namespace)::Database&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::runnable((anonymous namespace)::Database&, long)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+127 calls with 0B peak consumption from:
+    (anonymous namespace)::background_state((anonymous namespace)::Database&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::runnable((anonymous namespace)::Database&, long)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+127 calls with 0B peak consumption from:
+    (anonymous namespace)::background_state((anonymous namespace)::Database&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::runnable((anonymous namespace)::Database&, long)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 9929 from 325 other places
+
+9428 calls to allocation functions with 0B peak consumption from
+rummage::fs::(anonymous namespace)::split(std::basic_string_view<>, char)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+4629 calls with 0B peak consumption from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+4629 calls with 0B peak consumption from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+20 calls with 0B peak consumption from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 150 from 11 other places
+
+8750 calls to allocation functions with 326.39K peak consumption from
+rummage::fs::MimeDatabase::Impl::intern(std::basic_string_view<>)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+1077 calls with 2.75K peak consumption from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+1077 calls with 2.75K peak consumption from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+528 calls with 29.57K peak consumption from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 6068 from 49 other places
+
+6946 calls to allocation functions with 354B peak consumption from
+rummage::picture::PhotoInfo::PhotoInfo(rummage::picture::PhotoInfo const&)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+5353 calls with 34B peak consumption from:
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+1274 calls with 0B peak consumption from:
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 calls with 320B peak consumption from:
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 195 from 6 other places
+
+6822 calls to allocation functions with 0B peak consumption from
+rummage::isolate::protocol::(anonymous namespace)::bounded_utf8(std::basic_string_view<>, unsigned long)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+5353 calls with 0B peak consumption from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+649 calls with 0B peak consumption from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+625 calls with 0B peak consumption from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 195 from 2 other places
+
+
+PEAK MEMORY CONSUMERS
+524.91K peak memory consumed over 2356 calls from
+rummage::picture::encode_png(rummage::picture::Image const&, std::vector<> const&)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+262.49K consumed over 124 calls from:
+    rummage::thumbs::(anonymous namespace)::store(std::filesystem::__cxx11::path const&, rummage::picture::Image const&, std::__cxx11::basic_string<> const&, long, rummage::picture::Failure, unsigned int, unsigned int) [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::make(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, long, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::get(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+262.40K consumed over 124 calls from:
+    rummage::thumbs::(anonymous namespace)::store(std::filesystem::__cxx11::path const&, rummage::picture::Image const&, std::__cxx11::basic_string<> const&, long, rummage::picture::Failure, unsigned int, unsigned int) [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::make(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, long, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::get(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+16B consumed over 124 calls from:
+    rummage::thumbs::(anonymous namespace)::store(std::filesystem::__cxx11::path const&, rummage::picture::Image const&, std::__cxx11::basic_string<> const&, long, rummage::picture::Failure, unsigned int, unsigned int) [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::make(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, long, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::get(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 0B from 5 other places
+
+425.99K peak memory consumed over 3248 calls from
+rummage::fs::MimeDatabase::Impl::read_magic(std::filesystem::__cxx11::path const&, unsigned long)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+162.72K consumed over 1325 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+162.72K consumed over 1325 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+40.96K consumed over 11 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 59.59K from 7 other places
+
+359.26K peak memory consumed over 992 calls from
+rummage::picture::(anonymous namespace)::put_u32(std::vector<>&, unsigned int)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+359.26K consumed over 124 calls from:
+    rummage::picture::encode_png(rummage::picture::Image const&, std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::(anonymous namespace)::store(std::filesystem::__cxx11::path const&, rummage::picture::Image const&, std::__cxx11::basic_string<> const&, long, rummage::picture::Failure, unsigned int, unsigned int) [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::make(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, long, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::get(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 0B from 5 other places
+
+326.39K peak memory consumed over 8750 calls from
+rummage::fs::MimeDatabase::Impl::intern(std::basic_string_view<>)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+65.54K consumed over 1 calls from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+65.54K consumed over 1 calls from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+29.57K consumed over 528 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 165.75K from 49 other places
+
+262.14K peak memory consumed over 124 calls from
+rummage::isolate::Helpers::load(rummage::picture::LoadRequest const&)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+262.14K consumed over 124 calls from:
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, rummage::picture::LoadRequest const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_picture(rummage::picture::LoadRequest const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::make(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, long, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::get(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+
+229.63K peak memory consumed over 38 calls from
+rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+114.69K consumed over 12 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+114.69K consumed over 12 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+127B consumed over 7 calls from:
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 127B from 1 other places
+
+195.67K peak memory consumed over 5596 calls from
+rummage::fs::MimeDatabase::load(std::vector<> const&)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+28.08K consumed over 351 calls from:
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+28.08K consumed over 351 calls from:
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+25.15K consumed over 524 calls from:
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 114.36K from 25 other places
+
+179.63K peak memory consumed over 496 calls from
+rummage::picture::(anonymous namespace)::put_chunk(std::vector<>&, std::basic_string_view<>, std::span<>) [clone .constprop.0]
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+179.63K consumed over 124 calls from:
+    rummage::picture::encode_png(rummage::picture::Image const&, std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::(anonymous namespace)::store(std::filesystem::__cxx11::path const&, rummage::picture::Image const&, std::__cxx11::basic_string<> const&, long, rummage::picture::Failure, unsigned int, unsigned int) [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::make(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, long, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::thumbs::Cache::get(std::filesystem::__cxx11::path const&, rummage::thumbs::Size, std::basic_string_view<>, rummage::core::CancelToken const*) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+
+
+MEMORY LEAKS
+4.10K leaked over 1 calls from
+__GI__IO_file_doallocate
+  in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6
+4.10K leaked over 1 calls from:
+    __GI__IO_doallocbuf
+      in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6
+    __GI__IO_file_overflow
+      in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6
+    __GI__IO_file_xsputn
+      in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6
+    __GI__IO_puts
+      in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+
+416B leaked over 1 calls from
+allocate_dtv
+  in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/ld-linux-x86-64.so.2
+416B leaked over 1 calls from:
+    __GI__dl_allocate_tls
+      in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/ld-linux-x86-64.so.2
+    __pthread_create_2_1
+      in /nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6
+    std::thread::_M_start_thread(std::unique_ptr<>, void (*)())
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    rummage::isolate::Helpers::take(rummage::core::CancelToken const*, std::function<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+
+
+MOST TEMPORARY ALLOCATIONS
+15009 temporary allocations of 351127 allocations in total (4.27%) from
+sqlite3MemMalloc
+  in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+1860 temporary allocations of 1860 allocations in total (100.00%) from:
+    sqlite3Malloc
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbMallocRawFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3DbMallocZero
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3VdbeGetBoundValue.constprop.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ExprIsInteger
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopOutputAdjust
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopAddBtreeIndex
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopAddBtree
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3WhereBegin
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Select
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Reprepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_step
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Statement::row()
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::index_file((anonymous namespace)::Database&, long, long, std::__cxx11::basic_string<> const&, stat const&, nlohmann::json_abi_v3_12_0::basic_json<>&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+1240 temporary allocations of 1240 allocations in total (100.00%) from:
+    sqlite3Malloc
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbMallocRawFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3DbStrNDup
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ShadowTableName
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3EndTable
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitCallback
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3InitOne
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Init
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ReadSchema
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Pragma
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_exec
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Database::exec(char const*)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+992 temporary allocations of 992 allocations in total (100.00%) from:
+    sqlite3Malloc
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbMallocRawFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3DbMallocZero
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3VdbeGetBoundValue.constprop.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3ExprIsInteger
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopOutputAdjust
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopAddBtreeIndex
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopAddBtreeIndex
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    whereLoopAddBtree
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3WhereBegin
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Select
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Reprepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_step
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Statement::row()
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::index_file((anonymous namespace)::Database&, long, long, std::__cxx11::basic_string<> const&, stat const&, nlohmann::json_abi_v3_12_0::basic_json<>&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 10.92K from 4953 other places
+
+5562 temporary allocations of 6822 allocations in total (81.53%) from
+rummage::isolate::protocol::(anonymous namespace)::bounded_utf8(std::basic_string_view<>, unsigned long)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+4093 temporary allocations of 5353 allocations in total (76.46%) from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+649 temporary allocations of 649 allocations in total (100.00%) from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+625 temporary allocations of 625 allocations in total (100.00%) from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 195B from 2 other places
+
+4851 temporary allocations of 6183 allocations in total (78.46%) from
+rummage::picture::PhotoInfo::add_detail(std::__cxx11::basic_string<>, std::__cxx11::basic_string<>)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+4851 temporary allocations of 5353 allocations in total (90.62%) from:
+    rummage::isolate::protocol::decode_info(std::span<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)::{lambda(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&)#1}::operator()(rummage::isolate::protocol::Packet&, std::__cxx11::basic_string<>&) const
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::run(std::span<>, std::span<>, std::function<> const&, std::__cxx11::basic_string<>&, rummage::core::CancelToken const*, std::optional<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::isolate::Helpers::photo_info(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    std::_Function_handler<>::_M_invoke(std::_Any_data const&, std::filesystem::__cxx11::path const&, std::basic_string_view<>&&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::picture::load_photo_info(std::filesystem::__cxx11::path const&, std::basic_string_view<>)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+
+3674 temporary allocations of 8750 allocations in total (41.99%) from
+rummage::fs::MimeDatabase::Impl::intern(std::basic_string_view<>)
+  in /tmp/rummage-remediation-build/rummage-bench-photos
+961 temporary allocations of 1077 allocations in total (89.23%) from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+961 temporary allocations of 1077 allocations in total (89.23%) from:
+    rummage::fs::MimeDatabase::Impl::read_globs2(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+459 temporary allocations of 464 allocations in total (98.92%) from:
+    rummage::fs::MimeDatabase::Impl::read_magic(std::filesystem::__cxx11::path const&, unsigned long)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load(std::vector<> const&)
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::fs::MimeDatabase::load()
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 1.29K from 49 other places
+
+3056 temporary allocations of 26170 allocations in total (11.68%) from
+sqlite3MemRealloc
+  in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+992 temporary allocations of 992 allocations in total (100.00%) from:
+    sqlite3Realloc.part.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbReallocFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    constInsert
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    findConstInWhere
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Select
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Reprepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_step
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Statement::row()
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::index_file((anonymous namespace)::Database&, long, long, std::__cxx11::basic_string<> const&, stat const&, nlohmann::json_abi_v3_12_0::basic_json<>&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+992 temporary allocations of 992 allocations in total (100.00%) from:
+    sqlite3Realloc.part.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbReallocFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    constInsert
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    findConstInWhere
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Select
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Statement::Statement(sqlite3*, std::__cxx11::basic_string<> const&) [clone .isra.0]
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::index_file((anonymous namespace)::Database&, long, long, std::__cxx11::basic_string<> const&, stat const&, nlohmann::json_abi_v3_12_0::basic_json<>&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    sqlite3Realloc.part.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    dbReallocFinish
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    constInsert
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Select
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    yy_reduce.isra.0
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3RunParser
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3Prepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3LockAndPrepare
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    sqlite3_prepare_v2
+      in /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so
+    (anonymous namespace)::Statement::Statement(sqlite3*, std::__cxx11::basic_string<> const&) [clone .isra.0]
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::index_file((anonymous namespace)::Database&, long, long, std::__cxx11::basic_string<> const&, stat const&, nlohmann::json_abi_v3_12_0::basic_json<>&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::scan_work((anonymous namespace)::Database&, long, long, long, std::vector<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::work((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 948B from 303 other places
+
+1010 temporary allocations of 4301 allocations in total (23.48%) from
+std::__cxx11::basic_string<>::basic_string<>(char const*, std::allocator<> const&)
+  in /tmp/rummage-remediation-build/librummage-photos.so
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    (anonymous namespace)::metadata((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::metadata_batch((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    (anonymous namespace)::metadata((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::metadata_batch((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 638B from 97 other places
+
+559 temporary allocations of 884 allocations in total (63.24%) from
+std::__cxx11::basic_string<> nlohmann::json_abi_v3_12_0::basic_json<>::get_impl<>(nlohmann::json_abi_v3_12_0::detail::priority_tag<>) const [clone .isra.0]
+  in /tmp/rummage-remediation-build/librummage-photos.so
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    (anonymous namespace)::metadata_claim((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    (anonymous namespace)::Statement::bind(int, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::metadata_claim((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    (anonymous namespace)::Statement::bind(int, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::metadata((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    (anonymous namespace)::metadata_batch((anonymous namespace)::Database&, nlohmann::json_abi_v3_12_0::basic_json<> const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 187B from 11 other places
+
+396 temporary allocations of 2834 allocations in total (13.97%) from
+void std::__cxx11::basic_string<>::_M_construct<>(char const*, char const*, std::forward_iterator_tag) [clone .isra.0]
+  in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    std::filesystem::__cxx11::path::_M_split_cmpts()
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    std::filesystem::__cxx11::path::parent_path() const
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+124 temporary allocations of 124 allocations in total (100.00%) from:
+    std::filesystem::__cxx11::path::_M_split_cmpts()
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    std::filesystem::__cxx11::path::parent_path() const
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+33 temporary allocations of 33 allocations in total (100.00%) from:
+    std::filesystem::__cxx11::path::_M_split_cmpts()
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    std::filesystem::__cxx11::path::parent_path() const
+      in /nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libstdc++.so.6
+    (anonymous namespace)::Database::Database(std::filesystem::__cxx11::path const&)
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage_photos_request
+      in /tmp/rummage-remediation-build/librummage-photos.so
+    rummage::photos::Client::request(nlohmann::json_abi_v3_12_0::basic_json<> const&, rummage::core::CancelToken const*) const [clone .localalias]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main::{lambda(nlohmann::json_abi_v3_12_0::basic_json<> const&)#1}::operator()(nlohmann::json_abi_v3_12_0::basic_json<> const&) const [clone .isra.0]
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+    main
+      in /tmp/rummage-remediation-build/rummage-bench-photos
+  and 115B from 100 other places
+
+
+total runtime: 5.60s.
+calls to allocation functions: 542853 (96989/s)
+temporary memory allocations: 35675 (6373/s)
+peak heap memory consumption: 2.86M
+peak RSS (including heaptrack overhead): 17.93M
+total memory leaked: 4.51K
+suppressed leaks: 6.72K

@@ -546,3 +546,58 @@ TEST_CASE("actions: cancelled picker and launch failures do not notify completio
     }
     CHECK(notifications == 0);
 }
+
+TEST_CASE("actions: native path chooser forwards open and save requests without creating files") {
+    rummage::test::TempDir directory;
+    rummage::core::EventLoop loop;
+    using Handoff = rummage::platform::ActionHandoff;
+    Handoff::DirectoryChosen pending;
+    rummage::core::PickerRequest forwarded;
+    Handoff handoff{loop,
+                    rummage::platform::Environment::from_environment(),
+                    [](std::string, bool) {},
+                    {},
+                    {},
+                    [&](const auto& request, auto done) {
+                        forwarded = request;
+                        pending = std::move(done);
+                    }};
+    rummage::core::PickerRequest request;
+    request.folder = directory.path.string();
+    request.title = "Restore annotations";
+    SUBCASE("open") {}
+    SUBCASE("save") {
+        request.mode = rummage::core::PickerRequest::Mode::save;
+        request.title = "Export annotations";
+        request.name = "Photo annotations.json";
+    }
+    bool completed = false;
+    std::optional<std::filesystem::path> result;
+    handoff.choose_path(request, [&](auto path) {
+        result = std::move(path);
+        completed = true;
+    });
+    REQUIRE(pending);
+    CHECK(forwarded == request);
+    CHECK_FALSE(completed);
+    CHECK(std::filesystem::is_empty(directory.path));
+    pending(std::nullopt);
+    CHECK(completed);
+    CHECK_FALSE(result);
+    CHECK(std::filesystem::is_empty(directory.path));
+}
+
+TEST_CASE("actions: single path chooser refuses multi-selection before launching") {
+    rummage::core::EventLoop loop;
+    using Handoff = rummage::platform::ActionHandoff;
+    bool launched = false;
+    bool cancelled = false;
+    Handoff handoff{
+        loop, rummage::platform::Environment::from_environment(), [](std::string, bool) {}, {},
+        {},   [&](const auto&, auto) { launched = true; }};
+    rummage::core::PickerRequest request;
+    request.multiple = true;
+    handoff.choose_path(request, [&](auto path) { cancelled = !path; });
+    CHECK_FALSE(launched);
+    CHECK(cancelled);
+}

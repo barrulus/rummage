@@ -1,0 +1,300 @@
+{
+  "method": "12 identical full-prefix queries over private14,268-photo catalog, sequential with JSON freed after each; force one query on each of12persistentthreads vs12queries ononepersistentthread. This is a scheduling control, not proof actualUI visitsallarenas. Application16MiB mmapthreshold applied. No image reads or SSHFS access.",
+  "cases": {
+    "twelve_workers": {
+      "before_trim": {
+        "arenas": 612495360,
+        "free": 611724208,
+        "live": 771152,
+        "mmapped": 0,
+        "phase": "before_trim",
+        "rss": 624013312,
+        "seconds": 3.82764893,
+        "worker": -1
+      },
+      "after_trim": {
+        "arenas": 612528128,
+        "free": 611756976,
+        "live": 771152,
+        "mmapped": 0,
+        "phase": "after_trim",
+        "rss": 18976768,
+        "seconds": 3.856885403,
+        "worker": -1
+      },
+      "rss_reclaimed": 605036544,
+      "peak_live": 46165984,
+      "released_samples": [
+        {
+          "arenas": 51232768,
+          "free": 51077936,
+          "live": 154832,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62595072,
+          "seconds": 0.303305716,
+          "worker": 0
+        },
+        {
+          "arenas": 102256640,
+          "free": 102045168,
+          "live": 211472,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 113643520,
+          "seconds": 0.614122065,
+          "worker": 1
+        },
+        {
+          "arenas": 153280512,
+          "free": 153013072,
+          "live": 267440,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 164687872,
+          "seconds": 0.916640316,
+          "worker": 2
+        },
+        {
+          "arenas": 204304384,
+          "free": 203980976,
+          "live": 323408,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 215724032,
+          "seconds": 1.231908499,
+          "worker": 3
+        },
+        {
+          "arenas": 255328256,
+          "free": 254948880,
+          "live": 379376,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 266760192,
+          "seconds": 1.531271145,
+          "worker": 4
+        },
+        {
+          "arenas": 306352128,
+          "free": 305916784,
+          "live": 435344,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 317796352,
+          "seconds": 1.838204259,
+          "worker": 5
+        },
+        {
+          "arenas": 357376000,
+          "free": 356884688,
+          "live": 491312,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 368832512,
+          "seconds": 2.137140995,
+          "worker": 6
+        },
+        {
+          "arenas": 408399872,
+          "free": 407852592,
+          "live": 547280,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 419868672,
+          "seconds": 2.467021866,
+          "worker": 7
+        },
+        {
+          "arenas": 459423744,
+          "free": 458820496,
+          "live": 603248,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 470904832,
+          "seconds": 2.806512989,
+          "worker": 8
+        },
+        {
+          "arenas": 510447616,
+          "free": 509788400,
+          "live": 659216,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 521940992,
+          "seconds": 3.138274275,
+          "worker": 9
+        },
+        {
+          "arenas": 561471488,
+          "free": 560756304,
+          "live": 715184,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 572977152,
+          "seconds": 3.48560624,
+          "worker": 10
+        },
+        {
+          "arenas": 612495360,
+          "free": 611724208,
+          "live": 771152,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 624013312,
+          "seconds": 3.822708556,
+          "worker": 11
+        }
+      ]
+    },
+    "one_worker": {
+      "before_trim": {
+        "arenas": 51347456,
+        "free": 51191968,
+        "live": 155488,
+        "mmapped": 0,
+        "phase": "before_trim",
+        "rss": 62414848,
+        "seconds": 3.269032365,
+        "worker": -1
+      },
+      "after_trim": {
+        "arenas": 51367936,
+        "free": 51212448,
+        "live": 155488,
+        "mmapped": 0,
+        "phase": "after_trim",
+        "rss": 11927552,
+        "seconds": 3.272005161,
+        "worker": -1
+      },
+      "rss_reclaimed": 50487296,
+      "peak_live": 45550032,
+      "released_samples": [
+        {
+          "arenas": 51232768,
+          "free": 51082976,
+          "live": 149792,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62296064,
+          "seconds": 0.29358726,
+          "worker": 0
+        },
+        {
+          "arenas": 51253248,
+          "free": 51102096,
+          "live": 151152,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62320640,
+          "seconds": 0.561839021,
+          "worker": 0
+        },
+        {
+          "arenas": 51343360,
+          "free": 51191552,
+          "live": 151808,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62410752,
+          "seconds": 0.825747984,
+          "worker": 0
+        },
+        {
+          "arenas": 50798592,
+          "free": 50646432,
+          "live": 152160,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 61865984,
+          "seconds": 1.096871389,
+          "worker": 0
+        },
+        {
+          "arenas": 51224576,
+          "free": 51071808,
+          "live": 152768,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62291968,
+          "seconds": 1.365933838,
+          "worker": 0
+        },
+        {
+          "arenas": 51253248,
+          "free": 51100128,
+          "live": 153120,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62320640,
+          "seconds": 1.635751534,
+          "worker": 0
+        },
+        {
+          "arenas": 51269632,
+          "free": 51116160,
+          "live": 153472,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62337024,
+          "seconds": 1.905365702,
+          "worker": 0
+        },
+        {
+          "arenas": 51978240,
+          "free": 51824416,
+          "live": 153824,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 63045632,
+          "seconds": 2.174211916,
+          "worker": 0
+        },
+        {
+          "arenas": 50798592,
+          "free": 50644160,
+          "live": 154432,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 61865984,
+          "seconds": 2.448446859,
+          "worker": 0
+        },
+        {
+          "arenas": 51240960,
+          "free": 51086176,
+          "live": 154784,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62308352,
+          "seconds": 2.716271111,
+          "worker": 0
+        },
+        {
+          "arenas": 51257344,
+          "free": 51102208,
+          "live": 155136,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62324736,
+          "seconds": 2.98275942,
+          "worker": 0
+        },
+        {
+          "arenas": 51347456,
+          "free": 51191968,
+          "live": 155488,
+          "mmapped": 0,
+          "phase": "released",
+          "rss": 62414848,
+          "seconds": 3.267914876,
+          "worker": 0
+        }
+      ]
+    }
+  },
+  "probe_sha256": "929c33ec60382d243ff414c1097995b885dba273d20cb3afae54cdcc4c73b05f",
+  "probe_binary_sha256": "791db106f14093797c8a2937eb68702a8ad2d9a8efafe2fbe8ff2ef784eef917",
+  "provenance": "one-worker-samples.jsonl and twelve-worker-samples.jsonl were generated by the same final probe binary; samples.jsonl preserves earlier equivalent12workerpilot. Final12workerrepeat overlapped a separate UI allocation experiment, so elapsedtime is not a throughput comparison."
+}

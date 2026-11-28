@@ -29,37 +29,34 @@
         # Expose the source-built renderer for standalone builds and dependency inspection.
         pdfium = nixpkgs.legacyPackages.${system}.callPackage ./nix/pdfium.nix { };
         pdfium-sources = import ./nix/pdfium-sources.nix { pkgs = nixpkgs.legacyPackages.${system}; };
-        rummage-with-media = self.packages.${system}.rummage.override { withMedia = true; };
-        rummage-media = self.packages.${system}.rummage-with-media.media;
-        rummage-with-pdf = self.packages.${system}.rummage.override { withPdf = true; };
-        rummage-pdf = self.packages.${system}.rummage-with-pdf.pdf;
-        # Both optional preview engines: video stills and PDF pages.
-        rummage-with-previews = self.packages.${system}.rummage.override {
-          withMedia = true;
-          withPdf = true;
-        };
+        rummage-with-photos = self.packages.${system}.rummage.override { withPhotos = true; };
+        rummage-photos = self.packages.${system}.rummage-with-photos.photos;
         default = self.packages.${system}.rummage;
       });
 
       checks = forEachSystem (system: {
-        tests = (self.packages.${system}.rummage.override {
-          withTests = true;
-          withMedia = true;
-          withPdf = true;
-        }).overrideAttrs {
-          pname = "rummage-tests";
-          outputs = [ "out" ];
-          # Compile and test the app/helpers, but produce no installable packages.
-          installPhase = ''
-            mkdir -p "$out"
-            touch "$out/passed"
-          '';
-          postInstall = "";
-          dontFixup = true;
-        };
+        tests =
+          (self.packages.${system}.rummage.override {
+            withTests = true;
+            withPhotos = true;
+          }).overrideAttrs
+            {
+              pname = "rummage-tests";
+              outputs = [ "out" ];
+              # Compile and test the app/helpers, but produce no installable packages.
+              installPhase = ''
+                mkdir -p "$out"
+                touch "$out/passed"
+              '';
+              postInstall = "";
+              dontFixup = true;
+            };
         nixos-module = import ./nix/module-check.nix { inherit self nixpkgs system; };
         smoke = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {
           package = self.packages.${system}.rummage;
+        };
+        smoke-photos = nixpkgs.legacyPackages.${system}.callPackage ./nix/smoke-test.nix {
+          package = self.packages.${system}.rummage-with-photos;
         };
       });
 
@@ -78,6 +75,7 @@
               gdb
               git
               ffmpeg
+              sqlite
               libjpeg_turbo
               nixfmt
               shared-mime-info

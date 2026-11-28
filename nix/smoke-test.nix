@@ -2,6 +2,8 @@
   runCommand,
   package,
   bash,
+  binutils,
+  lib,
   desktop-file-utils,
   weston,
   dbus,
@@ -15,6 +17,7 @@ runCommand "rummage-installed-smoke"
   {
     nativeBuildInputs = [
       bash
+      binutils
       desktop-file-utils
       weston
       python3
@@ -28,6 +31,10 @@ runCommand "rummage-installed-smoke"
   }
   ''
     bash ${../scripts/ci}/check-installed.sh ${package} ${package.version}
+    python3 ${../scripts/ci}/check-photos-installed.py ${package}/bin/rummage \
+      ${lib.optionalString (
+        package ? photos
+      ) "--module ${package.photos}/libexec/rummage/librummage-photos.so"}
     bash ${../scripts/ci}/check-wayland.sh ${package}
     touch "$out"
   ''

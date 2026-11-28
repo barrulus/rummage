@@ -1,0 +1,39 @@
+FINAL FEDORA PACKAGE VALIDATION — PASS
+
+Tested exact snapshot: 90bd0bda1c6ae78901f8b6a61bb4ffbc25a2e2f0.
+Completed 28 November 2026. Results do not cover any subsequent integration from main.
+
+Built native Fedora45 RPMs (base and sole Photo Library add-on) with the committed
+recipe, native compiler/hardening/LTO and source-built private PDFium. Clean install,
+real prior-version upgrade, add-on removal/reinstall, and full removal all passed.
+
+Clean-install checks include package integrity, runtime library resolution,
+installed config/assets/desktop/portal, isolated sandboxed PDF rendering, photo
+ABI identity/Unicode/offline retention, diagnostic non-initialization, real window
+buffer rendering on private Weston, multiwindow reuse and picker shutdown. Add-on
+removal preserves the ordinary app and its bundled preview executables.
+
+The upgrade starts from genuine archived 0.6.0 Fedora45 RPMs/source commit
+b72e3c67ec2ef38fe452bfcc55f5ded066ef7b38. DNF upgrades to0.6.1, automatically
+replacing rummage-media, rummage-pdf and rummage-previews. No conflicts occurred.
+After installing the new photo module, the fixture saves Unicode annotations,
+rating and date. Add-on removal preserves catalog/config hashes; reinstall reads
+those annotations; full application removal also preserves catalog/config hashes.
+
+Source hashes, RPM hashes, environment, exact upgrade script and complete logs
+are adjacent. build-adjustments.txt describes the untracked-evidence export gate,
+translation-inclusive source substitution before rpmbuild, increased late build
+parallelism, and HOME-preserving test helper. No application source/spec logic
+was changed for validation. The only spec substitutions are the same Version and
+Release substitutions used by CI.
+
+Limits: Fedora45 only; headless software-rendered Weston; one authentic historic
+upgrade baseline. It is not every distro/hardware/compositor or every historic
+upgrade. Existing photo catalogs were tested through removal/reinstall, not a
+historic photo-addon RPM upgrade (old snapshot predates the addon).
+
+Warnings: rpmbuild's missing changelog timestamp and missing drag cursor theme
+glyphs in minimal Weston did not fail the tests. Packages remain unsigned local
+validation artifacts. Nothing was installed on the host or published. All test
+containers exited and were removed; retained RPM/source artifacts are in
+/tmp/rummage-final-fedora-3292429 and /tmp/rummage-final-fedora-90bd0bda.

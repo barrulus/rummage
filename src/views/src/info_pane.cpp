@@ -249,6 +249,19 @@ bool InfoPane::scroll_text(TextScroll how, Clock::time_point now) {
     return true;
 }
 
+void InfoPane::set_photo_properties(std::optional<PhotoProperties> properties) {
+    if (photo_properties_.has_value() != properties.has_value() ||
+        (photo_properties_ && properties &&
+         (photo_properties_->ids != properties->ids ||
+          photo_properties_->entry.identity != properties->entry.identity ||
+          photo_properties_->path != properties->path))) {
+        metadata_.reset();
+        clear_text_focus();
+        copied_ = false;
+    }
+    photo_properties_ = std::move(properties);
+}
+
 void InfoPane::set_code_report(std::shared_ptr<const platform::CodeReport> report) {
     // The pane only retains a summary, not every file in the source report.
     auto summary = std::make_shared<platform::CodeReport>();
@@ -464,8 +477,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     };
 
     const fs::Entry* const single = folder.cursor_entry();
-    std::string shown_key = std::format("{}\n{}", folder.path().string(),
-                                        single == nullptr ? std::string{} : single->name);
+    std::string shown_key =
+        std::format("{}\n{}", folder.path().string(),
+                    single == nullptr ? std::string{} : std::string{single->key()});
     if (shown_key != shown_key_) {
         shown_key_ = std::move(shown_key);
         copied_ = false;
@@ -474,7 +488,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     }
     if (folder.selected_count() > 1) {
         const SelectionSummary& selection = folder.summary();
-        if (selection.folders > 0 && !folder.is_archive()) {
+        if (selection.folders > 0 && !folder.is_archive() && !folder.is_collection()) {
             std::vector<std::filesystem::path> roots;
             std::string key = folder.path().string();
             key += '\0' + std::to_string(folder.model().revision());
@@ -495,21 +509,29 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     const fs::MimeDatabase& mime = folder.mime();
     const std::filesystem::path path = single == nullptr ? folder.path() : folder.path_of(*single);
+    const bool album =
+        single != nullptr && folder.is_collection() && single->identity.starts_with("album:");
+    const bool logical = single != nullptr && folder.is_collection() && (path.empty() || album);
     fs::Entry typed;
     preview::Kind kind = preview::Kind::info;
     if (single != nullptr) {
         typed = *single;
-        typed.mime = folder.mime_of(*single);
-        kind = preview::provider_for(mime, typed.mime).kind();
+        // An album's location is its cover image, not the album itself. It can supply pixels
+        // without turning the collection into a file or exposing the cover's metadata as its own.
+        if (!logical || (album && !path.empty())) {
+            typed.mime = folder.mime_of(*single);
+            kind = preview::provider_for(mime, typed.mime).kind();
+        }
     }
-    if (single != nullptr && single->is_directory() && !folder.is_archive()) {
+    if (single != nullptr && single->available && single->is_directory() && !folder.is_archive() &&
+        !path.empty()) {
         measure(folder_measure_, {path},
                 std::format("{}\n{}\n{}", path.string(), single->modified_ns,
                             folder.model().revision()));
     } else {
         measure(folder_measure_, {}, {});
     }
-    if (folder.is_archive()) {
+    if (logical || folder.is_archive() || path.empty() || (single && !single->can_preview())) {
         forget_summary();
     } else {
         request(path, single == nullptr ? 0 : single->modified_ns,
@@ -536,12 +558,11 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         // moves when the thumbnail arrives.
         const float box = std::min(preview_width, bounds.height * kMaxPreview);
         const ui::Texture* thumbnail = nullptr;
-        picture::Failure failure = picture::Failure::none;
-        if (thumbnails_ != nullptr && !folder.is_archive()) {
+        if (thumbnails_ != nullptr && !folder.is_archive() && !path.empty()) {
             thumbnail = thumbnails_->get(
                 path, single->modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(box * renderer.scale()))),
-                mime.name(typed.mime), &failure);
+                mime.name(typed.mime), nullptr, ThumbnailOptions::for_entry(*single, true));
         }
         if (thumbnail != nullptr) {
             const float fit =
@@ -553,15 +574,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             renderer.draw_shadow({rect.x, rect.y + 4.0F, rect.width, rect.height}, {}, 12.0F,
                                  palette.shadow.with_alpha(0.5F));
             renderer.draw_image(*thumbnail, rect, {});
-        } else {
-            icons.draw_file(renderer, (mime).name(typed.mime), fs::icon_name(mime, typed),
-                            out.left() + ((out.width() - kIconSize) / 2.0F),
-                            out.y() + ((box - kIconSize) / 2.0F), kIconSize,
-                            palette.on_surface_variant, typed.folder_icon);
-            draw_failure_badge(renderer, icons, palette, failure,
-                               out.left() + ((out.width() - kIconSize) / 2.0F),
-                               out.y() + ((box - kIconSize) / 2.0F), kIconSize);
         }
+        // Keep the reserved image area blank until pixels are ready; a file icon here flashes
+        // between selections and before an uncached preview arrives.
         out.skip(box + 18.0F);
     } else if (summary != nullptr && summary->text && !summary->text->lines.empty()) {
         // A thumbnail of the beginning; reading, selection and scrolling live in Quick Look.
@@ -602,23 +617,30 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     }
 
     // Name and type.
-    std::string name = single == nullptr ? folder.path().filename().string() : single->name;
+    std::string name = single == nullptr
+                           ? (folder.is_collection() ? folder.collection_label()
+                                                     : folder.path().filename().string())
+                           : single->name;
     if (name.empty()) {
         name = folder.path().string();  // the root
     }
     out.centered("name", name, 15.0F, palette.on_surface, 22.0F);
-    std::string type{i18n::tr("Folder")};
-    if (single != nullptr) {
+    std::string type{i18n::tr(folder.is_collection() ? "Collection" : "Folder")};
+    if (logical) {
+        type = folder.collection_label();
+    } else if (single != nullptr) {
         type =
             typed.mime == fs::kUnknownMime ? std::string{"…"} : std::string{mime.name(typed.mime)};
     }
     out.centered("type", type, kSmallSize, palette.on_surface_variant, 20.0F);
 
     // What it is.
-    out.section("INFORMATION");
+    if (!logical)
+        out.section("INFORMATION");
     if (single == nullptr) {
-        out.row("Items", std::format("{}", folder.entries().size()));
-    } else if (single->is_directory()) {
+        out.row("Items", std::format("{}", folder.is_collection() ? folder.total_count()
+                                                                  : folder.entries().size()));
+    } else if (!logical && single->is_directory()) {
         // As many as the folder will show when opened.
         out.row("Items",
                 info != nullptr && info->items
@@ -632,8 +654,9 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             out.row("Contains", std::format("{}, {}", count_of(folder_measure_.size->files, "file"),
                                             count_of(folder_measure_.size->folders - 1, "folder")));
         }
-    } else {
-        out.row("Size", format_size(single->size));
+    } else if (!logical) {
+        out.row(single->preview_current_location ? i18n::tr("Catalog size") : i18n::tr("Size"),
+                format_size(single->size));
         if (const archive::Entry* const packed = folder.model().archive_entry(single->name);
             packed != nullptr && packed->packed != packed->size) {
             out.row(i18n::tr("Compressed"), format_size(packed->packed));
@@ -658,8 +681,10 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     if (info != nullptr && info->created_ns) {
         out.row("Created", format_time(*info->created_ns));
     }
-    if (single != nullptr) {
-        out.row("Modified", format_time(single->modified_ns));
+    if (single != nullptr && !logical) {
+        out.row(
+            single->preview_current_location ? i18n::tr("Catalog modified") : i18n::tr("Modified"),
+            single->modified_known ? format_time(single->modified_ns) : "—");
         // In the trash: where it was, and when it went.
         if (const fs::TrashedItem* const item = folder.model().trashed(single->name)) {
             out.row("Original location", item->info.original.parent_path().string());
@@ -669,8 +694,43 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
         }
     }
 
+    const bool matching_catalog_record =
+        photo_properties_ && single &&
+        (!photo_properties_->entry.identity.empty()
+             ? photo_properties_->entry.identity == single->identity
+             : (!path.empty() && photo_properties_->path == path &&
+                (single->identity.empty() ||
+                 (photo_properties_->ids.size() == 1 &&
+                  single->identity == "photo:" + std::to_string(photo_properties_->ids.front())))));
+    if (matching_catalog_record) {
+        out.section(logical ? folder.collection_label() : "Photo Library");
+        for (const auto& [label, value] : photo_properties_->rows)
+            out.row(label, value);
+        if (!photo_properties_->ids.empty()) {
+            const auto& annotations = photo_properties_->annotations;
+            out.row("Description",
+                    annotations.description.value_or(std::string{i18n::tr("Mixed values")}));
+            out.row("Rating", annotations.rating ? std::to_string(*annotations.rating)
+                                                 : std::string{i18n::tr("Mixed values")});
+            out.row("Capture date override",
+                    annotations.capture_date.value_or(std::string{i18n::tr("Mixed values")}));
+            std::string tags;
+            if (!annotations.tags)
+                tags = i18n::tr("Mixed values");
+            else
+                for (const auto& tag : *annotations.tags) {
+                    if (!tags.empty())
+                        tags += ", ";
+                    tags += tag;
+                }
+            out.row("Tags", tags);
+        }
+    }
+
     if (photo != nullptr && !media_details(*photo, MediaDetails::summary).empty()) {
-        out.section(photo->video_codec.empty() ? i18n::tr("MEDIA") : i18n::tr("VIDEO"));
+        out.section(single && single->preview_current_location ? i18n::tr("Current file metadata")
+                    : photo->video_codec.empty()               ? i18n::tr("MEDIA")
+                                                               : i18n::tr("VIDEO"));
         for (const auto& [label, value] : media_details(*photo, MediaDetails::summary))
             out.row(label, value);
     }
@@ -680,7 +740,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             out.row(label, value);
     }
 
-    if (insights_ && !folder.is_archive() && !folder.is_trash() &&
+    if (insights_ && !folder.is_archive() && !folder.is_collection() && !folder.is_trash() &&
         (single == nullptr || (single->is_directory() && !single->is_link))) {
         insights_path_ = path;
         out.skip(10.0F);
@@ -753,7 +813,7 @@ void InfoPane::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             out.centered("error", info->error, kSmallSize, palette.error, 20.0F);
         }
     }
-    if (folder.selected_count() > 1) {
+    if (folder.selected_count() > 1 && !logical) {
         const auto& selected = folder.summary();
         out.section(i18n::tr("Selection"));
         out.row("Folders", std::to_string(selected.folders));

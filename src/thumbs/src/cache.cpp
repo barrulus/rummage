@@ -17,6 +17,7 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/picture/load.hpp"
 #include "rummage/picture/png.hpp"
+#include "rummage/picture/scale.hpp"
 #include "rummage/picture/wuffs.hpp"
 #include "rummage/thumbs/md5.hpp"
 
@@ -264,25 +265,44 @@ Thumbnail Cache::get(const std::filesystem::path& file, Size size, std::string_v
     if (::stat(file.c_str(), &info) != 0) {
         return failure(std::error_code{errno, std::generic_category()}.message());
     }
+    auto existing = cached(file, size, info.st_mtime);
+    if (!existing.image.empty())
+        return existing;
     const std::string uri = file_uri(file);
-    const std::vector<std::uint8_t> cached = read_file(path_for(file, size));
-    if (!cached.empty() && matches(cached, uri, info.st_mtime)) {
-        // Our own PNGs (or another app's, the same spec): read here, with wuffs, PNG only.
-        std::string error;
-        if (std::optional<picture::Image> stored = picture::decode_png(cached, error)) {
-            const auto [full_width, full_height] = stored_size(cached, *stored);
-            return {.image = std::move(*stored),
-                    .source = Source::cache,
-                    .error = {},
-                    .full_width = full_width,
-                    .full_height = full_height};
-        }
-    }
     const std::vector<std::uint8_t> failed = read_file(fail_path(file, mime));
     if (!failed.empty() && matches(failed, uri, info.st_mtime)) {
         return failure("failed before, and unchanged since", stored_failure(failed));
     }
     return make(file, size, info.st_mtime, mime, cancel);
+}
+
+Thumbnail Cache::cached(const std::filesystem::path& file, Size size,
+                        std::int64_t modified_seconds) const {
+    const std::string uri = file_uri(file);
+    // A larger cached thumbnail already contains enough pixels. Reuse it rather than
+    // opening the original again when grid size changes or the inspector warmed it first.
+    for (const Size candidate : {Size::normal, Size::large, Size::x_large, Size::xx_large}) {
+        if (pixels(candidate) < pixels(size)) {
+            continue;
+        }
+        const std::vector<std::uint8_t> cached = read_file(path_for(file, candidate));
+        if (!cached.empty() && matches(cached, uri, modified_seconds)) {
+            // Our PNGs (or another app's, the same spec): PNG only, on the worker.
+            std::string error;
+            if (std::optional<picture::Image> stored = picture::decode_png(cached, error)) {
+                const auto [full_width, full_height] = stored_size(cached, *stored);
+                if (stored->width > pixels(size) || stored->height > pixels(size)) {
+                    *stored = picture::scale_to_fit(*stored, pixels(size), pixels(size));
+                }
+                return {.image = std::move(*stored),
+                        .source = Source::cache,
+                        .error = {},
+                        .full_width = full_width,
+                        .full_height = full_height};
+            }
+        }
+    }
+    return failure("No cached thumbnail is available");
 }
 
 Thumbnail Cache::make(const std::filesystem::path& file, Size size, std::string_view mime,

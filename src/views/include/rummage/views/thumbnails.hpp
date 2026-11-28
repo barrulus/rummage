@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -15,12 +16,27 @@
 #include "rummage/thumbs/cache.hpp"
 #include "rummage/ui/texture.hpp"
 
+namespace rummage::fs {
+struct Entry;
+}
+
 namespace rummage::views {
 
+// Current-location previews must validate against the file now; normal listings can first
+// reuse the snapshot they already display. Offline browsing never opens the original.
+enum class ThumbnailCache : unsigned char { current, snapshot, offline };
+
+struct ThumbnailOptions {
+    ThumbnailCache cache{ThumbnailCache::current};
+    bool inspector{false};
+
+    [[nodiscard]] static ThumbnailOptions for_entry(const fs::Entry& entry, bool inspector = false);
+};
+
 // Thumbnails for the views, as GPU textures. A view asks for the files it draws, every frame;
-// the ones not ready are made on workers through the freedesktop cache (visible priority), the
-// ones no longer asked for are cancelled, and the textures beyond a memory budget are dropped,
-// least recently drawn first.
+// the ones not ready are made on workers through the freedesktop cache. Inspector requests
+// have their own worker lane. Unseen queued work is cancelled; a bounded number of started
+// jobs may finish warming the disk cache. Textures beyond the budget are dropped oldest first.
 //
 // Loop thread only. Textures are created inside get(), so call it while drawing (GL current).
 class Thumbnails {
@@ -39,17 +55,23 @@ public:
     // The thumbnail of file (absolute) as it was at modified_ns, at size; nullptr while it is
     // being made (now asked for) or when it cannot be made. When it cannot, failure (if given)
     // says why, when the file says so (damaged, password protected); else none.
+    // Inspector requests reserve decoding capacity and may show an existing smaller preview
+    // of the same snapshot while the requested tier loads. delivered_tier reports that tier
+    // when non-null (the requested tier while blank).
     [[nodiscard]] const ui::Texture* get(const std::filesystem::path& file,
                                          std::int64_t modified_ns, thumbs::Size size,
                                          std::string_view mime = {},
-                                         picture::Failure* failure = nullptr);
+                                         picture::Failure* failure = nullptr,
+                                         ThumbnailOptions options = {},
+                                         thumbs::Size* delivered_tier = nullptr);
 
     // Pin the already displayed texture for an operation; cache eviction waits for release.
     [[nodiscard]] std::shared_ptr<const ui::Texture> get_shared(
         const std::filesystem::path& file, std::int64_t modified_ns, thumbs::Size size,
-        std::string_view mime = {}, picture::Failure* failure = nullptr);
+        std::string_view mime = {}, picture::Failure* failure = nullptr,
+        ThumbnailOptions options = {}, thumbs::Size* delivered_tier = nullptr);
 
-    // After each frame: cancels what this frame did not ask for, keeps to the budget.
+    // After each frame: cancels unseen work except bounded cache warming, keeps to the budget.
     void end_frame();
 
     // Thumbnails are being made or waiting for a bounded retry (snapshots, tests).
@@ -68,10 +90,16 @@ public:
     [[nodiscard]] Usage usage() const;
 
 private:
+    enum class JobState : unsigned char { queued, running, cancelled };
+
     struct Slot {
         std::optional<core::CancelToken> job;  // being made
         std::optional<core::EventLoop::SourceId> retry;
         unsigned attempts{0};
+        std::shared_ptr<std::atomic<JobState>> state;
+        bool inspector{false};
+        bool warming{false};
+        bool cache_probe{false};  // Local PNG reads never occupy source/preview workers.
         std::shared_ptr<picture::Image> pixels;  // made, not uploaded yet
         std::shared_ptr<ui::Texture> texture;
         bool failed{false};
@@ -80,7 +108,10 @@ private:
     };
 
     void request(const std::string& key, const std::filesystem::path& file, thumbs::Size size,
-                 const std::string& mime);
+                 const std::string& mime, std::int64_t modified_ns, ThumbnailCache mode);
+    void dispatch(const std::string& key, const std::filesystem::path& file, thumbs::Size size,
+                  const std::string& mime, std::int64_t modified_ns, ThumbnailCache mode,
+                  bool cache_probe);
 
     core::EventLoop& loop_;
     core::WorkerPool& pool_;

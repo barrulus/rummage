@@ -1,4 +1,4 @@
-# The only target that links PDFium. The application works without this optional package.
+# The only target that links PDFium. Bundled in the standard package, with runtime UI controls.
 add_executable(rummage-pdf backend.cpp
     ../isolate/src/helper_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp)
 target_include_directories(rummage-pdf PRIVATE ../isolate/src)

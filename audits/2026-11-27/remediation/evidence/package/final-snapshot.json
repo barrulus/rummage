@@ -1,0 +1,10 @@
+{
+  "timestamp_utc": "2026-11-27T08:30:15.354445+00:00",
+  "scope": "Final source candidate, staged checks rerun after final production changes. HOME unchanged; isolated XDG fixtures. No distro package manager upgrade test.",
+  "files": {
+    "/tmp/rummage-remediation-build/rummage": "e6bcb09c80701aca3c95d7c4662c178412e9769889897fbafaee2e54e1084582",
+    "/tmp/rummage-remediation-build/librummage-photos.so": "c8d2613e59a9c18c97afb68c93b45948cdf86c229630363009043267ff0e57d0",
+    "/tmp/rummage-remediation-package-checks/staged-install/prefix/bin/rummage": "e6bcb09c80701aca3c95d7c4662c178412e9769889897fbafaee2e54e1084582",
+    "/tmp/rummage-remediation-package-checks/staged-install/addon/libexec/rummage/librummage-photos.so": "c8d2613e59a9c18c97afb68c93b45948cdf86c229630363009043267ff0e57d0"
+  }
+}

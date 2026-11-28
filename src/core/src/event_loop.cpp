@@ -205,16 +205,23 @@ int EventLoop::run() {
         if (!running_)
             break;
 
-        // Callbacks may add sources (appended, not visited this round) or remove any of them.
-        for (std::size_t i = 0; i < ids.size(); ++i) {
-            const auto it = std::ranges::find(sources_, ids[i], &Source::id);
-            if (it == sources_.end() || it->removed) {
-                continue;
-            }
-            if (fds[i].revents != 0 || it->options.notify_always) {
-                // Copy: the callback may add sources and reallocate sources_.
-                const FdCallback callback = it->callback;
-                callback(fds[i].revents);
+        // Dispatch completed protocol reads before ordinary sources, including posted worker
+        // completions. Wayland may have queued a clipboard ownership change: enriching the old
+        // offer before dispatching that change could replace a newer copy. Every prepared read
+        // is already released above, so these callbacks may safely redraw or dispatch app code.
+        // Callbacks may add sources (not visited this round) or remove any of the snapshotted IDs.
+        for (const bool completed_read : {true, false}) {
+            for (std::size_t i = 0; i < ids.size(); ++i) {
+                const auto it = std::ranges::find(sources_, ids[i], &Source::id);
+                if (it == sources_.end() || it->removed ||
+                    static_cast<bool>(it->options.after_poll) != completed_read) {
+                    continue;
+                }
+                if (fds[i].revents != 0 || it->options.notify_always) {
+                    // Copy: the callback may add sources and reallocate sources_.
+                    const FdCallback callback = it->callback;
+                    callback(fds[i].revents);
+                }
             }
         }
     }

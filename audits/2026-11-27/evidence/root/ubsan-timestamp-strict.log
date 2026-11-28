@@ -1,0 +1,22 @@
+/tmp/rummage-photo-library/src/photos/src/catalog.cpp:572:23: runtime error: signed integer overflow: 10000000000 * 1000000000 cannot be represented in type 'long int'
+    #0 0x7bfff25831c3 in photo_json /tmp/rummage-photo-library/src/photos/src/catalog.cpp:572
+    #1 0x7bfff25aff65 in query /tmp/rummage-photo-library/src/photos/src/catalog.cpp:678
+    #2 0x7bfff25e6ec0 in dispatch /tmp/rummage-photo-library/src/photos/src/catalog.cpp:2416
+    #3 0x7bfff25e6ec0 in rummage_photos_request /tmp/rummage-photo-library/src/photos/src/catalog.cpp:2609
+    #4 0x7bfff3220051 in ffi_call_unix64 (/nix/store/zy879gpqy4w1yyzf1q0cbfkpa9fvs7xf-libffi-3.8.0/lib/libffi.so.8+0xf051)
+    #5 0x7bfff321cf28 in ffi_call_int (/nix/store/zy879gpqy4w1yyzf1q0cbfkpa9fvs7xf-libffi-3.8.0/lib/libffi.so.8+0xbf28)
+    #6 0x7bfff321e654 in ffi_call (/nix/store/zy879gpqy4w1yyzf1q0cbfkpa9fvs7xf-libffi-3.8.0/lib/libffi.so.8+0xd654)
+    #7 0x7bfff3244e50 in _ctypes_callproc (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/python3.14/lib-dynload/_ctypes.cpython-314-x86_64-linux-gnu.so+0x1ce50) (BuildId: b469cdafd81e1450cbdf37b88601da21242e3c53)
+    #8 0x7bfff32377ca in PyCFuncPtr_call (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/python3.14/lib-dynload/_ctypes.cpython-314-x86_64-linux-gnu.so+0xf7ca) (BuildId: b469cdafd81e1450cbdf37b88601da21242e3c53)
+    #9 0x7ffff7111779 in _PyObject_MakeTpCall.localalias.lto_priv.0 (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x111779) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #10 0x7ffff72cbc86 in _PyEval_EvalFrameDefault.localalias.lto_priv.0 (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x2cbc86) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #11 0x7ffff72d85cc in _PyEval_Vector.constprop.0 (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x2d85cc) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #12 0x7ffff72c4a98 in PyEval_EvalCode.localalias.lto_priv.0 (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x2c4a98) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #13 0x7ffff7384529 in run_mod.lto_priv.0 (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x384529) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #14 0x7ffff737e3ed in _PyRun_SimpleFile (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x37e3ed) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #15 0x7ffff737eb20 in _PyRun_AnyFile (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x37eb20) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #16 0x7ffff73c26ea in Py_RunMain (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x3c26ea) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #17 0x7ffff73c2ee2 in Py_BytesMain (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/lib/libpython3.14.so.1.0+0x3c2ee2) (BuildId: 2a838e2d1a7873b5ef6e9cf9f046320ff6a29f22)
+    #18 0x7ffff6c2b390 in __libc_start_call_main (/nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6+0x2b390) (BuildId: 133180439d230cb18be500acfbe7a8aec7d554d1)
+    #19 0x7ffff6c2b4a7 in __libc_start_main_impl (/nix/store/r3hvhzl5fxhrgn0rfy5g7rda17702pj4-glibc-2.44-57/lib/libc.so.6+0x2b4a7) (BuildId: 133180439d230cb18be500acfbe7a8aec7d554d1)
+    #20 0x555555555084 in _start (/nix/store/bya4ansy58az5133kryqp2cvrxbnz8qy-python3-3.14.10/bin/python3.14+0x1084) (BuildId: b13d81a31b8892adcd60f01eea9d9561b0ed687d)

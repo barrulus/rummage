@@ -1,0 +1,3 @@
+exit 0 seconds 0.503 peak_rss_kib 283872 result /tmp/rummage-remediation-measurements/ui/final-photo-1000.csv
+exit 0 seconds 1.299 peak_rss_kib 432364 result /tmp/rummage-remediation-measurements/ui/final-photo-10000.csv
+exit 0 seconds 16.043 peak_rss_kib 1389288 result /tmp/rummage-remediation-measurements/ui/final-photo-100000.csv

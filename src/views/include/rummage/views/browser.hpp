@@ -47,6 +47,7 @@
 #include "rummage/views/name_editor.hpp"
 #include "rummage/views/pane.hpp"
 #include "rummage/views/password_dialog.hpp"
+#include "rummage/views/photo_library.hpp"
 #include "rummage/views/properties_dialog.hpp"
 #include "rummage/views/quick_look.hpp"
 #include "rummage/views/search_results.hpp"
@@ -152,6 +153,7 @@ struct Remotes {
 
 // Loop thread only. Must not outlive the loop, pool or watcher.
 class Browser {
+    friend class FilePicker;  // Picker validation uses the browser’s cancellable I/O pool.
 public:
     using Clock = ui::Scroller::Clock;
 
@@ -221,6 +223,13 @@ public:
 
     [[nodiscard]] bool shows_thumbnails() const { return show_thumbnails_; }
 
+    void set_gallery(bool gallery) {
+        gallery_ = gallery;
+        redraw_();
+    }
+
+    [[nodiscard]] bool gallery() const { return gallery_; }
+
     void set_entry_filter(fs::Listing::Predicate filter);
     // Live filename substring filter, combined with the picker's type restrictions.
     void set_name_filter(std::string text);
@@ -242,7 +251,8 @@ public:
         return errors_.is_open() || password_.is_open() || mount_password_.is_open() ||
                location_.is_open() || conflict_.is_open() || confirm_.is_open() ||
                palette_.is_open() || menu_.is_open() || editor_.active() || shortcuts_.is_open() ||
-               quick_look_.is_open() || properties_.is_open() || searching_results();
+               quick_look_.is_open() || properties_.is_open() || searching_results() ||
+               (showing_photos() && photo_library_->has_dialog());
     }
 
     [[nodiscard]] std::shared_ptr<Folder> picker_folder() const { return current_folder(); }
@@ -423,12 +433,19 @@ public:
 
     void set_folder_chooser(FolderChooser chooser) { folder_chooser_ = std::move(chooser); }
 
+    void set_photo_path_chooser(PhotoLibrary::PathChooser chooser) {
+        photo_path_chooser_ = std::move(chooser);
+    }
+
     // A program the user opened may not run yet (no execute bit): the card asks, and
     // allow_and_run() is called on "Allow and Run" (issue #17).
     void ask_to_run(const std::filesystem::path& program, std::function<void()> allow_and_run);
 
     void set_picker_mode(bool picker) {
         picker_mode_ = picker;
+        if (picker && photo_library_)
+            photo_library_.reset();
+        show_places();
         if (picker)
             info_pane_.set_insights_handler({});
         else
@@ -666,6 +683,8 @@ public:
     void mount_remote(const fs::Place& place, bool open,
                       std::function<void(const std::filesystem::path&)> ready = {});
     void unmount_remote(const fs::Place& place);
+    void open_mounted_folder(const std::shared_ptr<Folder>& origin,
+                             const std::filesystem::path& where);
 
     // Ctrl+L: the card that goes to a folder or a server, the folder shown in it to start with.
     void open_location();
@@ -713,6 +732,18 @@ public:
                              std::optional<bool> hidden = {});
     void open_saved_searches(bool remove = false);
     void search_action(SearchResults::Action action);
+    void set_photos_enabled(bool enabled);
+    void resume_photo_work();
+    void prepare_photo_library();
+    void sync_photo_view();
+    void open_photo_properties();
+    void open_photo_menu(float x, float y, bool keyboard);
+    void open_photo_library(std::filesystem::path add_folder = {});
+    [[nodiscard]] bool photos_available() const;
+
+    [[nodiscard]] bool showing_photos() const { return photo_library_ && pane().photos; }
+
+    [[nodiscard]] PhotoLibrary* photo_library() const { return photo_library_.get(); }
 
     [[nodiscard]] SearchResults* search_results() const { return search_results_.get(); }
 
@@ -1082,6 +1113,7 @@ private:
     OpenWithHandler open_with_;
     TerminalHandler terminal_;
     FolderChooser folder_chooser_;
+    PhotoLibrary::PathChooser photo_path_chooser_;
     bool picker_mode_{false};
     std::optional<std::filesystem::path> templates_dir_;
     fs::PlaceSources place_sources_{
@@ -1203,6 +1235,7 @@ private:
     ShortcutsOverlay shortcuts_;
     bool show_extensions_{true};
     bool show_thumbnails_{true};
+    bool gallery_{false};
     NameEditor editor_;
     ConflictDialog conflict_;
     ConfirmDialog confirm_;
@@ -1227,6 +1260,25 @@ private:
     CommandPalette palette_;
     std::vector<std::string> palette_recent_;
     std::unique_ptr<SearchResults> search_results_;
+    std::unique_ptr<PhotoLibrary> photo_library_;
+    nlohmann::json photo_navigation_ = nlohmann::json::object();
+    void copy_photo_files(bool cut);
+    void paste_photo_files();
+    core::CancelToken photo_copy_job_;
+    std::uint64_t photo_copy_epoch_{};
+    void photo_operation(const nlohmann::json& request);
+    void photo_transfer_done(const fs::TransferRequest&, const fs::TransferResult&);
+    void photo_reconcile(const FileOperation&);
+
+    struct PhotoOperation {
+        std::shared_ptr<photos::Client> client;
+        std::int64_t operation_id{};
+        nlohmann::json photos;
+    };
+
+    std::map<std::uint64_t, PhotoOperation> photo_operations_;
+    bool photos_enabled_{true};
+    std::string photo_state_;
     std::vector<State::SavedSearch> saved_searches_;
     std::shared_ptr<Folder> search_preview_;
     bool search_preview_pending_{false};

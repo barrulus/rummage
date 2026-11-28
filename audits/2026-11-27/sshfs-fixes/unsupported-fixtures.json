@@ -1,0 +1,30 @@
+[
+  {
+    "path_sha256": "6117fff432033fc724e6dd1339bdceb5fcfee9189ecc3bb001553c4be447f678",
+    "selected": false,
+    "photo_id": 5254,
+    "extension": ".jpg",
+    "exit": 1,
+    "detail": "<original>: failed (rummage can't show this kind of file (no preview in the file)) in 36.2 ms\n"
+  },
+  {
+    "path_sha256": "1c8e8e827b672e15dd63fe8897fdab0c1f719568c831cb8319fd1e5840f829d7",
+    "selected": true,
+    "photo_id": 5287,
+    "extension": ".jpg",
+    "exit": 1,
+    "detail": "<original>: failed (rummage can't show this kind of file (no preview in the file)) in 34.0 ms\n",
+    "x_large_forced_retry": {
+      "exit": 1,
+      "detail": "<original>: failed (rummage can't show this kind of file (no preview in the file)) in 31.7 ms\n"
+    }
+  },
+  {
+    "path_sha256": "c160a524d48b0def1449fdd83ae03e0352368299b69d8deb1653661b95748319",
+    "selected": false,
+    "photo_id": 5223,
+    "extension": ".jpg",
+    "exit": 1,
+    "detail": "<original>: failed (rummage can't show this kind of file (no preview in the file)) in 29.0 ms\n"
+  }
+]

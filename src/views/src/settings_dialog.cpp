@@ -26,6 +26,19 @@ constexpr std::array kSections{
 constexpr std::array kMenuContexts{"Common layout", "Files and folders", "Folder background",
                                    "Trash", "Sidebar"};
 constexpr int kEffects = 5, kShortcuts = 2, kActions = 3;
+
+// Existing shortcut errors belong to Keyboard shortcuts. They must not reject an
+// unrelated edit; changes to bindings/actions still validate the complete shortcut set.
+bool edits_shortcuts(const std::vector<core::ConfigEdit>& edits, const core::Config& before,
+                     const core::Config& after) {
+    return before.keybindings != after.keybindings ||
+           before.actions.size() != after.actions.size() ||
+           std::ranges::any_of(edits, [](const core::ConfigEdit& edit) {
+               return edit.table == "keybindings" || edit.table == "actions" ||
+                      edit.table.starts_with("actions[");
+           });
+}
+
 constexpr std::size_t kBackgroundSlot = core::kMotionEvents.size();
 constexpr std::size_t kSelectionSlot = kBackgroundSlot + 1;
 constexpr std::array kEffectSlots{
@@ -105,8 +118,8 @@ void SettingsDialog::open(std::filesystem::path path, std::function<void()> open
             write_error_ = std::move(file.error);
             if (write_error_.empty()) {
                 const auto parsed = core::parse_config(original_, path_.string());
-                if (!parsed.problems.empty())
-                    write_error_ = parsed.problems.front();
+                if (!parsed.validation_errors.empty())
+                    write_error_ = parsed.validation_errors.front();
                 else {
                     valid_ = true;
                     icon_themes_ = std::move(icon_themes);
@@ -223,6 +236,15 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(0, i18n::mark("Keyboard shortcuts"), "keyboard", "wrap", i18n::mark("Wrap navigation"),
         i18n::mark("Continue at the opposite end of the file list"),
         config.keyboard.wrap ? "true" : "false", true, {"true", "false"});
+    add(0, i18n::mark("Photo Library"), "photos", "enabled", i18n::mark("Enable Photo Library"),
+        i18n::mark("Requires the photo add-on; preserves your catalog when disabled"),
+        config.photos.enabled ? "true" : "false", true, {"true", "false"});
+    add(0, "Previews", "previews", "media", "Video previews",
+        "Enable video thumbnails and still previews", config.previews.media ? "true" : "false",
+        true, {"true", "false"});
+    add(0, "Previews", "previews", "pdf", "PDF previews",
+        "Enable PDF thumbnails and first-page previews", config.previews.pdf ? "true" : "false",
+        true, {"true", "false"});
     add(0, "Terminal", "terminal", "program", "Terminal program",
         "Leave empty for automatic discovery", config.terminal.program);
     add(0, "Terminal", "terminal", "args", "Terminal arguments",
@@ -369,12 +391,14 @@ std::string SettingsDialog::apply_edits(const std::vector<core::ConfigEdit>& edi
     if (!changed.error.empty())
         return changed.error;
     auto parsed = core::parse_config(changed.text, path_.string());
-    if (!parsed.problems.empty())
-        return parsed.problems.front();
-    const auto problems =
-        configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
-    if (!problems.empty())
-        return problems.front();
+    if (!parsed.validation_errors.empty())
+        return parsed.validation_errors.front();
+    if (edits_shortcuts(edits, accepted_config_.config, parsed.config)) {
+        const auto problems =
+            configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
+        if (!problems.empty())
+            return problems.front();
+    }
     staged_ = std::move(changed.text);
     accepted_config_ = std::move(parsed);
     refresh_values(edits);
@@ -700,9 +724,9 @@ void SettingsDialog::commit(std::size_t index) {
         problem = changed_text.error;
     if (problem.empty()) {
         const auto parsed = core::parse_config(changed_text.text, path_.string());
-        if (!parsed.problems.empty())
-            problem = parsed.problems.front();
-        else {
+        if (!parsed.validation_errors.empty())
+            problem = parsed.validation_errors.front();
+        else if (edits_shortcuts(edits, accepted_config_.config, parsed.config)) {
             const auto problems =
                 configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
             if (!problems.empty())
@@ -1844,6 +1868,18 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         renderer.fill_rect({row.x, y + field.height - 8, row.width, 1},
                            palette.outline_variant.with_alpha(0.5F));
     }
+    if (!valid_ && !busy_ && !error_.empty()) {
+        SelectableText explanation;
+        explanation.begin_frame(list_);
+        explanation.draw(
+            renderer, "load-error",
+            std::string{i18n::tr("Settings could not be loaded.")} + "\n\n" + error_ + "\n\n" +
+                std::string{
+                    i18n::tr("Choose Open config to correct the file, then reopen Settings.")},
+            {list_.x + 16, list_.y + 20, std::max(1.0F, list_.width - 32),
+             std::max(1.0F, list_.height - 40)},
+            13, palette.error, {}, 19);
+    }
     if (!embedded && !any && valid_ && search_.text().empty())
         renderer.draw_text(i18n::tr("No custom actions yet. Choose Add action to create one."),
                            list_.x + 16, list_.y + 20, 13, palette.on_surface_variant,
@@ -1943,7 +1979,7 @@ void SettingsDialog::refresh_preview() {
     if (preview_invalid_)
         return;
     const auto parsed = core::parse_config(changed.text, path_.string());
-    preview_invalid_ = !parsed.problems.empty();
+    preview_invalid_ = !parsed.validation_errors.empty();
     if (preview_invalid_)
         return;
     if (preview_config_ != parsed.config.animations) {

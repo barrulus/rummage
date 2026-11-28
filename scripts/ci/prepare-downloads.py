@@ -86,30 +86,20 @@ def prepare(artifacts, output, commit, repository, run_id, readme):
     arch = only(roots['arch'] / 'packages', 'rummage-[0-9]*-x86_64.pkg.tar.zst')
     tumbleweed = only(roots['tumbleweed'] / 'packages', 'rummage-[0-9]*.x86_64.rpm')
     only(roots['void'] / 'packages', 'rummage-[0-9]*.x86_64.xbps')
-    only(roots['void'] / 'packages', 'rummage-media-*.x86_64.xbps')
-    media_assets = {
-        'rummage-media-debian13-amd64.deb': only(roots['deb'] / 'packages', 'rummage-media_*_amd64.deb'),
-        'rummage-media-fedora45-x86_64.rpm': only(roots['rpm'] / 'packages', 'rummage-media-[0-9]*.x86_64.rpm'),
-        'rummage-media-arch-x86_64.pkg.tar.zst': only(roots['arch'] / 'packages', 'rummage-media-[0-9]*-x86_64.pkg.tar.zst'),
-        'rummage-media-tumbleweed-x86_64.rpm': only(roots['tumbleweed'] / 'packages', 'rummage-media-[0-9]*.x86_64.rpm'),
+    only(roots['void'] / 'packages', 'rummage-photos-*.x86_64.xbps')
+    photo_assets = {
+        'rummage-photos-debian13-amd64.deb': only(roots['deb'] / 'packages', 'rummage-photos_*_amd64.deb'),
+        'rummage-photos-fedora45-x86_64.rpm': only(roots['rpm'] / 'packages', 'rummage-photos-[0-9]*.x86_64.rpm'),
+        'rummage-photos-arch-x86_64.pkg.tar.zst': only(roots['arch'] / 'packages', 'rummage-photos-[0-9]*-x86_64.pkg.tar.zst'),
+        'rummage-photos-tumbleweed-x86_64.rpm': only(roots['tumbleweed'] / 'packages', 'rummage-photos-[0-9]*.x86_64.rpm'),
     }
-    for feature in ('pdf', 'previews'):
-        only(roots['void'] / 'packages', f'rummage-{feature}-*.x86_64.xbps')
-        for kind, suffix, pattern in (
-            ('deb', 'debian13-amd64.deb', '_*_amd64.deb'),
-            ('rpm', 'fedora45-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
-            ('arch', 'arch-x86_64.pkg.tar.zst', '-[0-9]*-x86_64.pkg.tar.zst'),
-            ('tumbleweed', 'tumbleweed-x86_64.rpm', '-[0-9]*.x86_64.rpm'),
-        ):
-            media_assets[f'rummage-{feature}-{suffix}'] = only(
-                roots[kind] / 'packages', f'rummage-{feature}{pattern}')
     index = roots['void'] / 'packages/x86_64-repodata'
     if not index.is_file() or index.stat().st_size == 0:
         raise ValueError('Void repository index is missing')
     instructions = readme.read_text().split('<!-- development-downloads:start -->', 1)[1].split(
         '<!-- development-downloads:end -->', 1)[0].strip()
     output.mkdir(parents=True, exist_ok=True)
-    for name, source in media_assets.items():
+    for name, source in photo_assets.items():
         shutil.copyfile(source, output / name)
     shutil.copyfile(deb, output / 'rummage-debian13-amd64.deb')
     shutil.copyfile(rpm, output / 'rummage-fedora45-x86_64.rpm')

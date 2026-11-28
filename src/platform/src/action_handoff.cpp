@@ -523,6 +523,18 @@ void ActionHandoff::choose_destination(const std::filesystem::path& initial,
 }
 
 void ActionHandoff::choose_path(const core::PickerRequest& request, DirectoryChosen chosen) {
+    if (request.multiple || request.mode == core::PickerRequest::Mode::save_files ||
+        (request.directory && request.mode != core::PickerRequest::Mode::open)) {
+        chosen(std::nullopt);
+        return;
+    }
+    if (destination_picker_) {
+        destination_picker_(request, [alive = alive_, chosen = std::move(chosen)](auto path) {
+            if (*alive)
+                chosen(std::move(path));
+        });
+        return;
+    }
     auto output = channel();
     auto errors = channel();
     std::error_code lookup_error;
@@ -544,10 +556,13 @@ void ActionHandoff::choose_path(const core::PickerRequest& request, DirectoryCho
         std::vector<std::string> env;
         if (!token.empty())
             env.push_back("XDG_ACTIVATION_TOKEN=" + token);
+        const bool save = request.mode == core::PickerRequest::Mode::save;
         std::vector<std::string> args{program.string(),
-                                      request.directory ? "--pick-directory" : "--save-file",
+                                      request.directory ? "--pick-directory"
+                                      : save            ? "--save-file"
+                                                        : "--pick",
                                       "--title", request.title};
-        if (!request.directory && !request.name.empty()) {
+        if (save && !request.name.empty()) {
             args.insert(args.end(), {"--name", request.name});
         }
         args.push_back(request.folder);
@@ -566,7 +581,11 @@ void ActionHandoff::choose_path(const core::PickerRequest& request, DirectoryCho
                 if (result.status == 0 && result.signal == 0 && size > 1 &&
                     bytes[static_cast<std::size_t>(size) - 1] == '\0') {
                     const std::string path{bytes.data(), static_cast<std::size_t>(size) - 1};
-                    if (valid_destination(path, directory)) {
+                    std::error_code status_error;
+                    const bool existing = directory ||
+                                          request.mode != core::PickerRequest::Mode::open ||
+                                          std::filesystem::is_regular_file(path, status_error);
+                    if (existing && valid_destination(path, directory)) {
                         chosen(std::filesystem::path{path});
                         return;
                     }

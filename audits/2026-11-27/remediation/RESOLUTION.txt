@@ -1,0 +1,178 @@
+RUMMAGE BRANCH AUDIT — REMEDIATION
+
+Scope: all findings F01–F16 from the 2026-11-27 audit, plus the four inherited
+helper clones documented there. Work stays local on feat/photo-library in
+/tmp/rummage-photo-library. The original report and evidence are historical.
+This directory records the corrective work and new validation separately.
+
+IMPLEMENTED RESOLUTIONS
+
+F01 — Direct loaded-ID lookup, revision-keyed focused and bulk property caches,
+hashed membership and pointer-based aggregation replace repeated full scans.
+No cursor means no focused photo; a hidden inspector does no property work.
+
+F02 — Metadata work returns changed IDs; the controller fetches and patches only
+those records in place. Appending a page extends the collection without copying
+the prefix. Discovery and topology changes still trigger appropriate refreshes.
+Date-sensitive queries refresh at completion or a throttled interval; disappeared
+IDs trigger reconciliation. Selection, cursor and collection storage regression
+coverage checks the ordinary metadata-patch path.
+
+F03 — Protocol text is bounded at UTF-8 boundaries and malformed incoming text
+is rejected. Per-photo extraction/serialization failures finish their claims and
+record outcomes without abandoning healthy members of the batch.
+
+F04 — Add-source and restore share exclusion validation. Restore rejects invalid
+settings atomically; explicitly adding an existing source updates its settings.
+
+F05 — Schema upgrades reserve unique backup names, preserve earlier backups and
+can retry after rollback. Schema-one and schema-two upgrades, forced failure and
+retry, concurrent initialization and retained trash receipts are exercised.
+
+F06 — Checked timestamp conversion preserves exact seconds/subseconds and file
+identity. An unrepresentable nanosecond timestamp has an explicit validity flag;
+Details and the inspector show an unknown marker rather than a wrapped date.
+
+F07 — Album counts now match visible query results; retained associations have a
+separate count and scoped review action. Replacement files are never silently
+assigned the previous file's annotations or album membership.
+
+F08 — Website, navigation and architecture/license wording describe bundled
+previews and the sole optional Photo Library add-on. Generated links and staged
+component ownership are checked, including base behavior after add-on removal.
+
+F09 — New Photo Library controls, menus, dialogs, statuses, settings and preview
+messages are extracted and translated in all seven shipped catalogs. User text,
+protocol enums and technical backend/filesystem diagnostics are not translated.
+
+F10 — Details caches flattened rows by folder identity and revision. Stable draws
+and cursor movement reuse the cache; mutations and expansion changes invalidate it.
+
+F11 — Watch registration, picker acceptance validation and directory availability
+checks leave the UI thread. Startup and folder navigation avoid synchronous stat
+and canonicalization probes. Unavailable tabs/history locations remain reachable
+and display their asynchronous model error, allowing later retry. Subfolder
+probes and the auxiliary properties watcher also use asynchronous registration.
+Pending picker checks can be cancelled, edited or invalidated by navigation;
+weak folder ownership avoids retaining a closed picker’s directory model.
+Watch registrations are bounded and cancellable; adoption reconciles event gaps.
+
+F12 — Bulk browser context, palette, restore, erase and drag paths use hashed
+membership; drag classification stops when it has enough information.
+
+F13 — The client consumes work's existing bounded metadata candidates. Four
+results persist in one transaction with per-item error isolation; claims still
+revalidate file identity. Pending lookup and receipt lookup are indexed; receipts
+are backfilled on upgrade. Row tags/albums are enriched in batches. A lightweight
+progress endpoint returns one relevant job plus aggregate paused/waiting/failed
+counts, while Activity retains the detailed history endpoint.
+
+F14 — Restore explicitly replaces scalar annotations and merges tags/albums.
+The confirmation and guide explain this contract. Newly restored sources remain
+unmonitored until explicit refresh, across restart; existing monitored sources
+retain their state. Restore cancellation and watcher behavior have regressions.
+
+F15 — Duplicate groups have stable next/previous pagination and an explicit
+all-active-online-sources scope. Export and restore share the 256 MiB / one-million
+photo ceiling; oversized export fails before replacing its destination. Photo
+drag remains unavailable and now explains Copy/Cut then Paste in context. Total,
+loaded and selected scope remain explicit; resource and safety bounds are retained.
+
+F16 — CTest preloads the compiler-matched ASan runtime for the Python-hosted
+migration suite. Leak checking is disabled only for that CPython host; other
+sanitizer suites retain their normal configuration.
+
+REDUNDANT HELPERS
+
+Shared title-bar construction, mount completion navigation and row-reveal math
+replace the three application/view clones. Archive-read protocol validation uses
+the existing validator. The helper reaper starts only on the first actual request,
+so an unused optional photo client does not create a reaper thread.
+
+LIMITS AND BEHAVIOR TO RETAIN IN REVIEW
+
+Already executing filesystem syscalls cannot be forcibly cancelled safely. A slow
+mount can occupy a worker, and shutdown joins executing worker calls. UI dispatch
+and cancellation do not wait on that syscall; retained registrations are bounded.
+This is not a claim of finite shutdown time for a permanently stuck kernel call.
+
+The collection retains its browsed prefix in memory. Offset queries, complete
+selection summaries and explicit full refreshes still scale with collection size;
+the changes remove unnecessary repeated work, not all large-library cost.
+Photo drag remains a documented restriction; Copy/Cut then Paste is supported.
+History display and request-size/helper safety limits remain documented in the guide.
+
+Schema version is now 3. Automatic pre-upgrade backups preserve older catalogs;
+older add-on binaries will not open the upgraded schema. Validation uses disposable
+catalogs and originals, not the user's library. No remote push or deployment occurs.
+
+VALIDATION AND MEASUREMENTS
+
+Code commit: fcc1322cd72a43f1509975616f30b6fb8e825165
+Audit report commit: 088cb77f. Original audited production: 1dd2368783d814e86268fd2c388ee41671c66ae8.
+
+
+All 16 configured Release suites passed in 72.53s. All 16 ASan/UBSan suites passed
+in 147.46s, including the ordinary Python-hosted migration CTest. Release executes
+1281 core cases; ASan executes 1280. Existing platform/sanitizer skips remain visible
+in the logs. Catalog 35 cases and Photo Library UI 12 cases pass. Targeted watcher
+ThreadSanitizer runs pass three seeds (2 cases, 8,209 assertions each); this is not a
+whole-program race-freedom claim. The strict signed-overflow companion also passes.
+
+All seven catalogs have zero missing/unused/invalid entries. Documentation and
+website gates pass. Final staged binaries match the build hashes and pass base,
+add-on ownership, ABI persistence, dependency and add-on-removal checks. No distro
+package-manager install/upgrade or remote publication was performed.
+
+The malformed-camera reproduction completes with zero stranded claims. Synthetic
+inode replacement preserves annotations on the retained identity and reports zero
+visible album photos plus one retained association. Export beyond 256 MiB and restore
+beyond one million records fail without corrupting the catalog. The 100k backend
+stress traverses 500 pages without missing/duplicate IDs, exports/restores 100,256 rows,
+and passes concurrent-read/write, integrity and foreign-key checks.
+
+An overlapping cross-build test run failed a process-name identity assertion and a
+palette-count assertion. Release was rerun alone and passed. Final timing runs were
+serialized after all builds/tests stopped. Do not overlap same-named core test
+executables when reproducing the process-identity check.
+
+100,000-ROW PERFORMANCE OBSERVATIONS
+
+Focused properties (warm): 23.17 -> 0.000245 ms. Median.
+Hidden inspector, grid frame: 26.16 -> 0.9206 ms. Median.
+Bulk properties, 100k selected: 1164 -> 36.23 ms. One observation, not a distribution.
+First rubber-band frame: 1073 -> 76.73 ms. One observation, not a distribution.
+Restore loaded 100k prefix: 9458 -> 7447 ms. One observation, not a distribution.
+30 refresh calls, coalesced: 9065 -> 7352 ms. One observation, not a distribution.
+Focused properties with cursor changes: not measured -> 0.001782 ms. New invalidation workload; no baseline sample.
+Steady rubber-band frames: not measured -> 1.554 ms. New steady-state workload; no baseline sample.
+Ordinary Details draw: 3.076 -> 0.8106 ms. Median; generic collection fixture.
+Status polling, 1000 history jobs: 97.35 -> 16.5 ms. Old detailed-history endpoint versus new status summary; new full history still 85.37 ms.
+Pending metadata near completed tail: 10 -> 0.363 ms. Median.
+Observed photo-process peak RSS: 1.587 -> 1.325 GiB. Sampled every 250 ms; may miss brief peaks.
+
+Focused cursor changes remain under 0.01 ms in this fixture. The earlier full-copy
+selection path is gone, but first-time synchronization of 100k selections still
+costs 219 ms. The first band frame is 77 ms; subsequent band frames have 1.55 ms median.
+Bulk Properties is 36 ms, so it too remains a finite one-time UI cost. Memory is still
+large: about 1.32 GiB observed process RSS in this deliberately fully loaded fixture.
+Explicit full-prefix restore/refresh remains 7.4 seconds. These are remaining scale
+costs, not a claim that 100k-photo interactions are universally instantaneous.
+
+Ordinary 200-row incremental append has 0.057 ms median across 5 samples; its slowest
+sample is 14.67 ms because vector capacity growth can reallocate. The legacy full
+replacement workload remains separately recorded. Metadata-only work uses patches;
+the native regression verifies loaded storage, cursor and selection preservation.
+
+The new progress endpoint is 16.50 ms versus 97.35 ms for the old status polling path;
+full detailed history remains 85.37 ms. Pending metadata lookup falls 10.00→0.36 ms.
+A four-photo client batch now performs six catalog ABI calls instead of ten while
+retaining four claim-time identity checks. The catalog harness intentionally retains
+single-result persistence measurements for baseline comparability; it is not an
+end-to-end decoder benchmark.
+
+Method: same host, Release, synthetic data, warm filesystem cache, software GL.
+Host load is uncontrolled. Focus/draw medians have 30 samples (direct views 60);
+bulk/first-frame/full-prefix numbers have ONE observation per size. No significance
+claim is made for small differences. The 30-refresh burst coalesces into two loads;
+it is not the latency of one refresh. See raw CSV/JSON and REPRODUCE.txt.

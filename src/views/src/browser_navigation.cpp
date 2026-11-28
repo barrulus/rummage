@@ -101,6 +101,10 @@ void Browser::edit_path() {
 }
 
 void Browser::open_selected_tab() {
+    if (showing_photos()) {
+        open_selection();
+        return;
+    }
     if (!panes_enabled_ || picker_mode_)
         return;
     const auto folder = current_folder();
@@ -129,8 +133,9 @@ std::string Browser::navigate_path(const std::string& text) {
     auto location = fs::parse_location(text, place_sources_.home);
     const auto origin = current_folder();
     const auto base = pane().mode == Mode::details ? pane().details.root_folder() : origin;
-    if (!location && base && !text.empty() && text.find("://") == std::string::npos &&
-        text.front() != '~' && text.find('\0') == std::string::npos)
+    if (!location && base && !base->is_collection() && !text.empty() &&
+        text.find("://") == std::string::npos && text.front() != '~' &&
+        text.find('\0') == std::string::npos)
         location = fs::Location{.folder = base->path() / text, .uri = {}};
     if (!location)
         return std::string{i18n::tr("Invalid path")};

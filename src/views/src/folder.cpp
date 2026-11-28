@@ -33,7 +33,80 @@ Folder::Folder(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatch
     model_.open(std::move(directory));
 }
 
+Folder::Folder(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
+               std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw)
+    : pool_{pool},
+      mime_{std::move(mime)},
+      redraw_{std::move(redraw)},
+      model_{loop, pool, watcher, mime_},
+      collection_{true} {}
+
+void Folder::replace_collection(std::vector<fs::Entry> rows, std::string label, std::size_t total,
+                                bool loading) {
+    if (!collection_)
+        return;
+    collection_entries_ = std::move(rows);
+    collection_label_ = std::move(label);
+    collection_total_ = total;
+    collection_loading_ = loading;
+    ++collection_revision_;
+    sniffed_.clear();
+    fs::ModelChange change{};
+    change.loaded = !loading;
+    on_change(change);
+}
+
+bool Folder::update_collection_rows(std::vector<std::pair<std::size_t, fs::Entry>> rows) {
+    if (!collection_)
+        return false;
+    for (const auto& [index, entry] : rows)
+        if (index >= collection_entries_.size() || collection_entries_[index].key() != entry.key())
+            return false;
+    if (rows.empty())
+        return true;
+    for (auto& [index, entry] : rows) {
+        sniffed_.erase(entry.key());
+        collection_entries_[index] = std::move(entry);
+    }
+    ++collection_revision_;
+    selection_changed(false);
+    return true;
+}
+
+void Folder::append_collection(std::vector<fs::Entry> rows, std::size_t total, bool loading) {
+    if (!collection_)
+        return;
+    const auto start = collection_entries_.size();
+    collection_entries_.insert(collection_entries_.end(), std::make_move_iterator(rows.begin()),
+                               std::make_move_iterator(rows.end()));
+    collection_total_ = total;
+    collection_loading_ = loading;
+    ++collection_revision_;
+    // A restored cursor may be waiting for a later page; existing indices never move.
+    if (!cursor_index_ && !cursor_name_.empty()) {
+        for (std::size_t i = start; i < collection_entries_.size(); ++i) {
+            if (collection_entries_[i].key() == cursor_name_) {
+                cursor_index_ = i;
+                cursor_expected_ = false;
+                reveal_ = Reveal::jump;
+                break;
+            }
+        }
+    }
+    selection_changed(false);
+}
+
 Folder::~Folder() { *alive_ = false; }
+
+void Folder::notify_visible_range(std::size_t first, std::size_t last_exclusive) const {
+    if (!collection_ || !visible_range_handler_)
+        return;
+    first = std::min(first, collection_entries_.size());
+    last_exclusive = std::clamp(last_exclusive, first, collection_entries_.size());
+    // The controller may replace the snapshot or its handler while handling the notification.
+    const auto handler = visible_range_handler_;
+    handler(first, last_exclusive);
+}
 
 const fs::Entry* Folder::cursor_entry() const {
     return cursor_index_ ? &entries()[*cursor_index_] : nullptr;
@@ -41,7 +114,7 @@ const fs::Entry* Folder::cursor_entry() const {
 
 const fs::Entry* Folder::single_selection() const {
     const fs::Entry* const entry = cursor_entry();
-    if (entry == nullptr || selected_.size() != 1 || !selected_.contains(entry->name)) {
+    if (entry == nullptr || selected_.size() != 1 || !selected_.contains(entry->key())) {
         return nullptr;
     }
     return entry;
@@ -51,18 +124,36 @@ std::vector<std::string> Folder::selected_names() const {
     std::vector<std::string> names;
     names.reserve(selected_.size());
     for (const fs::Entry& entry : entries()) {
-        if (selected_.contains(entry.name)) {
-            names.push_back(entry.name);
+        if (selected_.contains(entry.key())) {
+            names.push_back(entry.key());
         }
     }
     return names;
+}
+
+std::vector<const fs::Entry*> Folder::selected_entries() const {
+    std::vector<const fs::Entry*> rows;
+    for (const auto& entry : entries())
+        if (is_selected(entry.key()))
+            rows.push_back(&entry);
+    return rows;
+}
+
+std::vector<std::filesystem::path> Folder::selected_paths() const {
+    std::vector<std::filesystem::path> paths;
+    for (const auto* entry : selected_entries()) {
+        auto path = path_of(*entry);
+        if (!path.empty())
+            paths.push_back(std::move(path));
+    }
+    return paths;
 }
 
 const SelectionSummary& Folder::summary() const {
     if (!summary_) {
         SelectionSummary summary;
         for (const fs::Entry& entry : entries()) {
-            if (!selected_.contains(entry.name)) {
+            if (!selected_.contains(entry.key())) {
                 continue;
             }
             if (entry.is_directory()) {
@@ -97,6 +188,11 @@ void Folder::set_order(const fs::SortOrder& order) {
     if (order == this->order()) {
         return;  // already so: no re-sort, no jump
     }
+    if (collection_) {
+        collection_order_ = order;
+        redraw_();
+        return;
+    }
     model_.set_order(order);
     reveal_ = Reveal::jump;
     redraw_();
@@ -126,12 +222,12 @@ void Folder::on_change(const fs::ModelChange& change) {
     const bool had_cursor = !cursor_name_.empty();
     const bool had_selection = !selected_.empty();
     // A reset (reload after lost events) is followed by a new load: wait for it.
-    const bool final_listing = model_.error() || (!change.reset && !model_.loading());
+    const bool final_listing = model_.error() || (!change.reset && !loading());
     const std::vector<fs::Entry>& list = entries();
     const std::optional<std::size_t> before = cursor_index_;
     cursor_index_.reset();
     if (had_cursor) {
-        const auto it = std::ranges::find(list, cursor_name_, &fs::Entry::name);
+        const auto it = std::ranges::find(list, cursor_name_, &fs::Entry::key);
         if (it != list.end()) {
             cursor_index_ = static_cast<std::size_t>(it - list.begin());
             if (!before) {
@@ -148,8 +244,8 @@ void Folder::on_change(const fs::ModelChange& change) {
         // After a (re)load, names that did not come back are gone.
         std::unordered_set<std::string> present;
         for (const fs::Entry& entry : list) {
-            if (selected_.contains(entry.name)) {
-                present.insert(entry.name);
+            if (selected_.contains(entry.key())) {
+                present.insert(entry.key());
             }
         }
         selected_ = std::move(present);
@@ -177,21 +273,21 @@ void Folder::set_cursor(std::optional<std::size_t> index, SelectMode mode) {
         return;
     }
     const std::size_t target = std::min(*index, list.size() - 1);
-    const std::string& name = list[target].name;
+    const std::string& name = list[target].key();
     switch (mode) {
         case SelectMode::replace:
             selected_ = {name};
             anchor_ = name;
             break;
         case SelectMode::extend: {
-            const auto anchor = std::ranges::find(list, anchor_, &fs::Entry::name);
+            const auto anchor = std::ranges::find(list, anchor_, &fs::Entry::key);
             const std::size_t from = anchor != list.end()
                                          ? static_cast<std::size_t>(anchor - list.begin())
                                          : cursor_index_.value_or(target);
-            anchor_ = list[from].name;
+            anchor_ = list[from].key();
             selected_.clear();
             for (std::size_t i = std::min(from, target); i <= std::max(from, target); ++i) {
-                selected_.insert(list[i].name);
+                selected_.insert(list[i].key());
             }
             break;
         }
@@ -213,7 +309,7 @@ void Folder::set_cursor(std::optional<std::size_t> index, SelectMode mode) {
 void Folder::press(std::optional<std::size_t> index, SelectMode mode) {
     press_pending_ = false;
     if (index && *index < entries().size() && mode == SelectMode::replace && selected_.size() > 1 &&
-        selected_.contains(entries()[*index].name)) {
+        selected_.contains(entries()[*index].key())) {
         set_cursor(index, SelectMode::keep);
         press_pending_ = true;
         return;
@@ -227,7 +323,7 @@ void Folder::select_band(const std::vector<std::string>& base, std::span<const s
     const std::vector<fs::Entry>& list = entries();
     for (const std::size_t row : rows) {
         if (row < list.size()) {
-            chosen.insert(list[row].name);
+            chosen.insert(list[row].key());
         }
     }
     if (chosen == selected_) {
@@ -290,10 +386,10 @@ void Folder::select_name(std::string name) {
     cursor_name_ = std::move(name);
     cursor_index_.reset();
     const std::vector<fs::Entry>& list = entries();
-    const auto it = std::ranges::find(list, cursor_name_, &fs::Entry::name);
+    const auto it = std::ranges::find(list, cursor_name_, &fs::Entry::key);
     if (it != list.end()) {
         cursor_index_ = static_cast<std::size_t>(it - list.begin());
-    } else if (!model_.loading()) {
+    } else if (!loading()) {
         cursor_name_.clear();
     }
     selected_.clear();
@@ -311,11 +407,11 @@ void Folder::select_all() {
         return;
     }
     for (const fs::Entry& entry : list) {
-        selected_.insert(entry.name);
+        selected_.insert(entry.key());
     }
     if (!cursor_index_) {
         cursor_index_ = 0;
-        cursor_name_ = list.front().name;
+        cursor_name_ = list.front().key();
         anchor_ = cursor_name_;
     }
     selection_changed();
@@ -329,18 +425,18 @@ void Folder::invert_selection() {
     // Names selected but not listed yet (pasted, on their way) count as selected, so they drop out.
     std::unordered_set<std::string> inverted;
     for (const fs::Entry& entry : list) {
-        if (!selected_.contains(entry.name)) {
-            inverted.insert(entry.name);
+        if (!selected_.contains(entry.key())) {
+            inverted.insert(entry.key());
         }
     }
     selected_ = std::move(inverted);
     press_pending_ = false;
     if (!cursor_index_) {
         const auto first = std::ranges::find_if(
-            list, [this](const fs::Entry& entry) { return selected_.contains(entry.name); });
+            list, [this](const fs::Entry& entry) { return selected_.contains(entry.key()); });
         if (first != list.end()) {
             cursor_index_ = static_cast<std::size_t>(first - list.begin());
-            cursor_name_ = first->name;
+            cursor_name_ = first->key();
             cursor_expected_ = false;
             anchor_ = cursor_name_;
         }
@@ -375,7 +471,7 @@ void Folder::select_rows(std::span<const std::size_t> rows, bool add) {
         if (row >= list.size()) {
             continue;
         }
-        chosen.insert(list[row].name);
+        chosen.insert(list[row].key());
         first = first.value_or(row);
         cursor_in = cursor_in || row == cursor_index_;
     }
@@ -387,7 +483,7 @@ void Folder::select_rows(std::span<const std::size_t> rows, bool add) {
     if (!cursor_in) {
         cursor_expected_ = false;
         cursor_index_ = first;
-        cursor_name_ = list[*first].name;
+        cursor_name_ = list[*first].key();
         reveal_ = Reveal::jump;
     }
     anchor_ = cursor_name_;
@@ -395,7 +491,7 @@ void Folder::select_rows(std::span<const std::size_t> rows, bool add) {
 }
 
 void Folder::set_show_hidden(bool show, bool keep_cursor) {
-    if (show == shows_hidden()) {
+    if (collection_ || show == shows_hidden()) {
         return;
     }
     std::string keep;
@@ -403,17 +499,17 @@ void Folder::set_show_hidden(bool show, bool keep_cursor) {
     if (const fs::Entry* const entry = cursor_entry();
         !show && entry != nullptr && entry->hidden()) {
         if (keep_cursor) {
-            keep = entry->name;
+            keep = entry->key();
         } else {
             const std::vector<fs::Entry>& list = entries();
             const auto shown = [](const fs::Entry& candidate) { return !candidate.hidden(); };
             const auto at = list.begin() + (entry - list.data());
             if (const auto after = std::find_if(at, list.end(), shown); after != list.end()) {
-                next = after->name;
+                next = after->key();
             } else if (const auto before =
                            std::find_if(std::make_reverse_iterator(at), list.rend(), shown);
                        before != list.rend()) {
-                next = before->name;
+                next = before->key();
             }
         }
     }
@@ -421,7 +517,7 @@ void Folder::set_show_hidden(bool show, bool keep_cursor) {
     if (!next.empty()) {
         // The rest of the selection stays; alone, the cursor's entry is selected.
         const std::vector<fs::Entry>& list = entries();
-        const auto it = std::ranges::find(list, next, &fs::Entry::name);
+        const auto it = std::ranges::find(list, next, &fs::Entry::key);
         set_cursor(static_cast<std::size_t>(it - list.begin()),
                    selected_.empty() ? SelectMode::replace : SelectMode::keep);
     }
@@ -440,7 +536,7 @@ fs::MimeId Folder::mime_of(const fs::Entry& entry) const {
     if (entry.mime != fs::kUnknownMime) {
         return entry.mime;
     }
-    const auto it = sniffed_.find(entry.name);
+    const auto it = sniffed_.find(entry.key());
     return it == sniffed_.end() ? fs::kUnknownMime : it->second;
 }
 
@@ -461,10 +557,13 @@ bool Folder::type_runs(const fs::Entry& entry) const {
 }
 
 bool Folder::runs_as_program(const fs::Entry& entry) const {
-    return (entry.mode & S_IXUSR) != 0 && !is_trash() && !is_archive() && type_runs(entry);
+    return !collection_ && entry.available && (entry.mode & S_IXUSR) != 0 && !is_trash() &&
+           !is_archive() && type_runs(entry);
 }
 
 std::filesystem::path Folder::path_of(const fs::Entry& entry) const {
+    if (collection_)
+        return entry.location;
     if (const fs::TrashedItem* const item = model_.trashed(entry.name)) {
         return item->path;
     }
@@ -478,9 +577,10 @@ void Folder::sniff(std::size_t first, std::size_t last) {
     for (std::size_t i = first; i < std::min(last, list.size()) && batch.size() < kMaxSniffBatch;
          ++i) {
         const fs::Entry& entry = list[i];
-        if (entry.mime == fs::kUnknownMime && !sniffed_.contains(entry.name) &&
-            !sniffing_.contains(entry.name)) {
-            sniffing_.insert(entry.name);
+        if (entry.can_preview() && (!collection_ || !entry.location.empty()) &&
+            entry.mime == fs::kUnknownMime && !sniffed_.contains(entry.key()) &&
+            !sniffing_.contains(entry.key())) {
+            sniffing_.insert(entry.key());
             batch.emplace_back(entry, path_of(entry));
         }
     }
@@ -498,7 +598,7 @@ void Folder::sniff(std::size_t first, std::size_t last) {
                 }
                 fs::Entry real = entry;
                 real.name = path.filename().string();
-                types.emplace_back(entry.name, mime->detect(path.parent_path(), real));
+                types.emplace_back(entry.key(), mime->detect(path.parent_path(), real));
             }
             return types;
         },

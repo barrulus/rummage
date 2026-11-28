@@ -1,0 +1,460 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+[0/2] Re-checking globbed directories...
+[1/460] Generating protocols/xdg-foreign-unstable-v2-client-protocol.h
+[2/460] Generating protocols/xdg-shell-client-protocol.h
+[3/460] Generating protocols/xdg-shell-protocol.c
+[4/460] Generating protocols/xdg-foreign-unstable-v2-protocol.c
+[5/460] Generating protocols/xdg-dialog-v1-client-protocol.h
+[6/460] Generating protocols/xdg-dialog-v1-protocol.c
+[7/460] Generating protocols/xdg-decoration-unstable-v1-client-protocol.h
+[8/460] Generating protocols/xdg-decoration-unstable-v1-protocol.c
+[9/460] Generating protocols/viewporter-protocol.c
+[10/460] Generating protocols/viewporter-client-protocol.h
+[11/460] Generating protocols/fractional-scale-v1-client-protocol.h
+[12/460] Generating protocols/fractional-scale-v1-protocol.c
+[13/460] Generating protocols/cursor-shape-v1-client-protocol.h
+[14/460] Generating protocols/cursor-shape-v1-protocol.c
+[15/460] Generating protocols/xdg-activation-v1-client-protocol.h
+[16/460] Generating protocols/xdg-activation-v1-protocol.c
+[17/460] Generating protocols/tablet-v2-client-protocol.h
+[18/460] Generating protocols/tablet-v2-protocol.c
+[19/460] Building CXX object src/picture/CMakeFiles/rummage_picture.dir/src/orientation.cpp.o
+[20/460] Building CXX object src/picture/CMakeFiles/rummage_picture.dir/src/scale.cpp.o
+[21/460] Building CXX object src/picture/CMakeFiles/rummage_picture.dir/src/load.cpp.o
+[22/460] Building CXX object src/picture/CMakeFiles/rummage_picture.dir/src/wuffs.cpp.o
+[23/460] Building CXX object src/picture/CMakeFiles/rummage_picture.dir/src/png.cpp.o
+[24/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/actions.cpp.o
+[25/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/file.cpp.o
+[26/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/config_edit.cpp.o
+[27/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/event_loop.cpp.o
+[28/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/i18n_rules.cpp.o
+[29/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/file_watcher.cpp.o
+[30/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/file_picker.cpp.o
+[31/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/log.cpp.o
+[32/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/generated/i18n_catalogs.cpp.o
+[33/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/xdg-shell-protocol.c.o
+[34/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/xdg-foreign-unstable-v2-protocol.c.o
+[35/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/xdg-dialog-v1-protocol.c.o
+[36/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/xdg-decoration-unstable-v1-protocol.c.o
+[37/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/viewporter-protocol.c.o
+[38/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/fractional-scale-v1-protocol.c.o
+[39/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/cursor-shape-v1-protocol.c.o
+[40/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/xdg-activation-v1-protocol.c.o
+[41/460] Building C object src/ui/CMakeFiles/rummage_wayland_protocols.dir/protocols/tablet-v2-protocol.c.o
+[42/460] Building CXX object src/svg/CMakeFiles/rummage_svg.dir/src/render.cpp.o
+[43/460] Linking C static library src/ui/librummage_wayland_protocols.a
+[44/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/worker_pool.cpp.o
+[45/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/i18n.cpp.o
+[46/460] Building CXX object src/archive/CMakeFiles/rummage_archive.dir/src/archive.cpp.o
+[47/460] Linking CXX static library src/archive/librummage_archive.a
+[48/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/memory.cpp.o
+[49/460] Building CXX object src/core/CMakeFiles/rummage_core.dir/src/config.cpp.o
+[50/460] Linking CXX static library src/core/librummage_core.a
+[51/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/name_pattern.cpp.o
+[52/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/compress.cpp.o
+[53/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/archive_folder.cpp.o
+[54/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/permissions.cpp.o
+[55/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/extract.cpp.o
+[56/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/batch_rename.cpp.o
+[57/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/directory_watcher.cpp.o
+[58/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/filesystem.cpp.o
+[59/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/directory.cpp.o
+[60/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/icon.cpp.o
+[61/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/erase.cpp.o
+[62/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/folder_icon.cpp.o
+[63/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/folder_icon_store.cpp.o
+[64/460] Building CXX object src/picture/CMakeFiles/rummage_wuffs.dir/src/wuffs_impl.cpp.o
+[65/460] Linking CXX static library src/picture/librummage_wuffs.a
+[66/460] Linking CXX static library src/picture/librummage_picture.a
+[67/460] Linking CXX static library src/svg/librummage_svg.a
+[68/460] Generating embedded/tabler_icons.cpp
+[69/460] Generating embedded/tabler_icons_filled.cpp
+[70/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/directory_model.cpp.o
+[71/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/measure.cpp.o
+[72/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/group.cpp.o
+[73/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/links.cpp.o
+[74/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/insights.cpp.o
+[75/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/path_completion.cpp.o
+[76/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/subfolders.cpp.o
+[77/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/operations.cpp.o
+[78/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/sort.cpp.o
+[79/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/places.cpp.o
+[80/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/embedded/tabler_icons.cpp.o
+[81/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/embedded/tabler_icons_filled.cpp.o
+[82/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/activation.cpp.o
+[83/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/walk.cpp.o
+[84/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/mime.cpp.o
+[85/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/display.cpp.o
+[86/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/transfer_queue.cpp.o
+[87/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/egl_context.cpp.o
+[88/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/motion.cpp.o
+[89/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/transfer.cpp.o
+[90/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/clipboard.cpp.o
+[91/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/offscreen.cpp.o
+[92/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/scrollbar.cpp.o
+[93/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/seat.cpp.o
+[94/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/scroller.cpp.o
+[95/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/renderer.cpp.o
+[96/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/texture.cpp.o
+[97/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/icons.cpp.o
+[98/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/wl_ptr.cpp.o
+[99/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/text_field.cpp.o
+[100/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/xcursor.cpp.o
+[101/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/text.cpp.o
+[102/460] Building CXX object src/fs/CMakeFiles/rummage_fs.dir/src/trash.cpp.o
+[103/460] Linking CXX static library src/fs/librummage_fs.a
+[104/460] Building CXX object src/text/CMakeFiles/rummage_text.dir/src/text.cpp.o
+[105/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/icon_theme.cpp.o
+[106/460] Building CXX object src/ui/CMakeFiles/rummage_ui.dir/src/window.cpp.o
+[107/460] Linking CXX static library src/ui/librummage_ui.a
+[108/460] Building CXX object src/engines/CMakeFiles/rummage_engines.dir/src/manifest.cpp.o
+[109/460] Building CXX object src/thumbs/CMakeFiles/rummage_thumbs.dir/src/md5.cpp.o
+[110/460] Building CXX object src/text/CMakeFiles/rummage_text.dir/src/markdown.cpp.o
+[111/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/oklch.cpp.o
+[112/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/desktop.cpp.o
+[113/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/syntax.cpp.o
+[114/460] Building CXX object src/thumbs/CMakeFiles/rummage_thumbs.dir/src/cache.cpp.o
+[115/460] Linking CXX static library src/text/librummage_text.a
+[116/460] Building CXX object src/engines/CMakeFiles/rummage_engines.dir/src/registry.cpp.o
+[117/460] Linking CXX static library src/engines/librummage_engines.a
+[118/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/app_icon.cpp.o
+[119/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/theme.cpp.o
+[120/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/decode.cpp.o
+[121/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/kde.cpp.o
+[122/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/camera/previews.cpp.o
+[123/460] Building CXX object src/theme/CMakeFiles/rummage_theme.dir/src/palette.cpp.o
+[124/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/dng/colour.cpp.o
+[125/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/fd_file.cpp.o
+[126/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/camera/info.cpp.o
+[127/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/dng/ljpeg.cpp.o
+[128/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/jpeg_segments.cpp.o
+[129/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/jxl_decoder.cpp.o
+[130/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/dng/opcodes.cpp.o
+[131/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/load.cpp.o
+[132/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/dng/develop.cpp.o
+[133/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/photo.cpp.o
+[134/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/heif_decoder.cpp.o
+[135/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/pnm.cpp.o
+[136/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/dng/raw.cpp.o
+[137/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/tiff/codecs.cpp.o
+[138/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/svg_fonts.cpp.o
+[139/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/tiff/container.cpp.o
+[140/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/metadata.cpp.o
+[141/460] Linking CXX static library src/thumbs/librummage_thumbs.a
+[142/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/wuffs_decoder.cpp.o
+[143/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/webp_decoder.cpp.o
+[144/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/preview.cpp.o
+[145/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/tiff/extract.cpp.o
+[146/460] Building CXX object src/formats/image/CMakeFiles/rummage_formats_image.dir/src/tiff/decode.cpp.o
+[147/460] Building CXX object src/preview/CMakeFiles/rummage_preview.dir/src/info.cpp.o
+[148/460] Building CXX object src/preview/CMakeFiles/rummage_preview.dir/src/providers.cpp.o
+[149/460] Building CXX object src/preview/CMakeFiles/rummage_preview.dir/src/archive.cpp.o
+[150/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/program.cpp.o
+[151/460] Building CXX object src/preview/CMakeFiles/rummage_preview.dir/src/summary.cpp.o
+[152/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/code_stats.cpp.o
+[153/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/archives.cpp.o
+[154/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/about.cpp.o
+[155/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/code_report.cpp.o
+[156/460] Building CXX object src/photo_client/CMakeFiles/rummage_photo_client.dir/src/source_watcher.cpp.o
+[157/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/applications.cpp.o
+[158/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/browser_instance.cpp.o
+[159/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/action_handoff.cpp.o
+[160/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/bus_loop.cpp.o
+[161/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/desktop_entry.cpp.o
+[162/460] Building CXX object src/photo_client/CMakeFiles/rummage_photo_client.dir/src/client.cpp.o
+[163/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/exec.cpp.o
+[164/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/file_manager_config.cpp.o
+[165/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/file_manager.cpp.o
+[166/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/launcher.cpp.o
+[167/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/notifications.cpp.o
+[168/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/terminal_navigation.cpp.o
+[169/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/program_output.cpp.o
+[170/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/volumes.cpp.o
+[171/460] Building C object src/views/CMakeFiles/rummage_fzy.dir/__/__/third_party/fzy/src/match.c.o
+[172/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/portal.cpp.o
+[173/460] Linking CXX static library src/theme/librummage_theme.a
+[174/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/gvfs.cpp.o
+[175/460] Linking CXX static library src/formats/image/librummage_formats_image.a
+[176/460] Building CXX object CMakeFiles/rummage_test_scene.dir/src/app/test_scene.cpp.o
+[177/460] Building CXX object src/formats/CMakeFiles/rummage_formats.dir/src/registry.cpp.o
+[178/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/file_picker_portal.cpp.o
+[179/460] Building CXX object src/formats/text/CMakeFiles/rummage_formats_text.dir/src/languages.cpp.o
+[180/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/udisks.cpp.o
+[181/460] Building CXX object src/formats/archive/CMakeFiles/rummage_formats_archive.dir/src/archive.cpp.o
+[182/460] Building CXX object src/formats/text/CMakeFiles/rummage_formats_text.dir/src/read.cpp.o
+[183/460] Building CXX object src/platform/CMakeFiles/rummage_platform.dir/src/opener.cpp.o
+[184/460] Linking CXX static library src/preview/librummage_preview.a
+[185/460] Building CXX object src/formats/text/CMakeFiles/rummage_formats_text.dir/src/markdown.cpp.o
+[186/460] Building CXX object src/formats/archive/CMakeFiles/rummage_formats_archive.dir/src/stream.cpp.o
+[187/460] Linking CXX static library src/photo_client/librummage_photo_client.a
+[188/460] Linking CXX static library src/platform/librummage_platform.a
+[189/460] Linking C static library src/views/librummage_fzy.a
+[190/460] Building CXX object src/formats/archive/CMakeFiles/rummage_formats_archive.dir/src/tar.cpp.o
+[191/460] Building CXX object src/formats/archive/CMakeFiles/rummage_formats_archive.dir/src/zip.cpp.o
+[192/460] Building CXX object src/formats/text/CMakeFiles/rummage_formats_text.dir/src/syntax.cpp.o
+[193/460] Building CXX object src/isolate/CMakeFiles/rummage_isolate.dir/src/protocol.cpp.o
+[194/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/batch_rename_dialog.cpp.o
+[195/460] Building CXX object src/isolate/CMakeFiles/rummage_isolate.dir/src/helpers.cpp.o
+[196/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/breadcrumb.cpp.o
+[197/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_batch_rename.cpp.o
+[198/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_photo_operations.cpp.o
+[199/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_folder_settings.cpp.o
+[200/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_drives.cpp.o
+[201/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_actions.cpp.o
+[202/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/archive_text.cpp.o
+[203/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_panes.cpp.o
+[204/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_links.cpp.o
+[205/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_navigation.cpp.o
+[206/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_archive.cpp.o
+[207/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_organise.cpp.o
+[208/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_motion.cpp.o
+[209/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/column.cpp.o
+[210/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/confirm_dialog.cpp.o
+[211/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/error_dialog.cpp.o
+[212/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/conflict_dialog.cpp.o
+[213/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/command_palette.cpp.o
+[214/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_palette.cpp.o
+[215/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/menu_layout.cpp.o
+[216/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/column_view.cpp.o
+[217/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/context_menu.cpp.o
+[218/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/file_clipboard.cpp.o
+[219/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/draw_helpers.cpp.o
+[220/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/format.cpp.o
+[221/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/menu_editor.cpp.o
+[222/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/dialog_chrome.cpp.o
+[223/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/folder.cpp.o
+[224/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/details_view.cpp.o
+[225/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/file_finder.cpp.o
+[226/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/search_results.cpp.o
+[227/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_photos.cpp.o
+[228/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/fuzzy.cpp.o
+[229/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser_search.cpp.o
+[230/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/grid_view.cpp.o
+[231/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/file_picker.cpp.o
+[232/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/insights_charts.cpp.o
+[233/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/location_dialog.cpp.o
+[234/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/insights_iris.cpp.o
+[235/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/name_editor.cpp.o
+[236/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/pane.cpp.o
+[237/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/markdown_view.cpp.o
+[238/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/info_pane.cpp.o
+[239/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/insights_view.cpp.o
+[240/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/password_dialog.cpp.o
+[241/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/shortcuts.cpp.o
+[242/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/shortcuts_overlay.cpp.o
+[243/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/settings_editors.cpp.o
+[244/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/photo_library.cpp.o
+[245/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/status_bar.cpp.o
+[246/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/tab_bar.cpp.o
+[247/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/title_bar.cpp.o
+[248/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/properties_dialog.cpp.o
+[249/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/text_selection.cpp.o
+[250/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/sidebar.cpp.o
+[251/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/settings_dialog.cpp.o
+[252/460] Linking CXX static library librummage_test_scene.a
+[253/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/undo.cpp.o
+[254/460] Building CXX object CMakeFiles/rummage.dir/src/core/src/lsan_suppressions.cpp.o
+[255/460] Linking CXX static library src/formats/librummage_formats.a
+[256/460] Linking CXX static library src/formats/text/librummage_formats_text.a
+[257/460] Linking CXX static library src/formats/archive/librummage_formats_archive.a
+[258/460] Linking CXX static library src/isolate/librummage_isolate.a
+[259/460] Building CXX object src/isolate/CMakeFiles/rummage-preview.dir/src/base_backend.cpp.o
+[260/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/state.cpp.o
+[261/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/thumbnails.cpp.o
+[262/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/browser.cpp.o
+[263/460] Building CXX object src/isolate/CMakeFiles/rummage-preview.dir/warm_up_data.cpp.o
+[264/460] Building CXX object src/isolate/CMakeFiles/rummage-preview.dir/__/core/src/lsan_suppressions.cpp.o
+[265/460] Building CXX object src/isolate/CMakeFiles/rummage-preview.dir/src/helper_main.cpp.o
+[266/460] Building CXX object src/isolate/CMakeFiles/rummage-preview.dir/src/sandbox.cpp.o
+[267/460] Building CXX object src/media/CMakeFiles/rummage-media.dir/__/isolate/src/helper_main.cpp.o
+[268/460] Building CXX object src/media/CMakeFiles/rummage-media.dir/__/isolate/src/sandbox.cpp.o
+[269/460] Building CXX object src/media/CMakeFiles/rummage-media.dir/backend.cpp.o
+[270/460] Building CXX object src/isolate/CMakeFiles/rummage-preview.dir/src/protocol.cpp.o
+[271/460] Building CXX object src/media/CMakeFiles/rummage-media.dir/__/isolate/src/protocol.cpp.o
+[272/460] Building CXX object src/pdf/CMakeFiles/rummage-pdf.dir/__/isolate/src/sandbox.cpp.o
+[273/460] Building CXX object src/pdf/CMakeFiles/rummage-pdf.dir/__/isolate/src/helper_main.cpp.o
+[274/460] Building CXX object tests/CMakeFiles/rummage-program-fixture.dir/program_fixture.cpp.o
+[275/460] Building CXX object tests/CMakeFiles/rummage-code-fixture.dir/code_stats_fixture.cpp.o
+[276/460] Building CXX object tests/CMakeFiles/rummage-fake-preview.dir/fake_preview_helper.cpp.o
+[277/460] Building CXX object src/pdf/CMakeFiles/rummage-pdf.dir/backend.cpp.o
+[278/460] Building CXX object tests/CMakeFiles/rummage-sandbox-probe.dir/sandbox_probe.cpp.o
+[279/460] Linking CXX executable rummage-preview
+[280/460] Linking CXX executable rummage-media
+[281/460] Building CXX object src/pdf/CMakeFiles/rummage-pdf.dir/__/isolate/src/protocol.cpp.o
+[282/460] Linking CXX executable rummage-pdf
+[283/460] Building CXX object tests/CMakeFiles/rummage-sandbox-probe.dir/__/src/isolate/src/sandbox.cpp.o
+[284/460] Linking CXX executable tests/rummage-code-fixture
+[285/460] Linking CXX executable tests/rummage-program-fixture
+[286/460] Linking CXX executable tests/rummage-sandbox-probe
+[287/460] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/quick_look.cpp.o
+[288/460] Building CXX object CMakeFiles/rummage-svg-render.dir/src/tools/svg_render.cpp.o
+[289/460] Building CXX object CMakeFiles/rummage-snapshot.dir/src/core/src/lsan_suppressions.cpp.o
+[290/460] Linking CXX static library src/views/librummage_views.a
+[291/460] Building CXX object CMakeFiles/rummage-bench-dir.dir/src/core/src/lsan_suppressions.cpp.o
+[292/460] Building CXX object tests/CMakeFiles/rummage-fake-preview.dir/__/src/isolate/src/protocol.cpp.o
+[293/460] Linking CXX executable tests/rummage-fake-preview
+[294/460] Building CXX object CMakeFiles/rummage-bench-find.dir/src/tools/bench_find.cpp.o
+[295/460] Building CXX object CMakeFiles/rummage-bench-dir.dir/src/tools/bench_dir.cpp.o
+[296/460] Building CXX object CMakeFiles/rummage-bench-start.dir/src/tools/bench_start.cpp.o
+[297/460] Building CXX object CMakeFiles/rummage-mime.dir/src/core/src/lsan_suppressions.cpp.o
+[298/460] Building CXX object CMakeFiles/rummage-mime.dir/src/tools/mime.cpp.o
+[299/460] Building CXX object CMakeFiles/rummage-watch.dir/src/core/src/lsan_suppressions.cpp.o
+[300/460] Building CXX object CMakeFiles/rummage-watch.dir/src/tools/watch.cpp.o
+[301/460] Building CXX object CMakeFiles/rummage-decode.dir/src/core/src/lsan_suppressions.cpp.o
+[302/460] Building CXX object CMakeFiles/rummage-thumb.dir/src/tools/thumb.cpp.o
+[303/460] Building CXX object CMakeFiles/rummage-thumb.dir/src/core/src/lsan_suppressions.cpp.o
+[304/460] Building CXX object CMakeFiles/rummage-bench-photos.dir/src/tools/bench_photos.cpp.o
+[305/460] Building CXX object CMakeFiles/rummage-open.dir/src/core/src/lsan_suppressions.cpp.o
+[306/460] Building CXX object CMakeFiles/rummage-decode.dir/src/tools/decode.cpp.o
+[307/460] Building CXX object CMakeFiles/rummage-transfer.dir/src/core/src/lsan_suppressions.cpp.o
+[308/460] Building CXX object CMakeFiles/rummage-bench-jpeg.dir/src/tools/bench_jpeg.cpp.o
+[309/460] Building CXX object CMakeFiles/rummage-snapshot.dir/src/tools/snapshot.cpp.o
+[310/460] Building CXX object CMakeFiles/rummage-open.dir/src/tools/open.cpp.o
+[311/460] Building CXX object CMakeFiles/rummage-transfer.dir/src/tools/transfer.cpp.o
+[312/460] Building CXX object tests/CMakeFiles/rummage-i18n-tests.dir/__/src/core/src/i18n_rules.cpp.o
+[313/460] Building CXX object tests/CMakeFiles/rummage-i18n-tests.dir/__/src/core/src/log.cpp.o
+[314/460] Building CXX object tests/CMakeFiles/rummage-i18n-tests.dir/__/src/core/src/i18n.cpp.o
+[315/460] Building CXX object CMakeFiles/rummage.dir/src/app/main.cpp.o
+[316/460] Linking CXX executable rummage
+[317/460] Building CXX object tests/CMakeFiles/rummage-i18n-tests.dir/i18n_runtime_test.cpp.o
+[318/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/permissions_test.cpp.o
+[319/460] Building CXX object src/photos/CMakeFiles/rummage_photos.dir/src/catalog.cpp.o
+[320/460] Linking CXX shared library librummage-photos.so
+[321/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/program_test.cpp.o
+[322/460] Building CXX object tests/CMakeFiles/rummage-photo-recovery-tests.dir/photo_recovery_test.cpp.o
+[323/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/batch_rename_test.cpp.o
+[324/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/actions_test.cpp.o
+[325/460] Building CXX object tests/CMakeFiles/rummage-photo-watcher-tests.dir/photos_watcher_test.cpp.o
+[326/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/compress_test.cpp.o
+[327/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/archive_test.cpp.o
+[328/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/extract_test.cpp.o
+[329/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/archives_test.cpp.o
+[330/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/about_test.cpp.o
+[331/460] Building CXX object tests/CMakeFiles/rummage-photos-tests.dir/photos_test.cpp.o
+[332/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/app_icon_test.cpp.o
+[333/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/photo_client_test.cpp.o
+[334/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/archive_folder_test.cpp.o
+[335/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/breadcrumb_test.cpp.o
+[336/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/main.cpp.o
+[337/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/content_map_test.cpp.o
+[338/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/clipboard_test.cpp.o
+[339/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/settings_editors_test.cpp.o
+[340/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/config_test.cpp.o
+[341/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/command_palette_test.cpp.o
+[342/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/column_view_test.cpp.o
+[343/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/desktop_palette_test.cpp.o
+[344/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/menu_editor_test.cpp.o
+[345/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/engines_test.cpp.o
+[346/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/settings_test.cpp.o
+[347/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/devices_test.cpp.o
+[348/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/details_view_test.cpp.o
+[349/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/directory_model_test.cpp.o
+[350/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/directory_test.cpp.o
+[351/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/event_loop_test.cpp.o
+[352/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/file_watcher_test.cpp.o
+[353/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/feature_integration_test.cpp.o
+[354/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/format_test.cpp.o
+[355/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/folder_icon_test.cpp.o
+[356/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/icon_test.cpp.o
+[357/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/dng_test.cpp.o
+[358/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/icon_theme_test.cpp.o
+[359/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/svg_test.cpp.o
+[360/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/drag_drop_test.cpp.o
+[361/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/i18n_test.cpp.o
+[362/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/svg_layers_test.cpp.o
+[363/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/svg_features_test.cpp.o
+[364/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/sandbox_test.cpp.o
+[365/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/svg_effects_test.cpp.o
+[366/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/svg_preview_test.cpp.o
+[367/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/filesystem_test.cpp.o
+[368/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/tiff_test.cpp.o
+[369/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/heif_test.cpp.o
+[370/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/group_test.cpp.o
+[371/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/image_test.cpp.o
+[372/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/context_menu_test.cpp.o
+[373/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/path_completion_test.cpp.o
+[374/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/load_test.cpp.o
+[375/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/code_stats_test.cpp.o
+[376/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/links_test.cpp.o
+[377/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/code_report_test.cpp.o
+[378/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/helpers_test.cpp.o
+[379/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/memory_test.cpp.o
+[380/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/measure_test.cpp.o
+[381/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/kde_palette_test.cpp.o
+[382/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/mime_test.cpp.o
+[383/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/palette_test.cpp.o
+[384/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/navigation_test.cpp.o
+[385/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/paste_test.cpp.o
+[386/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/pointer_shapes_test.cpp.o
+[387/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/markdown_test.cpp.o
+[388/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/remote_test.cpp.o
+[389/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/markdown_view_test.cpp.o
+[390/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/places_test.cpp.o
+[391/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/text_selection_test.cpp.o
+[392/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/text_test.cpp.o
+[393/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/insights_test.cpp.o
+[394/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/terminal_navigation_test.cpp.o
+[395/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/preview_test.cpp.o
+[396/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/panes_test.cpp.o
+[397/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/tabs_test.cpp.o
+[398/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/glyph_test.cpp.o
+[399/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/platform_test.cpp.o
+[400/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/scrollbar_test.cpp.o
+[401/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/scroller_test.cpp.o
+[402/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/renderer_runs_test.cpp.o
+[403/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/quick_look_test.cpp.o
+[404/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/info_pane_test.cpp.o
+[405/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/rename_test.cpp.o
+[406/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/syntax_colors_test.cpp.o
+[407/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/sort_test.cpp.o
+[408/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/motion_test.cpp.o
+[409/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/title_bar_test.cpp.o
+[410/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/thumbs_test.cpp.o
+[411/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/syntax_test.cpp.o
+[412/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/file_manager_test.cpp.o
+[413/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/erase_test.cpp.o
+[414/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/state_test.cpp.o
+[415/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/shortcuts_test.cpp.o
+[416/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/erase_view_test.cpp.o
+[417/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/file_finder_test.cpp.o
+[418/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/trash_test.cpp.o
+[419/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/xcursor_test.cpp.o
+[420/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/__/src/core/src/lsan_suppressions.cpp.o
+[421/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/worker_pool_test.cpp.o
+[422/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/file_picker_test.cpp.o
+[423/460] Building CXX object tests/CMakeFiles/rummage-photo-ui-tests.dir/__/src/core/src/lsan_suppressions.cpp.o
+[424/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/trash_view_test.cpp.o
+[425/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/undo_test.cpp.o
+[426/460] Building CXX object tests/CMakeFiles/rummage-tests.dir/transfer_test.cpp.o
+[427/460] Building CXX object tests/CMakeFiles/rummage-desktop-portal-tests.dir/desktop_portal_test.cpp.o
+[428/460] Building CXX object tests/CMakeFiles/rummage-file-manager-tests.dir/file_manager_bus_test.cpp.o
+[429/460] Building CXX object tests/CMakeFiles/rummage-notification-tests.dir/notifications_test.cpp.o
+[430/460] Linking CXX executable rummage-svg-render
+[431/460] Building CXX object tests/CMakeFiles/rummage-portal-tests.dir/file_picker_portal_test.cpp.o
+[432/460] Linking CXX executable rummage-bench-dir
+[433/460] Linking CXX executable rummage-bench-find
+[434/460] Linking CXX executable rummage-bench-photos
+[435/460] Linking CXX executable rummage-bench-start
+[436/460] Linking CXX executable rummage-mime
+[437/460] Linking CXX executable rummage-watch
+[438/460] Linking CXX executable rummage-decode
+[439/460] Linking CXX executable rummage-thumb
+[440/460] Linking CXX executable rummage-snapshot
+[441/460] Linking CXX executable rummage-open
+[442/460] Linking CXX executable rummage-bench-jpeg
+[443/460] Linking CXX executable rummage-transfer
+[444/460] Linking CXX executable tests/rummage-i18n-tests
+[445/460] Linking CXX executable tests/rummage-photos-tests
+[446/460] Linking CXX executable tests/rummage-photo-recovery-tests
+[447/460] Linking CXX executable tests/rummage-photo-watcher-tests
+[448/460] Linking CXX executable tests/rummage-portal-tests
+[449/460] Linking CXX executable tests/rummage-desktop-portal-tests
+[450/460] Linking CXX executable tests/rummage-notification-tests
+[451/460] Linking CXX executable tests/rummage-file-manager-tests
+[452/460] Building CXX object tests/CMakeFiles/rummage-photo-ui-tests.dir/main.cpp.o
+[453/460] Linking CXX executable tests/rummage-tests
+[454/460] Building CXX object tests/CMakeFiles/rummage-media-tests.dir/media_test.cpp.o
+[455/460] Linking CXX executable tests/rummage-media-tests
+[456/460] Building CXX object tests/CMakeFiles/rummage-pdf-tests.dir/pdf_test.cpp.o
+[457/460] Linking CXX executable tests/rummage-pdf-tests

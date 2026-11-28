@@ -1,0 +1,77 @@
+{
+  "revision": "1dd2368783d814e86268fd2c388ee41671c66ae8",
+  "module": "/tmp/rummage-photo-browser-build/librummage-photos.so",
+  "sha256": "94f1a24595bd7bd9cf9bdf08b770806472cd62a562a4c5fb0b5f44f795b31fff",
+  "cases": {
+    "interrupted_upgrade_backup_collision": {
+      "reproduced": true,
+      "replies": [
+        {
+          "error": "Cannot create backup: /tmp/rummage-audit-small-ob7brge9/upgrade/catalog.db.before-schema-2.backup. Choose a new path; the original catalog was preserved.",
+          "ok": false
+        },
+        {
+          "error": "Cannot create backup: /tmp/rummage-audit-small-ob7brge9/upgrade/catalog.db.before-schema-2.backup. Choose a new path; the original catalog was preserved.",
+          "ok": false
+        }
+      ],
+      "backup_preserved": true
+    },
+    "restore_merges_tags": {
+      "reproduced": true,
+      "exported_tags": [
+        "backup"
+      ],
+      "restored_tags": [
+        "backup",
+        "later"
+      ],
+      "description": "backup value",
+      "result": {
+        "ambiguous": [],
+        "missing": [],
+        "ok": true,
+        "restored": 1,
+        "restored_ids": [
+          1
+        ],
+        "unresolved_filters": []
+      }
+    },
+    "restore_invalid_exclusions": {
+      "reproduced": true,
+      "restore": {
+        "ambiguous": [],
+        "missing": [],
+        "ok": true,
+        "restored": 1,
+        "restored_ids": [
+          1
+        ],
+        "unresolved_filters": []
+      },
+      "work": {
+        "error": "[json.exception.type_error.302] type must be string, but is number",
+        "ok": false
+      },
+      "readd_source_exclusions": [
+        7
+      ],
+      "retry_work": {
+        "error": "[json.exception.type_error.302] type must be string, but is number",
+        "ok": false
+      }
+    },
+    "timestamp_overflow": {
+      "reproduced": true,
+      "stat_mtime_ns": 10000000000000000000,
+      "catalog_mtime_ns": -8446744073709551616
+    },
+    "concurrent_requests": {
+      "requests": 160,
+      "errors": [],
+      "integrity": "ok",
+      "elapsed_s": 0.5952414159983164
+    }
+  }
+}

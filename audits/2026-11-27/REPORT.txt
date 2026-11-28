@@ -1,0 +1,189 @@
+RUMMAGE WHOLE-BRANCH AUDIT — 2026-11-27
+Audited revision: 1dd2368783d814e86268fd2c388ee41671c66ae8
+Branch: feat/photo-library
+Baseline: 63ca25bc8ba464d42dfa315d180354892137e792
+
+Not ready for broad large-library use until selection/frame amplification and indexing/recovery failures are repaired. Ordinary filesystem browsing and existing test coverage were substantially healthier.
+
+Open report.html for all tables, coverage, limits and evidence links.
+
+KEY MEASUREMENTS
+100k native photo frame, rubber-band/no cursor: 1072.69 ms (single observation).
+100k normal photo Grid frame: median 26.16 ms; focused metadata snapshot 23.17 ms.
+100k direct shared Grid draw: median 0.65 ms; Details 3.08 ms.
+100k burst of 30 refresh requests: 9.07 s for TWO coalesced full-prefix loads; backend single-prefix reload separately 4.41 s. Do not subtract these scopes.
+100k ordinary folder shown: median 245.29 ms, settled PSS 82.08 MiB.
+100k photo harness peak RSS 1.59 GiB/PSS 1.47 GiB; not a leak determination.
+
+CHECKS
+Release build + CTest: PASS: 16 / 16 suites
+Fresh GCC 16.2.0, all preview helpers and photos enabled. Main suite: 1,272 cases / 242,673 assertions. Test runtime 88.84 s was under concurrent build load; not a performance baseline.
+Evidence: evidence/root/release-ctest.log
+
+Address/undefined sanitizers: 15 / 16 standard suites; migration passes with corrected launcher
+Python ctypes needed matching libasan preloaded. Leak detection disabled only for that CPython-hosted rerun; existing libfontconfig suppression used elsewhere. Optional external image corpora and sanitizer-incompatible address-limit test remain skipped.
+Evidence: evidence/root/asan-ctest.log
+
+Strict timestamp UBSan probe: FAIL: confirmed signed overflow
+Companion catalog build adds -fstrict-overflow to override Nix’s -fno-strict-overflow. Ordinary ASan build returns the incorrect negative timestamp without a diagnostic. F06.
+Evidence: evidence/root/ubsan-timestamp-strict.log
+
+Deterministic parser mutations: PASS: 190,000 cases
+50k each text/TIFF/archive; 20k each picture/SVG. Existing fuzz entrypoints, seed 20261127, 1 MiB input cap, per-target time/RSS guards. No sanitizer finding; not coverage-guided fuzzing, external libraries uninstrumented.
+Evidence: evidence/root/mutations/results.json
+
+Native UI stress: PASS correctness; performance defects reproduced
+1k/10k/100k, 200 rapid folder opens, 100 snapshot/view churns, 30 refreshes and 30 filters per size; selection/cursor and final-generation assertions. Six Release processes exit 0.
+Evidence: evidence/ui/findings.txt
+
+100k catalog stress: PASS consistency and roundtrips
+500 pages / 100,000 unique IDs; 100,256-record export/existing restore; 256 real-file fresh restore; 120 concurrent requests, zero errors, integrity OK, zero foreign-key errors. Synthetic metadata is not decode throughput.
+Evidence: evidence/catalog/stress-release-100000.json
+
+Copy correctness: PASS every byte hash
+1,001 files / 269,624,456 bytes copied three times by each tool; all SHA-256 values verified. Only disposable destinations removed.
+Evidence: evidence/root/filesystem/copy-results.json
+
+CI and performance tooling: PASS: 73 + 6 tests
+Also ShellCheck, Actionlint, 20 Bash syntax, 8 Nix parse and 38 Python AST checks. Nix parse is not a fresh package build.
+Evidence: evidence/architecture/checks.json
+
+Docs / localization checks: PASS with coverage caveats
+28 pages, 288 links, 24 TOML blocks; seven message catalogs. Unmarked new UI strings escape this check (F09).
+Evidence: evidence/architecture/extra-checks.json
+
+Website generation / link gate: Hugo PASS; link gate FAIL (2)
+Stale package anchor and missing Photo Library page. Reproduced locally; nothing published. F08.
+Evidence: evidence/architecture/website-check.log
+
+Staged install / add-on removal: PASS
+CMake base+media+PDF components, separate photo-only ownership, installed ABI/diagnostics, then module removal. HOME preserved; desktop-file-utils added from the existing Nix store. No package-manager upgrade or system install.
+Evidence: evidence/root/staged-install/results.json
+
+ThreadSanitizer core stress: PASS: 21 cases × 3 randomized runs
+Intentional-race control produced the expected diagnostic/exit 66. Each core run passed 21 cases / 46,199 assertions with no diagnostics. Targeted EventLoop/WorkerPool coverage, not whole-application race certification.
+Evidence: evidence/architecture/tsan/results.json
+
+FINDINGS
+F01 P1 — Large photo selections can stall every frame, even with the inspector hidden
+Introduced; Reproduced; native harness timing
+Rubber-band selection can leave the cursor unset. properties(true) then falls back to every selected ID and scans the selected-ID vector for every loaded row. Browser constructs this snapshot every frame, including when InfoPane is hidden. At 100,000 selected rows the membership loop entails roughly five billion comparisons per frame. Bulk Properties uses the same quadratic path.
+Action: Use direct ID lookup for focused metadata and hashed membership or selected_snapshots_ for bulk summaries. Cache summaries by selection/data revision, return no focused snapshot without a cursor, and skip hidden-pane work. Verify rubber-band selection and cross-scope selections at 1k/10k/100k.
+Source: src/views/src/folder.cpp:283, src/views/src/photo_library.cpp:993, src/views/src/browser.cpp:4188
+Evidence: evidence/ui/findings.txt, evidence/ui/release-photo-10000.csv, evidence/ui/release-photo-100000.csv
+
+F02 P2 — A small background metadata batch reloads the entire browsed collection
+Introduced; Confirmed call path; catalog and controller timings
+A successful work response refreshes the loaded prefix and watcher subscriptions even for metadata-only changes. At 30,000 loaded rows one refresh makes thirty 1,000-row requests, thirty COUNTs and 60,000 per-row tag/album SELECTs, then reconstructs all fs::Entry objects. Coalescing limits simultaneous work but not the cost of each refresh. Watch subscriptions also revisit already registered directories.
+Action: Return changed IDs and discovery/watch revisions. Update affected rows or a bounded window; refresh watches only when directory availability/topology changes. Batch row enrichment and reuse prepared statements without removing identity or durability checks.
+Source: src/views/src/photo_library.cpp:568, src/views/src/photo_library.cpp:832, src/photos/src/catalog.cpp:574, src/photo_client/src/source_watcher.cpp:160
+Evidence: evidence/architecture/report.txt, evidence/catalog/stress-release-100000.json
+
+F03 P2 — Malformed derived camera text can stop a metadata work batch
+Inherited protocol truncation; new photo consumer exposes failure; Reproduced end to end
+The helper protocol truncates camera text to 255 raw bytes and can split a UTF-8 character. A decodable fixture JPEG containing a long non-ASCII EXIF Make value reaches the real helper/client pipeline, where JSON serialization throws. The work request fails, leaving one unfinished metadata claim and no per-photo outcome. This is adversarial metadata, not evidence that every long EXIF value is standards-compliant.
+Action: Bound or normalize protocol text at UTF-8 boundaries and contain serialization/decode failures per photo. Durably complete or release the claim and continue healthy photos. Add the actual helper-to-client regression fixture.
+Source: src/isolate/src/protocol.cpp:138, src/photo_client/src/client.cpp:203, src/photo_client/src/client.cpp:228
+Evidence: evidence/catalog/protocol_utf8.log, evidence/catalog/metadata_utf8_real.json, evidence/catalog/metadata_utf8_real.py
+
+F04 P2 — Restore accepts exclusions that make future source scans fail
+Introduced; Reproduced
+Restore accepts sources[].exclusions=[7] because it validates only the array container, reports success, and commits. Later scanning expects strings and fails. Re-adding the source with [] preserves the bad stored exclusions. The oldest failing scan can prevent later queued jobs from running.
+Action: Reuse the add-source validator for restore, including element types and bounds, before any commit. Reject an invalid restore atomically and test subsequent scans.
+Source: src/photos/src/catalog.cpp:479, src/photos/src/catalog.cpp:516, src/photos/src/catalog.cpp:1111, src/photos/src/catalog.cpp:1711
+Evidence: evidence/catalog/correctness-debug.json, evidence/catalog/correctness_repros.py
+
+F05 P2 — An interrupted migration cannot retry while its valid backup exists
+Introduced; Reproduced twice
+If a process exits after creating .before-schema-2.backup but before committing migration, reopening refuses to overwrite that backup. It tells the user to choose a new path, but the UI exposes no such internal path choice. The catalog and backup remain intact; this is an availability/recovery defect.
+Action: Preserve the backup and create a unique new one, or validate and safely reuse the existing snapshot. Add interrupted-backup retry coverage. Never delete the only backup automatically.
+Source: src/photos/src/catalog.cpp:164, src/photos/src/catalog.cpp:221, tests/photos_migration.py:65
+Evidence: evidence/catalog/correctness-debug.json, evidence/catalog/correctness_repros.py
+
+F06 P2 — Catalog timestamp conversion overflows signed nanoseconds
+Introduced; a checked shared filesystem conversion already exists; Reproduced; strict-overflow UBSan diagnostic
+A real temporary file with mtime 10^19 ns is representable by the filesystem but cannot fit signed 64-bit nanoseconds. Query returns -8446744073709551616. A companion build with -fstrict-overflow diagnoses signed overflow. The normal Nix wrapper supplies -fno-strict-overflow, so the standard sanitizer build silently returned the wrong value.
+Action: Use a checked conversion and explicit out-of-range representation or handled error. Retain seconds/subseconds for identity checks; apply the same policy to all three catalog conversions.
+Source: src/photos/src/catalog.cpp:572, src/photos/src/catalog.cpp:1952, src/photos/src/catalog.cpp:1999, src/fs/src/trash.cpp:1012
+Evidence: evidence/root/ubsan-timestamp-strict.log, evidence/root/strict-catalog-commands.json, evidence/catalog/timestamp_overflow.py
+
+F07 P2 — Album counts include hidden replacements and can open to no results
+Introduced; Reproduced with a synthetic recorded-inode mismatch
+After inode replacement, the old photo ID retains annotations and album membership but is hidden as replaced; the new visible ID has no annotations. Albums count all memberships while default queries hide replaced/inactive rows, producing count 1 and zero visible results. This is not annotation erasure. It explains a class of empty-album behavior, not proof of the cause of the user’s earlier incident. Inode-unstable mounts require an explicit reconciliation policy.
+Action: Make counts match visible results or show visible/retained counts and provide access to retained associations. Design reviewed reconciliation for unstable identities; do not automatically equate filenames or weaken destructive-operation guards.
+Source: src/photos/src/catalog.cpp:603, src/photos/src/catalog.cpp:1005, src/photos/src/catalog.cpp:2524
+Evidence: evidence/catalog/inode_replacement_policy.json, evidence/catalog/inode_replacement_policy.py
+
+F08 P2 — Generated website fails its link gate and advertises removed packages
+Introduced integration regression; Reproduced generated-site check
+The downloads template still advertises separate media/pdf packages and links to the removed optional-preview-packages anchor. The new Photo Library guide is absent from website navigation/content generation, so configuration links to a missing route. Hugo build and the Markdown documentation checker pass; the actual generated-site check fails twice.
+Action: Update package copy, register the guide, and rerun website/check.py. Align THIRD_PARTY.md and architecture documentation with the single optional photo add-on.
+Source: website/layouts/downloads.html:22, website/data/navigation.toml:1, docs/configuration.md:92, THIRD_PARTY.md:22
+Evidence: evidence/architecture/website-check.log, evidence/architecture/extra-checks.json
+
+F09 P2 — Photo UI strings bypass translation extraction
+Introduced; Static verified; strict catalog checker does not detect unmarked text
+PhotoLibrary.cpp contains no i18n tr/trf/mark calls. Add folder, pause/resume work, gentle pace and progress text are raw English. Enable Photo Library also lacks catalog coverage. Seven-language catalog checks pass because they validate marked messages, not all user-facing literals.
+Action: Mark every new user-facing string, use plural-aware formats, extract messages, and test a non-English locale through source/album/restore/error paths.
+Source: src/views/src/photo_library.cpp:939, src/views/src/photo_library.cpp:1167, src/views/src/settings_dialog.cpp:226
+Evidence: evidence/architecture/report.txt, evidence/architecture/i18n.log
+
+F10 P2 — Ordinary Details view rebuilds all rows on draw and input
+Inherited from main; Confirmed code path; native harness timing
+Details reconstructs the flattened shared_ptr row list and searches the cursor across all entries even when only a small viewport is visible. This makes deep folder drawing and navigation scale with total folder size. Grid and Columns primarily visit visible entries.
+Action: Cache flattening against folder/expansion revisions or directly index the root list when there are no expanded rows. Preserve cursor/reveal behavior and compare 1k/10k/100k draw/input samples.
+Source: src/views/src/details_view.cpp:94, src/views/src/details_view.cpp:567, src/views/src/details_view.cpp:586
+Evidence: evidence/ui/findings.txt, evidence/ui/release-view-100000.csv
+
+F11 P2 — Slow mount pathname lookups can block the UI thread
+Inherited operations; new source-watch traversal amplifies exposure; Static call-path risk; no slow-mount fault injection
+Restored tabs, folder shortcuts and picker acceptance perform synchronous status/access checks. Source watcher registration calls inotify_add_watch on the event loop; pathname resolution can wait on FUSE/network mounts. A batch limit bounds the number of calls, not the duration of one blocked syscall. No live user mount was touched.
+Action: Move cancellable path validation away from UI work and design safe asynchronous watch registration around the shared watcher’s ownership rules. Test with an isolated delayed/unresponsive FUSE fixture, not the user’s mount.
+Source: src/views/src/browser.cpp:3806, src/views/src/browser.cpp:6442, src/views/src/file_picker.cpp:116, src/photo_client/src/source_watcher.cpp:187, src/fs/src/directory_watcher.cpp:38
+Evidence: evidence/ui/findings.txt, evidence/architecture/report.txt
+
+F12 P2 — Ordinary bulk drag and context menus use quadratic membership scans
+Inherited from main; Static complexity finding; no latency measurement
+Loops over every folder entry repeatedly search a selected-name vector. The drag loop keeps running after determining that not every selected entry is a folder. Folder already exposes hashed selection membership.
+Action: Use Folder::is_selected for the full current selection, or a captured hash set for cursor-scoped operations. Add large-selection interaction benchmarks before changing behavior.
+Source: src/views/src/browser.cpp:2524, src/views/src/browser.cpp:5243, src/views/src/browser_palette.cpp:201
+Evidence: evidence/ui/findings.txt
+
+F13 P2 — Metadata orchestration duplicates pending lookup and catalog initialization
+Introduced; Confirmed call counts; timings in catalog appendix
+Backend work returns pending metadata candidates; Client discards them and asks again. A normal four-photo batch performs ten ABI requests/database opens: work, pending, four claims and four submissions. Each opens SQLite, takes the schema lock, configures PRAGMAs and reads the schema. A pending tail may also scan many already completed photos. Restore preparation separately rescans all trash-operation payloads for each selected ID.
+Action: Consume the first bounded candidate batch while retaining claim-time validation. Consider bounded connection ownership/prepared statements and indexed pending state. Batch receipt lookup rather than repeatedly parsing history. Prioritize using the measured end-to-end cost, not call counts alone.
+Source: src/photos/src/catalog.cpp:126, src/photos/src/catalog.cpp:1503, src/photos/src/catalog.cpp:1930, src/photos/src/catalog.cpp:2608, src/photo_client/src/client.cpp:219
+Evidence: evidence/architecture/report.txt, evidence/catalog/stress-release-100000.json
+
+F14 P3 — Restore behavior needs one clear user-facing contract
+Introduced; Merge reproduced; automatic-scan path is static evidence
+Restore replaces scalar annotations but merges tags and album membership, so it is not a faithful rollback. The guide does not explain this distinction. Separately, frontend restore refreshes subscriptions, and newly seen source IDs are queued for discovery, despite the guide saying registration does not automatically scan. Backend-only restore does not reproduce that frontend behavior.
+Action: Decide and document merge/replace and scan semantics. Add a full frontend-plus-watcher restore regression. If scanning is intended, show it clearly; if not, distinguish restored sources from newly added sources.
+Source: src/photos/src/catalog.cpp:1814, src/views/src/photo_library.cpp:845, src/views/src/photo_library.cpp:1678, src/photo_client/src/source_watcher.cpp:125, docs/photo-library.md:203
+Evidence: evidence/catalog/correctness-debug.json, evidence/catalog/FINDINGS.txt
+
+F15 P3 — Photo drag and several scale limits need clearer affordances
+Introduced restrictions or known documented limits; Static verified
+Collection rows cannot be dragged to ordinary folders, while copy/cut provides a guarded alternative. End/scrollbar and Select loaded photos refer only to the loaded prefix. Duplicate groups stop at 1,000 without pagination. Export can exceed the restore interface’s limit. These are product limitations, not a total-photo cap.
+Action: Explain unavailable actions in context; decide whether guarded photo drag is in scope. Show total versus loaded consistently, paginate duplicates/history where needed, and make export/restore capacity symmetric. See the limits appendix before changing defaults.
+Source: src/views/src/browser.cpp:5227, docs/photo-library.md:229
+Evidence: evidence/ui/findings.txt, evidence/catalog/FINDINGS.txt
+
+F16 P3 — Sanitizer migration test needs an instrumented-library host launcher
+Test harness integration; Reproduced; corrected invocation passes
+Standard ASan/UBSan CTest passes 15 of 16 suites. photos-migration starts uninstrumented Python and ctypes-loads the instrumented module without preloading libasan; the runtime rejects its load order. Running the same migration test with matching libasan preloaded passes. Leak detection was disabled only for this CPython-hosted rerun.
+Action: Configure the sanitizer test launcher/environment explicitly for Python-hosted modules and keep the runtime path toolchain-matched. Do not report this harness abort as a product memory error.
+Source: tests/CMakeLists.txt:144
+Evidence: evidence/root/asan-ctest.log, evidence/root/asan-migration-preload.json, evidence/root/asan-migration-preload.log
+
+REVIEW ORDER
+1. Per-frame metadata and quadratic selection.
+2. Full-prefix/watch update amplification.
+3. Metadata, restore, migration and timestamp correctness.
+4. Identity/album and restore product semantics.
+5. Website, localization, sanitizer launcher and package-upgrade validation.
+6. Inherited Details/drag/mount issues and small clone cleanup.
+
+BOUNDARIES
+No production code changes; all local. Semantic review selective, not every line. Warm-cache shared host; software UI renderer distinct from hardware startup. Synthetic catalogs are not real decode/import throughput. No user catalog/mount mutation, full distro upgrade matrix, coverage-guided fuzzing, exhaustive external decoder audit or long-duration soak. Static risks are not counted as reproduced incidents.

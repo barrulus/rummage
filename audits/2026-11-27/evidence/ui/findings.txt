@@ -1,0 +1,85 @@
+# Native UI audit — frozen 1dd23687
+
+Scope: ordinary Browser navigation/panes/sidebar, collection-backed and filesystem views, selection, search/palette, QuickLook/InfoPane/Properties, settings and picker integration. No production edits. All fixtures and harness artifacts are under this audit directory. No user catalogs, mounts or desktop used.
+
+## Findings
+
+1. **P1 — rubber-band photo selection with no cursor invokes quadratic metadata work every frame (introduced on branch).** `src/views/src/folder.cpp:283–297` lets `select_band()` update selection without establishing a cursor. `photo_library.cpp:993–1000` uses all selected IDs when `properties(true)` has no focused photo, then for each loaded row linearly searches those IDs. `browser.cpp:4188–4191` does this every frame even with InfoPane hidden. Reproduction via public API: load collection, clear cursor, select_band({}, all indices), draw. Equivalent native trigger: begin rubber band in blank area before selecting a focused row. Expected: rendering cost tracks visible rows and selection summaries update once; actual: O(loaded × selected) every frame. Fix direction: use selected-ID set/snapshot index for bulk metadata and return no focused metadata when no cursor; cache focused properties by stable ID + row revision; skip snapshot construction when InfoPane hidden. Reproduced in the Release harness: hidden-InfoPane frame 36.52 ms at 10k and 1,072.69 ms at 100k; the properties(true) call itself took 1,300.96 ms at 100k including fresh selection synchronization.
+
+2. **P2 — all photo frames linearly scan the entire loaded collection twice (introduced on branch).** `photo_library.cpp:212–221` finds focused JSON row by linear scan; `:993–1000` scans all rows again even for a singleton. Browser calls it unconditionally as above. Selection near the end and deep continuous scrolling scale up the cost. Public harness measures `properties(true)` separately from native Browser draw and shared views.
+
+3. **P2 — Details rebuilds full flattened row list on every draw and many input events (inherited).** `details_view.cpp:94–109`, `:567`, `:586`; it copies a shared_ptr row for every entry, then scans from start for cursor index. Even with no expanded directories and 20 visible rows, work scales with all 100k entries. Blame dates to 0d10494f before branch base63ca25bc. Cache flattening by folder/expansion revision or use direct root indexing when no expansion. Measured direct Details median grows from 0.97 ms at 1k to 3.08 ms at 100k; this alone is not a severe frame-budget failure on this host, but it is avoidable O(N) work and exacerbates the controller cost.
+
+4. **P2 — startup/session and picker operations still synchronously touch mount paths (inherited).** `browser.cpp:3806–3809,3848–3850,3857–3861` validates each restored folder on calling/UI thread; `browser.cpp:6442–6448` validates folder shortcuts synchronously. `file_picker.cpp:116–169` calls status/access per selected path, invoked directly by accept at :328. A slow/unresponsive SSHFS/FUSE path can therefore block window initialization or input. No real mount used; code-path finding, not a measured user-mount delay. Move these checks to cancellable workers, preserve visible unavailable-tab state, and do not block every tab on one bad mount.
+
+5. **P2 — ordinary bulk file drag / all-folder context menus perform quadratic name membership scans (inherited).** `browser.cpp:2524–2528`, `:5243–5246`, `browser_palette.cpp:201–205`: loop all listed entries and `ranges::find` selected name vector. The drag loop continues even after folders_only becomesfalse. Existing Folder already has hashed `is_selected()`. Use that for full selection, or set captured names where scope is cursor-only. Static complexity finding; no filesystem actions performed.
+
+6. **P3 — photo rows cannot be dragged to ordinary folders (introduced restriction).** `browser.cpp:5227–5230` explicitly rejects all collection rows in start_drag. Clipboard copy/cut does exist, so functionality has a workaround, but native gallery-to-folder drag has no visible explanation. Requires deliberate product decision rather than blindly enabling without stable identity guards.
+
+## Existing protection / non-findings
+
+- Native Grid and Column rendering visits visible rows, not every entry; Folder selection summaries cache until changed.
+- Folder sniff batches are bounded64; collection rows with supplied MIME avoid filesystem sniffing.
+- Most normal I/O and all image decoding/summary loading are asynchronous. Same-device drag stat runs on a worker (`browser.cpp:5592–5600`), not UI.
+- Collection append/query completion guards generations; visible callback only enqueues async work; ColumnView defers notifications until the frame’s iteration ends.
+- QuickLook changed-location key invalidates preview slots; unavailable originals remain cache-only; destructive identity gates remain separate from preview permissions. Offline latency regression is already covered at frozen HEAD.
+- No evidence yet of retained-object leak. RSS growth alone will not be called a leak; allocator/GL caches and peak vs current RSS must be distinguished.
+
+## Correctness harness status
+
+`view_stress.cpp` Debug1k smoke PASS: selection-all count, refresh cursor/key/selection retention, 200-row append,100 snapshot/view churns,200 rapid ordinary-folder opens settling on final target. `photo_stress.cpp` Debug1k smoke PASS: loaded prefix, focused/bulk properties scope,30 refresh coalescing,30 filter generations settling on exact final record. Debug timings intentionally not used as performance claims. All six final Release processes passed in the exclusive quiet window; see measurements below.
+
+## Method
+
+`build_harness.py` compiles only out-of-tree harness sources against existing build archives using that build’s generated include flags/link dependencies. `run_harness.py` isolates XDG roots (final runs preserve HOME), forces surfaceless EGL/software GL, writes CSV and stderr, timeout120s. Fixtures: generated metadata-only collection entries for shared views; real backend schema seeded with synthetic rows and paused metadata for controller. These are UI/model measurements, not network or image-decoding throughput. Columns/Grid/Details use actual native draw methods and renderer. No production code is patched or private members exposed.
+
+Harness note: first smoke screenshot captured a default transient selection effect, so final timed Photo Browser harness disables motion and ambient effects explicitly. Debug means CMakeDebug; Nix compiler wrapper still supplies -O2. Release adds later -O3/-DNDEBUG. Do not label Debug unoptimized.
+
+
+## Release measurements (exclusive host window)
+
+Frozen app revision **1dd23687**; existing Release static libraries, CMake -O3 -DNDEBUG (Nix wrapper defaults earlier in command); harness linked against the same binaries. 1100×820 surfaceless EGL with software GL, glFinish per frame. Browser animations/ambient disabled. No image decoding: generic rows have explicit text MIME and unavailable paths; photo rows are synthetic JPEG catalog records without originals, metadata globally paused. Tests use isolated XDG roots and preserve HOME. These are CPU/native-model/layout plus software-rendering timings, not a live hardware GPU or SSHFS benchmark.
+
+| Operation (milliseconds) | 1k | 10k | 100k |
+|---|---:|---:|---:|
+| Focused photo properties median (30) | 0.038 | 0.771 | **23.167** |
+| Browser Grid, InfoPane hidden median (30) | 1.232 | 2.078 | **26.163** |
+| Browser Details, InfoPane hidden median (30) | 1.782 | 2.472 | **28.922** |
+| Browser Columns, InfoPane hidden median (30) | 1.225 | 1.682 | **26.284** |
+| Browser Grid, InfoPane visible median (15) | 1.126 | 1.918 | 25.987 |
+| Bulk photo Properties (one call) | 2.692 | 38.877 | **1,163.950** |
+| No-cursor band properties(true), fresh sync (one call) | 3.282 | 55.550 | **1,300.960** |
+| No-cursor band Browser frame, InfoPane hidden (one frame) | 4.457 | 36.522 | **1,072.690** |
+| Shared Grid alone median (60) | 0.413 | 0.454 | **0.654** |
+| Shared Details alone median (60) | 0.966 | 1.342 | **3.076** |
+| Shared Columns alone median (60) | 0.943 | 0.303 | **0.306** |
+| Folder snapshot refresh preserving all selected keys median (7) | 0.203 | 2.942 | **42.390** |
+| Folder snapshot copy with 200 appended rows median (5) | 0.312 | 2.826 | **40.934** |
+| Generic selected_names median (7) | 0.014 | 0.168 | 2.694 |
+| Native listing resort median (4) | 0.133 | 1.949 | 31.275 |
+| Photo select-all synchronization (one call) | 1.546 | 17.003 | 182.722 |
+
+The focused-per-frame overhead is the dominant 100k normal-browsing regression: Grid alone0.65ms versus full Browser26.16ms, while the focused properties operation alone23.17ms explains nearly all of the difference. Bulk/rubber-band results are single bounded samples, not percentile estimates; no run hit the120s limit.
+
+Loaded-prefix restoration (backend queries, JSON conversion, callback and Folder publish combined): 42.4ms/648.2ms/9.458s at1k/10k/100k. Thirty immediate refresh() calls coalesced correctly and completed in78.1ms/575.2ms/9.065s. These are end-to-end synthetic operations and should not be attributed solely to frontend code; the catalog agent measures backend query cost separately. No stale filter won over the final query in the30-change stress.
+
+### Memory
+
+Sampled peak process RSS/PSS during photo workload:1k292,504/174,280KiB;10k454,140/336,108KiB;100k1,663,680/1,545,518KiB (~1.59GiB RSS,1.47GiB PSS). At100k, after load RSS1,077,792KiB; after select-all synchronization1,348,008KiB; after bulk Properties1,661,760KiB. After narrowing to one result RSS remained1,624,720KiB. This establishes a high peak/retained allocator footprint, **not proof of a live-object leak**. It includes software-GL/library baseline (~250MiB in generic1k) and temporary copies. Generic100 snapshot/view churns at100k ended64KiB below their starting RSS; no monotonic generic model/view leak observed.
+
+### Correctness and visual evidence
+
+- 200 back-to-back ordinary directory opens settled on the final generated directory for every dataset size.
+- Selected stable keys and deep cursor survived full snapshot refresh and append; sorting retained correct count.
+- All controller loaded-prefix, selected-count, coalesced refresh, cursor retention and final-filter checks passed at1k/10k/100k.
+- `release-photo-100000.png` is the actual full Browser frame with100,000 selected photos, no focused cursor and hidden InfoPane. It shows the existing native frame/sidebar/navigation/grid/status, not a mockup. Placeholder image icons are expected because the fixture contains catalog records without imagefiles. The paired CSV records its1.07s frame stall.
+- The final capture was inspected: controls and selection/status remain readable at1100×820; `Review duplicates` is middle-ellipsized in the default sidebar width, a minor label-fit issue, not a navigation failure.
+
+## Suggested priority
+
+1. Remove per-frame full collection/property scans and eliminate the no-focused-row bulk fallback. Build an ID index and memoize snapshots by relevant revision; bulk aggregation should iterate selected snapshots once.
+2. Avoid republishing/copying all loaded entries for each append/metadata refresh; preserve stable IDs with incremental rows or revision-aware snapshots. Folder-only100k refresh already exceeds one60Hz frame before controller JSON work.
+3. Move synchronous restored-tab/picker path checks to workers and retain explicit unavailable states.
+4. Cache Details flattened rows by revision and replace repeated selected-vector membership searches with set membership.
+
+No fixes or commits made during audit. All findings/fixtures/build harnesses/results remain in this directory; production worktree was clean at last check.

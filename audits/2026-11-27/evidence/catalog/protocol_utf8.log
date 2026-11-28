@@ -1,0 +1,3 @@
+Input camera bytes: 256
+Decoded camera bytes: 255
+Confirmed JSON boundary failure: [json.exception.type_error.316] incomplete UTF-8 string; last byte: 0xC3

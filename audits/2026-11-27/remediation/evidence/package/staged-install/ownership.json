@@ -1,0 +1,26 @@
+{
+  "photo_component_files": [
+    "libexec/rummage/librummage-photos.so"
+  ],
+  "base_files_after_addon_removal": [
+    "bin/rummage",
+    "libexec/rummage/rummage-media",
+    "libexec/rummage/rummage-pdf",
+    "libexec/rummage/rummage-preview",
+    "share/applications/rummage.desktop",
+    "share/bash-completion/completions/rummage",
+    "share/dbus-1/services/org.freedesktop.impl.portal.desktop.rummage.service",
+    "share/fish/vendor_completions.d/rummage.fish",
+    "share/icons/hicolor/scalable/apps/rummage.svg",
+    "share/rummage/config.example.toml",
+    "share/rummage/engines/base.toml",
+    "share/rummage/engines/media.toml",
+    "share/rummage/engines/pdf.toml",
+    "share/rummage/matugen/rummage.toml",
+    "share/rummage/noctalia/rummage",
+    "share/xdg-desktop-portal/portals/rummage.portal",
+    "share/zsh/site-functions/_rummage"
+  ],
+  "scope": "CMake staged install and direct ABI/diagnostics; not a distro package-manager or upgrade test",
+  "checker_adaptation": "Preserved HOME; XDG fixture isolation retained. No production source modified."
+}

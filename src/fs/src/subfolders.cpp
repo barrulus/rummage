@@ -30,8 +30,14 @@ void Subfolders::retain(std::span<const std::filesystem::path> paths) {
         if (!path.is_absolute() || probes_.contains(path))
             continue;
         auto& probe = probes_[path];
-        std::error_code error;
-        probe.watch = watcher_.watch(path, [this, path](const auto&) { refresh(path); }, error);
+        probe.watch = watcher_.watch_async(
+            pool_, path, [this, path](const auto&) { refresh(path); },
+            [this, path](std::error_code error) {
+                // Initial probing need not wait for a slow registration. Recheck after
+                // adoption to cover changes before the loop started receiving events.
+                if (!error)
+                    refresh(path);
+            });
         refresh(path);
     }
 }

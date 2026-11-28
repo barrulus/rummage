@@ -1,0 +1,36 @@
+{
+  "actual_root": {
+    "device": 56,
+    "inode": 1
+  },
+  "source": {
+    "ok": true,
+    "sources": [
+      {
+        "active": true,
+        "availability": "online",
+        "device": 56,
+        "exclusions": [],
+        "id": 1,
+        "inode": 1,
+        "path": "/tmp/rummage-final-sshfs-check/mount",
+        "recursive": true,
+        "watch_enabled": true
+      }
+    ]
+  },
+  "preview": {
+    "ambiguous": 200,
+    "applied": false,
+    "matched": 100,
+    "missing": 0,
+    "ok": true,
+    "remount_candidates": 0,
+    "requires_confirmation": false
+  },
+  "confirmation": {
+    "error": "Relink needs a confirmed identity review; original source mapping was preserved",
+    "ok": false
+  },
+  "album_members": 5
+}

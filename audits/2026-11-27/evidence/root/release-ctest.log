@@ -1,0 +1,39 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+Test project /tmp/rummage-branch-audit-2026-11-27/build-release
+      Start  1: i18n-runtime
+      Start  2: photos-catalog
+      Start  3: photos-recovery
+ 1/16 Test  #1: i18n-runtime .....................   Passed    0.00 sec
+      Start  4: photos-watcher
+ 2/16 Test  #4: photos-watcher ...................   Passed    4.03 sec
+      Start  5: photos-migration
+ 3/16 Test  #5: photos-migration .................   Passed    3.01 sec
+      Start  6: photos-ui
+ 4/16 Test  #2: photos-catalog ...................   Passed   11.92 sec
+      Start  7: rummage-tests
+ 5/16 Test  #6: photos-ui ........................   Passed   35.41 sec
+      Start  8: memory-tests
+ 6/16 Test  #8: memory-tests .....................   Passed    0.18 sec
+      Start  9: file-manager-cli
+ 7/16 Test  #9: file-manager-cli .................   Passed    0.41 sec
+      Start 10: file-manager-activation
+ 8/16 Test #10: file-manager-activation ..........   Passed    0.26 sec
+      Start 11: desktop-portal
+ 9/16 Test #11: desktop-portal ...................   Passed    0.02 sec
+      Start 12: file-manager
+10/16 Test #12: file-manager .....................   Passed    1.52 sec
+      Start 13: file-picker-portal
+11/16 Test #13: file-picker-portal ...............   Passed    3.41 sec
+      Start 14: action-notifications
+12/16 Test #14: action-notifications .............   Passed    0.15 sec
+      Start 15: media-tests
+13/16 Test  #3: photos-recovery ..................   Passed   48.49 sec
+14/16 Test #15: media-tests ......................   Passed    0.28 sec
+15/16 Test  #7: rummage-tests ....................   Passed   62.93 sec
+      Start 16: pdf-tests
+16/16 Test #16: pdf-tests ........................   Passed   13.99 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =  88.84 sec

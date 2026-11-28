@@ -13,6 +13,9 @@ rummage --check-config
 
 Development builds can share a version number while exposing different features.
 Include the commit and whether the source has local changes in reports.
+After rebuilding, close every running Rummage window before launching the updated
+binary. Opening another window can reuse the existing process, which still runs
+the previous build even though the executable on disk has been replaced.
 
 ## The build fails or tests are missing
 
@@ -44,11 +47,30 @@ should distinguish a Wayland connection failure from graphics/font initializatio
 For title-bar/cursor problems try `RUMMAGE_FORCE_CSD=1` or
 `RUMMAGE_FORCE_XCURSOR=1` as described in [compatibility](compatibility.md).
 
+## Photo Library background work
+
+Photo Library sends starts, stops, periodic checkpoints and errors to the system journal.
+There is no Activity view or separate photo log file. On a systemd desktop:
+
+```sh
+journalctl -t rummage -b
+journalctl -t rummage -f
+```
+
+The first command shows entries from this boot; the second follows new entries.
+Regular polling and individual photo processing are not logged. Normal progress and
+actionable errors remain visible in Rummage. `RUMMAGE_LOG=off` also disables these entries.
+
 ## Configuration changes do not apply
 
 Run `--check-config` with the same `--config FILE` argument as the application.
 A missing config is valid and uses defaults; inspect the reported path. Keep one
 table per `[keybindings]` or `[context_menu]`, with complete `[[actions]]` blocks.
+
+Unknown options from another version are reported as warnings and preserved when
+Settings saves supported options. They do not prevent Settings pages from opening.
+Invalid values or malformed TOML still block editing; Settings shows the error and
+offers **Open config** so you can correct the file and reopen the dialog.
 
 Fonts require a restart. Desktop icon-theme discovery also happens at startup;
 explicit icon-theme edits reload live. Invalid actions/menus/bindings retain the

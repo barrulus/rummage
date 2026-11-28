@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -15,6 +16,8 @@
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/fs/directory_watcher.hpp"
 #include "rummage/fs/mime.hpp"
+#include "rummage/thumbs/cache.hpp"
+#include "rummage/ui/offscreen.hpp"
 #include "rummage/views/browser.hpp"
 #include "temp_dir.hpp"
 
@@ -500,4 +503,352 @@ TEST_CASE("column view: wildcard filters match hidden extensions only in the las
     REQUIRE(f.view.column_count() == 3);
     REQUIRE(f.view.column(2).folder().entries().size() == 1);
     CHECK(f.view.column(2).folder().entries().front().name == "icon.svg");
+}
+
+TEST_CASE("collection folder: duplicate filenames retain independent stable selections") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry first{.name = "photo.jpg",
+                             .kind = rummage::fs::EntryKind::file,
+                             .size = 10,
+                             .identity = "photo:1",
+                             .location = "/unmounted/a/photo.jpg",
+                             .available = false};
+    auto second = first;
+    second.identity = "photo:2";
+    second.location = "/unmounted/b/photo.jpg";
+    second.size = 20;
+    folder->replace_collection({first, second}, "Photos", 1000);
+    CHECK(folder->is_collection());
+    CHECK(folder->path().empty());
+    CHECK_FALSE(folder->model().loading());
+    CHECK(folder->model().path().empty());
+    CHECK(folder->total_count() == 1000);
+    CHECK(folder->entries()[0].name == folder->entries()[1].name);
+    folder->set_cursor(0);
+    folder->set_cursor(1, SelectMode::toggle);
+    CHECK(folder->selected_count() == 2);
+    CHECK(folder->selected_names() == std::vector<std::string>{"photo:1", "photo:2"});
+    CHECK(folder->summary().bytes == 30);
+    CHECK(folder->selected_paths() == std::vector<fs::path>{first.location, second.location});
+    folder->replace_collection({second, first}, "Photos", 1000);
+    REQUIRE(folder->cursor_entry());
+    CHECK(folder->cursor_entry()->key() == "photo:2");
+    CHECK(folder->cursor() == 0);
+    CHECK(folder->selected_count() == 2);
+    folder->set_order({.key = rummage::fs::SortKey::size});
+    CHECK(folder->entries()[0].key() == "photo:2");  // controller owns full-query sorting
+    folder->select_name("photo:1");
+    REQUIRE(folder->single_selection());
+    CHECK(folder->single_selection()->location == first.location);
+    folder->sniff(0, 2);  // offline rows never schedule original reads
+    folder->replace_collection({second}, "Photos", 999);
+    CHECK(folder->cursor_entry() == nullptr);
+    CHECK(folder->selected_count() == 0);
+    rummage::fs::Entry logical{.name = "Sources",
+                               .kind = rummage::fs::EntryKind::other,
+                               .identity = "sources",
+                               .available = false};
+    folder->replace_collection({logical}, "Library", 1);
+    folder->select_all();
+    CHECK(folder->selected_paths().empty());
+    CHECK(folder->selected_entries().size() == 1);
+}
+
+TEST_CASE("collection folder: shared views adopt rows without opening a directory") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry row{.name = "Duplicate name",
+                           .kind = rummage::fs::EntryKind::other,
+                           .identity = "source:1",
+                           .available = false};
+    folder->replace_collection({row}, "Sources", 1, true);
+    ColumnView columns{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    GridView grid{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    rummage::views::DetailsView details{loop, pool,  watcher,
+                                        mime, [] {}, [](rummage::ui::CursorShape) {}};
+    columns.show(folder);
+    grid.show(folder);
+    details.show(folder);
+    CHECK(columns.focused_folder() == folder);
+    CHECK(grid.folder() == folder);
+    CHECK(details.folder() == folder);
+    CHECK(columns.loading());
+    CHECK(grid.loading());
+    CHECK(details.loading());
+    folder->replace_collection({row}, "Sources", 1);
+    folder->select_name(row.key());
+    CHECK_FALSE(columns.loading());
+    CHECK_FALSE(grid.loading());
+    CHECK_FALSE(details.loading());
+    CHECK(folder->model().path().empty());
+    CHECK(folder->path_of(row).empty());
+}
+
+TEST_CASE("gallery: native view menu selects Grid and preserves the window preference") {
+    Fixture f;
+    f.browser.open(f.root);
+    REQUIRE(f.settle());
+    f.browser.set_mode(Browser::Mode::details);
+    CHECK_FALSE(f.browser.gallery());
+    f.browser.open_view_menu(0, 0, true);
+    const auto& items = f.browser.context_menu().items();
+    const auto found = std::ranges::find(items, "gallery", &rummage::views::MenuItem::id);
+    REQUIRE(found != items.end());
+    CHECK(found->checkable);
+    CHECK_FALSE(found->checked);
+    auto activate = found->action;
+    f.browser.context_menu().close();
+    activate();
+    CHECK(f.browser.gallery());
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+    CHECK(f.browser.state().gallery);
+    f.browser.set_mode(Browser::Mode::columns);
+    CHECK(f.browser.gallery());
+    f.browser.open_view_menu(0, 0, true);
+    const auto& reopened = f.browser.context_menu().items();
+    const auto enabled = std::ranges::find(reopened, "gallery", &rummage::views::MenuItem::id);
+    REQUIRE(enabled != reopened.end());
+    CHECK(enabled->checked);
+    activate = enabled->action;
+    f.browser.context_menu().close();
+    activate();
+    CHECK_FALSE(f.browser.gallery());
+    CHECK(f.browser.mode() == Browser::Mode::grid);
+}
+
+TEST_CASE("gallery: offline cached media hides names only until focused or hovered") {
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(400, 400);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    TempDir directory;
+    const auto photo = directory.path / "same.jpg";
+    fs::copy_file(fs::path{RUMMAGE_TEST_DATA} / "image/with-thumbnail.jpg", photo);
+    struct stat info{};
+    REQUIRE(::stat(photo.c_str(), &info) == 0);
+    auto cache = std::make_shared<rummage::thumbs::Cache>(directory.path / "cache", "gallery-test");
+    REQUIRE_FALSE(cache->get(photo, rummage::thumbs::Size::normal).image.empty());
+    fs::remove(photo);
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::Thumbnails thumbnails{loop, pool, cache, [] {}};
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry first;
+    first.name = "same.jpg";
+    first.kind = rummage::fs::EntryKind::file;
+    first.mime = mime->by_name(first.name).mime;
+    first.modified_ns =
+        static_cast<std::int64_t>(info.st_mtim.tv_sec) * 1000000000LL + info.st_mtim.tv_nsec;
+    first.identity = "photo:100";
+    first.location = photo;
+    first.available = false;
+    auto missing = first;
+    missing.identity = "photo:101";
+    missing.location = directory.path / "missing" / "same.jpg";
+    auto logical = first;
+    logical.name = "Album";
+    logical.identity = "album:1";
+    logical.available = false;
+    folder->replace_collection({first, missing, logical}, "Photos", 3);
+    folder->set_cursor(std::nullopt);
+    GridView grid{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}, &thumbnails};
+    grid.set_info_visible(false);
+    grid.set_size_index(Browser::grid_index(96));
+    grid.set_gallery(true);
+    grid.show(folder);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(400, 400, 1, {});
+        grid.draw(renderer, {0, 0, 400, 400}, rummage::theme::Palette{}, icons,
+                  GridView::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    REQUIRE(run_until(loop, [&] { return !thumbnails.loading(); }));
+    draw();
+    REQUIRE(grid.columns() == 2);
+    const auto gallery_hit = grid.hit(21, 21);
+    REQUIRE(gallery_hit);
+    CHECK(gallery_hit->entry == 0);
+    CHECK(gallery_hit->on_item);  // The thumbnail's enlarged gallery cell is interactive.
+    const auto missing_hit = grid.hit(205, 21);
+    REQUIRE(missing_hit);
+    CHECK_FALSE(missing_hit->on_item);  // Uncached originals keep the normal labelled cell.
+    const auto folder_hit = grid.hit(21, 21 + grid.cell_height());
+    REQUIRE(folder_hit);
+    CHECK_FALSE(folder_hit->on_item);
+    folder->set_cursor(0);
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    folder->set_cursor(std::nullopt);
+    grid.pointer({.kind = rummage::ui::PointerEvent::Kind::motion, .x = 100, .y = 60},
+                 GridView::Clock::now());
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    grid.pointer({.kind = rummage::ui::PointerEvent::Kind::leave}, GridView::Clock::now());
+    grid.set_show_thumbnails(false);
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    grid.set_show_thumbnails(true);
+    grid.set_gallery(false);
+    draw();
+    CHECK_FALSE(grid.hit(21, 21)->on_item);
+    CHECK_FALSE(fs::exists(photo));
+    CHECK_FALSE(fs::exists(missing.location.parent_path()));
+}
+
+TEST_CASE("collection viewport: notifications clamp ranges and allow handler replacement") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    Folder folder{loop, pool, watcher, mime, [] {}};
+    folder.replace_collection(std::vector<rummage::fs::Entry>(3), "Photos", 300);
+    std::vector<std::pair<std::size_t, std::size_t>> ranges;
+    folder.set_visible_range_handler([&](std::size_t first, std::size_t last) {
+        ranges.emplace_back(first, last);
+        folder.set_visible_range_handler({});
+        folder.replace_collection({}, "Photos", 300);
+    });
+    folder.notify_visible_range(1, 200);
+    REQUIRE(ranges.size() == 1);
+    CHECK(ranges[0] == std::pair<std::size_t, std::size_t>{1, 3});
+    folder.notify_visible_range(0, 0);
+    CHECK(ranges.size() == 1);
+    folder.set_visible_range_handler(
+        [&](std::size_t first, std::size_t last) { ranges.emplace_back(first, last); });
+    folder.notify_visible_range(10, 2);
+    CHECK(ranges.back() == std::pair<std::size_t, std::size_t>{0, 0});
+
+    TempDir directory;
+    Folder ordinary{loop, pool, watcher, mime, directory.path, [] {}};
+    ordinary.set_visible_range_handler(
+        [&](std::size_t, std::size_t) { FAIL("filesystem callback"); });
+    ordinary.notify_visible_range(0, 200);
+}
+
+TEST_CASE("collection viewport: native views report the drawn range after scrolling") {
+    std::unique_ptr<rummage::ui::Offscreen> gl;
+    try {
+        gl = std::make_unique<rummage::ui::Offscreen>(400, 400);
+    } catch (const std::runtime_error& error) {
+        MESSAGE("no offscreen OpenGL: " << error.what());
+        return;
+    }
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<Folder>(loop, pool, watcher, mime, [] {});
+    std::vector<rummage::fs::Entry> entries;
+    for (std::size_t i = 0; i < 200; ++i) {
+        rummage::fs::Entry entry;
+        entry.name = "Photo " + std::to_string(i);
+        entry.identity = "photo:" + std::to_string(i);
+        entry.available = false;
+        entries.push_back(std::move(entry));
+    }
+    folder->replace_collection(entries, "Photos", 450);
+    GridView grid{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    rummage::views::DetailsView details{loop, pool,  watcher,
+                                        mime, [] {}, [](rummage::ui::CursorShape) {}};
+    ColumnView columns{loop, pool, watcher, mime, [] {}, [](rummage::ui::CursorShape) {}};
+    grid.set_info_visible(false);
+    details.set_info_visible(false);
+    columns.set_info_visible(false);
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    std::vector<std::pair<std::size_t, std::size_t>> ranges;
+    bool append = false;
+    folder->set_visible_range_handler([&](std::size_t first, std::size_t last) {
+        ranges.emplace_back(first, last);
+        if (append) {
+            append = false;
+            auto more = entries;
+            auto extra = entries.back();
+            extra.identity = "photo:200";
+            more.push_back(std::move(extra));
+            folder->replace_collection(std::move(more), "Photos", 450);
+        }
+    });
+    const auto exercise = [&](auto& view, auto& scroller) {
+        const auto draw = [&] {
+            renderer.begin_frame(400, 400, 1, {});
+            view.draw(renderer, {0, 0, 400, 400}, rummage::theme::Palette{}, icons,
+                      GridView::Clock::now());
+            renderer.end_frame();
+        };
+        draw();
+        REQUIRE_FALSE(ranges.empty());
+        CHECK(ranges.back().first == 0);
+        CHECK(ranges.back().second > 0);
+        CHECK(ranges.back().second < 200);
+        scroller.jump_to(100000);
+        append = true;
+        draw();
+        CHECK(ranges.back().first > 0);
+        CHECK(ranges.back().second == 200);
+        CHECK(folder->entries().size() == 201);
+        CHECK(folder->path().empty());
+    };
+    SUBCASE("Grid") {
+        grid.show(folder);
+        exercise(grid, grid.scroller());
+    }
+    SUBCASE("Details") {
+        details.show(folder);
+        exercise(details, details.scroller());
+    }
+    SUBCASE("Columns") {
+        columns.show(folder);
+        REQUIRE(columns.column_count() == 1);
+        exercise(columns, columns.column(0).scroller());
+    }
+}
+
+TEST_CASE("collection folder: incremental metadata and append preserve stable selection") {
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    DirectoryWatcher watcher{loop};
+    Folder folder{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}};
+    rummage::fs::Entry first{.name = "photo.jpg", .size = 10, .identity = "photo:1"};
+    auto second = first;
+    second.identity = "photo:2";
+    folder.replace_collection({first, second}, "Photos", 3);
+    folder.set_cursor(1);
+    const auto selection_revision = folder.selection_revision();
+    CHECK(folder.summary().bytes == 10);
+    second.size = 42;
+    CHECK(folder.update_collection_rows({{1, second}}));
+    CHECK(folder.cursor_entry()->key() == "photo:2");
+    CHECK(folder.summary().bytes == 42);
+    CHECK(folder.selection_revision() == selection_revision);
+    auto invalid = first;
+    invalid.identity = "wrong-photo";
+    first.size = 99;
+    CHECK_FALSE(folder.update_collection_rows({{0, first}, {1, invalid}}));
+    CHECK(folder.entries()[0].size == 10);  // invalid patches fail before any mutation
+    CHECK(folder.entries()[1].key() == "photo:2");
+    auto third = first;
+    third.identity = "photo:3";
+    folder.append_collection({third}, 3);
+    CHECK(folder.entries().size() == 3);
+    CHECK(folder.cursor_entry()->key() == "photo:2");
+    CHECK(folder.selected_names() == std::vector<std::string>{"photo:2"});
+    CHECK(folder.selection_revision() == selection_revision);
 }

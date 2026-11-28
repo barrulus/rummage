@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <limits>
+#include <memory>
 #include <string>
 #include <sys/mman.h>
 #include <vector>
@@ -96,5 +98,35 @@ TEST_CASE("memory: large blocks go back to the system once freed") {
     CHECK(after.heap_free < before.heap_free + (std::size_t{4} << 20U));    // nothing kept free
     CHECK(after.heap_mmapped <= before.heap_mmapped);                       // each unmapped
     CHECK(after.heap_arena < before.heap_arena + (std::size_t{4} << 20U));  // none in the heap
+#endif
+}
+
+TEST_CASE("memory: reclaim a settled small-block burst without freeing live objects") {
+#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_THREAD__)
+    rummage::core::give_back_large_blocks();
+    // Below the application's mmap threshold, with a live final block preventing the
+    // ordinary top-of-heap release from hiding the retained-pages scenario.
+    constexpr std::size_t size = std::size_t{2} << 20;
+    std::vector<std::unique_ptr<std::uint8_t[]>> blocks;
+    for (int i = 0; i < 64; ++i) {
+        auto block = std::make_unique<std::uint8_t[]>(size);
+        std::memset(block.get(), 0x5a, size);
+        asm volatile("" : : "r"(block.get()) : "memory");  // NOLINT(hicpp-no-assembler)
+        blocks.push_back(std::move(block));
+    }
+    for (std::size_t i = 0; i + 1 < blocks.size(); ++i)
+        blocks[i].reset();
+    const auto retained = rummage::core::read_memory_report();
+    REQUIRE(retained.heap_free >= (std::uint64_t{64} << 20));
+    CHECK_FALSE(
+        rummage::core::give_back_free_memory_if_needed(std::numeric_limits<std::uint64_t>::max()));
+    REQUIRE(rummage::core::give_back_free_memory_if_needed());
+    const auto reclaimed = rummage::core::read_memory_report();
+    INFO("RSS before " << retained.rss << ", after " << reclaimed.rss << "; " << swap_line());
+    CHECK(reclaimed.rss + (std::uint64_t{32} << 20) < retained.rss);
+    CHECK(blocks.back()[0] == 0x5a);
+    CHECK(blocks.back()[size - 1] == 0x5a);
+    // Reporting itself makes small allocations; trimming must not consume the live block.
+    CHECK(reclaimed.heap_in_use + (std::uint64_t{1} << 20) >= retained.heap_in_use);
 #endif
 }

@@ -1,0 +1,11 @@
+test_dropped_key_is_separate_from_subsequent_wrong_selection (test_metrics.MetricsTest.test_dropped_key_is_separate_from_subsequent_wrong_selection) ... ok
+test_late_frame_cannot_be_counted_for_previous_key (test_metrics.MetricsTest.test_late_frame_cannot_be_counted_for_previous_key) ... ok
+test_percentile_uses_nearest_rank_and_preserves_samples (test_metrics.MetricsTest.test_percentile_uses_nearest_rank_and_preserves_samples) ... ok
+test_received_but_unhandled_is_not_a_delivery_failure (test_metrics.MetricsTest.test_received_but_unhandled_is_not_a_delivery_failure) ... ok
+test_trace_tolerates_only_incomplete_last_line (test_metrics.MetricsTest.test_trace_tolerates_only_incomplete_last_line) ... ok
+test_waits_for_correct_loaded_and_settled_frame (test_metrics.MetricsTest.test_waits_for_correct_loaded_and_settled_frame) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+OK

@@ -41,6 +41,7 @@
 #include "rummage/fs/places.hpp"
 #include "rummage/fs/trash.hpp"
 #include "rummage/isolate/helpers.hpp"
+#include "rummage/photos/client.hpp"
 #include "rummage/platform/about.hpp"
 #include "rummage/platform/action_handoff.hpp"
 #include "rummage/platform/applications.hpp"
@@ -88,6 +89,25 @@ namespace theme = rummage::theme;
 namespace thumbs = rummage::thumbs;
 namespace ui = rummage::ui;
 namespace views = rummage::views;
+
+// Both native window kinds share the same compositor controls.
+views::TitleBar make_title_bar(ui::Window& window, ui::Display& display, ui::Seat& seat) {
+    return views::TitleBar{
+        {.move = [&window, &display, &seat] { window.move(display.seat(), seat.input_serial()); },
+         .resize = [&window, &display, &seat](
+                       ui::Edge edge) { window.resize(display.seat(), seat.input_serial(), edge); },
+         .minimize = [&window] { window.minimize(); },
+         .toggle_maximized = [&window] { window.toggle_maximized(); },
+         .window_menu =
+             [&window, &display, &seat](float x, float y) {
+                 window.show_window_menu(display.seat(), seat.input_serial(),
+                                         window.content_map().to_surface(x),
+                                         window.content_map().to_surface(y));
+             },
+         .close = [&window] { window.close(); }},
+        [&window] { window.request_redraw(); },
+        [&seat](ui::CursorShape shape) { seat.set_cursor(shape); }};
+}
 
 // SIGINT/SIGTERM delivered as a readable fd, so Ctrl+C ends the loop and runs every
 // destructor instead of killing the process mid-flight; SIGUSR1 asks for the memory report.
@@ -232,7 +252,7 @@ constexpr const char* kUsage =
     "  --version       print the version and exit\n"
     "  --about         print what rummage runs on, for a bug report, and exit\n";
 
-// The folder to open: DIR as given (made absolute, ".." resolved), else $HOME, else "/".
+// The folder to open: DIR made absolute without filesystem probes, else $HOME, else "/".
 std::filesystem::path start_folder(const std::filesystem::path& given) {
     if (fs::is_trash(given))
         return given;
@@ -242,7 +262,7 @@ std::filesystem::path start_folder(const std::filesystem::path& given) {
         folder = home != nullptr && home[0] != '\0' ? home : "/";
     }
     std::error_code error;
-    const std::filesystem::path absolute = std::filesystem::weakly_canonical(folder, error);
+    const std::filesystem::path absolute = std::filesystem::absolute(folder, error);
     return error ? folder : absolute;
 }
 
@@ -310,6 +330,14 @@ int print_about() {
         found = directory.empty() ? "none found" : std::format("none in {}", directory.string());
     }
     lines.push_back({.label = "Engines", .value = found});
+    const auto photos = rummage::photos::Client::installed_path();
+    std::error_code photo_error;
+    const bool photo_installed =
+        !photos.empty() && std::filesystem::is_regular_file(photos, photo_error);
+    lines.push_back({.label = "Photo Library",
+                     .value = photos.empty() ? "not installed"
+                                             : (photo_installed ? "installed: " : "missing: ") +
+                                                   photos.string()});
     // The GPU as OpenGL names it, from a context without a window.
     try {
         const ui::Offscreen offscreen{1, 1};
@@ -762,6 +790,7 @@ int main(int argc, char** argv) {
         {
             auto registry =
                 std::make_shared<const engines::Registry>(engines::Registry::load_installed());
+            registry->set_previews_enabled(config.previews.media, config.previews.pdf);
             isolate::use_engines(*registry, {}, mime);
             engines::set_installed(std::move(registry));
         }
@@ -892,6 +921,8 @@ int main(int argc, char** argv) {
         const auto update_config = [&](const core::ConfigResult& fresh) {
             const auto previous = config_result;
             config_result = fresh;
+            engines::installed()->set_previews_enabled(fresh.config.previews.media,
+                                                       fresh.config.previews.pdf);
             if (fresh.actions_valid && fresh.context_menu_valid &&
                 views::configure_shortcuts(fresh.config.keybindings, fresh.config.actions)
                     .empty()) {
@@ -969,12 +1000,6 @@ int main(int argc, char** argv) {
                         break;
                     }
             renderer_for_stats = nullptr;
-        };
-        const auto quit_windows = [&] {
-            const auto closing = bindings;
-            for (const auto& binding : closing)
-                if (binding->window)
-                    binding->window->close();
         };
         open_browser = [&](std::filesystem::path folder, std::string token,
                            bool initial) -> rummage::app::WindowSession {
@@ -1072,6 +1097,7 @@ int main(int argc, char** argv) {
                 configure_auxiliary();
                 window.set_zoom(fresh.font.zoom());
                 if (columns) {
+                    columns->set_photos_enabled(fresh.photos.enabled);
                     columns->set_motion_config(fresh.animations);
                     columns->set_keyboard_config(fresh.keyboard);
                     columns->status_bar().set_text_size(fresh.status_bar.text_size);
@@ -1175,6 +1201,7 @@ int main(int argc, char** argv) {
                                 });
                         });
                 columns->set_actions(configured_actions);
+                columns->set_photos_enabled(config.photos.enabled);
                 columns->set_motion_config(config.animations);
                 columns->set_keyboard_config(config.keyboard);
                 columns->set_reduced_motion(portal->appearance().reduced_motion);
@@ -1194,6 +1221,11 @@ int main(int argc, char** argv) {
                     [&](const std::filesystem::path& path, bool retry, auto done) {
                         columns->password_dialog().open_password(path.filename().string(), retry,
                                                                  std::move(done));
+                    });
+                columns->set_photo_path_chooser(
+                    [&](const core::PickerRequest& request,
+                        platform::ActionHandoff::DirectoryChosen chosen) {
+                        action_handoff->choose_path(request, std::move(chosen));
                     });
                 columns->set_action_handoff(
                     [&](const core::Action& action, const core::ActionContext& context) {
@@ -1244,9 +1276,6 @@ int main(int argc, char** argv) {
                             std::function<void(std::filesystem::path)> chosen) {
                             if (folder_chooser && folder_chooser->running())
                                 return;
-                            std::error_code error;
-                            const auto self =
-                                std::filesystem::read_symlink("/proc/self/exe", error);
                             folder_chooser = std::make_unique<platform::ProgramOutput>(
                                 loop, [chosen = std::move(chosen)](const std::string& output,
                                                                    int status) {
@@ -1259,10 +1288,9 @@ int main(int argc, char** argv) {
                                     if (path.is_absolute())
                                         chosen(path);
                                 });
-                            if (error || !folder_chooser->start(
-                                             self, {"--pick-directory", "--title",
-                                                    std::string{i18n::tr("Choose Folder")},
-                                                    start.string()})) {
+                            if (!folder_chooser->start_self(
+                                    {"--pick-directory", "--title",
+                                     std::string{i18n::tr("Choose Folder")}, start.string()})) {
                                 folder_chooser.reset();
                                 columns->show_message(
                                     std::string{i18n::tr("The folder chooser could not start")},
@@ -1270,7 +1298,7 @@ int main(int argc, char** argv) {
                             }
                         });
                 }
-                columns->set_quit_handler(quit_windows);
+                columns->set_quit_handler([&window] { window.close(); });
                 if (clipboard.available()) {
                     columns->set_system_clipboard({
                         .offer =
@@ -1341,6 +1369,8 @@ int main(int argc, char** argv) {
                            !columns->restore_session(remembered.state)) {
                     columns->open(start_folder(launch_location.folder));
                 }
+                if (!picker_request && !reveal && !open_folders)
+                    columns->resume_photo_work();
                 if (picker_request) {
                     columns->set_open_with_handlers({}, {});
                     columns->set_terminal_handler({});
@@ -1409,33 +1439,18 @@ int main(int argc, char** argv) {
             }
 
             // rummage's own title bar where the compositor draws none (ROADMAP 7.4).
-            views::TitleBar title_bar{
-                {.move = [&] { window.move(display.seat(), seat.input_serial()); },
-                 .resize =
-                     [&](ui::Edge edge) {
-                         window.resize(display.seat(), seat.input_serial(), edge);
-                     },
-                 .minimize = [&] { window.minimize(); },
-                 .toggle_maximized = [&] { window.toggle_maximized(); },
-                 .window_menu =
-                     [&](float x, float y) {
-                         window.show_window_menu(display.seat(), seat.input_serial(),
-                                                 window.content_map().to_surface(x),
-                                                 window.content_map().to_surface(y));
-                     },
-                 .close = [&] { window.close(); }},
-                [&] { window.request_redraw(); },
-                [&](ui::CursorShape shape) { seat.set_cursor(shape); }};
+            auto title_bar = make_title_bar(window, display, seat);
             bool bar_has_pointer =
                 false;  // the content heard a leave when the bar took the pointer
             bool content_pressed = false;  // a press in the content keeps the pointer there
 
-            std::string last_key = "Press a key (Ctrl+Q quits)";
+            std::string last_key = "Press a key (Ctrl+Q closes this window)";
             binding->key = [&](const ui::KeyEvent& event) {
                 if (event.modifiers.ctrl &&
                     (event.keysym == XKB_KEY_q || event.keysym == XKB_KEY_Q)) {
-                    log::info("quit requested");
-                    quit_windows();
+                    // Reused instances share a process, but each window closes independently.
+                    log::info("window close requested");
+                    window.close();
                     return;
                 }
                 if (picker) {
@@ -1738,9 +1753,8 @@ int main(int argc, char** argv) {
                 }
             } watches{watcher, loop};
             if (!settings) {
-                std::error_code error;
-                watches.directory = watcher.watch(
-                    path.parent_path(),
+                watches.directory = watcher.watch_async(
+                    pool, path.parent_path(),
                     [&](const auto& events) {
                         if (std::ranges::none_of(events, [&](const auto& event) {
                                 return event.name.empty() || event.name == path.filename();
@@ -1754,31 +1768,18 @@ int main(int argc, char** argv) {
                                     properties.open(path, changed, editable, drive, label);
                             });
                     },
-                    error);
+                    [&](std::error_code error) {
+                        if (!error && !properties.saving() && !properties.dirty())
+                            properties.open(path, changed, editable, drive, label);
+                    });
             }
-            views::TitleBar title_bar{
-                {.move = [&] { window.move(display.seat(), seat.input_serial()); },
-                 .resize =
-                     [&](ui::Edge edge) {
-                         window.resize(display.seat(), seat.input_serial(), edge);
-                     },
-                 .minimize = [&] { window.minimize(); },
-                 .toggle_maximized = [&] { window.toggle_maximized(); },
-                 .window_menu =
-                     [&](float x, float y) {
-                         window.show_window_menu(display.seat(), seat.input_serial(),
-                                                 window.content_map().to_surface(x),
-                                                 window.content_map().to_surface(y));
-                     },
-                 .close = [&] { window.close(); }},
-                [&] { window.request_redraw(); },
-                [&](ui::CursorShape shape) { seat.set_cursor(shape); }};
+            auto title_bar = make_title_bar(window, display, seat);
             bool content_pressed = false;
             bool closing = false;
             binding->key = [&, weak = std::weak_ptr{binding}](const ui::KeyEvent& event) {
                 if (event.modifiers.ctrl &&
                     (event.keysym == XKB_KEY_q || event.keysym == XKB_KEY_Q)) {
-                    quit_windows();
+                    window.close();
                     return;
                 }
                 if (event.modifiers.ctrl &&

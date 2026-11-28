@@ -30,6 +30,13 @@ public:
     bool start(const std::filesystem::path& program, const std::vector<std::string>& arguments,
                const std::filesystem::path& directory = {});
 
+    // Launch the running image, even if an update replaced or unlinked its original path.
+    // Keep /proc/self/exe unresolved: its kernel reference still identifies this executable.
+    bool start_self(const std::vector<std::string>& arguments,
+                    const std::filesystem::path& directory = {}) {
+        return start("/proc/self/exe", arguments, directory);
+    }
+
     // Asks the program to close (SIGTERM, SIGKILL 3 s later): done follows when it has.
     void stop();
 

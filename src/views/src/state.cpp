@@ -307,8 +307,8 @@ StartupLocation startup_location(const core::Config::Startup& startup, const Sta
         folder = core::expand_folder_path(startup.folder);
     if (startup.mode == Mode::last)
         folder = state.last_folder;
-    std::error_code error;
-    if (!folder.empty() && !std::filesystem::is_directory(folder, error))
+    // Availability is resolved by the directory worker, never during startup.
+    if (!folder.empty() && !folder.is_absolute())
         folder.clear();
     return {.folder = std::move(folder)};
 }
@@ -341,6 +341,7 @@ StateResult parse_state(std::string_view text, std::string_view source) {
     State& s = result.state;
     Reader read{root, source};
     read.word("view.mode", kModes, s.mode);
+    read.flag("view.gallery", s.gallery);
     read.flag("view.show_hidden", s.show_hidden);
     read.flag("view.show_extensions", s.show_extensions);
     read.flag("view.show_thumbnails", s.show_thumbnails);
@@ -461,6 +462,16 @@ StateResult parse_state(std::string_view text, std::string_view source) {
         }
     }
 
+    if (const auto* node = root.at_path("photos.workspace").node()) {
+        const auto value = node->value<std::string>();
+        if (value && value->size() <= State::kMaxPhotoStateBytes &&
+            value->find('\0') == std::string::npos)
+            s.photo_library = *value;
+        else
+            result.problems.push_back(
+                std::format("{}: invalid photo workspace state; ignored", source));
+    }
+
     // [palette] recent: a list of ids; what is not a string is left out.
     if (const toml::node* recent = root.at_path("palette.recent").node()) {
         if (const toml::array* list = recent->as_array()) {
@@ -504,13 +515,28 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                     continue;
                 }
                 State::Tab tab;
+                if (const auto* photos = table->get("photos")) {
+                    const auto value = photos->value<bool>();
+                    if (!value) {
+                        problem(*photos, "'photos' must be true or false");
+                        continue;
+                    }
+                    tab.photos = *value;
+                }
                 const std::optional<std::string_view> folder =
                     (*table)["folder"].value<std::string_view>();
-                if (!folder || folder->empty() || folder->front() != '/') {
-                    problem(node, "'folder' must be an absolute path");
-                    continue;
+                if (tab.photos) {
+                    if (table->contains("folder") && (!folder || !folder->empty())) {
+                        problem(node, "a photo tab must not have a filesystem folder");
+                        continue;
+                    }
+                } else {
+                    if (!folder || folder->empty() || folder->front() != '/') {
+                        problem(node, "'folder' must be an absolute path");
+                        continue;
+                    }
+                    tab.folder = std::filesystem::path{*folder};
                 }
-                tab.folder = std::filesystem::path{*folder};
                 if (const toml::node* mode = table->get("mode")) {
                     const std::optional<std::string_view> word = mode->value<std::string_view>();
                     const auto* found = std::ranges::find_if(
@@ -523,15 +549,16 @@ StateResult parse_state(std::string_view text, std::string_view source) {
                 }
                 if (const toml::node* from = table->get("root")) {
                     const std::optional<std::string_view> given = from->value<std::string_view>();
-                    if (!given || given->empty() || given->front() != '/') {
-                        problem(*from, "'root' must be an absolute path");
+                    if (tab.photos || !given || given->empty() || given->front() != '/') {
+                        problem(*from, tab.photos ? "a photo tab must not have a filesystem root"
+                                                  : "'root' must be an absolute path");
                         continue;
                     }
                     tab.root = std::filesystem::path{*given};
                 }
                 if (const toml::node* name = table->get("cursor")) {
                     const std::optional<std::string_view> given = name->value<std::string_view>();
-                    if (!given || given->find('/') != std::string_view::npos) {
+                    if (!given || (!tab.photos && given->find('/') != std::string_view::npos)) {
                         problem(*name, "'cursor' must be a name in the folder");
                         continue;
                     }
@@ -637,9 +664,13 @@ std::string format_state(const State& s) {
         if (!valid_utf8(folder) || !valid_utf8(root) || !valid_utf8(tab.cursor)) {
             continue;  // TOML holds only UTF-8: a tab on such a name is not remembered
         }
-        tabs += std::format("\n[[tab]]\nfolder = {}\nmode = \"{}\"\n", toml_string(folder),
-                            word_of(kModes, tab.mode));
-        if (!root.empty()) {
+        if (tab.photos)
+            tabs +=
+                std::format("\n[[tab]]\nphotos = true\nmode = \"{}\"\n", word_of(kModes, tab.mode));
+        else
+            tabs += std::format("\n[[tab]]\nfolder = {}\nmode = \"{}\"\n", toml_string(folder),
+                                word_of(kModes, tab.mode));
+        if (!tab.photos && !root.empty()) {
             tabs += std::format("root = {}\n", toml_string(root));
         }
         if (!tab.cursor.empty()) {
@@ -698,6 +729,7 @@ std::string format_state(const State& s) {
                "\n"
                "[view]\n"
                "mode = \"{}\"\n"
+               "gallery = {}\n"
                "show_hidden = {}\n"
                "show_extensions = {}\n"
                "show_thumbnails = {}\n"
@@ -729,9 +761,10 @@ std::string format_state(const State& s) {
                "\n"
                "[palette]\n"
                "recent = [{}]\n",
-               word_of(kModes, s.mode), flag(s.show_hidden), flag(s.show_extensions),
-               flag(s.show_thumbnails), word_of(kListSizeWords, s.list_size), s.grid_icon,
-               strings(s.sidebar_order), strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
+               word_of(kModes, s.mode), flag(s.gallery), flag(s.show_hidden),
+               flag(s.show_extensions), flag(s.show_thumbnails),
+               word_of(kListSizeWords, s.list_size), s.grid_icon, strings(s.sidebar_order),
+               strings(s.sidebar_hidden), strings(s.sidebar_collapsed),
                word_of(kListSizeWords, s.sidebar_size), flag(s.sidebar_visible), s.sidebar_width,
                flag(s.info_visible), flag(s.info_auto_hide), s.info_width, flag(s.info_expanded),
                s.sidebar_preview_ratio, word_of(kSortKeys, s.sort_key), flag(s.sort_descending),
@@ -741,7 +774,11 @@ std::string format_state(const State& s) {
                "\n[panes]\nvisible = {}\ninitialized = {}\nstacked = {}\nratio = {}\nactive = {}\n",
                flag(s.split_visible), flag(s.panes_initialized), flag(s.stacked), s.split_ratio,
                s.active_pane) +
-           tabs + folders + searches;
+           tabs + folders + searches +
+           (s.photo_library.empty() || s.photo_library.size() > State::kMaxPhotoStateBytes ||
+                    !valid_utf8(s.photo_library)
+                ? std::string{}
+                : std::format("\n[photos]\nworkspace = {}\n", toml_string(s.photo_library)));
 }
 
 // Writes in generation order: one older than the last written is dropped.

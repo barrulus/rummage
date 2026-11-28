@@ -1,0 +1,27 @@
+[
+  {
+    "case": "remote-matched",
+    "exit": 0,
+    "elapsed_s": 139.8619733730011
+  },
+  {
+    "case": "remote-control",
+    "exit": 0,
+    "elapsed_s": 140.84458643100515
+  },
+  {
+    "case": "local-matched",
+    "exit": 0,
+    "elapsed_s": 140.65082272299333
+  },
+  {
+    "case": "refresh-scroll",
+    "exit": 0,
+    "elapsed_s": 154.2344405529875
+  },
+  {
+    "case": "user-rescan",
+    "exit": 0,
+    "elapsed_s": 97.08154309800011
+  }
+]

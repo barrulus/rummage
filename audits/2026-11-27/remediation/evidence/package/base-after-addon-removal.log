@@ -1,0 +1,6 @@
+rummage 0.6.1
+Picker: rummage --pick|--pick-directory|--save-file [--multiple] [--name NAME] [--title TITLE] [DIR]
+/tmp/rummage-remediation-package-checks/staged-install/prefix/share/rummage/config.example.toml: ok
+Interfaces=org.freedesktop.impl.portal.FileChooser;
+Exec=/tmp/rummage-remediation-package-checks/staged-install/prefix/bin/rummage --portal
+/tmp/nix-shell.LZjh35/tmp.s5kJzomw8I: ok

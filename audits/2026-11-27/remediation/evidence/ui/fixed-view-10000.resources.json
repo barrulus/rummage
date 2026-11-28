@@ -1,0 +1,27 @@
+{
+  "exit": 0,
+  "timeout": false,
+  "wall_seconds": 0.7198201690043788,
+  "samples": [
+    {
+      "seconds": 0.00027514899556990713,
+      "Rss_kib": 220,
+      "Pss_kib": 45,
+      "Private_Dirty_kib": 44
+    },
+    {
+      "seconds": 0.25046183599624783,
+      "Rss_kib": 282740,
+      "Pss_kib": 151101,
+      "Private_Dirty_kib": 88496
+    },
+    {
+      "seconds": 0.5031771039939485,
+      "Rss_kib": 294340,
+      "Pss_kib": 162553,
+      "Private_Dirty_kib": 98700
+    }
+  ],
+  "peak_rss_kib": 294340,
+  "peak_pss_kib": 162553
+}

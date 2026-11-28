@@ -1,0 +1,39 @@
+{
+  "root": "/home/barrulus/.cache/thumbnails",
+  "read_only": true,
+  "method": "Read first 24 bytes of PNG cache files; no decoding or modification",
+  "tiers": {
+    "normal": {
+      "files": 33821,
+      "png_headers": 33821,
+      "oversize_dimensions": 0,
+      "maximum_width": 128,
+      "maximum_height": 128,
+      "read_errors": 0
+    },
+    "large": {
+      "files": 40622,
+      "png_headers": 40622,
+      "oversize_dimensions": 0,
+      "maximum_width": 256,
+      "maximum_height": 256,
+      "read_errors": 0
+    },
+    "x-large": {
+      "files": 1892,
+      "png_headers": 1892,
+      "oversize_dimensions": 0,
+      "maximum_width": 512,
+      "maximum_height": 512,
+      "read_errors": 0
+    },
+    "xx-large": {
+      "files": 34,
+      "png_headers": 34,
+      "oversize_dimensions": 0,
+      "maximum_width": 1024,
+      "maximum_height": 1024,
+      "read_errors": 0
+    }
+  }
+}

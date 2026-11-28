@@ -88,7 +88,10 @@ bool GridView::on_item(std::size_t index, float x, float y) const {
     const ui::Rect name{left + ((cell_width_ - width) / 2.0F) - kNameGap,
                         top + kIconTop + icon + (kNameGap / 2.0F), width + (2.0F * kNameGap),
                         kTextSize + kNameGap};
-    return picture.contains(x, y) || name.contains(x, y);
+    return picture.contains(x, y) || name.contains(x, y) ||
+           (width < 0 && ui::Rect{left + kCellInset, top + kCellInset, cell_width_ - 2 * kCellInset,
+                                  cell_height() - 2 * kCellInset}
+                             .contains(x, y));
 }
 
 std::optional<BandLane> GridView::band_lane(const Folder& folder) const {
@@ -161,7 +164,7 @@ void GridView::set_show_hidden(bool show) {
 }
 
 bool GridView::loading() const {
-    return folder_ && (folder_->model().loading() || folder_->cursor_pending());
+    return folder_ && (folder_->loading() || folder_->cursor_pending());
 }
 
 float GridView::drawn_icon_size() const {
@@ -188,6 +191,8 @@ void GridView::layout(float width) {
 }
 
 void GridView::enter() {
+    if (folder_->is_collection())
+        return;
     const fs::Entry* const entry = folder_->single_selection();
     if (entry == nullptr || !entry->is_directory()) {
         return;
@@ -324,11 +329,11 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
             motion_bounds_.include(
                 ui::Rect{x + kCellInset, y + kCellInset, cell_width_ - 2.0F * kCellInset,
                          height - 2.0F * kCellInset},
-                area_, cursor == i, folder_->is_selected(entry.name));
+                area_, cursor == i, folder_->is_selected(entry.key()));
             const bool cut = cut_ != nullptr && cut_->holds(folder_->path(), entry);
             const ItemStyle style =
                 item_style(palette, entry,
-                           {.selected = folder_->is_selected(entry.name),
+                           {.selected = folder_->is_selected(entry.key()),
                             .cursor = cursor == i,
                             .ring = cursor_ring,
                             .focused = true,
@@ -343,10 +348,31 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                                    .border_width = style.ring ? 1.5F : 0.0F,
                                    .border = style.ring.value_or(kTransparent)});
             }
-            draw_entry_icon(renderer, icons, palette, *folder_, entry, style,
-                            show_thumbnails_ ? thumbnails_ : nullptr,
-                            {x + ((cell_width_ - icon) / 2.0F), y + kIconTop, icon, icon}, cut,
-                            cursor == i ? &motion_bounds_.visual : nullptr);
+            // Gallery uses the native grid: only a ready image/video thumbnail can replace
+            // its label. Selection, hover and rename always reveal the filename.
+            const float gallery_icon =
+                std::min(cell_width_ - kCellExtraWidth, height - 2 * kIconTop);
+            bool gallery_item = false;
+            // Album covers are images, but their labels name collections, not media files.
+            if (gallery_ && show_thumbnails_ && thumbnails_ && !entry.is_directory() &&
+                !entry.identity.starts_with("album:") && !folder_->is_archive() && cursor != i &&
+                hovered_ != i && !folder_->is_selected(entry.key()) &&
+                !(edit_ && edit_->holds(*folder_, entry)) && !folder_->path_of(entry).empty()) {
+                const auto type = folder_->mime().name(folder_->mime_of(entry));
+                if (type.starts_with("image/") || type.starts_with("video/"))
+                    gallery_item =
+                        thumbnails_->get(folder_->path_of(entry), entry.modified_ns,
+                                         thumbs::size_for(static_cast<std::uint32_t>(
+                                             std::lround(gallery_icon * renderer.scale()))),
+                                         type, nullptr,
+                                         ThumbnailOptions::for_entry(entry)) != nullptr;
+            }
+            const float item_icon = gallery_item ? gallery_icon : icon;
+            draw_entry_icon(
+                renderer, icons, palette, *folder_, entry, style,
+                show_thumbnails_ ? thumbnails_ : nullptr,
+                {x + ((cell_width_ - item_icon) / 2.0F), y + kIconTop, item_icon, item_icon}, cut,
+                cursor == i ? &motion_bounds_.visual : nullptr);
             if (cursor == i)
                 motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(area_);
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {
@@ -357,6 +383,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                               kTextSize + (2.0F * pad) + 6.0F},
                              kTextSize);
                 name_width_.push_back(cell_width_ - (2.0F * kNameMargin));
+                continue;
+            }
+            if (gallery_item) {
+                name_width_.push_back(-1);
                 continue;
             }
             const ui::TextLayout& name =
@@ -373,9 +403,10 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
     const fs::DirectoryModel& model = folder_->model();
     if (model.error()) {
         draw_centered(renderer, model.problem(), area_, area_.y + 24.0F, 14.0F, palette.error);
-    } else if (entries.empty() && !model.loading()) {
-        draw_centered(renderer, i18n::tr("Empty folder"), area_, area_.y + 24.0F, 14.0F,
-                      palette.on_surface_variant);
+    } else if (entries.empty() && !folder_->loading()) {
+        draw_centered(renderer,
+                      folder_->is_collection() ? i18n::tr("No results") : i18n::tr("Empty folder"),
+                      area_, area_.y + 24.0F, 14.0F, palette.on_surface_variant);
     }
 
     scrollbar_.layout(area_);
@@ -402,6 +433,8 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
 
     folder_->sniff(range.first * columns_, range.last * columns_);
     update_hover();  // content may have moved under a still pointer
+    const auto shown = folder_;
+    shown->notify_visible_range(range.first * columns_, range.last * columns_);
 }
 
 std::optional<std::size_t> GridView::cell_at(float x, float y) const {
@@ -676,7 +709,7 @@ void GridView::right_click(float x, float y) {
         if (!cell) {
             folder_->set_cursor(std::nullopt);  // empty space: the folder's own menu
         } else {
-            folder_->set_cursor(cell, folder_->is_selected(folder_->entries()[*cell].name)
+            folder_->set_cursor(cell, folder_->is_selected(folder_->entries()[*cell].key())
                                           ? SelectMode::keep
                                           : SelectMode::replace);
         }

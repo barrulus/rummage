@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -19,6 +20,7 @@ struct Entry {
     std::uint16_t mode{0};        // permission bits (07777); for a link, its target's
     std::uint64_t size{0};        // bytes; for a link, its target's
     std::int64_t modified_ns{0};  // mtime, nanoseconds since the epoch
+    bool modified_known{true};    // false when the source timestamp cannot fit nanoseconds
     // Set by the loader when the kind or the name alone decides it (no file read); otherwise
     // kUnknownMime, and MimeDatabase::detect() looks at the content when the type is needed.
     MimeId mime{kUnknownMime};
@@ -36,6 +38,24 @@ struct Entry {
     std::string group{};
     std::string permissions{};
     std::string link_target{};
+
+    // Collection rows keep a stable key independently of their displayed filename. An empty
+    // identity preserves ordinary directory semantics. location is always a real original path,
+    // or empty for a logical row; it is never a synthetic directory or a symlink.
+    std::string identity{};
+    std::filesystem::path location{};
+    bool available{true};
+    // A changed catalog original may still be read at its current path. This permits previews
+    // only: available stays false and the catalog identity remains unverified for file actions.
+    bool preview_current_location{false};
+
+    [[nodiscard]] bool can_preview() const noexcept {
+        return available || preview_current_location;
+    }
+
+    [[nodiscard]] const std::string& key() const noexcept {
+        return identity.empty() ? name : identity;
+    }
 
     [[nodiscard]] bool hidden() const noexcept { return !name.empty() && name.front() == '.'; }
 

@@ -141,3 +141,34 @@ Run the metric interpretation tests without a display:
 ```sh
 python3 -m unittest discover -s scripts/performance -p 'test_*.py' -v
 ```
+
+## Photo catalog and image import
+
+Build the optional component and its development benchmark, then use disposable fixtures:
+
+```sh
+cmake -S . -B build-photos -G Ninja -DCMAKE_BUILD_TYPE=Release -DRUMMAGE_PHOTOS=ON
+cmake --build build-photos --target rummage-bench-photos
+python3 tests/photos_scale.py build-photos/librummage-photos.so \
+  --build-mode Release --output /tmp/rummage-photo-queries.json
+python3 tests/photos_import.py build-photos/rummage-bench-photos \
+  --count 10000 --build-mode Release --output /tmp/rummage-photo-import.json
+```
+
+The query script initializes the real catalog through its versioned entry point, inserts
+100,000 synthetic records, and measures paged indexed queries through that same entry point.
+It reports first-query and repeated warm-query timings. It does not measure discovery,
+image decoding or native interaction.
+
+The import script copies ten existing decoder fixtures into distinct files and folders,
+with a fresh catalog and thumbnail cache. It exercises discovery, shared isolated decoding,
+metadata and cached thumbnails through the application's photo client. It verifies the record
+count, completion without file errors, and zero repeated metadata items on an unchanged rescan.
+The benchmark omits the UI's pacing delay, so its throughput measures processing capacity.
+Its first result page is a catalog-query endpoint, not a rendered viewport. Parent-process
+peak RSS excludes helper processes. Small repeated fixtures do not establish performance on
+a diverse collection of large camera originals.
+
+Record the revision, build mode, machine, storage, concurrent load and cache state alongside
+the JSON reports. Measure window responsiveness, viewport residency and scrolling separately
+with the live-window procedures above; neither benchmark establishes those UI targets.

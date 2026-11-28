@@ -2,11 +2,13 @@
 
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
 #include <string>
+#include <syslog.h>
 
 namespace rummage::log {
 namespace {
@@ -64,6 +66,53 @@ void write(Level level, std::string_view message) {
     const std::scoped_lock lock{g_write_mutex};
     std::fputs(line.c_str(), stderr);
     std::fflush(stderr);
+}
+
+void journal(Level level, std::string_view message) noexcept {
+    if (!enabled(level))
+        return;
+    int priority = LOG_INFO;
+    switch (level) {
+        case Level::trace:
+        case Level::debug:
+            priority = LOG_DEBUG;
+            break;
+        case Level::info:
+            break;
+        case Level::warn:
+            priority = LOG_WARNING;
+            break;
+        case Level::error:
+            priority = LOG_ERR;
+            break;
+        case Level::off:
+            return;
+    }
+    const int saved_errno = errno;
+    // The transport is process-wide and libc serializes it. Keep the identity alive,
+    // and do not use LOG_CONS/LOG_PERROR: an absent syslog service is harmless.
+    static const bool initialized = [] {
+        ::openlog("rummage", LOG_PID | LOG_NDELAY, LOG_USER);
+        return true;
+    }();
+    (void)initialized;
+    constexpr std::size_t kMaxMessage = 2048;
+    std::array<char, kMaxMessage + 1> line{};
+    const bool truncated = message.size() > kMaxMessage;
+    std::size_t length = truncated ? kMaxMessage - 3 : message.size();
+    // Do not split a UTF-8 code point when shortening a long diagnostic.
+    if (truncated)
+        while (length > 0 && (static_cast<unsigned char>(message[length]) & 0xc0U) == 0x80U)
+            --length;
+    for (std::size_t i = 0; i < length; ++i) {
+        const auto byte = static_cast<unsigned char>(message[i]);
+        line[i] = byte < 0x20U || byte == 0x7fU ? ' ' : message[i];
+    }
+    if (truncated)
+        for (int i = 0; i < 3; ++i)
+            line[length++] = '.';
+    ::syslog(LOG_USER | priority, "%s", line.data());
+    errno = saved_errno;
 }
 
 }  // namespace rummage::log

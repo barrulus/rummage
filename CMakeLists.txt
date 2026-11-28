@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(rummage VERSION 0.6.1 LANGUAGES C CXX)
+project(rummage VERSION 0.7.0 LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
 # Global settings
@@ -140,7 +140,7 @@ add_subdirectory(src/formats)   # the families of files read in the helper (imag
 add_subdirectory(src/thumbs)    # freedesktop thumbnail cache
 add_subdirectory(src/preview)   # Quick Look providers: images, text, information
 add_subdirectory(src/isolate)   # preview helpers: the parsers in separate processes (2b)
-option(RUMMAGE_MEDIA "Build the optional FFmpeg video preview helper" OFF)
+option(RUMMAGE_MEDIA "Build the bundled FFmpeg video preview helper" ON)
 if(RUMMAGE_MEDIA)
     # FFmpeg 6.1 introduced the codec-parameter side data used for video rotation.
     pkg_check_modules(AVFORMAT REQUIRED IMPORTED_TARGET libavformat>=60.16.100)
@@ -151,7 +151,7 @@ if(RUMMAGE_MEDIA)
 else()
     file(REMOVE "${PROJECT_BINARY_DIR}/engines/media.toml")
 endif()
-option(RUMMAGE_PDF "Build the optional PDFium document preview helper" OFF)
+option(RUMMAGE_PDF "Build the bundled PDFium document preview helper" ON)
 option(RUMMAGE_PRIVATE_PDFIUM "Build the pinned private PDFium for native packages" OFF)
 if(RUMMAGE_PDF)
     # Prefer the installed PDFium CMake package (PDFium_DIR or CMAKE_PREFIX_PATH);
@@ -171,6 +171,13 @@ if(RUMMAGE_PDF)
     add_subdirectory(src/pdf)
 else()
     file(REMOVE "${PROJECT_BINARY_DIR}/engines/pdf.toml")
+endif()
+add_subdirectory(src/photo_client) # inert, dependency-free connection to the optional catalog
+option(RUMMAGE_PHOTOS "Build the optional Photo Library add-on" OFF)
+if(RUMMAGE_PHOTOS)
+    add_subdirectory(src/photos)
+else()
+    file(REMOVE "${PROJECT_BINARY_DIR}/librummage-photos.so")
 endif()
 add_subdirectory(src/platform)  # default applications (freedesktop), launching processes
 add_subdirectory(src/views)     # column view and grid
@@ -222,6 +229,13 @@ target_link_libraries(rummage-bench-dir PRIVATE rummage::core rummage::fs rummag
 add_executable(rummage-bench-find src/tools/bench_find.cpp)
 target_link_libraries(rummage-bench-find PRIVATE rummage::core rummage::fs rummage::views
                                                  rummage::warnings)
+
+if(RUMMAGE_PHOTOS)
+    add_executable(rummage-bench-photos src/tools/bench_photos.cpp)
+    target_link_libraries(rummage-bench-photos PRIVATE rummage::photo_client rummage::isolate
+        rummage::engines rummage::fs rummage::warnings)
+    add_dependencies(rummage-bench-photos rummage_photos rummage-preview)
+endif()
 
 # Development tool: start-up benchmark, runs rummage and times each step of its start
 # (ROADMAP 7.6). Not installed.

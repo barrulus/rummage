@@ -1,0 +1,65 @@
+{
+  "method": "12 consecutive nonblank, noncomment, nonpreprocessor, nonpunctuation-only C/C++ lines; whitespace collapsed; >=320 chars; no identifier/literal renaming; overlapping matches coalesced; candidates are not findings",
+  "candidates": [
+    {
+      "lines": 17,
+      "a": [
+        "src/app/main.cpp",
+        1433,
+        1449
+      ],
+      "b": [
+        "src/app/main.cpp",
+        1778,
+        1794
+      ],
+      "touches_changed_file": true,
+      "sample": "views::TitleBar title_bar{\n{.move = [&] { window.move(display.seat(), seat.input_serial()); },\n.resize =\n[&](ui::Edge edge) {\nwindow.resize(display.seat(), seat.input_serial(), edge);\n},\n.minimize = [&] { window.minimize(); },\n.toggle_maximized = [&] { window.toggle_maximized(); },\n.window_menu =\n[&](float x, float y) {\nwindow.show_window_menu(display.seat(), seat.input_serial(),\nwindow.content_map().to_surface(x),\nwindow.content_map().to_surface(y));\n},\n.close = [&] { window.close(); }},\n[&] { window.request_redraw(); },\n[&](ui::CursorShape shape) { seat.set_cursor(shape); }};"
+    },
+    {
+      "lines": 17,
+      "a": [
+        "src/isolate/src/helpers.cpp",
+        630,
+        648
+      ],
+      "b": [
+        "src/isolate/src/helpers.cpp",
+        743,
+        761
+      ],
+      "touches_changed_file": false,
+      "sample": "protocol::ArchiveReadResponse response;\nif (reply.length < sizeof(response)) {\nwhy = \"the preview helper said something else\";\nreturn false;\nstd::memcpy(&response, reply.bytes.data(), sizeof(response));\nif (response.magic != protocol::kArchiveReadMagic ||\nreply.length != sizeof(response) + response.detail_length ||\nresponse.failure > static_cast<std::uint8_t>(archive::Failure::unreadable) ||\nresponse.bytes > max_bytes) {\nwhy = \"the preview helper said something else\";\nreturn false;\nresult.failure = static_cast<archive::Failure>(response.failure);\nresult.bytes = response.bytes;\nresult.detail.assign(reinterpret_cast<const char*>( // NOLINT: bytes to chars\nreply.bytes.data() + sizeof(response)),\nresponse.detail_length);\nreturn true;"
+    },
+    {
+      "lines": 16,
+      "a": [
+        "src/views/src/column.cpp",
+        53,
+        71
+      ],
+      "b": [
+        "src/views/src/details_view.cpp",
+        485,
+        503
+      ],
+      "touches_changed_file": true,
+      "sample": "if (reveal == Folder::Reveal::none || !cursor) {\nreturn;\nif (viewport <= 0.0F) {\nfolder_->request_jump(); // nowhere to show it yet\nreturn;\nconst float top = static_cast<float>(*cursor) * size_.row;\nconst float bottom = top + size_.row;\nconst float from = scroller_.destination();\nif (top >= from && bottom <= from + viewport) {\nreturn;\nif (reveal == Folder::Reveal::jump) {\nscroller_.jump_to(top - ((viewport - size_.row) / 2.0F)); // centered\n} else if (top < from) {\nscroller_.glide_to(top, now);\n} else {\nscroller_.glide_to(bottom - viewport, now);"
+    },
+    {
+      "lines": 12,
+      "a": [
+        "src/views/src/browser.cpp",
+        5932,
+        5945
+      ],
+      "b": [
+        "src/views/src/browser.cpp",
+        6035,
+        6047
+      ],
+      "touches_changed_file": true,
+      "sample": "return;\nif (ready)\nready(where);\nif (open) {\nfor (std::size_t side = 0; side < areas_.size(); ++side) {\nif (!areas_[side])\ncontinue;\nAreaContext addressed{context_area_, side};\nfor (std::size_t i = 0; i < area().tabs.size(); ++i) {\nAreaContext tab_context{area().active, i};\nif (current_folder() == origin)\nthis->open(where);"
+    }
+  ]
+}

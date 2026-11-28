@@ -1,0 +1,72 @@
+# Reproduction commands
+
+Use `/tmp/rummage-photo-library` at exact commit `1dd2368783d814e86268fd2c388ee41671c66ae8`. All artifact paths below are outside the checkout. Commands do not install packages, publish, or alter repository sources.
+
+```sh
+cd /tmp/rummage-photo-library
+git rev-parse HEAD
+git status --short
+git diff --stat 63ca25bc..1dd23687
+python3 /tmp/rummage-branch-audit-2026-11-27/architecture/inventory.py
+python3 /tmp/rummage-branch-audit-2026-11-27/architecture/checks.py
+```
+
+`checks.py` sets `PYTHONDONTWRITEBYTECODE=1`; test fixtures use temporary directories. It runs CI-script unit tests, performance-script unit tests, docs, i18n and whitespace checks, with a 240-second per-command timeout. The exact commands/exits are recorded in `checks.json`.
+
+Generated website (cached tool; no download):
+
+```sh
+HUGO_RESOURCEDIR=/tmp/rummage-branch-audit-2026-11-27/architecture/website-resources \
+/tmp/rummage-hugo/hugo --source website \
+  --destination /tmp/rummage-branch-audit-2026-11-27/architecture/website-public \
+  --cacheDir /tmp/rummage-branch-audit-2026-11-27/architecture/website-cache \
+  --noBuildLock --minify --panicOnWarning --printPathWarnings
+python3 website/check.py /tmp/rummage-branch-audit-2026-11-27/architecture/website-public
+```
+
+The first command passed; the second exited 1 with the two missing targets in `website-check.log`. `HUGO_RESOURCEDIR`, `--cacheDir`, and `--noBuildLock` keep generated state outside the source tree.
+
+Shell/workflow checks:
+
+```sh
+shellcheck -x scripts/ci/*.sh packaging/pdfium/*.sh
+/nix/store/0zz68d2xnndpdarg0jy642l7nl3mcn9l-actionlint-1.7.12/bin/actionlint \
+  .github/workflows/ci.yml .github/workflows/noctalia-template.yml
+```
+
+Syntax checks and textual CMake inventory:
+
+```sh
+python3 /tmp/rummage-branch-audit-2026-11-27/architecture/static_checks.py
+```
+
+This parses all tracked Python files through `ast.parse` (no imports/bytecode), runs `bash -n` on tracked `.sh` files and `nix-instantiate --parse` on tracked `.nix` files. It does not evaluate NixOS modules or configure CMake. The CMake inventory is textual, not a resolved target dependency graph.
+
+Manual-review queries:
+
+```sh
+rg -n 'properties\(true\)|photo_library_->properties' src/views/src/browser.cpp
+rg -n 'PhotoLibrary::properties|std::ranges::find\(result.ids' src/views/src/photo_library.cpp
+rg -n 'refresh_subscriptions|PhotoLibrary::query|PhotoLibrary::publish' src/views/src/photo_library.cpp
+rg -n 'metadata_pending|metadata_claim|const auto saved' src/photo_client/src/client.cpp
+rg -n 'Database db|metadata_pending\(db, budget\)|Statement tags|Statement albums' src/photos/src/catalog.cpp
+rg -n 'i18n::' src/views/src/photo_library.cpp
+rg -n 'Enable Photo Library|Pause background work|Resume background work|Gentle background pace|Add folder…' data/i18n
+rg -n 'rummage-(media|pdf)|optional-preview-packages' website/layouts/downloads.html THIRD_PARTY.md
+```
+
+The final two i18n queries intentionally find no translations/extraction calls for those new strings. Absence is evidence only for the enumerated literals, not a total count of unlocalized feature strings.
+
+`clone-candidates-reviewed.json` adds baseline presence to exact scan candidates: for each full matched sequence, the same normalized sequence was located in each counterpart file in `git show 63ca25bc:<path>`. All four pairs already existed in baseline. This is not AST or semantic clone detection.
+
+Performance findings are operation-count/call-flow proofs, not measured wall times. Backend stress and native/sanitizer runs from the other audit tracks must supply timing and safety evidence. No pre-existing compiled binaries were relabeled as validation of this snapshot.
+
+## Targeted core ThreadSanitizer
+
+After the parent-authorized post-benchmark window, ran:
+
+```sh
+python3 /tmp/rummage-branch-audit-2026-11-27/architecture/tsan/run.py --window-authorized
+```
+
+The script checks frozen HEAD, compiles a deliberate-race control, requires exit 66 and the real TSan diagnostic, then directly compiles the unchanged production/test translation units plus scratch stress cases. See `tsan/results.json` for exact compiler, flags, input hashes and commands. All three seeds passed 21 cases / 46,199 assertions each. This isolated core validation supplements, and does not replace, the other tracks' full-application checks.

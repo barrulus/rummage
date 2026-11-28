@@ -1,0 +1,31 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+MESA-EGL: warning: pci id for fd 3: 10de:2d19, driver (null)
+[    0.215] debug worker pool: 2 threads
+[    0.222] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.234] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[    0.234] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    0.259] debug loaded font tabler-icons.ttf #0
+[    0.259] debug loaded font tabler-icons-filled.ttf #0
+[    0.418] warn  icons: no icon named '' (third_party/tabler-icons/icons.txt)
+[    0.432] debug worker pool: 1 threads
+[    0.735] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    1.346] debug worker pool: 1 threads
+[    1.479] debug worker pool: 2 threads
+[    1.686] debug quick look: Beach.png 48x32 on screen 58.3 ms after it was asked for
+[    2.479] debug loaded font /nix/store/a9jx9h2bx20lnl3vrqmkz1q3jgpxqaaw-noto-fonts-cjk-sans-2.004/share/fonts/opentype/noto-cjk/NotoSansCJK-VF.otf.ttc #262145
+[    2.832] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:   1 |   1 passed | 0 failed | 25 skipped
+[doctest] assertions: 105 | 105 passed | 0 failed |
+[doctest] Status: SUCCESS!
+-----------------------------------------------------
+Suppressions used:
+  count      bytes template
+      3        295 libfontconfig.so
+-----------------------------------------------------
+

@@ -2,7 +2,8 @@
 
 Updated **24 November 2026** against the current checkout's documentation and
 implementation, including its uncommitted development work. The documented
-source version is **0.6.1 in development**. Check the actual capture binary:
+source version for those captures was **0.6.1 in development**; current sources are
+**0.7.0 in development**. Check the actual capture binary:
 features present in this checkout may not yet be in the published downloads.
 
 ## Screenshot batch reviewed: 24 November 2026

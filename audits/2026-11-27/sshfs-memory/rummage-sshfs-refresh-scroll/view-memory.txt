@@ -1,0 +1,21 @@
+before_trim: thumbnails: 1039 slots, 1035 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB
+before_trim: quick look: 0 slots, textures 0.0 MB, pixels kept 0.0 MB
+before_trim: glyph atlases: 21.0 MB
+before_trim: columns: 1 folders, 30834 entries
+before_trim: shown folder: 30834 entries
+[  181.314] info  memory: process: rss 249.5 MB (peak 1627.8 MB), anonymous 176.8 MB, private 11.3 MB clean + 176.9 MB dirty, shared 61.4 MB
+[  181.314] info  memory: malloc: in use 159.9 MB, freed but kept 1383.8 MB, arenas 1543.8 MB, mmapped 0.0 MB
+[  181.314] info  memory: gpu: vram ?, gtt ?, cpu ?
+[  181.314] info  memory:   mapped [anon]: rss 108.0 MB (anonymous 108.0 MB)
+[  181.314] info  memory:   mapped libraries: rss 67.8 MB (anonymous 6.3 MB)
+[  181.314] info  memory:   mapped [heap]: rss 62.3 MB (anonymous 62.3 MB)
+[  181.314] info  memory:   mapped /tmp/rummage-sshfs-photo-probe-v2/rummage: rss 9.0 MB (anonymous 0.1 MB)
+[  181.314] info  memory:   mapped fonts: rss 0.6 MB (anonymous 0.0 MB)
+[  181.314] info  memory:   mapped /tmp/rummage-sshfs-refresh-scroll/large-three/cache/mesa_shader_cache/index: rss 0.4 MB (anonymous 0.0 MB)
+[  181.314] info  memory:   mapped /nix/store/rbvrn9kch96rr5nm7jdp3913d51nm09g-glibc-locales-2.44-57/lib/locale/locale-archive: rss 0.3 MB (anonymous 0.0 MB)
+[  181.314] info  memory:   mapped /nix/store/v15nsj8jh94pny5a79bs5fhipi8547iy-fc-cache/3af3525a7c3f50680e0103aac8cccb02-x86_64.cache-12: rss 0.2 MB (anonymous 0.0 MB)
+[  181.314] info  memory: thumbnails: 1039 slots, 1035 textures 268.4 MB (budget 268.4 MB), pixels waiting 0.0 MB
+[  181.314] info  memory: quick look: 0 slots, textures 0.0 MB, pixels kept 0.0 MB
+[  181.314] info  memory: glyph atlases: 21.0 MB
+[  181.314] info  memory: columns: 1 folders, 30834 entries
+[  181.314] info  memory: shown folder: 30834 entries

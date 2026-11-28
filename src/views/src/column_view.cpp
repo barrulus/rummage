@@ -175,6 +175,20 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
         redraw_();
         return;
     }
+    if (folder->is_collection()) {
+        for (const auto& slot : columns_)
+            slot.column->folder().set_changed_handler(nullptr);
+        columns_.clear();
+        focus_ = 0;
+        resizing_.reset();
+        hovered_column_.reset();
+        gesture_axis_ = Axis::none;
+        scroller_.jump_to(0.0F);
+        columns_.push_back({.column = make_column(std::move(folder))});
+        refresh_filters();
+        redraw_();
+        return;
+    }
     const std::filesystem::path target = folder->path();
     const auto inside = [&target](const std::filesystem::path& root) {
         const std::filesystem::path relative = target.lexically_relative(root);
@@ -210,7 +224,7 @@ void ColumnView::show(std::shared_ptr<Folder> folder) {
 bool ColumnView::loading() const {
     return std::ranges::any_of(columns_, [](const Slot& slot) {
         const Folder& folder = slot.column->folder();
-        return folder.model().loading() || folder.cursor_pending();
+        return folder.loading() || folder.cursor_pending();
     });
 }
 
@@ -250,7 +264,7 @@ void ColumnView::sync_columns(std::size_t index) {
         reveal_.clear();  // arrived
         focus_ = index;
     }
-    if (entry == nullptr || !entry->is_directory()) {
+    if (folder.is_collection() || entry == nullptr || !entry->is_directory()) {
         reveal_.clear();  // arrived above, or the way is lost
         truncate(index + 1);
         reveal_focus_ = true;
@@ -475,6 +489,7 @@ void ColumnView::update_hover() {
 void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::Palette& palette,
                       ui::IconSet& icons, Clock::time_point now) {
     area_ = bounds;
+    std::vector<std::pair<std::shared_ptr<Folder>, RowRange>> visible_collections;
 
     layout();
     scroller_.set_extent(content_width(), area_.width);
@@ -513,6 +528,12 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
         slot.column->draw(renderer, {left, area_.y, slot.width, area_.height}, palette, icons,
                           i == focus_, now, edit_, cut_, drop_, show_extensions_,
                           show_thumbnails_ ? thumbnails_ : nullptr);
+        if (slot.column->folder().is_collection()) {
+            visible_collections.emplace_back(
+                slot.column->shared_folder(),
+                visible_rows(slot.column->folder().entries().size(), slot.column->size().row,
+                             slot.column->scroller().offset(), area_.height));
+        }
         const bool grabbed =
             resizing_ == i || (over_divider_ && divider_at(pointer_x_, pointer_y_) == i);
         const float line = grabbed ? 2.0F : 1.0F / renderer.scale();
@@ -536,6 +557,9 @@ void ColumnView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const them
     renderer.pop_clip();
 
     update_hover();  // content may have moved under a still pointer
+    // A controller may replace its snapshot here; no column or entry references remain in use.
+    for (const auto& [folder, range] : visible_collections)
+        folder->notify_visible_range(range.first, range.last);
 }
 
 void ColumnView::pointer(const ui::PointerEvent& event, Clock::time_point now) {
@@ -840,7 +864,7 @@ void ColumnView::right_click(float x, float y) {
         if (!row) {
             folder.set_cursor(std::nullopt);  // empty space: the folder's own menu
         } else {
-            folder.set_cursor(row, folder.is_selected(folder.entries()[*row].name)
+            folder.set_cursor(row, folder.is_selected(folder.entries()[*row].key())
                                        ? SelectMode::keep
                                        : SelectMode::replace);
         }

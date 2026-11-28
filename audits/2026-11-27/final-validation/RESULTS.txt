@@ -1,0 +1,89 @@
+FINAL PHOTO BRANCH VALIDATION — 27–28 November 2026
+
+Branch: feat/photo-library. All work local; no push, publication or host package install.
+Integrated production snapshot: f74efcce93b18a9daef1e09e0760babe5eeb35fe.
+Merged main: 92202193f6d1cd06e8f1401101e2bd57e3a7343c (local merge 03775722).
+
+FIXES MADE DURING VALIDATION
+
+90bd0bda completes 48 new UI messages and removes three obsolete messages in each
+of seven translation catalogs. Strict checks report zero missing/unused/invalid.
+
+f74efcce fixes inherited keyboard shortcut conflicts blocking unrelated Settings
+changes. Appearance edits/resets now validate their own configuration without
+attaching an existing Ctrl+n/New Window conflict to opacity/transparency. Shortcut
+and action changes still validate conflicts. Existing conflicts appear in Keyboard
+shortcuts as nonblocking diagnostics, cached until relevant settings change.
+78 focused Settings/shortcuts cases pass with 7,134 assertions. Rendered Appearance
+and Keyboard frames are in settings/. Both original unknown-key compatibility
+regressions and newly merged transparency regressions remain covered.
+
+FINAL SNAPSHOT CHECKS
+
+Release: all 18 CTest suites pass, 83.44 seconds. Details/logs adjacent.
+ASan/UBSan: all 18 CTest suites pass, 151.27 seconds, explicit Mesa driver.
+Fedora 45: final native RPM build, clean base/add-on install, genuine 0.6.0 upgrade,
+add-on removal/reinstall and full removal all pass on f74efcce (package-final/).
+Installed library/config integrity, photo ABI/Unicode/offline retention, sandboxed
+PDF rendering and real headless Weston windows/pickers pass. Previous media/pdf/
+previews packages consolidate into the base; removing the photo add-on keeps the
+base previews, catalog and configuration. Earlier 90bd0bda results remain in package/.
+Python CI contracts: 73 tests pass on integrated snapshot.
+Performance metric calculations: 16 tests pass; production metric code unchanged
+by integration. This is checker coverage, not a new performance benchmark.
+Translations: all seven catalogs pass strict validation after integration.
+Documentation: 28 pages, 298 local links, 24 TOML blocks and example config pass.
+Website: Hugo build and checks pass (25 HTML pages, 1,431 links/assets,
+19 searchable guides, five distribution downloads).
+
+SSHFS CONNECTIVITY AND IDENTITY
+
+The controlled fixture uses real SSHFS/SFTP on localhost, 300 generated PNGs,
+a private catalog and display. No user mount, photo, catalog or app was controlled.
+Its measured snapshot predates the main integration; none of the later changes
+modify the tested photo filesystem identity/worker/preview paths. See sshfs/RESULTS.txt
+for exact source/binary hashes, conditions, traces and excluded harness attempts.
+
+PASS: normal-cache transport reconnection, 30-second cache-expiry verification
+and rescan retained all 300 actual file identities and five album memberships.
+Loaded-grid navigation remained responsive during two eight-second real transport
+stalls, including a full refresh. A dead mount showed photos offline while keeping
+album memberships. All generated source-image byte hashes remained unchanged.
+
+OPEN LIMITATION: cache-disabled/zero-TTL SSHFS and remount-induced identity churn
+regenerated 200 of 300 inode numbers without changing image bytes. A rescan kept
+300 active images but the test album changed from five visible members to zero
+visible/five retained members. Relink refuses ambiguous identities and cannot
+currently reattach these retained associations. No file or annotation was deleted.
+This was NOT reproduced with normal SSHFS cache settings in the controlled test.
+A general fix needs trustworthy content/server identity reconciliation, not simply
+accepting changed inode numbers or weakening original-file deletion safeguards.
+
+Do not describe this report as an unconditional remote-library pass. Server reboot,
+physical network faults, authentication renewal and indefinitely blocked kernel
+calls were not exercised. Small generated images test fault behaviour, not throughput
+or memory performance of the user's large remote library.
+
+TEST ENVIRONMENT NOTE
+
+The first pre-integration sanitizer run selected NVIDIA through GLVND despite
+LIBGL_ALWAYS_SOFTWARE=1. Core/photo UI cases failed to create surfaceless EGL and
+reported 183 bytes of driver allocations in libnvidia-glsi. A previously failing
+case passed with explicit Mesa selection. No application suppression was added.
+Final runs select /run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json explicitly.
+The existing fontconfig suppression and Python-host migration leak-check exception
+remain documented in the test configuration; no whole-program leak/race-proof claim.
+
+REPRODUCTION
+
+In the worktree's nix develop environment:
+  cmake --build /tmp/rummage-remediation-build -j6
+  __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json \
+    EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1 \
+    ctest --test-dir /tmp/rummage-remediation-build --output-on-failure -j3
+Use the same driver/environment for /tmp/rummage-remediation-asan, adding
+ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1.
+Run the two test suites sequentially: their process-name fixtures overlap.
+Package and SSHFS reproduction scripts, exact sources and hashes are in their
+respective subdirectories. Temporary host paths are evidence locations, not
+installation requirements for users.

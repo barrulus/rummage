@@ -1,0 +1,57 @@
+{
+  "ci-unit": {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/ci/tests",
+      "-v"
+    ],
+    "exit": 0,
+    "seconds": 1.167
+  },
+  "performance-tool-unit": {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/performance",
+      "-p",
+      "test_*.py",
+      "-v"
+    ],
+    "exit": 0,
+    "seconds": 0.115
+  },
+  "docs": {
+    "command": [
+      "python3",
+      "scripts/check-docs.py"
+    ],
+    "exit": 0,
+    "seconds": 0.064
+  },
+  "i18n": {
+    "command": [
+      "python3",
+      "scripts/i18n-check.py",
+      "--strict"
+    ],
+    "exit": 0,
+    "seconds": 0.316
+  },
+  "whitespace": {
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "63ca25bc..1dd23687"
+    ],
+    "exit": 0,
+    "seconds": 0.032
+  }
+}

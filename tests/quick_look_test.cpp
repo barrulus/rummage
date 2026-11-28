@@ -5,15 +5,18 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <future>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -22,6 +25,7 @@
 #include <doctest/doctest.h>
 
 #include "rummage/core/event_loop.hpp"
+#include "rummage/core/log.hpp"
 #include "rummage/core/worker_pool.hpp"
 #include "rummage/formats/image/load.hpp"
 #include "rummage/fs/directory_watcher.hpp"
@@ -572,4 +576,106 @@ TEST_CASE("quick look: upright thumbnail and reduced sharp frame keep size and o
             CHECK(sharp[center] == thumbnail[center]);
         }
     }
+}
+
+TEST_CASE(
+    "quick look: offline thumbnail latency starts at its request and changed files preview "
+    "afresh") {
+    rummage::test::TempDir dir;
+    const auto photo = dir.path / "portrait.png";
+    fs::copy_file(kData / "blocks.png", photo);
+    auto cache = std::make_shared<rummage::thumbs::Cache>(dir.path / "cache", "rummage-test");
+    REQUIRE_FALSE(cache->get(photo, rummage::thumbs::Size::large, "image/png").image.empty());
+    struct stat info{};
+    REQUIRE(::stat(photo.c_str(), &info) == 0);
+    fs::remove(photo);
+
+    EventLoop loop;
+    WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    auto mime = rummage::fs::MimeDatabase::load();
+    auto folder = std::make_shared<rummage::views::Folder>(loop, pool, watcher, mime, [] {});
+    rummage::fs::Entry entry;
+    entry.name = "portrait.png";
+    entry.kind = rummage::fs::EntryKind::file;
+    entry.modified_ns =
+        static_cast<std::int64_t>(info.st_mtim.tv_sec) * 1000000000 + info.st_mtim.tv_nsec;
+    entry.mime = mime->find("image/png");
+    entry.identity = "photo:1";
+    entry.location = photo;
+    entry.available = false;
+    folder->replace_collection({entry}, "Photos", 1);
+    folder->select_name(entry.key());
+
+    rummage::ui::Offscreen surface{800, 600};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    QuickLook look{pool, mime, cache, [] {}};
+    const auto requested = QuickLook::Clock::now();
+    look.open(folder, requested - 1s);
+    const auto draw = [&] {
+        renderer.begin_frame(800, 600, 1, {});
+        look.draw(renderer, {0, 0, 800, 600}, rummage::theme::Palette{}, icons,
+                  QuickLook::Clock::now());
+        renderer.end_frame();
+    };
+
+    const auto log_path = dir.path / "quick-look.log";
+
+    // Capture the public diagnostic rather than expose private slot timestamps just for testing.
+    struct CaptureLog {
+        FILE* file;
+        int saved;
+        rummage::log::Level level{rummage::log::level()};
+
+        ~CaptureLog() {
+            std::fflush(stderr);
+            if (saved >= 0) {
+                ::dup2(saved, STDERR_FILENO);
+                ::close(saved);
+            }
+            if (file)
+                std::fclose(file);
+            rummage::log::set_level(level);
+        }
+    } captured{std::fopen(log_path.c_str(), "w"), ::dup(STDERR_FILENO)};
+
+    REQUIRE(captured.file != nullptr);
+    REQUIRE(captured.saved >= 0);
+    REQUIRE(::dup2(::fileno(captured.file), STDERR_FILENO) >= 0);
+    rummage::log::set_level(rummage::log::Level::debug);
+    std::string output;
+    constexpr std::string_view marker = "thumbnail on screen ";
+    REQUIRE(run_until(loop, [&] {
+        draw();
+        std::ifstream input{log_path};
+        output.assign(std::istreambuf_iterator<char>{input}, {});
+        return output.find(marker) != std::string::npos;
+    }));
+    const auto start = output.find(marker) + marker.size();
+    const double latency = std::stod(output.substr(start));
+    const double elapsed =
+        std::chrono::duration<double, std::milli>(QuickLook::Clock::now() - requested).count();
+    CHECK(latency >= 0);
+    CHECK(latency <= elapsed + 1);
+    CHECK(look.content() == nullptr);
+    CHECK_FALSE(fs::exists(photo));
+
+    // A changed identity can preview the current file, but remains unavailable for file actions.
+    fs::copy_file(kData / "blocks.png", photo);
+    entry.preview_current_location = true;
+    folder->replace_collection({entry}, "Photos", 1);
+    look.follow(folder);
+    REQUIRE(run_until(loop, [&] { return look.content() != nullptr && !look.loading(); }));
+    REQUIRE(look.image_size());
+    CHECK(look.image_size() == Fixture::Size{{48, 32}});
+    CHECK_FALSE(folder->cursor_entry()->available);
+    draw();
+
+    // Returning to offline mode invalidates the readable slot, even with the same path/mtime.
+    entry.preview_current_location = false;
+    folder->replace_collection({entry}, "Photos", 1);
+    look.follow(folder);
+    CHECK(look.content() == nullptr);
 }

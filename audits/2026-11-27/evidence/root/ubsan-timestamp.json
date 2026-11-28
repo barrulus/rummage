@@ -1,0 +1,11 @@
+{
+  "exit": 0,
+  "command": [
+    "python3",
+    "/tmp/rummage-branch-audit-2026-11-27/catalog/timestamp_overflow.py",
+    "/tmp/rummage-branch-audit-2026-11-27/build-asan/librummage-photos.so"
+  ],
+  "LD_PRELOAD": "/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so",
+  "ASAN_OPTIONS": "detect_leaks=0",
+  "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+}

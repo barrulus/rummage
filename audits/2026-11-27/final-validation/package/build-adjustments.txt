@@ -1,0 +1,11 @@
+Build recipe/source remain unchanged. The initial source export ignored untracked
+validation evidence, while refusing tracked modifications and archiving HEAD only.
+After the translation-only commit, the build waited at a container-local rpmbuild
+wrapper. The input archive and spec Release were replaced with hash-verified exact
+90bd0bda1c6ae78901f8b6a61bb4ffbc25a2e2f0 sources before rpmbuild began.
+Initial native recipe ran CI_JOBS=2. While ongoing, a container-local ninja wrapper
+changed subsequent explicit -j2 invocations to -j6 (remaining private PDFium build)
+after other compilation finished. Already-running Ninja processes stayed at2.
+No application source or optimization/hardening flags were modified.
+Installed-photo checker adaptation removes its HOME override; XDG paths remain
+isolated. The modified helper is recorded alongside this file.

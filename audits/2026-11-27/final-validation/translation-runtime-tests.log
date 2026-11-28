@@ -1,0 +1,168 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- Configuring done (0.2s)
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+-- Generating done (0.2s)
+-- Build files have been written to: /tmp/rummage-remediation-build
+[0/4] Re-checking globbed directories...
+[1/28] Building CXX object src/core/CMakeFiles/rummage_core.dir/generated/i18n_catalogs.cpp.o
+[2/28] Linking CXX static library src/core/librummage_core.a
+[3/28] Linking CXX executable rummage-bench-dir
+[4/28] Linking CXX executable rummage-bench-find
+[5/28] Linking CXX executable rummage-bench-photos
+[6/28] Linking CXX executable rummage-snapshot
+[7/28] Linking CXX executable rummage-mime
+[8/28] Linking CXX executable rummage-watch
+[9/28] Linking CXX executable rummage-decode
+[10/28] Linking CXX executable rummage-thumb
+[11/28] Linking CXX executable rummage-open
+[12/28] Linking CXX executable rummage-transfer
+[13/28] Linking CXX executable tests/rummage-photo-recovery-tests
+[14/28] Linking CXX executable tests/rummage-program-output-tests
+[15/28] Linking CXX executable tests/rummage-photo-watcher-tests
+[16/28] Linking CXX executable tests/rummage-portal-tests
+[17/28] Linking CXX executable tests/rummage-desktop-portal-tests
+[18/28] Linking CXX executable tests/rummage-notification-tests
+[19/28] Linking CXX executable tests/rummage-file-manager-tests
+[20/28] Linking CXX executable tests/rummage-media-tests
+[21/28] Linking CXX executable tests/rummage-pdf-tests
+[22/28] Building CXX object CMakeFiles/rummage.dir/src/app/main.cpp.o
+[23/28] Linking CXX executable rummage
+[24/28] Linking CXX executable tests/rummage-photo-ui-tests
+[25/28] Linking CXX executable tests/rummage-tests
+Test project /tmp/rummage-remediation-build
+    Start 7: photos-ui
+    Start 1: i18n-runtime
+1/2 Test #1: i18n-runtime .....................   Passed    0.00 sec
+2/2 Test #7: photos-ui ........................   Passed   38.12 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =  38.12 sec

@@ -1,0 +1,15 @@
+{
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/actions.hpp": "f7e90a0623bc8757cf4f1deec4bd0f892cd3092753d5cb1d1705043fdd83f9ac",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/config.hpp": "91b917804fc053bdc1428eef1bfbdfbe68dd6b1f9bbdaa927e801e7e45b74465",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/event_loop.hpp": "36f5928022f38a59f89e7d73e1afed23d6983e69ef86130a2f44accc7104ca30",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/file_picker.hpp": "73434301b6b75d799256dd5e7fe5f58408863cd23fc711b06f0f0ba895f24895",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/motion.hpp": "6a482008aad770b92ba3463da5f8c0ac660d4140ea4848e052cf0549c5540150",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/file.hpp": "558544b996a1bf8e23cd6721a95f772520c8310947942a85e317048885570dce",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/log.hpp": "db383820252a041fab8583773ed32d41ade67874990b30f8304cae2f7f93ead7",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/config_edit.hpp": "6bd371760add80b6e3ac73f8cedc8aa83388cce95c39a1b7342ab7f22061f0db",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/worker_pool.hpp": "c14d42aee90220e7c71d01447e0ee78f0465f8a67ca626362b6b2e3ea3cf15df",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/i18n.hpp": "0f24a54fe6aa34e3998883b017d95c0551c30a01f5f874468aee3d19579122f6",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/memory.hpp": "45f37e6a0517d2f01bfc82f0283bf11ba1c71cec66890ca7a6e4120d74cde192",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/menu_layout.hpp": "3460d2fa81c8a42e80e8e086f922323cca9983eb40aa47b53c70953b6f3f2c06",
+  "/tmp/rummage-photo-library/src/core/include/rummage/core/file_watcher.hpp": "9ba7832c7fae01d307a151e662584a357eb5296d439268c00ca065cb43b07629"
+}

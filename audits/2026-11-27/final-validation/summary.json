@@ -1,0 +1,41 @@
+{
+  "source_commit": "f74efcce93b18a9daef1e09e0760babe5eeb35fe",
+  "merged_main": "92202193f6d1cd06e8f1401101e2bd57e3a7343c",
+  "branch": "feat/photo-library",
+  "local_only": true,
+  "release": {
+    "passed": 18,
+    "total": 18,
+    "seconds": 83.44
+  },
+  "asan_ubsan": {
+    "passed": 18,
+    "total": 18,
+    "seconds": 151.27,
+    "egl_vendor": "Mesa"
+  },
+  "settings_regressions": {
+    "cases": 78,
+    "assertions": 7134,
+    "passed": true
+  },
+  "fedora45": {
+    "native_build": true,
+    "clean_install": true,
+    "upgrade_from_0_6_0": true,
+    "addon_removal_reinstall": true,
+    "full_removal_preserves_user_state": true,
+    "real_wayland_smoke": true
+  },
+  "ci_python_tests": 73,
+  "metric_checker_tests": 16,
+  "strict_translations": "all seven pass",
+  "docs_and_site": "pass",
+  "sshfs": {
+    "snapshot": "3292429d",
+    "normal_cache_transport_reconnect": "pass",
+    "outage_ui_responsiveness": "pass",
+    "dead_mount_retains_memberships": "pass",
+    "open_issue": "Cache-disabled or remount inode churn can move album memberships to retained-only; existing Relink refuses ambiguous identities and cannot reattach them."
+  }
+}

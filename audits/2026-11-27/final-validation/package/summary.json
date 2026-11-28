@@ -1,0 +1,53 @@
+{
+  "status": "passed",
+  "completed_utc": "2026-11-28T00:10:27.777938+00:00",
+  "tested_commit": "90bd0bda1c6ae78901f8b6a61bb4ffbc25a2e2f0",
+  "distribution": "Fedora 45 x86_64",
+  "container_image": "fedora@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88",
+  "source_sha256": "6a1d8671383f88d940ad89f2ab2b810bf194ace27f671fbca1f55dcdc4b72865",
+  "rpm_release": "0.6.1-1.20261127235810.git90bd0bda1c6a.fc45",
+  "previous_rpm_release": "0.6.0-1.20261120164934.gitb72e3c67ec2e.fc45",
+  "build_exit_code": 0,
+  "clean_install_exit_code": 0,
+  "upgrade_exit_code": 0,
+  "checks": [
+    "Exact committed source built natively with Fedora compiler, hardening/LTO, and source-built private PDFium",
+    "Fresh base RPM DNF install and rpm --verify",
+    "All application/preview shared-library dependencies resolved before adding test tools",
+    "Base installation includes image, media and PDF previews; optional photo module absent",
+    "Separate photo addon DNF install and dynamic linkage checks",
+    "Installed command/config/completions/desktop/portal assets and isolated-library ownership checks",
+    "Real sandboxed PDF helper renders pages, rotation, fonts, and forms",
+    "Installed photo ABI exercises separate file identities, Unicode annotations, rating, date override, search, offline retention, and unchanged originals",
+    "Enabled/disabled/missing-addon diagnostics do not create a catalog",
+    "Fresh installed app renders a real buffer under private headless Weston",
+    "Installed window reuse, new windows, properties windows and clean process shutdown",
+    "Installed open-file/open-directory/save pickers cancel and shut down cleanly",
+    "DNF removal of photo addon leaves base/preview executables intact",
+    "Authentic prior 0.6.0 base/media/pdf/previews install and rpm --verify",
+    "DNF upgrades base to0.6.1 and removes obsolete media/pdf/previews packages without conflicts",
+    "Photo addon removal preserves catalog bytes and user config bytes",
+    "Addon reinstall reopens existing catalog with Unicode annotations and rating intact",
+    "Full base+addon removal preserves user catalog and configuration"
+  ],
+  "limits": [
+    "Results cover exactly90bd0bda, before any later integration from main",
+    "Fedora45 only; other supported distro package transactions were not repeated in this run",
+    "Headless Weston/software rendering validates native launch and lifecycle, not a full human desktop/compositor usability pass",
+    "Upgrade baseline is authentic0.6.0 Nov20 snapshot, not every historic package version",
+    "No prior photo addon existed in that baseline; existing photo catalog persistence is tested by removal/reinstall of final addon",
+    "Unsigned local validation packages; no release signing, upload, publication or host installation"
+  ],
+  "warnings": [
+    "rpmbuild warns that source_date_epoch_from_changelog has no changelog entry; native build still succeeds",
+    "Minimal Weston environment lacks dnd cursor theme glyphs; real buffer and all lifecycle checks pass"
+  ],
+  "artifacts": {
+    "packages": "/tmp/rummage-final-fedora-3292429/packages",
+    "final_source": "/tmp/rummage-final-fedora-90bd0bda/input",
+    "build_log": "build.log",
+    "clean_install_log": "clean-install.log",
+    "upgrade_log": "upgrade.log"
+  },
+  "cleanup": "All named disposable build/clean/upgrade containers exited and were auto-removed. Package/source outputs retained locally. Host app/config/catalog/photos were not touched."
+}

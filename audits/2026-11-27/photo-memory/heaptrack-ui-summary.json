@@ -1,0 +1,39 @@
+{
+  "workload": {
+    "photo_rows_loaded": 14268,
+    "down_steps": 600,
+    "passes": 3,
+    "columns": 3,
+    "large_icons": true,
+    "cold_then_warm": true,
+    "background_indexing": false
+  },
+  "coverage": "Main Rummage process only; sampled preview helpers had neither heaptrack environment nor library mappings. GPU allocations and helper allocations are not included.",
+  "requested_live_heap_peak_MB": 81.94,
+  "RSS_peak_including_profiler_MB": 203.85,
+  "allocation_calls": 10122163,
+  "temporary_allocation_calls": 932569,
+  "outstanding_at_trace_end_KB": 775.63,
+  "built_in_suppressed_outstanding_KB": 223.49,
+  "peak_categories_MB": {
+    "JSON_map_copy": 27.4,
+    "JSON_object_copy": 5.91,
+    "folder_append_entry_storage": 6.6,
+    "filesystem_path_storage": 4.68,
+    "PNG_decode_pixels": 5.36,
+    "driver_symbol_partly_unresolved": 10.9
+  },
+  "peak_category_caveat": "Rounded merged stack totals from heaptrack_print; not additive disjoint accounting. Requested payload bytes differ from mallinfo2 allocation chunks.",
+  "outstanding_at_end": "Largest stacks belong to Fontconfig configuration, GLdispatch (59.58 KB), GLib and Pixman initialization. These can be process-lifetime globals; outstanding-at-exit is not proof of an unreachable leak.",
+  "interpretation": "This run supports bounded loaded-catalog/preview memory over three repeated passes. It does not reproduce the reported roughly 1 GB RSS and cannot rule out longer-run, different-source, helper or GPU issues. JSON catalog representation is a material optimization target, distinct from a leak.",
+  "completion": {
+    "probe_done_marker": 97273992138921,
+    "all_steps_observed": true,
+    "application_loop_quit_code_requested": 0,
+    "profiler_final_statistics_present": true,
+    "os_exit_status_recorded": false,
+    "driver_issue": "Sampling wrapper raised Main process disappeared after the app finished; heaptrack attempted automatic GUI startup. The finalized trace parses successfully. Do not count wrapper invocation as passing or use profiled timing."
+  },
+  "filename_privacy": "Analysis inspected for original photo paths and /home paths; none found. Benchmark paths replaced with labels. Raw application log remains private because it can contain filenames.",
+  "analysis_tool": "heaptrack_print 1.5.0-unstable-2025-07-21, --print-leaks --peak-limit 15 --sub-peak-limit 3"
+}

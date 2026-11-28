@@ -176,6 +176,7 @@ TEST_CASE("picker: filters preserve directories and return the chosen filter and
     CHECK(folder->entries().back().name == "two.png");
     folder->select_name("two.png");
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->response == 0);
     CHECK(f.result->filter == 1);
@@ -211,6 +212,7 @@ TEST_CASE(
         REQUIRE(f.settle());
         f.browser.picker_folder()->select_name("one.txt");
         picker->key({.keysym = XKB_KEY_Return, .text = {}});
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         REQUIRE(f.result);
         CHECK(f.result->response == 0);
     }
@@ -219,9 +221,11 @@ TEST_CASE(
         auto picker = f.picker({});
         REQUIRE(f.settle());
         picker->key({.keysym = XKB_KEY_Escape, .text = {}});
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         REQUIRE(f.result);
         CHECK(f.result->response == 1);
         picker->accept();
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         CHECK(f.result->response == 1);
     }
     SUBCASE("folder") {
@@ -232,6 +236,7 @@ TEST_CASE(
         REQUIRE(f.settle());
         CHECK(f.browser.picker_folder()->entries().size() == 1);
         picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}});
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         REQUIRE(f.result);
         CHECK(f.result->paths == std::vector<std::string>{f.temp.path.string()});
     }
@@ -245,12 +250,15 @@ TEST_CASE("picker: overwrite confirmation can be cancelled without closing picke
     auto picker = f.picker(request);
     REQUIRE(f.settle());
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     CHECK_FALSE(f.result);
     picker->key({.keysym = XKB_KEY_Escape, .text = {}});
     CHECK_FALSE(f.result);
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     CHECK_FALSE(f.result);
     picker->key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->response == 0);
     CHECK(fs::file_size(f.temp.path / "one.txt") == 3);
@@ -268,6 +276,7 @@ TEST_CASE("keyboard browsing: picker name input stays independent of prefix and 
     picker->key({.keysym = XKB_KEY_j, .text = "j"});
     CHECK(f.browser.type_jump_prefix().empty());
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / "j.txt").string()});
 }
@@ -284,8 +293,10 @@ TEST_CASE("picker: choosing a filename in save mode replaces the initial suggest
     f.browser.picker_folder()->select_name("one.txt");
     picker->key({.keysym = XKB_KEY_Control_L, .text = {}});
     picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}});
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     CHECK_FALSE(f.result);  // the existing filename needs confirmation
     picker->key({.keysym = XKB_KEY_Return, .text = {}});
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / "one.txt").string()});
     CHECK_FALSE(fs::exists(f.temp.path / "Untitled.txt"));
@@ -300,6 +311,7 @@ TEST_CASE("picker: missing typed paths have useful errors and folder labels") {
     CHECK(std::string{picker->name_label()} == "Folder");
     picker->set_name("not-created");
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     CHECK(picker->error().find("does not exist") != std::string::npos);
     CHECK(picker->error().find("New Folder") != std::string::npos);
     CHECK_FALSE(f.result);
@@ -307,6 +319,7 @@ TEST_CASE("picker: missing typed paths have useful errors and folder labels") {
     picker->set_name("one.txt");
     CHECK(picker->error().empty());
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     CHECK(picker->error().find("not a folder") != std::string::npos);
     const auto removed = views::picker_selection(request, f.temp.path, {"removed"}, "");
     CHECK(removed.error.find("no longer exists") != std::string::npos);
@@ -387,6 +400,7 @@ TEST_CASE("picker: New Folder clears the name filter and starts renaming in all 
         REQUIRE(f.settle());
         picker->set_name("not-created");
         picker->accept();
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         REQUIRE_FALSE(picker->error().empty());
         f.browser.set_name_filter("nothing-matches");
         f.browser.new_folder();
@@ -396,6 +410,8 @@ TEST_CASE("picker: New Folder clears the name filter and starts renaming in all 
         CHECK(f.browser.name_editor().active());
         picker->key({.keysym = XKB_KEY_Return, .text = {}});
         picker->accept();
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         REQUIRE(f.result);
         CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / "New Folder").string()});
     }
@@ -411,6 +427,7 @@ TEST_CASE("picker: save editing keeps the extension and dotfiles stay whole") {
     CHECK(picker->copy_name(false) == "Untitled");
     picker->key({.keysym = XKB_KEY_r, .text = "renamed"});
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / "renamed.txt").string()});
     CHECK_FALSE(fs::exists(f.temp.path / "renamed.txt"));
@@ -430,6 +447,7 @@ TEST_CASE("picker: typing a folder navigates and preserves the proposed save nam
     REQUIRE(f.settle());
     picker->set_name("folder");
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     CHECK_FALSE(f.result);
     REQUIRE(f.settle());
     CHECK(f.browser.picker_folder()->path() == f.temp.path / "folder");
@@ -438,6 +456,7 @@ TEST_CASE("picker: typing a folder navigates and preserves the proposed save nam
     picker->key({.keysym = XKB_KEY_Tab, .text = {}, .modifiers = {.shift = true}});
     picker->key({.keysym = XKB_KEY_Control_L, .text = {}});
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->paths ==
           std::vector<std::string>{(f.temp.path / "folder/Untitled.txt").string()});
@@ -463,6 +482,7 @@ TEST_CASE("picker: direct application choices remain keyboard accessible in both
     picker->key({.keysym = XKB_KEY_ISO_Left_Tab, .text = {}});
     picker->key({.keysym = XKB_KEY_space, .text = " "});
     picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}});
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->choices == std::vector<std::string>{"false", "latin1"});
 }
@@ -529,6 +549,7 @@ TEST_CASE("picker: overflowing options scroll into view and receive pointer inpu
                      .x = 300,
                      .y = 265,
                      .button = rummage::ui::PointerButton::left});
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->response == 0);
     CHECK(f.result->choices.front() == "true");
@@ -586,6 +607,7 @@ TEST_CASE("picker: save filename supports double click and drag selection") {
     REQUIRE(picker->editing_name());
     CHECK_FALSE(f.result);
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->response == 0);
     CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / expected).string()});
@@ -619,6 +641,7 @@ TEST_CASE(
     CHECK(f.browser.picker_folder()->entries().size() == 1);
     picker->set_name("returned.txt");
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->paths == std::vector<std::string>{(target / "returned.txt").string()});
     CHECK(f.result->filter == 0);
@@ -647,6 +670,7 @@ TEST_CASE(
     REQUIRE(f.settle());
     CHECK_FALSE(f.result);
     picker->accept();
+    REQUIRE(f.settle([&] { return !picker->validating(); }));
     REQUIRE(f.result);
     CHECK(f.result->paths ==
           std::vector<std::string>{(request.directory ? target : target / "saved.txt").string()});
@@ -858,8 +882,48 @@ TEST_CASE("picker: keyboard path completion and cancellation do not accept or cl
         CHECK_FALSE(f.result);
         CHECK(f.browser.picker_folder()->path() == f.temp.path / "folder");
         CHECK(picker->key({.keysym = XKB_KEY_Return, .text = {}, .modifiers = {.ctrl = true}}));
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
         REQUIRE(f.result);
         CHECK(f.result->response == 0);
         CHECK(f.browser.tab_count() == 1);
+    }
+}
+
+TEST_CASE(
+    "picker: pending validation can be cancelled or invalidated without accepting stale paths") {
+    Fixture f;
+    auto picker = f.picker({});
+    REQUIRE(f.settle());
+    picker->set_name("one.txt");
+    picker->accept();
+    CHECK(picker->validating());
+    CHECK_FALSE(f.result);  // I/O and completion never run synchronously in accept().
+    SUBCASE("cancel before completion") {
+        picker->cancel();
+        REQUIRE(f.result);
+        CHECK(f.result->response == 1);
+        REQUIRE(f.settle());
+        CHECK(f.result->response == 1);
+    }
+    SUBCASE("edit before completion") {
+        picker->set_name("two.png");
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
+        CHECK_FALSE(f.result);
+        picker->accept();
+        REQUIRE(f.settle([&] { return !picker->validating(); }));
+        REQUIRE(f.result);
+        CHECK(f.result->paths == std::vector<std::string>{(f.temp.path / "two.png").string()});
+    }
+    SUBCASE("navigate before completion") {
+        f.browser.open(f.temp.path / "folder");
+        picker->accept();  // Synchronizes navigation even while the previous check is pending.
+        CHECK_FALSE(picker->validating());
+        REQUIRE(f.settle());
+        CHECK_FALSE(f.result);
+    }
+    SUBCASE("destroy before completion") {
+        picker.reset();
+        REQUIRE(f.settle());
+        CHECK_FALSE(f.result);
     }
 }

@@ -1,0 +1,392 @@
+{
+  "date": "2026-11-27",
+  "code_commit": "fcc1322cd72a43f1509975616f30b6fb8e825165",
+  "branch": "feat/photo-library",
+  "audited_production_commit": "1dd2368783d814e86268fd2c388ee41671c66ae8",
+  "audit_report_commit": "088cb77f",
+  "status": "All F01-F16 addressed; documented limits remain",
+  "findings": [
+    {
+      "id": "F01",
+      "title": "Large photo selections can stall every frame, even with the inspector hidden",
+      "status": "addressed"
+    },
+    {
+      "id": "F02",
+      "title": "A small background metadata batch reloads the entire browsed collection",
+      "status": "addressed"
+    },
+    {
+      "id": "F03",
+      "title": "Malformed derived camera text can stop a metadata work batch",
+      "status": "addressed"
+    },
+    {
+      "id": "F04",
+      "title": "Restore accepts exclusions that make future source scans fail",
+      "status": "addressed"
+    },
+    {
+      "id": "F05",
+      "title": "An interrupted migration cannot retry while its valid backup exists",
+      "status": "addressed"
+    },
+    {
+      "id": "F06",
+      "title": "Catalog timestamp conversion overflows signed nanoseconds",
+      "status": "addressed"
+    },
+    {
+      "id": "F07",
+      "title": "Album counts include hidden replacements and can open to no results",
+      "status": "addressed"
+    },
+    {
+      "id": "F08",
+      "title": "Generated website fails its link gate and advertises removed packages",
+      "status": "addressed"
+    },
+    {
+      "id": "F09",
+      "title": "Photo UI strings bypass translation extraction",
+      "status": "addressed"
+    },
+    {
+      "id": "F10",
+      "title": "Ordinary Details view rebuilds all rows on draw and input",
+      "status": "addressed"
+    },
+    {
+      "id": "F11",
+      "title": "Slow mount pathname lookups can block the UI thread",
+      "status": "addressed"
+    },
+    {
+      "id": "F12",
+      "title": "Ordinary bulk drag and context menus use quadratic membership scans",
+      "status": "addressed"
+    },
+    {
+      "id": "F13",
+      "title": "Metadata orchestration duplicates pending lookup and catalog initialization",
+      "status": "addressed"
+    },
+    {
+      "id": "F14",
+      "title": "Restore behavior needs one clear user-facing contract",
+      "status": "addressed"
+    },
+    {
+      "id": "F15",
+      "title": "Photo drag and several scale limits need clearer affordances",
+      "status": "addressed"
+    },
+    {
+      "id": "F16",
+      "title": "Sanitizer migration test needs an instrumented-library host launcher",
+      "status": "addressed"
+    }
+  ],
+  "checks": {
+    "release_ctest": "16/16 pass; 72.53s",
+    "asan_ubsan_ctest": "16/16 pass; 147.46s; Python runtime supplied by CTest",
+    "release_core": "1281/1281 executed cases passed; 5 skipped",
+    "asan_core": "1280/1280 executed cases passed; 6 skipped",
+    "catalog": "35 cases passed",
+    "photo_ui": "12 cases passed",
+    "watcher_tsan": "2 focused cases / 8209 assertions, each of 3 seeds passed",
+    "strict_signed_overflow": "Out-of-range actual filesystem timestamp passed focused strict-overflow companion",
+    "translations": "7 catalogs; zero missing, unused or invalid messages",
+    "docs": "28 pages, 288 links, 24 TOML blocks",
+    "website": "25 HTML pages, 1411 links/assets, 19 guides, 5 downloads",
+    "staged_install": "Final binaries pass base/add-on ownership, installed ABI, removal and dependency checks",
+    "capacity": "Export above256MiB rejected; restore above1m records rejected; integrity and row count preserved",
+    "catalog_stress": "100000 synthetic records; 500 pages without gaps/duplicates; 100256 export/restore records; concurrent reads/writes without errors; integrity OK"
+  },
+  "performance_scope": "Same-host synthetic warm-cache fixtures. Final timed workloads serialized with no agent build/test active. Host load not controlled; timings are observations, not product guarantees. Native software-GL UI measures UI/catalog work, not real-image import throughput.",
+  "comparisons": [
+    {
+      "operation": "Focused properties (warm)",
+      "before": 23.1672,
+      "after": 0.000245,
+      "unit": "ms",
+      "samples": 30,
+      "note": "Median"
+    },
+    {
+      "operation": "Hidden inspector, grid frame",
+      "before": 26.1632,
+      "after": 0.920596,
+      "unit": "ms",
+      "samples": 30,
+      "note": "Median"
+    },
+    {
+      "operation": "Bulk properties, 100k selected",
+      "before": 1163.95,
+      "after": 36.2321,
+      "unit": "ms",
+      "samples": 1,
+      "note": "One observation, not a distribution"
+    },
+    {
+      "operation": "First rubber-band frame",
+      "before": 1072.69,
+      "after": 76.7331,
+      "unit": "ms",
+      "samples": 1,
+      "note": "One observation, not a distribution"
+    },
+    {
+      "operation": "Restore loaded 100k prefix",
+      "before": 9457.93,
+      "after": 7446.78,
+      "unit": "ms",
+      "samples": 1,
+      "note": "One observation, not a distribution"
+    },
+    {
+      "operation": "30 refresh calls, coalesced",
+      "before": 9065.46,
+      "after": 7351.56,
+      "unit": "ms",
+      "samples": 1,
+      "note": "One observation, not a distribution"
+    },
+    {
+      "operation": "Focused properties with cursor changes",
+      "before": null,
+      "after": 0.001782,
+      "unit": "ms",
+      "samples": 30,
+      "note": "New invalidation workload; no baseline sample"
+    },
+    {
+      "operation": "Steady rubber-band frames",
+      "before": null,
+      "after": 1.55437,
+      "unit": "ms",
+      "samples": 30,
+      "note": "New steady-state workload; no baseline sample"
+    },
+    {
+      "operation": "Ordinary Details draw",
+      "before": 3.07634,
+      "after": 0.810581,
+      "unit": "ms",
+      "samples": 60,
+      "note": "Median; generic collection fixture"
+    },
+    {
+      "operation": "Status polling, 1000 history jobs",
+      "before": 97.34635650238488,
+      "after": 16.500123507285025,
+      "unit": "ms",
+      "samples": 10,
+      "note": "Old detailed-history endpoint versus new status summary; new full history still 85.37ms"
+    },
+    {
+      "operation": "Pending metadata near completed tail",
+      "before": 10.003946499637095,
+      "after": 0.36295799509389326,
+      "unit": "ms",
+      "samples": 10,
+      "note": "Median"
+    },
+    {
+      "operation": "Observed photo-process peak RSS",
+      "before": 1.58660888671875,
+      "after": 1.3249282836914062,
+      "unit": "GiB",
+      "samples": null,
+      "note": "Sampled every 250ms; may miss brief peaks"
+    }
+  ],
+  "catalog_performance": {
+    "revision": "working remediation based on 088cb77f; final code commit recorded in resolution report",
+    "module": "/tmp/rummage-remediation-build/librummage-photos.so",
+    "module_sha256": "c8d2613e59a9c18c97afb68c93b45948cdf86c229630363009043267ff0e57d0",
+    "build_mode": "Release",
+    "scope": "synthetic catalog only; no decoding/UI measurement; warm filesystem cache",
+    "records": 100000,
+    "machine": {
+      "kernel": "6.18.64",
+      "cpu": "Intel(R) Core(TM) Ultra 9 275HX",
+      "cpu_count": 24,
+      "load_start": [
+        2.5126953125,
+        3.2998046875,
+        3.673828125
+      ],
+      "load_end": [
+        2.8818359375,
+        3.32373046875,
+        3.67138671875
+      ]
+    },
+    "workloads": {
+      "first_page": {
+        "samples": 10,
+        "p50_ms": 12.939599495439325,
+        "p95_ms": 13.842437998391688,
+        "max_ms": 13.842437998391688,
+        "total_ms": 130.1562960143201
+      },
+      "mid_offset": {
+        "samples": 10,
+        "p50_ms": 21.04469249752583,
+        "p95_ms": 21.415762006654404,
+        "max_ms": 21.415762006654404,
+        "total_ms": 210.92963097908068
+      },
+      "last_offset": {
+        "samples": 10,
+        "p50_ms": 29.350423501455225,
+        "p95_ms": 29.5113120082533,
+        "max_ms": 29.5113120082533,
+        "total_ms": 293.280832018354
+      },
+      "text": {
+        "samples": 10,
+        "p50_ms": 19.245214003603905,
+        "p95_ms": 19.542791007552296,
+        "max_ms": 19.542791007552296,
+        "total_ms": 192.36668899247888
+      },
+      "rating": {
+        "samples": 10,
+        "p50_ms": 35.93343849934172,
+        "p95_ms": 36.720502001116984,
+        "max_ms": 36.720502001116984,
+        "total_ms": 360.59626399946865
+      },
+      "capture_date": {
+        "samples": 10,
+        "p50_ms": 56.538890494266525,
+        "p95_ms": 57.47113798861392,
+        "max_ms": 57.47113798861392,
+        "total_ms": 566.2137899780646
+      },
+      "size": {
+        "samples": 10,
+        "p50_ms": 12.997981495573185,
+        "p95_ms": 13.235677994089201,
+        "max_ms": 13.235677994089201,
+        "total_ms": 129.95432796014939
+      },
+      "modified": {
+        "samples": 10,
+        "p50_ms": 12.852195002778899,
+        "p95_ms": 12.926919996971264,
+        "max_ms": 12.926919996971264,
+        "total_ms": 128.63150601333473
+      },
+      "location": {
+        "samples": 10,
+        "p50_ms": 47.461007998208515,
+        "p95_ms": 47.64844699820969,
+        "max_ms": 47.64844699820969,
+        "total_ms": 474.1023040114669
+      },
+      "continuous_append_pages": {
+        "samples": 500,
+        "p50_ms": 21.11319599498529,
+        "p95_ms": 28.761039997334592,
+        "max_ms": 30.0942329922691,
+        "total_ms": 10572.2665059875
+      },
+      "jobs_1000_history": {
+        "samples": 10,
+        "p50_ms": 85.3677749983035,
+        "p95_ms": 91.93444201082457,
+        "max_ms": 91.93444201082457,
+        "total_ms": 860.3916669962928
+      },
+      "progress_1000_history": {
+        "samples": 10,
+        "p50_ms": 16.500123507285025,
+        "p95_ms": 16.79417501145508,
+        "max_ms": 16.79417501145508,
+        "total_ms": 165.22343101678416
+      },
+      "controller_prefix_10000": {
+        "samples": 1,
+        "p50_ms": 216.1974310001824,
+        "p95_ms": 216.1974310001824,
+        "max_ms": 216.1974310001824,
+        "total_ms": 216.1974310001824
+      },
+      "controller_prefix_30000": {
+        "samples": 1,
+        "p50_ms": 710.484240000369,
+        "p95_ms": 710.484240000369,
+        "max_ms": 710.484240000369,
+        "total_ms": 710.484240000369
+      },
+      "controller_prefix_100000": {
+        "samples": 1,
+        "p50_ms": 3048.249109997414,
+        "p95_ms": 3048.249109997414,
+        "max_ms": 3048.249109997414,
+        "total_ms": 3048.249109997414
+      },
+      "metadata_pending_tail": {
+        "samples": 10,
+        "p50_ms": 0.36295799509389326,
+        "p95_ms": 0.5566260078921914,
+        "max_ms": 0.5566260078921914,
+        "total_ms": 3.832497008261271
+      },
+      "metadata_claim": {
+        "samples": 256,
+        "p50_ms": 2.1342824984458275,
+        "p95_ms": 2.779107991955243,
+        "max_ms": 5.22384699434042,
+        "total_ms": 566.3846460374771
+      },
+      "metadata_persist": {
+        "samples": 256,
+        "p50_ms": 2.124601996911224,
+        "p95_ms": 2.569834003224969,
+        "max_ms": 6.227456993656233,
+        "total_ms": 555.9008969867136
+      },
+      "export": {
+        "ms": 1650.0928349996684,
+        "photo_count": 100256,
+        "json_bytes": 67063371
+      },
+      "restore_existing_matches": {
+        "ms": 5583.830242001568,
+        "restored": 100256
+      },
+      "restore_fresh_256_real_identities": {
+        "samples": 1,
+        "p50_ms": 32.91073800937738,
+        "p95_ms": 32.91073800937738,
+        "max_ms": 32.91073800937738,
+        "total_ms": 32.91073800937738
+      },
+      "concurrent_read_write": {
+        "ms": 438.0710099940188,
+        "requests": 120,
+        "errors": []
+      }
+    },
+    "setup_ms": 764.0338360070018,
+    "integrity": "ok",
+    "foreign_key_errors": [],
+    "database_bytes": 44797952,
+    "peak_rss_kib": 1054404
+  },
+  "remaining_limits": [
+    "Loaded-prefix and selection memory scale with browsed photos",
+    "First 100k selection synchronization remains about219ms; first band frame about77ms; steady band frame1.55ms",
+    "Explicit 100k-prefix load/refresh remains seconds; detailed history endpoint remains expensive",
+    "Photo drag remains unavailable with an in-context Copy/Cut/Paste alternative",
+    "Already executing mount syscalls can occupy workers and delay shutdown; registrations/callbacks are bounded and cancellable",
+    "Documented request, history, workspace and decoder bounds remain; see docs/photo-library.md",
+    "No distro package-manager upgrades, real remote-mount failure matrix or full manual Wayland usability rerun in this remediation validation"
+  ],
+  "completed_utc": "2026-11-27T08:39:39.982886+00:00"
+}

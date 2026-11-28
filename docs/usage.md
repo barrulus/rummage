@@ -22,8 +22,9 @@ adds tabs to the most recently focused browser's active pane; use `--new-window`
 to request another window. See [launch reuse](command-line.md#reusing-windows).
 
 Closing a browser waits for its file operations to finish. Other windows remain
-usable. **Ctrl+Q** closes all windows, waiting for file operations and any Settings
-save/discard decision. Closing the last window exits. Signals still cancel the
+usable. **Ctrl+Q** closes only the window receiving the shortcut, waiting for its file
+operations and any Settings save/discard decision. Other browser and Properties windows
+remain open. Closing the last window exits. Signals still cancel the
 application as before. Session state has one writer: it saves the most recently
 focused browser's panes, tabs and size. Other windows are temporary and are not
 all restored at the next start. Picker state is separate.

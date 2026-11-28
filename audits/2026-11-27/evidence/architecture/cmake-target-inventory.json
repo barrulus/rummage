@@ -1,0 +1,1070 @@
+[
+  {
+    "file": "CMakeLists.txt",
+    "line": 23,
+    "command": "add_library",
+    "arguments": "rummage_warnings INTERFACE"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 24,
+    "command": "add_library",
+    "arguments": "rummage::warnings ALIAS rummage_warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 130,
+    "command": "add_subdirectory",
+    "arguments": "src/core"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 131,
+    "command": "add_subdirectory",
+    "arguments": "src/ui"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 132,
+    "command": "add_subdirectory",
+    "arguments": "src/theme"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 133,
+    "command": "add_subdirectory",
+    "arguments": "src/archive"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 134,
+    "command": "add_subdirectory",
+    "arguments": "src/fs"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 135,
+    "command": "add_subdirectory",
+    "arguments": "src/engines"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 136,
+    "command": "add_subdirectory",
+    "arguments": "src/text"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 137,
+    "command": "add_subdirectory",
+    "arguments": "src/picture"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 138,
+    "command": "add_subdirectory",
+    "arguments": "src/svg"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 139,
+    "command": "add_subdirectory",
+    "arguments": "src/formats"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 140,
+    "command": "add_subdirectory",
+    "arguments": "src/thumbs"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 141,
+    "command": "add_subdirectory",
+    "arguments": "src/preview"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 142,
+    "command": "add_subdirectory",
+    "arguments": "src/isolate"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 150,
+    "command": "add_subdirectory",
+    "arguments": "src/media"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 167,
+    "command": "add_library",
+    "arguments": "pdfium SHARED IMPORTED"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 171,
+    "command": "add_subdirectory",
+    "arguments": "src/pdf"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 175,
+    "command": "add_subdirectory",
+    "arguments": "src/photo_client"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 178,
+    "command": "add_subdirectory",
+    "arguments": "src/photos"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 182,
+    "command": "add_subdirectory",
+    "arguments": "src/platform"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 183,
+    "command": "add_subdirectory",
+    "arguments": "src/views"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 186,
+    "command": "add_library",
+    "arguments": "rummage_test_scene STATIC src/app/test_scene.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 188,
+    "command": "target_link_libraries",
+    "arguments": "rummage_test_scene PUBLIC rummage::ui rummage::theme PRIVATE rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 205,
+    "command": "add_executable",
+    "arguments": "rummage src/app/main.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 208,
+    "command": "target_link_libraries",
+    "arguments": "rummage PRIVATE rummage::core rummage::ui rummage::theme rummage::views rummage::platform rummage::isolate rummage_test_scene rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 213,
+    "command": "add_executable",
+    "arguments": "rummage-svg-render src/tools/svg_render.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 215,
+    "command": "target_link_libraries",
+    "arguments": "rummage-svg-render PRIVATE rummage::svg rummage::picture rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 219,
+    "command": "add_executable",
+    "arguments": "rummage-snapshot src/tools/snapshot.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 220,
+    "command": "target_link_libraries",
+    "arguments": "rummage-snapshot PRIVATE rummage::core rummage::ui rummage::theme rummage::views rummage::platform rummage::isolate rummage_test_scene rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 225,
+    "command": "add_executable",
+    "arguments": "rummage-bench-dir src/tools/bench_dir.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 226,
+    "command": "target_link_libraries",
+    "arguments": "rummage-bench-dir PRIVATE rummage::core rummage::fs rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 229,
+    "command": "add_executable",
+    "arguments": "rummage-bench-find src/tools/bench_find.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 230,
+    "command": "target_link_libraries",
+    "arguments": "rummage-bench-find PRIVATE rummage::core rummage::fs rummage::views rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 234,
+    "command": "add_executable",
+    "arguments": "rummage-bench-photos src/tools/bench_photos.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 235,
+    "command": "target_link_libraries",
+    "arguments": "rummage-bench-photos PRIVATE rummage::photo_client rummage::isolate rummage::engines rummage::fs rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 242,
+    "command": "add_executable",
+    "arguments": "rummage-bench-start src/tools/bench_start.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 243,
+    "command": "target_link_libraries",
+    "arguments": "rummage-bench-start PRIVATE rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 246,
+    "command": "add_executable",
+    "arguments": "rummage-mime src/tools/mime.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 247,
+    "command": "target_link_libraries",
+    "arguments": "rummage-mime PRIVATE rummage::core rummage::fs rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 250,
+    "command": "add_executable",
+    "arguments": "rummage-watch src/tools/watch.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 251,
+    "command": "target_link_libraries",
+    "arguments": "rummage-watch PRIVATE rummage::core rummage::fs rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 254,
+    "command": "add_executable",
+    "arguments": "rummage-decode src/tools/decode.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 255,
+    "command": "target_link_libraries",
+    "arguments": "rummage-decode PRIVATE rummage::core rummage::formats::image rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 259,
+    "command": "add_executable",
+    "arguments": "rummage-thumb src/tools/thumb.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 260,
+    "command": "target_link_libraries",
+    "arguments": "rummage-thumb PRIVATE rummage::thumbs rummage::formats::image rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 264,
+    "command": "add_executable",
+    "arguments": "rummage-open src/tools/open.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 265,
+    "command": "target_link_libraries",
+    "arguments": "rummage-open PRIVATE rummage::core rummage::fs rummage::platform rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 269,
+    "command": "add_executable",
+    "arguments": "rummage-transfer src/tools/transfer.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 270,
+    "command": "target_link_libraries",
+    "arguments": "rummage-transfer PRIVATE rummage::core rummage::fs rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 275,
+    "command": "add_executable",
+    "arguments": "rummage-bench-jpeg src/tools/bench_jpeg.cpp"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 276,
+    "command": "target_link_libraries",
+    "arguments": "rummage-bench-jpeg PRIVATE rummage::formats::image PkgConfig::TURBOJPEG rummage::warnings"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 288,
+    "command": "add_subdirectory",
+    "arguments": "tests"
+  },
+  {
+    "file": "CMakeLists.txt",
+    "line": 295,
+    "command": "add_subdirectory",
+    "arguments": "tests/fuzz"
+  },
+  {
+    "file": "src/archive/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_archive src/archive.cpp"
+  },
+  {
+    "file": "src/archive/CMakeLists.txt",
+    "line": 4,
+    "command": "add_library",
+    "arguments": "rummage::archive ALIAS rummage_archive"
+  },
+  {
+    "file": "src/archive/CMakeLists.txt",
+    "line": 6,
+    "command": "target_link_libraries",
+    "arguments": "rummage_archive PRIVATE rummage::warnings"
+  },
+  {
+    "file": "src/core/CMakeLists.txt",
+    "line": 41,
+    "command": "add_library",
+    "arguments": "rummage_core src/actions.cpp src/config.cpp src/config_edit.cpp src/event_loop.cpp src/file.cpp src/file_picker.cpp src/file_watcher.cpp src/i18n.cpp src/i18n_rules.cpp src/log.cpp src/memory.cpp src/worker_pool.cpp \"${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_catalogs.cpp\""
+  },
+  {
+    "file": "src/core/CMakeLists.txt",
+    "line": 55,
+    "command": "add_library",
+    "arguments": "rummage::core ALIAS rummage_core"
+  },
+  {
+    "file": "src/core/CMakeLists.txt",
+    "line": 58,
+    "command": "target_link_libraries",
+    "arguments": "rummage_core PRIVATE PkgConfig::TOMLPLUSPLUS rummage::warnings"
+  },
+  {
+    "file": "src/engines/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_engines src/manifest.cpp src/registry.cpp"
+  },
+  {
+    "file": "src/engines/CMakeLists.txt",
+    "line": 6,
+    "command": "add_library",
+    "arguments": "rummage::engines ALIAS rummage_engines"
+  },
+  {
+    "file": "src/engines/CMakeLists.txt",
+    "line": 9,
+    "command": "target_link_libraries",
+    "arguments": "rummage_engines PUBLIC rummage::fs PRIVATE rummage::core PkgConfig::TOMLPLUSPLUS rummage::warnings"
+  },
+  {
+    "file": "src/formats/CMakeLists.txt",
+    "line": 3,
+    "command": "add_subdirectory",
+    "arguments": "image"
+  },
+  {
+    "file": "src/formats/CMakeLists.txt",
+    "line": 4,
+    "command": "add_subdirectory",
+    "arguments": "text"
+  },
+  {
+    "file": "src/formats/CMakeLists.txt",
+    "line": 5,
+    "command": "add_subdirectory",
+    "arguments": "archive"
+  },
+  {
+    "file": "src/formats/CMakeLists.txt",
+    "line": 7,
+    "command": "add_library",
+    "arguments": "rummage_formats src/registry.cpp"
+  },
+  {
+    "file": "src/formats/CMakeLists.txt",
+    "line": 8,
+    "command": "add_library",
+    "arguments": "rummage::formats ALIAS rummage_formats"
+  },
+  {
+    "file": "src/formats/CMakeLists.txt",
+    "line": 10,
+    "command": "target_link_libraries",
+    "arguments": "rummage_formats PUBLIC rummage::picture PRIVATE rummage::formats::image rummage::warnings"
+  },
+  {
+    "file": "src/formats/archive/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_formats_archive src/archive.cpp src/stream.cpp src/tar.cpp src/zip.cpp"
+  },
+  {
+    "file": "src/formats/archive/CMakeLists.txt",
+    "line": 4,
+    "command": "add_library",
+    "arguments": "rummage::formats::archive ALIAS rummage_formats_archive"
+  },
+  {
+    "file": "src/formats/archive/CMakeLists.txt",
+    "line": 6,
+    "command": "target_link_libraries",
+    "arguments": "rummage_formats_archive PUBLIC rummage::archive PRIVATE PkgConfig::ZLIB rummage::warnings"
+  },
+  {
+    "file": "src/formats/image/CMakeLists.txt",
+    "line": 5,
+    "command": "add_library",
+    "arguments": "rummage_formats_image src/camera/info.cpp src/camera/previews.cpp src/decode.cpp src/dng/colour.cpp src/dng/develop.cpp src/dng/ljpeg.cpp src/dng/opcodes.cpp src/dng/raw.cpp src/fd_file.cpp src/heif_decoder.cpp src/jpeg_segments.cpp src/jxl_decoder.cpp src/load.cpp src/metadata.cpp src/photo.cpp src/pnm.cpp src/preview.cpp src/svg_fonts.cpp src/tiff/codecs.cpp src/tiff/container.cpp src/tiff/decode.cpp src/tiff/extract.cpp src/webp_decoder.cpp src/wuffs_decoder.cpp"
+  },
+  {
+    "file": "src/formats/image/CMakeLists.txt",
+    "line": 30,
+    "command": "add_library",
+    "arguments": "rummage::formats::image ALIAS rummage_formats_image"
+  },
+  {
+    "file": "src/formats/image/CMakeLists.txt",
+    "line": 33,
+    "command": "target_link_libraries",
+    "arguments": "rummage_formats_image PUBLIC rummage::picture PRIVATE PkgConfig::WEBP PkgConfig::JXL PkgConfig::HEIF PkgConfig::LCMS2 PkgConfig::ZLIB rummage::svg PkgConfig::PANGOCAIRO PkgConfig::FREETYPE PkgConfig::FONTCONFIG rummage::warnings"
+  },
+  {
+    "file": "src/formats/text/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_formats_text src/markdown.cpp src/languages.cpp src/read.cpp src/syntax.cpp"
+  },
+  {
+    "file": "src/formats/text/CMakeLists.txt",
+    "line": 4,
+    "command": "add_library",
+    "arguments": "rummage::formats::text ALIAS rummage_formats_text"
+  },
+  {
+    "file": "src/formats/text/CMakeLists.txt",
+    "line": 6,
+    "command": "target_link_libraries",
+    "arguments": "rummage_formats_text PUBLIC rummage::text PRIVATE rummage::warnings"
+  },
+  {
+    "file": "src/fs/CMakeLists.txt",
+    "line": 1,
+    "command": "add_library",
+    "arguments": "rummage_fs src/archive_folder.cpp src/compress.cpp src/extract.cpp src/batch_rename.cpp src/name_pattern.cpp src/permissions.cpp src/directory.cpp src/directory_model.cpp src/directory_watcher.cpp src/erase.cpp src/filesystem.cpp src/folder_icon.cpp src/folder_icon_store.cpp src/icon.cpp src/links.cpp src/group.cpp src/path_completion.cpp src/insights.cpp src/measure.cpp src/mime.cpp src/operations.cpp src/places.cpp src/subfolders.cpp src/sort.cpp src/transfer.cpp src/transfer_queue.cpp src/trash.cpp src/walk.cpp"
+  },
+  {
+    "file": "src/fs/CMakeLists.txt",
+    "line": 30,
+    "command": "add_library",
+    "arguments": "rummage::fs ALIAS rummage_fs"
+  },
+  {
+    "file": "src/fs/CMakeLists.txt",
+    "line": 33,
+    "command": "target_link_libraries",
+    "arguments": "rummage_fs PUBLIC rummage::core rummage::archive PRIVATE PkgConfig::ZLIB PkgConfig::RE2 rummage::warnings"
+  },
+  {
+    "file": "src/isolate/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_isolate src/helpers.cpp src/protocol.cpp"
+  },
+  {
+    "file": "src/isolate/CMakeLists.txt",
+    "line": 6,
+    "command": "add_library",
+    "arguments": "rummage::isolate ALIAS rummage_isolate"
+  },
+  {
+    "file": "src/isolate/CMakeLists.txt",
+    "line": 8,
+    "command": "target_link_libraries",
+    "arguments": "rummage_isolate PUBLIC rummage::picture rummage::text rummage::archive rummage::engines PRIVATE rummage::core rummage::warnings"
+  },
+  {
+    "file": "src/isolate/CMakeLists.txt",
+    "line": 34,
+    "command": "add_executable",
+    "arguments": "rummage-preview src/base_backend.cpp src/helper_main.cpp src/protocol.cpp src/sandbox.cpp \"${warm_up_source}\""
+  },
+  {
+    "file": "src/isolate/CMakeLists.txt",
+    "line": 39,
+    "command": "target_link_libraries",
+    "arguments": "rummage-preview PRIVATE rummage::formats rummage::formats::image rummage::formats::text rummage::formats::archive rummage::archive rummage::picture rummage::text rummage::warnings"
+  },
+  {
+    "file": "src/media/CMakeLists.txt",
+    "line": 2,
+    "command": "add_executable",
+    "arguments": "rummage-media backend.cpp ../isolate/src/helper_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp"
+  },
+  {
+    "file": "src/media/CMakeLists.txt",
+    "line": 5,
+    "command": "target_link_libraries",
+    "arguments": "rummage-media PRIVATE rummage::picture rummage::text rummage::archive PkgConfig::AVFORMAT PkgConfig::AVCODEC PkgConfig::AVUTIL PkgConfig::SWSCALE rummage::warnings"
+  },
+  {
+    "file": "src/pdf/CMakeLists.txt",
+    "line": 2,
+    "command": "add_executable",
+    "arguments": "rummage-pdf backend.cpp ../isolate/src/helper_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp"
+  },
+  {
+    "file": "src/pdf/CMakeLists.txt",
+    "line": 5,
+    "command": "target_link_libraries",
+    "arguments": "rummage-pdf PRIVATE rummage::picture rummage::text rummage::archive pdfium rummage::warnings"
+  },
+  {
+    "file": "src/photo_client/CMakeLists.txt",
+    "line": 1,
+    "command": "add_library",
+    "arguments": "rummage_photo_client src/client.cpp src/source_watcher.cpp"
+  },
+  {
+    "file": "src/photo_client/CMakeLists.txt",
+    "line": 2,
+    "command": "add_library",
+    "arguments": "rummage::photo_client ALIAS rummage_photo_client"
+  },
+  {
+    "file": "src/photo_client/CMakeLists.txt",
+    "line": 4,
+    "command": "target_link_libraries",
+    "arguments": "rummage_photo_client PUBLIC nlohmann_json::nlohmann_json PRIVATE ${CMAKE_DL_LIBS} rummage::warnings rummage::picture rummage::thumbs rummage::fs rummage::engines"
+  },
+  {
+    "file": "src/photos/CMakeLists.txt",
+    "line": 2,
+    "command": "add_library",
+    "arguments": "rummage_photos SHARED src/catalog.cpp"
+  },
+  {
+    "file": "src/photos/CMakeLists.txt",
+    "line": 6,
+    "command": "target_link_libraries",
+    "arguments": "rummage_photos PRIVATE SQLite::SQLite3 nlohmann_json::nlohmann_json rummage::warnings"
+  },
+  {
+    "file": "src/picture/CMakeLists.txt",
+    "line": 8,
+    "command": "add_library",
+    "arguments": "rummage_wuffs STATIC src/wuffs_impl.cpp"
+  },
+  {
+    "file": "src/picture/CMakeLists.txt",
+    "line": 15,
+    "command": "add_library",
+    "arguments": "rummage_picture src/load.cpp src/orientation.cpp src/png.cpp src/scale.cpp src/wuffs.cpp"
+  },
+  {
+    "file": "src/picture/CMakeLists.txt",
+    "line": 21,
+    "command": "add_library",
+    "arguments": "rummage::picture ALIAS rummage_picture"
+  },
+  {
+    "file": "src/picture/CMakeLists.txt",
+    "line": 23,
+    "command": "target_link_libraries",
+    "arguments": "rummage_picture PRIVATE rummage_wuffs PkgConfig::ZLIB rummage::warnings"
+  },
+  {
+    "file": "src/platform/CMakeLists.txt",
+    "line": 1,
+    "command": "add_library",
+    "arguments": "rummage_platform src/code_stats.cpp src/code_report.cpp src/program.cpp src/action_handoff.cpp src/archives.cpp src/about.cpp src/applications.cpp src/browser_instance.cpp src/bus_loop.cpp src/desktop_entry.cpp src/exec.cpp src/gvfs.cpp src/file_manager.cpp src/file_manager_config.cpp src/file_picker_portal.cpp src/terminal_navigation.cpp src/launcher.cpp src/notifications.cpp src/program_output.cpp src/opener.cpp src/portal.cpp src/udisks.cpp src/volumes.cpp"
+  },
+  {
+    "file": "src/platform/CMakeLists.txt",
+    "line": 25,
+    "command": "add_library",
+    "arguments": "rummage::platform ALIAS rummage_platform"
+  },
+  {
+    "file": "src/platform/CMakeLists.txt",
+    "line": 29,
+    "command": "target_link_libraries",
+    "arguments": "rummage_platform PUBLIC rummage::core rummage::fs PRIVATE rummage::thumbs rummage::warnings nlohmann_json::nlohmann_json PkgConfig::SDBUSCPP ${CMAKE_DL_LIBS}"
+  },
+  {
+    "file": "src/preview/CMakeLists.txt",
+    "line": 1,
+    "command": "add_library",
+    "arguments": "rummage_preview src/archive.cpp src/info.cpp src/providers.cpp src/summary.cpp"
+  },
+  {
+    "file": "src/preview/CMakeLists.txt",
+    "line": 6,
+    "command": "add_library",
+    "arguments": "rummage::preview ALIAS rummage_preview"
+  },
+  {
+    "file": "src/preview/CMakeLists.txt",
+    "line": 9,
+    "command": "target_link_libraries",
+    "arguments": "rummage_preview PUBLIC rummage::core rummage::fs rummage::picture rummage::text rummage::engines PRIVATE rummage::thumbs rummage::warnings"
+  },
+  {
+    "file": "src/svg/CMakeLists.txt",
+    "line": 2,
+    "command": "add_library",
+    "arguments": "rummage_svg src/render.cpp"
+  },
+  {
+    "file": "src/svg/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage::svg ALIAS rummage_svg"
+  },
+  {
+    "file": "src/svg/CMakeLists.txt",
+    "line": 5,
+    "command": "target_link_libraries",
+    "arguments": "rummage_svg PUBLIC rummage::picture PRIVATE PkgConfig::RSVG rummage::warnings"
+  },
+  {
+    "file": "src/text/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_text src/text.cpp src/markdown.cpp"
+  },
+  {
+    "file": "src/text/CMakeLists.txt",
+    "line": 4,
+    "command": "add_library",
+    "arguments": "rummage::text ALIAS rummage_text"
+  },
+  {
+    "file": "src/text/CMakeLists.txt",
+    "line": 6,
+    "command": "target_link_libraries",
+    "arguments": "rummage_text PRIVATE rummage::warnings"
+  },
+  {
+    "file": "src/theme/CMakeLists.txt",
+    "line": 7,
+    "command": "add_library",
+    "arguments": "rummage_theme src/app_icon.cpp src/desktop.cpp src/kde.cpp src/oklch.cpp src/palette.cpp src/syntax.cpp src/theme.cpp"
+  },
+  {
+    "file": "src/theme/CMakeLists.txt",
+    "line": 15,
+    "command": "add_library",
+    "arguments": "rummage::theme ALIAS rummage_theme"
+  },
+  {
+    "file": "src/theme/CMakeLists.txt",
+    "line": 18,
+    "command": "target_link_libraries",
+    "arguments": "rummage_theme PUBLIC rummage::core rummage::ui PRIVATE PkgConfig::TOMLPLUSPLUS rummage::warnings"
+  },
+  {
+    "file": "src/thumbs/CMakeLists.txt",
+    "line": 1,
+    "command": "add_library",
+    "arguments": "rummage_thumbs src/cache.cpp src/md5.cpp"
+  },
+  {
+    "file": "src/thumbs/CMakeLists.txt",
+    "line": 4,
+    "command": "add_library",
+    "arguments": "rummage::thumbs ALIAS rummage_thumbs"
+  },
+  {
+    "file": "src/thumbs/CMakeLists.txt",
+    "line": 7,
+    "command": "target_link_libraries",
+    "arguments": "rummage_thumbs PUBLIC rummage::picture rummage::core PRIVATE rummage::warnings"
+  },
+  {
+    "file": "src/ui/CMakeLists.txt",
+    "line": 44,
+    "command": "add_library",
+    "arguments": "rummage_wayland_protocols STATIC ${RUMMAGE_PROTOCOL_SOURCES}"
+  },
+  {
+    "file": "src/ui/CMakeLists.txt",
+    "line": 46,
+    "command": "target_link_libraries",
+    "arguments": "rummage_wayland_protocols PUBLIC PkgConfig::WAYLAND"
+  },
+  {
+    "file": "src/ui/CMakeLists.txt",
+    "line": 69,
+    "command": "add_library",
+    "arguments": "rummage_ui ${RUMMAGE_EMBEDDED_SOURCES} src/activation.cpp src/clipboard.cpp src/display.cpp src/egl_context.cpp src/renderer.cpp src/motion.cpp src/seat.cpp src/icons.cpp src/icon_theme.cpp src/offscreen.cpp src/scrollbar.cpp src/scroller.cpp src/text.cpp src/text_field.cpp src/texture.cpp src/window.cpp src/wl_ptr.cpp src/xcursor.cpp"
+  },
+  {
+    "file": "src/ui/CMakeLists.txt",
+    "line": 89,
+    "command": "add_library",
+    "arguments": "rummage::ui ALIAS rummage_ui"
+  },
+  {
+    "file": "src/ui/CMakeLists.txt",
+    "line": 92,
+    "command": "target_link_libraries",
+    "arguments": "rummage_ui PRIVATE rummage::svg rummage::picture"
+  },
+  {
+    "file": "src/ui/CMakeLists.txt",
+    "line": 93,
+    "command": "target_link_libraries",
+    "arguments": "rummage_ui PUBLIC rummage::core rummage_wayland_protocols PkgConfig::EGL PkgConfig::GLESV2 PkgConfig::XKBCOMMON PRIVATE rummage::warnings PkgConfig::HARFBUZZ PkgConfig::FREETYPE PkgConfig::FONTCONFIG"
+  },
+  {
+    "file": "src/views/CMakeLists.txt",
+    "line": 3,
+    "command": "add_library",
+    "arguments": "rummage_fzy STATIC ${PROJECT_SOURCE_DIR}/third_party/fzy/src/match.c"
+  },
+  {
+    "file": "src/views/CMakeLists.txt",
+    "line": 10,
+    "command": "add_library",
+    "arguments": "rummage_views src/browser_photo_operations.cpp src/batch_rename_dialog.cpp src/browser_batch_rename.cpp src/breadcrumb.cpp src/browser_actions.cpp src/browser_panes.cpp src/browser_drives.cpp src/browser_folder_settings.cpp src/browser_links.cpp src/browser_navigation.cpp src/browser_organise.cpp src/browser_archive.cpp src/archive_text.cpp src/browser.cpp src/browser_motion.cpp src/browser_palette.cpp src/column.cpp src/column_view.cpp src/command_palette.cpp src/error_dialog.cpp src/confirm_dialog.cpp src/conflict_dialog.cpp src/context_menu.cpp src/menu_layout.cpp src/menu_editor.cpp src/details_view.cpp src/file_clipboard.cpp src/draw_helpers.cpp src/dialog_chrome.cpp src/folder.cpp src/format.cpp src/file_finder.cpp src/photo_library.cpp src/browser_photos.cpp src/search_results.cpp src/browser_search.cpp src/file_picker.cpp src/fuzzy.cpp src/grid_view.cpp src/info_pane.cpp src/insights_view.cpp src/insights_iris.cpp src/insights_charts.cpp src/location_dialog.cpp src/markdown_view.cpp src/name_editor.cpp src/pane.cpp src/password_dialog.cpp src/properties_dialog.cpp src/settings_dialog.cpp src/settings_editors.cpp src/shortcuts.cpp src/shortcuts_overlay.cpp src/sidebar.cpp src/status_bar.cpp src/state.cpp src/tab_bar.cpp src/title_bar.cpp src/quick_look.cpp src/text_selection.cpp src/thumbnails.cpp src/undo.cpp"
+  },
+  {
+    "file": "src/views/CMakeLists.txt",
+    "line": 73,
+    "command": "add_library",
+    "arguments": "rummage::views ALIAS rummage_views"
+  },
+  {
+    "file": "src/views/CMakeLists.txt",
+    "line": 76,
+    "command": "target_link_libraries",
+    "arguments": "rummage_views PUBLIC rummage::photo_client rummage::platform rummage::core rummage::ui rummage::fs rummage::theme rummage::thumbs rummage::preview PRIVATE rummage::warnings PkgConfig::TOMLPLUSPLUS rummage_fzy"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 1,
+    "command": "add_executable",
+    "arguments": "rummage-code-fixture code_stats_fixture.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 2,
+    "command": "target_link_libraries",
+    "arguments": "rummage-code-fixture PRIVATE rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 3,
+    "command": "add_executable",
+    "arguments": "rummage-program-fixture program_fixture.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 4,
+    "command": "target_link_libraries",
+    "arguments": "rummage-program-fixture PRIVATE rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 6,
+    "command": "add_executable",
+    "arguments": "rummage-i18n-tests i18n_runtime_test.cpp ${PROJECT_SOURCE_DIR}/src/core/src/i18n.cpp ${PROJECT_SOURCE_DIR}/src/core/src/i18n_rules.cpp ${PROJECT_SOURCE_DIR}/src/core/src/log.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 12,
+    "command": "target_link_libraries",
+    "arguments": "rummage-i18n-tests PRIVATE doctest::doctest PkgConfig::TOMLPLUSPLUS rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 15,
+    "command": "add_executable",
+    "arguments": "rummage-tests batch_rename_test.cpp permissions_test.cpp program_test.cpp actions_test.cpp archives_test.cpp compress_test.cpp extract_test.cpp archive_test.cpp archive_folder_test.cpp main.cpp photo_client_test.cpp about_test.cpp app_icon_test.cpp breadcrumb_test.cpp clipboard_test.cpp column_view_test.cpp command_palette_test.cpp config_test.cpp content_map_test.cpp settings_test.cpp settings_editors_test.cpp desktop_palette_test.cpp context_menu_test.cpp menu_editor_test.cpp details_view_test.cpp devices_test.cpp engines_test.cpp drag_drop_test.cpp directory_model_test.cpp directory_test.cpp dng_test.cpp event_loop_test.cpp feature_integration_test.cpp file_watcher_test.cpp format_test.cpp folder_icon_test.cpp i18n_test.cpp icon_test.cpp icon_theme_test.cpp svg_test.cpp svg_preview_test.cpp svg_features_test.cpp svg_layers_test.cpp svg_effects_test.cpp helpers_test.cpp sandbox_test.cpp tiff_test.cpp image_test.cpp heif_test.cpp filesystem_test.cpp links_test.cpp group_test.cpp path_completion_test.cpp load_test.cpp insights_test.cpp code_stats_test.cpp code_report_test.cpp measure_test.cpp memory_test.cpp mime_test.cpp navigation_test.cpp palette_test.cpp kde_palette_test.cpp paste_test.cpp places_test.cpp remote_test.cpp pointer_shapes_test.cpp tabs_test.cpp panes_test.cpp markdown_test.cpp markdown_view_test.cpp text_test.cpp text_selection_test.cpp terminal_navigation_test.cpp platform_test.cpp preview_test.cpp info_pane_test.cpp quick_look_test.cpp rename_test.cpp glyph_test.cpp renderer_runs_test.cpp motion_test.cpp scrollbar_test.cpp scroller_test.cpp shortcuts_test.cpp sort_test.cpp syntax_test.cpp syntax_colors_test.cpp state_test.cpp thumbs_test.cpp title_bar_test.cpp erase_test.cpp erase_view_test.cpp file_finder_test.cpp file_manager_test.cpp file_picker_test.cpp transfer_test.cpp trash_test.cpp trash_view_test.cpp undo_test.cpp worker_pool_test.cpp xcursor_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 118,
+    "command": "target_link_libraries",
+    "arguments": "rummage-tests PRIVATE rummage::svg rummage::core rummage::theme rummage::fs rummage::views rummage::picture rummage::formats rummage::formats::image rummage::formats::text rummage::formats::archive rummage::text rummage::thumbs rummage::preview rummage::engines rummage::isolate rummage::platform doctest::doctest rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 119,
+    "command": "target_link_libraries",
+    "arguments": "rummage-tests PRIVATE rummage::photo_client"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 124,
+    "command": "add_executable",
+    "arguments": "rummage-photos-tests photos_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 125,
+    "command": "target_link_libraries",
+    "arguments": "rummage-photos-tests PRIVATE rummage_photos doctest::doctest nlohmann_json::nlohmann_json rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 128,
+    "command": "add_executable",
+    "arguments": "rummage-photo-recovery-tests photo_recovery_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 129,
+    "command": "target_link_libraries",
+    "arguments": "rummage-photo-recovery-tests PRIVATE rummage::photo_client rummage::fs doctest::doctest rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 135,
+    "command": "add_executable",
+    "arguments": "rummage-photo-watcher-tests photos_watcher_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 136,
+    "command": "target_link_libraries",
+    "arguments": "rummage-photo-watcher-tests PRIVATE rummage::photo_client rummage::fs rummage::thumbs rummage::core doctest::doctest rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 158,
+    "command": "target_link_libraries",
+    "arguments": "rummage-tests PRIVATE PkgConfig::LIBRAW"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 166,
+    "command": "target_link_libraries",
+    "arguments": "rummage-tests PRIVATE PkgConfig::EXIV2_REFERENCE"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 168,
+    "command": "add_executable",
+    "arguments": "rummage-bench-previews bench_previews.cpp exiv2_reference.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 170,
+    "command": "target_link_libraries",
+    "arguments": "rummage-bench-previews PRIVATE rummage::formats::image PkgConfig::EXIV2_REFERENCE rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 176,
+    "command": "add_executable",
+    "arguments": "rummage-fake-preview fake_preview_helper.cpp ${PROJECT_SOURCE_DIR}/src/isolate/src/protocol.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 179,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fake-preview PRIVATE rummage::picture rummage::text rummage::archive rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 182,
+    "command": "add_executable",
+    "arguments": "rummage-sandbox-probe sandbox_probe.cpp ${PROJECT_SOURCE_DIR}/src/isolate/src/sandbox.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 185,
+    "command": "target_link_libraries",
+    "arguments": "rummage-sandbox-probe PRIVATE rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 216,
+    "command": "add_executable",
+    "arguments": "rummage-photo-ui-tests main.cpp photo_library_ui_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 217,
+    "command": "target_link_libraries",
+    "arguments": "rummage-photo-ui-tests PRIVATE $<TARGET_PROPERTY:rummage-tests,LINK_LIBRARIES>"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 233,
+    "command": "add_executable",
+    "arguments": "rummage-portal-tests file_picker_portal_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 234,
+    "command": "target_link_libraries",
+    "arguments": "rummage-portal-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 235,
+    "command": "add_executable",
+    "arguments": "rummage-desktop-portal-tests desktop_portal_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 236,
+    "command": "target_link_libraries",
+    "arguments": "rummage-desktop-portal-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 237,
+    "command": "add_executable",
+    "arguments": "rummage-notification-tests notifications_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 239,
+    "command": "target_link_libraries",
+    "arguments": "rummage-notification-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 245,
+    "command": "add_executable",
+    "arguments": "rummage-file-manager-tests file_manager_bus_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 246,
+    "command": "target_link_libraries",
+    "arguments": "rummage-file-manager-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 269,
+    "command": "add_executable",
+    "arguments": "rummage-media-tests media_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 270,
+    "command": "target_link_libraries",
+    "arguments": "rummage-media-tests PRIVATE doctest::doctest rummage::isolate rummage::thumbs rummage::preview rummage::warnings"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 285,
+    "command": "add_executable",
+    "arguments": "rummage-pdf-tests pdf_test.cpp"
+  },
+  {
+    "file": "tests/CMakeLists.txt",
+    "line": 286,
+    "command": "target_link_libraries",
+    "arguments": "rummage-pdf-tests PRIVATE doctest::doctest rummage::isolate rummage::thumbs rummage::preview rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 3,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-tiff fuzz_tiff.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 6,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-tiff PRIVATE rummage::formats::image rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 10,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-camera fuzz_camera.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 11,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-camera PRIVATE rummage::formats::image rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 14,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-picture fuzz_picture.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 15,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-picture PRIVATE rummage::formats rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 20,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-${target} fuzz_${target}.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 23,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-${target} PRIVATE rummage::formats::image rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 28,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-text fuzz_text.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 29,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-text PRIVATE rummage::formats::text rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 32,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-svg fuzz_svg.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 33,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-svg PRIVATE rummage::svg rummage::warnings"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 36,
+    "command": "add_executable",
+    "arguments": "rummage-fuzz-archive fuzz_archive.cpp"
+  },
+  {
+    "file": "tests/fuzz/CMakeLists.txt",
+    "line": 37,
+    "command": "target_link_libraries",
+    "arguments": "rummage-fuzz-archive PRIVATE rummage::formats::archive rummage::warnings"
+  }
+]

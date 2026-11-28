@@ -1,0 +1,49 @@
+FINAL INTEGRATED FEDORA PACKAGE VALIDATION — PASS
+
+Tested exact snapshot: f74efcce93b18a9daef1e09e0760babe5eeb35fe.
+Includes latest-main integration and final Settings layout/editor fix.
+Completed 28 November 2026. This supersedes the90bd results in ../package/.
+
+Native Fedora45 base and sole Photo Library addon RPM build: PASS(exit0).
+Clean installation and installed integration checks: PASS(exit0).
+Genuine prior-version upgrade/removal/reinstall checks: PASS(exit0).
+
+The native compiler/hardening/LTO and source-built private PDFium compiled final
+committed source. Clean install verifies RPM integrity and shared libraries before
+adding tools, installed config/assets/desktop/portal, real sandboxed PDF rendering,
+photo ABI identity/Unicode/offline retention, no catalog creation by diagnostics,
+a real attached window buffer under headless Weston, multiwindow reuse, and clean
+open-file/open-directory/save picker shutdown. Removing only the addon preserves
+the app and its bundled image/media/PDF preview helpers.
+
+The upgrade fixture uses genuine archived0.6.0 Fedora45 RPMs/source commit
+b72e3c67ec2ef38fe452bfcc55f5ded066ef7b38. DNF upgrades to final0.6.1 and removes
+rummage-media, rummage-pdf and rummage-previews automatically without conflicts.
+A real installed photo module creates Unicode annotations, rating and date data.
+Addon removal preserves catalog/config hashes. Reinstallation reopens the same
+catalog and confirms Unicode annotations/rating. Full base+addon removal also
+preserves catalog/config hashes. Original fixture photos remain unchanged.
+
+Source/RPM hashes, precise environment, builddriver, upgrade script and full logs
+are adjacent. Build adjustments preserve the recipe/source while preparing deps
+before the finalcommit and increasing parallelism; --noclean retains buildcache.
+The installed-photo helper adaptation avoids overriding HOME, using private XDG
+locations. No host app/config/catalog or photos were touched, and nothing was
+published or installed on the host.
+
+Limits: Fedora45 only; software-rendered headless Weston; one authentic historical
+upgrade baseline. Not all distributions/hardware/compositors or historic versions.
+The old baseline predates Photo Library, so addon catalog persistence is tested
+through remove/reinstall rather than a historic photo-addon RPM upgrade.
+
+Nonfatal environment warnings: missing rpmbuild changelog SOURCE_DATE_EPOCH entry
+and missing drag cursor glyphs in minimal Weston. All checks nonetheless passed.
+
+Retained local artifacts:
+  /tmp/rummage-final-fedora-integrated-20261128/packages
+  /tmp/rummage-final-fedora-f74efcce/input
+Stopped cache container:
+  rummage-final-fedora-integrated-builder (exit0; no running service)
+Retained build tree inside that container:
+  /build/rpm/BUILD/rummage-0.6.1-build/rummage-checkout/redhat-linux-build
+The clean-install and upgrade containers were removed automatically.

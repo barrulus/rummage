@@ -1,0 +1,100 @@
+FINAL BRANCH SSHFS VALIDATION — 28 November 2026
+==============================================
+Source: feat/photo-library, 3292429d at instrumentation time. Normal executable
+/tmp/rummage-remediation-build/rummage; separately linked benchmark executable
+/tmp/rummage-final-sshfs-check/probe/rummage. instrumentation.json records source,
+header, normal executable and probe hashes and exact compilation/link commands.
+No production source edits. No user photos, catalog, app or live mount touched.
+
+RESULT: connectivity recovery and UI responsiveness PASS in the tested cases.
+An identity limitation is reproduced under cache-disabled mounts/remounts; this
+is NOT an unconditional all-SSHFS pass or an end-to-end remote-network benchmark.
+
+METHOD
+300 generated, valid 320x240 PNGs in three folders on an isolated localhost SFTP
+server, through real sshfs/FUSE. Private generated SSH credentials and private
+catalog with five selected photos in an album. Catalog dimensions came from the
+known fixtures; native UI thumbnail/preview loading used real image decoders.
+The UI used a private hardware-rendered Wayland compositor, no OS input on the
+user's desktop. Three-column large-thumbnail grid and 300px inspector; native
+Browser::key events at 25 Hz. App XDG directories isolated by existing harness.
+The source byte hashes of every PNG were unchanged at completion.
+
+1. COLD UI NAVIGATION THROUGH AN 8-SECOND TRANSPORT OUTAGE — PASS
+The fixture's SSH listener/session PID tree was paused for 8.002 seconds. An
+independent uncached stat remained blocked during the pause and completed after
+resume; SSH logs showed timeout/reconnection. sshfs caching was explicitly off
+(cache=no,attr_timeout=0,entry_timeout=0) to force remote I/O. These are aggressive
+TEST options, not the normal cache defaults.
+71 key inputs and 381 frame callbacks occurred during the pause; maximum input
+interval during it was 40.855 ms. All 90 first-pass Down selections were presented.
+Only 19/90 first-pass previews met the next-input deadline, as expected while
+originals could not be fetched. Both subsequent traversals had 90/90 selected
+photo previews before the next input. No old photo or generic icon counted as a
+successful preview. App completed normally.
+
+2. FULL REFRESH DURING OUTAGE — PASS FOR RESPONSIVENESS/RECOVERY
+Another 8.001-second pause overlapped the first full refresh. That query took
+8.041 seconds; the following two took about 40 ms. During the blocked query,
+200 native inputs and 645 frame callbacks continued, max input interval 40.866 ms.
+All 277 dispatches across the run were presented. 178 Down inputs did not advance
+because they reached the final grid row, not because input froze. App completed.
+Catalog queries necessarily wait for SSHFS when it blocks stat; they did not
+block the UI event loop in this loaded-collection case.
+
+3. DEAD FUSE MOUNT — PASS
+Killed only the fixture's recorded sshfs process group. A private copy of the
+original catalog returned 300 offline photos and all five visible album members.
+The dead mount was then explicitly unmounted. No annotation/membership deletion.
+
+4. NORMAL-CACHE TRANSPORT RECONNECT + REAL RESCAN — PASS
+Separate mount using SSHFS cache defaults, reconnect and 1-second keepalives.
+Verified mount and 300 real catalog entries before proceeding. A 30-second idle
+control changed zero actual file signatures. Killed only the SSH sessions of the
+private listener, keeping the listener alive; a newly created, never-looked-up
+remote marker was statted after reconnection in 0.151 seconds. The sshfs process
+and mount remained alive. After another 30 seconds (cache expiry), all 300 actual
+file signatures still matched. Relink preview matched 300, ambiguous zero.
+A full rescan retained 300 active photos and all five visible album members,
+with zero retained/replaced album memberships. See default-cache-confirmed.json.
+
+5. CACHE-DISABLED/REMOUNT FILE IDENTITY CHURN — REPRODUCED LIMITATION
+Following the cache-disabled outage runs, 200 of 300 live file inode numbers
+changed although the mount/root device+inode and every PNG's bytes were unchanged.
+Stored catalog rows alone still looked unchanged/online immediately after
+reconnect; that is NOT evidence of live identity continuity. An explicit rescan
+kept 300 active images but classified those changed identities as replacements:
+the album then showed zero visible and five retained members. The stored
+associations were preserved, not deleted. This is visible usability degradation.
+
+A fresh mount reused the old numeric device/root inode. Relink preview matched
+100 files and marked 200 ambiguous; confirm=true refused with a clear identity
+review error. It did not silently transfer associations to unverified identities.
+The local UUID-based reconnect path intentionally does not trust SSHFS/FUSE.
+Thus existing Relink cannot repair this particular remote inode churn. Retained
+association review exposes old memberships; automatic reassociation would require
+a separate trustworthy content/server identity design. No safeguard was weakened.
+
+This failure was NOT reproduced with normal caching in case 4. Do not describe
+all SSHFS reconnects as losing album contents. The cache-disabled options and
+remount are material to this reproduction. See post-reconnect-actual-identities,
+reconnect-rescan, remount-identity and original-hashes JSON evidence.
+
+LIMITS / INVALID ATTEMPTS
+One initial compositor attempt chose the NVIDIA render node with Mesa and failed
+before app startup. Successful runs used Intel renderD128. No desktop review
+claim is made: presentation is the private compositor's frame callback.
+A preliminary normal-cache attempt let immediate stat hit cache; later its sshfs
+process exited during the prolonged listener pause. A subsequent run saw the empty
+unmounted directory. Both were excluded from conclusions; definitive case 4 added
+mount/process/count assertions and a new remote marker. No empty-catalog run is
+counted as passing. Intermediate diagnostics remain only under the /tmp fixture.
+The measurements are one run per scenario with synthetic small images, not a
+large-remote-library throughput/latency/memory claim. Physical network disruption,
+server reboot, new authentication prompts and indefinite stalled startup were
+not exercised. SSHFS keepalive/cache configuration affects failure behavior.
+
+CLEANUP
+Both private mountpoints are unmounted, private sshd terminated, generated private
+SSH keys removed, and private compositors/app probes exited. cleanup.json records
+this and verifies all 300 original PNG hashes. The user's mount was never changed.

@@ -42,9 +42,10 @@ struct SelectionSummary {
 // them hands the same Folder over, so cursor and selection stay.
 //
 // The cursor is the entry the keyboard is on; the selection is a set of entries, usually just the
-// cursor's. Both are kept by name, so they follow their entries when rows move or are renamed,
-// and lose them when they are deleted. The cursor can name an entry that has not been loaded yet
-// (pending): it lands when the entry arrives, or is dropped when the load ends without it.
+// cursor's. Both are kept by stable key (the filename in ordinary directories), so they follow
+// their entries when rows move or are renamed, and lose them when they are deleted. The cursor can
+// name an entry that has not been loaded yet (pending): it lands when the entry arrives, or is
+// dropped when the load ends without it.
 //
 // Where the cursor sits on screen is the view's business: a Folder only says, through
 // take_reveal(), that the cursor moved and how the view should bring it into sight.
@@ -64,6 +65,45 @@ public:
            std::shared_ptr<const fs::MimeDatabase> mime, std::filesystem::path directory,
            std::function<void()> redraw, bool show_hidden = true);
 
+    // An externally supplied collection: no directory is opened or watched. The controller
+    // owns paging, filtering and sorting; snapshots keep their supplied order.
+    Folder(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWatcher& watcher,
+           std::shared_ptr<const fs::MimeDatabase> mime, std::function<void()> redraw);
+
+    void replace_collection(std::vector<fs::Entry> entries, std::string label, std::size_t total,
+                            bool loading = false);
+
+    // Preserve stable row keys/order while publishing metadata or a later query page.
+    // An invalid patch is rejected atomically; it cannot move the cursor to another photo.
+    bool update_collection_rows(std::vector<std::pair<std::size_t, fs::Entry>> rows);
+    void append_collection(std::vector<fs::Entry> rows, std::size_t total, bool loading = false);
+
+    using VisibleRangeHandler = std::function<void(std::size_t first, std::size_t last_exclusive)>;
+
+    // Collection controllers may load more rows as the native view reaches them. Views report
+    // after drawing, when they no longer hold entry references; ordinary directories stay silent.
+    void set_visible_range_handler(VisibleRangeHandler handler) {
+        visible_range_handler_ = std::move(handler);
+    }
+
+    void notify_visible_range(std::size_t first, std::size_t last_exclusive) const;
+
+    [[nodiscard]] bool is_collection() const noexcept { return collection_; }
+
+    [[nodiscard]] const std::string& collection_label() const noexcept { return collection_label_; }
+
+    [[nodiscard]] std::size_t total_count() const noexcept {
+        return collection_ ? collection_total_ : entries().size();
+    }
+
+    [[nodiscard]] bool loading() const noexcept {
+        return collection_ ? collection_loading_ : model_.loading();
+    }
+
+    [[nodiscard]] std::uint64_t revision() const noexcept {
+        return collection_ ? collection_revision_ : model_.revision();
+    }
+
     ~Folder();
 
     Folder(const Folder&) = delete;
@@ -79,7 +119,10 @@ public:
 
     [[nodiscard]] const fs::DirectoryModel& model() const noexcept { return model_; }
 
-    void refresh_entry(const std::string& name) { model_.refresh_entry(name); }
+    void refresh_entry(const std::string& name) {
+        if (!collection_)
+            model_.refresh_entry(name);
+    }
 
     // Where entry really is: path() / name, or in the trash folder its place in a trash.
     [[nodiscard]] std::filesystem::path path_of(const fs::Entry& entry) const;
@@ -91,18 +134,21 @@ public:
     [[nodiscard]] bool is_archive() const noexcept { return model_.is_archive(); }
 
     [[nodiscard]] const std::vector<fs::Entry>& entries() const noexcept {
-        return model_.listing().entries();
+        return collection_ ? collection_entries_ : model_.listing().entries();
     }
 
     // The order of the entries, the same in every view that shows this folder.
-    [[nodiscard]] const fs::SortOrder& order() const noexcept { return model_.listing().order(); }
+    [[nodiscard]] const fs::SortOrder& order() const noexcept {
+        return collection_ ? collection_order_ : model_.listing().order();
+    }
 
     // Sorts the entries again; the cursor and the selection stay on theirs, and the view jumps
     // to the cursor.
     void set_order(const fs::SortOrder& order);
 
     void set_entry_filter(fs::Listing::Predicate filter) {
-        model_.set_predicate(std::move(filter));
+        if (!collection_)
+            model_.set_predicate(std::move(filter));
     }
 
     // The entry under the cursor; nullptr when there is none or it is still pending.
@@ -138,7 +184,7 @@ public:
     void move_cursor(std::ptrdiff_t delta, SelectMode mode = SelectMode::replace,
                      bool wrap = false);
 
-    // Puts the cursor on the entry called name and selects it, now or when it arrives.
+    // Puts the cursor on the entry with this stable key and selects it, now or when it arrives.
     void select_name(std::string name);
 
     // The same for an entry rummage has just made: it is not listed yet, and the cursor waits for
@@ -170,11 +216,13 @@ public:
     // cursor is put on by name (select_name, expect_name) is shown even when hidden.
     void set_show_hidden(bool show, bool keep_cursor = false);
 
-    [[nodiscard]] bool shows_hidden() const noexcept { return model_.listing().shows_hidden(); }
+    [[nodiscard]] bool shows_hidden() const noexcept {
+        return collection_ || model_.listing().shows_hidden();
+    }
 
     // The entries left out.
     [[nodiscard]] std::size_t hidden_count() const noexcept {
-        return model_.listing().hidden().size();
+        return collection_ ? 0 : model_.listing().hidden().size();
     }
 
     // Back to the cursor's entry alone (Escape).
@@ -188,8 +236,13 @@ public:
         return selected_.contains(name);
     }
 
-    // The selected names, in listing order.
+    // The selected stable keys, in listing order (ordinary directory keys are names).
     [[nodiscard]] std::vector<std::string> selected_names() const;
+
+    // Borrowed rows remain valid until the next collection snapshot or directory update.
+    [[nodiscard]] std::vector<const fs::Entry*> selected_entries() const;
+    // Logical rows with no original path are omitted.
+    [[nodiscard]] std::vector<std::filesystem::path> selected_paths() const;
 
     // The entry under the cursor when it is the whole selection; nullptr otherwise.
     [[nodiscard]] const fs::Entry* single_selection() const;
@@ -231,7 +284,15 @@ private:
     std::shared_ptr<const fs::MimeDatabase> mime_;
     std::function<void()> redraw_;
     std::function<void()> changed_;
+    VisibleRangeHandler visible_range_handler_;
     fs::DirectoryModel model_;
+    bool collection_{false};
+    bool collection_loading_{false};
+    std::string collection_label_;
+    std::size_t collection_total_{0};
+    std::uint64_t collection_revision_{0};
+    std::vector<fs::Entry> collection_entries_;
+    fs::SortOrder collection_order_;
 
     std::string cursor_name_;                  // empty: no cursor
     std::optional<std::size_t> cursor_index_;  // nullopt while pending

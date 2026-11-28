@@ -1,0 +1,107 @@
+[
+  {
+    "name": "install-Unspecified",
+    "command": [
+      "cmake",
+      "--install",
+      "/tmp/rummage-remediation-build",
+      "--prefix",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix",
+      "--component",
+      "Unspecified"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "install-media",
+    "command": [
+      "cmake",
+      "--install",
+      "/tmp/rummage-remediation-build",
+      "--prefix",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix",
+      "--component",
+      "media"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "install-pdf",
+    "command": [
+      "cmake",
+      "--install",
+      "/tmp/rummage-remediation-build",
+      "--prefix",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix",
+      "--component",
+      "pdf"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "check-base",
+    "command": [
+      "bash",
+      "/tmp/rummage-photo-library/scripts/ci/check-installed.sh",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix",
+      "0.6.1",
+      "/tmp/rummage-photo-library/LICENSE"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "check-absent",
+    "command": [
+      "python3",
+      "/tmp/rummage-remediation-package-checks/staged-install/check-photos-installed-preserve-home.py",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix/bin/rummage"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "install-photos",
+    "command": [
+      "cmake",
+      "--install",
+      "/tmp/rummage-remediation-build",
+      "--prefix",
+      "/tmp/rummage-remediation-package-checks/staged-install/addon",
+      "--component",
+      "photos"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "install-photos-combined",
+    "command": [
+      "cmake",
+      "--install",
+      "/tmp/rummage-remediation-build",
+      "--prefix",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix",
+      "--component",
+      "photos"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "check-present",
+    "command": [
+      "python3",
+      "/tmp/rummage-remediation-package-checks/staged-install/check-photos-installed-preserve-home.py",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix/bin/rummage",
+      "--module",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix/libexec/rummage/librummage-photos.so"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "check-removed",
+    "command": [
+      "python3",
+      "/tmp/rummage-remediation-package-checks/staged-install/check-photos-installed-preserve-home.py",
+      "/tmp/rummage-remediation-package-checks/staged-install/prefix/bin/rummage"
+    ],
+    "exit": 0
+  }
+]

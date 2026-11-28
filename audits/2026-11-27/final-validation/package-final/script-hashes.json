@@ -1,0 +1,11 @@
+{
+  "scripts/ci/native-build.sh": "f7931e0e1528613659ffcf90755b87ec1dd66363a1c14d00e266fe6152bedeb4",
+  "scripts/ci/native-install.sh": "a4ceae1f21b1065268eb198b7798717c7169e75af13036607797d4ebbe91d654",
+  "scripts/ci/check-installed.sh": "d16a6ebe6bf3053eef0f8f67a66356c6832117ff24dd18556d2c1ca4295f020e",
+  "scripts/ci/check-photos-installed.py": "cc7956bc3e07962ee7f3bac0883f273e578a5a3ba2669f5bfe7bd5f39eab2b6e",
+  "scripts/ci/check-pdf.py": "6b63fa061a37d1d80e67fb8b1b3a20489e663ea5401f3f93018bcc7b7581d7a9",
+  "scripts/ci/check-wayland.sh": "1968c8d2373d1d66bfea55fa2a7d662257a6c091f93785ae9f5e898c31a5557e",
+  "scripts/ci/check-windows.py": "c54b62671e0d0ce86d86e74ee0493c965fb7b84ee9f0664096650658941f556d",
+  "packaging/rpm/rummage.spec": "8e0c8fe1ca8deda70775f0a4b60ecd7ecf3ab9673694c1aa3d89aa62abc3d85f",
+  "scripts/ci/native-env": "618f29e8fdf3ebdddf867e603eaa84332329da9628be28cd4efa0558cc9a50f5"
+}

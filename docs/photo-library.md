@@ -1,0 +1,381 @@
+# Photo Library
+
+[Documentation](README.md) · [Installation](install.md#photo-library-add-on) · [Previews](previews.md) · [File operations](file-operations.md)
+
+Photo Library combines photographs from registered folders into one searchable collection.
+Originals remain in their existing locations. The optional `rummage-photos` add-on stores
+organisation in a local catalog; it needs no account, server, model download or network service.
+Video and PDF previews belong to the standard application and have separate Settings switches.
+
+![Photo Library showing a photo grid with albums, sources and saved searches in the sidebar](images/rummage-photo-library.webp)
+
+The screenshots in this guide use a custom colour palette.
+
+## Add folders and find photographs
+
+Install the matching photo add-on, leave **Enable Photo Library** enabled in General settings,
+and choose **Photo Library** in the sidebar or command palette. A folder's context menu also
+has **Add to Photo Library…**. Photo Library opens in a normal browser tab alongside your
+folder tabs, with the same sidebar, navigation, view controls and status bar. Picker and portal
+windows do not expose the library.
+
+**Photo Library** opens expanded in the sidebar, with **Albums**, **Sources**, **Saved searches**
+and **Review duplicates** beneath it. Expand Albums or Saved searches to select an
+individual album or saved query directly; Sources also expands to its registered folders. Click
+a group’s label to browse its list in the main pane. Click Photo Library to return to all photos.
+The sidebar remembers which groups you expand or collapse and highlights the current location.
+New albums and saved searches appear there after they are saved.
+
+Right-click a photo for actions on that selection: copying, showing its original folder,
+adding it to an album, and **Properties…**. Properties also edits catalog annotations.
+Inside an album, the menu additionally offers **Remove from this album** and, for a single
+selected photo, **Use as album thumbnail**. Library navigation stays in the sidebar.
+The Photo Library toolbar menu groups library-wide controls under **Search and filters**,
+**Selection**, **Background work** and **Annotations**.
+
+Open the toolbar’s **Photo Library** menu and choose **Add folder…**. Select the folder in
+Rummage’s own folder picker, then review **Include subfolders** and optional source-relative
+exclusions. The review shows the chosen location; no path typing is required. Adding a folder
+starts discovery without copying or rewriting
+its contents. Overlapping source roots are refused; files with the same name in different
+folders retain separate identities. Symbolic links inside sources are not followed.
+
+![Rummage’s folder picker for choosing a Photo Library source](images/rummage-photo-source-picker.webp)
+
+*Choose a source folder with the same picker used elsewhere in Rummage.*
+
+The **Library** shows all active sources together while discovery continues. The browser’s
+**Search photos…** field matches stored filenames, descriptions and tags. In the Photo Library
+menu’s **Search and filters** submenu, **Filter photos…** adds minimum rating, capture-date bounds, **Unknown date only**, and
+an option to include inactive sources. **Sources** and **Albums** can narrow the same collection.
+**Clear photo filters** returns to the active library. **Save photo search…** records the current
+query and filters for reuse under **Saved searches**. Search is indexed text search; there is
+no visual or semantic search.
+
+All Photo Library sections default to **Grid**, including Albums, Sources and Saved searches.
+Switching sections preserves your chosen view instead of resetting it to Details. You can also
+use the browser’s existing **Columns** or **Details** view. They share the result set
+and selected photo identities. The ordinary sort controls order results by name, size,
+modification time or original location; Details includes the location so same-name photographs
+from different folders remain distinguishable. The information pane shows the focused photo’s
+preview, cached metadata and catalog annotations.
+
+![The Countryside album with a HEIC landscape selected and its preview and metadata in the information pane](images/rummage-photo-properties.webp)
+
+*The information pane keeps the selected photo and its details beside the collection.*
+
+The view menu’s **Gallery: hide media filenames** option switches to Grid and enlarges ready
+image and video thumbnails into the label area. It works in the full library and inside albums.
+Album names remain visible on their covers in the Albums grid.
+Selected, focused and hovered photos retain their names; missing thumbnails retain their labels.
+The Gallery preference is remembered between sessions.
+
+Photos load automatically as you scroll in Grid, Columns and Details, including albums,
+sources and saved searches. The initial 200 photos are a loading batch, not a collection limit;
+more are appended near the end without changing your selection or resetting your scroll.
+The status bar distinguishes the full matching count from the number currently loaded.
+**Select loaded photos** and the ordinary Select All shortcut select the loaded entries;
+they do not select matching photos that have not loaded yet.
+Selections belong to the current photo collection. Entering another album, source or saved
+search clears the previous selection; a normal click or arrow-key move replaces it. Loading
+more photos and refreshing the same collection preserve it. **Clear all photo selection** also
+clears it explicitly. The Albums manager can still use **Add selected photos to album** for
+the selection you brought from the library.
+
+Enter or Space opens the focused photo in **Quick Look**, using Rummage's existing
+preview. **Show in Folder** opens the original location in a folder tab. An offline original
+cannot be opened; cached thumbnails and known information remain available. A missing cached
+thumbnail is shown as a placeholder, without discarding the photo's organisation.
+
+![A photo open in Quick Look over the Photo Library browser](images/rummage-photo-quicklook.webp)
+
+*Quick Look opens over the existing browser view.*
+
+A photo marked **changed** can still show a thumbnail and open in Quick Look by reading the
+file at its recorded location. The preview notice makes clear that the catalog identity is
+unverified; it does not confirm that the current file is the original catalogued photo.
+**Copy** copies the current file at that location, and **Properties…** reads its current
+metadata separately from the saved catalog values. Catalog annotations and captured identity
+remain unchanged. **Cut** and destructive operations still require a verified original.
+Offline, missing, trashed and replaced records remain cache-only.
+
+Album counts describe visible photos. Replaced originals and inactive sources retain their
+annotations separately: choose **Search and filters → Review retained photo associations**
+in the Photo Library toolbar menu to inspect them. This view can be used within an album or source.
+Turn the filter off to return to active photos. A changed filesystem
+identity is never automatically attached to another file, even when its name and contents look
+the same. Sources whose inode identities change across reconnects may require this review.
+
+Dragging from Photo Library explains the supported alternative: **Copy** or **Cut**, then
+**Paste** in a folder. Collection dragging remains unavailable; the ordinary folder browser's
+drag behavior is unchanged.
+
+Right-click selected photos for **Copy**, **Cut**, **Copy Path** and **Properties…**, or use
+the normal keyboard shortcuts. Paste copied files into an ordinary folder to copy the originals.
+Open an album and choose **Paste** to add memberships instead: no files move or duplicate.
+All pasted files must already belong to an active Photo Library source; otherwise add or refresh
+their source first. Album paste accepts Copy, while Cut is reserved for moving originals into
+an ordinary folder.
+
+Copying one photo also prepares image clipboard data in the background for websites and
+applications that accept pasted images. File clipboard data is available immediately. Image
+data is limited to 64 MiB; supported original image formats are offered directly, with a PNG
+alternative for decoded images up to 4,096 pixels per side. Larger images retain their original
+format and file clipboard data rather than being silently reduced. The receiving application
+chooses which clipboard formats it supports. Copying several photos offers files, not a composite
+image.
+
+
+## Edit and organise
+
+Select photographs and open **Properties**, or choose **Edit photo annotations…** from the
+Photo Library menu’s **Selection** submenu. This uses Rummage’s normal Properties dialog and
+shows the affected-photo count. Shared fields show their value; differing or unloaded values
+are marked **Mixed values**. Editing a field checks its **Apply** switch. Check a blank field
+explicitly to clear it across the selection; leave unchecked fields unchanged. **Tags to add**
+and **Tags to remove** accept comma-separated tags and preserve unrelated tags. The dialog’s
+**Apply** saves the checked changes, while **Cancel** discards the draft. Failed writes leave
+the draft available to correct or retry. Catalog annotations remain editable while originals
+are offline.
+
+For a single available photo, Properties also loads read-only metadata from the current file.
+For a **changed** entry, these details are labeled separately from catalog values and do not
+accept the new filesystem identity. Unknown catalog dimensions are omitted rather than shown
+as `0 × 0`.
+
+The catalog owns these edits:
+
+| Field | Source and editing policy |
+| --- | --- |
+| Description | Your catalog text; external descriptions are not imported automatically |
+| Tags | Your catalog tags; adding/removing tags does not rewrite unrelated tags |
+| Rating | Your catalog rating from 0 to 5 |
+| Capture date | Extracted image date, with an optional catalog override; clearing the override restores the extracted value |
+| Dimensions and camera | Derived through the existing isolated image engine |
+| Albums | Catalog memberships; adding or removing membership never moves an original |
+
+Capture dates accept `YYYY-MM-DD` or a date and time such as `2024-06-01T12:30:00`.
+An unknown timezone stays unknown; modification time is not substituted as the capture date.
+The information pane and Properties identify an extracted, user-supplied or unknown date. Rescanning preserves
+manual annotations and date overrides.
+
+Select photos, right-click and choose **Add to album…**. Choose an existing album in the
+searchable album list, or **Create new album…** to make one from the same selection. Cancelling
+the chooser leaves your photos and album memberships unchanged. This action is also in the
+Photo Library toolbar menu’s **Selection** submenu.
+
+![The compact photo context menu with Add to album highlighted in the Home album](images/rummage-photo-add-to-album.webp)
+
+Use **Create album…** in the Photo Library menu to create an album containing
+that selection. The dialog shows how many photos will be included; with no selection it creates
+an empty album. Open **Albums** and choose the album to see its photos. The breadcrumb names the
+album. Click **Photo Library** in the sidebar, or use Back or Parent to
+return to the full active library. An album’s context
+menu offers **Add selected photos to album** and **Remove selected photos from album**.
+
+![Albums view showing Countryside, Food & Drink and Home with photo covers](images/rummage-photo-album.webp)
+
+*Browse albums by their photo covers, then open one in the same browser as the full library.*
+
+The sidebar's **Albums** group also offers **Create album…** on right-click. If a previous
+selection includes photos whose source data has since been forgotten, creation removes those
+stale selections and shows a dialog explaining how many were removed. Review the remaining
+selection and choose **Create album…** again. It does not silently create an incomplete album.
+Resetting the catalog also clears saved photo selections and album/source locations, so old IDs cannot select unrelated
+photos in the new library.
+
+If creation fails, the name dialog reopens with the entered name and the error, so you can
+correct it without retyping. Album names can include spaces and ampersands.
+
+Right-click an album in the sidebar or Albums view to **Rename album…** or
+**Delete album…**. These actions are also in the Photo Library menu while the album
+is open. Deleting an album asks for confirmation and removes only the album and
+its memberships; its photos remain in the library and their original folders.
+In the Albums view, **F2** renames the focused album and **Delete** opens the same
+deletion confirmation.
+
+Albums show an automatic photo thumbnail in the Albums view. To choose one, open
+the album, select a single photo, and choose **Use as album thumbnail** from its
+context menu or the Photo Library menu. **Use automatic album thumbnail** in the
+album menu clears your choice. Empty albums keep a placeholder.
+
+Filesystem-browser annotations, xattrs and sidecars retain their existing separate
+semantics. The photo library does not silently import or synchronise those editable values,
+and it does not rewrite embedded metadata. Explicit external-annotation import is not yet
+provided.
+
+## Sources and background work
+
+Background-work diagnostics go to the system journal, rather than an Activity view.
+Only starts, stops, checkpoints every 30 seconds during work, and grouped errors are logged.
+Repeated errors are rate-limited; pending errors are flushed when work stops. Read them on a
+systemd desktop with:
+
+```sh
+journalctl -t rummage -b
+```
+
+Use `journalctl -t rummage -f` to follow new entries. Rummage does not create a separate log file.
+The status bar still shows current progress and errors. It distinguishes folder discovery from
+metadata processing. Discovery counts entries examined (including folders and skipped files); it is not
+a count of finished photo metadata. After discovery, metadata progress shows checked and pending
+eligible photos. Changed or unavailable originals are reported separately and need source refresh;
+they are not counted as successful metadata reads. Refresh a source to retry discovery after
+resolving an unavailable location. A pause prevents new items from starting at a safe checkpoint;
+already claimed metadata work can finish.
+
+The Photo Library menu’s **Background work** submenu contains **Pause background work** and
+**Resume background work**. These apply across library
+windows and persist through restarts. Resuming globally leaves individually paused jobs paused.
+Source changes can still queue a refresh while work is paused; processing waits for resume.
+Check **Gentle background pace** in the same menu for smaller, less frequent batches that
+leave more resources available for browsing. Uncheck it to restore the normal pace. This preference also
+persists across windows and restarts.
+
+| Pace | Discovery entries per batch | Metadata items per batch | Delay before the next batch |
+| --- | --- | --- | --- |
+| Normal | Up to 32 | Up to 4 | 250 ms |
+| Gentle | Up to 8 | Up to 1 | 1 second |
+
+These are scheduling bounds, not processing-speed estimates. A single file can take longer to
+read or decode, and currently claimed work can finish after a pause.
+
+Previously used library work resumes on a normal browser launch when the saved workspace
+and catalog are present, subject to saved pause settings; opening Photo Library also resumes
+eligible work. Picker, portal and desktop Show in Folder entry points do not resume photo work.
+Closing its workspace leaves work running while that browser window is alive; closing the final
+window ends processing. There is no background daemon.
+
+While the library is active, Rummage monitors registered source folders and discovered
+subfolders using its existing directory watcher. Watch registration resolves paths on workers,
+so a slow source does not block the browser’s event loop. The catalog retains the discovered folder
+list for the next launch and queues one reconciliation per monitored source on restart to catch changes
+made while Rummage was closed. Nearby filesystem events are collected for 150 ms before
+queuing a source refresh. Watcher overflow also queues reconciliation; unchanged signatures retain
+derived metadata and duplicate fingerprints. Source availability is checked every 30 seconds,
+and a reconnected source queues a refresh. An unavailable source is marked offline; failure
+to read a drive is not treated as mass deletion. A reachable source whose identity cannot yet
+be verified is marked changed instead. Its current-file preview and metadata remain available,
+while operations on the catalog's original identities remain guarded.
+
+For supported local ext filesystems and XFS, the catalog records a filesystem UUID so device
+renumbering after a restart does not make an established source appear offline. Older catalogs
+without that identifier need a one-time review: use **Relink source…**, choose the same folder,
+and review **Reconnect**. It reports matching originals and requires confirmation; missing or
+ambiguous originals block this device-change reconnect. Album memberships and annotations stay
+attached to verified photo identities.
+
+Sources must expose stable file identities.
+Some SSHFS mounts change child inode numbers between reads; those originals can be marked
+changed and have metadata rejected even when size and modification time match. The status
+reports them separately. Refresh can retry, but does not resolve continuing inode instability;
+this implementation does not weaken identity checks to accept those replacements automatically.
+
+Automatic monitoring is limited to 4,096 folders per browser window. Reaching this limit or
+failing to register a folder displays a warning. Use **Refresh folder** in a source’s context menu
+or **Refresh Photo Library** for all active sources when automatic monitoring is incomplete, after
+external changes not yet reflected in the library, or to recover from a watcher problem.
+Refreshing remains available even when a folder cannot be watched; it respects background
+pause settings. You can also retry a waiting job after reconnecting its source.
+The shared asynchronous watcher bounds active and pending registrations at 8,192 across its
+users, including cancelled registrations waiting for an operating-system lookup to return.
+If that bound is reached, manual refresh remains available. Cancelling navigation suppresses
+late replies; an already-running filesystem syscall itself may still take time to return.
+
+**Relink source…** in a source’s context menu opens the native folder picker, then reviews
+the chosen location before applying it. Existing filesystem identities must
+match; ambiguous replacements block the change. Relinking is conservative and does not treat
+matching filenames or equal bytes as sufficient identity. **Make source inactive** hides a source from active
+views and stops its work while keeping annotations. **Forget source data…** requires an inactive
+source and confirmation, and discards its catalog records. Neither action deletes originals.
+
+Confirmed moves and renames retain organisation when filesystem identity is preserved.
+Moves to another filesystem or outside registered sources can require location review;
+the catalog retains the original and destination details for recovery. These unresolved
+matches are not automatically attached to a different file.
+
+## Review exact duplicates
+
+Choose **Review duplicates** in the Photo Library menu, then **Find exact duplicate candidates**.
+Use **Previous duplicate groups** and **Next duplicate groups** to browse every result page;
+the status shows the full group count. Size and content signatures select candidate groups;
+full byte comparison runs again before a
+trash request. Open a group with **Review these copies**. Its photos use the same browser views,
+location column and information pane as the library. Use **Keep selected copies** and
+**Mark selected copies for trash** in the context menu to choose which originals to retain.
+**Move marked copies to Trash…** opens the final review. The proposed first cataloged copy is only a suggestion. It does not mean
+that this copy has better quality or metadata.
+
+The browser review shows the originals and their keep or trash decisions. The final confirmation
+shows the exact counts to retain and trash. Rummage records the intent before
+using its normal trash queue and sidecar rules. Immediately before each original is moved,
+the queue checks its captured identity and the retained copies' identities again. Changed or
+offline candidates remain in place and require another review. This is ordinary recoverable
+trash, with no automatic permanent deletion or change to retention settings.
+
+A confirmed trash receipt allows **Restore selected originals from trash** in the photo context menu. Rummage's
+normal restore conflict choices apply. Changed receipts are refused. If filesystem completion
+and catalog recording were interrupted, reopening the library attempts reconciliation from
+existing receipts; it never repeats a deletion blindly. Unresolved results need review and
+must not be treated as a completed cleanup. Near-duplicate and burst review are not provided.
+
+## Export and recovery
+
+**Export photo annotations…** under **Annotations** in the Photo Library menu opens Rummage’s native Save picker
+with a suggested JSON filename. Saving over an existing export uses the picker’s replacement
+confirmation; the completed export replaces the file atomically. Exports contain annotations,
+date overrides, albums,
+saved filters, source mappings and identity information. They contain no photograph pixels.
+Keep exports somewhere separate from the working catalog.
+
+Use **Restore photo annotations…** in the same menu and choose the versioned JSON export in
+Rummage’s native Open picker, including in a fresh catalog. Cancelling either picker leaves
+the catalog and export files unchanged. Before applying a restore, a confirmation explains its
+policy: descriptions, ratings and manual dates replace the corresponding matching values;
+tags and album memberships merge with existing organisation. Newer memberships are not
+removed, so this is a merge operation rather than a complete rollback.
+Restoration registers the exported source folders without starting an automatic scan and
+restores only established identity matches. Newly restored sources remain unmonitored across
+restarts until you explicitly use **Refresh folder** or **Refresh Photo Library**. Existing
+monitored sources retain their monitoring setting. The result reports restored, missing and ambiguous
+entries; files with the same name are not silently matched. Originals copied onto a different filesystem can have different identities and
+require review. An annotation export is not a backup of your photographs or thumbnail cache.
+
+The catalog is normally `~/.local/share/rummage/photos/catalog.sqlite3`, or under
+`$XDG_DATA_HOME/rummage/photos/`. Disabling or uninstalling the add-on preserves that directory.
+For a filesystem backup, close all Rummage windows and retain the complete directory, including
+any SQLite journal files. Schema initialization/upgrades are versioned; failures preserve the
+existing catalog and report an error. An interrupted upgrade can retry while preserving earlier
+backup files under unique names. Do not delete a catalog to dismiss an upgrade error.
+
+This implementation supports still-image cataloging through the available image engines.
+Recognised image extensions with unavailable decoders or damaged contents appear as problems
+without stopping healthy photographs; other file extensions are skipped during discovery. AI,
+people recognition, video cataloging, remote synchronization and automatic folder relocation
+are not included.
+
+## Current limits
+
+There is no configured cap on the total number of catalogued photos, sources, albums or saved
+searches. Query responses contain at most 1,000 records; the browser fetches additional batches.
+Rows already browsed remain in memory, so memory use grows as you browse a large result set.
+The scrollbar and End key refer to the currently loaded portion.
+
+These remaining limits affect normal use:
+
+| Feature | Current limit and effect |
+| --- | --- |
+| Automatic folder monitoring | 4,096 photo folders per window; 8,192 shared asynchronous registrations across the watcher’s users. A warning appears when coverage is incomplete. Manual refresh still scans sources. |
+| Bulk edits / new album selection | 100,000 photos per request. Larger requests are rejected. |
+| Duplicate review | Groups are paginated, with no total group cap; one review accepts up to 1,000 candidate and keeper IDs. |
+| Annotation export and restore | Both support at most 256 MiB per JSON file and 1,000,000 photo records. An oversized export fails before replacing its destination. |
+| Annotation text | Description: 65,536 UTF-8 bytes. Each tag, album name and saved-search name: 512 bytes. Native Properties fields are currently single-line. |
+| Source exclusions | Up to 1,000 patterns per source. |
+| Workspace restoration | At most 100,000 selected IDs in the photo workspace; the overall saved workspace is limited to 4 MiB. Oversized state may not survive a restart; catalog data is separate. |
+| Image decoding | Shared image safety limits include 200 megapixels, a three-second helper timeout and a 4 GiB helper address space. A file can be catalogued even when its preview fails. |
+| Metadata inspector | At most 256 detail rows, 4,096 bytes per detail field, within a 64 KiB transport packet; truncated details are marked. It is not a complete metadata export. |
+
+Background discovery and metadata batches, thumbnail cache eviction and watcher event buffers
+bound individual units of work; they do not impose a total library size limit. Discovery does
+not follow symlinks. It currently recognises JPEG, PNG, WebP, GIF, BMP, TIFF, JPEG XL,
+HEIF/HEIC, AVIF and selected RAW extensions; decoding still requires an available image engine.

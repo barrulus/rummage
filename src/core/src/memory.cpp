@@ -211,9 +211,11 @@ std::vector<std::string> describe(const MemoryReport& report) {
                     "shared {}",
                     mb(report.rss), mb(report.peak_rss), mb(report.anonymous),
                     mb(report.private_clean), mb(report.private_dirty), mb(report.shared)));
-    lines.push_back(std::format("malloc: in use {}, freed but kept {}, arenas {}, mmapped {}",
-                                mb(report.heap_in_use), mb(report.heap_free), mb(report.heap_arena),
-                                mb(report.heap_mmapped)));
+    lines.push_back(
+        std::format("malloc: in use {}, free capacity {} (may be nonresident), "
+                    "arenas {}, mmapped {}",
+                    mb(report.heap_in_use), mb(report.heap_free), mb(report.heap_arena),
+                    mb(report.heap_mmapped)));
     lines.push_back(std::format("gpu: vram {}, gtt {}, cpu {}", mb(report.gpu_vram),
                                 mb(report.gpu_gtt), mb(report.gpu_cpu)));
     constexpr std::size_t shown = 8;
@@ -226,5 +228,11 @@ std::vector<std::string> describe(const MemoryReport& report) {
 }
 
 void give_back_free_memory() { malloc_trim(0); }
+
+bool give_back_free_memory_if_needed(std::uint64_t minimum_free_bytes) {
+    if (mallinfo2().fordblks < minimum_free_bytes)
+        return false;
+    return malloc_trim(0) != 0;
+}
 
 }  // namespace rummage::core

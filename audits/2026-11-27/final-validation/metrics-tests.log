@@ -1,0 +1,21 @@
+test_dropped_key_is_separate_from_subsequent_wrong_selection (test_metrics.MetricsTest.test_dropped_key_is_separate_from_subsequent_wrong_selection) ... ok
+test_late_frame_cannot_be_counted_for_previous_key (test_metrics.MetricsTest.test_late_frame_cannot_be_counted_for_previous_key) ... ok
+test_percentile_uses_nearest_rank_and_preserves_samples (test_metrics.MetricsTest.test_percentile_uses_nearest_rank_and_preserves_samples) ... ok
+test_received_but_unhandled_is_not_a_delivery_failure (test_metrics.MetricsTest.test_received_but_unhandled_is_not_a_delivery_failure) ... ok
+test_trace_tolerates_only_incomplete_last_line (test_metrics.MetricsTest.test_trace_tolerates_only_incomplete_last_line) ... ok
+test_waits_for_correct_loaded_and_settled_frame (test_metrics.MetricsTest.test_waits_for_correct_loaded_and_settled_frame) ... ok
+test_background_reorder_cannot_match_different_photo_at_same_cursor (test_photo_metrics.PhotoMetricsTests.test_background_reorder_cannot_match_different_photo_at_same_cursor) ... ok
+test_completion_marker_must_be_complete_and_last (test_photo_metrics.PhotoMetricsTests.test_completion_marker_must_be_complete_and_last) ... ok
+test_identity_is_cursor_not_duplicate_filename (test_photo_metrics.PhotoMetricsTests.test_identity_is_cursor_not_duplicate_filename) ... ok
+test_last_key_cannot_use_long_idle_to_hide_a_miss (test_photo_metrics.PhotoMetricsTests.test_last_key_cannot_use_long_idle_to_hide_a_miss) ... ok
+test_progressive_current_photo_does_not_count_as_requested_resolution (test_photo_metrics.PhotoMetricsTests.test_progressive_current_photo_does_not_count_as_requested_resolution) ... ok
+test_progressive_frame_still_requires_current_identity (test_photo_metrics.PhotoMetricsTests.test_progressive_frame_still_requires_current_identity) ... ok
+test_progressive_upgrade_records_both_latencies (test_photo_metrics.PhotoMetricsTests.test_progressive_upgrade_records_both_latencies) ... ok
+test_ready_requires_matching_sequence_and_cursor (test_photo_metrics.PhotoMetricsTests.test_ready_requires_matching_sequence_and_cursor) ... ok
+test_refresh_only_workload_counts_completed_queries (test_photo_metrics.PhotoMetricsTests.test_refresh_only_workload_counts_completed_queries) ... ok
+test_unrendered_selection_is_distinct_from_missing_pixels (test_photo_metrics.PhotoMetricsTests.test_unrendered_selection_is_distinct_from_missing_pixels) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.002s
+
+OK

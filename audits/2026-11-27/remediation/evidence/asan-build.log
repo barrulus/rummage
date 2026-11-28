@@ -1,0 +1,16 @@
+warning: Git tree '/tmp/rummage-photo-library' is dirty
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+error (ignored): SQLite database '/home/barrulus/.cache/nix/eval-cache-v6/ec00481d721813a6ebd58d648388d6522efbbd6a6442d1b48b7945a315950391.sqlite' is busy
+[0/2] Re-checking globbed directories...
+[1/12] Building CXX object src/photos/CMakeFiles/rummage_photos.dir/src/catalog.cpp.o
+[2/12] Linking CXX shared library librummage-photos.so
+[3/12] Linking CXX executable tests/rummage-photos-tests
+[4/12] Building CXX object src/views/CMakeFiles/rummage_views.dir/src/photo_library.cpp.o
+[5/12] Linking CXX static library src/views/librummage_views.a
+[6/12] Linking CXX executable rummage-bench-find
+[7/12] Linking CXX executable rummage-snapshot
+[8/12] Linking CXX executable rummage
+[9/12] Linking CXX executable tests/rummage-tests
+[10/12] Building CXX object tests/CMakeFiles/rummage-photo-ui-tests.dir/photo_library_ui_test.cpp.o
+[11/12] Linking CXX executable tests/rummage-photo-ui-tests

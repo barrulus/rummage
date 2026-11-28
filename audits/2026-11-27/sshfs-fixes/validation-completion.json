@@ -1,0 +1,90 @@
+[
+  {
+    "stage": "release-build",
+    "command": [
+      "nix",
+      "develop",
+      "--command",
+      "cmake",
+      "--build",
+      "/tmp/rummage-remediation-build",
+      "-j6"
+    ],
+    "exit": 0,
+    "elapsed_s": 159.7810216729995
+  },
+  {
+    "stage": "release-ctest",
+    "command": [
+      "nix",
+      "develop",
+      "--command",
+      "ctest",
+      "--test-dir",
+      "/tmp/rummage-remediation-build",
+      "--output-on-failure",
+      "-j3"
+    ],
+    "exit": 0,
+    "elapsed_s": 83.49427458700666
+  },
+  {
+    "stage": "asan-build",
+    "command": [
+      "nix",
+      "develop",
+      "--command",
+      "cmake",
+      "--build",
+      "/tmp/rummage-remediation-asan",
+      "-j8"
+    ],
+    "exit": 0,
+    "elapsed_s": 334.02095169600216
+  },
+  {
+    "stage": "asan-ctest",
+    "command": [
+      "nix",
+      "develop",
+      "--command",
+      "ctest",
+      "--test-dir",
+      "/tmp/rummage-remediation-asan",
+      "--output-on-failure",
+      "-j3"
+    ],
+    "exit": 0,
+    "elapsed_s": 139.4336898499896
+  },
+  {
+    "stage": "probe-build",
+    "command": [
+      "nix",
+      "develop",
+      "--command",
+      "python3",
+      "scripts/performance/photo_instrument.py",
+      "--source",
+      "/tmp/rummage-photo-library",
+      "--build",
+      "/tmp/rummage-remediation-build",
+      "--out",
+      "/tmp/rummage-sshfs-verified-probe"
+    ],
+    "exit": 0,
+    "elapsed_s": 12.391321022994816
+  },
+  {
+    "stage": "suite-driver",
+    "command": [
+      "nix",
+      "develop",
+      "--command",
+      "python3",
+      "/tmp/rummage-sshfs-verified-driver/suite.py"
+    ],
+    "exit": 0,
+    "elapsed_s": 672.8374414550053
+  }
+]

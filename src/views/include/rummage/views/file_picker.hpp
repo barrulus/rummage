@@ -45,6 +45,8 @@ public:
 
     [[nodiscard]] const std::string& error() const { return error_; }
 
+    [[nodiscard]] bool validating() const noexcept { return validating_; }
+
     void set_name(std::string name);
 
     [[nodiscard]] const char* name_label() const {
@@ -61,6 +63,7 @@ public:
 
 private:
     void sync_selection();
+    void cancel_validation();
     void finish(std::vector<std::string> paths);
     void filters_menu(bool keyboard);
     void choice_control(std::size_t index, bool keyboard);
@@ -77,6 +80,8 @@ private:
     ContextMenu menu_;
     ConfirmDialog confirm_;
     std::string error_;
+    core::CancelToken validation_;
+    bool validating_{};
     ui::Rect footer_;
     ui::Rect choices_viewport_;
     float choices_scroll_{};

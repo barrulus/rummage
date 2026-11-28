@@ -52,6 +52,11 @@ struct Pane {
     std::string filter_error;
     fs::Listing::Predicate entry_filter;
     bool show_hidden{false};
+    // Collection destinations share the real browser views and frame. They have no
+    // filesystem root and must not be passed to directory mutation operations.
+    bool photos{false};
+    bool photo_records{false};
+    std::vector<fs::SortKey> photo_columns;
     ViewMode mode{ViewMode::columns};
     std::filesystem::path settings_folder;  // whose preferences are applied
     std::optional<State::FolderSettings> remembered_settings;

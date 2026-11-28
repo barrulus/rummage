@@ -19,7 +19,7 @@ libyuv and OpenJPEG (BSD), Highway (Apache-2.0), simdutf (MIT or Apache-2.0),
 fast_float (MIT, Apache-2.0 or BSL-1.0), and GoogleTest (BSD). The source bundle
 retains their upstream notices and records versions in `versions.json`.
 
-The optional native `rummage-pdf` package installs the renderer and embedded
+The native `rummage` package includes the renderer and installs embedded
 components' notices under `/usr/share/licenses/rummage-pdf`, including PDFium's
 nested third-party notices. Build tools and test dependencies are not installed
 in the runtime package. The source build and private library layout are described

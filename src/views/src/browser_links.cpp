@@ -33,7 +33,8 @@ void Browser::links_done(const fs::TransferRequest& request, const fs::TransferR
 
 void Browser::create_links(fs::LinkKind kind) {
     const std::shared_ptr<Folder> folder = current_folder();
-    if (!folder || picker_mode_ || folder->is_trash() || folder->is_archive()) {
+    if (!folder || picker_mode_ || folder->is_trash() ||
+        (folder->is_archive() || folder->is_collection())) {
         return;
     }
     std::vector<std::string> names = targets(*folder);
@@ -77,7 +78,8 @@ void Browser::link_paths(const std::filesystem::path& destination,
 
 void Browser::paste_links(fs::LinkKind kind) {
     const auto folder = current_folder();
-    if (!folder || picker_mode_ || folder->is_archive() || folder->is_trash())
+    if (!folder || picker_mode_ || (folder->is_archive() || folder->is_collection()) ||
+        folder->is_trash())
         return;
     if (system_.types && system_.read &&
         (!system_.owned || !system_.owned() || clipboard_.names.empty())) {
@@ -144,7 +146,7 @@ std::vector<MenuItem> Browser::link_menu(bool paste) {
 
 void Browser::reveal_link_target() {
     const auto folder = current_folder();
-    if (!folder || folder->is_trash() || folder->is_archive())
+    if (!folder || folder->is_trash() || (folder->is_archive() || folder->is_collection()))
         return;
     const auto names = targets(*folder);
     if (names.size() != 1)

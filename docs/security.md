@@ -57,8 +57,8 @@ counts are bounded before the browser constructs its tree. Archive contents are 
 | --- | --- |
 | Theme SVG/PNG icons | Loaded/rendered in-process; SVG uses librsvg defaults with 8 MiB input and 1024-pixel output-side caps, without a process memory ceiling or deadline |
 | Thumbnail cache | Shared desktop files read by the application; not a trusted private store |
-| Optional video previews | `rummage-media` links FFmpeg libraries inside the same descriptor-based sandbox, with separate decode/time limits |
-| Optional PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline |
+| Video previews | `rummage-media` links FFmpeg libraries inside the same descriptor-based sandbox, with separate decode/time limits |
+| PDF previews | `rummage-pdf` links PDFium inside the same sandbox: PDF parser only, no JavaScript engine, no system fonts, 4 GiB address-space limit, bounded reads, drawing stopped at a deadline |
 | Desktop applications and custom actions | Ordinary user processes, outside the preview sandbox |
 | Archive member extraction | Archive decoding in the helper; rummage creates destination entries through confined directory descriptors |
 | External archive extraction | External archive tools; their parser and extraction behavior remains their responsibility |

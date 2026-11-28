@@ -1,0 +1,3095 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- Configuring done (0.2s)
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at tests/CMakeLists.txt:242 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+-- Generating done (0.2s)
+-- Build files have been written to: /tmp/rummage-remediation-asan
+[0/4] Re-checking globbed directories...
+[1/29] Building CXX object src/core/CMakeFiles/rummage_core.dir/generated/i18n_catalogs.cpp.o
+[2/29] Linking CXX static library src/core/librummage_core.a
+[3/29] Building CXX object CMakeFiles/rummage.dir/src/core/src/lsan_suppressions.cpp.o
+[4/29] Linking CXX executable rummage-bench-find
+[5/29] Linking CXX executable rummage-bench-dir
+[6/29] Linking CXX executable rummage-mime
+[7/29] Linking CXX executable rummage-bench-photos
+[8/29] Linking CXX executable rummage-decode
+[9/29] Linking CXX executable rummage-watch
+[10/29] Linking CXX executable rummage-thumb
+[11/29] Linking CXX executable rummage-open
+[12/29] Linking CXX executable rummage-transfer
+[13/29] Linking CXX executable tests/rummage-photo-recovery-tests
+[14/29] Linking CXX executable tests/rummage-program-output-tests
+[15/29] Linking CXX executable tests/rummage-portal-tests
+[16/29] Linking CXX executable tests/rummage-photo-watcher-tests
+[17/29] Linking CXX executable tests/rummage-desktop-portal-tests
+[18/29] Linking CXX executable tests/rummage-notification-tests
+[19/29] Linking CXX executable tests/rummage-file-manager-tests
+[20/29] Linking CXX executable tests/rummage-media-tests
+[21/29] Linking CXX executable tests/rummage-pdf-tests
+[22/29] Linking CXX executable rummage-snapshot
+[23/29] Building CXX object CMakeFiles/rummage.dir/src/app/main.cpp.o
+[24/29] Linking CXX executable rummage
+[25/29] Linking CXX executable tests/rummage-photo-ui-tests
+[26/29] Linking CXX executable tests/rummage-tests
+Test project /tmp/rummage-remediation-asan
+      Start  8: rummage-tests
+      Start  7: photos-ui
+      Start  4: photos-recovery
+ 1/18 Test  #4: photos-recovery ..................   Passed   25.95 sec
+      Start  3: photos-catalog
+ 2/18 Test  #7: photos-ui ........................Subprocess aborted***Exception:  30.53 sec
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    0.000] debug worker pool: 2 threads
+[    0.009] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.043] debug worker pool: 1 threads
+[    0.052] debug worker pool: 2 threads
+[    0.060] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.095] debug worker pool: 1 threads
+[    0.377] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   10.060] debug worker pool: 2 threads
+[   10.073] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   10.082] debug worker pool: 1 threads
+[   12.193] debug worker pool: 2 threads
+[   12.200] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.207] debug worker pool: 1 threads
+[   14.122] debug worker pool: 2 threads
+[   14.132] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.139] debug worker pool: 1 threads
+[   26.273] debug worker pool: 2 threads
+[   26.282] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   26.290] debug worker pool: 1 threads
+[   27.040] debug worker pool: 1 threads
+[   27.050] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   27.057] debug worker pool: 1 threads
+[   27.161] debug worker pool: 2 threads
+[   27.171] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   27.178] debug worker pool: 1 threads
+[   27.310] debug worker pool: 2 threads
+[   27.320] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   27.328] debug worker pool: 1 threads
+[   27.403] debug worker pool: 2 threads
+[   27.412] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   27.520] debug worker pool: 1 threads
+[   27.911] debug worker pool: 2 threads
+[   27.921] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   27.928] debug worker pool: 1 threads
+[   28.084] debug worker pool: 2 threads
+[   28.094] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.100] debug worker pool: 1 threads
+[   28.227] debug worker pool: 2 threads
+[   28.237] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.857] debug worker pool: 1 threads
+[   29.287] debug worker pool: 2 threads
+[   29.297] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   29.304] debug worker pool: 1 threads
+[   29.591] debug worker pool: 2 threads
+[   29.601] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   29.611] debug worker pool: 1 threads
+[   29.695] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:254:
+TEST CASE:  photo workspace: uses native browser frames folder chooser grid details QuickLook and Properties
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:254: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:487:
+TEST CASE:  photo workspace: duplicate candidates use native Details selection and captured confirmation
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:487: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:569:
+TEST CASE:  photo workspace: create album captures thirteen selected photos and empty albums have exits
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:569: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:723:
+TEST CASE:  photo workspace: native Add to album chooser captures twenty-three photos without navigation
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:723: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:866:
+TEST CASE:  photo workspace: native sidebar hierarchy opens albums and saved searches without filesystem paths
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:866: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1167:
+TEST CASE:  photo workspace: native scrolling appends every collection beyond two hundred photos
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1167: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1423:
+TEST CASE:  photo workspace: changed originals preview freshly without accepting catalog identity
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1423: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1792:
+TEST CASE:  photo workspace: album management preserves originals and renders chosen covers
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1792: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1885:
+TEST CASE:  photo workspace: library and album file copies preserve originals across source folders
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:1885: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:2765:
+TEST CASE:  photo workspace: source relink review cancels safely and requires an explicit submit
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:2765: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:2836:
+TEST CASE:  photo workspace: legacy device remount requires native Reconnect confirmation
+
+/tmp/rummage-photo-library/tests/photo_library_ui_test.cpp:2836: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+[doctest] test cases:  26 |  15 passed | 11 failed | 0 skipped
+[doctest] assertions: 733 | 733 passed |  0 failed |
+[doctest] Status: FAILURE!
+
+=================================================================
+==43364==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 56 byte(s) in 1 object(s) allocated from:
+    #0 0x7ffff792be4f in calloc (/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so.8+0x12be4f)
+    #1 0x7bffeb1d357c  (/nix/store/wk043dcfp4lc2sb4y9j64h94lvv489g9-nvidia-x11-620.73.04/lib/libnvidia-glsi.so.620.73.04+0x6a57c) (BuildId: 6adf83dd382c5a9cc44ddbb2b54117e1f8ba7cbc)
+
+Indirect leak of 96 byte(s) in 1 object(s) allocated from:
+    #0 0x7ffff792be4f in calloc (/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so.8+0x12be4f)
+    #1 0x7bffeb1d5509  (/nix/store/wk043dcfp4lc2sb4y9j64h94lvv489g9-nvidia-x11-620.73.04/lib/libnvidia-glsi.so.620.73.04+0x6c509) (BuildId: 6adf83dd382c5a9cc44ddbb2b54117e1f8ba7cbc)
+
+Indirect leak of 31 byte(s) in 2 object(s) allocated from:
+    #0 0x7ffff792c01f in malloc (/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so.8+0x12c01f)
+    #1 0x7bffeb1d3188  (/nix/store/wk043dcfp4lc2sb4y9j64h94lvv489g9-nvidia-x11-620.73.04/lib/libnvidia-glsi.so.620.73.04+0x6a188) (BuildId: 6adf83dd382c5a9cc44ddbb2b54117e1f8ba7cbc)
+
+SUMMARY: AddressSanitizer: 183 byte(s) leaked in 4 allocation(s).
+
+      Start  5: photos-watcher
+ 3/18 Test  #3: photos-catalog ...................   Passed    7.15 sec
+      Start 15: file-picker-portal
+ 4/18 Test  #5: photos-watcher ...................   Passed    3.70 sec
+      Start 11: file-manager-cli
+ 5/18 Test #15: file-picker-portal ...............   Passed    3.55 sec
+      Start  6: photos-migration
+ 6/18 Test #11: file-manager-cli .................   Passed    2.93 sec
+      Start 14: file-manager
+ 7/18 Test #14: file-manager .....................   Passed    1.55 sec
+      Start 12: file-manager-activation
+ 8/18 Test  #6: photos-migration .................   Passed    2.93 sec
+      Start 17: media-tests
+ 9/18 Test #12: file-manager-activation ..........   Passed    1.38 sec
+      Start  9: memory-tests
+10/18 Test #17: media-tests ......................   Passed    0.73 sec
+      Start 16: action-notifications
+11/18 Test  #9: memory-tests .....................   Passed    0.47 sec
+      Start 13: desktop-portal
+12/18 Test #13: desktop-portal ...................   Passed    0.04 sec
+      Start  1: i18n-runtime
+13/18 Test #16: action-notifications .............   Passed    0.30 sec
+      Start  2: log-transport
+14/18 Test  #1: i18n-runtime .....................   Passed    0.02 sec
+      Start 10: program-output-self
+15/18 Test  #2: log-transport ....................   Passed    0.01 sec
+16/18 Test #10: program-output-self ..............   Passed    0.11 sec
+17/18 Test  #8: rummage-tests ....................Subprocess aborted***Exception:  58.92 sec
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    0.114] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.115] debug launcher: pidfd 5 ended, status 7 signal 0
+[    0.118] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.119] debug launcher: pidfd 5 ended, status 7 signal 0
+[    0.120] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.122] debug launcher: pidfd 5 ended, status 7 signal 0
+[    0.125] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.126] debug launcher: pidfd 5 ended, status 0 signal 0
+[    0.127] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.128] debug launcher: pidfd 5 ended, status 7 signal 0
+[    0.129] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.131] debug launcher: pidfd 5 ended, status 0 signal 15
+[    0.131] debug launcher: started /nix/store/hasnvc0j36gg6qrdsfcx7yivx3c2bpqr-bash-5.3p20/bin/sh (pidfd 5)
+[    0.133] debug launcher: pidfd 5 ended, status 7 signal 0
+[    0.138] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-MJV6xn/icons/hicolor/scalable/apps/rummage.svg
+[    0.141] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-MJV6xn/icons/hicolor/scalable/apps/rummage.svg
+[    0.141] info  icon: removed /tmp/nix-shell.eYhHLe/rummage-test-MJV6xn/icons/hicolor/scalable/apps/rummage.svg
+[    0.147] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-jILavt/icons/hicolor/scalable/apps/rummage.svg
+[    0.154] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-jILavt/icons/hicolor/scalable/apps/rummage.svg
+[    0.154] info  icon: removed /tmp/nix-shell.eYhHLe/rummage-test-jILavt/icons/hicolor/scalable/apps/rummage.svg
+[    0.157] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-CiT2v0/rummage.svg
+[    0.161] info  icon: put back /tmp/nix-shell.eYhHLe/rummage-test-CiT2v0/rummage.svg
+[    0.162] debug worker pool: 12 threads
+[    0.165] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-NkauQj/rummage.svg
+[    0.168] info  icon: wrote /tmp/nix-shell.eYhHLe/rummage-test-NkauQj/rummage.svg
+[    0.171] info  theme: default palette
+[    0.171] info  theme: desktop is dark
+[    0.171] info  theme: desktop is dark, with an accent colour
+[    0.171] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-AjmOFL/colors.toml
+[    0.180] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.190] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.192] debug worker pool: 2 threads
+[    0.199] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.207] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.211] debug worker pool: 2 threads
+[    0.218] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.221] debug worker pool: 2 threads
+[    0.228] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.245] debug worker pool: 2 threads
+[    0.252] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.257] debug worker pool: 2 threads
+[    0.264] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.267] debug worker pool: 2 threads
+[    0.274] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    0.420] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-RtrKuk/bin/unzip (pidfd 8)
+[    0.422] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.424] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-upPwdD/bin/gzip (pidfd 8)
+[    0.424] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.426] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CC9C0L/bin/tar (pidfd 8)
+[    0.428] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.429] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WpstVK/bin/7z (pidfd 8)
+[    0.430] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WpstVK/bin/7z (pidfd 12)
+[    0.434] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.435] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WpstVK/bin/7z (pidfd 15)
+[    0.435] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.436] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WpstVK/bin/7z (pidfd 12)
+[    0.439] debug launcher: pidfd 15 ended, status 0 signal 0
+[    0.440] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.441] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WpstVK/bin/7z (pidfd 7)
+[    0.445] debug launcher: pidfd 7 ended, status 0 signal 0
+[    0.448] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-dsbfMb/bin/gzip (pidfd 8)
+[    0.448] debug launcher: pidfd 8 ended, status 1 signal 0
+[    0.449] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-dsbfMb/bin/7z (pidfd 8)
+[    0.470] debug launcher: pidfd 8 ended, status 2 signal 0
+[    0.472] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-kIdisn/bin/file-roller (pidfd 6)
+[    0.474] debug launcher: pidfd 6 ended, status 7 signal 0
+[    0.476] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-DCN7iU/bin/tar (pidfd 8)
+[    0.477] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.478] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PK91qI/bin/7z (pidfd 8)
+[    0.483] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.484] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PK91qI/bin/7z (pidfd 11)
+[    0.488] debug launcher: pidfd 11 ended, status 0 signal 0
+[    0.488] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PK91qI/bin/7z (pidfd 8)
+[    0.493] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.496] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PmzI0H/bin/7z (pidfd 8)
+[    0.516] debug launcher: pidfd 8 ended, status 2 signal 0
+[    0.516] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PmzI0H/bin/7z (pidfd 12)
+[    0.547] debug launcher: pidfd 12 ended, status 2 signal 0
+[    0.548] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PmzI0H/bin/7z (pidfd 12)
+[    0.597] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.597] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PmzI0H/bin/7z (pidfd 12)
+[    0.646] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.648] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-xDJVe2/bin/7z (pidfd 8)
+[    0.668] debug launcher: pidfd 8 ended, status 2 signal 0
+[    0.668] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-xDJVe2/bin/7z (pidfd 12)
+[    0.699] debug launcher: pidfd 12 ended, status 2 signal 0
+[    0.699] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-xDJVe2/bin/7z (pidfd 12)
+[    0.749] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.749] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-xDJVe2/bin/7z (pidfd 12)
+[    0.795] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.797] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ovsjD3/bin/7z (pidfd 8)
+[    0.802] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.802] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ovsjD3/bin/7z (pidfd 12)
+[    0.833] debug launcher: pidfd 12 ended, status 2 signal 0
+[    0.833] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ovsjD3/bin/7z (pidfd 12)
+[    0.884] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.884] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ovsjD3/bin/7z (pidfd 12)
+[    0.934] debug launcher: pidfd 12 ended, status 0 signal 0
+[    0.935] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CBcsxW/bin/7z (pidfd 8)
+[    0.940] debug launcher: pidfd 8 ended, status 0 signal 0
+[    0.941] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CBcsxW/bin/7z (pidfd 12)
+[    0.971] debug launcher: pidfd 12 ended, status 2 signal 0
+[    0.971] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CBcsxW/bin/7z (pidfd 12)
+[    1.020] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.021] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CBcsxW/bin/7z (pidfd 12)
+[    1.070] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.073] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-OIis8w/bin/7z (pidfd 8)
+[    1.092] debug launcher: pidfd 8 ended, status 2 signal 0
+[    1.093] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-OIis8w/bin/7z (pidfd 12)
+[    1.124] debug launcher: pidfd 12 ended, status 2 signal 0
+[    1.124] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-OIis8w/bin/7z (pidfd 12)
+[    1.191] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.192] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-OIis8w/bin/7z (pidfd 12)
+[    1.259] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.261] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-hWRRZq/bin/7z (pidfd 8)
+[    1.281] debug launcher: pidfd 8 ended, status 2 signal 0
+[    1.281] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-hWRRZq/bin/7z (pidfd 12)
+[    1.312] debug launcher: pidfd 12 ended, status 2 signal 0
+[    1.312] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-hWRRZq/bin/7z (pidfd 12)
+[    1.376] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.377] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-hWRRZq/bin/7z (pidfd 12)
+[    1.443] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.444] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-6QBQvT/bin/7z (pidfd 8)
+[    1.449] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.450] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-6QBQvT/bin/7z (pidfd 12)
+[    1.455] debug launcher: pidfd 12 ended, status 2 signal 0
+[    1.455] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-6QBQvT/bin/7z (pidfd 12)
+[    1.459] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.460] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-6QBQvT/bin/7z (pidfd 12)
+[    1.464] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.466] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BfqkKQ/bin/7z (pidfd 8)
+[    1.470] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.470] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BfqkKQ/bin/7z (pidfd 12)
+[    1.475] debug launcher: pidfd 12 ended, status 2 signal 0
+[    1.475] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BfqkKQ/bin/7z (pidfd 12)
+[    1.480] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.480] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BfqkKQ/bin/7z (pidfd 12)
+[    1.485] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.487] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-mhCLLN/bin/7z (pidfd 8)
+[    1.492] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.492] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-mhCLLN/bin/7z (pidfd 12)
+[    1.497] debug launcher: pidfd 12 ended, status 2 signal 0
+[    1.498] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-mhCLLN/bin/7z (pidfd 12)
+[    1.503] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.503] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-mhCLLN/bin/7z (pidfd 12)
+[    1.509] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.510] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HDigXf/bin/7z (pidfd 8)
+[    1.515] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.515] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HDigXf/bin/7z (pidfd 12)
+[    1.521] debug launcher: pidfd 12 ended, status 2 signal 0
+[    1.521] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HDigXf/bin/7z (pidfd 12)
+[    1.526] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.527] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HDigXf/bin/7z (pidfd 12)
+[    1.532] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.534] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-a7bikM/bin/unrar (pidfd 8)
+[    1.536] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.536] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-a7bikM/bin/unrar (pidfd 12)
+[    1.569] debug launcher: pidfd 12 ended, status 3 signal 0
+[    1.569] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-a7bikM/bin/unrar (pidfd 12)
+[    1.609] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.610] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-a7bikM/bin/unrar (pidfd 12)
+[    1.649] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.651] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-keo0MB/bin/unrar (pidfd 8)
+[    1.654] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.654] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-keo0MB/bin/unrar (pidfd 12)
+[    1.686] debug launcher: pidfd 12 ended, status 3 signal 0
+[    1.687] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-keo0MB/bin/unrar (pidfd 12)
+[    1.726] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.727] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-keo0MB/bin/unrar (pidfd 12)
+[    1.766] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.769] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-2ifu9u/bin/unrar (pidfd 8)
+[    1.776] debug launcher: pidfd 8 ended, status 3 signal 0
+[    1.776] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-2ifu9u/bin/unrar (pidfd 12)
+[    1.786] debug launcher: pidfd 12 ended, status 3 signal 0
+[    1.787] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-2ifu9u/bin/unrar (pidfd 12)
+[    1.817] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.817] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-2ifu9u/bin/unrar (pidfd 12)
+[    1.848] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.850] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-pxObOn/bin/unrar (pidfd 8)
+[    1.858] debug launcher: pidfd 8 ended, status 3 signal 0
+[    1.858] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-pxObOn/bin/unrar (pidfd 12)
+[    1.868] debug launcher: pidfd 12 ended, status 3 signal 0
+[    1.869] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-pxObOn/bin/unrar (pidfd 12)
+[    1.899] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.900] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-pxObOn/bin/unrar (pidfd 12)
+[    1.930] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.932] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-y6Qnal/bin/unrar (pidfd 8)
+[    1.934] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.934] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-y6Qnal/bin/unrar (pidfd 12)
+[    1.951] debug launcher: pidfd 12 ended, status 11 signal 0
+[    1.951] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-y6Qnal/bin/unrar (pidfd 12)
+[    1.967] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.968] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-y6Qnal/bin/unrar (pidfd 12)
+[    1.984] debug launcher: pidfd 12 ended, status 0 signal 0
+[    1.986] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-tKWDDN/bin/unrar (pidfd 8)
+[    1.988] debug launcher: pidfd 8 ended, status 0 signal 0
+[    1.989] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-tKWDDN/bin/unrar (pidfd 12)
+[    2.004] debug launcher: pidfd 12 ended, status 11 signal 0
+[    2.005] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-tKWDDN/bin/unrar (pidfd 12)
+[    2.021] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.021] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-tKWDDN/bin/unrar (pidfd 12)
+[    2.037] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.039] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3JxFJT/bin/unrar (pidfd 8)
+[    2.053] debug launcher: pidfd 8 ended, status 11 signal 0
+[    2.054] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3JxFJT/bin/unrar (pidfd 12)
+[    2.068] debug launcher: pidfd 12 ended, status 11 signal 0
+[    2.069] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3JxFJT/bin/unrar (pidfd 12)
+[    2.097] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.097] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3JxFJT/bin/unrar (pidfd 12)
+[    2.125] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.128] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-QwCbAm/bin/unrar (pidfd 8)
+[    2.142] debug launcher: pidfd 8 ended, status 11 signal 0
+[    2.142] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-QwCbAm/bin/unrar (pidfd 12)
+[    2.157] debug launcher: pidfd 12 ended, status 11 signal 0
+[    2.157] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-QwCbAm/bin/unrar (pidfd 12)
+[    2.185] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.186] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-QwCbAm/bin/unrar (pidfd 12)
+[    2.214] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.217] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-4OhvKn/bin/7z (pidfd 8)
+[    2.222] debug launcher: pidfd 8 ended, status 0 signal 0
+[    2.222] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-4OhvKn/bin/7z (pidfd 11)
+[    2.227] debug launcher: pidfd 11 ended, status 0 signal 0
+[    2.229] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-NyyV5K/bin/7z (pidfd 8)
+[    2.235] debug launcher: pidfd 8 ended, status 0 signal 0
+[    2.235] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-NyyV5K/bin/7z (pidfd 11)
+[    2.240] debug launcher: pidfd 11 ended, status 0 signal 0
+[    2.242] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-LtwGZo/bin/7z (pidfd 8)
+[    2.247] debug launcher: pidfd 8 ended, status 0 signal 0
+[    2.247] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-LtwGZo/bin/7z (pidfd 12)
+[    2.278] debug launcher: pidfd 12 ended, status 2 signal 0
+[    2.279] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-LtwGZo/bin/7z (pidfd 12)
+[    2.329] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.329] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-LtwGZo/bin/7z (pidfd 12)
+[    2.379] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.381] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-aPNq0s/bin/7z (pidfd 8)
+[    2.386] debug launcher: pidfd 8 ended, status 0 signal 0
+[    2.386] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-aPNq0s/bin/7z (pidfd 12)
+[    2.418] debug launcher: pidfd 12 ended, status 2 signal 0
+[    2.419] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-aPNq0s/bin/7z (pidfd 12)
+[    2.468] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.469] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-aPNq0s/bin/7z (pidfd 12)
+[    2.516] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.518] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3jVYqV/bin/7z (pidfd 8)
+[    2.538] debug launcher: pidfd 8 ended, status 2 signal 0
+[    2.539] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3jVYqV/bin/7z (pidfd 12)
+[    2.569] debug launcher: pidfd 12 ended, status 2 signal 0
+[    2.570] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3jVYqV/bin/7z (pidfd 12)
+[    2.619] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.619] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3jVYqV/bin/7z (pidfd 12)
+[    2.666] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.668] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-bIYgaH/bin/7z (pidfd 8)
+[    2.688] debug launcher: pidfd 8 ended, status 2 signal 0
+[    2.688] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-bIYgaH/bin/7z (pidfd 12)
+[    2.719] debug launcher: pidfd 12 ended, status 2 signal 0
+[    2.720] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-bIYgaH/bin/7z (pidfd 12)
+[    2.769] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.770] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-bIYgaH/bin/7z (pidfd 12)
+[    2.819] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.822] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-v61xYj/bin/7z (pidfd 8)
+[    2.842] debug launcher: pidfd 8 ended, status 2 signal 0
+[    2.842] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-v61xYj/bin/7z (pidfd 12)
+[    2.874] debug launcher: pidfd 12 ended, status 2 signal 0
+[    2.874] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-v61xYj/bin/7z (pidfd 12)
+[    2.942] debug launcher: pidfd 12 ended, status 0 signal 0
+[    2.942] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-v61xYj/bin/7z (pidfd 12)
+[    3.007] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.010] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-sxUQ5V/bin/7z (pidfd 8)
+[    3.030] debug launcher: pidfd 8 ended, status 2 signal 0
+[    3.030] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-sxUQ5V/bin/7z (pidfd 12)
+[    3.061] debug launcher: pidfd 12 ended, status 2 signal 0
+[    3.062] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-sxUQ5V/bin/7z (pidfd 12)
+[    3.127] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.127] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-sxUQ5V/bin/7z (pidfd 12)
+[    3.191] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.193] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-EvShdK/bin/7z (pidfd 8)
+[    3.198] debug launcher: pidfd 8 ended, status 2 signal 0
+[    3.200] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-voiinr/bin/7z (pidfd 8)
+[    3.219] debug launcher: pidfd 8 ended, status 2 signal 0
+[    3.221] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-FcUeGt/bin/unrar (pidfd 8)
+[    3.223] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.224] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-FcUeGt/bin/unrar (pidfd 11)
+[    3.228] debug launcher: pidfd 11 ended, status 0 signal 0
+[    3.230] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-VMS0Ml/bin/unrar (pidfd 8)
+[    3.232] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.233] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-VMS0Ml/bin/unrar (pidfd 11)
+[    3.236] debug launcher: pidfd 11 ended, status 0 signal 0
+[    3.238] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-5clZ4q/bin/unrar (pidfd 8)
+[    3.240] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.241] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-5clZ4q/bin/unrar (pidfd 11)
+[    3.244] debug launcher: pidfd 11 ended, status 0 signal 0
+[    3.246] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-URc1bp/bin/unrar (pidfd 8)
+[    3.248] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.249] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-URc1bp/bin/unrar (pidfd 11)
+[    3.252] debug launcher: pidfd 11 ended, status 0 signal 0
+[    3.254] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-T4BNdH/bin/unrar (pidfd 8)
+[    3.255] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-T4BNdH/bin/unrar (pidfd 12)
+[    3.256] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.257] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-T4BNdH/bin/unrar (pidfd 15)
+[    3.257] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.257] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-T4BNdH/bin/unrar (pidfd 12)
+[    3.260] debug launcher: pidfd 15 ended, status 0 signal 0
+[    3.261] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.263] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-oMCJNI/bin/unrar (pidfd 8)
+[    3.265] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.265] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-oMCJNI/bin/unrar (pidfd 11)
+[    3.289] debug launcher: pidfd 11 ended, status 6 signal 0
+[    3.291] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HzSVaQ/bin/unrar (pidfd 8)
+[    3.292] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.293] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HzSVaQ/bin/unrar (pidfd 12)
+[    3.294] debug launcher: pidfd 12 ended, status 11 signal 0
+[    3.295] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HzSVaQ/bin/unrar (pidfd 12)
+[    3.297] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.297] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HzSVaQ/bin/unrar (pidfd 12)
+[    3.298] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.300] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-bi63ch/bin/unrar (pidfd 8)
+[    3.302] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.303] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HTQk5T/bin/7z (pidfd 8)
+[    3.305] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.305] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HTQk5T/bin/7z (pidfd 12)
+[    3.307] debug launcher: pidfd 12 ended, status 11 signal 0
+[    3.307] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HTQk5T/bin/7z (pidfd 12)
+[    3.309] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.309] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HTQk5T/bin/7z (pidfd 12)
+[    3.311] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.313] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-DBq5tb/bin/7z (pidfd 8)
+[    3.315] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.316] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-x3lvYq/bin/7z (pidfd 8)
+[    3.317] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-x3lvYq/bin/7z (pidfd 12)
+[    3.322] debug launcher: pidfd 12 ended, status 0 signal 0
+[    3.336] debug launcher: pidfd 8 ended, status 2 signal 0
+[    3.338] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-x3lvYq/bin/7z (pidfd 11)
+[    3.387] debug launcher: pidfd 11 ended, status 0 signal 0
+[    3.387] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-x3lvYq/bin/7z (pidfd 14)
+[    3.435] debug launcher: pidfd 14 ended, status 0 signal 0
+[    3.436] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-rEXKCi/bin/7z (pidfd 8)
+[    3.441] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.442] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-Yrb4RG/bin/7z (pidfd 8)
+[    3.447] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.449] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ygZBZH/bin/unrar (pidfd 8)
+[    3.463] debug launcher: pidfd 8 ended, status 11 signal 0
+[    3.466] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/7z (pidfd 8)
+[    3.466] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/unrar (pidfd 12)
+[    3.467] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/7z (pidfd 16)
+[    3.471] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.471] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/7z (pidfd 20)
+[    3.472] debug launcher: pidfd 16 ended, status 0 signal 0
+[    3.472] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/7z (pidfd 21)
+[    3.477] debug launcher: pidfd 20 ended, status 0 signal 0
+[    3.477] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/7z (pidfd 20)
+[    3.480] debug launcher: pidfd 12 ended, status 11 signal 0
+[    3.481] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/unrar (pidfd 22)
+[    3.482] debug launcher: pidfd 20 ended, status 0 signal 0
+[    3.509] debug launcher: pidfd 22 ended, status 0 signal 0
+[    3.509] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/unrar (pidfd 6)
+[    3.520] debug launcher: pidfd 21 ended, status 0 signal 0
+[    3.521] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-CEUR7E/bin/7z (pidfd 11)
+[    3.538] debug launcher: pidfd 6 ended, status 0 signal 0
+[    3.572] debug launcher: pidfd 11 ended, status 0 signal 0
+[    3.575] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-4oeraJ/bin/file-roller (pidfd 6)
+[    3.575] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-4oeraJ/bin/7z (pidfd 10)
+[    3.576] debug launcher: pidfd 6 ended, status 0 signal 0
+[    3.581] debug launcher: pidfd 10 ended, status 0 signal 0
+[    3.581] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-4oeraJ/bin/7z (pidfd 10)
+[    3.631] debug launcher: pidfd 10 ended, status 0 signal 0
+[    3.632] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-4oeraJ/bin/7z (pidfd 10)
+[    3.683] debug launcher: pidfd 10 ended, status 0 signal 0
+[    3.686] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-Q2DXLS/bin/7z (pidfd 8)
+[    3.688] debug launcher: pidfd 8 ended, status 2 signal 0
+[    3.689] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-2OxyV9/bin/7z (pidfd 8)
+[    3.691] debug launcher: pidfd 8 ended, status 0 signal 0
+[    3.691] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-2OxyV9/bin/7z (pidfd 12)
+[    3.693] debug launcher: pidfd 12 ended, status 2 signal 0
+[    3.694] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-RC7dSa/bin/gzip (pidfd 8)
+[    3.696] debug launcher: pidfd 8 ended, status 1 signal 0
+[    3.697] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-mHxwnN/bin/7z (pidfd 8)
+[    3.699] debug launcher: pidfd 8 ended, status 9 signal 0
+[    3.700] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PrikBt/bin/7z (pidfd 8)
+[    3.702] debug launcher: pidfd 8 ended, status 0 signal 15
+[    3.705] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-A1tFIG/bin/unzip (pidfd 8)
+[    3.706] debug launcher: pidfd 8 ended, status 5 signal 0
+[    3.708] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-GxvBPH/bin/file-roller (pidfd 6)
+[    3.709] debug launcher: pidfd 6 ended, status 2 signal 0
+[    3.983] debug worker pool: 2 threads
+[    3.990] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    3.999] debug worker pool: 2 threads
+[    4.006] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.013] debug worker pool: 2 threads
+[    4.021] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.027] debug worker pool: 2 threads
+[    4.035] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.044] debug worker pool: 2 threads
+[    4.051] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.057] debug worker pool: 2 threads
+[    4.064] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.102] debug worker pool: 2 threads
+[    4.110] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.173] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[    4.173] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    4.181] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[    4.181] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    4.182] debug worker pool: 2 threads
+[    4.189] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.194] debug worker pool: 2 threads
+[    4.202] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.207] debug worker pool: 2 threads
+[    4.215] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.226] debug worker pool: 2 threads
+[    4.234] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.236] debug worker pool: 2 threads
+[    4.244] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.251] debug worker pool: 2 threads
+[    4.258] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.334] debug worker pool: 2 threads
+[    4.341] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.347] debug worker pool: 2 threads
+[    4.354] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.458] debug worker pool: 2 threads
+[    4.465] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.501] debug worker pool: 2 threads
+[    4.509] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.515] debug worker pool: 2 threads
+[    4.522] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.592] debug worker pool: 2 threads
+[    4.601] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.637] debug worker pool: 2 threads
+[    4.646] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.680] debug worker pool: 2 threads
+[    4.689] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.726] debug worker pool: 2 threads
+[    4.734] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.741] debug worker pool: 2 threads
+[    4.749] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.754] debug worker pool: 2 threads
+[    4.763] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.800] debug worker pool: 2 threads
+[    4.809] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.815] debug worker pool: 2 threads
+[    4.824] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.831] debug worker pool: 2 threads
+[    4.839] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.845] debug worker pool: 2 threads
+[    4.853] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.859] debug worker pool: 2 threads
+[    4.867] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    4.923] debug worker pool: 1 threads
+[    4.924] debug rummage-code-fixture started as 43886
+[    4.938] debug 43886 ended (0)
+[    4.939] debug rummage-code-fixture started as 43889
+[    4.950] debug 43889 ended (0)
+[    4.951] debug rummage-code-fixture started as 43892
+[    4.957] debug 43892 ended (1024)
+[    4.958] debug rummage-code-fixture started as 43895
+[    4.964] debug 43895 ended (0)
+[    4.965] debug rummage-code-fixture started as 43898
+[    5.216] debug 43898 ended (15)
+[    5.217] debug rummage-code-fixture started as 43907
+[    5.217] debug 43907 ended (15)
+[    5.218] debug rummage-code-fixture started as 43908
+[    5.218] debug rummage-code-fixture started as 43909
+[    5.243] debug 43909 ended (0)
+[    5.244] debug worker pool: 2 threads
+[    5.252] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.263] debug worker pool: 2 threads
+[    5.271] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.277] debug worker pool: 2 threads
+[    5.285] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.295] debug worker pool: 2 threads
+[    5.303] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.311] debug worker pool: 2 threads
+[    5.321] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.393] debug worker pool: 2 threads
+[    5.400] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.405] debug worker pool: 2 threads
+[    5.412] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.420] debug worker pool: 2 threads
+[    5.428] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.433] debug worker pool: 2 threads
+[    5.441] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.508] debug worker pool: 2 threads
+[    5.516] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.525] debug worker pool: 2 threads
+[    5.533] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.545] debug worker pool: 2 threads
+[    5.553] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.562] debug worker pool: 2 threads
+[    5.570] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.579] debug worker pool: 2 threads
+[    5.587] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.591] debug worker pool: 2 threads
+[    5.599] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.608] debug worker pool: 2 threads
+[    5.616] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.625] debug worker pool: 1 threads
+[    5.633] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.634] debug worker pool: 1 threads
+[    5.641] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.642] debug worker pool: 2 threads
+[    5.650] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.655] debug worker pool: 1 threads
+[    5.663] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.664] debug worker pool: 1 threads
+[    5.672] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.679] debug worker pool: 2 threads
+[    5.685] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.690] debug worker pool: 2 threads
+[    5.697] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.701] debug worker pool: 2 threads
+[    5.708] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.721] debug worker pool: 2 threads
+[    5.727] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.741] debug worker pool: 2 threads
+[    5.748] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.754] debug worker pool: 2 threads
+[    5.761] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.763] debug worker pool: 2 threads
+[    5.770] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.782] debug worker pool: 2 threads
+[    5.788] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.795] debug worker pool: 2 threads
+[    5.801] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.805] debug worker pool: 2 threads
+[    5.811] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.849] debug worker pool: 2 threads
+[    5.855] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.893] debug worker pool: 2 threads
+[    5.899] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.937] debug worker pool: 2 threads
+[    5.943] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    5.982] debug worker pool: 2 threads
+[    5.988] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.025] debug worker pool: 2 threads
+[    6.033] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.070] debug worker pool: 2 threads
+[    6.079] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.117] debug worker pool: 2 threads
+[    6.126] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.164] debug worker pool: 2 threads
+[    6.173] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.246] debug worker pool: 2 threads
+[    6.267] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.320] debug worker pool: 2 threads
+[    6.331] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[    6.376] debug worker pool: 2 threads
+[    6.385] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.140] debug worker pool: 2 threads
+[   11.147] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.237] debug worker pool: 2 threads
+[   11.244] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.251] debug worker pool: 2 threads
+[   11.258] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.303] debug worker pool: 2 threads
+[   11.310] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.314] debug worker pool: 2 threads
+[   11.321] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.325] debug worker pool: 2 threads
+[   11.332] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.338] debug worker pool: 2 threads
+[   11.345] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.450] debug worker pool: 2 threads
+[   11.458] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.462] debug worker pool: 2 threads
+[   11.469] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.481] debug worker pool: 2 threads
+[   11.487] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.492] debug worker pool: 2 threads
+[   11.499] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.507] debug worker pool: 2 threads
+[   11.514] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.521] debug worker pool: 2 threads
+[   11.528] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.532] debug worker pool: 2 threads
+[   11.539] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.545] debug worker pool: 2 threads
+[   11.552] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.557] debug worker pool: 2 threads
+[   11.564] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.570] debug worker pool: 2 threads
+[   11.577] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.654] debug worker pool: 2 threads
+[   11.664] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.673] debug worker pool: 2 threads
+[   11.682] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.693] debug worker pool: 2 threads
+[   11.705] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.712] debug worker pool: 2 threads
+[   11.721] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+/tmp/rummage-photo-library/tests/batch_rename_test.cpp:697:
+TEST CASE:  batch rename: preview renders with scrolling and disabled conflicts
+
+/tmp/rummage-photo-library/tests/batch_rename_test.cpp:697: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/breadcrumb_test.cpp:177:
+TEST CASE:  breadcrumb: inline path supports selection, clipboard, navigation and cancellation
+
+/tmp/rummage-photo-library/tests/breadcrumb_test.cpp:177: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/breadcrumb_test.cpp:251:
+TEST CASE:  breadcrumb: completion cycles Unicode paths and ignores stale results
+
+/tmp/rummage-photo-library/tests/breadcrumb_test.cpp:251: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/column_view_test.cpp:626:
+TEST CASE:  gallery: offline cached media hides names only until focused or hovered
+
+/tmp/rummage-photo-library/tests/column_view_test.cpp:631: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/column_view_test.cpp:744:
+TEST CASE:  collection viewport: native views report the drawn range after scrolling
+
+/tmp/rummage-photo-library/tests/column_view_test.cpp:749: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/command_palette_test.cpp:298:
+TEST CASE:  palette: filtering 500 items takes well under a millisecond a key
+
+/tmp/rummage-photo-library/tests/command_palette_test.cpp:313: MESSAGE: filtering 500 items: 0.715 ms a key
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:48:
+TEST CASE:  i18n: menu rendering preserves literal names in every language
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:48: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1060:
+TEST CASE:  context menu: pointer navigates nested panels and switches sibling groups
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1060: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1225:
+TEST CASE:  properties: keyboard search selects a themed icon and custom artwork stays staged
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1230: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1287:
+TEST CASE:  properties: thumbnails replace the icon without moving the compact dialog
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1287: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1340:
+TEST CASE:  properties: long filenames are bounded by the dialog and window
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1340: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1403:
+TEST CASE:  properties: wrapped names and metadata support selecting and copying exact text
+
+/tmp/rummag[   11.725] debug worker pool: 2 threads
+[   11.734] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.903] debug worker pool: 2 threads
+[   11.913] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.917] debug worker pool: 2 threads
+[   11.927] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.966] debug worker pool: 2 threads
+[   11.976] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   11.990] debug worker pool: 2 threads
+[   12.000] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.011] debug worker pool: 2 threads
+[   12.021] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.029] debug worker pool: 2 threads
+[   12.038] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.049] debug worker pool: 2 threads
+[   12.058] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.097] debug worker pool: 2 threads
+[   12.108] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.114] debug worker pool: 2 threads
+[   12.124] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.132] debug worker pool: 2 threads
+[   12.141] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+e-photo-library/tests/context_menu_test.cpp:1403: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1502:
+TEST CASE:  properties: selecting a visually placed RTL character copies its source bytes
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1502: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1555:
+TEST CASE:  properties: Tab from selected metadata begins the button focus order
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1555: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1588:
+TEST CASE:  selectable text: exact-fit labels and natural wraps retain source bytes
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1588: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1770:
+TEST CASE:  context menu: tall menus scroll and keep the keyboard selection reachable
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1770: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1826:
+TEST CASE:  context menu: scrolling a parent closes its child and restores keyboard routing
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1826: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1861:
+TEST CASE:  properties: embedded image metadata wraps, scrolls and copies in a narrow dialog
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:1861: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2003:
+TEST CASE:  properties: wheel, touchpad and a draggable scrollbar navigate long metadata
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2003: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2077:
+TEST CASE:  properties: media disclosure and top copy include hidden metadata
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2077: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2170:
+TEST CASE:  properties: drive facts load without directory totals and appear in copy-all
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2170: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2211:
+TEST CASE:  context menu: mounted drives offer properties even without udisks
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2211: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2254:
+TEST CASE:  sidebar: places and bookmarks open the clicked folder in a new tab
+
+DEEPEST SUBCASE STACK REACHED (DIFFERENT FROM THE CURRENT ONE):
+  built-in layout
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2254: ERROR: tes[   12.145] debug worker pool: 2 threads
+[   12.155] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.197] debug worker pool: 1 threads
+[   12.208] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.210] debug worker pool: 1 threads
+[   12.220] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.228] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-r5UmLz/colors.toml
+[   12.228] info  theme: desktop is dark, with an accent colour
+[   12.228] info  theme: desktop is dark, with an accent colour
+[   12.228] info  theme: desktop is dark, with an accent colour
+[   12.228] info  theme: desktop is dark, with an accent colour
+[   12.228] info  theme: desktop is dark, with an accent colour
+[   12.228] info  theme: desktop is dark, with an accent colour
+[   12.229] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-r5UmLz/colors.toml
+[   12.229] info  theme: desktop is dark, with an accent colour
+[   12.229] info  theme: desktop is dark, with an accent colour
+[   12.229] info  theme: desktop is dark, with an accent colour
+[   12.229] info  theme: desktop is dark, with an accent colour
+[   12.230] info  theme: desktop is dark, with an accent colour
+[   12.230] info  theme: desktop is dark, with an accent colour
+[   12.230] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-r5UmLz/colors.toml
+[   12.230] info  theme: desktop is dark, with an accent colour
+[   12.230] info  theme: desktop is dark, with an accent colour
+[   12.230] info  theme: desktop is dark, with an accent colour
+[   12.230] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-r5UmLz/colors.toml
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.231] info  theme: desktop is dark, with an accent colour
+[   12.232] info  theme: default palette
+[   12.232] info  theme: desktop is light, with an accent colour
+[   12.232] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-Hniv86/colors.toml
+[   12.232] info  theme: desktop is dark
+[   12.232] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-Hniv86/colors.toml removed; palette file unavailable
+[   12.235] debug worker pool: 2 threads
+[   12.245] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.251] debug worker pool: 2 threads
+[   12.261] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.270] debug worker pool: 2 threads
+[   12.280] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.287] debug worker pool: 2 threads
+[   12.298] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.308] debug worker pool: 2 threads
+[   12.319] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.388] debug worker pool: 2 threads
+[   12.399] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.404] debug worker pool: 2 threads
+[   12.414] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.417] debug worker pool: 2 threads
+[   12.427] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.459] debug worker pool: 2 threads
+[   12.468] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.474] debug worker pool: 2 threads
+[   12.484] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.490] debug worker pool: 2 threads
+[   12.499] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.504] debug worker pool: 2 threads
+[   12.513] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.518] debug worker pool: 2 threads
+[   12.527] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.546] debug worker pool: 2 threads
+[   12.556] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.560] debug worker pool: 2 threads
+[   12.570] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.728] debug worker pool: 2 threads
+[   12.738] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   12.898] debug worker pool: 2 threads
+[   12.906] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+t case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2254:
+TEST CASE:  sidebar: places and bookmarks open the clicked folder in a new tab
+
+DEEPEST SUBCASE STACK REACHED (DIFFERENT FROM THE CURRENT ONE):
+  legacy saved layout
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2254: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2409:
+TEST CASE:  properties: single catalog photos expose source metadata without changing annotations
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2409: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2523:
+TEST CASE:  properties: catalog keyboard fields use native scrolling and preserve cancelled originals
+
+/tmp/rummage-photo-library/tests/context_menu_test.cpp:2529: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/desktop_palette_test.cpp:259:
+TEST CASE:  portal: the real session bus answers or has no portal (reads only)
+
+/tmp/rummage-photo-library/tests/desktop_palette_test.cpp:269: MESSAGE: desktop is dark, no accent
+
+===============================================================================
+/tmp/rummage-photo-library/tests/details_view_test.cpp:326:
+TEST CASE:  details: header chooser and sorting use the visible column layout
+
+/tmp/rummage-photo-library/tests/details_view_test.cpp:326: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/details_view_test.cpp:387:
+TEST CASE:  info pane: a folder's size, or a selection's, is added up once the cursor rests
+
+/tmp/rummage-photo-library/tests/details_view_test.cpp:394: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/details_view_test.cpp:466:
+TEST CASE:  info pane: hiding a pane cancels its delayed folder count
+
+/tmp/rummage-photo-library/tests/details_view_test.cpp:471: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/details_view_test.cpp:503:
+TEST CASE:  details: widening Name pushes later columns and scrolls beneath a fixed preview
+
+/tmp/rummage-photo-library/tests/details_view_test.cpp:503: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/details_view_test.cpp:574:
+TEST CASE:  details: any header resizes its left column and horizontal wheel preserves selection
+
+/tmp/rummage-photo-library/tests/details_view_test.cpp:574: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/details_view_test.cpp:623:
+TEST CASE:  details: leaf folders have no disclosure and gain one when subfolders appear
+
+/tmp/rummage-photo-library/tests/details_view_test.cpp:623: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/devices_test.cpp:389:
+TEST CASE:  devices: udisks2 on the real system bus lists the disks (reads only)
+
+/tmp/rummage-photo-library/tests/devices_test.cpp:406: MESSAGE: home /dev/nvme0n1p1 at /home
+
+/tmp/rummage-photo-library/tests/devices_test.cpp:406: MESSAGE: sixseven /dev/nvme1n1p1 at /
+
+===============================================================================
+/tm[   12.982] debug worker pool: 2 threads
+[   12.992] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.045] debug worker pool: 2 threads
+[   13.055] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.101] debug worker pool: 2 threads
+[   13.112] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.220] debug worker pool: 2 threads
+[   13.230] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.240] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.266] debug worker pool: 2 threads
+[   13.291] debug worker pool: 1 threads
+[   13.464] debug worker pool: 1 threads
+[   13.466] debug worker pool: 2 threads
+[   13.474] debug worker pool: 2 threads
+[   13.527] debug worker pool: 2 threads
+[   13.672] debug worker pool: 2 threads
+[   13.681] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.684] debug worker pool: 2 threads
+[   13.694] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.696] debug worker pool: 2 threads
+[   13.705] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.707] debug worker pool: 2 threads
+[   13.715] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.720] debug worker pool: 2 threads
+[   13.729] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.730] debug worker pool: 2 threads
+[   13.739] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.741] debug worker pool: 2 threads
+[   13.749] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.751] debug worker pool: 2 threads
+[   13.759] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.761] debug worker pool: 2 threads
+[   13.769] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.794] debug worker pool: 2 threads
+[   13.802] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.804] debug worker pool: 2 threads
+[   13.812] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.838] debug worker pool: 2 threads
+[   13.847] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+p/rummage-photo-library/tests/directory_model_test.cpp:182:
+TEST CASE:  model: a burst of 500 files arrives in a few notifications
+
+/tmp/rummage-photo-library/tests/directory_model_test.cpp:191: MESSAGE: 500 files in 1 notifications
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:332:
+TEST CASE:  keyboard browsing: grid wrap keeps columns and clamps an incomplete last row
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:334: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:358:
+TEST CASE:  grid: large icons fit narrow views and hit testing follows the drawn cells
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:432:
+TEST CASE:  drag: a press on an entry moved a few pixels drags the selection
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:468:
+TEST CASE:  drop: onto a folder in the columns moves on the same disk, Ctrl copies; Ctrl+Z
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:498:
+TEST CASE:  drop: Shift moves, onto the empty part of a view too
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:512:
+TEST CASE:  drop: not into itself, nor where they already are
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:535:
+TEST CASE:  drop: from another program, local files take precedence over web shortcuts
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:569:
+TEST CASE:  drop: onto a step of the breadcrumb and a place of the sidebar; the trash trashes
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:609:
+TEST CASE:  sidebar bookmarks: Ctrl+D and the menus add folders once; removed again
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:665:
+TEST CASE:  sidebar bookmarks: folders dropped below the places are added; files are not
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:766:
+TEST CASE:  sidebar bookmarks: renamed with F2, moved with Alt+arrows, pointed elsewhere
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:855:
+TEST CASE:  sidebar bookmarks: Ctrl+C and Ctrl+X in the label's field copy and cut it as text
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+====[   13.855] debug worker pool: 2 threads
+[   13.864] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.865] debug worker pool: 2 threads
+[   13.874] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.876] debug worker pool: 2 threads
+[   13.884] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.887] debug worker pool: 2 threads
+[   13.897] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.899] debug worker pool: 2 threads
+[   13.909] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.911] debug worker pool: 2 threads
+[   13.921] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.923] debug worker pool: 2 threads
+[   13.943] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.946] debug worker pool: 2 threads
+[   13.954] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.957] debug worker pool: 2 threads
+[   13.965] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.968] debug worker pool: 2 threads
+[   13.976] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.978] debug worker pool: 2 threads
+[   13.987] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+===========================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:895:
+TEST CASE:  sidebar disks: a click on the eject icon ejects; the right click offers the rest
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:975:
+TEST CASE:  band: from empty space, or beside a name, selects what it touches; Ctrl adds
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1023:
+TEST CASE:  band: beyond the bottom of the list, it scrolls and selects as it goes
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1050:
+TEST CASE:  details tree: disclosure clicks, child opening and dragging use the child directory
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1110:
+TEST CASE:  drop: Alt offers archive extraction into a named folder and leaves the source
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1140:
+TEST CASE:  drop: Alt can group files in their existing folder
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1162:
+TEST CASE:  drop: Alt external archive negotiates copy and offers extraction without moving it
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1189:
+TEST CASE:  drop: late Alt never reads an external offer still negotiated as a move
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1206:
+TEST CASE:  links: right-button drag offers keyboard Link and Cancel; right click still opens menu
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1210: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1246:
+TEST CASE:  links: external copy-only drops offer Link and Cancel without Move
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1248: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1266:
+TEST CASE:  drop: content creates complete unique files with selection and undo
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1268: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1308:
+TEST CASE:  drop: invalid images leave no files and content cannot target trash
+
+/tmp/rummage-photo-library/tests/drag_drop_[   13.989] debug worker pool: 2 threads
+[   13.997] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   13.999] debug worker pool: 2 threads
+[   14.007] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.009] debug worker pool: 2 threads
+[   14.018] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.028] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.038] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.039] warn  engine second (/tmp/nix-shell.eYhHLe/rummage-test-YW4Lk4/b-second.toml) shows a type another engine shows; skipped
+[   14.039] warn  engine /tmp/nix-shell.eYhHLe/rummage-test-YW4Lk4/c-broken.toml:1: [engine] has no 'protocol'; skipped
+[   14.039] warn  engine missing: its program absent is not installed; skipped
+[   14.048] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.053] debug worker pool: 2 threads
+[   14.071] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.110] debug worker pool: 2 threads
+[   14.120] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.138] debug worker pool: 2 threads
+[   14.148] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.288] debug worker pool: 2 threads
+[   14.298] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.305] debug worker pool: 2 threads
+[   14.315] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.362] debug worker pool: 2 threads
+[   14.365] debug worker pool: 2 threads
+[   14.375] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.384] debug worker pool: 2 threads
+[   14.394] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.402] debug preview: /tmp/nix-shell.eYhHLe/rummage-test-VEHIJm/a/photos/shot.orf: rummage can't show this kind of file (no preview in the file)
+[   14.417] debug worker pool: 2 threads
+[   14.427] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.435] debug worker pool: 2 threads
+[   14.445] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.463] debug worker pool: 2 threads
+[   14.471] debug worker pool: 2 threads
+[   14.475] debug worker pool: 2 threads
+[   14.485] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.527] debug worker pool: 2 threads
+[   14.537] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.580] debug worker pool: 2 threads
+[   14.591] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.600] debug worker pool: 2 threads
+[   14.610] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.621] debug worker pool: 2 threads
+[   14.631] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.640] debug worker pool: 2 threads
+[   14.658] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.668] debug worker pool: 2 threads
+[   14.678] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.685] debug worker pool: 2 threads
+[   14.694] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.714] debug worker pool: 2 threads
+[   14.724] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.729] debug worker pool: 2 threads
+[   14.739] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.746] debug worker pool: 2 threads
+[   14.756] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.761] debug worker pool: 2 threads
+[   14.770] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.776] debug worker pool: 2 threads
+[   14.785] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.791] debug worker pool: 2 threads
+[   14.801] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.808] debug worker pool: 2 threads
+[   14.818] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.823] debug worker pool: 2 threads
+[   14.832] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.838] debug worker pool: 2 threads
+[   14.847] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   14.854] debug worker pool: 2 threads
+[   14.864] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.070] debug worker pool: 2 threads
+[   15.080] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.085] debug worker pool: 2 threads
+[   15.095] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.136] debug worker pool: 2 threads
+[   15.145] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.183] debug worker pool: 2 threads
+[   15.193] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.231] debug worker pool: 2 threads
+[   15.240] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.246] debug worker pool: 2 threads
+[   15.255] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.264] debug worker pool: 2 threads
+[   15.273] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.278] debug mime: 10 types, 1 globs, 0 magic sections, head 0 bytes
+[   15.279] debug worker pool: 2 threads
+[   15.288] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.296] debug worker pool: 2 threads
+[   15.305] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.312] debug worker pool: 2 threads
+[   15.322] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.328] debug worker pool: 2 threads
+[   15.338] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.343] debug worker pool: 2 threads
+[   15.353] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.358] debug worker pool: 2 threads
+[   15.375] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.379] debug worker pool: 2 threads
+[   15.389] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.396] debug worker pool: 2 threads
+[   15.405] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.411] debug worker pool: 2 threads
+[   15.421] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.427] debug worker pool: 2 threads
+[   15.437] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.505] debug worker pool: 2 threads
+[   15.514] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.518] debug worker pool: 2 threads
+[   15.528] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.534] debug worker pool: 2 threads
+[   15.544] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.552] debug worker pool: 2 threads
+[   15.562] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.571] debug worker pool: 2 threads
+[   15.581] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.596] debug worker pool: 2 threads
+[   15.607] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.616] debug worker pool: 2 threads
+[   15.626] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   15.632] debug worker pool: 2 threads
+[   15.642] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   16.818] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   16.818] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.821] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   16.821] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.823] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   16.823] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.825] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   16.825] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.827] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   16.827] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.803] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   20.803] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   20.804] debug loaded font tabler-icons.ttf #0
+[   20.804] debug loaded font tabler-icons-filled.ttf #0
+[   20.805] debug mime: 7 types, 0 globs, 0 magic sections, head 0 bytes
+[   20.814] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1310: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1322:
+TEST CASE:  drop: URI offers prefer local files then image data over web links
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1324: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1344:
+TEST CASE:  windows: a right drag carries its source and choice into another browser
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:91: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/drag_drop_test.cpp:1346: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/erase_view_test.cpp:175:
+TEST CASE:  erase: Insights remains drawable after deleting files and emptying Trash
+
+/tmp/rummage-photo-library/tests/erase_view_test.cpp:175: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/file_picker_test.cpp:509:
+TEST CASE:  picker: overflowing options scroll into view and receive pointer input
+
+/tmp/rummage-photo-library/tests/file_picker_test.cpp:509: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/file_picker_test.cpp:560:
+TEST CASE:  picker: save filename supports double click and drag selection
+
+/tmp/rummage-photo-library/tests/file_picker_test.cpp:560: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/file_picker_test.cpp:698:
+TEST CASE:  picker: terminal button remains clickable at wide and narrow window sizes
+
+/tmp/rummage-photo-library/tests/file_picker_test.cpp:698: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/icon_test.cpp:56:
+TEST CASE:  icons: live system themes replace cached icons and respect explicit choices
+
+/tmp/rummage-photo-library/tests/icon_test.cpp:56: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/icon_test.cpp:159:
+TEST CASE:  place icons: custom images, builtin overrides, fallback and live replacement
+
+/tmp/rummage-photo-library/tests/icon_test.cpp:159: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:153:
+TEST CASE:  info pane: compact media and copy include collapsed details without stale selections
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:153: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:211:
+TEST CASE:  info pane: metadata text takes Ctrl+A/C while file selection stays intact
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:257:
+TEST CASE:  info pane: a full long UTF-8 filename wraps and copies without visual line breaks
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:287:
+TEST CASE:  info pane: changing context or hiding it clears text selection and focus
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:312:
+TEST CASE:  info pane: collapsing more details forgets selection of a hidden property
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:334:
+TEST CASE:  info pane: modifier keys keep text focus and file navigation drops it before drawing
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:366:
+TEST CASE:  info pane: moving to the next file keeps the summary before until the next is read
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:402:
+TEST CASE:  info pane: text is a bounded thumbnail and Space opens the readable Quick Look
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:435:
+TEST CASE:  info pane: applying permissions refreshes cached metadata without changing mtime
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:457:
+TEST CASE:  info pane: source summary is scoped to its folder and opens language insights
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:457: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:509:
+TEST CASE:  info pane: preview follows focus independently of the selected set in every view
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:561:
+TEST CASE:  info pane: automatic visibility follows focus and manual Show overrides it
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:603:
+TEST CASE:  info pane: automatic hiding handles metadata-only files deletion and picker mode
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:637:
+TEST CASE:  info pane: collection metadata stays cached for offline originals and empty roots
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:704:
+TEST CASE:  info pane: logical collection records use stable identity without file metadata
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:786:
+TEST CASE:  info pane: changed photo exposes [   23.776] debug worker pool: 2 threads
+[   23.788] debug worker pool: 1 threads
+[   23.798] debug worker pool: 1 threads
+[   23.803] debug worker pool: 1 threads
+[   23.807] debug worker pool: 1 threads
+[   23.809] debug worker pool: 1 threads
+[   23.823] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   23.828] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/colors.toml
+[   23.828] info  theme: desktop is dark, with an accent colour
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:View] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:View] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:Window] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:Window] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:Button] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:Button] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:Selection] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.828] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/kdeglobals:1: missing [Colors:Selection] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.829] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-X6kIzD/colors.toml removed; palette file unavailable
+[   23.829] info  theme: default palette
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:2: supported colours must be opaque R,G,B or R,G,B,255 (0–255); KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:View] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:View] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:Window] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:Window] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:Button] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:Button] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:Selection] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.382] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-9Mj9Hx/kdeglobals:1: missing [Colors:Selection] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+current file metadata without validating its identity
+
+/tmp/rummage-photo-library/tests/info_pane_test.cpp:146: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:303:
+TEST CASE:  insights: partial map keeps unknown siblings available for drilling
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:303: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:344:
+TEST CASE:  insights: immediate folder redraws preserve map rows during navigation
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:344: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:480:
+TEST CASE:  insights: reopening preserves the result page and light theme remains usable
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:480: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:548:
+TEST CASE:  insights: native browser entry points, rendering and pane navigation
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:548: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:734:
+TEST CASE:  insights: largest files and age graphs drill down and preserve scope
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:734: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:807:
+TEST CASE:  insights: real Tokei language graph, embedded files, options and resume
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:807: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:904:
+TEST CASE:  insights: native results select, open, preview, copy and rename without leaving their pane
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:904: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:1079:
+TEST CASE:  insights: dedicated tab follows Places with full-width scrolling and folder navigation
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:1079: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:1245:
+TEST CASE:  insights: clickable columns sort counts, sizes, shares and natural names in both directions
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:1245: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/insights_test.cpp:1339:
+TEST CASE:  insights: Iris native files, descendant rings, sorting and reduced motion
+
+/tmp/rummage-photo-library/tests/insights_test.cpp:1339: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/markdown_view_test.cpp:20:
+TEST CASE:  markdown: rendered layout wraps at narrow widths and copies presentation text
+
+/tmp/rummage-photo-library/tests/markdown_view_test.cpp:20: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+=====================================================[   25.205] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.206] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.207] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.207] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.208] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.208] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.209] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.211] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.213] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.215] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.216] debug mime: 27 types, 16 globs, 8 magic sections, head 18 bytes
+[   25.227] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   25.229] debug worker pool: 2 threads
+[   25.240] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   25.243] debug worker pool: 1 threads
+==========================
+/tmp/rummage-photo-library/tests/markdown_view_test.cpp:80:
+TEST CASE:  markdown: links remain visible on table and inline code backgrounds
+
+/tmp/rummage-photo-library/tests/markdown_view_test.cpp:80: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/menu_editor_test.cpp:163:
+TEST CASE:  menu editor: compact page scrolls to labels and keeps popup dismissal local
+
+/tmp/rummage-photo-library/tests/menu_editor_test.cpp:163: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/menu_editor_test.cpp:300:
+TEST CASE:  menu editor: Japanese controls stay usable after wrapping and scrolling
+
+/tmp/rummage-photo-library/tests/menu_editor_test.cpp:300: ERROR: test case THREW exception: surfaceless EGL display unavailable
+  logged: width := 700
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:190:
+TEST CASE:  motion: every GLES effect renders, preserves alpha and restores renderer state
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:190: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:252:
+TEST CASE:  motion: capture caps and fractional scales preserve normal rendering
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:252: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:283:
+TEST CASE:  motion: browser navigation settles, reduced mode cancels and idle stays idle
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:283: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:500:
+TEST CASE:  motion: persistent shaders animate without captures and preserve background alpha
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:500: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:543:
+TEST CASE:  motion: custom shader reload keeps last good pixels after errors and recovers
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:543: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:586:
+TEST CASE:  motion: effects preview draws at wide and narrow sizes without retaining captures
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:586: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:645:
+TEST CASE:  motion: object shader parameters change intermediate pixels but preserve endpoints
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:645: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:673:
+TEST CASE:  motion: shader drafts keep separate programs and diagnostics from the browser
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:673: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:704:
+TEST CASE:  motion: move and trash retain the painted thumbnail after the source disappears
+
+/tmp/rummage-photo-library/test[   25.263] debug worker pool: 2 threads
+[   25.273] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   25.276] debug worker pool: 2 threads
+[   25.285] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   26.309] debug worker pool: 2 threads
+[   26.320] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   27.340] debug worker pool: 2 threads
+[   27.352] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.371] debug worker pool: 2 threads
+[   28.382] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.402] debug worker pool: 2 threads
+[   28.413] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.431] debug worker pool: 2 threads
+[   28.443] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.462] debug worker pool: 2 threads
+[   28.474] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.493] debug worker pool: 2 threads
+[   28.503] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.532] debug worker pool: 2 threads
+[   28.543] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.565] debug worker pool: 2 threads
+[   28.576] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.596] debug worker pool: 2 threads
+[   28.607] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.613] debug worker pool: 2 threads
+[   28.624] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.651] debug worker pool: 2 threads
+[   28.661] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.683] debug worker pool: 2 threads
+[   28.693] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.713] debug worker pool: 2 threads
+[   28.724] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.732] debug worker pool: 2 threads
+[   28.743] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.751] debug worker pool: 2 threads
+[   28.761] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.771] debug worker pool: 2 threads
+[   28.781] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.791] debug worker pool: 2 threads
+[   28.800] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.808] debug worker pool: 2 threads
+[   28.817] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.825] debug worker pool: 2 threads
+[   28.834] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.841] debug worker pool: 2 threads
+[   28.851] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.865] debug worker pool: 2 threads
+[   28.875] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.888] debug worker pool: 2 threads
+[   28.898] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.912] debug worker pool: 2 threads
+[   28.921] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   28.961] debug worker pool: 2 threads
+[   28.970] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   29.013] debug worker pool: 2 threads
+[   29.024] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   29.036] debug worker pool: 2 threads
+[   29.047] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   29.089] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-WIcJHp/colors.toml
+[   29.089] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-WIcJHp/colors.toml
+[   29.089] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-WIcJHp/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   29.089] warn  theme: keeping the current palette
+[   29.089] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-WIcJHp/colors.toml removed; palette file unavailable
+[   29.090] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-Q7wzSm/colors.toml
+[   29.090] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-Q7wzSm/colors.toml
+[   29.090] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-Q7wzSm/colors.toml removed; palette file unavailable
+[   29.090] info  theme: desktop is light
+[   29.091] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml
+[   29.091] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:1:1: no [colors] section; file ignored
+[   29.091] warn  theme: keeping the current palette
+[   29.091] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:1:1: no [colors] section; file ignored
+[   29.091] warn  theme: keeping the current palette
+[   29.091] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:1:10: 'colors' must be a section ([colors]); file ignored
+[   29.091] warn  theme: keeping the current palette
+[   29.091] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:1:8: 'mode' must be "dark" or "light"; file ignored
+[   29.091] warn  theme: keeping the current palette
+[   29.091] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:1:8: 'mode' must be "dark" or "light"; file ignored
+[   29.091] warn  theme: keeping the current palette
+[   29.092] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:3:9: 'colors.hover' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.092] warn  theme: keeping the current palette
+[   29.092] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.092] warn  theme: keeping the current palette
+[   29.092] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.092] warn  theme: keeping the current palette
+[   29.092] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.092] warn  theme: keeping the current palette
+[   29.092] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.092] warn  theme: keeping the current palette
+[   29.093] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-oi2W1z/colors.toml:3:11: Error while parsing key-value pair: cannot redefine existing string 'primary'; the whole file is ignored
+[   29.093] warn  theme: keeping the current palette
+[   29.094] info  theme: default palette
+[   29.094] info  theme: desktop is light, with an accent colour
+[   29.144] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-T43UVx/colors.toml
+[   29.445] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-T43UVx/colors.toml
+[   29.745] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-T43UVx/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.745] warn  theme: keeping the current palette
+[   30.045] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-T43UVx/colors.toml removed; palette file unavailable
+[   30.346] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-T43UVx/colors.toml
+[   30.596] info  theme: default palette
+[   30.596] info  theme: default palette
+[   30.596] info  theme: desktop is light, with an accent colour
+[   30.596] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-s4XEkP/colors.toml
+[   30.597] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-s4XEkP/colors.toml
+[   30.597] info  theme: desktop is light, with an accent colour
+[   30.598] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-4BI1XW/colors.toml
+[   30.598] info  theme: desktop is light, with an accent colour
+[   30.598] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-4BI1XW/colors.toml
+[   30.598] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-4BI1XW/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   30.598] warn  theme: keeping the current palette
+[   30.598] info  theme: desktop is dark, with an accent colour
+[   30.598] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-4BI1XW/colors.toml removed; palette file unavailable
+[   30.598] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-4BI1XW/colors.toml
+[   30.599] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-9SHG4W/colors.toml
+[   30.599] info  theme: desktop is light, with an accent colour
+[   30.614] info  theme: default palette
+[   30.614] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-xY6Xi9/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   30.614] info  theme: default palette
+[   30.614] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-xY6Xi9/colors.toml
+[   30.614] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-xY6Xi9/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   30.614] warn  theme: keeping the current palette
+[   30.614] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-xY6Xi9/colors.toml
+[   30.614] info  theme: /tmp/nix-shell.eYhHLe/rummage-test-xY6Xi9/colors.toml removed; palette file unavailable
+[   30.615] debug worker pool: 2 threads
+[   30.625] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.642] debug worker pool: 2 threads
+[   30.653] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.668] debug worker pool: 2 threads
+[   30.679] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.688] debug worker pool: 2 threads
+[   30.699] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.716] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.722] debug worker pool: 2 threads
+[   30.733] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.739] debug worker pool: 2 threads
+[   30.751] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.771] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.776] debug worker pool: 2 threads
+[   30.788] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.794] debug worker pool: 2 threads
+[   30.806] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.813] debug worker pool: 2 threads
+[   30.824] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.839] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.846] debug worker pool: 2 threads
+[   30.863] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.882] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.889] debug worker pool: 2 threads
+[   30.901] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.907] debug worker pool: 2 threads
+[   30.918] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.924] debug worker pool: 2 threads
+[   30.935] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.947] debug worker pool: 2 threads
+[   30.959] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.972] debug worker pool: 2 threads
+[   30.983] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   30.987] debug worker pool: 2 threads
+[   30.999] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.016] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.022] debug worker pool: 2 threads
+[   31.034] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.039] debug worker pool: 2 threads
+[   31.050] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+s/motion_test.cpp:704: ERROR: test case THREW exception: surfaceless EGL display unavailable
+  logged: static_cast<int>(mode) := 1
+          move := false
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:856:
+TEST CASE:  motion: isolated effects preserve backdrop, clips and premultiplied alpha
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:856: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:899:
+TEST CASE:  motion: render operation filmstrip with actual icon shaders
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:899: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:930:
+TEST CASE:  motion: streamed folder contents are animated on their first painted batch
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:930: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/motion_test.cpp:1026:
+TEST CASE:  motion: directory disintegration reveals the target instead of erasing and flashing it
+
+/tmp/rummage-photo-library/tests/motion_test.cpp:1026: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:310:
+TEST CASE:  panes: pointer focus, inactive scrolling, both tab bars, resizing and drop targets
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:474:
+TEST CASE:  panes: an idle split does not schedule another frame while drawing
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:502:
+TEST CASE:  panes: shared toolbar and status bar respect configured font metrics
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:576:
+TEST CASE:  panes: scrollbar drags stay captured without selecting or dragging files
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+  logged: mode := 0
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:584: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+  logged: mode := 0
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:657:
+TEST CASE:  panes: horizontal column scrollbar drags independently of files and dividers
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:660: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:758:
+TEST CASE:  panes: unchanged views of the same folder share saved preferences across frames
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:792:
+TEST CASE:  panes: preview below Places follows the active pane and retains its divider
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:852:[   31.054] debug worker pool: 2 threads
+[   31.066] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.071] debug worker pool: 2 threads
+[   31.083] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.100] debug worker pool: 2 threads
+[   31.111] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.119] debug worker pool: 2 threads
+[   31.130] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.134] debug worker pool: 2 threads
+[   31.145] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.157] debug worker pool: 2 threads
+[   31.166] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.175] debug worker pool: 2 threads
+[   31.185] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.188] debug worker pool: 2 threads
+[   31.197] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.235] debug worker pool: 2 threads
+[   31.245] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.320] debug worker pool: 2 threads
+[   31.330] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.368] debug worker pool: 2 threads
+[   31.378] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.417] debug worker pool: 2 threads
+[   31.427] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.481] debug worker pool: 2 threads
+[   31.492] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.506] debug worker pool: 2 threads
+[   31.517] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.527] debug worker pool: 2 threads
+[   31.539] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.641] debug worker pool: 2 threads
+[   31.652] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.657] debug preview: /tmp/nix-shell.eYhHLe/rummage-test-udKhRb/root/album/P2.ORF: rummage can't show this kind of file (no preview in the file)
+[   31.657] debug preview: /tmp/nix-shell.eYhHLe/rummage-test-udKhRb/root/album/P2.ORF: rummage can't show this kind of file (no preview in the file)
+[   31.662] debug worker pool: 2 threads
+[   31.673] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.799] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.931] debug loaded font /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf #0
+[   31.931] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   31.932] debug loaded font tabler-icons.ttf #0
+[   31.932] debug loaded font tabler-icons-filled.ttf #0
+[   31.933] debug worker pool: 1 threads
+[   31.945] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.958] debug worker pool: 2 threads
+[   31.968] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   31.974] debug worker pool: 2 threads
+[   31.984] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.125] debug worker pool: 2 threads
+[   32.135] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.179] debug worker pool: 2 threads
+[   32.189] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.191] debug worker pool: 1 threads
+[   32.201] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.214] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.226] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.227] warn  terminal.program "missing" was not found; trying $TERMINAL and the others
+[   32.227] warn  terminal.program "missing" was not found; trying $TERMINAL and the others
+[   32.239] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.251] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.265] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.278] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.284] debug launcher: started sh (pidfd 14)
+[   32.289] debug launcher: pidfd 14 ended, status 3 signal 0
+[   32.289] debug launcher: started sh (pidfd 14)
+[   32.291] debug launcher: pidfd 14 ended, status 0 signal 15
+[   32.302] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.303] debug worker pool: 2 threads
+[   32.304] info  open: /tmp/nix-shell.eYhHLe/rummage-test-E4hQTW/bin/viewer with viewer.desktop (2 file(s))
+[   32.304] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-E4hQTW/bin/viewer (pidfd 16)
+[   32.306] debug launcher: pidfd 16 ended, status 0 signal 0
+[   32.308] info  open: /tmp/nix-shell.eYhHLe/rummage-test-E4hQTW/bin/broken with broken.desktop (1 file(s))
+[   32.308] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-E4hQTW/bin/broken (pidfd 16)
+[   32.310] debug launcher: pidfd 16 ended, status 1 signal 0
+[   32.311] info  open: /tmp/nix-shell.eYhHLe/rummage-test-E4hQTW/bin/broken with broken.desktop (1 file(s))
+[   32.311] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-E4hQTW/bin/broken (pidfd 16)
+[   32.313] debug launcher: pidfd 16 ended, status 1 signal 0
+[   32.315] info  open: No application opens application/x-zerosize
+[   32.316] info  open: No application opens application/zip
+[   32.329] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.329] debug worker pool: 2 threads
+[   32.330] info  open: No terminal found: set terminal.program in config.toml
+[   32.331] info  open: /tmp/nix-shell.eYhHLe/rummage-test-WXfwuO/bin/foot with foot (1 file(s))
+[   32.331] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WXfwuO/bin/foot (pidfd 16)
+[   32.333] debug launcher: pidfd 16 ended, status 0 signal 0
+[   32.334] info  open: /tmp/nix-shell.eYhHLe/rummage-test-WXfwuO/bin/myterm with myterm (1 file(s))
+[   32.334] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WXfwuO/bin/myterm (pidfd 16)
+[   32.337] debug launcher: pidfd 16 ended, status 0 signal 0
+[   32.337] info  open: /tmp/nix-shell.eYhHLe/rummage-test-WXfwuO/bin/editor with editor.desktop (1 file(s))
+[   32.338] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-WXfwuO/bin/editor (pidfd 16)
+[   32.340] debug launcher: pidfd 16 ended, status 0 signal 0
+[   32.352] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.356] debug worker pool: 2 threads
+[   32.365] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.368] debug worker pool: 2 threads
+[   32.378] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.380] debug worker pool: 2 threads
+[   32.390] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+
+TEST CASE:  panes: compact View menu and Settings remain accessible without the controls row
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:889:
+TEST CASE:  panes: shared controls sit above tabs and breadcrumbs and follow the active pane
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:892: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:989:
+TEST CASE:  panes: column focus preserves the view and a child's saved mode
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:991: FATAL ERROR: REQUIRE( surface ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:1100:
+TEST CASE:  panes: sidebar dismiss and toolbar restore preserve organization and width
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:1103: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/panes_test.cpp:1200:
+TEST CASE:  panes: shared filter and New Folder target only the active pane
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:80: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/panes_test.cpp:1203: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/places_test.cpp:566:
+TEST CASE:  sidebar: separators drag within their section and headers collapse without opening
+
+/tmp/rummage-photo-library/tests/places_test.cpp:566: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/places_test.cpp:683:
+TEST CASE:  sidebar: disclosures follow visible subfolders and update when a leaf gains children
+
+/tmp/rummage-photo-library/tests/places_test.cpp:683: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/places_test.cpp:826:
+TEST CASE:  sidebar: collapsed logical groups highlight the closest visible ancestor
+
+/tmp/rummage-photo-library/tests/places_test.cpp:826: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:158:
+TEST CASE:  pointer shapes: buttons use hands and selectable metadata uses text cursors
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:202:
+TEST CASE:  pointer shapes: the text cursor over a name being edited
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:241:
+TEST CASE:  pointer shapes: a card takes them; under a menu, an arrow
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:261:
+TEST CASE:  pointer shapes: sent when they change, the resize arrow first
+
+/tmp/ru[   32.392] debug worker pool: 2 threads
+[   32.402] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.405] debug worker pool: 2 threads
+[   32.415] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.417] debug worker pool: 2 threads
+[   32.427] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.430] debug worker pool: 2 threads
+[   32.440] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.442] debug worker pool: 2 threads
+[   32.452] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.454] debug worker pool: 2 threads
+[   32.464] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.486] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.488] debug preview: /tmp/nix-shell.eYhHLe/rummage-test-wby5r8/missing.txt: No such file or directory
+[   32.555] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.557] debug worker pool: 2 threads
+[   32.567] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.568] info  open: /tmp/nix-shell.eYhHLe/rummage-test-PUbzux/apps/tool with program (1 file(s))
+[   32.569] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PUbzux/apps/tool (pidfd 16)
+[   32.576] debug launcher: pidfd 16 ended, status 0 signal 0
+[   32.577] info  open: /tmp/nix-shell.eYhHLe/rummage-test-PUbzux/apps/tool with program (1 file(s))
+[   32.578] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-PUbzux/apps/tool (pidfd 16)
+[   32.585] debug launcher: pidfd 16 ended, status 0 signal 0
+[   32.586] info  open: No application opens application/pdf
+[   32.587] info  open: No application opens text/x-shellscript
+[   32.589] info  open: No application opens application/x-executable
+[   32.591] debug worker pool: 2 threads
+[   32.601] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.612] debug worker pool: 2 threads
+[   32.623] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.629] debug worker pool: 2 threads
+[   32.639] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.647] debug worker pool: 2 threads
+[   32.664] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.670] debug worker pool: 2 threads
+[   32.680] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.688] debug worker pool: 2 threads
+[   32.698] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.707] debug worker pool: 2 threads
+[   32.717] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.771] debug worker pool: 2 threads
+[   32.781] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.787] debug worker pool: 2 threads
+[   32.797] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.800] debug worker pool: 2 threads
+[   32.810] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.818] debug worker pool: 2 threads
+[   32.828] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   32.845] debug worker pool: 2 threads
+[   32.856] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.162] debug worker pool: 2 threads
+[   33.172] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.197] debug worker pool: 2 threads
+[   33.207] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.245] debug worker pool: 2 threads
+[   33.256] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.296] debug worker pool: 2 threads
+[   33.306] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.345] debug worker pool: 2 threads
+[   33.356] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.363] debug worker pool: 2 threads
+[   33.373] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.445] debug worker pool: 2 threads
+[   33.459] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.529] debug worker pool: 2 threads
+[   33.539] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   33.610] debug worker pool: 2 threads
+[   33.620] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+mmage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:298:
+TEST CASE:  pointer shapes: sidebar zoom scales eject targets and routes wheel independently
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:333:
+TEST CASE:  toolbar: filter and New Folder buttons work in each view
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:374:
+TEST CASE:  toolbar: compact icons leave usable filter fields at every scale
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:412:
+TEST CASE:  status bar: enlarged text reserves height and keeps buttons centered
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:444:
+TEST CASE:  toolbar: filter selection drags stay captured until release
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:68: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/pointer_shapes_test.cpp:446: FATAL ERROR: REQUIRE( f.gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:264:
+TEST CASE:  quick look: on a text page the pointer selects; a click beside it closes
+
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:271: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:327:
+TEST CASE:  quick look: a log opens at its end; keys and Shift+wheel move a text page
+
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:334: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:442:
+TEST CASE:  quick look: Details button stays inside a narrow scaled window
+
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:442: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:474:
+TEST CASE:  quick look: upright thumbnail and reduced sharp frame keep size and opacity
+
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:474: ERROR: test case THREW exception: surfaceless EGL display unavailable
+  logged: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:581:
+TEST CASE:  quick look: offline thumbnail latency starts at its request and changed files preview afresh
+
+/tmp/rummage-photo-library/tests/quick_look_test.cpp:581: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/rename_test.cpp:491:
+TEST CASE:  text field: pointer selection captures drags and double clicks
+
+/tmp/rummage-photo-library/tests/rename_test.cpp:491: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:47:
+TEST CASE:  renderer: button labels stay centered and inside their padding at every scale
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+  logged: scale := 1
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:53: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+  logged: scale := 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:110:
+TEST CASE:  renderer: a line in several colours, by the bytes each glyph comes from
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:153:
+TEST CASE:  renderer: background alpha does not accumulate or fade foreground content
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+  logged: scale := 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:218:
+TEST CASE:  renderer: adjacent translucent panels meet at fractional pixel boundaries
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:243:
+TEST CASE:  renderer: bitmap glyphs round the original pen position once
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:287:
+TEST CASE:  folder icons: untrusted image paths and missing names use the fallback
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:320:
+TEST CASE:  bookmark icons: sidebar uses installed theme icons and ignores image paths
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:322: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:391:
+TEST CASE:  renderer: password dialogs mask Unicode characters and retain editing geometry
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:414:
+TEST CASE:  renderer: action errors wrap scroll and copy all details without losing queued failures
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:451:
+TEST CASE:  renderer: annular sectors keep transparent holes and wrap beyond a half turn
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:40: MESSAGE: no offscreen OpenGL: 1
+  logged: scale := 1
+
+/tmp/rummage-photo-library/tests/renderer_runs_test.cpp:456: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+  logged: scale := 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:205:
+TEST CASE:  settings editor retains drafts across redraw and makes narrow forms keyboard accessible
+
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:205: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:268:
+TEST CASE:  settings editor saves a new action only after its required fields are complete
+
+/tmp/rummage-photo-librar[   34.061] debug worker pool: 1 threads
+[   34.086] debug worker pool: 1 threads
+[   34.124] debug worker pool: 1 threads
+[   34.149] debug worker pool: 1 threads
+[   34.197] debug worker pool: 1 threads
+[   34.218] debug worker pool: 1 threads
+[   34.231] debug worker pool: 1 threads
+[   34.264] debug worker pool: 1 threads
+[   34.301] debug worker pool: 1 threads
+[   34.342] debug worker pool: 1 threads
+[   34.364] debug worker pool: 1 threads
+[   34.385] debug worker pool: 1 threads
+[   34.399] debug worker pool: 1 threads
+[   34.421] debug worker pool: 1 threads
+[   34.459] debug worker pool: 1 threads
+[   34.505] debug worker pool: 1 threads
+[   34.516] debug worker pool: 1 threads
+[   34.544] debug worker pool: 1 threads
+[   34.568] debug worker pool: 1 threads
+[   34.585] debug worker pool: 1 threads
+[   34.607] debug worker pool: 1 threads
+[   34.607] info  theme: default palette
+[   34.620] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-gvcgOR/colors.toml
+[   34.620] info  theme: desktop is dark
+[   34.629] debug worker pool: 1 threads
+[   34.657] debug worker pool: 1 threads
+[   34.676] debug worker pool: 1 threads
+[   34.700] debug worker pool: 1 threads
+[   34.743] debug worker pool: 1 threads
+[   34.782] debug worker pool: 1 threads
+[   34.782] info  theme: default palette
+[   34.795] info  theme: reloaded /tmp/nix-shell.eYhHLe/rummage-test-UCAeIP/colors.toml
+[   34.795] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-UCAeIP/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   34.795] warn  theme: keeping the current palette
+[   34.795] warn  theme: /tmp/nix-shell.eYhHLe/rummage-test-UCAeIP/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   34.795] info  theme: default palette
+[   34.796] debug worker pool: 1 threads
+[   34.817] debug worker pool: 1 threads
+[   34.832] debug worker pool: 1 threads
+[   34.848] debug worker pool: 1 threads
+[   34.866] debug worker pool: 1 threads
+[   34.879] debug worker pool: 1 threads
+[   34.907] debug worker pool: 1 threads
+[   34.980] debug worker pool: 1 threads
+[   34.999] debug worker pool: 1 threads
+[   35.013] debug worker pool: 1 threads
+y/tests/settings_editors_test.cpp:268: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:308:
+TEST CASE:  settings editor back navigation cancels recording before command search
+
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:308: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:333:
+TEST CASE:  settings editor selected text retains contrast with explicit light accent roles
+
+/tmp/rummage-photo-library/tests/settings_editors_test.cpp:333: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:225:
+TEST CASE:  settings: scrolling and scrollbar drag reach controls in a short window
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:225: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:414:
+TEST CASE:  settings: pointer choices select from a menu and outside clicks only dismiss
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:414: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:579:
+TEST CASE:  settings: discarding unsaved drafts keeps earlier automatic saves
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:579: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:605:
+TEST CASE:  settings: translated compact navigation preserves keyboard editing and dropdown focus
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:605: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:879:
+TEST CASE:  settings: embedded editors return keyboard focus to host and dismiss popups first
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:879: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:920:
+TEST CASE:  settings: custom action recording receives host shortcuts and Escape cancels
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:920: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:1121:
+TEST CASE:  settings: slot selector reaches persistent effects and effect dropdown replays immediately
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:1121: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:1157:
+TEST CASE:  settings: translated effects stay searchable and save stable effect identifiers
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:1157: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:1214:
+TEST CASE:  settings: translated rows grow without overlapping text and controls
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:1214: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+============================================================[   35.034] debug worker pool: 1 threads
+[   35.054] debug worker pool: 2 threads
+[   35.064] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   38.693] debug worker pool: 2 threads
+[   38.711] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   40.099] debug worker pool: 2 threads
+[   40.110] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   40.153] debug worker pool: 2 threads
+[   40.164] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   41.879] debug worker pool: 2 threads
+[   41.889] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   41.896] debug worker pool: 2 threads
+[   41.907] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   41.952] debug worker pool: 2 threads
+[   41.963] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   41.986] debug worker pool: 2 threads
+[   41.997] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.015] debug worker pool: 2 threads
+[   42.026] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.046] debug worker pool: 2 threads
+[   42.056] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.084] debug worker pool: 2 threads
+[   42.094] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.112] debug worker pool: 2 threads
+[   42.123] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.133] debug worker pool: 2 threads
+[   42.143] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.160] debug worker pool: 2 threads
+[   42.170] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.187] debug worker pool: 2 threads
+[   42.197] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.216] debug worker pool: 2 threads
+[   42.226] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.238] debug worker pool: 2 threads
+[   42.248] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.258] debug worker pool: 2 threads
+[   42.268] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.282] debug worker pool: 2 threads
+[   42.292] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.302] debug worker pool: 2 threads
+[   42.312] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.319] debug worker pool: 2 threads
+[   42.329] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.350] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.383] debug worker pool: 2 threads
+[   42.393] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.398] debug worker pool: 2 threads
+[   42.426] debug worker pool: 2 threads
+[   42.440] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.457] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.471] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.477] debug worker pool: 2 threads
+[   42.486] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   42.955] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.453] debug worker pool: 2 threads
+[   43.461] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.478] debug worker pool: 2 threads
+[   43.487] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.506] debug worker pool: 2 threads
+[   43.515] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.521] debug worker pool: 2 threads
+[   43.529] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.571] debug worker pool: 2 threads
+[   43.581] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.597] debug worker pool: 2 threads
+[   43.607] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.611] debug worker pool: 2 threads
+[   43.621] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.626] debug worker pool: 2 threads
+[   43.635] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.651] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.656] debug worker pool: 2 threads
+[   43.666] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.675] debug worker pool: 2 threads
+[   43.685] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.699] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.706] debug worker pool: 2 threads
+[   43.716] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.723] debug worker pool: 2 threads
+[   43.737] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.749] debug worker pool: 2 threads
+[   43.759] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.769] debug worker pool: 2 threads
+[   43.779] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.785] debug worker pool: 2 threads
+[   43.795] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.800] debug worker pool: 2 threads
+[   43.811] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.817] debug worker pool: 2 threads
+[   43.827] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.842] debug worker pool: 2 threads
+[   43.852] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.868] debug worker pool: 2 threads
+[   43.878] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.913] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.940] debug worker pool: 2 threads
+[   43.951] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.962] debug worker pool: 2 threads
+[   43.972] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   43.993] debug worker pool: 2 threads
+[   44.003] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.012] debug worker pool: 2 threads
+[   44.022] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.032] debug worker pool: 2 threads
+[   44.042] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.055] debug worker pool: 2 threads
+[   44.065] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.071] debug worker pool: 2 threads
+[   44.082] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.088] debug worker pool: 2 threads
+[   44.099] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.111] debug worker pool: 2 threads
+[   44.121] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.125] debug worker pool: 2 threads
+[   44.136] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.152] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.158] debug worker pool: 2 threads
+[   44.168] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.187] debug worker pool: 2 threads
+[   44.197] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.211] debug worker pool: 2 threads
+[   44.221] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.242] debug worker pool: 2 threads
+[   44.253] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.260] debug worker pool: 2 threads
+[   44.270] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.283] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.324] debug worker pool: 2 threads
+[   44.334] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.341] debug worker pool: 2 threads
+[   44.352] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   44.360] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-0nGPaE/terminal (pidfd 16)
+[   44.360] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-jNGJWA/terminal (pidfd 20)
+[   44.361] debug launcher: pidfd 16 ended, status 0 signal 0
+[   44.363] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-3V2kqZ/terminal (pidfd 15)
+[   44.366] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-6O9MEI/terminal (pidfd 15)
+[   44.368] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-fKtoXW/terminal (pidfd 15)
+[   44.371] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ckghvY/terminal (pidfd 15)
+[   44.373] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BaOJkX/terminal (pidfd 15)
+[   44.376] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-gvp8a3/terminal (pidfd 15)
+[   44.380] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-sjZhl1/terminal (pidfd 15)
+[   44.382] debug launcher: pidfd 15 ended, status 42 signal 0
+[   44.384] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-HzgddH/terminal (pidfd 15)
+[   44.509] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-fRtbKy/terminal (pidfd 15)
+[   44.638] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-TzwC2d/terminal (pidfd 15)
+[   44.765] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-xfsUpu/terminal (pidfd 15)
+[   44.891] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-1VEi0g/terminal (pidfd 15)
+[   45.009] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-eh9RsQ/terminal (pidfd 15)
+[   45.136] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-ZuFiZR/terminal (pidfd 15)
+[   45.263] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-VW7xeo/terminal (pidfd 15)
+[   45.381] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-894yn7/terminal (pidfd 15)
+[   45.496] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-F3Rav8/terminal (pidfd 15)
+[   45.622] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-aYrlzV/terminal (pidfd 15)
+[   46.065] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-jpYbQM/terminal (pidfd 15)
+[   46.506] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-Uz1D95/terminal (pidfd 15)
+[   46.961] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BmFu1E/terminal (pidfd 15)
+[   47.406] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-DAkivK/terminal (pidfd 15)
+[   47.860] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-kFZQPs/terminal (pidfd 15)
+[   48.318] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-BHYVnn/terminal (pidfd 15)
+[   48.755] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-muLXQr/terminal (pidfd 15)
+[   49.211] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-b74UXN/terminal (pidfd 15)
+[   49.646] debug launcher: started /tmp/nix-shell.eYhHLe/rummage-test-nsW69n/terminal (pidfd 15)
+[   50.179] debug worker pool: 1 threads
+[   50.179] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-vNBlVA/photo.heic (large, attempt 1): Preview unavailable (injected failure)
+[   50.437] debug worker pool: 1 threads
+[   50.437] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-E4biu2/photo.heic (large, attempt 1): Preview unavailable (injected failure)
+[   50.688] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-E4biu2/photo.heic (large, attempt 2): Preview unavailable (injected failure)
+[   51.689] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-E4biu2/photo.heic (large, attempt 3): Preview unavailable (injected failure)
+[   51.992] debug worker pool: 1 threads
+[   51.993] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-vkxxlC/photo.heic (large, attempt 1): This image looks damaged (injected failure)
+[   52.294] debug worker pool: 1 threads
+[   52.295] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-HfQLWV/photo.heic (large, attempt 1): Preview unavailable (injected failure)
+[   52.647] debug worker pool: 1 threads
+[   52.648] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-g7OFEv/photo.heic (large, attempt 1): Preview unavailable (injected failure)
+[   53.000] debug worker pool: 1 threads
+[   53.001] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-9l5djx/photo.heic (large, attempt 1): Preview unavailable (injected failure)
+[   53.253] debug worker pool: 1 threads
+[   53.254] debug worker pool: 2 threads
+[   53.258] debug worker pool: 1 threads
+[   53.258] debug worker pool: 2 threads
+[   53.271] debug worker pool: 1 threads
+[   53.271] debug worker pool: 6 threads
+[   53.275] debug worker pool: 1 threads
+[   53.275] debug worker pool: 1 threads
+[   53.278] debug worker pool: 1 threads
+[   53.278] debug worker pool: 1 threads
+===================
+/tmp/rummage-photo-library/tests/settings_test.cpp:1250:
+TEST CASE:  settings: the full translated reset button is clickable
+
+DEEPEST SUBCASE STACK REACHED (DIFFERENT FROM THE CURRENT ONE):
+  German
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:1250: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/settings_test.cpp:1250:
+TEST CASE:  settings: the full translated reset button is clickable
+
+DEEPEST SUBCASE STACK REACHED (DIFFERENT FROM THE CURRENT ONE):
+  French
+
+/tmp/rummage-photo-library/tests/settings_test.cpp:1250: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/shortcuts_test.cpp:187:
+TEST CASE:  keyboard focus leaves file contents visible in every view
+
+/tmp/rummage-photo-library/tests/shortcuts_test.cpp:187: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/tabs_test.cpp:330:
+TEST CASE:  tabs: the bar with two tabs; a click shows one, its × or a middle click closes it
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:82: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/tabs_test.cpp:444:
+TEST CASE:  zoom: the lists grow and shrink together, in every tab; the cursor's row stays
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:82: MESSAGE: no offscreen OpenGL: 1
+
+===============================================================================
+/tmp/rummage-photo-library/tests/tabs_test.cpp:740:
+TEST CASE:  views: selected labels stay within their rows and the status shows the full filename
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:82: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:742: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/tabs_test.cpp:855:
+TEST CASE:  views: preview toggle replaces icons in every view and restores icons immediately
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:82: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:857: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/tabs_test.cpp:1110:
+TEST CASE:  navigation: path-row buttons use the clicked pane history and cancel outside releases
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:82: MESSAGE: no offscreen OpenGL: 1
+
+/tmp/rummage-photo-library/tests/tabs_test.cpp:1114: FATAL ERROR: REQUIRE( gl ) is NOT correct!
+  values: REQUIRE( 0 )
+
+===============================================================================
+/tmp/rummage-photo-library/tests/terminal_navigation_test.cpp:262:
+TEST CASE:  terminal navigation: Fish loads normal config and reports only normal shell exits
+
+/tmp/rummage-photo-library/tests/terminal_navigation_test.cpp:265: WARNING: WARN( false ) is NOT correct!
+  values: WARN( false )
+  logged: Optional shell is unavailable: fish
+
+===============================================================================
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:600:
+TEST CASE:  thumbnails: changed or unknown entries cannot reuse an old snapshot texture
+
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:600: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:638:
+TEST CASE:  thumbnails: inspector shows this photo's smaller texture then upgrades its tier
+
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:638: ERROR: test case THREW exception: sur[   53.280] debug worker pool: 1 threads
+[   53.280] debug worker pool: 1 threads
+[   53.281] debug worker pool: 2 threads
+[   53.281] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-FzeuzQ/photo.heic (x-large, attempt 1): Preview unavailable (injected failure)
+[   53.532] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-FzeuzQ/photo.heic (x-large, attempt 2): Preview unavailable (injected failure)
+[   54.532] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-FzeuzQ/photo.heic (x-large, attempt 3): Preview unavailable (injected failure)
+[   54.533] debug worker pool: 1 threads
+[   54.534] debug worker pool: 1 threads
+[   54.557] debug worker pool: 1 threads
+[   54.557] debug worker pool: 1 threads
+[   54.558] debug thumbnail: /tmp/nix-shell.eYhHLe/rummage-test-Qp4SN8/photo.heic (large, attempt 1): No cached thumbnail is available
+[   56.407] debug worker pool: 2 threads
+[   56.417] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.510] debug worker pool: 2 threads
+[   56.521] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.597] debug worker pool: 2 threads
+[   56.608] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.690] debug worker pool: 2 threads
+[   56.700] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.714] debug worker pool: 2 threads
+[   56.724] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.765] debug worker pool: 2 threads
+[   56.775] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.818] debug worker pool: 2 threads
+[   56.828] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.844] debug worker pool: 2 threads
+[   56.853] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.871] debug worker pool: 2 threads
+[   56.880] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.928] debug worker pool: 2 threads
+[   56.936] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.950] debug worker pool: 2 threads
+[   56.958] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   56.997] debug worker pool: 2 threads
+[   57.007] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.048] debug worker pool: 2 threads
+[   57.058] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.071] debug worker pool: 2 threads
+[   57.081] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.092] debug worker pool: 2 threads
+[   57.102] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.146] debug worker pool: 2 threads
+[   57.156] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.172] debug worker pool: 2 threads
+[   57.181] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.221] debug worker pool: 2 threads
+[   57.232] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.271] debug worker pool: 2 threads
+[   57.282] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.357] debug worker pool: 2 threads
+[   57.368] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.410] debug worker pool: 2 threads
+[   57.421] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.464] debug worker pool: 2 threads
+[   57.475] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.517] debug worker pool: 2 threads
+[   57.528] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.663] debug worker pool: 2 threads
+[   57.674] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.716] debug worker pool: 2 threads
+[   57.726] debug mime: 1007 types, 1446 globs, 650 magic sections, head 18729 bytes
+[   57.766] debug worker pool: 2 threads
+[   57.766] debug worker pool: 1 threads
+[   57.767] debug worker pool: 1 threads
+[   57.767] debug worker pool: 1 threads
+[   57.767] debug worker pool: 1 threads
+[   57.788] debug worker pool: 12 threads
+[   57.799] debug worker pool: 2 threads
+[   57.851] debug worker pool: 4 threads
+[   57.924] debug worker pool: 1 threads
+[   57.925] debug worker pool: 2 threads
+[   57.925] debug worker pool: 1 threads
+[   57.925] debug worker pool: 1 threads
+[   57.925] debug worker pool: 2 threads
+[   57.926] debug worker pool: 1 threads
+[   57.926] debug worker pool: 1 threads
+[   57.926] debug worker pool: 1 threads
+[   57.926] debug worker pool: 1 threads
+[   57.926] debug worker pool: 1 threads
+[   57.926] debug worker pool: 2 threads
+[   57.926] debug worker pool: 1 threads
+faceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:668:
+TEST CASE:  thumbnails: progressive inspector never borrows another snapshot or cache policy
+
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:668: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:695:
+TEST CASE:  thumbnails: exact snapshot cache hit bypasses blocked source and inspector workers
+
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:695: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:767:
+TEST CASE:  thumbnails: queued inspector cache probe promotes ahead of grid probes
+
+/tmp/rummage-photo-library/tests/thumbs_test.cpp:767: ERROR: test case THREW exception: surfaceless EGL display unavailable
+
+===============================================================================
+/tmp/rummage-photo-library/tests/xcursor_test.cpp:48:
+TEST CASE:  xcursor: every shape is in the Adwaita theme
+
+/tmp/rummage-photo-library/tests/xcursor_test.cpp:52: MESSAGE: no Adwaita cursor theme on this system: skipped
+
+===============================================================================
+[doctest] test cases:   1316 |   1210 passed | 106 failed | 7 skipped
+[doctest] assertions: 214787 | 214767 passed |  20 failed |
+[doctest] Status: FAILURE!
+
+=================================================================
+==43363==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 56 byte(s) in 1 object(s) allocated from:
+    #0 0x7ffff792be4f in calloc (/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so.8+0x12be4f)
+    #1 0x7bffeaecd57c  (/nix/store/wk043dcfp4lc2sb4y9j64h94lvv489g9-nvidia-x11-620.73.04/lib/libnvidia-glsi.so.620.73.04+0x6a57c) (BuildId: 6adf83dd382c5a9cc44ddbb2b54117e1f8ba7cbc)
+
+Indirect leak of 96 byte(s) in 1 object(s) allocated from:
+    #0 0x7ffff792be4f in calloc (/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so.8+0x12be4f)
+    #1 0x7bffeaecf509  (/nix/store/wk043dcfp4lc2sb4y9j64h94lvv489g9-nvidia-x11-620.73.04/lib/libnvidia-glsi.so.620.73.04+0x6c509) (BuildId: 6adf83dd382c5a9cc44ddbb2b54117e1f8ba7cbc)
+
+Indirect leak of 31 byte(s) in 2 object(s) allocated from:
+    #0 0x7ffff792c01f in malloc (/nix/store/myhwfdgqm39yms5clinafii9i1nmq43h-gcc-16.2.0-lib/lib/libasan.so.8+0x12c01f)
+    #1 0x7bffeaecd188  (/nix/store/wk043dcfp4lc2sb4y9j64h94lvv489g9-nvidia-x11-620.73.04/lib/libnvidia-glsi.so.620.73.04+0x6a188) (BuildId: 6adf83dd382c5a9cc44ddbb2b54117e1f8ba7cbc)
+
+-----------------------------------------------------
+Suppressions used:
+  count      bytes template
+      3        295 libfontconfig.so
+-----------------------------------------------------
+
+SUMMARY: AddressSanitizer: 183 byte(s) leaked in 4 allocation(s).
+
+      Start 18: pdf-tests
+18/18 Test #18: pdf-tests ........................   Passed   47.43 sec
+
+89% tests passed, 2 tests failed out of 18
+
+Total Test time (real) = 106.37 sec
+
+The following tests FAILED:
+	  7 - photos-ui (Subprocess aborted)
+	  8 - rummage-tests (Subprocess aborted)
+Errors while running CTest

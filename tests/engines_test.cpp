@@ -286,3 +286,30 @@ TEST_CASE("engines: a program is a file name, never a path") {
     // The tests run from build*/tests: the preview helper is one directory up, not next to them.
     CHECK(engines::locate_program("rummage-preview").empty());
 }
+
+TEST_CASE("engines: preview switches gate new routes across captured registry copies") {
+    engines::Registry registry;
+    REQUIRE(registry.add(engine("base", {{.name = "image", .mime = {"image/png"}}})));
+    REQUIRE(registry.add(engine("media", {{.name = "video", .mime = {"video/mp4"}}})));
+    REQUIRE(registry.add(engine("pdf", {{.name = "pdf", .mime = {"application/pdf"}}})));
+    const auto captured = registry;
+    const auto mime = MimeDatabase::load();
+    const auto video = mime->find("video/mp4");
+    const auto pdf = mime->find("application/pdf");
+    const auto png = mime->find("image/png");
+    REQUIRE(video != rummage::fs::kUnknownMime);
+    REQUIRE(pdf != rummage::fs::kUnknownMime);
+    const auto* family = captured.find(*mime, video);
+    REQUIRE(family != nullptr);
+    registry.set_previews_enabled(false, true);
+    CHECK(captured.find(*mime, video) == nullptr);
+    CHECK(captured.engine_of(*family) == nullptr);
+    CHECK(captured.find(*mime, pdf) != nullptr);
+    CHECK(captured.find(*mime, png) != nullptr);
+    CHECK(captured.engines().size() == 3);
+    registry.set_previews_enabled(true, false);
+    CHECK(captured.find(*mime, video) == family);
+    CHECK(captured.engine_of(*family) != nullptr);
+    CHECK(captured.find(*mime, pdf) == nullptr);
+    CHECK(captured.find(*mime, png) != nullptr);
+}

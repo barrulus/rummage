@@ -1,0 +1,208 @@
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+-- The C compiler identification is GNU 16.2.0
+-- The CXX compiler identification is GNU 16.2.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /nix/store/ii6p6kc1brz3vycqg88q4zb4xd2dmqwp-gcc-wrapper-16.2.0/bin/g++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test RUMMAGE_C_HAS_FSTACK_PROTECTOR_STRONG
+-- Performing Test RUMMAGE_C_HAS_FSTACK_PROTECTOR_STRONG - Success
+-- Performing Test RUMMAGE_CXX_HAS_FSTACK_PROTECTOR_STRONG
+-- Performing Test RUMMAGE_CXX_HAS_FSTACK_PROTECTOR_STRONG - Success
+-- Performing Test RUMMAGE_C_HAS_FSTACK_CLASH_PROTECTION
+-- Performing Test RUMMAGE_C_HAS_FSTACK_CLASH_PROTECTION - Success
+-- Performing Test RUMMAGE_CXX_HAS_FSTACK_CLASH_PROTECTION
+-- Performing Test RUMMAGE_CXX_HAS_FSTACK_CLASH_PROTECTION - Success
+-- Performing Test RUMMAGE_C_HAS_FCF_PROTECTION
+-- Performing Test RUMMAGE_C_HAS_FCF_PROTECTION - Success
+-- Performing Test RUMMAGE_CXX_HAS_FCF_PROTECTION
+-- Performing Test RUMMAGE_CXX_HAS_FCF_PROTECTION - Success
+-- Found PkgConfig: /nix/store/mhq8zg6nwlv2fjhqac0ikvl9f541irp3-pkg-config-wrapper-0.29.2/bin/pkg-config (found version "0.29.2")
+-- Checking for modules 'wayland-client;wayland-egl;wayland-cursor'
+--   Found wayland-client, version 1.26.0
+--   Found wayland-egl, version 18.1.0
+--   Found wayland-cursor, version 1.26.0
+-- Checking for module 'egl'
+--   Found egl, version 1.5
+-- Checking for module 'glesv2'
+--   Found glesv2, version 3.2
+-- Checking for module 'xkbcommon'
+--   Found xkbcommon, version 1.13.2
+-- Checking for module 'harfbuzz'
+--   Found harfbuzz, version 14.5.1
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+-- Checking for module 'freetype2'
+--   Found freetype2, version 26.6.20
+-- Checking for module 'fontconfig'
+--   Found fontconfig, version 2.18.3
+-- Checking for module 'tomlplusplus'
+--   Found tomlplusplus, version 3.4.0
+-- Found nlohmann_json: /nix/store/zdamv2zjy287634642hsmkwjjs9xkj93-nlohmann_json-3.12.0/share/cmake/nlohmann_json/nlohmann_jsonConfig.cmake (found suitable version "3.12.0", minimum required is "3.11")
+-- Checking for modules 'libwebp;libwebpdemux'
+--   Found libwebp, version 1.6.0
+--   Found libwebpdemux, version 1.6.0
+-- Checking for module 'libjxl'
+--   Found libjxl, version 0.12.0
+-- Checking for module 'libheif>=1.23'
+--   Found libheif, version 1.23.7
+Package x265 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `x265.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'x265', required by 'libheif', not found
+Package x265 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `x265.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'x265', required by 'libheif', not found
+Package x265 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `x265.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'x265', required by 'libheif', not found
+Package x265 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `x265.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'x265', required by 'libheif', not found
+-- Checking for module 'lcms2'
+--   Found lcms2, version 2.19
+-- Checking for module 'librsvg-2.0>=2.52'
+--   Found librsvg-2.0, version 2.63.0
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+-- Checking for modules 'pangocairo>=1.44;pangoft2>=1.44'
+--   Found pangocairo, version 1.58.2
+--   Found pangoft2, version 1.58.2
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+Package sysprof-capture-4 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `sysprof-capture-4.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'sysprof-capture-4', required by 'glib-2.0', not found
+-- Checking for module 'zlib'
+--   Found zlib, version 1.3.2
+-- Checking for module 're2'
+--   Found re2, version 11.0.0
+-- Checking for module 'sdbus-c++'
+--   Found sdbus-c++, version 2.2.1
+-- Checking for module 'libturbojpeg'
+--   Found libturbojpeg, version 3.2.0
+-- Checking for module 'libavformat>=60.16.100'
+--   Found libavformat, version 63.1.102
+-- Checking for module 'libavcodec>=60.31.102'
+--   Found libavcodec, version 63.1.102
+-- Checking for module 'libavutil>=58.29.100'
+--   Found libavutil, version 61.1.102
+-- Checking for module 'libswscale'
+--   Found libswscale, version 10.1.102
+-- Found SQLite3: /nix/store/da0jhl7dj82flrp9wld11jp3pvs9raxa-sqlite-3.54.0/lib/libsqlite3.so (found version "3.54.0")
+-- Found Python3: /run/current-system/sw/bin/python3.14 (found version "3.14.10") found components: Interpreter
+-- Configuring done (2.7s)
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+CMake Warning (author) at src/photos/CMakeLists.txt:6 (target_link_libraries):
+  The library that is being linked to, SQLite::SQLite3, is marked as being
+  deprecated by the owner.  The message provided by the developer is:
+
+  The target name SQLite::SQLite3 is deprecated.  Please use SQLite3::SQLite3
+  instead.
+
+This warning is for project developers.  Use -Wno-author to suppress it.
+
+-- Generating done (0.2s)
+-- Build files have been written to: /tmp/rummage-branch-audit-2026-11-27/build-release

@@ -100,6 +100,58 @@ TEST_CASE("windows: application shutdown cancels a queued close without resuming
     CHECK(loop.run() == 0);
 }
 
+TEST_CASE("windows: closing either session keeps the other and its queued work alive") {
+    EventLoop loop;
+    add_watchdog(loop);
+    std::array<rummage::app::WindowLifetime, 2> lifetimes;
+    std::array<bool, 2> destroyed{};
+    std::vector<rummage::app::WindowSession> sessions;
+    const auto open = [&](std::size_t index) -> rummage::app::WindowSession {
+        struct Guard {
+            bool& destroyed;
+            ~Guard() { destroyed = true; }
+        } guard{destroyed[index]};
+        co_await lifetimes[index];
+    };
+    sessions.push_back(open(0));
+    sessions.push_back(open(1));
+    std::size_t first = 0;
+    SUBCASE("original window closes first") { first = 0; }
+    SUBCASE("new window closes first") { first = 1; }
+    const auto remaining = 1 - first;
+    bool remaining_work_completed = false;
+    int closes = 0;
+    std::function<void()> reap = [&] {
+        for (const auto& session : sessions)
+            session.rethrow();
+        std::erase_if(sessions, [](const auto& session) { return session.done(); });
+        ++closes;
+        if (sessions.empty()) {
+            CHECK(remaining_work_completed);
+            loop.quit();
+            return;
+        }
+        REQUIRE(sessions.size() == 1);
+        CHECK(destroyed[first]);
+        CHECK_FALSE(destroyed[remaining]);
+        // Work belonging to the surviving window still runs after the other is reaped.
+        loop.post([&] {
+            CHECK_FALSE(destroyed[remaining]);
+            remaining_work_completed = true;
+            lifetimes[remaining].close(loop, reap);
+        });
+    };
+    lifetimes[first].close(loop, reap);
+    lifetimes[first].close(loop, reap);
+    CHECK_FALSE(destroyed[first]);
+    CHECK_FALSE(destroyed[remaining]);
+    CHECK(loop.run() == 0);
+    CHECK(closes == 2);
+    CHECK(sessions.empty());
+    CHECK(destroyed[0]);
+    CHECK(destroyed[1]);
+}
+
 TEST_CASE("post from another thread runs on the loop thread, quit sets the exit code") {
     EventLoop loop;
     add_watchdog(loop);
@@ -276,6 +328,75 @@ TEST_CASE("poll completion hooks finish all reads before ready fd callbacks") {
     second.write_byte();
     CHECK(loop.run() == 0);
     CHECK(dispatched == 2);
+}
+
+TEST_CASE("protocol ownership changes dispatch before queued clipboard enrichment") {
+    EventLoop loop;
+    add_watchdog(loop);
+    const Pipe display;
+    const Pipe other_display;
+    const Pipe removed;
+    bool prepared = false;
+    bool other_prepared = false;
+    bool pending_selection = false;
+    bool completion_ran = false;
+    bool replaced_newer_copy = false;
+    unsigned generation = 1;
+    const auto copied_generation = generation;
+    const auto removed_id = loop.add_fd(removed.fds[0], POLLIN, [](short) {
+        FAIL_CHECK("protocol dispatch removed this source before ordinary dispatch");
+    });
+    loop.add_fd(display.fds[0], POLLIN,
+                [&](short revents) {
+                    CHECK((revents & POLLIN) != 0);
+                    CHECK_FALSE(prepared);
+                    CHECK_FALSE(other_prepared);
+                    REQUIRE(pending_selection);
+                    ++generation;  // A different application owns the clipboard now.
+                    pending_selection = false;
+                    loop.remove(removed_id);
+                    // Reallocation must not invalidate the remaining snapshotted sources.
+                    for (int i = 0; i < 100; ++i)
+                        loop.add_timer(1s, 0ms, [] {});
+                },
+                {.before_poll = [&] { prepared = true; },
+                 .after_poll =
+                     [&](short revents) {
+                         REQUIRE((revents & POLLIN) != 0);
+                         display.read_byte();
+                         pending_selection =
+                             true;  // Like wl_display_read_events: not dispatched yet.
+                         prepared = false;
+                     }});
+    loop.add_fd(other_display.fds[0], POLLIN,
+                [&](short revents) {
+                    CHECK(revents == 0);
+                    CHECK_FALSE(prepared);
+                    CHECK_FALSE(other_prepared);
+                },
+                {.before_poll = [&] { other_prepared = true; },
+                 .after_poll =
+                     [&](short revents) {
+                         CHECK(revents == 0);
+                         other_prepared = false;
+                     },
+                 .notify_always = true});
+    // Wake fd was registered before either display. Both it and the protocol fd are ready
+    // in the same poll; the worker must observe the dispatched ownership change first.
+    loop.post([&] {
+        CHECK_FALSE(prepared);
+        CHECK_FALSE(other_prepared);
+        CHECK_FALSE(pending_selection);
+        replaced_newer_copy = generation == copied_generation;
+        completion_ran = true;
+        loop.quit();
+    });
+    display.write_byte();
+    removed.write_byte();
+    CHECK(loop.run() == 0);
+    CHECK(completion_ran);
+    CHECK_FALSE(replaced_newer_copy);
+    CHECK(generation == 2);
 }
 
 TEST_CASE("quitting during poll preparation releases prepared reads") {

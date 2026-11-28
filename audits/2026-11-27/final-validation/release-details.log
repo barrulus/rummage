@@ -1,0 +1,814 @@
+Start testing: Nov 27 23:53 GMT
+----------------------------------------------------------
+5/18 Testing: photos-watcher
+5/18 Test: photos-watcher
+Command: "/tmp/rummage-remediation-build/tests/rummage-photo-watcher-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-watcher" start time: Nov 27 23:53 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  5 |  5 passed | 0 failed | 0 skipped
+[doctest] assertions: 97 | 97 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   3.58 sec
+----------------------------------------------------------
+Test Passed.
+"photos-watcher" end time: Nov 27 23:54 GMT
+"photos-watcher" time elapsed: 00:00:03
+----------------------------------------------------------
+
+3/18 Testing: photos-catalog
+3/18 Test: photos-catalog
+Command: "/tmp/rummage-remediation-build/tests/rummage-photos-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-catalog" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:   44 |   44 passed | 0 failed | 0 skipped
+[doctest] assertions: 1884 | 1884 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   7.81 sec
+----------------------------------------------------------
+Test Passed.
+"photos-catalog" end time: Nov 27 23:54 GMT
+"photos-catalog" time elapsed: 00:00:07
+----------------------------------------------------------
+
+4/18 Testing: photos-recovery
+4/18 Test: photos-recovery
+Command: "/tmp/rummage-remediation-build/tests/rummage-photo-recovery-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-recovery" start time: Nov 27 23:53 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:    1 |    1 passed | 0 failed | 0 skipped
+[doctest] assertions: 3168 | 3168 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  17.71 sec
+----------------------------------------------------------
+Test Passed.
+"photos-recovery" end time: Nov 27 23:54 GMT
+"photos-recovery" time elapsed: 00:00:17
+----------------------------------------------------------
+
+14/18 Testing: file-manager
+14/18 Test: file-manager
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-file-manager-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"file-manager" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   1.53 sec
+----------------------------------------------------------
+Test Passed.
+"file-manager" end time: Nov 27 23:54 GMT
+"file-manager" time elapsed: 00:00:01
+----------------------------------------------------------
+
+6/18 Testing: photos-migration
+6/18 Test: photos-migration
+Command: "/run/current-system/sw/bin/python3.14" "/tmp/rummage-photo-library/tests/photos_migration.py" "/tmp/rummage-remediation-build/librummage-photos.so"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-migration" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+Photo catalog migration: schema-one/two upgrade, preserved unique backups, failed-upgrade retry, rollback and concurrent initialization passed
+<end of output>
+Test time =   2.13 sec
+----------------------------------------------------------
+Test Passed.
+"photos-migration" end time: Nov 27 23:54 GMT
+"photos-migration" time elapsed: 00:00:02
+----------------------------------------------------------
+
+17/18 Testing: media-tests
+17/18 Test: media-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-media-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"media-tests" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    0.173] warn  engine media: its program rummage-media is not installed; skipped
+[    0.173] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  8 |  8 passed | 0 failed | 0 skipped
+[doctest] assertions: 97 | 97 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.31 sec
+----------------------------------------------------------
+Test Passed.
+"media-tests" end time: Nov 27 23:54 GMT
+"media-tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/18 Testing: file-picker-portal
+15/18 Test: file-picker-portal
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-portal-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"file-picker-portal" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[    0.000] error file chooser: Truncated picker message
+[    0.000] error file chooser: A picker path must be NUL-terminated
+FileChooser D-Bus integration passed
+<end of output>
+Test time =   3.40 sec
+----------------------------------------------------------
+Test Passed.
+"file-picker-portal" end time: Nov 27 23:54 GMT
+"file-picker-portal" time elapsed: 00:00:03
+----------------------------------------------------------
+
+9/18 Testing: memory-tests
+9/18 Test: memory-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-tests" "--source-file=*memory_test.cpp"
+Directory: /tmp/rummage-remediation-build/tests
+"memory-tests" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  3 |  3 passed | 0 failed | 1320 skipped
+[doctest] assertions: 35 | 35 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.21 sec
+----------------------------------------------------------
+Test Passed.
+"memory-tests" end time: Nov 27 23:54 GMT
+"memory-tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/18 Testing: file-manager-activation
+12/18 Test: file-manager-activation
+Command: "/nix/store/9xdayymn5yh1c98hg12d13d3ir0sxd4x-cmake-4.4.4/bin/cmake" "-DRUMMAGE_EXECUTABLE=/tmp/rummage-remediation-build/rummage" "-DTEST_DIRECTORY=/tmp/rummage-remediation-build/tests/file-manager-activation-scratch" "-DDBUS_RUN_SESSION=/run/current-system/sw/bin/dbus-run-session" "-DDBUS_SEND=/run/current-system/sw/bin/dbus-send" "-P" "/tmp/rummage-photo-library/tests/file_manager_activation.cmake"
+Directory: /tmp/rummage-remediation-build/tests
+"file-manager-activation" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.17 sec
+----------------------------------------------------------
+Test Passed.
+"file-manager-activation" end time: Nov 27 23:54 GMT
+"file-manager-activation" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/18 Testing: action-notifications
+16/18 Test: action-notifications
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-notification-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"action-notifications" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  notifications: The name org.freedesktop.Notifications was not provided by any .service files
+Notification delivery and missing-service checks passed
+<end of output>
+Test time =   0.16 sec
+----------------------------------------------------------
+Test Passed.
+"action-notifications" end time: Nov 27 23:54 GMT
+"action-notifications" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/18 Testing: program-output-self
+10/18 Test: program-output-self
+Command: "/tmp/rummage-remediation-build/tests/rummage-program-output-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"program-output-self" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+Self launch after executable deletion and replacement passed
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"program-output-self" end time: Nov 27 23:54 GMT
+"program-output-self" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/18 Testing: file-manager-cli
+11/18 Test: file-manager-cli
+Command: "/nix/store/9xdayymn5yh1c98hg12d13d3ir0sxd4x-cmake-4.4.4/bin/cmake" "-DRUMMAGE_EXECUTABLE=/tmp/rummage-remediation-build/rummage" "-DTEST_DIRECTORY=/tmp/rummage-remediation-build/tests/file-manager-cli-scratch" "-P" "/tmp/rummage-photo-library/tests/file_manager_cli.cmake"
+Directory: /tmp/rummage-remediation-build/tests
+"file-manager-cli" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.31 sec
+----------------------------------------------------------
+Test Passed.
+"file-manager-cli" end time: Nov 27 23:54 GMT
+"file-manager-cli" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/18 Testing: desktop-portal
+13/18 Test: desktop-portal
+Command: "/run/current-system/sw/bin/dbus-run-session" "--" "/tmp/rummage-remediation-build/tests/rummage-desktop-portal-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"desktop-portal" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+Appearance startup and live contrast checks passed
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"desktop-portal" end time: Nov 27 23:54 GMT
+"desktop-portal" time elapsed: 00:00:00
+----------------------------------------------------------
+
+1/18 Testing: i18n-runtime
+1/18 Test: i18n-runtime
+Command: "/tmp/rummage-remediation-build/tests/rummage-i18n-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"i18n-runtime" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[    0.000] error translation xx: invalid integer plural rule; it is not used
+[    0.000] error translation yy: plural message needs other; it is not used
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  4 |  4 passed | 0 failed | 0 skipped
+[doctest] assertions: 93 | 93 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"i18n-runtime" end time: Nov 27 23:54 GMT
+"i18n-runtime" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/18 Testing: log-transport
+2/18 Test: log-transport
+Command: "/tmp/rummage-remediation-build/tests/rummage-log-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"log-transport" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:  3 |  3 passed | 0 failed | 0 skipped
+[doctest] assertions: 19 | 19 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"log-transport" end time: Nov 27 23:54 GMT
+"log-transport" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/18 Testing: photos-ui
+7/18 Test: photos-ui
+Command: "/tmp/rummage-remediation-build/tests/rummage-photo-ui-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"photos-ui" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    1.090] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    1.137] warn  icons: no icon named '' (third_party/tabler-icons/icons.txt)
+[    3.863] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   11.201] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   12.196] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.492] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.167] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.639] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.746] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.843] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   31.522] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   31.679] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   31.865] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   32.062] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   32.254] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.319] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.445] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:   26 |   26 passed | 0 failed | 0 skipped
+[doctest] assertions: 5808 | 5808 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  34.58 sec
+----------------------------------------------------------
+Test Passed.
+"photos-ui" end time: Nov 27 23:54 GMT
+"photos-ui" time elapsed: 00:00:34
+----------------------------------------------------------
+
+8/18 Testing: rummage-tests
+8/18 Test: rummage-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-tests" "--source-file-exclude=*memory_test.cpp"
+Directory: /tmp/rummage-remediation-build/tests
+"rummage-tests" start time: Nov 27 23:53 GMT
+Output:
+----------------------------------------------------------
+[    0.000] warn  engine media: its program rummage-media is not installed; skipped
+[    0.000] warn  engine pdf: its program rummage-pdf is not installed; skipped
+[    0.132] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-xMHXAv/icons/hicolor/scalable/apps/rummage.svg
+[    0.134] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-xMHXAv/icons/hicolor/scalable/apps/rummage.svg
+[    0.134] info  icon: removed /tmp/nix-shell.gsUD20/rummage-test-xMHXAv/icons/hicolor/scalable/apps/rummage.svg
+[    0.137] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-GnT6Gc/icons/hicolor/scalable/apps/rummage.svg
+[    0.141] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-GnT6Gc/icons/hicolor/scalable/apps/rummage.svg
+[    0.141] info  icon: removed /tmp/nix-shell.gsUD20/rummage-test-GnT6Gc/icons/hicolor/scalable/apps/rummage.svg
+[    0.145] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-E9aAgc/rummage.svg
+[    0.149] info  icon: put back /tmp/nix-shell.gsUD20/rummage-test-E9aAgc/rummage.svg
+[    0.153] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-UJjPKG/rummage.svg
+[    0.155] info  icon: wrote /tmp/nix-shell.gsUD20/rummage-test-UJjPKG/rummage.svg
+[    0.156] info  theme: default palette
+[    0.156] info  theme: desktop is dark
+[    0.156] info  theme: desktop is dark, with an accent colour
+[    0.156] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-ZCPFcp/colors.toml
+[    3.516] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    3.673] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    3.674] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    3.697] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    3.831] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    4.884] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    4.896] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    4.900] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    4.905] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    6.652] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    6.893] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.001] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.019] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.036] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.061] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.072] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.084] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.094] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.304] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.312] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.317] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.326] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.333] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.347] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.395] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.406] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.421] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.432] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.481] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.494] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.503] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.515] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.539] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.547] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.558] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.567] info  theme: /tmp/nix-shell.gsUD20/rummage-test-QfMn5U/colors.toml
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: /tmp/nix-shell.gsUD20/rummage-test-QfMn5U/colors.toml
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: /tmp/nix-shell.gsUD20/rummage-test-QfMn5U/colors.toml
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.567] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: /tmp/nix-shell.gsUD20/rummage-test-QfMn5U/colors.toml
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: desktop is dark, with an accent colour
+[    7.568] info  theme: default palette
+[    7.568] info  theme: desktop is light, with an accent colour
+[    7.568] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-h1rYnA/colors.toml
+[    7.568] info  theme: desktop is dark
+[    7.568] info  theme: /tmp/nix-shell.gsUD20/rummage-test-h1rYnA/colors.toml removed; palette file unavailable
+[    7.684] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    7.695] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    9.003] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    9.288] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    9.575] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    9.597] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[    9.611] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.404] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.426] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.448] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.465] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.486] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.752] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.767] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.787] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.810] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   10.832] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   11.107] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   11.135] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   11.145] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   11.164] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   11.192] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.444] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.715] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.732] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.781] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.825] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.837] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.884] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.929] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.975] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   13.985] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.059] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.136] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.214] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.231] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.279] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.327] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   14.376] warn  engine second (/tmp/nix-shell.gsUD20/rummage-test-ZTC8L0/b-second.toml) shows a type another engine shows; skipped
+[   14.376] warn  engine /tmp/nix-shell.gsUD20/rummage-test-ZTC8L0/c-broken.toml:1: [engine] has no 'protocol'; skipped
+[   14.376] warn  engine missing: its program absent is not installed; skipped
+[   14.426] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   15.235] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   15.250] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   15.258] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   15.298] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.628] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.629] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.630] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.631] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   16.631] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   18.191] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   18.193] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   18.837] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.757] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.767] warn  icons: no icon named 'check' (third_party/tabler-icons/icons.txt)
+[   21.777] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.792] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.809] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.824] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.838] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.855] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.870] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.883] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.898] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.918] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.940] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   21.959] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.262] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.284] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.310] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.339] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.375] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.398] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.422] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.441] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.524] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.606] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.621] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.624] warn  icons: no icon named 'check' (third_party/tabler-icons/icons.txt)
+[   22.630] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.635] warn  icons: no icon named 'check' (third_party/tabler-icons/icons.txt)
+[   22.652] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.666] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.696] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.716] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.751] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.777] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.806] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.868] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.887] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.906] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   22.931] info  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/colors.toml
+[   22.931] info  theme: desktop is dark, with an accent colour
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:View] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:View] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:Window] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:Window] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:Button] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:Button] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:Selection] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.931] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/kdeglobals:1: missing [Colors:Selection] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   22.932] info  theme: /tmp/nix-shell.gsUD20/rummage-test-6teEAY/colors.toml removed; palette file unavailable
+[   22.932] info  theme: default palette
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:2: supported colours must be opaque R,G,B or R,G,B,255 (0–255); KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:View] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:View] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:Window] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:Window] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:Button] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:Button] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:Selection] BackgroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   23.486] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-cSU6kq/kdeglobals:1: missing [Colors:Selection] ForegroundNormal; apply a KDE colour scheme first; KDE palette ignored
+[   24.198] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.212] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.252] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.261] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.287] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.302] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.317] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.333] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.412] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.417] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   24.937] warn  ambient shader: shader compile failed: 0(10) : warning C7022: unrecognized profile specifier "GLSL"
+0(10) : warning C7022: unrecognized profile specifier "invalid"
+0(10) : error C7558: OpenGL does not allow profile specifiers on declarations
+0(11) : error C1503: undefined variable "effect"
+
+[   25.451] warn  ambient shader: Cannot open /tmp/nix-shell.gsUD20/rummage-test-rF7VcG/missing.frag
+[   25.451] warn  ambient shader: Shader must be a regular file of at most 64 KiB: /tmp/nix-shell.gsUD20/rummage-test-rF7VcG
+[   25.451] warn  ambient shader: Shader must be a regular file of at most 64 KiB: /tmp/nix-shell.gsUD20/rummage-test-rF7VcG/huge.frag
+[   25.457] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.472] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.479] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.480] warn  ambient shader: Cannot open /tmp/nix-shell.gsUD20/rummage-test-47ptM7/missing.frag
+[   25.482] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.512] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.543] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.579] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.610] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.641] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.660] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.666] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.676] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   25.691] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   29.166] info  theme: /tmp/nix-shell.gsUD20/rummage-test-npY4Dl/colors.toml
+[   29.166] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-npY4Dl/colors.toml
+[   29.167] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-npY4Dl/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   29.167] warn  theme: keeping the current palette
+[   29.168] info  theme: /tmp/nix-shell.gsUD20/rummage-test-npY4Dl/colors.toml removed; palette file unavailable
+[   29.168] info  theme: /tmp/nix-shell.gsUD20/rummage-test-9IdjwN/colors.toml
+[   29.168] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-9IdjwN/colors.toml
+[   29.168] info  theme: /tmp/nix-shell.gsUD20/rummage-test-9IdjwN/colors.toml removed; palette file unavailable
+[   29.168] info  theme: desktop is light
+[   29.168] info  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml
+[   29.168] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:1:1: no [colors] section; file ignored
+[   29.168] warn  theme: keeping the current palette
+[   29.168] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:1:1: no [colors] section; file ignored
+[   29.168] warn  theme: keeping the current palette
+[   29.168] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:1:10: 'colors' must be a section ([colors]); file ignored
+[   29.168] warn  theme: keeping the current palette
+[   29.168] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:1:8: 'mode' must be "dark" or "light"; file ignored
+[   29.168] warn  theme: keeping the current palette
+[   29.169] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:1:8: 'mode' must be "dark" or "light"; file ignored
+[   29.169] warn  theme: keeping the current palette
+[   29.169] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:3:9: 'colors.hover' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.169] warn  theme: keeping the current palette
+[   29.169] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.169] warn  theme: keeping the current palette
+[   29.169] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.169] warn  theme: keeping the current palette
+[   29.169] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.169] warn  theme: keeping the current palette
+[   29.170] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.170] warn  theme: keeping the current palette
+[   29.170] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-O8HmAM/colors.toml:3:11: Error while parsing key-value pair: cannot redefine existing string 'primary'; the whole file is ignored
+[   29.170] warn  theme: keeping the current palette
+[   29.170] info  theme: default palette
+[   29.170] info  theme: desktop is light, with an accent colour
+[   29.220] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-47IOqI/colors.toml
+[   29.521] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-47IOqI/colors.toml
+[   29.821] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-47IOqI/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   29.821] warn  theme: keeping the current palette
+[   30.121] info  theme: /tmp/nix-shell.gsUD20/rummage-test-47IOqI/colors.toml removed; palette file unavailable
+[   30.421] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-47IOqI/colors.toml
+[   30.673] info  theme: default palette
+[   30.673] info  theme: default palette
+[   30.673] info  theme: desktop is light, with an accent colour
+[   30.673] info  theme: /tmp/nix-shell.gsUD20/rummage-test-Exipnn/colors.toml
+[   30.673] info  theme: /tmp/nix-shell.gsUD20/rummage-test-Exipnn/colors.toml
+[   30.673] info  theme: desktop is light, with an accent colour
+[   30.673] info  theme: /tmp/nix-shell.gsUD20/rummage-test-msNZDb/colors.toml
+[   30.673] info  theme: desktop is light, with an accent colour
+[   30.673] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-msNZDb/colors.toml
+[   30.674] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-msNZDb/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   30.674] warn  theme: keeping the current palette
+[   30.674] info  theme: desktop is dark, with an accent colour
+[   30.674] info  theme: /tmp/nix-shell.gsUD20/rummage-test-msNZDb/colors.toml removed; palette file unavailable
+[   30.674] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-msNZDb/colors.toml
+[   30.674] info  theme: /tmp/nix-shell.gsUD20/rummage-test-VThMxn/colors.toml
+[   30.674] info  theme: desktop is light, with an accent colour
+[   30.680] info  theme: default palette
+[   30.680] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-GuVIGn/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   30.680] info  theme: default palette
+[   30.680] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-GuVIGn/colors.toml
+[   30.681] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-GuVIGn/colors.toml:2:11: 'colors.primary' must be "#rrggbb" or "#rrggbbaa"; file ignored
+[   30.681] warn  theme: keeping the current palette
+[   30.681] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-GuVIGn/colors.toml
+[   30.681] info  theme: /tmp/nix-shell.gsUD20/rummage-test-GuVIGn/colors.toml removed; palette file unavailable
+[   30.742] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.776] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.793] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.826] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.848] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.871] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.888] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.909] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.926] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.939] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   30.954] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   31.981] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.074] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.106] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.700] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.848] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.901] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.921] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   33.925] warn  icons: no icon named 'album' (third_party/tabler-icons/icons.txt)
+[   33.932] warn  terminal.program "missing" was not found; trying $TERMINAL and the others
+[   33.932] warn  terminal.program "missing" was not found; trying $TERMINAL and the others
+[   33.947] info  open: /tmp/nix-shell.gsUD20/rummage-test-oKqoJ0/bin/viewer with viewer.desktop (2 file(s))
+[   33.950] info  open: /tmp/nix-shell.gsUD20/rummage-test-oKqoJ0/bin/broken with broken.desktop (1 file(s))
+[   33.953] info  open: /tmp/nix-shell.gsUD20/rummage-test-oKqoJ0/bin/broken with broken.desktop (1 file(s))
+[   33.959] info  open: No application opens application/x-zerosize
+[   33.960] info  open: No application opens application/zip
+[   33.963] info  open: No terminal found: set terminal.program in config.toml
+[   33.964] info  open: /tmp/nix-shell.gsUD20/rummage-test-mIywhr/bin/foot with foot (1 file(s))
+[   33.967] info  open: /tmp/nix-shell.gsUD20/rummage-test-mIywhr/bin/myterm with myterm (1 file(s))
+[   33.969] info  open: /tmp/nix-shell.gsUD20/rummage-test-mIywhr/bin/editor with editor.desktop (1 file(s))
+[   33.977] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.011] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.028] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.047] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.066] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.079] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.132] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.180] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.232] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.247] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSansMono.ttf (25 fallbacks)
+[   34.258] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSansMono.ttf (25 fallbacks)
+[   34.269] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.282] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.308] info  open: /tmp/nix-shell.gsUD20/rummage-test-XTc9V2/apps/tool with program (1 file(s))
+[   34.311] info  open: /tmp/nix-shell.gsUD20/rummage-test-XTc9V2/apps/tool with program (1 file(s))
+[   34.312] info  open: No application opens application/pdf
+[   34.313] info  open: No application opens text/x-shellscript
+[   34.314] info  open: No application opens application/x-executable
+[   34.357] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   34.376] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   39.451] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   39.472] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   39.487] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   39.498] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.158] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.164] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.171] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.177] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.182] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.187] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.193] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.198] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.204] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.209] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.215] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.221] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.226] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.231] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.236] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.242] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.247] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.249] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.256] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.260] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.266] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.273] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.280] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.283] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.285] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.472] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.480] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.487] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.494] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.552] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.561] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.616] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.680] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.692] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.710] info  theme: default palette
+[   40.711] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-ICj6on/colors.toml
+[   40.711] info  theme: desktop is dark
+[   40.755] info  theme: default palette
+[   40.756] info  theme: reloaded /tmp/nix-shell.gsUD20/rummage-test-HZ27W5/colors.toml
+[   40.756] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-HZ27W5/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   40.756] warn  theme: keeping the current palette
+[   40.756] warn  theme: /tmp/nix-shell.gsUD20/rummage-test-HZ27W5/colors.toml:1:8: Error while parsing table header: expected ']', saw '\n'; the whole file is ignored
+[   40.756] info  theme: default palette
+[   40.764] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.779] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.823] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.837] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.914] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.922] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.939] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   40.950] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   46.278] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   46.584] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   47.076] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   47.105] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   47.152] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[   47.375] info  font: /nix/store/9in52340xwg0r3h0dzm6w925ixl2rq54-dejavu-fonts-2.37/share/fonts/truetype/DejaVuSans.ttf (23 fallbacks)
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+/tmp/rummage-photo-library/tests/command_palette_test.cpp:298:
+TEST CASE:  palette: filtering 500 items takes well under a millisecond a key
+
+/tmp/rummage-photo-library/tests/command_palette_test.cpp:313: MESSAGE: filtering 500 items: 0.074 ms a key
+
+===============================================================================
+/tmp/rummage-photo-library/tests/desktop_palette_test.cpp:259:
+TEST CASE:  portal: the real session bus answers or has no portal (reads only)
+
+/tmp/rummage-photo-library/tests/desktop_palette_test.cpp:269: MESSAGE: desktop is dark, no accent
+
+===============================================================================
+/tmp/rummage-photo-library/tests/devices_test.cpp:389:
+TEST CASE:  devices: udisks2 on the real system bus lists the disks (reads only)
+
+/tmp/rummage-photo-library/tests/devices_test.cpp:406: MESSAGE: home /dev/nvme0n1p1 at /home
+
+/tmp/rummage-photo-library/tests/devices_test.cpp:406: MESSAGE: sixseven /dev/nvme1n1p1 at /
+
+===============================================================================
+/tmp/rummage-photo-library/tests/directory_model_test.cpp:182:
+TEST CASE:  model: a burst of 500 files arrives in a few notifications
+
+/tmp/rummage-photo-library/tests/directory_model_test.cpp:191: MESSAGE: 500 files in 1 notifications
+
+===============================================================================
+/tmp/rummage-photo-library/tests/terminal_navigation_test.cpp:262:
+TEST CASE:  terminal navigation: Fish loads normal config and reports only normal shell exits
+
+/tmp/rummage-photo-library/tests/terminal_navigation_test.cpp:265: WARNING: WARN( false ) is NOT correct!
+  values: WARN( false )
+  logged: Optional shell is unavailable: fish
+
+===============================================================================
+/tmp/rummage-photo-library/tests/xcursor_test.cpp:48:
+TEST CASE:  xcursor: every shape is in the Adwaita theme
+
+/tmp/rummage-photo-library/tests/xcursor_test.cpp:52: MESSAGE: no Adwaita cursor theme on this system: skipped
+
+===============================================================================
+[doctest] test cases:   1317 |   1317 passed | 0 failed | 6 skipped
+[doctest] assertions: 256877 | 256877 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  57.25 sec
+----------------------------------------------------------
+Test Passed.
+"rummage-tests" end time: Nov 27 23:54 GMT
+"rummage-tests" time elapsed: 00:00:57
+----------------------------------------------------------
+
+18/18 Testing: pdf-tests
+18/18 Test: pdf-tests
+Command: "/tmp/rummage-remediation-build/tests/rummage-pdf-tests"
+Directory: /tmp/rummage-remediation-build/tests
+"pdf-tests" start time: Nov 27 23:54 GMT
+Output:
+----------------------------------------------------------
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+[doctest] doctest version is "2.5.3"
+[doctest] run with "--help" for options
+===============================================================================
+[doctest] test cases:    13 |    13 passed | 0 failed | 0 skipped
+[doctest] assertions: 65665 | 65665 passed | 0 failed |
+[doctest] Status: SUCCESS!
+<end of output>
+Test time =  10.99 sec
+----------------------------------------------------------
+Test Passed.
+"pdf-tests" end time: Nov 27 23:55 GMT
+"pdf-tests" time elapsed: 00:00:10
+----------------------------------------------------------
+
+End testing: Nov 27 23:55 GMT

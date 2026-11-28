@@ -26,6 +26,7 @@ struct State {
     enum class Mode : std::uint8_t { columns, grid, details };
 
     Mode mode{Mode::columns};
+    bool gallery{false};
     bool show_hidden{false};
     bool show_extensions{true};
     bool show_thumbnails{true};
@@ -93,6 +94,10 @@ struct State {
     static constexpr std::size_t kMaxSavedSearches = 64;
     std::vector<SavedSearch> saved_searches;
 
+    // Loaded inertly: only an explicit Photo Library visit constructs the optional catalog.
+    static constexpr std::size_t kMaxPhotoStateBytes = 4 * 1024 * 1024;
+    std::string photo_library;
+
     Folders folders;
     std::filesystem::path last_folder;
     // The window's size when it was last neither maximized, fullscreen nor tiled; logical pixels.
@@ -119,6 +124,8 @@ struct State {
         std::optional<std::vector<fs::SortKey>> details_columns{};
         std::optional<bool> show_hidden{};
         std::string filter{};
+        // A logical Photo Library tab has no folder/root path; cursor holds its stable item key.
+        bool photos{false};
 
         bool operator==(const Tab&) const = default;
     };

@@ -75,6 +75,15 @@ Update the manifest when replacing an image. The website and guides share these
 assets; the original `guide-*`, `shot-*`, and `readme-*` screenshots have been
 retired rather than retained in the deployed image directory.
 
+The Photo Library screenshot collection contains six supplied 27 November 2026 captures:
+the library grid, Quick Look, the album cover grid, photo details, the source folder picker,
+and the compact Add to album context menu. Five captures were refreshed from the 22:51–22:52
+session; the source folder picker retains its earlier capture. Their `photo-*` manifest entries
+record the capture date and custom dark appearance. They use the same lossless, original-size
+WebP conversion and decoded-pixel verification as the earlier collection. Superseded source
+filenames are listed as unused. All six captures appear in the guide; the homepage uses the
+updated library grid and links to the guide and optional add-on installation steps.
+
 The `/pricing/` page presents three humorous free tiers, all linking to the same
 downloads. Keep their feature lists identical and the MIT licence and development
 build context accurate. The page credits Hesiod's pricing page as its inspiration.

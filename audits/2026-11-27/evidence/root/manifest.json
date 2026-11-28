@@ -1,0 +1,14 @@
+{
+  "started_utc": "2026-11-27T00:35:07.765326+00:00",
+  "revision": "1dd2368783d814e86268fd2c388ee41671c66ae8",
+  "branch": "feat/photo-library",
+  "branch_base": "63ca25bc",
+  "merge_base_local_main": "63ca25bc8ba464d42dfa315d180354892137e792",
+  "kernel": "Linux-6.18.64-x86_64-with-glibc2.44",
+  "cpu_count": 24,
+  "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+  "memory": "MemTotal:       65252152 kB\nMemFree:        14574676 kB\nMemAvailable:   54166348 kB\nBuffers:         6601152 kB\nCached:         30157816 kB\nSwapCached:        69312 kB\nActive:         33217232 kB\nInactive:       10153308 kB\nActive(anon):    6352708 kB\nInactive(anon):  1380168 kB\nActive(file):   26864524 kB\nInactive(file):  8773140 kB\nUnevictable:      317292 kB\nMlocked:             364 kB\nSwapTotal:      62498812 kB\nSwapFree:       61627520 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:            420160 kB\nWriteback:             0 kB\nAnonPages:       6914040 kB\nMapped:          1823484 kB\nShmem:           1129424 kB\nKReclaimable:    4718200 kB\nSlab:            5840800 kB\nSReclaimable:    4605592 kB\nSUnreclaim:      1235208 kB\nKernelStack:       55632 kB\nPageTables:       122792 kB\nSecPageTables:      2372 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    95124888 kB\nCommitted_AS:   47459872 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:      218060 kB\nVmallocChunk:          0 kB\nPercpu:            22080 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:     32768 kB\nShmemHugePages:   663552 kB\nShmemPmdMapped:        0 kB\nFileHugePages:    993280 kB\nFilePmdMapped:    100352 kB\nCmaTotal:              0 kB\nCmaFree:               0 kB\nUnaccepted:            0 kB\nBalloon:               0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:     4689664 kB\nDirectMap2M:    60778496 kB\nDirectMap1G:     1048576 kB\n",
+  "load_start": "3.42 3.78 6.01 3/3469 1945335\n",
+  "scope": "Whole branch code and tests; branch diff against original local main; disposable fixtures only; no user source/catalog mutation; no publishing",
+  "performance_caveat": "Shared workstation, user workloads not stopped; isolated app state; warm filesystem caches unless explicitly stated"
+}

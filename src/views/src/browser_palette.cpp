@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -68,6 +69,29 @@ std::vector<PaletteItem> Browser::palette_items() {
         add(std::string{"command:"} + id, std::move(label), first_chord(which),
             [this, which] { run(which, Clock::now()); });
     };
+    if (photos_available()) {
+        add("photos:open", std::string{i18n::tr("Photo Library")}, "",
+            [this] { open_photo_library(); });
+        const auto folder = current_folder();
+        if (showing_photos())
+            add("photos:add", std::string{i18n::tr("Add folder to Photo Library…")}, "",
+                [this] { photo_library_->add_folder(); });
+        else if (folder && !folder->is_collection() && !folder->is_trash() && !folder->is_archive())
+            add("photos:add", std::string{i18n::tr("Add folder to Photo Library…")}, "",
+                [this, path = folder->path()] { open_photo_library(path); });
+    }
+    if (showing_photos()) {
+        add("photos:close", std::string{i18n::tr("Close Photo Library")},
+            keys_for(Command::close_tab), [this] {
+                photo_library_->close();
+                if (area().tabs.size() > 1)
+                    close_tab(area().active);
+                else
+                    open(place_sources_.home.is_absolute() ? place_sources_.home
+                                                           : std::filesystem::path{"/"});
+            });
+        return items;
+    }
     if (searching_results()) {
         using Action = SearchResults::Action;
         const auto count = search_results_->chosen().size();
@@ -124,6 +148,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     const std::shared_ptr<Folder> folder = current_folder();
     const bool in_trash = folder && folder->is_trash();
     const std::vector<std::string> names = folder ? targets(*folder) : std::vector<std::string>{};
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
     const bool editable = folder && !in_trash && !folder->is_archive();
     if (folder && !folder->is_archive() && (names.size() <= 1 || properties_window_) &&
@@ -179,7 +204,7 @@ std::vector<PaletteItem> Browser::palette_items() {
     if (panes_enabled_ && !picker_mode_ && folder && !in_trash && !names.empty()) {
         std::vector<std::filesystem::path> folders;
         for (const fs::Entry& entry : folder->entries()) {
-            if (entry.is_directory() && std::ranges::find(names, entry.name) != names.end()) {
+            if (entry.is_directory() && target_names.contains(entry.name)) {
                 folders.push_back(folder->path() / entry.name);
             }
         }
@@ -610,6 +635,8 @@ void Browser::refresh_transfer_tasks() {
 }
 
 void Browser::open_with_palette() {
+    if (showing_photos())
+        return;
     const std::shared_ptr<Folder> folder = current_folder();
     const fs::Entry* const cursor = folder ? folder->cursor_entry() : nullptr;
     if (cursor == nullptr || !choices_ || !open_with_) {
@@ -618,10 +645,10 @@ void Browser::open_with_palette() {
     // What it would open: the selected entries of the cursor's kind, else the cursor's (as the
     // context menu's "Open With").
     const std::vector<std::string> names = targets(*folder);
+    const std::unordered_set<std::string> target_names(names.begin(), names.end());
     std::vector<fs::Entry> files;
     for (const fs::Entry& entry : folder->entries()) {
-        if (entry.is_directory() == cursor->is_directory() &&
-            std::ranges::find(names, entry.name) != names.end()) {
+        if (entry.is_directory() == cursor->is_directory() && target_names.contains(entry.name)) {
             fs::Entry typed = entry;
             typed.mime = folder->mime_of(entry);
             files.push_back(std::move(typed));
@@ -664,6 +691,12 @@ void Browser::open_with_palette() {
 }
 
 void Browser::open_finder() {
+    if (showing_photos()) {
+        filter_focused_ = true;
+        pane().filter_field.select_all();
+        redraw_();
+        return;
+    }
     const std::shared_ptr<Folder> folder = current_folder();
     if (!folder) {
         return;
@@ -751,7 +784,7 @@ void Browser::refresh_pattern(const std::string& typed) {
     row("pattern:select", i18n::trn("Select {} Item", "Select {} Items", count), false);
     // Adding differs from selecting only when something else is selected.
     const auto selected_in = std::ranges::count_if(
-        rows, [&](std::size_t i) { return folder->is_selected(folder->entries()[i].name); });
+        rows, [&](std::size_t i) { return folder->is_selected(folder->entries()[i].key()); });
     if (folder->selected_count() > static_cast<std::size_t>(selected_in)) {
         row("pattern:add", i18n::trf("Add {} to the Selection", count), true);
     }

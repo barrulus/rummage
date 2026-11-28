@@ -1,0 +1,36 @@
+[
+  {
+    "name": "docs",
+    "command": [
+      "python3",
+      "scripts/check-docs.py"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "website-build",
+    "command": [
+      "/tmp/rummage-hugo/hugo",
+      "--source",
+      "website",
+      "--destination",
+      "/tmp/rummage-remediation-package-checks/website-public",
+      "--cacheDir",
+      "/tmp/rummage-remediation-package-checks/website-cache",
+      "--noBuildLock",
+      "--minify",
+      "--panicOnWarning",
+      "--printPathWarnings"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "website-check",
+    "command": [
+      "python3",
+      "website/check.py",
+      "/tmp/rummage-remediation-package-checks/website-public"
+    ],
+    "exit": 0
+  }
+]

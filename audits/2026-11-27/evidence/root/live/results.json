@@ -1,0 +1,950 @@
+{
+  "scope": "Private headless hardware Wayland display; real unmodified Release executable; warm page caches; untouched desktop; no virtual input",
+  "startup": {
+    "20": {
+      "samples": [
+        {
+          "trial": 0,
+          "warmup": true,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.83,
+            "display": 17.37,
+            "egl": 42.94,
+            "fonts": 49.17,
+            "portal": 49.73,
+            "workers": 51.55,
+            "mime": 54.23,
+            "engines": 55.21,
+            "icons": 55.27,
+            "window": 92.22,
+            "browser": 96.05,
+            "first-draw": 96.38,
+            "first-draw-finished": 99.75,
+            "first-frame-shown": 114.01,
+            "folder-shown": 122.16
+          },
+          "process_wall_s": 0.16414552100468427
+        },
+        {
+          "trial": 1,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.61,
+            "display": 15.96,
+            "egl": 41.21,
+            "fonts": 46.96,
+            "portal": 47.08,
+            "workers": 48.54,
+            "mime": 51.22,
+            "engines": 51.41,
+            "icons": 51.46,
+            "window": 72.31,
+            "browser": 72.57,
+            "first-draw": 72.66,
+            "first-draw-finished": 75.05,
+            "first-frame-shown": 95.3,
+            "folder-shown": 103.48
+          },
+          "process_wall_s": 0.1644207310018828
+        },
+        {
+          "trial": 2,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.65,
+            "display": 16.06,
+            "egl": 41.34,
+            "fonts": 47.1,
+            "portal": 47.22,
+            "workers": 48.7,
+            "mime": 51.39,
+            "engines": 51.59,
+            "icons": 51.64,
+            "window": 71.94,
+            "browser": 72.2,
+            "first-draw": 72.67,
+            "first-draw-finished": 75.04,
+            "first-frame-shown": 89.54,
+            "folder-shown": 98.14
+          },
+          "process_wall_s": 0.1646099450008478
+        },
+        {
+          "trial": 3,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.85,
+            "display": 16.23,
+            "egl": 41.63,
+            "fonts": 47.43,
+            "portal": 47.54,
+            "workers": 49.6,
+            "mime": 52.32,
+            "engines": 52.54,
+            "icons": 52.6,
+            "window": 74.3,
+            "browser": 74.57,
+            "first-draw": 74.78,
+            "first-draw-finished": 77.32,
+            "first-frame-shown": 85.91,
+            "folder-shown": 94.0
+          },
+          "process_wall_s": 0.11434468099469086
+        },
+        {
+          "trial": 4,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 19.68,
+            "display": 20.33,
+            "egl": 46.23,
+            "fonts": 51.96,
+            "portal": 52.07,
+            "workers": 53.62,
+            "mime": 56.29,
+            "engines": 56.49,
+            "icons": 56.54,
+            "window": 78.09,
+            "browser": 78.43,
+            "first-draw": 78.63,
+            "first-draw-finished": 81.45,
+            "first-frame-shown": 96.93,
+            "folder-shown": 105.48
+          },
+          "process_wall_s": 0.16435815099976026
+        },
+        {
+          "trial": 5,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 16.09,
+            "display": 16.46,
+            "egl": 42.07,
+            "fonts": 47.94,
+            "portal": 48.05,
+            "workers": 49.63,
+            "mime": 52.41,
+            "engines": 52.61,
+            "icons": 52.66,
+            "window": 74.18,
+            "browser": 74.45,
+            "first-draw": 74.98,
+            "first-draw-finished": 77.45,
+            "first-frame-shown": 92.18,
+            "folder-shown": 100.72
+          },
+          "process_wall_s": 0.11428125800011912
+        },
+        {
+          "trial": 6,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 19.21,
+            "display": 19.73,
+            "egl": 45.23,
+            "fonts": 50.98,
+            "portal": 51.1,
+            "workers": 52.73,
+            "mime": 55.4,
+            "engines": 55.61,
+            "icons": 55.66,
+            "window": 77.01,
+            "browser": 77.29,
+            "first-draw": 77.51,
+            "first-draw-finished": 80.09,
+            "first-frame-shown": 92.96,
+            "folder-shown": 96.11
+          },
+          "process_wall_s": 0.1643711880024057
+        },
+        {
+          "trial": 7,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 16.85,
+            "display": 17.25,
+            "egl": 43.14,
+            "fonts": 48.87,
+            "portal": 48.99,
+            "workers": 50.59,
+            "mime": 53.29,
+            "engines": 53.5,
+            "icons": 53.55,
+            "window": 74.8,
+            "browser": 75.07,
+            "first-draw": 75.18,
+            "first-draw-finished": 77.59,
+            "first-frame-shown": 92.37,
+            "folder-shown": 100.54
+          },
+          "process_wall_s": 0.16481694600224728
+        }
+      ],
+      "folder_shown_ms": {
+        "samples": [
+          103.48,
+          98.14,
+          94.0,
+          105.48,
+          100.72,
+          96.11,
+          100.54
+        ],
+        "median": 100.54,
+        "p95": 105.48,
+        "max": 105.48
+      }
+    },
+    "10000": {
+      "samples": [
+        {
+          "trial": 0,
+          "warmup": true,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.36,
+            "display": 15.7,
+            "egl": 41.19,
+            "fonts": 46.95,
+            "portal": 47.06,
+            "workers": 49.1,
+            "mime": 51.88,
+            "engines": 52.04,
+            "icons": 52.08,
+            "window": 73.62,
+            "browser": 74.89,
+            "first-draw": 74.98,
+            "first-draw-finished": 77.39,
+            "first-frame-shown": 92.57,
+            "folder-shown": 101.02
+          },
+          "process_wall_s": 0.2145207580033457
+        },
+        {
+          "trial": 1,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 18.08,
+            "display": 18.51,
+            "egl": 43.96,
+            "fonts": 49.86,
+            "portal": 49.97,
+            "workers": 51.39,
+            "mime": 53.87,
+            "engines": 54.03,
+            "icons": 54.07,
+            "window": 74.24,
+            "browser": 75.51,
+            "first-draw": 75.6,
+            "first-draw-finished": 77.96,
+            "first-frame-shown": 96.96,
+            "folder-shown": 105.33
+          },
+          "process_wall_s": 0.1643033270011074
+        },
+        {
+          "trial": 2,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 16.05,
+            "display": 16.87,
+            "egl": 37.99,
+            "fonts": 42.87,
+            "portal": 42.95,
+            "workers": 44.25,
+            "mime": 46.55,
+            "engines": 46.7,
+            "icons": 46.74,
+            "window": 67.36,
+            "browser": 68.64,
+            "first-draw": 68.92,
+            "first-draw-finished": 71.29,
+            "first-frame-shown": 92.92,
+            "folder-shown": 101.53
+          },
+          "process_wall_s": 0.1646354539989261
+        },
+        {
+          "trial": 3,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.53,
+            "display": 15.94,
+            "egl": 41.16,
+            "fonts": 46.73,
+            "portal": 46.82,
+            "workers": 48.57,
+            "mime": 50.84,
+            "engines": 51.02,
+            "icons": 51.06,
+            "window": 72.21,
+            "browser": 73.48,
+            "first-draw": 73.66,
+            "first-draw-finished": 76.09,
+            "first-frame-shown": 97.36,
+            "folder-shown": 105.72
+          },
+          "process_wall_s": 0.1640942769954563
+        },
+        {
+          "trial": 4,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 18.67,
+            "display": 19.11,
+            "egl": 44.98,
+            "fonts": 50.71,
+            "portal": 50.82,
+            "workers": 52.36,
+            "mime": 55.0,
+            "engines": 55.2,
+            "icons": 55.25,
+            "window": 77.35,
+            "browser": 78.8,
+            "first-draw": 79.04,
+            "first-draw-finished": 82.04,
+            "first-frame-shown": 101.48,
+            "folder-shown": 109.96
+          },
+          "process_wall_s": 0.16434769699844765
+        },
+        {
+          "trial": 5,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 18.83,
+            "display": 19.26,
+            "egl": 45.86,
+            "fonts": 51.66,
+            "portal": 51.77,
+            "workers": 53.33,
+            "mime": 56.02,
+            "engines": 56.25,
+            "icons": 56.3,
+            "window": 78.47,
+            "browser": 79.72,
+            "first-draw": 79.94,
+            "first-draw-finished": 82.35,
+            "first-frame-shown": 97.83,
+            "folder-shown": 106.23
+          },
+          "process_wall_s": 0.1645687199998065
+        },
+        {
+          "trial": 6,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 16.79,
+            "display": 17.26,
+            "egl": 42.84,
+            "fonts": 48.65,
+            "portal": 48.76,
+            "workers": 50.32,
+            "mime": 53.02,
+            "engines": 53.21,
+            "icons": 53.26,
+            "window": 75.04,
+            "browser": 76.3,
+            "first-draw": 76.53,
+            "first-draw-finished": 78.93,
+            "first-frame-shown": 94.5,
+            "folder-shown": 102.96
+          },
+          "process_wall_s": 0.16451911600597668
+        },
+        {
+          "trial": 7,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.5,
+            "display": 16.02,
+            "egl": 41.68,
+            "fonts": 47.5,
+            "portal": 47.61,
+            "workers": 49.1,
+            "mime": 51.79,
+            "engines": 51.99,
+            "icons": 52.05,
+            "window": 74.42,
+            "browser": 75.84,
+            "first-draw": 75.94,
+            "first-draw-finished": 78.77,
+            "first-frame-shown": 98.76,
+            "folder-shown": 107.12
+          },
+          "process_wall_s": 0.16461720500228694
+        }
+      ],
+      "folder_shown_ms": {
+        "samples": [
+          105.33,
+          101.53,
+          105.72,
+          109.96,
+          106.23,
+          102.96,
+          107.12
+        ],
+        "median": 105.72,
+        "p95": 109.96,
+        "max": 109.96
+      }
+    },
+    "100000": {
+      "samples": [
+        {
+          "trial": 0,
+          "warmup": true,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.26,
+            "display": 15.72,
+            "egl": 41.13,
+            "fonts": 46.9,
+            "portal": 47.0,
+            "workers": 48.44,
+            "mime": 51.1,
+            "engines": 51.3,
+            "icons": 51.35,
+            "window": 73.43,
+            "browser": 84.83,
+            "first-draw": 84.94,
+            "first-draw-finished": 87.92,
+            "first-frame-shown": 98.99,
+            "folder-shown": 247.76
+          },
+          "process_wall_s": 0.314631647997885
+        },
+        {
+          "trial": 1,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.54,
+            "display": 15.88,
+            "egl": 41.33,
+            "fonts": 47.16,
+            "portal": 47.28,
+            "workers": 49.16,
+            "mime": 51.48,
+            "engines": 51.71,
+            "icons": 51.75,
+            "window": 72.08,
+            "browser": 82.63,
+            "first-draw": 82.82,
+            "first-draw-finished": 85.47,
+            "first-frame-shown": 114.35,
+            "folder-shown": 237.33
+          },
+          "process_wall_s": 0.2646197319991188
+        },
+        {
+          "trial": 2,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 19.47,
+            "display": 19.84,
+            "egl": 45.55,
+            "fonts": 51.26,
+            "portal": 51.37,
+            "workers": 52.86,
+            "mime": 55.54,
+            "engines": 55.74,
+            "icons": 55.79,
+            "window": 76.64,
+            "browser": 87.26,
+            "first-draw": 87.43,
+            "first-draw-finished": 89.86,
+            "first-frame-shown": 113.29,
+            "folder-shown": 241.34
+          },
+          "process_wall_s": 0.3156045889991219
+        },
+        {
+          "trial": 3,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 19.09,
+            "display": 19.51,
+            "egl": 44.83,
+            "fonts": 50.66,
+            "portal": 50.77,
+            "workers": 53.03,
+            "mime": 55.43,
+            "engines": 55.59,
+            "icons": 55.63,
+            "window": 76.6,
+            "browser": 87.14,
+            "first-draw": 87.37,
+            "first-draw-finished": 90.1,
+            "first-frame-shown": 100.8,
+            "folder-shown": 244.16
+          },
+          "process_wall_s": 0.3151339550022385
+        },
+        {
+          "trial": 4,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 15.71,
+            "display": 16.14,
+            "egl": 41.82,
+            "fonts": 47.57,
+            "portal": 47.68,
+            "workers": 49.17,
+            "mime": 51.86,
+            "engines": 52.06,
+            "icons": 52.11,
+            "window": 74.51,
+            "browser": 85.07,
+            "first-draw": 85.27,
+            "first-draw-finished": 87.87,
+            "first-frame-shown": 103.83,
+            "folder-shown": 248.54
+          },
+          "process_wall_s": 0.3145391110010678
+        },
+        {
+          "trial": 5,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 16.2,
+            "display": 16.56,
+            "egl": 41.98,
+            "fonts": 47.73,
+            "portal": 47.84,
+            "workers": 49.96,
+            "mime": 52.38,
+            "engines": 52.54,
+            "icons": 52.59,
+            "window": 73.45,
+            "browser": 83.96,
+            "first-draw": 84.17,
+            "first-draw-finished": 86.63,
+            "first-frame-shown": 103.47,
+            "folder-shown": 245.29
+          },
+          "process_wall_s": 0.3144976039984613
+        },
+        {
+          "trial": 6,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 19.08,
+            "display": 19.49,
+            "egl": 44.62,
+            "fonts": 50.39,
+            "portal": 50.5,
+            "workers": 52.18,
+            "mime": 54.83,
+            "engines": 55.04,
+            "icons": 55.09,
+            "window": 76.79,
+            "browser": 87.31,
+            "first-draw": 87.42,
+            "first-draw-finished": 90.07,
+            "first-frame-shown": 109.85,
+            "folder-shown": 249.16
+          },
+          "process_wall_s": 0.3152491770015331
+        },
+        {
+          "trial": 7,
+          "warmup": false,
+          "exit": 0,
+          "steps_ms": {
+            "main": 18.23,
+            "display": 18.75,
+            "egl": 44.05,
+            "fonts": 49.9,
+            "portal": 50.0,
+            "workers": 51.55,
+            "mime": 54.21,
+            "engines": 54.41,
+            "icons": 54.46,
+            "window": 76.96,
+            "browser": 87.72,
+            "first-draw": 87.91,
+            "first-draw-finished": 90.35,
+            "first-frame-shown": 110.24,
+            "folder-shown": 246.02
+          },
+          "process_wall_s": 0.31498800800181925
+        }
+      ],
+      "folder_shown_ms": {
+        "samples": [
+          237.33,
+          241.34,
+          244.16,
+          248.54,
+          245.29,
+          249.16,
+          246.02
+        ],
+        "median": 245.29,
+        "p95": 249.16,
+        "max": 249.16
+      }
+    }
+  },
+  "idle": {
+    "20": {
+      "samples": [
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 92577792,
+              "pss_bytes": 40434688,
+              "private_bytes": 32915456,
+              "anonymous_bytes": 24797184,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1975743": {
+                "rss_bytes": 92577792,
+                "pss_bytes": 40434688,
+                "private_bytes": 32915456,
+                "anonymous_bytes": 24797184,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 92577792,
+              "pss_bytes": 40434688,
+              "private_bytes": 32915456,
+              "anonymous_bytes": 24797184,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.00007143,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        },
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 92577792,
+              "pss_bytes": 40434688,
+              "private_bytes": 32915456,
+              "anonymous_bytes": 24797184,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1975743": {
+                "rss_bytes": 92577792,
+                "pss_bytes": 40434688,
+                "private_bytes": 32915456,
+                "anonymous_bytes": 24797184,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 92577792,
+              "pss_bytes": 40434688,
+              "private_bytes": 32915456,
+              "anonymous_bytes": 24797184,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000066489,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        },
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 92577792,
+              "pss_bytes": 40434688,
+              "private_bytes": 32915456,
+              "anonymous_bytes": 24797184,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1975743": {
+                "rss_bytes": 92577792,
+                "pss_bytes": 40434688,
+                "private_bytes": 32915456,
+                "anonymous_bytes": 24797184,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 92577792,
+              "pss_bytes": 40434688,
+              "private_bytes": 32915456,
+              "anonymous_bytes": 24797184,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000143371,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        }
+      ]
+    },
+    "10000": {
+      "samples": [
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 104009728,
+              "pss_bytes": 51872768,
+              "private_bytes": 44359680,
+              "anonymous_bytes": 36175872,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1976101": {
+                "rss_bytes": 104009728,
+                "pss_bytes": 51872768,
+                "private_bytes": 44359680,
+                "anonymous_bytes": 36175872,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 104009728,
+              "pss_bytes": 51872768,
+              "private_bytes": 44359680,
+              "anonymous_bytes": 36175872,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000079138,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        },
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 104009728,
+              "pss_bytes": 51872768,
+              "private_bytes": 44359680,
+              "anonymous_bytes": 36175872,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1976101": {
+                "rss_bytes": 104009728,
+                "pss_bytes": 51872768,
+                "private_bytes": 44359680,
+                "anonymous_bytes": 36175872,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 104009728,
+              "pss_bytes": 51872768,
+              "private_bytes": 44359680,
+              "anonymous_bytes": 36175872,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000214186,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        },
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 104009728,
+              "pss_bytes": 51872768,
+              "private_bytes": 44359680,
+              "anonymous_bytes": 36175872,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1976101": {
+                "rss_bytes": 104009728,
+                "pss_bytes": 51872768,
+                "private_bytes": 44359680,
+                "anonymous_bytes": 36175872,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 104009728,
+              "pss_bytes": 51872768,
+              "private_bytes": 44359680,
+              "anonymous_bytes": 36175872,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000214898,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        }
+      ]
+    },
+    "100000": {
+      "samples": [
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 138207232,
+              "pss_bytes": 86070272,
+              "private_bytes": 78557184,
+              "anonymous_bytes": 70373376,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1976426": {
+                "rss_bytes": 138207232,
+                "pss_bytes": 86070272,
+                "private_bytes": 78557184,
+                "anonymous_bytes": 70373376,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 138207232,
+              "pss_bytes": 86070272,
+              "private_bytes": 78557184,
+              "anonymous_bytes": 70373376,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000160219,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        },
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 138207232,
+              "pss_bytes": 86070272,
+              "private_bytes": 78557184,
+              "anonymous_bytes": 70373376,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1976426": {
+                "rss_bytes": 138207232,
+                "pss_bytes": 86070272,
+                "private_bytes": 78557184,
+                "anonymous_bytes": 70373376,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 138207232,
+              "pss_bytes": 86070272,
+              "private_bytes": 78557184,
+              "anonymous_bytes": 70373376,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000175458,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        },
+        {
+          "memory": {
+            "main": {
+              "rss_bytes": 138207232,
+              "pss_bytes": 86070272,
+              "private_bytes": 78557184,
+              "anonymous_bytes": 70373376,
+              "swap_bytes": 0,
+              "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+            },
+            "processes": {
+              "1976426": {
+                "rss_bytes": 138207232,
+                "pss_bytes": 86070272,
+                "private_bytes": 78557184,
+                "anonymous_bytes": 70373376,
+                "swap_bytes": 0,
+                "executable": "/tmp/rummage-branch-audit-2026-11-27/build-release/rummage"
+              }
+            },
+            "tree": {
+              "rss_bytes": 138207232,
+              "pss_bytes": 86070272,
+              "private_bytes": 78557184,
+              "anonymous_bytes": 70373376,
+              "swap_bytes": 0
+            }
+          },
+          "cpu": {
+            "seconds": 3.000067659,
+            "cpu_ns": 0,
+            "percent_one_core": 0.0,
+            "resolution_seconds": 1e-09,
+            "method": "POSIX process CPU clock, all main-process threads, excludes helpers"
+          }
+        }
+      ]
+    }
+  },
+  "renderer": "Mesa Intel(R) Graphics (ARL) | OpenGL ES 3.2 Mesa 26.3.1"
+}

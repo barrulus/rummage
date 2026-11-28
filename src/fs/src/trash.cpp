@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <format>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <set>
 #include <span>
@@ -38,6 +39,25 @@ std::optional<struct stat> status_of(const std::filesystem::path& path) {
         return std::nullopt;
     }
     return info;
+}
+
+// Compare seconds and the fractional part separately to avoid signed overflow for timestamps
+// outside the representable nanosecond range. lstat rejects replacement symlinks and folders.
+bool matches_identity(const SourceIdentity& expected) {
+    const auto actual = status_of(expected.path);
+    if (!actual || !S_ISREG(actual->st_mode) || actual->st_size < 0)
+        return false;
+    constexpr std::int64_t kBillion = 1'000'000'000;
+    auto seconds = expected.mtime_ns / kBillion;
+    auto fraction = expected.mtime_ns % kBillion;
+    if (fraction < 0) {
+        --seconds;
+        fraction += kBillion;
+    }
+    return static_cast<std::uint64_t>(actual->st_dev) == expected.device &&
+           static_cast<std::uint64_t>(actual->st_ino) == expected.inode &&
+           static_cast<std::uint64_t>(actual->st_size) == expected.size &&
+           actual->st_mtim.tv_sec == seconds && actual->st_mtim.tv_nsec == fraction;
 }
 
 // mkdir that is fine with a folder already there.
@@ -236,6 +256,7 @@ private:
     std::vector<SizedFolder> folders_;
     TransferResult result_;
     TransferProgress progress_;
+    std::map<std::string, const SourceIdentity*> identities_;
 };
 
 std::optional<TrashDir> Trasher::find_trash() {
@@ -319,6 +340,22 @@ std::optional<std::filesystem::path> Trasher::trash_item(const std::string& name
             unlink(info_file.c_str());
             return std::nullopt;
         }
+        // The request may have waited behind other transfers or a pause. Recheck after preparing
+        // the receipt, immediately before moving the original. A refusal leaves sidecars alone.
+        const auto expected = identities_.find(name);
+        if (expected != identities_.end()) {
+            const auto changed_keeper = std::ranges::find_if(
+                request_.retained_identities,
+                [](const SourceIdentity& identity) { return !matches_identity(identity); });
+            if (!matches_identity(*expected->second) ||
+                changed_keeper != request_.retained_identities.end()) {
+                result_.errors.push_back(std::format(
+                    "{}: original or retained duplicate changed or is unavailable; review again",
+                    name));
+                unlink(info_file.c_str());
+                return std::nullopt;
+            }
+        }
         const std::error_code moved = rename_new(item, trash_.path / "files" / candidate);
         if (moved == std::errc::file_exists) {
             unlink(info_file.c_str());  // files/ holds one without its info: leave it be
@@ -354,6 +391,34 @@ TransferResult Trasher::run() {
     if (canonical) {
         result_.refused = std::format("{}: {}", request_.source.string(), canonical.message());
         return result_;
+    }
+    if (!request_.retained_identities.empty() && request_.source_identities.empty()) {
+        result_.refused = "Retained duplicate identities require guarded originals";
+        return result_;
+    }
+    if (!request_.source_identities.empty()) {
+        if (request_.source_identities.size() != request_.names.size()) {
+            result_.refused = "Every original needs a captured identity before duplicate trash";
+            return result_;
+        }
+        for (const auto& identity : request_.source_identities) {
+            const auto name = identity.path.filename().string();
+            if (!identity.path.is_absolute() || identity.path != source_ / name ||
+                std::ranges::find(request_.names, name) == request_.names.end() ||
+                !identities_.emplace(name, &identity).second) {
+                result_.refused = "Duplicate trash identities do not match the requested originals";
+                return result_;
+            }
+        }
+        for (const auto& keeper : request_.retained_identities) {
+            if (!keeper.path.is_absolute() ||
+                std::ranges::any_of(
+                    request_.source_identities,
+                    [&](const SourceIdentity& original) { return original.path == keeper.path; })) {
+                result_.refused = "A retained duplicate cannot also be selected for trash";
+                return result_;
+            }
+        }
     }
     std::optional<TrashDir> trash = find_trash();
     if (!trash) {
@@ -412,6 +477,8 @@ TransferResult Trasher::run() {
     report();
 
     for (const Group& group : groups) {
+        if (callbacks_.checkpoint)
+            callbacks_.checkpoint();
         if (token_.cancelled()) {
             result_.cancelled = true;
             break;
@@ -658,12 +725,19 @@ private:
     std::map<std::filesystem::path, std::vector<Found>> trashes_;
     TransferResult result_;
     TransferProgress progress_;
+    std::map<std::filesystem::path, const SourceIdentity*> identities_;
 };
 
 bool Restorer::put_back(const Found& item, const std::filesystem::path& directory,
                         const std::string& name, bool replace) {
     const std::string where = item.info.original.filename().string();
     const std::filesystem::path target = directory / name;
+    const auto expected = identities_.find(item.item);
+    if (expected != identities_.end() && !matches_identity(*expected->second)) {
+        result_.errors.push_back(
+            std::format("{}: trashed original changed or is unavailable; review again", where));
+        return false;
+    }
     std::error_code moved;
     if (!replace) {
         moved = rename_new(item.item, target);
@@ -687,6 +761,25 @@ bool Restorer::put_back(const Found& item, const std::filesystem::path& director
 }
 
 TransferResult Restorer::run() {
+    if (!request_.retained_identities.empty()) {
+        result_.refused = "Retained duplicate identities apply to trash, not restore";
+        return result_;
+    }
+    if (!request_.source_identities.empty()) {
+        if (request_.source_identities.size() != request_.names.size()) {
+            result_.refused = "Every restored original needs a captured identity";
+            return result_;
+        }
+        for (const auto& identity : request_.source_identities) {
+            if (!identity.path.is_absolute() ||
+                std::ranges::find(request_.names, identity.path.string()) == request_.names.end() ||
+                !identities_.emplace(identity.path, &identity).second) {
+                result_.refused = "Restore identities do not match the requested originals";
+                return result_;
+            }
+        }
+    }
+
     struct Group {
         Found item;
         std::vector<Found> sidecars;
@@ -717,6 +810,8 @@ TransferResult Restorer::run() {
     report();
 
     for (const Group& group : groups) {
+        if (callbacks_.checkpoint)
+            callbacks_.checkpoint();
         if (token_.cancelled()) {
             result_.cancelled = true;
             break;
@@ -912,6 +1007,27 @@ std::string trash_name(std::string_view name, int id) {
         return std::format("{}.{}", name, id);
     }
     return std::format("{}.{}{}", name.substr(0, dot), id, name.substr(dot));
+}
+
+std::optional<SourceIdentity> capture_source_identity(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto parent = std::filesystem::canonical(path.parent_path(), error);
+    if (error)
+        return std::nullopt;
+    const auto normalized = parent / path.filename();
+    const auto info = status_of(normalized);
+    constexpr std::int64_t kBillion = 1'000'000'000;
+    if (!info || !S_ISREG(info->st_mode) || info->st_size < 0 ||
+        info->st_mtim.tv_sec < std::numeric_limits<std::int64_t>::min() / kBillion ||
+        info->st_mtim.tv_sec >
+            (std::numeric_limits<std::int64_t>::max() - info->st_mtim.tv_nsec) / kBillion)
+        return std::nullopt;
+    return SourceIdentity{.path = normalized,
+                          .device = static_cast<std::uint64_t>(info->st_dev),
+                          .inode = static_cast<std::uint64_t>(info->st_ino),
+                          .size = static_cast<std::uint64_t>(info->st_size),
+                          .mtime_ns = static_cast<std::int64_t>(info->st_mtim.tv_sec) * kBillion +
+                                      info->st_mtim.tv_nsec};
 }
 
 TransferResult run_trash(const TransferRequest& request, const core::CancelToken& token,

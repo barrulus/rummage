@@ -167,6 +167,7 @@ void Clipboard::offer(std::vector<Format> formats, std::uint32_t serial) {
     wl_data_device_set_selection(device_.get(), source.get(), serial);
     source_ = std::move(source);  // the old one goes: no cancelled event for it, nor lost_
     formats_ = std::move(formats);
+    ++generation_;
 }
 
 void Clipboard::clear(std::uint32_t serial) {
@@ -176,6 +177,7 @@ void Clipboard::clear(std::uint32_t serial) {
     wl_data_device_set_selection(device_.get(), nullptr, serial);
     source_.reset();
     formats_.clear();
+    ++generation_;
 }
 
 std::vector<std::string> Clipboard::types() const {
@@ -387,7 +389,9 @@ void Clipboard::on_selection(void* data, wl_data_device* /*device*/, wl_data_off
         self.selection_ != self.dropped_) {
         self.forget_offer(self.selection_);
     }
-    if (self.selection_ != offer || offer == nullptr) {
+    // Our own offer already advanced the generation. Compositor echoes and focus changes
+    // must not invalidate work enriching that same clipboard offer.
+    if (!self.source_ && (self.selection_ != offer || offer == nullptr)) {
         ++self.generation_;
     }
     self.selection_ = offer;
@@ -426,6 +430,7 @@ void Clipboard::on_source_cancelled(void* data, wl_data_source* source) {
     }
     self.source_.reset();
     self.formats_.clear();
+    ++self.generation_;
     if (self.lost_) {
         self.lost_();
     }

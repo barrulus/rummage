@@ -1,0 +1,4 @@
+warning: Git tree '/tmp/rummage-photo-library' is dirty
+Using saved setting for 'extra-substituters = https://rummage-fm.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = rummage-fm.cachix.org-1:fhPhaCttVfPBS/i//+Z+6Ch0xdxj9g94eZdQ5m6mlwA=' from ~/.local/share/nix/trusted-settings.json.
+/tmp/rummage-remediation-measurements/ui/view_stress-rummage-remediation-build

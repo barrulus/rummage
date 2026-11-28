@@ -11,6 +11,23 @@
 
 namespace rummage::views {
 
+void reveal_row(ui::Scroller& scroller, std::size_t row, float height, float viewport, bool jump,
+                ui::Scroller::Clock::time_point now) {
+    const float top = static_cast<float>(row) * height;
+    const float bottom = top + height;
+    const float from = scroller.destination();
+    if (top >= from && bottom <= from + viewport) {
+        return;
+    }
+    if (jump) {
+        scroller.jump_to(top - ((viewport - height) / 2.0F));  // centered
+    } else if (top < from) {
+        scroller.glide_to(top, now);
+    } else {
+        scroller.glide_to(bottom - viewport, now);
+    }
+}
+
 void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Palette& palette,
                      const Folder& folder, const fs::Entry& entry, const ItemStyle& style,
                      Thumbnails* thumbnails, ui::Rect bounds, bool cut, ItemVisual* painted) {
@@ -33,14 +50,15 @@ void draw_entry_icon(ui::Renderer& renderer, ui::IconSet& icons, const theme::Pa
                                   : theme::readable_foreground(palette.primary, palette.surface)
                                         .with_alpha(visual.opacity);
     visual.run_background = style.fill.value_or(palette.surface);
-    if (thumbnails && !entry.is_directory() && !folder.is_archive()) {
+    if (thumbnails && !entry.is_directory() && !folder.is_archive() &&
+        !folder.path_of(entry).empty()) {
         const auto registry = engines::installed();
         const auto* family = registry->find(mime, typed.mime);
         if (video || (family && family->thumbnails)) {
             visual.thumbnail = thumbnails->get_shared(
                 folder.path_of(entry), entry.modified_ns,
                 thumbs::size_for(static_cast<std::uint32_t>(std::lround(size * renderer.scale()))),
-                type, &visual.failure);
+                type, &visual.failure, ThumbnailOptions::for_entry(entry));
         }
     }
     draw_item_visual(renderer, icons, palette, visual, bounds);

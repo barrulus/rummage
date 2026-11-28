@@ -633,3 +633,219 @@ TEST_CASE("info pane: automatic hiding handles metadata-only files deletion and 
     CHECK(f.pane().copy_bounds().empty());
     CHECK_FALSE(f.pane().loading());
 }
+
+TEST_CASE("info pane: collection metadata stays cached for offline originals and empty roots") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::Folder collection{loop, pool, watcher, mime, [] {}};
+    InfoPane pane{loop, pool, nullptr, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    std::string copied;
+    pane.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    const auto draw = [&] {
+        renderer.begin_frame(400, 900, 1, {});
+        pane.draw(renderer, {0, 0, 400, 900}, rummage::theme::Palette{}, icons, collection,
+                  InfoPane::Clock::now());
+        renderer.end_frame();
+    };
+    collection.replace_collection({}, "Photo Library", 0);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+    rummage::test::TempDir directory;
+    rummage::fs::Entry entry;
+    entry.name = "photo.jpg";
+    entry.identity = "photo:71";
+    entry.location = directory.path / "offline" / entry.name;
+    entry.available = false;
+    entry.kind = rummage::fs::EntryKind::file;
+    entry.size = 2048;
+    collection.replace_collection({entry}, "Photo Library", 1);
+    collection.select_name(entry.key());
+    rummage::views::PhotoProperties properties;
+    properties.ids = {71};
+    properties.path = entry.location;
+    properties.entry = entry;
+    properties.available = false;
+    properties.rows = {{"Availability", "Offline"}, {"Camera", "Cached camera"}};
+    properties.annotations.description = "A café";
+    properties.annotations.rating = 4;
+    properties.annotations.tags = std::vector<std::string>{"東京", "family"};
+    pane.set_photo_properties(properties);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+    CHECK_FALSE(pane.property_bounds("Camera.value").empty());
+    const auto copy = pane.copy_bounds();
+    REQUIRE_FALSE(copy.empty());
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Cached camera") != std::string::npos);
+    CHECK(copied.find("A café") != std::string::npos);
+    CHECK(copied.find("東京, family") != std::string::npos);
+    CHECK_FALSE(fs::exists(entry.location.parent_path()));
+    // A same-name different identity must not inherit the preceding item's catalog fields.
+    entry.identity = "photo:72";
+    entry.location = directory.path / "elsewhere" / entry.name;
+    collection.replace_collection({entry}, "Photo Library", 1);
+    collection.select_name(entry.key());
+    draw();
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Cached camera") == std::string::npos);
+    CHECK_FALSE(pane.loading());
+}
+
+TEST_CASE("info pane: logical collection records use stable identity without file metadata") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::Folder collection{loop, pool, watcher, mime, [] {}};
+    InfoPane pane{loop, pool, nullptr, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    std::string copied;
+    pane.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    const auto draw = [&] {
+        renderer.begin_frame(400, 900, 1, {});
+        pane.draw(renderer, {0, 0, 400, 900}, rummage::theme::Palette{}, icons, collection,
+                  InfoPane::Clock::now());
+        renderer.end_frame();
+    };
+    rummage::fs::Entry entry;
+    entry.name = "Shared title";
+    entry.identity = "job:19";
+    entry.kind = rummage::fs::EntryKind::directory;
+    entry.available = false;
+    collection.replace_collection({entry}, "Activity", 1);
+    collection.select_name(entry.key());
+    rummage::views::PhotoProperties properties;
+    properties.entry = entry;
+    properties.title = entry.name;
+    properties.available = false;
+    properties.rows = {{"State", "Paused"}, {"Completed", "42"}, {"Total", "100"}};
+    pane.set_photo_properties(properties);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+    CHECK_FALSE(pane.property_bounds("State.value").empty());
+    CHECK(pane.property_bounds("Modified.value").empty());
+    CHECK(pane.property_bounds("Size.value").empty());
+    CHECK(pane.property_bounds("Description.value").empty());
+    const auto copy = pane.copy_bounds();
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Paused") != std::string::npos);
+    CHECK(copied.find("Mixed values") == std::string::npos);
+    // Empty paths and equal titles cannot make two records interchangeable.
+    entry.identity = "album:19";
+    collection.replace_collection({entry}, "Albums", 1);
+    collection.select_name(entry.key());
+    draw();
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Paused") == std::string::npos);
+    properties.entry = entry;
+    properties.rows = {{"Name", "Shared title"}, {"Photo count", "9"}};
+    pane.set_photo_properties(properties);
+    draw();
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Photo count: 9") != std::string::npos);
+    CHECK_FALSE(pane.loading());
+
+    // The album's cover supplies preview pixels, but its file properties are not album data.
+    entry.kind = rummage::fs::EntryKind::file;
+    entry.available = true;
+    entry.location = std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png";
+    entry.mime = mime->by_name("cover.png").mime;
+    entry.size = 123456;
+    entry.modified_ns = 123456789;
+    properties.entry = entry;
+    collection.replace_collection({entry}, "Albums", 1);
+    collection.select_name(entry.key());
+    pane.set_photo_properties(properties);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+    CHECK(pane.property_bounds("Modified.value").empty());
+    CHECK(pane.property_bounds("Size.value").empty());
+    CHECK(pane.property_bounds("Dimensions.value").empty());
+    pane.click(copy.x + 4, copy.y + 4);
+    CHECK(copied.find("Photo count: 9") != std::string::npos);
+    CHECK(copied.find("image/png") == std::string::npos);
+}
+
+TEST_CASE(
+    "info pane: changed photo exposes current file metadata without validating its identity") {
+    const auto gl = offscreen();
+    if (!gl)
+        return;
+    EventLoop loop;
+    WorkerPool pool{loop, 1};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    const auto mime = rummage::fs::MimeDatabase::load();
+    rummage::views::Folder collection{loop, pool, watcher, mime, [] {}};
+    InfoPane pane{loop, pool, nullptr, [] {}};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    rummage::fs::Entry entry;
+    entry.name = "blocks.png";
+    entry.identity = "photo:71";
+    entry.location = std::filesystem::path{RUMMAGE_TEST_DATA} / "image/blocks.png";
+    entry.kind = rummage::fs::EntryKind::file;
+    entry.mime = mime->by_name(entry.name).mime;
+    entry.available = false;
+    entry.preview_current_location = true;
+    collection.replace_collection({entry}, "Photo Library", 1);
+    collection.select_name(entry.key());
+    rummage::views::PhotoProperties properties;
+    properties.ids = {71};
+    properties.entry = entry;
+    properties.path = entry.location;
+    properties.available = false;
+    properties.rows = {{"Availability", "Changed"},
+                       {"Preview", "Current file at this location; catalog identity has changed"}};
+    properties.annotations.description = "Catalog description";
+    properties.annotations.rating = 4;
+    pane.set_photo_properties(properties);
+    const auto draw = [&] {
+        renderer.begin_frame(400, 900, 1, {});
+        pane.draw(renderer, {0, 0, 400, 900}, {}, icons, collection, InfoPane::Clock::now());
+        renderer.end_frame();
+    };
+    REQUIRE(run_until(loop, [&] {
+        draw();
+        return !pane.loading() && pane.summary() && pane.summary()->photo;
+    }));
+    CHECK(pane.summary()->photo->width > 0);
+    CHECK(pane.summary()->photo->height > 0);
+    CHECK_FALSE(pane.property_bounds("Dimensions.value").empty());
+    std::string copied;
+    pane.set_copy_handler([&](std::string value) { copied = std::move(value); });
+    draw();  // Installing a copy handler adds the fixed header and its hit target.
+    const auto copy = pane.copy_bounds();
+    REQUIRE_FALSE(copy.empty());
+    REQUIRE(pane.click(copy.x + 4, copy.y + 4));
+    CHECK(copied.find("catalog identity has changed") != std::string::npos);
+    CHECK(copied.find("Catalog description") != std::string::npos);
+    CHECK(copied.find("Rating: 4") != std::string::npos);
+    CHECK_FALSE(collection.cursor_entry()->available);
+    // The same path marked offline must not retain the current-file summary.
+    entry.preview_current_location = false;
+    collection.replace_collection({entry}, "Photo Library", 1);
+    collection.select_name(entry.key());
+    properties.entry = entry;
+    pane.set_photo_properties(properties);
+    draw();
+    CHECK_FALSE(pane.loading());
+    CHECK(pane.summary() == nullptr);
+}

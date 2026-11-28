@@ -12,6 +12,13 @@ target_include_directories(rummage-i18n-tests PRIVATE
 target_link_libraries(rummage-i18n-tests PRIVATE doctest::doctest PkgConfig::TOMLPLUSPLUS rummage::warnings)
 add_test(NAME i18n-runtime COMMAND rummage-i18n-tests)
 
+add_executable(rummage-log-tests log_test.cpp ${PROJECT_SOURCE_DIR}/src/core/src/log.cpp)
+target_include_directories(rummage-log-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/core/include)
+target_link_libraries(rummage-log-tests PRIVATE doctest::doctest rummage::warnings)
+target_link_options(rummage-log-tests PRIVATE
+    -Wl,--wrap=openlog -Wl,--wrap=syslog -Wl,--wrap=__syslog_chk)
+add_test(NAME log-transport COMMAND rummage-log-tests)
+
 add_executable(rummage-tests
     batch_rename_test.cpp
     permissions_test.cpp
@@ -23,6 +30,7 @@ add_executable(rummage-tests
     archive_test.cpp
     archive_folder_test.cpp
     main.cpp
+    photo_client_test.cpp
     about_test.cpp
     app_icon_test.cpp
     breadcrumb_test.cpp
@@ -115,6 +123,51 @@ add_executable(rummage-tests
     worker_pool_test.cpp
     xcursor_test.cpp)
 target_link_libraries(rummage-tests PRIVATE rummage::svg rummage::core rummage::theme rummage::fs rummage::views rummage::picture rummage::formats rummage::formats::image rummage::formats::text rummage::formats::archive rummage::text rummage::thumbs rummage::preview rummage::engines rummage::isolate rummage::platform doctest::doctest rummage::warnings)
+target_link_libraries(rummage-tests PRIVATE rummage::photo_client)
+if(RUMMAGE_PHOTOS)
+    target_compile_definitions(rummage-tests PRIVATE
+        RUMMAGE_PHOTOS_TEST_MODULE="$<TARGET_FILE:rummage_photos>")
+    add_dependencies(rummage-tests rummage_photos)
+    add_executable(rummage-photos-tests photos_test.cpp)
+    target_link_libraries(rummage-photos-tests PRIVATE rummage_photos doctest::doctest
+        nlohmann_json::nlohmann_json rummage::warnings)
+    add_test(NAME photos-catalog COMMAND rummage-photos-tests)
+    add_executable(rummage-photo-recovery-tests photo_recovery_test.cpp)
+    target_link_libraries(rummage-photo-recovery-tests PRIVATE rummage::photo_client rummage::fs
+        doctest::doctest rummage::warnings)
+    target_compile_definitions(rummage-photo-recovery-tests PRIVATE
+        RUMMAGE_PHOTOS_TEST_MODULE="$<TARGET_FILE:rummage_photos>")
+    add_dependencies(rummage-photo-recovery-tests rummage_photos)
+    add_test(NAME photos-recovery COMMAND rummage-photo-recovery-tests)
+    add_executable(rummage-photo-watcher-tests photos_watcher_test.cpp)
+    target_link_libraries(rummage-photo-watcher-tests PRIVATE rummage::photo_client rummage::fs rummage::thumbs
+        rummage::core doctest::doctest rummage::warnings)
+    target_compile_definitions(rummage-photo-watcher-tests PRIVATE
+        RUMMAGE_PHOTOS_TEST_MODULE="$<TARGET_FILE:rummage_photos>")
+    add_dependencies(rummage-photo-watcher-tests rummage_photos)
+    add_test(NAME photos-watcher COMMAND rummage-photo-watcher-tests)
+    set_tests_properties(photos-watcher PROPERTIES TIMEOUT 60)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(NAME photos-migration COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/photos_migration.py" "$<TARGET_FILE:rummage_photos>")
+    # ctypes loads the instrumented module into an uninstrumented Python host. ASan must
+    # already be present before that dlopen; use this toolchain's runtime, not the host's.
+    if(RUMMAGE_SANITIZER MATCHES "address" AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            set(_photos_asan_name "libclang_rt.asan-${CMAKE_SYSTEM_PROCESSOR}.so")
+        else()
+            set(_photos_asan_name "libasan.so")
+        endif()
+        execute_process(COMMAND "${CMAKE_CXX_COMPILER}" "-print-file-name=${_photos_asan_name}"
+            OUTPUT_VARIABLE _photos_asan_runtime OUTPUT_STRIP_TRAILING_WHITESPACE
+            COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT EXISTS "${_photos_asan_runtime}")
+            message(FATAL_ERROR "Cannot locate sanitizer runtime for Python migration test: ${_photos_asan_name}")
+        endif()
+        set_tests_properties(photos-migration PROPERTIES ENVIRONMENT
+            "LD_PRELOAD=${_photos_asan_runtime};ASAN_OPTIONS=detect_leaks=0:abort_on_error=1;UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1")
+    endif()
+endif()
 
 # The helper protocol's private header, for its tests; the image family's private readers (TIFF,
 # DNG, lossless JPEG), for theirs.
@@ -181,9 +234,31 @@ if(RUMMAGE_SANITIZER)
     target_sources(rummage-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/core/src/lsan_suppressions.cpp)
 endif()
 
+if(RUMMAGE_PHOTOS)
+    # Native photo workflows have their own executable so UI iteration does not rebuild the
+    # unrelated format, filesystem and preview test translation units.
+    find_package(SQLite3 REQUIRED)
+    add_executable(rummage-photo-ui-tests main.cpp photo_library_ui_test.cpp)
+    target_link_libraries(rummage-photo-ui-tests PRIVATE
+        $<TARGET_PROPERTY:rummage-tests,LINK_LIBRARIES> SQLite::SQLite3)
+    target_compile_definitions(rummage-photo-ui-tests PRIVATE
+        $<TARGET_PROPERTY:rummage-tests,COMPILE_DEFINITIONS>)
+    if(RUMMAGE_SANITIZER)
+        target_sources(rummage-photo-ui-tests PRIVATE
+            ${PROJECT_SOURCE_DIR}/src/core/src/lsan_suppressions.cpp)
+    endif()
+    add_dependencies(rummage-photo-ui-tests rummage rummage-preview rummage_photos)
+    add_test(NAME photos-ui COMMAND rummage-photo-ui-tests)
+endif()
+
 # Allocator thresholds depend on earlier allocations: give memory accounting its own process.
 add_test(NAME rummage-tests COMMAND rummage-tests "--source-file-exclude=*memory_test.cpp")
 add_test(NAME memory-tests COMMAND rummage-tests "--source-file=*memory_test.cpp")
+
+add_executable(rummage-program-output-tests program_output_test.cpp)
+target_link_libraries(rummage-program-output-tests PRIVATE rummage::platform rummage::warnings)
+add_test(NAME program-output-self COMMAND rummage-program-output-tests)
+set_tests_properties(program-output-self PROPERTIES TIMEOUT 30)
 
 add_executable(rummage-portal-tests file_picker_portal_test.cpp)
 target_link_libraries(rummage-portal-tests PRIVATE rummage::platform PkgConfig::SDBUSCPP rummage::warnings)

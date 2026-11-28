@@ -15,7 +15,7 @@ with copyright_file.open('a') as output:
                  'Comment:\n'
                  ' Source dependencies and build tools are pinned by flake.lock.\n'
                  ' The following verbatim upstream notices cover this source bundle;\n'
-                 ' runtime notices are also installed by rummage-pdf.\n\n'
+                 ' runtime notices are also installed by rummage.\n\n'
                  'License: bundled-PDFium-components\n')
     for notice in notices:
         output.write(f' .\n {notice.relative_to(sources)}\n .\n')

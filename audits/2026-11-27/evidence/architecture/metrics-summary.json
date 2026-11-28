@@ -1,0 +1,94 @@
+{
+  "tracked_files": 1060,
+  "changed_files": 137,
+  "areas": 34,
+  "source_cpp_files": 432,
+  "clone_candidates": 4,
+  "changed_file_clone_candidates": 3,
+  "largest_first_party": [
+    {
+      "path": "src/views/src/browser.cpp",
+      "area": "src/views",
+      "bytes": 295085,
+      "lines": 7053,
+      "changed": true
+    },
+    {
+      "path": "src/photos/src/catalog.cpp",
+      "area": "src/photos",
+      "bytes": 124069,
+      "lines": 2627,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/settings_dialog.cpp",
+      "area": "src/views",
+      "bytes": 92889,
+      "lines": 2094,
+      "changed": true
+    },
+    {
+      "path": "src/app/main.cpp",
+      "area": "src/app",
+      "bytes": 97866,
+      "lines": 1977,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/photo_library.cpp",
+      "area": "src/views",
+      "bytes": 81327,
+      "lines": 1947,
+      "changed": true
+    },
+    {
+      "path": "src/formats/text/src/syntax.cpp",
+      "area": "src/formats",
+      "bytes": 71388,
+      "lines": 1896,
+      "changed": false
+    },
+    {
+      "path": "src/views/include/rummage/views/browser.hpp",
+      "area": "src/views",
+      "bytes": 67706,
+      "lines": 1464,
+      "changed": true
+    },
+    {
+      "path": "src/views/src/insights_view.cpp",
+      "area": "src/views",
+      "bytes": 62326,
+      "lines": 1450,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/quick_look.cpp",
+      "area": "src/views",
+      "bytes": 60959,
+      "lines": 1333,
+      "changed": true
+    },
+    {
+      "path": "src/fs/src/transfer.cpp",
+      "area": "src/fs",
+      "bytes": 51799,
+      "lines": 1285,
+      "changed": false
+    },
+    {
+      "path": "src/views/src/shortcuts.cpp",
+      "area": "src/views",
+      "bytes": 53337,
+      "lines": 1269,
+      "changed": false
+    },
+    {
+      "path": "src/fs/src/trash.cpp",
+      "area": "src/fs",
+      "bytes": 47812,
+      "lines": 1241,
+      "changed": true
+    }
+  ]
+}

@@ -339,9 +339,9 @@ TEST_CASE("state: the browser's tabs, kept and brought back as they were") {
     browser->apply(read.state);
     REQUIRE(browser->restore_tabs(read.state.tabs, read.state.shown_tab));
     REQUIRE(run_until(loop, [&] { return !browser->loading(); }));
-    CHECK(browser->tab_count() == 2);  // "gone" is gone
+    CHECK(browser->tab_count() == 3);  // disconnected tabs remain available for retry
     CHECK(browser->active_tab() == 1);
-    CHECK(browser->tab_titles().size() == 2);
+    CHECK(browser->tab_titles().size() == 3);
     CHECK(browser->tab_titles()[0] == saved.tabs[0].folder.filename().string());
     CHECK(browser->tab_titles()[1] == "b");
     CHECK(browser->mode() == Browser::Mode::grid);
@@ -350,15 +350,18 @@ TEST_CASE("state: the browser's tabs, kept and brought back as they were") {
     REQUIRE(run_until(loop, [&] { return browser->columns().column_count() >= 2; }));
     CHECK(browser->columns().column(0).folder().path() == dir.path / "a");
 
-    // Nothing left to restore: false, and the start opens its folder.
+    // An unavailable tab is restored without a synchronous pathname check.
     const std::unique_ptr<Browser> empty = make();
-    CHECK_FALSE(empty->restore_tabs({{.folder = dir.path / "gone",
-                                      .mode = State::Mode::grid,
-                                      .root = {},
-                                      .cursor = {},
-                                      .list_size = {},
-                                      .grid_icon = {}}},
-                                    0));
+    CHECK(empty->restore_tabs({{.folder = dir.path / "gone",
+                                .mode = State::Mode::grid,
+                                .root = {},
+                                .cursor = {},
+                                .list_size = {},
+                                .grid_icon = {}}},
+                              0));
+    REQUIRE(run_until(loop, [&] { return !empty->loading(); }));
+    REQUIRE(empty->columns().focused_folder());
+    CHECK(empty->columns().focused_folder()->model().error());
 }
 
 TEST_CASE("state: the lists' and the grid's size, and what is not one") {
@@ -512,12 +515,12 @@ TEST_CASE("state: startup selection honors explicit folders, modes and vanished 
     config.mode = Mode::last;
     CHECK(startup_location(config, state).folder == last);
     std::filesystem::remove(last);
-    CHECK(startup_location(config, state).folder.empty());
+    CHECK(startup_location(config, state).folder == last);
     config.mode = Mode::home;
     CHECK(startup_location(config, state).folder.empty());
     config.mode = Mode::folder;
     config.folder = (dir.path / "missing").string();
-    CHECK(startup_location(config, state).folder.empty());
+    CHECK(startup_location(config, state).folder == dir.path / "missing");
 }
 
 TEST_CASE("state: column layouts round trip globally, per folder and per tab") {
@@ -603,4 +606,68 @@ TEST_CASE("state: saved searches reject embedded control names and NUL paths") {
     }
     CHECK(parse("[[search]]\nname = \"bad\\nname\"\nroot = \"/tmp\"\nquery = \"\"")
               .state.saved_searches.empty());
+}
+
+TEST_CASE("state: photo workspace survives restart without interpreting catalog data") {
+    rummage::views::State state;
+    state.photo_library =
+        R"({"version":1,"text":"été 夏","filter":{"unknown_date":true},"selected":[12,34],"cursor":34,"offset":200})";
+    const auto restored =
+        rummage::views::parse_state(rummage::views::format_state(state), "memory");
+    CHECK(restored.problems.empty());
+    CHECK(restored.state.photo_library == state.photo_library);
+    const auto invalid = rummage::views::parse_state("[photos]\nworkspace = 42\n", "memory");
+    CHECK_FALSE(invalid.problems.empty());
+    CHECK(invalid.state.photo_library.empty());
+}
+
+TEST_CASE("state: logical photo tabs persist without filesystem locations") {
+    State state;
+    State::Tab ordinary;
+    ordinary.folder = "/home/me/Pictures";
+    State::Tab photos;
+    photos.photos = true;
+    photos.mode = State::Mode::grid;
+    photos.cursor = "photo:42";
+    photos.filter = "holiday";
+    photos.sort_key = SortKey::modified;
+    photos.sort_descending = true;
+    state.tabs = {ordinary, photos};
+    state.shown_tab = 1;
+    const auto text = format_state(state);
+    CHECK(text.find("photos = true") != std::string::npos);
+    const auto result = parse(text);
+    CHECK(result.problems.empty());
+    CHECK(result.state == state);
+    REQUIRE(result.state.tabs.size() == 2);
+    CHECK(result.state.tabs[1].folder.empty());
+    CHECK(result.state.tabs[1].root.empty());
+    CHECK(result.state.tabs[1].cursor == "photo:42");
+    const auto explicit_empty = parse("[[tab]]\nphotos = true\nfolder = \"\"\n");
+    REQUIRE(explicit_empty.state.tabs.size() == 1);
+    CHECK(explicit_empty.problems.empty());
+    CHECK(explicit_empty.state.tabs[0].photos);
+    for (const auto* invalid :
+         {"[[tab]]\nfolder = \"\"\n", "[[tab]]\nphotos = false\nfolder = \"relative\"\n",
+          "[[tab]]\nphotos = \"true\"\n", "[[tab]]\nphotos = true\nfolder = \"/fake/photos\"\n",
+          "[[tab]]\nphotos = true\nroot = \"/fake\"\n"}) {
+        const auto rejected = parse(invalid);
+        CHECK(rejected.state.tabs.empty());
+        CHECK(rejected.problems.size() == 1);
+    }
+}
+
+TEST_CASE("state: native Gallery is opt-in and persists independently of view mode") {
+    CHECK_FALSE(parse("").state.gallery);
+    State state;
+    state.gallery = true;
+    state.mode = State::Mode::details;
+    const auto restored = parse(format_state(state));
+    CHECK(restored.problems.empty());
+    CHECK(restored.state == state);
+    CHECK(restored.state.gallery);
+    CHECK(restored.state.mode == State::Mode::details);
+    const auto invalid = parse("[view]\ngallery = 'yes'\n");
+    CHECK_FALSE(invalid.problems.empty());
+    CHECK_FALSE(invalid.state.gallery);
 }

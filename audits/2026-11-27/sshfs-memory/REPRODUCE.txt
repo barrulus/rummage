@@ -1,0 +1,121 @@
+Rummage SSHFS follow-up — 27 November 2026
+Worktree: /tmp/rummage-photo-library; branch: feat/photo-library.
+Production code unchanged from the preceding photo-memory tests (09b233b).
+Test-tool base commit: 0e1c854. All source media and the original user catalog
+were read only. No remount, disconnection, fault injection or global cache flush.
+
+Evidence and source preparation
+--------------------------------
+/tmp/rummage-sshfs-catalogs-20261127 contains the discovery-only catalogs:
+  local-matched/catalog.sqlite3   (five local folders, 14,268 photos)
+  remote-matched/catalog.sqlite3  (same ordered files on SSHFS)
+  remote-full/catalog.sqlite3     (30,834 photos, complete discovery)
+  user-refresh/catalog.sqlite3    (private backup of the user's current catalog)
+  user-rescan/catalog.sqlite3     (separate backup with native job retry queued)
+Preparation used librummage-photos.so's public C request API, without attaching
+image engines. Native pause/resume controls were used; source signatures were
+not fabricated. catalog-comparison.json records matching, integrity and identity
+samples. The user backup was obtained with SQLite's read-only backup API; all
+subsequent catalog writes were to test copies.
+
+The matched source roots were /home/barrulus/test-pics and
+/home/barrulus/pixie-pictures/Pictures, restricted to the same five folders.
+Names, sizes, timestamps and query order matched; image bytes were not rehashed.
+selected-path-validation.json confirms the exact 1,803 path sequence selected
+in each UI run without recording the original filenames.
+
+UI probe and commands
+---------------------
+Build a new benchmark-only executable, leaving production source and binary alone:
+  nix develop --command python3 scripts/performance/photo_instrument.py \
+    --source /tmp/rummage-photo-library --build /tmp/rummage-remediation-build \
+    --out /tmp/rummage-sshfs-photo-probe-NEW
+
+Run from this worktree inside nix develop. refresh-command.json and
+suite-commands.json contain the exact command argument arrays used. Choose NEW
+output and private-display directories to repeat runs; existing ones are refused.
+The recorded Intel render node is /dev/dri/renderD129, with Mesa's explicit vendor
+JSON at /run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json.
+
+The command shape is:
+  python3 scripts/performance/display.py \
+    --directory NEW-PRIVATE-DISPLAY-DIRECTORY \
+    --render-device /dev/dri/renderD129 \
+    --egl-vendor /run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json -- \
+    python3 scripts/performance/photo_scroll.py --runtime '{runtime}' \
+    --catalog PRIVATE-INPUT-CATALOG --executable BENCHMARK-EXECUTABLE \
+    --out NEW-RESULT-DIRECTORY --case large-three --preload-all --steps 600
+
+Each run SQLite-backs-up its input catalog into its own XDG_DATA_HOME and has
+fresh config/cache/state. It invokes Browser::key inside the benchmark event loop
+on a private headless hardware display; it never injects input into the desktop.
+
+Workloads:
+- Matched local and SSHFS: 600 Down inputs x3; background paused.
+- Full-prefix refresh: --refresh-passes 24, complete 30,834-row preload; background
+  paused; one serialized public PhotoLibrary::refresh at least a second apart.
+- Refresh plus scrolling: add --refresh-scroll; navigate while the 24 full-prefix
+  queries run, then wait 35 seconds before a single diagnostic malloc_trim.
+- Native rescan: --only-background --steps 200 --preload-all with
+  --incomplete-catalog pointing to the user-rescan test catalog. This unpauses only
+  its output copy. Native retry was needed because ordinary native refresh returned
+  the already-running metadata job without restarting discovery. This case ended
+  with discovery still active: input-idle is not pipeline-idle.
+
+--observe-pid was used for the existing SSHFS daemon and SSH transport, separately
+from the application's descendant tree. Do not assume the recorded PIDs are still
+current when repeating. The sampler never signals those external processes.
+
+Raw case locations:
+  /tmp/rummage-sshfs-local-matched
+  /tmp/rummage-sshfs-remote-matched
+  /tmp/rummage-sshfs-refresh
+  /tmp/rummage-sshfs-refresh-scroll
+  /tmp/rummage-sshfs-user-rescan
+Driver commands, completion records and cleanup proof:
+  /tmp/rummage-sshfs-ui-driver
+The daemon and SSH transport were still alive after all private tests exited.
+
+Long runs were launched in detached process sessions with redirected logs, to
+avoid the execution-tool lifetime limit encountered in the earlier local tests.
+Do not attach to, interrupt or reuse the user's running application for these runs.
+
+Allocator scheduling control
+----------------------------
+/tmp/rummage-query-arena-experiment contains the exact compiled probe, build.py,
+source, hashes and original output. query-arena-probe.cpp and
+build-query-arena-probe.py here archive that source/build recipe (the recipe uses
+its original /tmp paths; adjust those if rebuilding elsewhere).
+
+With isolated XDG directories and the private local 14,268-photo catalog:
+  /tmp/rummage-query-arena-experiment/probe PRIVATE-LOCAL-CATALOG 1
+  /tmp/rummage-query-arena-experiment/probe PRIVATE-LOCAL-CATALOG 12
+Both execute twelve full queries, sequentially, and destroy the JSON payload
+before proceeding. Worker threads remain alive through the trim sample. The only
+changed factor is scheduling all queries on one worker versus one on each of twelve.
+The application 16 MiB malloc threshold is applied. No image decoding or SSHFS access
+is needed. Identical-binary control results and SHA256 values are in the summary.
+
+Interpretation and limits
+-------------------------
+- Cold means empty thumbnail cache, not empty kernel/client/server caches.
+- Metrics use compositor frame callbacks, not physical display presentation.
+- Runs are sequential, not randomized repetitions on an otherwise idle host.
+- MiB = 1,048,576 bytes. Allocator-control tables explicitly use decimal MB.
+- The free-chunk counter describes allocator address space; some pages may have
+  been returned even while that counter remains large. Read RSS alongside it.
+- PSS apportions shared pages; summed process RSS can double-count libraries.
+- The explicit trim is diagnostic, not a production fix. Active rescan work
+  resumed allocating and regrew RSS after trimming.
+- Historical inode mismatch is observed; its cause is not established. Fresh
+  SSHFS scans and a short repeated-stat check showed stable current inodes.
+- The forced refresh loop is a stress workload. The separate native-rescan case
+  demonstrates substantial retention without that explicit loop.
+
+Validation
+----------
+All five application runs completed with exit 0 and explicit probe completion.
+  python3 -m unittest discover -s scripts/performance -p 'test_*metrics.py'
+Thirteen metric tests passed, including completed-refresh accounting.
+C++ probe formatting, Python formatting/compilation and git diff checks passed.
+No production behavior was changed in this testing turn.

@@ -8,7 +8,8 @@
 namespace rummage::views {
 void Browser::move_into_new_folder() {
     const auto folder = current_folder();
-    if (!folder || picker_mode_ || folder->is_trash() || folder->is_archive())
+    if (!folder || picker_mode_ || folder->is_trash() ||
+        (folder->is_archive() || folder->is_collection()))
         return;
     std::vector<std::filesystem::path> paths;
     for (const auto& name : targets(*folder))
@@ -226,6 +227,49 @@ std::vector<MenuItem> Browser::place_navigation_items(const fs::Place& place) {
     if (Sidebar::separator(place))
         return sidebar_organization_items(place);
     std::vector<MenuItem> items;
+    if (place.uri == "rummage:photos" || place.uri.starts_with("rummage:photos/")) {
+        MenuItem item;
+        item.id = "open";
+        item.label = i18n::tr("Open");
+        item.keys = keys_for(Command::open_selected);
+        item.action = [this, place] { open_place(place); };
+        items.push_back(std::move(item));
+        if (photos_available() && place.uri == "rummage:photos/albums") {
+            MenuItem create;
+            create.id = "photos:create-album";
+            create.label = i18n::tr("Create album…");
+            create.action = [this, place] {
+                if (!photos_available())
+                    return;
+                open_place(place);
+                if (!photo_library_)
+                    return;
+                photo_library_->create_album_when_ready();
+            };
+            items.push_back(std::move(create));
+        }
+        if (photos_available() && photo_library_ &&
+            place.uri.starts_with("rummage:photos/albums/")) {
+            for (const auto& record : photo_navigation_.value("albums", nlohmann::json::array())) {
+                const auto id = record.value("id", std::int64_t{});
+                if (place.uri != "rummage:photos/albums/" + std::to_string(id))
+                    continue;
+                auto actions = photo_library_->album_menu_items(id, record.value("name", ""));
+                for (auto& action : actions) {
+                    auto run = std::move(action.action);
+                    action.action = [this, place, run = std::move(run)] {
+                        if (!photos_available() || !photo_library_)
+                            return;
+                        open_place(place);
+                        run();
+                    };
+                    items.push_back(std::move(action));
+                }
+                break;
+            }
+        }
+        return items;
+    }
     if (place.uri == "rummage:saved-searches") {
         MenuItem item;
         item.id = "saved_searches";

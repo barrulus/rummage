@@ -10,12 +10,27 @@ void Browser::open_search_results(std::filesystem::path root, std::string query,
                                   std::optional<bool> hidden) {
     if (picker_mode_)
         return;
+    if (root.empty() && showing_photos()) {
+        palette_.close();
+        menu_.close();
+        if (!query.empty())
+            set_name_filter(std::move(query));
+        filter_focused_ = true;
+        pane().filter_field.select_all();
+        redraw_();
+        return;
+    }
     if (root.empty()) {
         const auto folder = current_folder();
-        if (!folder || folder->is_trash() || folder->is_archive())
+        if (!folder || folder->is_collection() || folder->is_trash() || folder->is_archive())
             return;
         root = folder->path();
     }
+    if (!root.is_absolute())
+        return;
+    // An explicit filesystem search opens in a normal tab, preserving the logical photo tab.
+    if (showing_photos())
+        open_tab(root, true);
     palette_.close();
     menu_.close();
     shortcuts_.close();
@@ -206,7 +221,7 @@ void Browser::settle_search_preview() {
     if (!search_preview_pending_ || !search_preview_ || search_preview_->model().loading())
         return;
     search_preview_pending_ = false;
-    if (searching_results() && search_preview_->cursor_entry())
+    if ((searching_results() || showing_photos()) && search_preview_->cursor_entry())
         quick_look_.open(search_preview_, Clock::now());
     else
         show_message(std::string{i18n::tr("The result is no longer available; refresh the search")},

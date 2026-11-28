@@ -92,6 +92,8 @@ public:
         redraw_();
     }
 
+    void set_collection_status(std::string text) { collection_status_ = std::move(text); }
+
     // The message shown; empty when there is none.
     [[nodiscard]] const std::string& message() const noexcept { return message_; }
 
@@ -120,6 +122,7 @@ public:
     [[nodiscard]] bool loading() const noexcept { return job_.has_value(); }
 
 private:
+    std::string collection_status_;
     std::string type_jump_;
     bool type_jump_matched_{true};
     // Settings (0) or help (1).

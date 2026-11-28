@@ -1,0 +1,39 @@
+{
+  "branch": "feat/photo-library",
+  "production_commit": "09b233b",
+  "release_build": "/tmp/rummage-remediation-build",
+  "checks": [
+    {
+      "name": "memory_test.cpp",
+      "cases": 2,
+      "assertions": 28,
+      "status": "passed"
+    },
+    {
+      "name": "*thumbs_test.cpp and *preview_test.cpp (including SVG previews)",
+      "cases": 26,
+      "assertions": 443,
+      "status": "passed"
+    },
+    {
+      "name": "benchmark metric parsers",
+      "cases": 12,
+      "status": "passed"
+    },
+    {
+      "name": "allocator probe standalone self-test",
+      "status": "passed",
+      "rss_reclaimed_bytes": 132116480
+    },
+    {
+      "name": "fixed Heaptrack collector cleanup smoke",
+      "status": "passed",
+      "exit_code": 0,
+      "loaded_photos": 14268,
+      "down_steps": 6,
+      "raw_evidence": "/tmp/rummage-photo-scroll-heaptrack-cleanup-check/results.json",
+      "note": "Collector validation only; excluded from performance comparison."
+    }
+  ],
+  "isolation": "Fresh temporary XDG config/cache/data/state for application tests; inherited HOME; no user catalog mutations."
+}

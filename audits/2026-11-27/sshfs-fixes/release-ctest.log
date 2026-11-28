@@ -1,0 +1,42 @@
+warning: Git tree '/tmp/rummage-photo-library' is dirty
+warning: ignoring untrusted flake configuration setting 'extra-substituters'.
+Pass '--accept-flake-config' to trust it
+warning: ignoring untrusted flake configuration setting 'extra-trusted-public-keys'.
+Pass '--accept-flake-config' to trust it
+Test project /tmp/rummage-remediation-build
+      Start  7: rummage-tests
+      Start  6: photos-ui
+      Start  3: photos-recovery
+ 1/16 Test  #3: photos-recovery ..................   Passed   31.70 sec
+      Start  2: photos-catalog
+ 2/16 Test  #2: photos-catalog ...................   Passed   12.16 sec
+      Start  4: photos-watcher
+ 3/16 Test  #4: photos-watcher ...................   Passed    5.24 sec
+      Start 13: file-picker-portal
+ 4/16 Test #13: file-picker-portal ...............   Passed    3.43 sec
+      Start  5: photos-migration
+ 5/16 Test  #5: photos-migration .................   Passed    4.20 sec
+      Start 12: file-manager
+ 6/16 Test #12: file-manager .....................   Passed    1.53 sec
+      Start  9: file-manager-cli
+ 7/16 Test  #9: file-manager-cli .................   Passed    0.44 sec
+      Start 15: media-tests
+ 8/16 Test #15: media-tests ......................   Passed    0.32 sec
+      Start  8: memory-tests
+ 9/16 Test  #8: memory-tests .....................   Passed    0.29 sec
+      Start 10: file-manager-activation
+10/16 Test #10: file-manager-activation ..........   Passed    0.27 sec
+      Start 14: action-notifications
+11/16 Test #14: action-notifications .............   Passed    0.17 sec
+      Start 11: desktop-portal
+12/16 Test #11: desktop-portal ...................   Passed    0.02 sec
+      Start  1: i18n-runtime
+13/16 Test  #1: i18n-runtime .....................   Passed    0.00 sec
+14/16 Test  #6: photos-ui ........................   Passed   63.53 sec
+15/16 Test  #7: rummage-tests ....................   Passed   67.24 sec
+      Start 16: pdf-tests
+16/16 Test #16: pdf-tests ........................   Passed   14.35 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =  81.59 sec

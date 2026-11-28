@@ -1,0 +1,10 @@
+1dd23687 Keep image preview pane blank until thumbnail is ready
+85fdd852 Allow read-only previews for changed photo originals
+a30d56ae Load photo collections continuously and expose indexing progress
+5c5be5b4 Add expandable Photo Library sidebar albums sources and saved searches
+9c866ccb Add direct photo album chooser and native Gallery controls
+901d7b81 Include selected photos in new albums and restore full-library navigation
+f8d6bb3d Integrate Photo Library into the native browser frame and pickers
+7e41462f Keep photo test catalogs separate from source fixtures
+93d4a7c2 Include Python for isolated photo migration tests
+0c6cfd85 Add native Photo Library and consolidate optional packaging

@@ -1,0 +1,264 @@
+{
+  "dataset": {
+    "source": "/home/barrulus/test-pics",
+    "files": 18344,
+    "bytes": 43380998433,
+    "directories": 75,
+    "suffixes": {
+      ".jpg": 14156,
+      ".avi": 3,
+      ".mpg": 30,
+      ".png": 72,
+      ".mov": 213,
+      ".aae": 13,
+      ".thm": 2,
+      ".json": 3808,
+      ".gif": 40,
+      ".m4v": 7
+    },
+    "program": "/tmp/rummage-remediation-build/rummage-bench-photos",
+    "sha256": "4097dbd9e7f905a87f613fd7e164c1c092bb9c5cf4570a595438f02560aa7d61",
+    "source_mode": "read only; metadata inventory only; no source modification",
+    "cache": "isolated empty XDG cache/config/data/state, OS page cache not cleared"
+  },
+  "status": "completed after externally interrupted first process",
+  "interruption": {
+    "exit": 143,
+    "first_process_sampled_seconds": 500.84561067099276,
+    "effect": "No uninterrupted cold timing or single-process end-to-end leak claim is available. Catalog/cache persisted and pending work resumed with same pipeline."
+  },
+  "remaining_metadata_seconds": 68.04240408,
+  "unchanged_rescan_seconds": 66.875127143,
+  "repeated_metadata_items": 0,
+  "records": 14268,
+  "completed_metadata_signatures": 14268,
+  "usable_dimensions": 14256,
+  "availability": [
+    [
+      "online",
+      14256
+    ],
+    [
+      "unreadable",
+      12
+    ]
+  ],
+  "jobs": [
+    [
+      1,
+      "scan",
+      "completed",
+      18418,
+      18418,
+      ""
+    ],
+    [
+      2,
+      "scan",
+      "completed",
+      18418,
+      18418,
+      ""
+    ]
+  ],
+  "outcomes": [
+    [
+      "metadata",
+      "rummage can't show this kind of file (no preview in the file)",
+      12
+    ]
+  ],
+  "integrity_check": [
+    [
+      "ok"
+    ]
+  ],
+  "foreign_key_check": [],
+  "pending_claims": 0,
+  "initial_process_memory": {
+    "main": {
+      "rss": {
+        "sampled_peak_bytes": 15937536,
+        "last_bytes": 15155200
+      },
+      "pss": {
+        "sampled_peak_bytes": 9300992,
+        "last_bytes": 8921088
+      },
+      "anonymous": {
+        "sampled_peak_bytes": 5214208,
+        "last_bytes": 4644864
+      },
+      "private": {
+        "sampled_peak_bytes": 8826880,
+        "last_bytes": 8437760
+      }
+    },
+    "helpers": {
+      "rss": {
+        "sampled_peak_bytes": 313925632,
+        "last_bytes": 91344896
+      },
+      "pss": {
+        "sampled_peak_bytes": 296565760,
+        "last_bytes": 75109376
+      },
+      "anonymous": {
+        "sampled_peak_bytes": 284844032,
+        "last_bytes": 62263296
+      },
+      "private": {
+        "sampled_peak_bytes": 292405248,
+        "last_bytes": 71352320
+      }
+    },
+    "tree": {
+      "rss": {
+        "sampled_peak_bytes": 329048064,
+        "last_bytes": 106500096
+      },
+      "pss": {
+        "sampled_peak_bytes": 304109568,
+        "last_bytes": 84030464
+      },
+      "anonymous": {
+        "sampled_peak_bytes": 289488896,
+        "last_bytes": 66908160
+      },
+      "private": {
+        "sampled_peak_bytes": 299909120,
+        "last_bytes": 79790080
+      }
+    }
+  },
+  "resumed_process_memory": {
+    "main": {
+      "rss": {
+        "peak_bytes": 15249408,
+        "last_bytes": 14610432
+      },
+      "pss": {
+        "peak_bytes": 8936448,
+        "last_bytes": 8386560
+      },
+      "anonymous": {
+        "peak_bytes": 4366336,
+        "last_bytes": 3694592
+      },
+      "private": {
+        "peak_bytes": 8364032,
+        "last_bytes": 7860224
+      }
+    },
+    "helpers": {
+      "rss": {
+        "peak_bytes": 91525120,
+        "last_bytes": 0
+      },
+      "pss": {
+        "peak_bytes": 75230208,
+        "last_bytes": 0
+      },
+      "anonymous": {
+        "peak_bytes": 62255104,
+        "last_bytes": 0
+      },
+      "private": {
+        "peak_bytes": 71430144,
+        "last_bytes": 0
+      }
+    },
+    "tree": {
+      "rss": {
+        "peak_bytes": 106344448,
+        "last_bytes": 14610432
+      },
+      "pss": {
+        "peak_bytes": 83736576,
+        "last_bytes": 8386560
+      },
+      "anonymous": {
+        "peak_bytes": 66158592,
+        "last_bytes": 3694592
+      },
+      "private": {
+        "peak_bytes": 79364096,
+        "last_bytes": 7860224
+      }
+    }
+  },
+  "rescan_memory": {
+    "main": {
+      "rss": {
+        "peak_bytes": 14610432,
+        "last_bytes": 14610432
+      },
+      "pss": {
+        "peak_bytes": 8386560,
+        "last_bytes": 8386560
+      },
+      "anonymous": {
+        "peak_bytes": 3694592,
+        "last_bytes": 3694592
+      },
+      "private": {
+        "peak_bytes": 7860224,
+        "last_bytes": 7860224
+      }
+    },
+    "helpers": {
+      "rss": {
+        "peak_bytes": 91525120,
+        "last_bytes": 0
+      },
+      "pss": {
+        "peak_bytes": 75230208,
+        "last_bytes": 0
+      },
+      "anonymous": {
+        "peak_bytes": 62255104,
+        "last_bytes": 0
+      },
+      "private": {
+        "peak_bytes": 71430144,
+        "last_bytes": 0
+      }
+    },
+    "tree": {
+      "rss": {
+        "peak_bytes": 105910272,
+        "last_bytes": 14610432
+      },
+      "pss": {
+        "peak_bytes": 83302400,
+        "last_bytes": 8386560
+      },
+      "anonymous": {
+        "peak_bytes": 65724416,
+        "last_bytes": 3694592
+      },
+      "private": {
+        "peak_bytes": 78929920,
+        "last_bytes": 7860224
+      }
+    }
+  },
+  "bad_file_inspection": {
+    "count": 12,
+    "suffix": ".jpg",
+    "independent_file_mime": "application/octet-stream",
+    "all_missing_jpeg_soi": true,
+    "zero_header_count": 9,
+    "other_invalid_header_count": 3,
+    "interpretation": "Malformed local input, origin unknown; did not compare with remote original."
+  },
+  "limitations": [
+    "Metadata pipeline capacity, no UI scheduling or rendering/texture cache; no scrolling measured.",
+    "Optimized unmodified benchmark does not call main app malloc threshold setup; no allocator live/free counters or allocation stack tracing.",
+    "RSS tree sums include shared pages multiple times; PSS tree sums account for proportionate sharing.",
+    "Source filesystem/OS page cache not cleared.",
+    "The benchmark exits after rescan; no idle reclamation phase.",
+    "Resume reused prior catalog and generated thumbnails; its cold_pipeline_ms field is continuation duration.",
+    "No source bytes modified. Metadata and read-only file type/header checks only."
+  ]
+}

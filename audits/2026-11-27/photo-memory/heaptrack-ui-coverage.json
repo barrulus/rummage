@@ -1,0 +1,34 @@
+{
+  "sampled_monotonic": 97229.642985288,
+  "processes": [
+    {
+      "pid": 3028386,
+      "executable": "/tmp/rummage-photo-scroll-probe-v2/rummage",
+      "heaptrack_preload_environment": true,
+      "heaptrack_output_environment": true,
+      "heaptrack_library_mapped": true
+    },
+    {
+      "pid": 3028414,
+      "executable": "/tmp/rummage-remediation-build/rummage-preview",
+      "heaptrack_preload_environment": false,
+      "heaptrack_output_environment": false,
+      "heaptrack_library_mapped": false
+    },
+    {
+      "pid": 3028416,
+      "executable": "/tmp/rummage-remediation-build/rummage-preview",
+      "heaptrack_preload_environment": false,
+      "heaptrack_output_environment": false,
+      "heaptrack_library_mapped": false
+    },
+    {
+      "pid": 3028418,
+      "executable": "/tmp/rummage-remediation-build/rummage-preview",
+      "heaptrack_preload_environment": false,
+      "heaptrack_output_environment": false,
+      "heaptrack_library_mapped": false
+    }
+  ],
+  "method": "Read only this benchmark process tree /proc environ key presence and maps; no environment values retained"
+}

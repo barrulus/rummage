@@ -147,6 +147,7 @@ private:
         std::filesystem::path path;
         preview::Kind kind{preview::Kind::info};
         std::optional<core::CancelToken> thumbnail_job;
+        bool offline_thumbnail_tried{false};
         std::optional<core::CancelToken> content_job;
         std::optional<core::CancelToken> summary_job;
         std::shared_ptr<preview::Summary> summary;

@@ -1,0 +1,14 @@
+-- Install configuration: "Release"
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/rummage/engines/base.toml
+-- Installing: /tmp/rummage-remediation-package-checks/staged-install/prefix/bin/rummage
+-- Installing: /tmp/rummage-remediation-package-checks/staged-install/prefix/libexec/rummage/rummage-preview
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/applications/rummage.desktop
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/icons/hicolor/scalable/apps/rummage.svg
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/rummage/noctalia/rummage
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/rummage/matugen/rummage.toml
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/rummage/config.example.toml
+-- Installing: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/dbus-1/services/org.freedesktop.impl.portal.desktop.rummage.service
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/xdg-desktop-portal/portals/rummage.portal
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/bash-completion/completions/rummage
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/zsh/site-functions/_rummage
+-- Up-to-date: /tmp/rummage-remediation-package-checks/staged-install/prefix/share/fish/vendor_completions.d/rummage.fish

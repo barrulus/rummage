@@ -713,7 +713,9 @@ TEST_CASE("remote: Ctrl+L goes to a folder, or adds a server to the sidebar and 
 
     CHECK(f.browser.go_to("relative/path", true) ==
           "Not a folder or a server: start with /, ~, smb:// or sftp://");
-    CHECK(f.browser.go_to((f.dir.path / "nothing").string(), true).starts_with("There is no"));
+    CHECK(f.browser.go_to((f.dir.path / "nothing").string(), true).empty());
+    REQUIRE(f.settle());
+    CHECK(f.shown() == f.dir.path / "nothing");
     CHECK(f.browser.go_to(f.share.string(), true).empty());
     REQUIRE(f.settle());
     CHECK(f.shown() == f.share);

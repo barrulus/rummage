@@ -24,7 +24,7 @@ follows desktop colours and icon themes, with a Noctalia palette integration.
 
 rummage is a fork of [Nordend](https://github.com/pankaspe/nordend-fm), created by
 [pankaspe](https://github.com/pankaspe). It retains the upstream MIT license and
-copyright. These docs describe rummage's 0.6.1 development sources; include the
+copyright. These docs describe rummage's 0.7.0 development sources; include the
 source commit when identifying a development build. See [release history](docs/releases.md)
 and [upgrading from Nordend](docs/install.md#upgrading-from-nordend).
 
@@ -73,6 +73,17 @@ The [feature overview](docs/features.md) links to the behavior and limitations o
 area. Image and text decoders run in separate preview helpers; see the
 [security model](docs/security.md) for the boundaries and exceptions.
 
+## Photo Library
+
+The optional `rummage-photos` add-on brings albums, saved searches and photo annotations
+into Rummage's existing browser. Add source folders to build your collection; originals
+stay in place when you organise them into albums.
+
+![Photo Library showing a photo grid with albums and sources expanded in the sidebar](docs/images/rummage-photo-library.webp)
+
+See the [Photo Library guide](docs/photo-library.md) for a screenshot walkthrough and
+[installation and setup](docs/install.md#photo-library-add-on).
+
 ## Development downloads
 
 <!-- development-downloads:start -->
@@ -87,8 +98,8 @@ unsigned Linux x86_64 snapshots, updated after all checks pass on `main`.
 | openSUSE Tumbleweed | [RPM](https://github.com/barrulus/rummage/releases/download/development/rummage-tumbleweed-x86_64.rpm) |
 | Void glibc | [XBPS bundle](https://github.com/barrulus/rummage/releases/download/development/rummage-void-glibc-x86_64.tar.gz) |
 
-Optional `rummage-media`, `rummage-pdf` and `rummage-previews` packages are also
-provided for each distribution; the Void bundle contains all four packages.
+Video and PDF previews are included in the standard package, with switches in
+Settings. `rummage-photos` is the only optional add-on; the Void bundle includes it.
 
 Follow the [installation and checksum instructions](https://github.com/barrulus/rummage/blob/main/docs/install.md#development-downloads).
 Use the package for your exact distribution. For Nix, use

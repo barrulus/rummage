@@ -1,0 +1,15 @@
+{
+  "original_png_count": 300,
+  "all_original_png_sha256_unchanged": true,
+  "private_mounts_remaining": {
+    "/tmp/rummage-final-sshfs-check/mount": false,
+    "/tmp/rummage-final-sshfs-check/mount-default": false
+  },
+  "private_sshd_pids_terminated": [
+    23577
+  ],
+  "private_keys_removed": true,
+  "user_mount_modified": false,
+  "user_catalog_modified": false,
+  "user_app_controlled": false
+}

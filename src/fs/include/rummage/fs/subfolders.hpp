@@ -11,7 +11,8 @@
 
 namespace rummage::fs {
 
-// Small, watched probes for the folders visible in a tree. Reads run on workers and stop
+// Small, watched probes for the folders visible in a tree. Reads and watch registration run
+// on workers. Reads stop
 // at the first non-hidden subfolder; no file metadata or recursive listings are loaded.
 class Subfolders {
 public:

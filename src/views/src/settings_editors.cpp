@@ -66,6 +66,7 @@ SettingsEditors::SettingsEditors(Commit commit, std::function<void()> redraw)
 
 void SettingsEditors::reset(const core::Config& config, bool editable) {
     config_ = config;
+    shortcut_problems_ = configure_shortcuts(config_.keybindings, config_.actions, false);
     editable_ = editable;
     action_.reset();
     fresh_ = false;
@@ -80,7 +81,16 @@ void SettingsEditors::reset(const core::Config& config, bool editable) {
 }
 
 void SettingsEditors::sync(const core::Config& config, bool editable) {
+    // sync also runs while drawing. Shortcut validation only depends on bindings
+    // and the action IDs/labels; do not repeat it for every frame or appearance edit.
+    const bool changed = config_.keybindings != config.keybindings ||
+                         !std::ranges::equal(config_.actions, config.actions,
+                                             [](const core::Action& a, const core::Action& b) {
+                                                 return a.id == b.id && a.label == b.label;
+                                             });
     config_ = config;
+    if (changed)
+        shortcut_problems_ = configure_shortcuts(config_.keybindings, config_.actions, false);
     editable_ = editable;
     if (!editable_)
         recording_.clear();
@@ -164,6 +174,7 @@ bool SettingsEditors::assign_shortcut(std::string_view target, std::optional<std
                      {});
     if (error_.empty()) {
         config_.keybindings = std::move(bindings);
+        shortcut_problems_.clear();
         pending_chord_.clear();
     }
     redraw_();
@@ -288,6 +299,7 @@ bool SettingsEditors::update_action(const core::Action& action) {
         config_.actions.push_back(action);
     else
         *accepted = action;
+    shortcut_problems_ = configure_shortcuts(config_.keybindings, config_.actions, false);
     action_ = action;
     fresh_ = false;
     if (id_.text() != action.id)
@@ -690,6 +702,9 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
     if (has_drafts())
         button(i18n::tr("Discard unfinished edit"), Operation::discard, {}, false);
     if (page_ == Page::shortcuts) {
+        for (const auto& problem : shortcut_problems_)
+            if (problem != error_)
+                text(problem);
         if (!target_.empty()) {
             text(target_);
             binding(target_);

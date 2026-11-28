@@ -1,0 +1,568 @@
+[
+  {
+    "label": "warm-fixed",
+    "name": "large-three",
+    "icon_index": 4,
+    "content_width": 1150,
+    "exit_code": 0,
+    "elapsed_s": 139.00383177200274,
+    "profiled": false,
+    "cache_seed": "/tmp/rummage-sshfs-complete-warm-seed/cache",
+    "background_work": false,
+    "external_observed_pids": [
+      1420979,
+      1420971
+    ],
+    "external_process_caveat": "Shared external processes can include activity unrelated to this test; excluded from app/helper totals.",
+    "preload_all": true,
+    "refresh_passes": 0,
+    "refresh_scroll": false,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 3928,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 4015,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 466,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 496,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 9508,
+        "total": null
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 3928,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 4015,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 466,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 496,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 9508,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 0,
+      "valid_dimensions": 0
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 0,
+      "valid_dimensions": 0
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 597,
+          "current_photo_ready_before_next_input": 597,
+          "preview_not_ready_before_next_input": 3,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960315833,
+          "input_interval_ms_p50": 40.000089,
+          "input_interval_ms_p95": 40.607914,
+          "input_interval_ms_max": 41.367262,
+          "latency_ms_p50": 27.068831,
+          "latency_ms_p95": 31.869698
+        },
+        {
+          "phase": 3,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 597,
+          "current_photo_ready_before_next_input": 597,
+          "preview_not_ready_before_next_input": 3,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960080873,
+          "input_interval_ms_p50": 39.999814,
+          "input_interval_ms_p95": 40.565832,
+          "input_interval_ms_max": 55.122548,
+          "latency_ms_p50": 27.513656,
+          "latency_ms_p95": 32.048896
+        },
+        {
+          "phase": 5,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 597,
+          "current_photo_ready_before_next_input": 597,
+          "preview_not_ready_before_next_input": 3,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960044502,
+          "input_interval_ms_p50": 39.999541,
+          "input_interval_ms_p95": 40.606302,
+          "input_interval_ms_max": 51.717507,
+          "latency_ms_p50": 27.311476,
+          "latency_ms_p95": 31.902902
+        }
+      ],
+      "columns": [
+        3
+      ],
+      "max_loaded": 14268,
+      "done": true,
+      "refreshes_started": 0,
+      "refreshes_completed": 0
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 106175276720653,
+        "pid": 3562973,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 162144256,
+        "live_bytes": 77354368,
+        "free_bytes": 6961792,
+        "arena_bytes": 84316160,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106214237485918,
+        "pid": 3562973,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 175845376,
+        "live_bytes": 86930544,
+        "free_bytes": 8596368,
+        "arena_bytes": 95526912,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106248277503081,
+        "pid": 3562973,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 175923200,
+        "live_bytes": 86948832,
+        "free_bytes": 8647712,
+        "arena_bytes": 95596544,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106307317740081,
+        "pid": 3562973,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 175951872,
+        "live_bytes": 86971344,
+        "free_bytes": 8653872,
+        "arena_bytes": 95625216,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106307318541127,
+        "pid": 3562973,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 171577344,
+        "live_bytes": 86971344,
+        "free_bytes": 8522800,
+        "arena_bytes": 95494144,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 106310317531076,
+        "pid": 3562973,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 171708416,
+        "live_bytes": 86967552,
+        "free_bytes": 8657664,
+        "arena_bytes": 95625216,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "sampled_peak_main_rss_bytes": 177807360,
+    "sampled_peak_tree_pss_bytes": 205063168,
+    "sampled_peak_live_bytes": 87585984,
+    "sampled_peak_free_bytes": 8889664,
+    "external_processes": {
+      "1420979": {
+        "first": {
+          "rss_bytes": 51212288,
+          "pss_bytes": 49576960,
+          "private_bytes": 49504256,
+          "anonymous_bytes": 49405952,
+          "swap_bytes": 2379776
+        },
+        "last": {
+          "rss_bytes": 51212288,
+          "pss_bytes": 49576960,
+          "private_bytes": 49504256,
+          "anonymous_bytes": 49405952,
+          "swap_bytes": 2379776
+        },
+        "peak": {
+          "rss_bytes": 51232768,
+          "pss_bytes": 49597440,
+          "private_bytes": 49524736,
+          "anonymous_bytes": 49426432,
+          "swap_bytes": 2379776
+        }
+      },
+      "1420971": {
+        "first": {
+          "rss_bytes": 9560064,
+          "pss_bytes": 2949120,
+          "private_bytes": 2654208,
+          "anonymous_bytes": 2199552,
+          "swap_bytes": 1077248
+        },
+        "last": {
+          "rss_bytes": 9560064,
+          "pss_bytes": 2948096,
+          "private_bytes": 2654208,
+          "anonymous_bytes": 2199552,
+          "swap_bytes": 1077248
+        },
+        "peak": {
+          "rss_bytes": 9560064,
+          "pss_bytes": 2949120,
+          "private_bytes": 2654208,
+          "anonymous_bytes": 2199552,
+          "swap_bytes": 1077248
+        }
+      }
+    },
+    "evidence_directory": "/tmp/rummage-sshfs-warm-fixed/large-three",
+    "integrity_check": "ok"
+  },
+  {
+    "label": "warm-control",
+    "name": "large-three",
+    "icon_index": 4,
+    "content_width": 1150,
+    "exit_code": 0,
+    "elapsed_s": 138.65928366400476,
+    "profiled": false,
+    "cache_seed": "/tmp/rummage-sshfs-complete-warm-seed/cache",
+    "background_work": false,
+    "external_observed_pids": [
+      1420979,
+      1420971
+    ],
+    "external_process_caveat": "Shared external processes can include activity unrelated to this test; excluded from app/helper totals.",
+    "preload_all": true,
+    "refresh_passes": 0,
+    "refresh_scroll": false,
+    "jobs_before": [
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 3928,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 4015,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 466,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 496,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 9508,
+        "total": null
+      }
+    ],
+    "jobs_after": [
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 3928,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 4015,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 466,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 496,
+        "total": null
+      },
+      {
+        "kind": "scan",
+        "state": "queued",
+        "completed": 9508,
+        "total": null
+      }
+    ],
+    "catalog_before": {
+      "photos": 14268,
+      "metadata_attempted": 0,
+      "valid_dimensions": 0
+    },
+    "catalog_after": {
+      "photos": 14268,
+      "metadata_attempted": 0,
+      "valid_dimensions": 0
+    },
+    "metrics": {
+      "phases": [
+        {
+          "phase": 1,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 588,
+          "current_photo_ready_before_next_input": 588,
+          "preview_not_ready_before_next_input": 12,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960470408,
+          "input_interval_ms_p50": 39.999947,
+          "input_interval_ms_p95": 40.787212,
+          "input_interval_ms_max": 65.145173,
+          "latency_ms_p50": 29.829968,
+          "latency_ms_p95": 37.284631
+        },
+        {
+          "phase": 3,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 578,
+          "current_photo_ready_before_next_input": 578,
+          "preview_not_ready_before_next_input": 22,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.960110701,
+          "input_interval_ms_p50": 40.000083,
+          "input_interval_ms_p95": 40.737715,
+          "input_interval_ms_max": 53.970358,
+          "latency_ms_p50": 29.562211,
+          "latency_ms_p95": 36.540885
+        },
+        {
+          "phase": 5,
+          "down_inputs": 600,
+          "selection_presented": 600,
+          "preview_ready_before_next_input": 587,
+          "current_photo_ready_before_next_input": 587,
+          "preview_not_ready_before_next_input": 13,
+          "last_cursor": 1800,
+          "unadvanced_selections": 0,
+          "unique_selected_indices": 600,
+          "input_duration_s": 23.95999282,
+          "input_interval_ms_p50": 40.000111,
+          "input_interval_ms_p95": 40.705701,
+          "input_interval_ms_max": 45.243754,
+          "latency_ms_p50": 29.664221,
+          "latency_ms_p95": 36.339034
+        }
+      ],
+      "columns": [
+        3
+      ],
+      "max_loaded": 14268,
+      "done": true,
+      "refreshes_started": 0,
+      "refreshes_completed": 0
+    },
+    "allocator_checkpoints": [
+      {
+        "time_ns": 106316046043873,
+        "pid": 3564899,
+        "tag": "loaded",
+        "stage": "sample",
+        "rss_bytes": 168882176,
+        "live_bytes": 77398992,
+        "free_bytes": 12680240,
+        "arena_bytes": 90079232,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106355007793533,
+        "pid": 3564899,
+        "tag": "pass1_idle",
+        "stage": "sample",
+        "rss_bytes": 182005760,
+        "live_bytes": 87080464,
+        "free_bytes": 14201328,
+        "arena_bytes": 101281792,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106389047283509,
+        "pid": 3564899,
+        "tag": "pass2_idle",
+        "stage": "sample",
+        "rss_bytes": 182874112,
+        "live_bytes": 87336032,
+        "free_bytes": 14367648,
+        "arena_bytes": 101703680,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106448087401275,
+        "pid": 3564899,
+        "tag": "pass3_idle",
+        "stage": "before_trim",
+        "rss_bytes": 182931456,
+        "live_bytes": 87420192,
+        "free_bytes": 14340832,
+        "arena_bytes": 101761024,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      },
+      {
+        "time_ns": 106448089116569,
+        "pid": 3564899,
+        "tag": "pass3_idle",
+        "stage": "after_trim",
+        "rss_bytes": 173318144,
+        "live_bytes": 87420192,
+        "free_bytes": 14209760,
+        "arena_bytes": 101629952,
+        "mmapped_bytes": 0,
+        "trim_result": 1
+      },
+      {
+        "time_ns": 106451087359113,
+        "pid": 3564899,
+        "tag": "post_trim_idle",
+        "stage": "sample",
+        "rss_bytes": 173494272,
+        "live_bytes": 87419664,
+        "free_bytes": 14341360,
+        "arena_bytes": 101761024,
+        "mmapped_bytes": 0,
+        "trim_result": -1
+      }
+    ],
+    "sampled_peak_main_rss_bytes": 184782848,
+    "sampled_peak_tree_pss_bytes": 190946304,
+    "sampled_peak_live_bytes": 88330784,
+    "sampled_peak_free_bytes": 14526432,
+    "external_processes": {
+      "1420979": {
+        "first": {
+          "rss_bytes": 51212288,
+          "pss_bytes": 49576960,
+          "private_bytes": 49504256,
+          "anonymous_bytes": 49405952,
+          "swap_bytes": 2379776
+        },
+        "last": {
+          "rss_bytes": 51212288,
+          "pss_bytes": 49576960,
+          "private_bytes": 49504256,
+          "anonymous_bytes": 49405952,
+          "swap_bytes": 2379776
+        },
+        "peak": {
+          "rss_bytes": 51253248,
+          "pss_bytes": 49617920,
+          "private_bytes": 49545216,
+          "anonymous_bytes": 49446912,
+          "swap_bytes": 2379776
+        }
+      },
+      "1420971": {
+        "first": {
+          "rss_bytes": 9560064,
+          "pss_bytes": 2949120,
+          "private_bytes": 2654208,
+          "anonymous_bytes": 2199552,
+          "swap_bytes": 1077248
+        },
+        "last": {
+          "rss_bytes": 9560064,
+          "pss_bytes": 2948096,
+          "private_bytes": 2654208,
+          "anonymous_bytes": 2199552,
+          "swap_bytes": 1077248
+        },
+        "peak": {
+          "rss_bytes": 9560064,
+          "pss_bytes": 2949120,
+          "private_bytes": 2654208,
+          "anonymous_bytes": 2199552,
+          "swap_bytes": 1077248
+        }
+      }
+    },
+    "evidence_directory": "/tmp/rummage-sshfs-warm-control/large-three",
+    "integrity_check": "ok"
+  }
+]

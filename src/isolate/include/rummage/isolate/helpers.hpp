@@ -110,7 +110,7 @@ private:
     std::condition_variable idle_changed_;
     bool stopping_{false};
     bool unavailable_{false};  // Missing executable/libraries or sandbox: retry on next app start.
-    std::thread reaper_;       // declared last: started once the rest is ready
+    std::thread reaper_;       // started under mutex_ on the first helper request
 };
 
 // Routes pictures and metadata by the request's MIME type to the corresponding engine's

@@ -50,6 +50,10 @@ public:
 
     void set_show_thumbnails(bool show) { show_thumbnails_ = show; }
 
+    void set_gallery(bool gallery) { gallery_ = gallery; }
+
+    [[nodiscard]] bool gallery() const { return gallery_; }
+
     using Clock = ui::Scroller::Clock;
 
     // thumbnails may be nullptr: icons only.
@@ -146,6 +150,7 @@ private:
     bool wrap_navigation_{false};
     bool show_extensions_{true};
     bool show_thumbnails_{true};
+    bool gallery_{false};
     ItemBounds motion_bounds_{};
     void right_click(float x, float y);
     void enter();

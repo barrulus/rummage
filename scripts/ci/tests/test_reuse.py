@@ -167,7 +167,7 @@ class NixTransferTest(unittest.TestCase):
             return json.dumps([f'/nix/store/{command[3]}-out', f'/nix/store/{command[3]}-helper'])
         with patch.object(nix_cache.subprocess, 'check_output', side_effect=evaluate):
             paths = nix_cache.roots()
-        self.assertEqual(len(paths), 14)
+        self.assertEqual(len(paths), 12)
         self.assertTrue(any('checks.x86_64-linux.smoke' in path for path in paths))
 
     def test_test_result_transfer_does_not_evaluate_or_copy_packages(self):

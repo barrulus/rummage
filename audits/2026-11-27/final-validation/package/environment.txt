@@ -1,0 +1,13 @@
+Fedora release 45 (Forty Five)
+RPM version 6.1.0
+gcc (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)
+cmake version 4.3.0
+libheif-1.23.7-1.fc45.x86_64
+gcc-c++-16.2.1-3.fc45.x86_64
+rpm-build-6.1.0-1.fc45.x86_64
+glibc-2.44-2.fc45.x86_64
+sqlite-libs-3.54.1-2.fc45.x86_64
+6a1d8671383f88d940ad89f2ab2b810bf194ace27f671fbca1f55dcdc4b72865  /build/rpm/SOURCES/rummage-source.tar.gz
+Name:           rummage
+Version:        0.6.1
+Release:        1.20261127235810.git90bd0bda1c6a%{?dist}

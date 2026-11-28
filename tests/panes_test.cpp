@@ -48,30 +48,6 @@ using Names = std::vector<std::string>;
 constexpr std::int32_t kWidth = 1000;
 constexpr std::int32_t kHeight = 700;
 
-// Construct before the fixture starts workers; restore after they have stopped.
-struct ScopedHome {
-    std::optional<std::string> previous;
-
-    explicit ScopedHome(const char* value) {
-        if (const char* home = std::getenv("HOME")) {
-            previous = home;
-        }
-        if (value) {
-            REQUIRE(setenv("HOME", value, 1) == 0);
-        } else {
-            REQUIRE(unsetenv("HOME") == 0);
-        }
-    }
-
-    ~ScopedHome() {
-        if (previous) {
-            setenv("HOME", previous->c_str(), 1);
-        } else {
-            unsetenv("HOME");
-        }
-    }
-};
-
 bool run_until(EventLoop& loop, const std::function<bool()>& done) {
     bool ok = false;
     const auto poll = loop.add_timer(1ms, 1ms, [&] {
@@ -461,32 +437,7 @@ TEST_CASE("panes: a delayed mount opens in the originating tab without stealing 
     CHECK(f.browser.columns().focused_folder()->path() == f.a / "sub");
 }
 
-TEST_CASE("panes: missing saved folders use a valid fallback and retain the other group") {
-    TempDir home_dir;
-    std::optional<std::string> home = home_dir.path.string();
-    fs::path expected = home_dir.path;
-    SUBCASE("existing home") {}
-    SUBCASE("missing home") {
-        home = (home_dir.path / "missing").string();
-        expected = "/";
-    }
-    SUBCASE("home is a file") {
-        home = home_dir.write("file", "not a directory").string();
-        expected = "/";
-    }
-    SUBCASE("relative home") {
-        home = ".";
-        expected = "/";
-    }
-    SUBCASE("empty home") {
-        home = "";
-        expected = "/";
-    }
-    SUBCASE("unset home") {
-        home.reset();
-        expected = "/";
-    }
-    const ScopedHome environment{home ? home->c_str() : nullptr};
+TEST_CASE("panes: disconnected saved folders retain their tab and the other group") {
     for (const std::size_t missing : {std::size_t{0}, std::size_t{1}}) {
         INFO("missing pane: " << missing);
         Fixture f;
@@ -515,8 +466,8 @@ TEST_CASE("panes: missing saved folders use a valid fallback and retain the othe
         REQUIRE(run_until(f.loop, [&] { return !restored.loading(); }));
         CHECK(restored.tab_count() == 1);
         REQUIRE(restored.columns().focused_folder());
-        CHECK(restored.columns().focused_folder()->path() == expected);
-        CHECK_FALSE(restored.columns().focused_folder()->model().error());
+        CHECK(restored.columns().focused_folder()->path() == f.dir.path / "missing");
+        CHECK(restored.columns().focused_folder()->model().error());
     }
 }
 

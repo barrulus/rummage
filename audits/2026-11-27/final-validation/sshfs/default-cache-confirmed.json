@@ -1,0 +1,5442 @@
+{
+  "options": [
+    "sshfs",
+    "-f",
+    "-p",
+    "22679",
+    "-o",
+    "IdentityFile=/tmp/rummage-final-sshfs-check/client_key,IdentitiesOnly=yes,UserKnownHostsFile=/tmp/rummage-final-sshfs-check/known_hosts,StrictHostKeyChecking=yes,BatchMode=yes,reconnect,ServerAliveInterval=1,ServerAliveCountMax=2,ConnectTimeout=15",
+    "barrulus@127.0.0.1:/tmp/rummage-final-sshfs-check/source",
+    "/tmp/rummage-final-sshfs-check/mount-default"
+  ],
+  "session_pids_killed": [
+    43248,
+    43270,
+    43271
+  ],
+  "reconnect_and_fresh_stat_seconds": 0.150662885,
+  "catalog_count_before": 300,
+  "catalog_to_initial_changed": [],
+  "idle_30s_changed": [],
+  "outage_plus_30s_changed": [],
+  "first": {
+    "photo-0000.png": {
+      "device": 56,
+      "inode": 95,
+      "size": 302,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0001.png": {
+      "device": 56,
+      "inode": 46,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0002.png": {
+      "device": 56,
+      "inode": 104,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0003.png": {
+      "device": 56,
+      "inode": 65,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0004.png": {
+      "device": 56,
+      "inode": 6,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0005.png": {
+      "device": 56,
+      "inode": 101,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0006.png": {
+      "device": 56,
+      "inode": 42,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0007.png": {
+      "device": 56,
+      "inode": 13,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0008.png": {
+      "device": 56,
+      "inode": 11,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0009.png": {
+      "device": 56,
+      "inode": 48,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0010.png": {
+      "device": 56,
+      "inode": 9,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0011.png": {
+      "device": 56,
+      "inode": 44,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0012.png": {
+      "device": 56,
+      "inode": 94,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0013.png": {
+      "device": 56,
+      "inode": 71,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0014.png": {
+      "device": 56,
+      "inode": 54,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0015.png": {
+      "device": 56,
+      "inode": 100,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0016.png": {
+      "device": 56,
+      "inode": 19,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0017.png": {
+      "device": 56,
+      "inode": 35,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0018.png": {
+      "device": 56,
+      "inode": 97,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0019.png": {
+      "device": 56,
+      "inode": 73,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0020.png": {
+      "device": 56,
+      "inode": 102,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0021.png": {
+      "device": 56,
+      "inode": 88,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0022.png": {
+      "device": 56,
+      "inode": 38,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0023.png": {
+      "device": 56,
+      "inode": 53,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0024.png": {
+      "device": 56,
+      "inode": 76,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0025.png": {
+      "device": 56,
+      "inode": 77,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0026.png": {
+      "device": 56,
+      "inode": 27,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0027.png": {
+      "device": 56,
+      "inode": 92,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0028.png": {
+      "device": 56,
+      "inode": 63,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0029.png": {
+      "device": 56,
+      "inode": 34,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0030.png": {
+      "device": 56,
+      "inode": 86,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0031.png": {
+      "device": 56,
+      "inode": 72,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0032.png": {
+      "device": 56,
+      "inode": 69,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0033.png": {
+      "device": 56,
+      "inode": 57,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0034.png": {
+      "device": 56,
+      "inode": 32,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0035.png": {
+      "device": 56,
+      "inode": 10,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0036.png": {
+      "device": 56,
+      "inode": 41,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0037.png": {
+      "device": 56,
+      "inode": 58,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0038.png": {
+      "device": 56,
+      "inode": 78,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0039.png": {
+      "device": 56,
+      "inode": 39,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0040.png": {
+      "device": 56,
+      "inode": 103,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0041.png": {
+      "device": 56,
+      "inode": 37,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0042.png": {
+      "device": 56,
+      "inode": 70,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0043.png": {
+      "device": 56,
+      "inode": 59,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0044.png": {
+      "device": 56,
+      "inode": 40,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0045.png": {
+      "device": 56,
+      "inode": 33,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0046.png": {
+      "device": 56,
+      "inode": 14,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0047.png": {
+      "device": 56,
+      "inode": 61,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0048.png": {
+      "device": 56,
+      "inode": 16,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0049.png": {
+      "device": 56,
+      "inode": 75,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0050.png": {
+      "device": 56,
+      "inode": 36,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0051.png": {
+      "device": 56,
+      "inode": 67,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0052.png": {
+      "device": 56,
+      "inode": 30,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0053.png": {
+      "device": 56,
+      "inode": 24,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0054.png": {
+      "device": 56,
+      "inode": 81,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0055.png": {
+      "device": 56,
+      "inode": 83,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0056.png": {
+      "device": 56,
+      "inode": 80,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0057.png": {
+      "device": 56,
+      "inode": 91,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0058.png": {
+      "device": 56,
+      "inode": 85,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0059.png": {
+      "device": 56,
+      "inode": 66,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0060.png": {
+      "device": 56,
+      "inode": 52,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0061.png": {
+      "device": 56,
+      "inode": 56,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0062.png": {
+      "device": 56,
+      "inode": 60,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0063.png": {
+      "device": 56,
+      "inode": 74,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0064.png": {
+      "device": 56,
+      "inode": 26,
+      "size": 985,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0065.png": {
+      "device": 56,
+      "inode": 22,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0066.png": {
+      "device": 56,
+      "inode": 51,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0067.png": {
+      "device": 56,
+      "inode": 49,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0068.png": {
+      "device": 56,
+      "inode": 90,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0069.png": {
+      "device": 56,
+      "inode": 62,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0070.png": {
+      "device": 56,
+      "inode": 47,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0071.png": {
+      "device": 56,
+      "inode": 7,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0072.png": {
+      "device": 56,
+      "inode": 31,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0073.png": {
+      "device": 56,
+      "inode": 79,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0074.png": {
+      "device": 56,
+      "inode": 15,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0075.png": {
+      "device": 56,
+      "inode": 43,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0076.png": {
+      "device": 56,
+      "inode": 18,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0077.png": {
+      "device": 56,
+      "inode": 29,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0078.png": {
+      "device": 56,
+      "inode": 98,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0079.png": {
+      "device": 56,
+      "inode": 89,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0080.png": {
+      "device": 56,
+      "inode": 68,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0081.png": {
+      "device": 56,
+      "inode": 8,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0082.png": {
+      "device": 56,
+      "inode": 96,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0083.png": {
+      "device": 56,
+      "inode": 55,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0084.png": {
+      "device": 56,
+      "inode": 25,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0085.png": {
+      "device": 56,
+      "inode": 17,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0086.png": {
+      "device": 56,
+      "inode": 45,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0087.png": {
+      "device": 56,
+      "inode": 84,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0088.png": {
+      "device": 56,
+      "inode": 20,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0089.png": {
+      "device": 56,
+      "inode": 21,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0090.png": {
+      "device": 56,
+      "inode": 93,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0091.png": {
+      "device": 56,
+      "inode": 105,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0092.png": {
+      "device": 56,
+      "inode": 99,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0093.png": {
+      "device": 56,
+      "inode": 28,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0094.png": {
+      "device": 56,
+      "inode": 64,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0095.png": {
+      "device": 56,
+      "inode": 82,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0096.png": {
+      "device": 56,
+      "inode": 23,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0097.png": {
+      "device": 56,
+      "inode": 12,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0098.png": {
+      "device": 56,
+      "inode": 87,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0099.png": {
+      "device": 56,
+      "inode": 50,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0100.png": {
+      "device": 56,
+      "inode": 189,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0101.png": {
+      "device": 56,
+      "inode": 200,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0102.png": {
+      "device": 56,
+      "inode": 126,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0103.png": {
+      "device": 56,
+      "inode": 136,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0104.png": {
+      "device": 56,
+      "inode": 145,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0105.png": {
+      "device": 56,
+      "inode": 150,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0106.png": {
+      "device": 56,
+      "inode": 148,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0107.png": {
+      "device": 56,
+      "inode": 127,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0108.png": {
+      "device": 56,
+      "inode": 178,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0109.png": {
+      "device": 56,
+      "inode": 149,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0110.png": {
+      "device": 56,
+      "inode": 168,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0111.png": {
+      "device": 56,
+      "inode": 202,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0112.png": {
+      "device": 56,
+      "inode": 157,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0113.png": {
+      "device": 56,
+      "inode": 109,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0114.png": {
+      "device": 56,
+      "inode": 129,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0115.png": {
+      "device": 56,
+      "inode": 132,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0116.png": {
+      "device": 56,
+      "inode": 122,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0117.png": {
+      "device": 56,
+      "inode": 154,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0118.png": {
+      "device": 56,
+      "inode": 139,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0119.png": {
+      "device": 56,
+      "inode": 203,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0120.png": {
+      "device": 56,
+      "inode": 114,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0121.png": {
+      "device": 56,
+      "inode": 194,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0122.png": {
+      "device": 56,
+      "inode": 113,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0123.png": {
+      "device": 56,
+      "inode": 174,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0124.png": {
+      "device": 56,
+      "inode": 193,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0125.png": {
+      "device": 56,
+      "inode": 163,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0126.png": {
+      "device": 56,
+      "inode": 110,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0127.png": {
+      "device": 56,
+      "inode": 131,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0128.png": {
+      "device": 56,
+      "inode": 160,
+      "size": 982,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0129.png": {
+      "device": 56,
+      "inode": 201,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0130.png": {
+      "device": 56,
+      "inode": 159,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0131.png": {
+      "device": 56,
+      "inode": 124,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0132.png": {
+      "device": 56,
+      "inode": 142,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0133.png": {
+      "device": 56,
+      "inode": 199,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0134.png": {
+      "device": 56,
+      "inode": 204,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0135.png": {
+      "device": 56,
+      "inode": 107,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0136.png": {
+      "device": 56,
+      "inode": 188,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0137.png": {
+      "device": 56,
+      "inode": 141,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0138.png": {
+      "device": 56,
+      "inode": 155,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0139.png": {
+      "device": 56,
+      "inode": 147,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0140.png": {
+      "device": 56,
+      "inode": 172,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0141.png": {
+      "device": 56,
+      "inode": 128,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0142.png": {
+      "device": 56,
+      "inode": 140,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0143.png": {
+      "device": 56,
+      "inode": 187,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0144.png": {
+      "device": 56,
+      "inode": 137,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0145.png": {
+      "device": 56,
+      "inode": 179,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0146.png": {
+      "device": 56,
+      "inode": 108,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0147.png": {
+      "device": 56,
+      "inode": 184,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0148.png": {
+      "device": 56,
+      "inode": 117,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0149.png": {
+      "device": 56,
+      "inode": 116,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0150.png": {
+      "device": 56,
+      "inode": 192,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0151.png": {
+      "device": 56,
+      "inode": 164,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0152.png": {
+      "device": 56,
+      "inode": 151,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0153.png": {
+      "device": 56,
+      "inode": 181,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0154.png": {
+      "device": 56,
+      "inode": 177,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0155.png": {
+      "device": 56,
+      "inode": 158,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0156.png": {
+      "device": 56,
+      "inode": 112,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0157.png": {
+      "device": 56,
+      "inode": 134,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0158.png": {
+      "device": 56,
+      "inode": 161,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0159.png": {
+      "device": 56,
+      "inode": 170,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0160.png": {
+      "device": 56,
+      "inode": 106,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0161.png": {
+      "device": 56,
+      "inode": 120,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0162.png": {
+      "device": 56,
+      "inode": 195,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0163.png": {
+      "device": 56,
+      "inode": 153,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0164.png": {
+      "device": 56,
+      "inode": 183,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0165.png": {
+      "device": 56,
+      "inode": 130,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0166.png": {
+      "device": 56,
+      "inode": 196,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0167.png": {
+      "device": 56,
+      "inode": 125,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0168.png": {
+      "device": 56,
+      "inode": 205,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0169.png": {
+      "device": 56,
+      "inode": 198,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0170.png": {
+      "device": 56,
+      "inode": 197,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0171.png": {
+      "device": 56,
+      "inode": 121,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0172.png": {
+      "device": 56,
+      "inode": 115,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0173.png": {
+      "device": 56,
+      "inode": 146,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0174.png": {
+      "device": 56,
+      "inode": 143,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0175.png": {
+      "device": 56,
+      "inode": 173,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0176.png": {
+      "device": 56,
+      "inode": 138,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0177.png": {
+      "device": 56,
+      "inode": 191,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0178.png": {
+      "device": 56,
+      "inode": 180,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0179.png": {
+      "device": 56,
+      "inode": 144,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0180.png": {
+      "device": 56,
+      "inode": 176,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0181.png": {
+      "device": 56,
+      "inode": 175,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0182.png": {
+      "device": 56,
+      "inode": 166,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0183.png": {
+      "device": 56,
+      "inode": 186,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0184.png": {
+      "device": 56,
+      "inode": 190,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0185.png": {
+      "device": 56,
+      "inode": 165,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0186.png": {
+      "device": 56,
+      "inode": 152,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0187.png": {
+      "device": 56,
+      "inode": 111,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0188.png": {
+      "device": 56,
+      "inode": 162,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0189.png": {
+      "device": 56,
+      "inode": 156,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0190.png": {
+      "device": 56,
+      "inode": 135,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0191.png": {
+      "device": 56,
+      "inode": 182,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0192.png": {
+      "device": 56,
+      "inode": 119,
+      "size": 985,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0193.png": {
+      "device": 56,
+      "inode": 123,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0194.png": {
+      "device": 56,
+      "inode": 118,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0195.png": {
+      "device": 56,
+      "inode": 185,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0196.png": {
+      "device": 56,
+      "inode": 167,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0197.png": {
+      "device": 56,
+      "inode": 169,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0198.png": {
+      "device": 56,
+      "inode": 171,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0199.png": {
+      "device": 56,
+      "inode": 133,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0200.png": {
+      "device": 56,
+      "inode": 217,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0201.png": {
+      "device": 56,
+      "inode": 206,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0202.png": {
+      "device": 56,
+      "inode": 301,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0203.png": {
+      "device": 56,
+      "inode": 269,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0204.png": {
+      "device": 56,
+      "inode": 210,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0205.png": {
+      "device": 56,
+      "inode": 299,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0206.png": {
+      "device": 56,
+      "inode": 271,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0207.png": {
+      "device": 56,
+      "inode": 218,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0208.png": {
+      "device": 56,
+      "inode": 248,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0209.png": {
+      "device": 56,
+      "inode": 285,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0210.png": {
+      "device": 56,
+      "inode": 273,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0211.png": {
+      "device": 56,
+      "inode": 214,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0212.png": {
+      "device": 56,
+      "inode": 240,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0213.png": {
+      "device": 56,
+      "inode": 278,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0214.png": {
+      "device": 56,
+      "inode": 261,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0215.png": {
+      "device": 56,
+      "inode": 230,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0216.png": {
+      "device": 56,
+      "inode": 292,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0217.png": {
+      "device": 56,
+      "inode": 259,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0218.png": {
+      "device": 56,
+      "inode": 209,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0219.png": {
+      "device": 56,
+      "inode": 295,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0220.png": {
+      "device": 56,
+      "inode": 250,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0221.png": {
+      "device": 56,
+      "inode": 270,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0222.png": {
+      "device": 56,
+      "inode": 232,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0223.png": {
+      "device": 56,
+      "inode": 298,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0224.png": {
+      "device": 56,
+      "inode": 258,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0225.png": {
+      "device": 56,
+      "inode": 284,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0226.png": {
+      "device": 56,
+      "inode": 290,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0227.png": {
+      "device": 56,
+      "inode": 302,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0228.png": {
+      "device": 56,
+      "inode": 294,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0229.png": {
+      "device": 56,
+      "inode": 303,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0230.png": {
+      "device": 56,
+      "inode": 215,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0231.png": {
+      "device": 56,
+      "inode": 291,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0232.png": {
+      "device": 56,
+      "inode": 279,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0233.png": {
+      "device": 56,
+      "inode": 289,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0234.png": {
+      "device": 56,
+      "inode": 263,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0235.png": {
+      "device": 56,
+      "inode": 219,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0236.png": {
+      "device": 56,
+      "inode": 237,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0237.png": {
+      "device": 56,
+      "inode": 254,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0238.png": {
+      "device": 56,
+      "inode": 229,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0239.png": {
+      "device": 56,
+      "inode": 225,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0240.png": {
+      "device": 56,
+      "inode": 234,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0241.png": {
+      "device": 56,
+      "inode": 222,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0242.png": {
+      "device": 56,
+      "inode": 226,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0243.png": {
+      "device": 56,
+      "inode": 267,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0244.png": {
+      "device": 56,
+      "inode": 288,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0245.png": {
+      "device": 56,
+      "inode": 272,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0246.png": {
+      "device": 56,
+      "inode": 213,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0247.png": {
+      "device": 56,
+      "inode": 297,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0248.png": {
+      "device": 56,
+      "inode": 246,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0249.png": {
+      "device": 56,
+      "inode": 296,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0250.png": {
+      "device": 56,
+      "inode": 268,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0251.png": {
+      "device": 56,
+      "inode": 275,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0252.png": {
+      "device": 56,
+      "inode": 257,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0253.png": {
+      "device": 56,
+      "inode": 221,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0254.png": {
+      "device": 56,
+      "inode": 224,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0255.png": {
+      "device": 56,
+      "inode": 207,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0256.png": {
+      "device": 56,
+      "inode": 276,
+      "size": 302,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0257.png": {
+      "device": 56,
+      "inode": 264,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0258.png": {
+      "device": 56,
+      "inode": 265,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0259.png": {
+      "device": 56,
+      "inode": 266,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0260.png": {
+      "device": 56,
+      "inode": 252,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0261.png": {
+      "device": 56,
+      "inode": 255,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0262.png": {
+      "device": 56,
+      "inode": 239,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0263.png": {
+      "device": 56,
+      "inode": 251,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0264.png": {
+      "device": 56,
+      "inode": 211,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0265.png": {
+      "device": 56,
+      "inode": 256,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0266.png": {
+      "device": 56,
+      "inode": 212,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0267.png": {
+      "device": 56,
+      "inode": 249,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0268.png": {
+      "device": 56,
+      "inode": 253,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0269.png": {
+      "device": 56,
+      "inode": 247,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0270.png": {
+      "device": 56,
+      "inode": 242,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0271.png": {
+      "device": 56,
+      "inode": 228,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0272.png": {
+      "device": 56,
+      "inode": 305,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0273.png": {
+      "device": 56,
+      "inode": 287,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0274.png": {
+      "device": 56,
+      "inode": 241,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0275.png": {
+      "device": 56,
+      "inode": 208,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0276.png": {
+      "device": 56,
+      "inode": 260,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0277.png": {
+      "device": 56,
+      "inode": 238,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0278.png": {
+      "device": 56,
+      "inode": 277,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0279.png": {
+      "device": 56,
+      "inode": 282,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0280.png": {
+      "device": 56,
+      "inode": 304,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0281.png": {
+      "device": 56,
+      "inode": 293,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0282.png": {
+      "device": 56,
+      "inode": 236,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0283.png": {
+      "device": 56,
+      "inode": 286,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0284.png": {
+      "device": 56,
+      "inode": 231,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0285.png": {
+      "device": 56,
+      "inode": 245,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0286.png": {
+      "device": 56,
+      "inode": 244,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0287.png": {
+      "device": 56,
+      "inode": 274,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0288.png": {
+      "device": 56,
+      "inode": 235,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0289.png": {
+      "device": 56,
+      "inode": 220,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0290.png": {
+      "device": 56,
+      "inode": 216,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0291.png": {
+      "device": 56,
+      "inode": 280,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0292.png": {
+      "device": 56,
+      "inode": 281,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0293.png": {
+      "device": 56,
+      "inode": 300,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0294.png": {
+      "device": 56,
+      "inode": 243,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0295.png": {
+      "device": 56,
+      "inode": 223,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0296.png": {
+      "device": 56,
+      "inode": 233,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0297.png": {
+      "device": 56,
+      "inode": 283,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0298.png": {
+      "device": 56,
+      "inode": 262,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0299.png": {
+      "device": 56,
+      "inode": 227,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    }
+  },
+  "before_outage": {
+    "photo-0000.png": {
+      "device": 56,
+      "inode": 95,
+      "size": 302,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0001.png": {
+      "device": 56,
+      "inode": 46,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0002.png": {
+      "device": 56,
+      "inode": 104,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0003.png": {
+      "device": 56,
+      "inode": 65,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0004.png": {
+      "device": 56,
+      "inode": 6,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0005.png": {
+      "device": 56,
+      "inode": 101,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0006.png": {
+      "device": 56,
+      "inode": 42,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0007.png": {
+      "device": 56,
+      "inode": 13,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0008.png": {
+      "device": 56,
+      "inode": 11,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0009.png": {
+      "device": 56,
+      "inode": 48,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0010.png": {
+      "device": 56,
+      "inode": 9,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0011.png": {
+      "device": 56,
+      "inode": 44,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0012.png": {
+      "device": 56,
+      "inode": 94,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0013.png": {
+      "device": 56,
+      "inode": 71,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0014.png": {
+      "device": 56,
+      "inode": 54,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0015.png": {
+      "device": 56,
+      "inode": 100,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0016.png": {
+      "device": 56,
+      "inode": 19,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0017.png": {
+      "device": 56,
+      "inode": 35,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0018.png": {
+      "device": 56,
+      "inode": 97,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0019.png": {
+      "device": 56,
+      "inode": 73,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0020.png": {
+      "device": 56,
+      "inode": 102,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0021.png": {
+      "device": 56,
+      "inode": 88,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0022.png": {
+      "device": 56,
+      "inode": 38,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0023.png": {
+      "device": 56,
+      "inode": 53,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0024.png": {
+      "device": 56,
+      "inode": 76,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0025.png": {
+      "device": 56,
+      "inode": 77,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0026.png": {
+      "device": 56,
+      "inode": 27,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0027.png": {
+      "device": 56,
+      "inode": 92,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0028.png": {
+      "device": 56,
+      "inode": 63,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0029.png": {
+      "device": 56,
+      "inode": 34,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0030.png": {
+      "device": 56,
+      "inode": 86,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0031.png": {
+      "device": 56,
+      "inode": 72,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0032.png": {
+      "device": 56,
+      "inode": 69,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0033.png": {
+      "device": 56,
+      "inode": 57,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0034.png": {
+      "device": 56,
+      "inode": 32,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0035.png": {
+      "device": 56,
+      "inode": 10,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0036.png": {
+      "device": 56,
+      "inode": 41,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0037.png": {
+      "device": 56,
+      "inode": 58,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0038.png": {
+      "device": 56,
+      "inode": 78,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0039.png": {
+      "device": 56,
+      "inode": 39,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0040.png": {
+      "device": 56,
+      "inode": 103,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0041.png": {
+      "device": 56,
+      "inode": 37,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0042.png": {
+      "device": 56,
+      "inode": 70,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0043.png": {
+      "device": 56,
+      "inode": 59,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0044.png": {
+      "device": 56,
+      "inode": 40,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0045.png": {
+      "device": 56,
+      "inode": 33,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0046.png": {
+      "device": 56,
+      "inode": 14,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0047.png": {
+      "device": 56,
+      "inode": 61,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0048.png": {
+      "device": 56,
+      "inode": 16,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0049.png": {
+      "device": 56,
+      "inode": 75,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0050.png": {
+      "device": 56,
+      "inode": 36,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0051.png": {
+      "device": 56,
+      "inode": 67,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0052.png": {
+      "device": 56,
+      "inode": 30,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0053.png": {
+      "device": 56,
+      "inode": 24,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0054.png": {
+      "device": 56,
+      "inode": 81,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0055.png": {
+      "device": 56,
+      "inode": 83,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0056.png": {
+      "device": 56,
+      "inode": 80,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0057.png": {
+      "device": 56,
+      "inode": 91,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0058.png": {
+      "device": 56,
+      "inode": 85,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0059.png": {
+      "device": 56,
+      "inode": 66,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0060.png": {
+      "device": 56,
+      "inode": 52,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0061.png": {
+      "device": 56,
+      "inode": 56,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0062.png": {
+      "device": 56,
+      "inode": 60,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0063.png": {
+      "device": 56,
+      "inode": 74,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0064.png": {
+      "device": 56,
+      "inode": 26,
+      "size": 985,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0065.png": {
+      "device": 56,
+      "inode": 22,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0066.png": {
+      "device": 56,
+      "inode": 51,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0067.png": {
+      "device": 56,
+      "inode": 49,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0068.png": {
+      "device": 56,
+      "inode": 90,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0069.png": {
+      "device": 56,
+      "inode": 62,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0070.png": {
+      "device": 56,
+      "inode": 47,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0071.png": {
+      "device": 56,
+      "inode": 7,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0072.png": {
+      "device": 56,
+      "inode": 31,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0073.png": {
+      "device": 56,
+      "inode": 79,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0074.png": {
+      "device": 56,
+      "inode": 15,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0075.png": {
+      "device": 56,
+      "inode": 43,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0076.png": {
+      "device": 56,
+      "inode": 18,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0077.png": {
+      "device": 56,
+      "inode": 29,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0078.png": {
+      "device": 56,
+      "inode": 98,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0079.png": {
+      "device": 56,
+      "inode": 89,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0080.png": {
+      "device": 56,
+      "inode": 68,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0081.png": {
+      "device": 56,
+      "inode": 8,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0082.png": {
+      "device": 56,
+      "inode": 96,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0083.png": {
+      "device": 56,
+      "inode": 55,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0084.png": {
+      "device": 56,
+      "inode": 25,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0085.png": {
+      "device": 56,
+      "inode": 17,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0086.png": {
+      "device": 56,
+      "inode": 45,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0087.png": {
+      "device": 56,
+      "inode": 84,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0088.png": {
+      "device": 56,
+      "inode": 20,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0089.png": {
+      "device": 56,
+      "inode": 21,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0090.png": {
+      "device": 56,
+      "inode": 93,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0091.png": {
+      "device": 56,
+      "inode": 105,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0092.png": {
+      "device": 56,
+      "inode": 99,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0093.png": {
+      "device": 56,
+      "inode": 28,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0094.png": {
+      "device": 56,
+      "inode": 64,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0095.png": {
+      "device": 56,
+      "inode": 82,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0096.png": {
+      "device": 56,
+      "inode": 23,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0097.png": {
+      "device": 56,
+      "inode": 12,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0098.png": {
+      "device": 56,
+      "inode": 87,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0099.png": {
+      "device": 56,
+      "inode": 50,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0100.png": {
+      "device": 56,
+      "inode": 189,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0101.png": {
+      "device": 56,
+      "inode": 200,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0102.png": {
+      "device": 56,
+      "inode": 126,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0103.png": {
+      "device": 56,
+      "inode": 136,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0104.png": {
+      "device": 56,
+      "inode": 145,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0105.png": {
+      "device": 56,
+      "inode": 150,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0106.png": {
+      "device": 56,
+      "inode": 148,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0107.png": {
+      "device": 56,
+      "inode": 127,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0108.png": {
+      "device": 56,
+      "inode": 178,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0109.png": {
+      "device": 56,
+      "inode": 149,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0110.png": {
+      "device": 56,
+      "inode": 168,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0111.png": {
+      "device": 56,
+      "inode": 202,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0112.png": {
+      "device": 56,
+      "inode": 157,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0113.png": {
+      "device": 56,
+      "inode": 109,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0114.png": {
+      "device": 56,
+      "inode": 129,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0115.png": {
+      "device": 56,
+      "inode": 132,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0116.png": {
+      "device": 56,
+      "inode": 122,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0117.png": {
+      "device": 56,
+      "inode": 154,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0118.png": {
+      "device": 56,
+      "inode": 139,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0119.png": {
+      "device": 56,
+      "inode": 203,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0120.png": {
+      "device": 56,
+      "inode": 114,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0121.png": {
+      "device": 56,
+      "inode": 194,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0122.png": {
+      "device": 56,
+      "inode": 113,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0123.png": {
+      "device": 56,
+      "inode": 174,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0124.png": {
+      "device": 56,
+      "inode": 193,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0125.png": {
+      "device": 56,
+      "inode": 163,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0126.png": {
+      "device": 56,
+      "inode": 110,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0127.png": {
+      "device": 56,
+      "inode": 131,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0128.png": {
+      "device": 56,
+      "inode": 160,
+      "size": 982,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0129.png": {
+      "device": 56,
+      "inode": 201,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0130.png": {
+      "device": 56,
+      "inode": 159,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0131.png": {
+      "device": 56,
+      "inode": 124,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0132.png": {
+      "device": 56,
+      "inode": 142,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0133.png": {
+      "device": 56,
+      "inode": 199,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0134.png": {
+      "device": 56,
+      "inode": 204,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0135.png": {
+      "device": 56,
+      "inode": 107,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0136.png": {
+      "device": 56,
+      "inode": 188,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0137.png": {
+      "device": 56,
+      "inode": 141,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0138.png": {
+      "device": 56,
+      "inode": 155,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0139.png": {
+      "device": 56,
+      "inode": 147,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0140.png": {
+      "device": 56,
+      "inode": 172,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0141.png": {
+      "device": 56,
+      "inode": 128,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0142.png": {
+      "device": 56,
+      "inode": 140,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0143.png": {
+      "device": 56,
+      "inode": 187,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0144.png": {
+      "device": 56,
+      "inode": 137,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0145.png": {
+      "device": 56,
+      "inode": 179,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0146.png": {
+      "device": 56,
+      "inode": 108,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0147.png": {
+      "device": 56,
+      "inode": 184,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0148.png": {
+      "device": 56,
+      "inode": 117,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0149.png": {
+      "device": 56,
+      "inode": 116,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0150.png": {
+      "device": 56,
+      "inode": 192,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0151.png": {
+      "device": 56,
+      "inode": 164,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0152.png": {
+      "device": 56,
+      "inode": 151,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0153.png": {
+      "device": 56,
+      "inode": 181,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0154.png": {
+      "device": 56,
+      "inode": 177,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0155.png": {
+      "device": 56,
+      "inode": 158,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0156.png": {
+      "device": 56,
+      "inode": 112,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0157.png": {
+      "device": 56,
+      "inode": 134,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0158.png": {
+      "device": 56,
+      "inode": 161,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0159.png": {
+      "device": 56,
+      "inode": 170,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0160.png": {
+      "device": 56,
+      "inode": 106,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0161.png": {
+      "device": 56,
+      "inode": 120,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0162.png": {
+      "device": 56,
+      "inode": 195,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0163.png": {
+      "device": 56,
+      "inode": 153,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0164.png": {
+      "device": 56,
+      "inode": 183,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0165.png": {
+      "device": 56,
+      "inode": 130,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0166.png": {
+      "device": 56,
+      "inode": 196,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0167.png": {
+      "device": 56,
+      "inode": 125,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0168.png": {
+      "device": 56,
+      "inode": 205,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0169.png": {
+      "device": 56,
+      "inode": 198,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0170.png": {
+      "device": 56,
+      "inode": 197,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0171.png": {
+      "device": 56,
+      "inode": 121,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0172.png": {
+      "device": 56,
+      "inode": 115,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0173.png": {
+      "device": 56,
+      "inode": 146,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0174.png": {
+      "device": 56,
+      "inode": 143,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0175.png": {
+      "device": 56,
+      "inode": 173,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0176.png": {
+      "device": 56,
+      "inode": 138,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0177.png": {
+      "device": 56,
+      "inode": 191,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0178.png": {
+      "device": 56,
+      "inode": 180,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0179.png": {
+      "device": 56,
+      "inode": 144,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0180.png": {
+      "device": 56,
+      "inode": 176,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0181.png": {
+      "device": 56,
+      "inode": 175,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0182.png": {
+      "device": 56,
+      "inode": 166,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0183.png": {
+      "device": 56,
+      "inode": 186,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0184.png": {
+      "device": 56,
+      "inode": 190,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0185.png": {
+      "device": 56,
+      "inode": 165,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0186.png": {
+      "device": 56,
+      "inode": 152,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0187.png": {
+      "device": 56,
+      "inode": 111,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0188.png": {
+      "device": 56,
+      "inode": 162,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0189.png": {
+      "device": 56,
+      "inode": 156,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0190.png": {
+      "device": 56,
+      "inode": 135,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0191.png": {
+      "device": 56,
+      "inode": 182,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0192.png": {
+      "device": 56,
+      "inode": 119,
+      "size": 985,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0193.png": {
+      "device": 56,
+      "inode": 123,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0194.png": {
+      "device": 56,
+      "inode": 118,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0195.png": {
+      "device": 56,
+      "inode": 185,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0196.png": {
+      "device": 56,
+      "inode": 167,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0197.png": {
+      "device": 56,
+      "inode": 169,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0198.png": {
+      "device": 56,
+      "inode": 171,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0199.png": {
+      "device": 56,
+      "inode": 133,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0200.png": {
+      "device": 56,
+      "inode": 217,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0201.png": {
+      "device": 56,
+      "inode": 206,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0202.png": {
+      "device": 56,
+      "inode": 301,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0203.png": {
+      "device": 56,
+      "inode": 269,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0204.png": {
+      "device": 56,
+      "inode": 210,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0205.png": {
+      "device": 56,
+      "inode": 299,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0206.png": {
+      "device": 56,
+      "inode": 271,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0207.png": {
+      "device": 56,
+      "inode": 218,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0208.png": {
+      "device": 56,
+      "inode": 248,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0209.png": {
+      "device": 56,
+      "inode": 285,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0210.png": {
+      "device": 56,
+      "inode": 273,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0211.png": {
+      "device": 56,
+      "inode": 214,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0212.png": {
+      "device": 56,
+      "inode": 240,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0213.png": {
+      "device": 56,
+      "inode": 278,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0214.png": {
+      "device": 56,
+      "inode": 261,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0215.png": {
+      "device": 56,
+      "inode": 230,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0216.png": {
+      "device": 56,
+      "inode": 292,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0217.png": {
+      "device": 56,
+      "inode": 259,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0218.png": {
+      "device": 56,
+      "inode": 209,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0219.png": {
+      "device": 56,
+      "inode": 295,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0220.png": {
+      "device": 56,
+      "inode": 250,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0221.png": {
+      "device": 56,
+      "inode": 270,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0222.png": {
+      "device": 56,
+      "inode": 232,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0223.png": {
+      "device": 56,
+      "inode": 298,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0224.png": {
+      "device": 56,
+      "inode": 258,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0225.png": {
+      "device": 56,
+      "inode": 284,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0226.png": {
+      "device": 56,
+      "inode": 290,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0227.png": {
+      "device": 56,
+      "inode": 302,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0228.png": {
+      "device": 56,
+      "inode": 294,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0229.png": {
+      "device": 56,
+      "inode": 303,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0230.png": {
+      "device": 56,
+      "inode": 215,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0231.png": {
+      "device": 56,
+      "inode": 291,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0232.png": {
+      "device": 56,
+      "inode": 279,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0233.png": {
+      "device": 56,
+      "inode": 289,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0234.png": {
+      "device": 56,
+      "inode": 263,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0235.png": {
+      "device": 56,
+      "inode": 219,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0236.png": {
+      "device": 56,
+      "inode": 237,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0237.png": {
+      "device": 56,
+      "inode": 254,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0238.png": {
+      "device": 56,
+      "inode": 229,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0239.png": {
+      "device": 56,
+      "inode": 225,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0240.png": {
+      "device": 56,
+      "inode": 234,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0241.png": {
+      "device": 56,
+      "inode": 222,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0242.png": {
+      "device": 56,
+      "inode": 226,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0243.png": {
+      "device": 56,
+      "inode": 267,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0244.png": {
+      "device": 56,
+      "inode": 288,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0245.png": {
+      "device": 56,
+      "inode": 272,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0246.png": {
+      "device": 56,
+      "inode": 213,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0247.png": {
+      "device": 56,
+      "inode": 297,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0248.png": {
+      "device": 56,
+      "inode": 246,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0249.png": {
+      "device": 56,
+      "inode": 296,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0250.png": {
+      "device": 56,
+      "inode": 268,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0251.png": {
+      "device": 56,
+      "inode": 275,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0252.png": {
+      "device": 56,
+      "inode": 257,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0253.png": {
+      "device": 56,
+      "inode": 221,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0254.png": {
+      "device": 56,
+      "inode": 224,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0255.png": {
+      "device": 56,
+      "inode": 207,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0256.png": {
+      "device": 56,
+      "inode": 276,
+      "size": 302,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0257.png": {
+      "device": 56,
+      "inode": 264,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0258.png": {
+      "device": 56,
+      "inode": 265,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0259.png": {
+      "device": 56,
+      "inode": 266,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0260.png": {
+      "device": 56,
+      "inode": 252,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0261.png": {
+      "device": 56,
+      "inode": 255,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0262.png": {
+      "device": 56,
+      "inode": 239,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0263.png": {
+      "device": 56,
+      "inode": 251,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0264.png": {
+      "device": 56,
+      "inode": 211,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0265.png": {
+      "device": 56,
+      "inode": 256,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0266.png": {
+      "device": 56,
+      "inode": 212,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0267.png": {
+      "device": 56,
+      "inode": 249,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0268.png": {
+      "device": 56,
+      "inode": 253,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0269.png": {
+      "device": 56,
+      "inode": 247,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0270.png": {
+      "device": 56,
+      "inode": 242,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0271.png": {
+      "device": 56,
+      "inode": 228,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0272.png": {
+      "device": 56,
+      "inode": 305,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0273.png": {
+      "device": 56,
+      "inode": 287,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0274.png": {
+      "device": 56,
+      "inode": 241,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0275.png": {
+      "device": 56,
+      "inode": 208,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0276.png": {
+      "device": 56,
+      "inode": 260,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0277.png": {
+      "device": 56,
+      "inode": 238,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0278.png": {
+      "device": 56,
+      "inode": 277,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0279.png": {
+      "device": 56,
+      "inode": 282,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0280.png": {
+      "device": 56,
+      "inode": 304,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0281.png": {
+      "device": 56,
+      "inode": 293,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0282.png": {
+      "device": 56,
+      "inode": 236,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0283.png": {
+      "device": 56,
+      "inode": 286,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0284.png": {
+      "device": 56,
+      "inode": 231,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0285.png": {
+      "device": 56,
+      "inode": 245,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0286.png": {
+      "device": 56,
+      "inode": 244,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0287.png": {
+      "device": 56,
+      "inode": 274,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0288.png": {
+      "device": 56,
+      "inode": 235,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0289.png": {
+      "device": 56,
+      "inode": 220,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0290.png": {
+      "device": 56,
+      "inode": 216,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0291.png": {
+      "device": 56,
+      "inode": 280,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0292.png": {
+      "device": 56,
+      "inode": 281,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0293.png": {
+      "device": 56,
+      "inode": 300,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0294.png": {
+      "device": 56,
+      "inode": 243,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0295.png": {
+      "device": 56,
+      "inode": 223,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0296.png": {
+      "device": 56,
+      "inode": 233,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0297.png": {
+      "device": 56,
+      "inode": 283,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0298.png": {
+      "device": 56,
+      "inode": 262,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0299.png": {
+      "device": 56,
+      "inode": 227,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    }
+  },
+  "after_outage": {
+    "photo-0000.png": {
+      "device": 56,
+      "inode": 95,
+      "size": 302,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0001.png": {
+      "device": 56,
+      "inode": 46,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0002.png": {
+      "device": 56,
+      "inode": 104,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0003.png": {
+      "device": 56,
+      "inode": 65,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0004.png": {
+      "device": 56,
+      "inode": 6,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0005.png": {
+      "device": 56,
+      "inode": 101,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0006.png": {
+      "device": 56,
+      "inode": 42,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0007.png": {
+      "device": 56,
+      "inode": 13,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0008.png": {
+      "device": 56,
+      "inode": 11,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0009.png": {
+      "device": 56,
+      "inode": 48,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0010.png": {
+      "device": 56,
+      "inode": 9,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0011.png": {
+      "device": 56,
+      "inode": 44,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0012.png": {
+      "device": 56,
+      "inode": 94,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0013.png": {
+      "device": 56,
+      "inode": 71,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0014.png": {
+      "device": 56,
+      "inode": 54,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0015.png": {
+      "device": 56,
+      "inode": 100,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0016.png": {
+      "device": 56,
+      "inode": 19,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0017.png": {
+      "device": 56,
+      "inode": 35,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0018.png": {
+      "device": 56,
+      "inode": 97,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0019.png": {
+      "device": 56,
+      "inode": 73,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0020.png": {
+      "device": 56,
+      "inode": 102,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0021.png": {
+      "device": 56,
+      "inode": 88,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0022.png": {
+      "device": 56,
+      "inode": 38,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0023.png": {
+      "device": 56,
+      "inode": 53,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0024.png": {
+      "device": 56,
+      "inode": 76,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0025.png": {
+      "device": 56,
+      "inode": 77,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0026.png": {
+      "device": 56,
+      "inode": 27,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0027.png": {
+      "device": 56,
+      "inode": 92,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0028.png": {
+      "device": 56,
+      "inode": 63,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0029.png": {
+      "device": 56,
+      "inode": 34,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0030.png": {
+      "device": 56,
+      "inode": 86,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0031.png": {
+      "device": 56,
+      "inode": 72,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0032.png": {
+      "device": 56,
+      "inode": 69,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0033.png": {
+      "device": 56,
+      "inode": 57,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0034.png": {
+      "device": 56,
+      "inode": 32,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0035.png": {
+      "device": 56,
+      "inode": 10,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0036.png": {
+      "device": 56,
+      "inode": 41,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0037.png": {
+      "device": 56,
+      "inode": 58,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0038.png": {
+      "device": 56,
+      "inode": 78,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0039.png": {
+      "device": 56,
+      "inode": 39,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0040.png": {
+      "device": 56,
+      "inode": 103,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0041.png": {
+      "device": 56,
+      "inode": 37,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0042.png": {
+      "device": 56,
+      "inode": 70,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0043.png": {
+      "device": 56,
+      "inode": 59,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0044.png": {
+      "device": 56,
+      "inode": 40,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0045.png": {
+      "device": 56,
+      "inode": 33,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0046.png": {
+      "device": 56,
+      "inode": 14,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0047.png": {
+      "device": 56,
+      "inode": 61,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0048.png": {
+      "device": 56,
+      "inode": 16,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0049.png": {
+      "device": 56,
+      "inode": 75,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0050.png": {
+      "device": 56,
+      "inode": 36,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0051.png": {
+      "device": 56,
+      "inode": 67,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0052.png": {
+      "device": 56,
+      "inode": 30,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0053.png": {
+      "device": 56,
+      "inode": 24,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0054.png": {
+      "device": 56,
+      "inode": 81,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0055.png": {
+      "device": 56,
+      "inode": 83,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0056.png": {
+      "device": 56,
+      "inode": 80,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0057.png": {
+      "device": 56,
+      "inode": 91,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0058.png": {
+      "device": 56,
+      "inode": 85,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0059.png": {
+      "device": 56,
+      "inode": 66,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0060.png": {
+      "device": 56,
+      "inode": 52,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0061.png": {
+      "device": 56,
+      "inode": 56,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0062.png": {
+      "device": 56,
+      "inode": 60,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0063.png": {
+      "device": 56,
+      "inode": 74,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0064.png": {
+      "device": 56,
+      "inode": 26,
+      "size": 985,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0065.png": {
+      "device": 56,
+      "inode": 22,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0066.png": {
+      "device": 56,
+      "inode": 51,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0067.png": {
+      "device": 56,
+      "inode": 49,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0068.png": {
+      "device": 56,
+      "inode": 90,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0069.png": {
+      "device": 56,
+      "inode": 62,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0070.png": {
+      "device": 56,
+      "inode": 47,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0071.png": {
+      "device": 56,
+      "inode": 7,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0072.png": {
+      "device": 56,
+      "inode": 31,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0073.png": {
+      "device": 56,
+      "inode": 79,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0074.png": {
+      "device": 56,
+      "inode": 15,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0075.png": {
+      "device": 56,
+      "inode": 43,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0076.png": {
+      "device": 56,
+      "inode": 18,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0077.png": {
+      "device": 56,
+      "inode": 29,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0078.png": {
+      "device": 56,
+      "inode": 98,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0079.png": {
+      "device": 56,
+      "inode": 89,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0080.png": {
+      "device": 56,
+      "inode": 68,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0081.png": {
+      "device": 56,
+      "inode": 8,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0082.png": {
+      "device": 56,
+      "inode": 96,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0083.png": {
+      "device": 56,
+      "inode": 55,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0084.png": {
+      "device": 56,
+      "inode": 25,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0085.png": {
+      "device": 56,
+      "inode": 17,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0086.png": {
+      "device": 56,
+      "inode": 45,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0087.png": {
+      "device": 56,
+      "inode": 84,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0088.png": {
+      "device": 56,
+      "inode": 20,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0089.png": {
+      "device": 56,
+      "inode": 21,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0090.png": {
+      "device": 56,
+      "inode": 93,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0091.png": {
+      "device": 56,
+      "inode": 105,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0092.png": {
+      "device": 56,
+      "inode": 99,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0093.png": {
+      "device": 56,
+      "inode": 28,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0094.png": {
+      "device": 56,
+      "inode": 64,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0095.png": {
+      "device": 56,
+      "inode": 82,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0096.png": {
+      "device": 56,
+      "inode": 23,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0097.png": {
+      "device": 56,
+      "inode": 12,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0098.png": {
+      "device": 56,
+      "inode": 87,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0099.png": {
+      "device": 56,
+      "inode": 50,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0100.png": {
+      "device": 56,
+      "inode": 189,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0101.png": {
+      "device": 56,
+      "inode": 200,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0102.png": {
+      "device": 56,
+      "inode": 126,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0103.png": {
+      "device": 56,
+      "inode": 136,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0104.png": {
+      "device": 56,
+      "inode": 145,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0105.png": {
+      "device": 56,
+      "inode": 150,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0106.png": {
+      "device": 56,
+      "inode": 148,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0107.png": {
+      "device": 56,
+      "inode": 127,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0108.png": {
+      "device": 56,
+      "inode": 178,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0109.png": {
+      "device": 56,
+      "inode": 149,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0110.png": {
+      "device": 56,
+      "inode": 168,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0111.png": {
+      "device": 56,
+      "inode": 202,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0112.png": {
+      "device": 56,
+      "inode": 157,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0113.png": {
+      "device": 56,
+      "inode": 109,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0114.png": {
+      "device": 56,
+      "inode": 129,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0115.png": {
+      "device": 56,
+      "inode": 132,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0116.png": {
+      "device": 56,
+      "inode": 122,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0117.png": {
+      "device": 56,
+      "inode": 154,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0118.png": {
+      "device": 56,
+      "inode": 139,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0119.png": {
+      "device": 56,
+      "inode": 203,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0120.png": {
+      "device": 56,
+      "inode": 114,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0121.png": {
+      "device": 56,
+      "inode": 194,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0122.png": {
+      "device": 56,
+      "inode": 113,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0123.png": {
+      "device": 56,
+      "inode": 174,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0124.png": {
+      "device": 56,
+      "inode": 193,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0125.png": {
+      "device": 56,
+      "inode": 163,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0126.png": {
+      "device": 56,
+      "inode": 110,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0127.png": {
+      "device": 56,
+      "inode": 131,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0128.png": {
+      "device": 56,
+      "inode": 160,
+      "size": 982,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0129.png": {
+      "device": 56,
+      "inode": 201,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0130.png": {
+      "device": 56,
+      "inode": 159,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0131.png": {
+      "device": 56,
+      "inode": 124,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0132.png": {
+      "device": 56,
+      "inode": 142,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0133.png": {
+      "device": 56,
+      "inode": 199,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0134.png": {
+      "device": 56,
+      "inode": 204,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0135.png": {
+      "device": 56,
+      "inode": 107,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0136.png": {
+      "device": 56,
+      "inode": 188,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0137.png": {
+      "device": 56,
+      "inode": 141,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0138.png": {
+      "device": 56,
+      "inode": 155,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0139.png": {
+      "device": 56,
+      "inode": 147,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0140.png": {
+      "device": 56,
+      "inode": 172,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0141.png": {
+      "device": 56,
+      "inode": 128,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0142.png": {
+      "device": 56,
+      "inode": 140,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0143.png": {
+      "device": 56,
+      "inode": 187,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0144.png": {
+      "device": 56,
+      "inode": 137,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0145.png": {
+      "device": 56,
+      "inode": 179,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0146.png": {
+      "device": 56,
+      "inode": 108,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0147.png": {
+      "device": 56,
+      "inode": 184,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0148.png": {
+      "device": 56,
+      "inode": 117,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0149.png": {
+      "device": 56,
+      "inode": 116,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0150.png": {
+      "device": 56,
+      "inode": 192,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0151.png": {
+      "device": 56,
+      "inode": 164,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0152.png": {
+      "device": 56,
+      "inode": 151,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0153.png": {
+      "device": 56,
+      "inode": 181,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0154.png": {
+      "device": 56,
+      "inode": 177,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0155.png": {
+      "device": 56,
+      "inode": 158,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0156.png": {
+      "device": 56,
+      "inode": 112,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0157.png": {
+      "device": 56,
+      "inode": 134,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0158.png": {
+      "device": 56,
+      "inode": 161,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0159.png": {
+      "device": 56,
+      "inode": 170,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0160.png": {
+      "device": 56,
+      "inode": 106,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0161.png": {
+      "device": 56,
+      "inode": 120,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0162.png": {
+      "device": 56,
+      "inode": 195,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0163.png": {
+      "device": 56,
+      "inode": 153,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0164.png": {
+      "device": 56,
+      "inode": 183,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0165.png": {
+      "device": 56,
+      "inode": 130,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0166.png": {
+      "device": 56,
+      "inode": 196,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0167.png": {
+      "device": 56,
+      "inode": 125,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0168.png": {
+      "device": 56,
+      "inode": 205,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0169.png": {
+      "device": 56,
+      "inode": 198,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0170.png": {
+      "device": 56,
+      "inode": 197,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0171.png": {
+      "device": 56,
+      "inode": 121,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0172.png": {
+      "device": 56,
+      "inode": 115,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0173.png": {
+      "device": 56,
+      "inode": 146,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0174.png": {
+      "device": 56,
+      "inode": 143,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0175.png": {
+      "device": 56,
+      "inode": 173,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0176.png": {
+      "device": 56,
+      "inode": 138,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0177.png": {
+      "device": 56,
+      "inode": 191,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0178.png": {
+      "device": 56,
+      "inode": 180,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0179.png": {
+      "device": 56,
+      "inode": 144,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0180.png": {
+      "device": 56,
+      "inode": 176,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0181.png": {
+      "device": 56,
+      "inode": 175,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0182.png": {
+      "device": 56,
+      "inode": 166,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0183.png": {
+      "device": 56,
+      "inode": 186,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0184.png": {
+      "device": 56,
+      "inode": 190,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0185.png": {
+      "device": 56,
+      "inode": 165,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0186.png": {
+      "device": 56,
+      "inode": 152,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0187.png": {
+      "device": 56,
+      "inode": 111,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0188.png": {
+      "device": 56,
+      "inode": 162,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0189.png": {
+      "device": 56,
+      "inode": 156,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0190.png": {
+      "device": 56,
+      "inode": 135,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0191.png": {
+      "device": 56,
+      "inode": 182,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0192.png": {
+      "device": 56,
+      "inode": 119,
+      "size": 985,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0193.png": {
+      "device": 56,
+      "inode": 123,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0194.png": {
+      "device": 56,
+      "inode": 118,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0195.png": {
+      "device": 56,
+      "inode": 185,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0196.png": {
+      "device": 56,
+      "inode": 167,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0197.png": {
+      "device": 56,
+      "inode": 169,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0198.png": {
+      "device": 56,
+      "inode": 171,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0199.png": {
+      "device": 56,
+      "inode": 133,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0200.png": {
+      "device": 56,
+      "inode": 217,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0201.png": {
+      "device": 56,
+      "inode": 206,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0202.png": {
+      "device": 56,
+      "inode": 301,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0203.png": {
+      "device": 56,
+      "inode": 269,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0204.png": {
+      "device": 56,
+      "inode": 210,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0205.png": {
+      "device": 56,
+      "inode": 299,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0206.png": {
+      "device": 56,
+      "inode": 271,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0207.png": {
+      "device": 56,
+      "inode": 218,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0208.png": {
+      "device": 56,
+      "inode": 248,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0209.png": {
+      "device": 56,
+      "inode": 285,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0210.png": {
+      "device": 56,
+      "inode": 273,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0211.png": {
+      "device": 56,
+      "inode": 214,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0212.png": {
+      "device": 56,
+      "inode": 240,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0213.png": {
+      "device": 56,
+      "inode": 278,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0214.png": {
+      "device": 56,
+      "inode": 261,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0215.png": {
+      "device": 56,
+      "inode": 230,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0216.png": {
+      "device": 56,
+      "inode": 292,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0217.png": {
+      "device": 56,
+      "inode": 259,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0218.png": {
+      "device": 56,
+      "inode": 209,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0219.png": {
+      "device": 56,
+      "inode": 295,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0220.png": {
+      "device": 56,
+      "inode": 250,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0221.png": {
+      "device": 56,
+      "inode": 270,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0222.png": {
+      "device": 56,
+      "inode": 232,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0223.png": {
+      "device": 56,
+      "inode": 298,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0224.png": {
+      "device": 56,
+      "inode": 258,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0225.png": {
+      "device": 56,
+      "inode": 284,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0226.png": {
+      "device": 56,
+      "inode": 290,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0227.png": {
+      "device": 56,
+      "inode": 302,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0228.png": {
+      "device": 56,
+      "inode": 294,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0229.png": {
+      "device": 56,
+      "inode": 303,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0230.png": {
+      "device": 56,
+      "inode": 215,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0231.png": {
+      "device": 56,
+      "inode": 291,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0232.png": {
+      "device": 56,
+      "inode": 279,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0233.png": {
+      "device": 56,
+      "inode": 289,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0234.png": {
+      "device": 56,
+      "inode": 263,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0235.png": {
+      "device": 56,
+      "inode": 219,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0236.png": {
+      "device": 56,
+      "inode": 237,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0237.png": {
+      "device": 56,
+      "inode": 254,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0238.png": {
+      "device": 56,
+      "inode": 229,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0239.png": {
+      "device": 56,
+      "inode": 225,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0240.png": {
+      "device": 56,
+      "inode": 234,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0241.png": {
+      "device": 56,
+      "inode": 222,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0242.png": {
+      "device": 56,
+      "inode": 226,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0243.png": {
+      "device": 56,
+      "inode": 267,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0244.png": {
+      "device": 56,
+      "inode": 288,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0245.png": {
+      "device": 56,
+      "inode": 272,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0246.png": {
+      "device": 56,
+      "inode": 213,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0247.png": {
+      "device": 56,
+      "inode": 297,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0248.png": {
+      "device": 56,
+      "inode": 246,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0249.png": {
+      "device": 56,
+      "inode": 296,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0250.png": {
+      "device": 56,
+      "inode": 268,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0251.png": {
+      "device": 56,
+      "inode": 275,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0252.png": {
+      "device": 56,
+      "inode": 257,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0253.png": {
+      "device": 56,
+      "inode": 221,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0254.png": {
+      "device": 56,
+      "inode": 224,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0255.png": {
+      "device": 56,
+      "inode": 207,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0256.png": {
+      "device": 56,
+      "inode": 276,
+      "size": 302,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0257.png": {
+      "device": 56,
+      "inode": 264,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0258.png": {
+      "device": 56,
+      "inode": 265,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0259.png": {
+      "device": 56,
+      "inode": 266,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0260.png": {
+      "device": 56,
+      "inode": 252,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0261.png": {
+      "device": 56,
+      "inode": 255,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0262.png": {
+      "device": 56,
+      "inode": 239,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0263.png": {
+      "device": 56,
+      "inode": 251,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0264.png": {
+      "device": 56,
+      "inode": 211,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0265.png": {
+      "device": 56,
+      "inode": 256,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0266.png": {
+      "device": 56,
+      "inode": 212,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0267.png": {
+      "device": 56,
+      "inode": 249,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0268.png": {
+      "device": 56,
+      "inode": 253,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0269.png": {
+      "device": 56,
+      "inode": 247,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0270.png": {
+      "device": 56,
+      "inode": 242,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0271.png": {
+      "device": 56,
+      "inode": 228,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0272.png": {
+      "device": 56,
+      "inode": 305,
+      "size": 781,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0273.png": {
+      "device": 56,
+      "inode": 287,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0274.png": {
+      "device": 56,
+      "inode": 241,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0275.png": {
+      "device": 56,
+      "inode": 208,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0276.png": {
+      "device": 56,
+      "inode": 260,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0277.png": {
+      "device": 56,
+      "inode": 238,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0278.png": {
+      "device": 56,
+      "inode": 277,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0279.png": {
+      "device": 56,
+      "inode": 282,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0280.png": {
+      "device": 56,
+      "inode": 304,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0281.png": {
+      "device": 56,
+      "inode": 293,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0282.png": {
+      "device": 56,
+      "inode": 236,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0283.png": {
+      "device": 56,
+      "inode": 286,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0284.png": {
+      "device": 56,
+      "inode": 231,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0285.png": {
+      "device": 56,
+      "inode": 245,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0286.png": {
+      "device": 56,
+      "inode": 244,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0287.png": {
+      "device": 56,
+      "inode": 274,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0288.png": {
+      "device": 56,
+      "inode": 235,
+      "size": 987,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0289.png": {
+      "device": 56,
+      "inode": 220,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0290.png": {
+      "device": 56,
+      "inode": 216,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0291.png": {
+      "device": 56,
+      "inode": 280,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0292.png": {
+      "device": 56,
+      "inode": 281,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0293.png": {
+      "device": 56,
+      "inode": 300,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0294.png": {
+      "device": 56,
+      "inode": 243,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0295.png": {
+      "device": 56,
+      "inode": 223,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0296.png": {
+      "device": 56,
+      "inode": 233,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0297.png": {
+      "device": 56,
+      "inode": 283,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0298.png": {
+      "device": 56,
+      "inode": 262,
+      "size": 780,
+      "mtime_ns": 1795823699000000000
+    },
+    "photo-0299.png": {
+      "device": 56,
+      "inode": 227,
+      "size": 779,
+      "mtime_ns": 1795823699000000000
+    }
+  },
+  "relink_preview": {
+    "ambiguous": 0,
+    "applied": false,
+    "matched": 300,
+    "missing": 0,
+    "ok": true,
+    "remount_candidates": 0,
+    "requires_confirmation": false
+  },
+  "after_rescan": {
+    "active_photos": 300,
+    "visible_album_members": 5,
+    "retained_album_members": 0
+  }
+}

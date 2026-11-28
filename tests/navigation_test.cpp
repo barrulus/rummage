@@ -378,7 +378,7 @@ TEST_CASE("navigation: opening a folder after going back drops the steps ahead")
     CHECK(f.where() == f.root / "b");
 }
 
-TEST_CASE("navigation: a folder gone meanwhile is left out, with a message") {
+TEST_CASE("navigation: unavailable history folders retain their place and report worker errors") {
     Fixture f;
     for (const fs::path& folder : {f.root, f.root / "a", f.root / "b"}) {
         f.browser.open(folder);
@@ -387,16 +387,16 @@ TEST_CASE("navigation: a folder gone meanwhile is left out, with a message") {
     }
     fs::remove_all(f.root / "a");
     f.press(key(XKB_KEY_Left, kAlt));
-    CHECK(f.where() == f.root);
-    CHECK(f.browser.status_bar().message() == "a no longer exists");
-    CHECK(f.browser.history().size() == 2);
+    CHECK(f.where() == f.root / "a");
+    CHECK(f.shown()->model().error() == std::errc::no_such_file_or_directory);
+    CHECK(f.browser.history().size() == 3);
 
-    // Nothing left that way: back where it was.
+    // A temporarily disconnected location remains available in history for retry.
     fs::remove_all(f.root / "b");
     f.press(key(XKB_KEY_Right, kAlt));
-    CHECK(f.where() == f.root);
-    CHECK(f.browser.status_bar().message() == "b no longer exists");
-    CHECK(f.browser.history().size() == 1);
+    CHECK(f.where() == f.root / "b");
+    CHECK(f.shown()->model().error() == std::errc::no_such_file_or_directory);
+    CHECK(f.browser.history().size() == 3);
 }
 
 TEST_CASE("navigation: the history keeps the last 100 steps") {

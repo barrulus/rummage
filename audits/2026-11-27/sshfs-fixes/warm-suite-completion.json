@@ -1,0 +1,12 @@
+[
+  {
+    "case": "warm-fixed",
+    "exit": 0,
+    "elapsed_s": 140.773027053001
+  },
+  {
+    "case": "warm-control",
+    "exit": 0,
+    "elapsed_s": 140.42791035700066
+  }
+]

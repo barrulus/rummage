@@ -3,7 +3,7 @@
 [Project overview](../README.md)
 
 Guides and references for installing, using and configuring rummage. These pages
-describe the 0.6.1 sources; include the source commit and package identity when
+describe the 0.7.0 sources; include the source commit and package identity when
 reporting behavior in a development build.
 
 ## Get started
@@ -15,6 +15,7 @@ reporting behavior in a development build.
 | Understand folder contents and file sizes | [Folder Insights](insights.md) |
 | Copy, move, rename, trash or restore files | [File operations](file-operations.md) |
 | Preview pictures, raw photos, text and videos | [Previews and formats](previews.md) |
+| Search and organise photographs across folders | [Photo Library](photo-library.md) |
 | See supported capabilities and limits | [Feature overview](features.md) |
 | Fix a problem or prepare a report | [Troubleshooting](troubleshooting.md) |
 

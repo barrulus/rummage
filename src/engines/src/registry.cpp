@@ -128,13 +128,23 @@ const Family& Registry::at(Place place) const {
     return engines_[place.engine].manifest.families[place.family];
 }
 
+void Registry::set_previews_enabled(bool media, bool pdf) const {
+    enabled_previews_->store((media ? 1U : 0U) | (pdf ? 2U : 0U));
+}
+
+bool Registry::enabled(std::string_view name) const {
+    const auto flags = enabled_previews_->load();
+    return (name != "media" || (flags & 1U) != 0U) && (name != "pdf" || (flags & 2U) != 0U);
+}
+
 const Family* Registry::find(const fs::MimeDatabase& mime, fs::MimeId type) const {
     if (const auto it = exact_.find(std::string{mime.name(type)}); it != exact_.end()) {
-        return &at(it->second);
+        return enabled(engines_[it->second.engine].manifest.name) ? &at(it->second) : nullptr;
     }
     for (const auto& [name, place] : subclasses_) {
         const fs::MimeId parent = mime.find(name);
-        if (parent != fs::kUnknownMime && mime.is_a(type, parent)) {
+        if (parent != fs::kUnknownMime && mime.is_a(type, parent) &&
+            enabled(engines_[place.engine].manifest.name)) {
             return &at(place);
         }
     }
@@ -146,7 +156,7 @@ const Engine* Registry::engine_of(const Family& family) const {
         const auto& families = engine.manifest.families;
         if (!families.empty() && &family >= families.data() &&
             &family < families.data() + families.size()) {
-            return &engine;
+            return enabled(engine.manifest.name) ? &engine : nullptr;
         }
     }
     return nullptr;

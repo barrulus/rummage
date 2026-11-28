@@ -1,4 +1,4 @@
-# The only target that links FFmpeg. The application works without this optional package.
+# The only target that links FFmpeg. Bundled in the standard package, with runtime UI controls.
 add_executable(rummage-media backend.cpp
     ../isolate/src/helper_main.cpp ../isolate/src/protocol.cpp ../isolate/src/sandbox.cpp)
 target_include_directories(rummage-media PRIVATE ../isolate/src)

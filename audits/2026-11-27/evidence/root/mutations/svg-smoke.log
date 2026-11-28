@@ -1,0 +1,27 @@
+iteration=0 bytes=329 seeds=25
+iteration=100 bytes=94 seeds=25
+iteration=200 bytes=267 seeds=25
+iteration=300 bytes=25 seeds=25
+iteration=400 bytes=179 seeds=25
+iteration=500 bytes=197 seeds=25
+iteration=600 bytes=105 seeds=25
+iteration=700 bytes=248 seeds=25
+iteration=800 bytes=66 seeds=25
+iteration=900 bytes=222 seeds=25
+iteration=1000 bytes=47 seeds=25
+iteration=1100 bytes=278 seeds=25
+iteration=1200 bytes=321 seeds=25
+iteration=1300 bytes=50 seeds=25
+iteration=1400 bytes=117 seeds=25
+iteration=1500 bytes=106 seeds=25
+iteration=1600 bytes=265 seeds=25
+iteration=1700 bytes=135 seeds=25
+iteration=1800 bytes=131 seeds=25
+iteration=1900 bytes=123 seeds=25
+-----------------------------------------------------
+Suppressions used:
+  count      bytes template
+   6490     264951 libfontconfig.so
+-----------------------------------------------------
+
+completed=2000 seed_count=25 seed=20261127

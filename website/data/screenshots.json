@@ -276,12 +276,79 @@
       "width": 1268,
       "height": 1029,
       "alt": "Folder Insights Iris view in a custom dark palette, showing nested folder rings, a file-size list and an explicitly partial scan"
+    },
+    "photo-library": {
+      "file": "rummage-photo-library.webp",
+      "source": "screenshot_20261127_225103-annotated.png",
+      "source_sha256": "54af8d655bc72aa0ff26801f10db7b7b0c8e81f933e2ec68704e8be9ab3234e9",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1026,
+      "alt": "Photo Library showing a photo grid with Albums and Sources expanded in the sidebar in a custom dark appearance"
+    },
+    "photo-quicklook": {
+      "file": "rummage-photo-quicklook.webp",
+      "source": "screenshot_20261127_225206-annotated.png",
+      "source_sha256": "352bd6161dad2c2e15f9e1721c743fc0b2b0ea0ec38c677c0a2eface76c3bb0f",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1026,
+      "alt": "Quick Look displaying a photograph of peppers over the dimmed Food & Drink album in a custom dark appearance"
+    },
+    "photo-album": {
+      "file": "rummage-photo-album.webp",
+      "source": "screenshot_20261127_225116-annotated.png",
+      "source_sha256": "07e2c3fc5847eb0eb39e711d7c90cc42475f44c7d0483774c9711e4039841219",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1026,
+      "alt": "Albums view showing Countryside, Food & Drink and Home with their photo covers in a custom dark appearance"
+    },
+    "photo-properties": {
+      "file": "rummage-photo-properties.webp",
+      "source": "screenshot_20261127_225147-annotated.png",
+      "source_sha256": "4850b1de35435d62f8eb2565970904a7c62ad7e545d31f0de167c57221e58bd5",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1026,
+      "alt": "The Countryside album with a selected HEIC landscape, preview and photo metadata in a custom dark appearance"
+    },
+    "photo-source-picker": {
+      "file": "rummage-photo-source-picker.webp",
+      "source": "screenshot_20261127_192730-annotated.png",
+      "source_sha256": "f4509538e0f3a58347e3d1b4e51a0f78b4025499b2160caf1486487e26fb3466",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1270,
+      "height": 1033,
+      "alt": "Rummage\u2019s native folder picker selecting the Demo folder to add as a Photo Library source in a custom dark appearance"
+    },
+    "photo-add-to-album": {
+      "file": "rummage-photo-add-to-album.webp",
+      "source": "screenshot_20261127_225242-annotated.png",
+      "source_sha256": "1203804b9be64881552cfd2827239b02166bcb97dd0c1eaff48e0832863c368a",
+      "captured": "2026-11-27",
+      "theme": "custom",
+      "width": 1265,
+      "height": 1026,
+      "alt": "A photo selected in the Home album with the compact context menu showing Add to album, Remove from this album and Use as album thumbnail"
     }
   },
   "unused_sources": [
     "screenshot_20261124_191453-annotated.png",
     "screenshot_20261124_191552-annotated.png",
     "screenshot_20261124_191702-annotated.png",
-    "screenshot_20261124_191822-annotated.png"
-  ]
+    "screenshot_20261124_191822-annotated.png",
+    "screenshot_20261127_192634-annotated.png",
+    "screenshot_20261127_192249-annotated.png",
+    "screenshot_20261127_192515-annotated.png",
+    "screenshot_20261127_193122-annotated.png",
+    "screenshot_20261127_192358-annotated.png",
+    "screenshot_20261127_193255-annotated.png"
+  ],
+  "updated": "2026-11-27"
 }

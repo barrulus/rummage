@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verified photo browsing fixes</title><style>
+body{font:16px/1.55 system-ui,sans-serif;max-width:1120px;margin:36px auto;padding:0 20px;color:#16202b;background:#f8fafc}h1,h2{line-height:1.2}h2{margin-top:2em}table{border-collapse:collapse;width:100%;background:white;font-variant-numeric:tabular-nums}th,td{padding:10px;border-bottom:1px solid #d8dfe7;text-align:left}th{background:#e9eef5}.scroll{overflow-x:auto}code,pre{font-size:.87em}pre{overflow:auto;background:#e9eef5;padding:16px}a{color:#1255a3}.note{color:#46556a}
+</style><h1>Verified photo browsing fixes</h1><p>27 November 2026 · local branch <code>feat/photo-library</code> · <a href="provenance.json">Source and binary provenance</a></p>
+<p>The reproduced catalog allocator growth is fixed by reusing one query worker, moving JSON batches, and returning unused allocator pages after catalog work settles. Remote browsing now warms its cache with bounded work, serves known snapshot cache hits locally, and can show the current photo's smaller preview while its larger version loads.</p>
+<h2>Preview responsiveness</h2><p>Each number is successful selections out of 600, over three identical traversals at 25 Down inputs/second. The deadline is 40 ms and requires the correct photo identity, input sequence and compositor frame. A smaller current-photo preview and the requested cache tier are measured separately.</p><div class="scroll"><table><thead><tr><th>Run</th><th>Current photo visible, passes 1 / 2 / 3</th><th>Requested tier ready, passes 1 / 2 / 3</th><th>Peak main RSS, MiB</th></tr></thead><tbody><tr><td>Unchanged SSHFS control</td><td>0 / 53 / 54</td><td>0 / 53 / 54</td><td>178.2</td></tr><tr><td>Fixed SSHFS</td><td>3 / 126 / 199</td><td>0 / 116 / 184</td><td>181.6</td></tr><tr><td>Fixed local copy</td><td>57 / 599 / 596</td><td>54 / 599 / 596</td><td>174.4</td></tr></tbody></table></div>
+<p>The unchanged control binary ran after the fixed remote case with a fresh thumbnail cache. Both use the same 14,268-photo input catalog. Local and remote selections match in <a href="selected-path-validation.json">all 1,803 transitions</a>, including each Home input. Cold original reads can still exceed 40 ms. No generic icon or previous selection is counted as a preview.</p>
+<h3>Prepared-cache control</h3><p>Both builds received private copies of the same validated cache: 1,803 large PNGs and 600 x-large PNGs. Three originals cannot be decoded, including one selected photo. All 600 Down inputs remain in the test; the maximum renderable count is <strong>599 per pass</strong>. These measurements separate cached browsing from the first remote read.</p><div class="scroll"><table><thead><tr><th>Build</th><th>Current photo, passes 1 / 2 / 3</th><th>Requested tier, passes 1 / 2 / 3</th><th>Peak main RSS, MiB</th><th>Peak app + helper PSS, MiB</th></tr></thead><tbody><tr><td>Fixed</td><td>597 / 597 / 597</td><td>597 / 597 / 597</td><td>169.6</td><td>195.6</td></tr><tr><td>Unchanged control</td><td>588 / 578 / 587</td><td>588 / 578 / 587</td><td>176.2</td><td>182.1</td></tr></tbody></table></div><p><a href="warm-ui-summary.json">Warm measurements</a> · <a href="warm-seed-validation.json">Seed validation and exclusions</a> · <a href="warm-sequence-validation.json">Identical traversal validation</a> · <a href="warm-suite-commands.json">Commands</a>. The fixed build met the requested-tier deadline for 597 of 599 renderable selections on each pass. This does not promise zero cold-network delays or zero compositor timing misses.</p><h2>Memory under the reproduced workloads</h2><p>Main-process RSS and whole application/helper PSS are separate measures. The production result is the <strong>before diagnostic trim</strong> column; the test's explicit trim must not receive credit for the fix. The rescan remains active at the final sample, so its final wait is input-idle rather than pipeline-idle.</p><div class="scroll"><table><thead><tr><th>Workload</th><th>Version</th><th>Peak main RSS, MiB</th><th>RSS before diagnostic trim, MiB</th><th>Live malloc, MiB</th><th>RSS after diagnostic trim, MiB</th><th>Peak app + helper PSS, MiB</th><th>Elapsed, s</th></tr></thead><tbody><tr><td>24 full refreshes + scrolling</td><td>Before</td><td>1,552.6</td><td>1,549.6</td><td>152.5</td><td>238.0</td><td>1,938.7</td><td>184.7</td></tr><tr><td>24 full refreshes + scrolling</td><td>Fixed</td><td>361.8</td><td>239.4</td><td>146.7</td><td>239.1</td><td>770.6</td><td>151.6</td></tr><tr><td>Native discovery rescan + scrolling</td><td>Before</td><td>803.5</td><td>803.0</td><td>198.2</td><td>287.6</td><td>821.3</td><td>95.7</td></tr><tr><td>Native discovery rescan + scrolling</td><td>Fixed</td><td>361.5</td><td>360.3</td><td>193.4</td><td>281.4</td><td>770.8</td><td>96.5</td></tr></tbody></table></div>
+<p>Both refresh stress runs completed all 24 full-prefix queries with all 30,834 current photos loaded. The timing and helper peak are included because lower main-process RSS is not a claim that every other resource or throughput measure improved. Shared SSHFS daemon/transport usage is sampled separately in <a href="ui-summary.json">the measurements</a>, not included in app/helper PSS.</p>
+<h2>Memory and cache policy</h2><ul><li>One application-owned catalog worker reuses its allocator arena across windows and queries. Canceled queued requests release captured data promptly.</li><li>After three idle seconds, the catalog worker attempts to return unused pages if malloc reports at least 64 MiB of free capacity. It does this once per activity burst, outside input and draw callbacks. Free capacity can remain high after those pages become nonresident; it is not an RSS counter.</li><li>The existing texture budget remains 256 MiB, with visible and pinned textures protected. This is a texture-cache budget, not a cap on the process, loaded catalog, helpers or GPU allocations.</li><li>Local cached-PNG lookup has one separate worker, prioritizing the inspector over grid probes; it never opens an original. Cache misses move to source workers. Inspector source work uses two reserved workers. At most two obsolete started inspector reads and four grid reads finish warming disk cache. Obsolete decoded pixels are discarded.</li><li>Known listing/catalog timestamps permit local disk-cache reads before contacting SSHFS. Changed-location and unknown-time entries retain current-file validation; offline entries never open originals. Snapshot mode trusts the latest listing/catalog metadata, so external changes require a source update, as for existing in-memory cached textures.</li><li>Smaller inspector previews require the same path, nanosecond timestamp, MIME and cache policy, and automatically upgrade. Disk-cache URI and second-resolution mtime checks remain unchanged.</li></ul>
+<h2>Validation</h2><ul><li><a href="release-ctest.log">Release: all 16 suites passed.</a></li><li><a href="asan-ctest.log">Address/undefined-behavior sanitizers: all 16 suites passed.</a> Existing Python-host migration setup and fontconfig suppression remain in effect; optional external fixture checks retain their existing skips.</li><li><a href="tsan/README.txt">ThreadSanitizer:</a> three randomized runs, 26 cases and 46,215 assertions each, no race diagnostics. The intentional-race control correctly failed. Scope: EventLoop/WorkerPool and lifetime/cancellation stress, not the whole renderer or helper stack.</li><li>16 performance-metric tests passed, including progressive/full-tier separation, identity matching and deadline enforcement.</li><li>Regression coverage includes 1,100-row refresh/cancellation, album/selection/cursor preservation, bounded obsolete reads, progressive upgrade and cache-policy isolation. Same-size/exact-mtime inode replacement retains old tags and album associations on the old identity.</li><li>Every measured run exited successfully, every private catalog passed SQLite integrity checking, and the original photos, user catalog and mount configuration were unchanged by these tests.</li></ul>
+<details><summary>Native rescan job progress</summary><pre>{
+  &quot;before&quot;: [
+    {
+      &quot;kind&quot;: &quot;scan&quot;,
+      &quot;state&quot;: &quot;completed&quot;,
+      &quot;completed&quot;: 41218,
+      &quot;total&quot;: 41218
+    },
+    {
+      &quot;kind&quot;: &quot;scan&quot;,
+      &quot;state&quot;: &quot;completed&quot;,
+      &quot;completed&quot;: 39850,
+      &quot;total&quot;: 39850
+    },
+    {
+      &quot;kind&quot;: &quot;scan&quot;,
+      &quot;state&quot;: &quot;queued&quot;,
+      &quot;completed&quot;: 40478,
+      &quot;total&quot;: null
+    }
+  ],
+  &quot;after&quot;: [
+    {
+      &quot;kind&quot;: &quot;scan&quot;,
+      &quot;state&quot;: &quot;completed&quot;,
+      &quot;completed&quot;: 41218,
+      &quot;total&quot;: 41218
+    },
+    {
+      &quot;kind&quot;: &quot;scan&quot;,
+      &quot;state&quot;: &quot;completed&quot;,
+      &quot;completed&quot;: 39850,
+      &quot;total&quot;: 39850
+    },
+    {
+      &quot;kind&quot;: &quot;scan&quot;,
+      &quot;state&quot;: &quot;running&quot;,
+      &quot;completed&quot;: 43486,
+      &quot;total&quot;: null
+    }
+  ]
+}</pre></details>
+<h2>Reproduce and run</h2><p>Runnable normal build: <code>/tmp/rummage-remediation-build/rummage</code>. The instrumented benchmark is a separate executable. <a href="REPRODUCE.txt">Reproduction instructions</a> · <a href="suite-commands.json">Exact UI commands</a> · <a href="ui-summary.json">Measurements</a> · <a href="../sshfs-memory/report.html">Original investigation</a>.</p>
+<p class="note">Single sequential runs on a shared host, not randomized trials or a physically displayed UI. Cold means fresh thumbnail cache; kernel, SSHFS and server caches were not cleared. Before-memory measurements are the recorded original reproductions; the preview control was rerun in this final suite. Source photos were read only and each test used a private catalog backup, XDG state and compositor.</p></html>

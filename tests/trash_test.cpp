@@ -301,3 +301,191 @@ TEST_CASE("trash: Delete moves the selection to the trash, the cursor goes on") 
     CHECK(folder->cursor_entry()->name == "P1.ORF");
     CHECK(browser.status_bar().message() == "“P3.ORF” moved to the trash");
 }
+
+TEST_CASE("trash: captured duplicate identities reject changed originals and keepers") {
+    const TempDir dir;
+    const auto source = dir.path / "photos";
+    const auto home = dir.path / "Trash";
+    fs::create_directory(source);
+    std::ofstream{source / "copy.jpg"} << "identical photo";
+    std::ofstream{source / "copy.jpg.xmp"} << "sidecar";
+    std::ofstream{source / "keeper.jpg"} << "identical photo";
+    const auto original = rummage::fs::capture_source_identity(source / "copy.jpg");
+    const auto keeper = rummage::fs::capture_source_identity(source / "keeper.jpg");
+    REQUIRE(original.has_value());
+    REQUIRE(keeper.has_value());
+    TransferRequest request{.kind = TransferKind::trash,
+                            .source = source,
+                            .names = {"copy.jpg"},
+                            .destination = home,
+                            .source_identities = {*original},
+                            .retained_identities = {*keeper}};
+    SUBCASE("content changed after verification") {
+        std::ofstream{source / "copy.jpg", std::ios::app} << "edited";
+    }
+    SUBCASE("replacement inode with identical contents") {
+        std::ofstream{source / "new.jpg"} << "identical photo";
+        fs::rename(source / "new.jpg", source / "copy.jpg");
+    }
+    SUBCASE("replacement symlink") {
+        fs::remove(source / "copy.jpg");
+        fs::create_symlink(source / "keeper.jpg", source / "copy.jpg");
+    }
+    SUBCASE("retained copy changed after verification") {
+        std::ofstream{source / "keeper.jpg", std::ios::app} << "edited";
+    }
+    SUBCASE("retained copy is unavailable") {
+        fs::rename(source / "keeper.jpg", source / "keeper-away.jpg");
+    }
+    const auto result = rummage::fs::run_trash(request, CancelToken{}, {});
+    CHECK(result.items.empty());
+    CHECK(result.files_done == 0);
+    CHECK_FALSE(result.errors.empty());
+    CHECK(fs::exists(source / "copy.jpg"));
+    CHECK(fs::exists(source / "copy.jpg.xmp"));
+    CHECK(listing(home / "files").empty());
+    CHECK(listing(home / "info").empty());
+}
+
+TEST_CASE("trash: guarded originals keep existing sidecar and restore behavior") {
+    const TempDir dir;
+    const auto source = dir.path / "photos";
+    const auto home = dir.path / "Trash";
+    fs::create_directory(source);
+    std::ofstream{source / "copy.jpg"} << "photo";
+    std::ofstream{source / "copy.jpg.xmp"} << "annotation";
+    std::ofstream{source / "keeper.jpg"} << "photo";
+    const auto original = rummage::fs::capture_source_identity(source / "copy.jpg");
+    const auto keeper = rummage::fs::capture_source_identity(source / "keeper.jpg");
+    REQUIRE(original);
+    REQUIRE(keeper);
+    TransferRequest request{.kind = TransferKind::trash,
+                            .source = source,
+                            .names = {"copy.jpg"},
+                            .destination = home,
+                            .source_identities = {*original},
+                            .retained_identities = {*keeper}};
+    const auto result = rummage::fs::run_trash(request, CancelToken{}, {});
+    CHECK(result.errors.empty());
+    REQUIRE(result.items.size() == 1);
+    CHECK(result.files_done == 2);
+    CHECK(fs::exists(source / "keeper.jpg"));
+    CHECK_FALSE(fs::exists(source / "copy.jpg"));
+    CHECK_FALSE(fs::exists(source / "copy.jpg.xmp"));
+    const auto restored = rummage::fs::run_restore({.kind = TransferKind::restore,
+                                                    .source = {},
+                                                    .names = {result.items.front().to.string()},
+                                                    .destination = {}},
+                                                   CancelToken{}, {});
+    CHECK(restored.errors.empty());
+    CHECK(read_file(source / "copy.jpg") == "photo");
+    CHECK(read_file(source / "copy.jpg.xmp") == "annotation");
+}
+
+TEST_CASE("trash: guards are rechecked after a pause and between originals") {
+    const TempDir dir;
+    const auto source = dir.path / "photos";
+    const auto home = dir.path / "Trash";
+    fs::create_directory(source);
+    std::ofstream{source / "first.jpg"} << "photo";
+    std::ofstream{source / "second.jpg"} << "photo";
+    std::ofstream{source / "keeper.jpg"} << "photo";
+    const auto first = rummage::fs::capture_source_identity(source / "first.jpg");
+    const auto second = rummage::fs::capture_source_identity(source / "second.jpg");
+    const auto keeper = rummage::fs::capture_source_identity(source / "keeper.jpg");
+    REQUIRE(first);
+    REQUIRE(second);
+    REQUIRE(keeper);
+    TransferRequest request{.kind = TransferKind::trash,
+                            .source = source,
+                            .names = {"first.jpg", "second.jpg"},
+                            .destination = home,
+                            .source_identities = {*first, *second},
+                            .retained_identities = {*keeper}};
+    std::size_t checkpoints = 0;
+    rummage::fs::TransferCallbacks callbacks;
+    callbacks.checkpoint = [&] {
+        if (++checkpoints == 2)
+            std::ofstream{source / "keeper.jpg", std::ios::app} << "edited while paused";
+    };
+    const auto result = rummage::fs::run_trash(request, CancelToken{}, callbacks);
+    CHECK(checkpoints == 2);
+    REQUIRE(result.items.size() == 1);
+    CHECK(result.items.front().from == source / "first.jpg");
+    CHECK(result.errors.size() == 1);
+    CHECK(fs::exists(source / "second.jpg"));
+    CHECK(fs::exists(source / "keeper.jpg"));
+}
+
+TEST_CASE("trash: incomplete or conflicting duplicate guard scope refuses before mutation") {
+    const TempDir dir;
+    const auto source = dir.path / "photos";
+    const auto home = dir.path / "Trash";
+    fs::create_directory(source);
+    std::ofstream{source / "copy.jpg"} << "photo";
+    std::ofstream{source / "other.jpg"} << "photo";
+    const auto original = rummage::fs::capture_source_identity(source / "copy.jpg");
+    REQUIRE(original);
+    TransferRequest request{.kind = TransferKind::trash,
+                            .source = source,
+                            .names = {"copy.jpg"},
+                            .destination = home,
+                            .source_identities = {*original}};
+    SUBCASE("missing identity") { request.names.push_back("other.jpg"); }
+    SUBCASE("wrong original path") {
+        request.source_identities.front().path = source / "other.jpg";
+    }
+    SUBCASE("keeper also selected") { request.retained_identities.push_back(*original); }
+    SUBCASE("unguarded request with keeper") {
+        request.source_identities.clear();
+        request.retained_identities.push_back(*original);
+    }
+    const auto result = rummage::fs::run_trash(request, CancelToken{}, {});
+    CHECK_FALSE(result.refused.empty());
+    CHECK(result.items.empty());
+    CHECK(fs::exists(source / "copy.jpg"));
+    CHECK(fs::exists(source / "other.jpg"));
+    CHECK_FALSE(fs::exists(home));
+}
+
+TEST_CASE("trash: guarded restore rechecks a receipt after conflict resolution") {
+    const TempDir dir;
+    const auto source = dir.path / "photos";
+    const auto home = dir.path / "Trash";
+    fs::create_directory(source);
+    std::ofstream{source / "photo.jpg"} << "original";
+    std::ofstream{source / "photo.jpg.xmp"} << "annotation";
+    const auto trashed = trash(source, {"photo.jpg"}, home);
+    REQUIRE(trashed.items.size() == 1);
+    const auto receipt = rummage::fs::capture_source_identity(trashed.items.front().to);
+    REQUIRE(receipt);
+    std::ofstream{source / "photo.jpg"} << "new file at original location";
+    TransferRequest request{.kind = TransferKind::restore,
+                            .source = {},
+                            .names = {receipt->path.string()},
+                            .destination = {},
+                            .source_identities = {*receipt}};
+    bool changed = false;
+    SUBCASE("replacement decision cannot authorize a changed receipt") { changed = true; }
+    SUBCASE("unchanged receipt keeps normal conflict behavior") {}
+    rummage::fs::TransferCallbacks callbacks;
+    callbacks.resolve = [&](const rummage::fs::Conflict&) {
+        if (changed)
+            std::ofstream{receipt->path, std::ios::app} << "changed while deciding";
+        return rummage::fs::Resolution::replace;
+    };
+    const auto restored = rummage::fs::run_restore(request, CancelToken{}, callbacks);
+    if (changed) {
+        CHECK(restored.items.empty());
+        CHECK(restored.errors.size() == 1);
+        CHECK(read_file(source / "photo.jpg") == "new file at original location");
+        CHECK(fs::exists(receipt->path));
+        CHECK(fs::exists(rummage::fs::info_file_of(receipt->path)));
+        CHECK(fs::exists(home / "files" / "photo.jpg.xmp"));
+    } else {
+        CHECK(restored.errors.empty());
+        CHECK(restored.items.size() == 1);
+        CHECK(read_file(source / "photo.jpg") == "original");
+        CHECK(read_file(source / "photo.jpg.xmp") == "annotation");
+    }
+}

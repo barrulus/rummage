@@ -46,6 +46,8 @@ def main():
                         raise RuntimeError("Launch opened a separate Wayland connection")
 
                 wait_for(lambda value: ".attach(" in value)
+                assert 'librummage-photos.so' not in Path(f'/proc/{browser.pid}/maps').read_text(), \
+                    'Fresh file browsing loaded the photo module'
                 launch("--new-window", second)
                 wait_for(lambda value: toplevels(value) == 2)
                 launch("--open-folders", first, second)

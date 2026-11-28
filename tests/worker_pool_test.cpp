@@ -331,3 +331,110 @@ TEST_CASE(
     REQUIRE(loop.run() == 0);
     CHECK(sequential_threads.size() == 1);
 }
+
+TEST_CASE("catalog lane reuses one worker while general and preview workers are occupied") {
+    EventLoop loop;
+    add_watchdog(loop);
+    Blocker general, preview_a, preview_b;
+    WorkerPool pool{loop, 1};
+    general.submit(pool);
+    preview_a.submit(pool.preview_lane());
+    preview_b.submit(pool.preview_lane());
+    std::set<std::thread::id> workers;
+    int delivered = 0;
+    for (int i = 0; i < 24; ++i)
+        pool.catalog_lane().submit(
+            Priority::visible, [](const CancelToken&) { return std::this_thread::get_id(); },
+            [&](std::thread::id worker) {
+                workers.insert(worker);
+                if (++delivered == 24)
+                    loop.quit(0);
+            });
+    const auto result = loop.run();
+    general.release();
+    preview_a.release();
+    preview_b.release();
+    CHECK(result == 0);
+    CHECK(delivered == 24);
+    CHECK(workers.size() == 1);
+}
+
+TEST_CASE("thumbnail cache lane reuses one worker while general and preview workers are occupied") {
+    EventLoop loop;
+    add_watchdog(loop);
+    Blocker general, preview_a, preview_b;
+    WorkerPool pool{loop, 1};
+    general.submit(pool);
+    preview_a.submit(pool.preview_lane());
+    preview_b.submit(pool.preview_lane());
+    std::set<std::thread::id> workers;
+    int delivered = 0;
+    for (int i = 0; i < 24; ++i)
+        pool.thumbnail_cache_lane().submit(
+            Priority::visible, [](const CancelToken&) { return std::this_thread::get_id(); },
+            [&](std::thread::id worker) {
+                workers.insert(worker);
+                if (++delivered == 24)
+                    loop.quit(0);
+            });
+    const auto result = loop.run();
+    general.release();
+    preview_a.release();
+    preview_b.release();
+    CHECK(result == 0);
+    CHECK(delivered == 24);
+    CHECK(workers.size() == 1);
+}
+
+TEST_CASE("replacing queued work releases cancelled captures without waiting for blocked I/O") {
+    EventLoop loop;
+    Blocker blocker;
+    WorkerPool pool{loop, 1};
+    blocker.submit(pool.catalog_lane());
+    auto captured = std::make_shared<int>(42);
+    const std::weak_ptr<int> retained = captured;
+    auto token = pool.catalog_lane().submit(
+        Priority::visible, [captured](const CancelToken&) { return *captured; }, [](int) {});
+    captured.reset();
+    CHECK_FALSE(retained.expired());
+    token.cancel();
+    pool.catalog_lane().submit(Priority::visible, [](const CancelToken&) { return 0; }, [](int) {});
+    CHECK(retained.expired());
+    blocker.release();
+}
+
+TEST_CASE("destroying the application pool suppresses pending lane deliveries") {
+    EventLoop loop;
+    bool delivered = false;
+    {
+        WorkerPool pool{loop, 1};
+        std::promise<void> catalog_done, preview_done, cache_done;
+        pool.catalog_lane().submit(
+            Priority::visible,
+            [&](const CancelToken&) {
+                catalog_done.set_value();
+                return 0;
+            },
+            [&](int) { delivered = true; });
+        pool.preview_lane().submit(
+            Priority::visible,
+            [&](const CancelToken&) {
+                preview_done.set_value();
+                return 0;
+            },
+            [&](int) { delivered = true; });
+        pool.thumbnail_cache_lane().submit(
+            Priority::visible,
+            [&](const CancelToken&) {
+                cache_done.set_value();
+                return 0;
+            },
+            [&](int) { delivered = true; });
+        cache_done.get_future().wait();
+        catalog_done.get_future().wait();
+        preview_done.get_future().wait();
+    }
+    loop.post([&] { loop.quit(0); });
+    CHECK(loop.run() == 0);
+    CHECK_FALSE(delivered);
+}

@@ -9,7 +9,7 @@ Build-Depends: debhelper-compat (= 13), cmake, ninja-build, g++, pkg-config, pyt
  libavformat-dev, libavcodec-dev, libavutil-dev, libswscale-dev,
  libwebp-dev, libjxl-dev, libheif-dev (>= 1.23), liblcms2-dev,
  librsvg2-dev (>= 2.52), libpango1.0-dev,
- zlib1g-dev, libre2-dev, libsdbus-c++-dev (>= 2)
+ libsqlite3-dev, zlib1g-dev, libre2-dev, libsdbus-c++-dev (>= 2)
 Standards-Version: 4.7.2
 Rules-Requires-Root: no
 Homepage: https://github.com/barrulus/rummage
@@ -18,27 +18,16 @@ Package: rummage
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, shared-mime-info, hicolor-icon-theme,
  libheif1 (>= 1.23), libheif-plugin-libde265 (>= 1.23)
-Suggests: rummage-previews, rummage-media, rummage-pdf, tokei
+Suggests: rummage-photos, tokei
+Conflicts: rummage-media, rummage-pdf, rummage-previews
+Replaces: rummage-media, rummage-pdf, rummage-previews
 Description: Native Wayland file manager
  A file manager with column and grid views, isolated previews, configurable
  custom actions and an optional desktop file chooser portal.
 
-Package: rummage-media
+Package: rummage-photos
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
-Description: Optional video thumbnails and still previews for rummage
- Isolated video decoding using system FFmpeg shared libraries. No FFmpeg
- command-line tools are required. This package does not provide playback.
-
-Package: rummage-pdf
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, rummage (= ${binary:Version})
-Description: Optional PDF thumbnails and first-page previews for rummage
- Isolated PDF rendering with a private, source-built PDFium library.
- This package provides still previews, not a document viewer.
-
-Package: rummage-previews
-Architecture: any
-Depends: ${misc:Depends}, rummage-media (= ${binary:Version}), rummage-pdf (= ${binary:Version})
-Description: All optional preview engines for rummage
- Convenience package installing video and PDF preview helpers.
+Description: Photo Library for rummage
+ Optional local photo catalog and organisation. Originals remain in place.
+ Removing this package preserves the user's catalog and annotations.

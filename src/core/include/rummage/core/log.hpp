@@ -23,6 +23,11 @@ void init_from_env();
 
 void write(Level level, std::string_view message);
 
+// Explicit diagnostics to the system journal via POSIX syslog, tagged "rummage".
+// Respects the configured level; sends at most 2 KiB in one line. Does not also
+// write stderr or create a log file. Call from background work, not frame/input paths.
+void journal(Level level, std::string_view message) noexcept;
+
 template <class... Args>
 void message(Level level, std::format_string<Args...> fmt, Args&&... args) {
     if (!enabled(level)) {

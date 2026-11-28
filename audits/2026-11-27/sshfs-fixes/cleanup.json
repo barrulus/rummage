@@ -1,0 +1,17 @@
+{
+  "observed_app_helper_pids": 1681,
+  "remaining_matching_test_pids": [],
+  "shared_sshfs_and_transport_alive": {
+    "1420979": true,
+    "1420971": true
+  },
+  "case_directories": [
+    "/tmp/rummage-sshfs-verified-local-matched/large-three",
+    "/tmp/rummage-sshfs-verified-remote-matched/large-three",
+    "/tmp/rummage-sshfs-verified-remote-control/large-three",
+    "/tmp/rummage-sshfs-verified-refresh-scroll/large-three",
+    "/tmp/rummage-sshfs-verified-user-rescan/large-three-background",
+    "/tmp/rummage-sshfs-warm-fixed/large-three",
+    "/tmp/rummage-sshfs-warm-control/large-three"
+  ]
+}

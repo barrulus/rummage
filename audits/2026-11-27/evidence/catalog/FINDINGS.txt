@@ -1,0 +1,131 @@
+# Catalog, filesystem and helper boundary audit
+
+Revision: `1dd2368783d814e86268fd2c388ee41671c66ae8`, compared with main base `63ca25bc`. Worktree was clean when review began. Review only: no production edits, commits, user catalog access, user mount access or network activity. All reproductions create and delete their own temporary fixtures.
+
+Debug correctness module: `/tmp/rummage-photo-browser-build/librummage-photos.so`, SHA-256 `94f1a24595bd7bd9cf9bdf08b770806472cd62a562a4c5fb0b5f44f795b31fff`, GCC 16.2.0, Debug. Root confirmed production sources match frozen revision. Release stress results are recorded below; smoke timings are not acceptance/performance claims.
+
+## Confirmed introduced findings
+
+### C1 — P2: interrupted upgrade cannot retry while its valid backup remains
+
+Locations: `src/photos/src/catalog.cpp:164`, `:221–224`; coverage gap in `tests/photos_migration.py:65–80`.
+
+A schema-one database with an existing valid `.before-schema-2.backup` cannot open. Every retry fails `Cannot create backup ... Choose a new path`, although the user cannot choose this internal migration-backup filename in the UI. This occurs if a process exits after backup creation and before migration commit, or a recoverable migration failure is corrected. The existing tests verify rollback and refusal to overwrite, but do not verify successful retry after interruption.
+
+Measured reproduction: `correctness_repros.py` creates a real schema-one database and a valid SQLite backup, then performs two `albums` requests; both fail. Original catalog and backup are preserved. `correctness-debug.json` records exact responses.
+
+Recommendation: preserve the existing backup and create a fresh unique backup, or validate and safely reuse the existing snapshot. Never overwrite/delete the prior backup automatically. Manual workaround is to move the existing backup to another preserved filename before retry, not discard it.
+
+### C2 — P2: malformed restored exclusions commit successfully and make future scans fail
+
+Locations: `src/photos/src/catalog.cpp:1711–1721` versus add-source validator `:479–488`; scan conversion at `:1111`; re-add existing source `:516–519`.
+
+Restore validates only that `sources[].exclusions` is an array. It accepts `[7]`, commits imported sources and annotations, and reports `ok:true, restored:1`. The next scan converts the array to strings and fails with JSON type error. Re-adding the same folder with valid empty exclusions does not repair it because existing-source activation retains its previous exclusion data. There is no normal UI source-exclusion editor. This is persistent bad catalog configuration, not a transient failed attempt; it can block the oldest queued scan and prevent later jobs from running until that source is made inactive/removed or configuration is repaired.
+
+Measured reproduction: `correctness_repros.py` exports a one-photo catalog, replaces its source exclusions with `[7]`, restores into a fresh catalog, refreshes, calls work, then attempts re-add with `[]`. Evidence includes successful restore and subsequent work failures. No original changed.
+
+Recommendation: share the add-source exclusion validator with restore, validate all entries and bounds before committing. Validate equivalent path/internal-exclusion invariants too. Preserve atomic failure rather than importing an unusable source.
+
+### C3 — P2: valid extended filesystem timestamps overflow catalog nanoseconds
+
+Locations: `src/photos/src/catalog.cpp:571–572`, similar multiplications `:1952`, `:1999`. Existing shared filesystem `capture_source_identity` in `src/fs/src/trash.cpp:1012–1029` already checks this range.
+
+The catalog stores seconds and subsecond nanoseconds separately but `photo_json` multiplies signed seconds by one billion without checking representability. A valid file mtime of `10000000000000000000` ns becomes `-8446744073709551616` ns in the public result. This is signed integer overflow in C++, not merely formatting. It can corrupt display/cache keys and causes a UBSan failure when enabled.
+
+Measured Debug reproduction: a temporary regular file with `os.utime(..., ns=(10**19,10**19))`, discovery, query. Actual stat and negative returned value are saved. `timestamp_overflow.py` is a minimal single-case sanitizer reproducer. Root confirmed UBSan exit 1 in `../root/ubsan-timestamp-strict.log` with strict-overflow companion flags recorded in `../root/strict-catalog-commands.json`. The normal Nix wrapper injects `-fno-strict-overflow`, so the ordinary ASan module returns the negative value without this diagnostic; see `../root/compiler-effective-flags.log`. This flag distinction is part of the evidence.
+
+Recommendation: a checked shared conversion with explicit unavailable/out-of-range representation or a handled error, never undefined overflow. Preserve actual seconds/subseconds for identity checks.
+
+## Confirmed behavior needing a product decision
+
+### C4 — P3: restore merges collection membership but replaces scalar annotations
+
+Locations: `src/photos/src/catalog.cpp:1814–1828`; documentation `docs/photo-library.md:203–216` does not state merge-versus-replace behavior.
+
+Measured: export tags `[backup]`, add tag `later` and change description, restore export. Description returns to backup value, but tags become `[backup,later]`. Album membership is likewise added, never removed. This may intentionally protect newer organization, but is not a faithful rollback and is inconsistent with scalar replacement. Do not call it data loss without confirming intended semantics.
+
+Recommendation: document merge semantics explicitly, or offer reviewed merge/replace behavior. A fresh-catalog roundtrip is separately tested by stress fixture.
+
+### C5 — P2/P3: frontend restore initiates a scan despite documented no-scan behavior
+
+Static call-chain evidence, not separately runtime reproduced: `PhotoLibrary::transfer_annotations` routes restore through `mutate` (`src/views/src/photo_library.cpp:1678`), whose success path refreshes subscriptions and schedules work (`:845–870`). `SourceWatcher::fetch_page` queues refresh for every newly seen active source ID (`src/photo_client/src/source_watcher.cpp:125–128`); `flush` dispatches `refresh` (`:314–316`). Therefore a fresh-catalog restore in an active library causes discovery, although backend restore alone does not queue jobs and `docs/photo-library.md:213–214` says registration does not start an automatic scan. This may create unexpected IO, and is particularly consequential for inode-unstable mounts.
+
+Recommendation: decide the intended user behavior, distinguish source restoration from newly registered/reconnected source discovery in the watcher, and test the full frontend+watcher path. If automatic reconciliation is intended, say so accurately and explain progress; do not infer "no scan" from the backend API alone.
+
+### C6 — P2: malformed camera metadata aborts a whole work batch and leaves its claim unfinished
+
+Inherited producer boundary: `src/isolate/src/protocol.cpp:138–141` cuts basic info strings at 255 raw bytes without preserving UTF-8; `decode_info:186–194` returns those bytes unchanged. Newly introduced consumer: `src/photo_client/src/client.cpp:228–265` claims a photo, puts `info.camera` into JSON, then recursively submits metadata; envelope `dump()` at `:203` throws for malformed UTF-8, and the outer catch returns a request-level error without recording a per-photo outcome or releasing the claim.
+
+Measured both directly and end-to-end. `protocol_utf8.cpp` roundtrips a valid 256-byte UTF-8 camera string through the real existing protocol library; the resulting 255-byte string ends at `0xC3` and JSON serialization fails. `metadata_utf8_real.py` inserts a long non-ASCII EXIF Make value into the repository's otherwise valid JPEG fixture, then runs the real photo benchmark/Client/image-helper pipeline in isolated XDG directories. Benchmark exits 1 with type_error316; catalog row remains `online`, metadata signature empty, one outstanding claim, zero outcomes. The EXIF string is adversarial metadata, not a supported-format exclusion; this should be a contained per-file error instead of a whole-batch failure. Claim expiry/process death permits the same failure to repeat.
+
+Evidence: `protocol_utf8.log`, `metadata_utf8_real.json` with executable hash, and source repro scripts. Recommendation: UTF-8-safe shared string bounds/normalization and a per-item error path that durably releases/completes claims even when metadata cannot serialize. Do not silently associate malformed derived metadata or overwrite user annotations.
+
+### C7 — P2/P3: inode-unstable sources retain annotations only on hidden replaced rows; album counts disagree
+
+The replacement rule itself is intentionally conservative (`src/photos/src/catalog.cpp:1005–1018`): equal pathname/size/time does not authorize reassociation when device/inode changes. The usability implication is confirmed with a synthetic prior-inode mismatch, not a real mount test. `inode_replacement_policy.py` leaves one fixture's bytes unchanged, modifies only its previously recorded inode, and refreshes. Old ID 1 becomes `replaced` and retains its annotation; visible ID 2 has no annotation. Existing album lists count 1 but opens with zero results. JSON evidence records both visible and retained-history rows.
+
+This is not annotation erasure, and automatic acceptance of equal filenames/content would be unsafe. It is a product limitation for filesystems with unstable inode numbers; telling users only to refresh can make association disappear from their ordinary library view. A reviewed reconciliation/source-identity policy is required to support that environment safely.
+
+The count discrepancy is independently introduced: `albums` counts all memberships (`catalog.cpp:2524`), while default query hides inactive sources/replaced rows (`:603–604`). Recommendation: counts that describe the displayed set, or an explicit visible/retained breakdown and an accessible review path for hidden associations.
+
+## Performance / efficiency review
+
+- Every photo row performs separate tags and album SQL queries (`catalog.cpp:573–583`); each query page repeats total-count work (`:641–646`). A 30,000-row loaded-prefix reload is thirty 1,000-row requests plus 60,000 small membership lookups, JSON conversion and module boundaries. Controller triggers are audited by other agents. Stress script compares one page with 10k/30k/100k prefix reloads.
+- `work` calculates and returns a metadata batch (`catalog.cpp:1503`); `Client::request(work)` then fetches metadata_pending again (`client.cpp:220`). The first batch is not used for claims. Separate work/pending/claim/save requests reopen SQLite, acquire schema flock and run initialization PRAGMAs; explicit batching could preserve atomic claims while removing repeated setup. Cross-agent packaging report has full call counts.
+- `metadata_pending` scans eligible photos ordered by ID, and scan completion counts pending rows by `seen_job`; there is no dedicated pending-metadata/seen-job index (`catalog.cpp:250–268,834–846,1156`). Late-library progress can repeatedly inspect many completed rows. Stress includes a 256-item pending tail after 100k completed records.
+- `operation_restore_prepare` scans all trash-operation payloads newest-first separately for each selected photo (`catalog.cpp:1930–1934`), potentially quadratic JSON parsing. An indexed receipt table or one batched pass would avoid it. This is a static complexity finding; it is not yet a measured latency failure.
+- `watch_paths` requests `sources()` on every page, including source availability checks; registration is bounded but repeated inventories and remote root stats can cost much more than the tiny result batch suggests. Watcher lifecycle/inventory work is covered by packaging's audit.
+- A single `catalog.cpp` now holds schema, migration, discovery, query, restore, duplicates and operation journal logic. Validation is already duplicated inconsistently (C2), and source mapping is implemented twice inside restore. Extracting tested validation and identity helpers would reduce divergence; splitting files alone is not a correctness fix.
+
+## Known documented limits, not new defects from this audit
+
+No total library-count ceiling. Query pages cap at 1,000 but expose totals; continuous UI fetches further batches. Duplicate groups cap silently at 1,000; jobs/history cap at 1,000 and failures at 100 per job. Recovery now uses an independent ascending-ID paginated unresolved-operation API, so Activity history no longer hides recovery work. Bulk edits and selected-album creation cap at 100,000 IDs; duplicate verification caps at 1,000 selected+keeper IDs. Restore caps at 256 MiB in UI and one million records in backend, while export is unbounded (documented asymmetry). Watch registration caps at 4,096 directories/window with explicit warning/manual refresh fallback. These limits are recorded in `docs/photo-library.md` and remain unchanged by this audit.
+
+## Safety boundaries inspected
+
+- Guarded trash/restore compare captured device/inode/size/time just before the existing filesystem rename; keepers are rechecked, and unsafe source changes are refused. This narrows but cannot mathematically eliminate the syscall-level check/rename race against arbitrary external writers. Do not describe it as an atomic compare-and-rename primitive.
+- Receipt recovery uses real trash receipts and captured file identity; missing paths alone do not prove success. It does not repeat deletion. Recovery is independently paginated and skips non-trash/restore operation kinds.
+- Metadata claims are durable, process-aware, expire, and are checked at completion; changed identities do not overwrite extracted metadata. Directory discovery excludes symlinks, invalid UTF-8 names and internal catalog/cache paths. SSHFS inode churn remains an explicit identity policy limitation; previews have a separate permission and do not validate catalog identity or authorize file actions.
+- `SourceWatcher` cancellation is compatible with `WorkerPool`'s documented guarantee that cancelled callbacks are not delivered; no lifetime defect established merely from `[this]` captures. Watch limits, debounce candidates and overflow all have bounded reconciliation fallbacks.
+- The cache's URI + second-resolution mtime validation and helper symlink-following read-only open are inherited from main. They cannot prove the displayed file is the same catalog identity, but the new branch does not use them as destructive authorization. Offline `Cache::cached` performs no original stat and is separately covered in tests.
+
+## Evidence and reproducibility
+
+- `audit_support.py`: reusable synthetic fixture generator; creates no original images and must not be used for decode/import claims.
+- `correctness_repros.py MODULE --output FILE`: small reproducible cases and 160 concurrent read/edit/jobs/state requests. Initial run: zero concurrent errors, SQLite integrity OK.
+- `timestamp_overflow.py ASAN_MODULE`: minimal extended-timestamp case. Use matching libasan preload when invoking from Python, `ASAN_OPTIONS=detect_leaks=0`, `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`.
+- `stress_catalog.py MODULE --records 100000 --samples 10 --build-mode Release --output FILE`: prepares its own fixture; query filters/sorts/offsets, complete append walk with ID uniqueness checks, loaded-prefix reload, 1,000-job history, metadata claims/persistence tail, export/restore, 256-real-file fresh identity restore, concurrent read/write, integrity/foreign-key checks. It does not decode images or render UI.
+- `stress-smoke-1000.json`: script-correctness smoke only, Debug while builds were running; not stable performance evidence.
+
+### Focused existing regression suites rerun during this audit
+
+- `python3 tests/photos_migration.py /tmp/rummage-photo-browser-build/librummage-photos.so`: passed upgrade, backup, rollback, refusal and concurrent thread/process initialization. This pass does not cover C1 successful retry after an interrupted backup.
+- `/tmp/rummage-photo-browser-build/tests/rummage-photo-recovery-tests`: 1 case, 3,168 assertions passed, covering more than one recovery page hidden behind 1,000 newer failed history items, real disposable trash receipt recovery and restore.
+- `stress-smoke-1000.json`: 1,256-row export/existing-match restore, 256 real-path fresh restore, query uniqueness, metadata claim completion, concurrent requests and SQLite integrity all passed. Timings were under concurrent build load and are not comparison evidence.
+
+## Completed Release stress measurements
+
+Actual Release module SHA-256: `05fb4ea3f4512cb1929c8121bcdddcef8adbbdd1eb27be38f1ac3ce42d0771c7`, `/tmp/rummage-branch-audit-2026-11-27/build-release/librummage-photos.so`. Frozen revision unchanged. Intel Core Ultra 9 275HX, 24 logical CPUs, Linux 6.18.64. Root coordinated an exclusive audit timing window after other audit builds/tests/UI measurements ended. Host load averages are recorded in JSON; this does not claim that all unrelated host activity ceased. Warm filesystem cache, local temporary fixture, no image decoding or actual UI.
+
+| Workload | Result |
+| --- | --- |
+| First 200 rows, 10 samples | p50 15.2 ms; p95 20.2 ms |
+| Final 200 rows at offset 99,800, 10 samples | p50 31.6 ms; p95 31.9 ms |
+| Text / rating / capture-date filter p95 | 22.2 / 39.2 / 64.8 ms |
+| Size / modified / location sort p95 | 15.1 / 36.9 / 49.8 ms |
+| Complete continuous append, 500 × 200-row pages | 11.682 s total; all 100,000 IDs exactly once; page p95 31.3 ms |
+| Controller-equivalent loaded prefix, 1,000 rows/request | 10k: 336 ms; 30k: 1.107 s; 100k: 4.410 s |
+| Jobs with 1,000 historical records, 10 samples | p50 97.3 ms; p95 102.4 ms |
+| Metadata pending tail after 100k complete rows, 10 samples | p50 10.0 ms; p95 11.0 ms |
+| 256 metadata claims / completions | Claim p50 9.3 ms, p95 18.0 ms; completion p50 9.4 ms, p95 16.7 ms |
+| Export 100,256 records | 2.354 s; 64,657,204 bytes in compact Python JSON serialization |
+| Restore those 100,256 established catalog matches | 6.342 s; all restored; zero missing/ambiguous |
+| Fresh catalog restore of 256 real-path identities | 70 ms; all 256 restored |
+| Concurrent 4-thread read/write mix | 120 requests, 779 ms total, zero errors |
+| Final database checks | `integrity_check=ok`; zero foreign-key violations; 39,596,032-byte DB |
+
+Prefix/export/restore durations are single samples, not statistically meaningful p95 values despite the generic JSON distribution fields. Query/filter p95 from only ten samples is coarse (nearest-rank sample maximum). The prefix test includes ABI marshaling and Python JSON parsing/retention, but not native UI publication/layout or rendering. It demonstrates the cost of fetching the entire loaded set repeatedly; it is not native UI latency by itself.
+
+Harness peak RSS was 803,344 KiB (~785 MiB), including Python's retained query/export objects, module serialization allocations and restore input. This must not be presented as Rummage's steady-state application memory. Synthetic originals do not exist; existing-catalog restore uses established catalog identities, while only the 256 appended one-byte real files establish fresh-catalog identity matches. Metadata dimensions were synthetic. No import/decode throughput claim follows from this test.
+
+Evidence: `stress-release-100000.json`, `stress-release-100000.log`, reproducible `stress_catalog.py`. All fixtures were deleted by the script after successful completion. No production source changed; shared user build remained untouched.

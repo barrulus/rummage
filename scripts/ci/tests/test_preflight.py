@@ -72,8 +72,7 @@ class PreflightTest(unittest.TestCase):
         self.assertEqual(self.run_preflight("nix"), 0)
         self.assertEqual(self.calls.read_text().splitlines(), [
             "flake check --print-build-logs",
-            "build --no-link --print-build-logs .#rummage^* .#rummage-with-media^* "
-            ".#rummage-with-pdf^* .#rummage-with-previews^*"])
+            "build --no-link --print-build-logs .#rummage^* .#rummage-with-photos^*"])
         report = json.loads((self.output / "summary.json").read_text())
         self.assertEqual(report["commit"], subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=self.root, text=True).strip())

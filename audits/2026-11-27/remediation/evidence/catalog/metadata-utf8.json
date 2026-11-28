@@ -1,0 +1,15 @@
+{
+  "program": "/tmp/rummage-remediation-build/rummage-bench-photos",
+  "sha256": "4097dbd9e7f905a87f613fd7e164c1c092bb9c5cf4570a595438f02560aa7d61",
+  "returncode": 0,
+  "stdout": "{\n  \"batches\": 3,\n  \"cold_pipeline_ms\": 75.954008,\n  \"first_result_page_ms\": 68.517724,\n  \"jobs\": [\n    {\n      \"completed\": 1,\n      \"error\": \"\",\n      \"failures\": [],\n      \"id\": 1,\n      \"in_flight\": 0,\n      \"kind\": \"scan\",\n      \"metadata_completed\": 1,\n      \"metadata_pending\": 0,\n      \"metadata_total\": 1,\n      \"metadata_unavailable\": 0,\n      \"pending_directories\": 0,\n      \"phase\": \"complete\",\n      \"source_id\": 1,\n      \"state\": \"completed\",\n      \"total\": 1\n    }\n  ],\n  \"metadata_items\": 1,\n  \"method\": \"Client work batches with real isolated image engines, no UI pacing; parent RSS excludes helpers\",\n  \"parent_peak_rss_kib\": 22264,\n  \"records\": 1,\n  \"repeated_metadata_items\": 0,\n  \"unchanged_rescan_ms\": 23.646827\n}\n",
+  "stderr": "",
+  "photos": [
+    [
+      "online",
+      "66307:10902121:645:1795768260:849676020"
+    ]
+  ],
+  "claims": 0,
+  "outcomes": 0
+}
