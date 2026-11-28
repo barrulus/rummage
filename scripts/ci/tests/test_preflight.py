@@ -98,3 +98,36 @@ class PreflightTest(unittest.TestCase):
             self.run_preflight("nix")
         self.assertEqual(previous.read_text(), "previous run")
         self.assertFalse(self.calls.exists())
+
+    def website_fixture(self, code):
+        script = self.root / 'scripts/ci/website.sh'
+        script.parent.mkdir(parents=True)
+        script.write_text(f'#!/bin/sh\nprintf "website %s\\n" "$1" >> "$PREFLIGHT_TEST_CALLS"\nexit {code}\n')
+        subprocess.run(['git', 'add', '.'], cwd=self.root, check=True)
+        subprocess.run(['git', '-c', 'user.name=Test', '-c', 'user.email=test@example.com',
+                        'commit', '-qm', 'website fixture'], cwd=self.root, check=True)
+
+    def test_website_target_needs_neither_nix_nor_docker(self):
+        self.website_fixture(0)
+        original_which = preflight.shutil.which
+        with patch.object(preflight.shutil, 'which', side_effect=lambda name:
+                          None if name in ('nix', 'docker') else original_which(name)):
+            self.assertEqual(self.run_preflight('website'), 0)
+        self.assertEqual(self.calls.read_text().splitlines(),
+                         [f'website {self.output / "website-public"}'])
+        report = json.loads((self.output / 'summary.json').read_text())
+        self.assertEqual(report['results'], {'website': 'passed'})
+
+    def test_all_stops_on_website_failure_before_application_builds(self):
+        self.website_fixture(23)
+        docker = self.base / 'bin/docker'
+        docker.write_text('#!/bin/sh\nexit 0\n')
+        docker.chmod(0o755)
+        self.assertEqual(self.run_preflight('all'), 1)
+        report = json.loads((self.output / 'summary.json').read_text())
+        self.assertEqual(report['requested'], list(preflight.TARGETS))
+        self.assertEqual(report['results'], {'lint': 'passed', 'website': 'failed (23)'})
+        calls = self.calls.read_text().splitlines()
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[0].startswith('shell '))
+        self.assertEqual(calls[1], f'website {self.output / "website-public"}')

@@ -41,8 +41,12 @@ class WorkflowGateTest(unittest.TestCase):
         website = self.jobs['website']
         self.assertNotIn('    if:', website.split('    steps:', 1)[0])
         self.assertNotIn('continue-on-error:', website)
-        self.assertIn('sha256sum --check -', website)
-        self.assertIn('run: python3 website/check.py website/public', website)
+        self.assertIn('run: bash scripts/ci/website.sh', website)
+        self.assertNotIn('HUGO_SHA256:', website)
+        runner = (ROOT / 'scripts/ci/website.sh').read_text()
+        self.assertIn('sha256sum --check -', runner)
+        self.assertIn('python3 website/check.py "$output"', runner)
+        self.assertIn('path: website/public', website)
 
     def test_pages_requires_checked_site_but_not_application_release(self):
         self.assertEqual(self.dependencies('pages'), {'website'})

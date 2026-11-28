@@ -33,6 +33,21 @@ class Page(HTMLParser):
                 self.links.append(attrs[key])
 
 
+def navigation_errors(navigation, docs):
+    """Every canonical guide must be published and searchable exactly once."""
+    slugs = [item["slug"] for group in navigation["groups"] for item in group["items"]]
+    guides = {path.stem for path in docs.glob("*.md") if path.name != "README.md"}
+    errors = []
+    for slug in sorted(guides - set(slugs)):
+        errors.append(f"Canonical guide missing from website navigation: {slug}")
+    for slug in sorted(set(slugs) - guides):
+        errors.append(f"Website navigation has no canonical guide: {slug}")
+    for slug, count in Counter(slugs).items():
+        if count > 1:
+            errors.append(f"Duplicate website navigation guide: {slug}")
+    return errors
+
+
 def main():
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "website/public").resolve()
     config = tomllib.loads(Path(__file__).with_name("hugo.toml").read_text())
@@ -70,6 +85,7 @@ def main():
             check_link(source, target)
 
     navigation = tomllib.loads(Path(__file__).with_name("data").joinpath("navigation.toml").read_text())
+    errors.extend(navigation_errors(navigation, Path(__file__).resolve().parents[1] / "docs"))
     expected = {f'/docs/{item["slug"]}/' for group in navigation["groups"] for item in group["items"]}
     index = json.loads((root / "index.json").read_text())
     if {page["url"] for page in index} != expected:

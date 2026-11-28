@@ -14,6 +14,7 @@ items = [
   { slug = 'photo-library', label = 'Photo Library', description = 'Browse sources, organize albums, and save photo searches.' },
   { slug = 'previews', label = 'Previews & formats', description = 'Images, raw photos, text, video stills, and PDFs.' },
   { slug = 'shortcuts', label = 'Keyboard shortcuts', description = 'Keep your hands on the keyboard.' },
+  { slug = 'terminal', label = 'Terminal & shell', description = 'Use the embedded terminal, folder tracking, fzf, and zoxide.' },
   { slug = 'file-picker', label = 'File picker', description = 'Use rummage for Open and Save dialogs.' },
 ]
 [[groups]]
@@ -23,6 +24,7 @@ items = [
   { slug = 'appearance', label = 'Appearance', description = 'Colours, fonts, icons, and your desktop theme.' },
   { slug = 'motion', label = 'Motion', description = 'Animation effects and reduced motion.' },
   { slug = 'actions', label = 'Actions & menus', description = 'Custom commands and context menus.' },
+  { slug = 'extensions', label = 'Extensions & Git', description = 'Install workflow extensions and show repository status.' },
   { slug = 'translations', label = 'Languages', description = 'Language settings and contributing translations.' },
 ]
 [[groups]]
@@ -30,6 +32,7 @@ title = 'Reference'
 items = [
   { slug = 'command-line', label = 'Command line', description = 'Flags, environment variables, and diagnostics.' },
   { slug = 'compatibility', label = 'Compatibility', description = 'Wayland compositors and desktop integration.' },
+  { slug = 'accessibility', label = 'Accessibility', description = 'Screen readers, keyboard navigation, and input methods.' },
   { slug = 'security', label = 'Security', description = 'Preview isolation and its boundaries.' },
   { slug = 'releases', label = 'Release history', description = 'Development versions and upstream history.' },
 ]

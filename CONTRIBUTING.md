@@ -34,7 +34,8 @@ coverage. SVG changes follow the existing
 ## Before proposing a change
 
 - Run `python3 scripts/ci/preflight.py lint` while editing. After committing, run
-  `python3 scripts/ci/preflight.py lint tests` for the shared CI tooling and full test gate.
+  `python3 scripts/ci/preflight.py lint website tests` for the shared CI tooling,
+  generated website and full test gate.
   Add the `nix` target for Nix package and installed checks.
   Dependency, CMake, packaging, helper or install-layout changes also require
   `python3 scripts/ci/preflight.py all` (Nix and Docker). A Nix pass alone does not
@@ -63,9 +64,13 @@ from anything you publish. See [troubleshooting](docs/troubleshooting.md).
 
 ## Documentation
 
-Documentation is Markdown rendered by the repository browser; no site generator
-or publishing step is required. [docs/README.md](docs/README.md) is the application
-documentation index.
+Documentation is Markdown rendered by the repository browser and the Hugo
+website. [docs/README.md](docs/README.md) is the application documentation index.
+For guide and website changes, run `bash scripts/ci/website.sh` while editing,
+then the `website` preflight target after committing. The shared runner downloads
+the checksum-pinned Hugo used in CI and checks generated pages and links; it
+does not publish. See the [website guide](website/README.md) for navigation and
+preview instructions.
 
 Keep `docs/` limited to application documentation: installation, usage,
 configuration, integrations, supported formats, troubleshooting, security and

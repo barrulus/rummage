@@ -2,8 +2,10 @@
 
 A custom Hugo site for `https://rummage-fm.com`, hosted with GitHub Pages.
 No npm, external theme, web fonts, analytics, or application server is required.
-Use **Hugo 0.170.1** (the same version and checksum pinned in the workflow).
-Python 3.11+ is needed only for the generated-site checks.
+Use **Hugo 0.170.1** for interactive previews. The build gate downloads and
+verifies that release using the single version/checksum pin in
+`scripts/ci/website.sh`, shared by local preflight and CI. It runs on Linux x86_64
+with Bash, curl, sha256sum, tar/gzip, mktemp, realpath and Python 3.11+.
 
 ## Preview and build
 
@@ -17,11 +19,16 @@ Open the local address printed by Hugo, normally `http://localhost:1313/`.
 Changes to the mounted `docs/` directory are watched too.
 
 ```sh
-hugo --source website --minify --panicOnWarning --printPathWarnings
-python3 website/check.py website/public
+bash scripts/ci/website.sh
+# After committing, record the website gate and revision in a preflight report:
+python3 scripts/ci/preflight.py website
 ```
 
-Generated output goes into the ignored `website/public/` directory. Do not commit it.
+The standalone runner writes to the ignored `website/public/` directory; pass a
+destination argument to use another directory. Preflight writes `website-public/`
+inside its report directory outside the checkout. The runner cleans stale output
+and fails on either build warnings or generated-site check errors. Do not commit
+generated output. `preflight.py all` includes this same website gate.
 The check verifies internal links, fragments, images, script/style assets, all
 search entries, distribution downloads, and the domain configuration. It does
 not check remote release availability or replace desktop/mobile browser review.
@@ -151,5 +158,5 @@ One-time repository and domain setup:
 The website links straight to the existing `development` GitHub Release assets.
 Binaries remain there, not in the repository or the Pages artifact.
 
-When upgrading Hugo, update the workflow's version and SHA-256 together, verify
+When upgrading Hugo, update `scripts/ci/website.sh`'s version and SHA-256 together, verify
 the digest against the official release, and run the build/check commands above.
