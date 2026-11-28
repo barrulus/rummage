@@ -1051,12 +1051,21 @@ TEST_CASE("restore rejects invalid source settings atomically and leaves new sou
 
 TEST_CASE("album management preserves originals and stable saved search identities") {
     Fixture fixture;
-    const auto first_path = fixture.file("source/one.jpg");
-    const auto second_path = fixture.file("source/two.jpg");
+    // Index separately so catalog order deliberately differs from filename order,
+    // regardless of the filesystem's directory enumeration order.
+    const auto first_path = fixture.file("source/z-first.jpg");
     fixture.add("source");
     fixture.drain();
+    const auto first = fixture.call({{"op", "query"}})["photos"][0]["id"];
+    const auto second_path = fixture.file("source/a-second.jpg");
+    fixture.call({{"op", "refresh"}});
+    fixture.drain();
     const auto photos = fixture.call({{"op", "query"}})["photos"];
-    const auto first = photos[0]["id"], second = photos[1]["id"];
+    REQUIRE(photos.size() == 2);
+    const auto second = photos[0]["id"];
+    REQUIRE(photos[0]["path"] == second_path.string());
+    REQUIRE(photos[1]["id"] == first);
+    REQUIRE(first < second);
     const auto album = fixture.call({{"op", "create_album"},
                                      {"name", "Original"},
                                      {"ids", Json::array({first, second})}})["id"];
@@ -1066,8 +1075,8 @@ TEST_CASE("album management preserves originals and stable saved search identiti
     fixture.call({{"op", "set_album_cover"}, {"id", album}, {"photo_id", second}});
     CHECK(read()["cover_id"] == second);
     CHECK(read()["custom_cover_id"] == second);
-    CHECK(read()["cover"]["path"] == photos[1]["path"]);
-    CHECK(read()["cover"]["mtime_ns"] == photos[1]["mtime_ns"]);
+    CHECK(read()["cover"]["path"] == photos[0]["path"]);
+    CHECK(read()["cover"]["mtime_ns"] == photos[0]["mtime_ns"]);
     fixture.call({{"op", "rename_album"}, {"id", album}, {"name", "Renamed"}});
     CHECK(read()["name"] == "Renamed");
     CHECK(fixture.call({{"op", "query"}, {"album_id", album}})["total"] == 2);
