@@ -486,16 +486,40 @@ size of `libpdfium.so`.
 
 ## Sanitizer and fuzz gate
 
-The `instrumentation` CI matrix runs before the ordinary test/package gate. Its
-Clang toolchain, optional preview libraries, fonts and software renderer come
-from the locked `instrumentation` Nix development shell. Run one profile locally
-with a new output directory outside the checkout:
+Run sanitizer and fuzz checks locally before starting remote CI. The local runner
+retains the pinned Clang toolchain, optional preview libraries, fonts and software
+renderer through a Nix profile, and reuses incremental builds for each checkout
+and sanitizer profile:
 
 ```sh
-nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py asan /tmp/rummage-asan
-nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py tsan /tmp/rummage-tsan
-nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py fuzz /tmp/rummage-fuzz
+python3 scripts/ci/local-instrumentation.py all --jobs 8
+# Or rerun one profile while fixing a failure.
+python3 scripts/ci/local-instrumentation.py asan --jobs 8
+python3 scripts/ci/local-instrumentation.py tsan --jobs 8
+python3 scripts/ci/local-instrumentation.py fuzz --jobs 8
 ```
+
+The default cache is `$XDG_CACHE_HOME/rummage-validation`, falling back to
+`~/.cache/rummage-validation`. Its `toolchain` Nix profile keeps dependencies
+reachable across garbage collection. Each checkout has a directory named by a
+hash of its absolute path, containing separate `asan`, `tsan` and `fuzz` build
+directories. CMake runs each time and rebuilds changed inputs; successful test
+results are never reused. `--cache-dir` selects a different persistent location.
+Each invocation writes fresh logs and `summary.json` under the checkout cache's
+`reports` directory, including the source commit, dirty state, build path and
+per-command durations. Failures also print a bounded diagnostic excerpt.
+
+The low-level runner accepts `--build-dir /path/to/dedicated/build` with a new
+output directory, for example
+`nix develop .#instrumentation --command python3 scripts/ci/instrumentation.py asan /tmp/new-report --build-dir /path/to/asan-build`.
+It refuses builds owned by another checkout or profile, existing unowned build
+directories, and concurrent use of the same build. Without `--build-dir`, it
+continues to make a fresh build inside the new report directory, as remote CI does.
+
+Remote sanitizer/fuzz jobs are opt-in through the manual workflow's
+`instrumentation` input; ordinary main pushes do not run them. When requested,
+all three profiles must pass before development downloads can be published.
+The same locked development shell and check runner are used locally and remotely.
 
 ASan/UBSan builds and checks the base, FFmpeg and PDFium helper integrations.
 The shared libraries supplied by Nix are not themselves rebuilt with sanitizers.

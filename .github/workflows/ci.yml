@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      instrumentation:
+        description: Also run remote sanitizers and fuzzing (normally run locally)
+        type: boolean
+        default: false
       tumbleweed_only:
         description: Test only Tumbleweed (no development downloads)
         type: boolean
@@ -73,6 +77,7 @@ jobs:
 
   instrumentation:
     name: Sanitizers and fuzz (${{ matrix.profile }})
+    if: github.event_name == 'workflow_dispatch' && inputs.instrumentation == true
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     strategy:
@@ -105,7 +110,7 @@ jobs:
 
   tests:
     name: Tests and lint
-    needs: [reuse, website, instrumentation]
+    needs: [reuse, website]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -299,9 +304,11 @@ jobs:
 
   downloads:
     name: Prepare development downloads
-    needs: [reuse, tests, nix, void, native]
+    needs: [reuse, tests, nix, void, native, instrumentation]
     if: >-
       !cancelled() && inputs.tumbleweed_only != true && needs.tests.result == 'success' &&
+      ((inputs.instrumentation == true && needs.instrumentation.result == 'success') ||
+       (inputs.instrumentation != true && needs.instrumentation.result == 'skipped')) &&
       needs.nix.result == 'success' &&
       ((needs.reuse.outputs.run_id != '' && needs.void.result == 'skipped' && needs.native.result == 'skipped') ||
        (needs.reuse.outputs.run_id == '' && needs.void.result == 'success' && needs.native.result == 'success'))
