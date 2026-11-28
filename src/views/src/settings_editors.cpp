@@ -861,17 +861,22 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
     };
     const auto binding = [&](const std::string& target) {
         text(i18n::trf("Shortcut: {}", chord(target)));
+        // Action forms can scroll far beyond their title. Keep recording feedback beside
+        // the focused controls so entering capture mode never looks like a silent no-op.
+        if (recording_ == target)
+            text(i18n::tr("Press a shortcut now. Escape cancels."));
+        else if (target_ == target && !pending_chord_.empty()) {
+            text(i18n::trf("Not saved: {}", i18n::keys(pending_chord_)));
+            if (!error_.empty())
+                text(error_);
+        }
         buttons({{i18n::tr("Record shortcut"), Operation::record},
                  {i18n::tr("Reset shortcut to default"), Operation::reset},
                  {i18n::tr("Disable shortcut"), Operation::disable}},
                 target);
         y += 8;
     };
-    if (!recording_.empty())
-        text(i18n::tr("Press a shortcut now. Escape cancels."));
-    else if (!pending_chord_.empty())
-        text(i18n::trf("Not saved: {}", i18n::keys(pending_chord_)));
-    if (!error_.empty())
+    if (!error_.empty() && pending_chord_.empty())
         text(error_);
     if (has_drafts())
         button(i18n::tr("Discard unfinished edit"), Operation::discard, {}, false);

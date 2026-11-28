@@ -939,6 +939,12 @@ TEST_CASE("settings: embedded editors return keyboard focus to host and dismiss 
 }
 
 TEST_CASE("settings: custom action recording receives host shortcuts and Escape cancels") {
+    int width = 800, height = 700;
+    SUBCASE("desktop form") {}
+    SUBCASE("narrow scrolled form") {
+        width = 480;
+        height = 460;
+    }
     Fixture f;
     REQUIRE_FALSE(
         core::write_file_atomically(f.path,
@@ -946,30 +952,62 @@ TEST_CASE("settings: custom action recording receives host shortcuts and Escape 
                                     "\nlabel='Say hello'\nargv=['echo','hello']\n"));
     f.open();
     namespace ui = rummage::ui;
-    ui::Offscreen gl{800, 700};
+    ui::Offscreen gl{width, height};
     ui::FontSystem fonts;
     ui::Renderer renderer{fonts};
     ui::IconSet icons{fonts};
+    std::vector<core::AccessibleNode> nodes;
     const auto draw = [&] {
-        renderer.begin_frame(800, 700, 1, {});
-        f.dialog.draw(renderer, {0, 0, 800, 700}, rummage::theme::Palette{}, icons);
+        ui::AccessibleFrame frame;
+        renderer.begin_frame(width, height, 1, {});
+        f.dialog.draw(renderer, {0, 0, static_cast<float>(width), static_cast<float>(height)},
+                      rummage::theme::Palette{}, icons);
         renderer.end_frame();
+        nodes = frame.nodes;
+    };
+    const auto recording_prompt = [&] {
+        return std::ranges::any_of(
+            nodes, [](const auto& node) { return node.name.starts_with("Press a shortcut"); });
     };
     f.dialog.search("Say hello");
     const auto matches = f.dialog.search_results();
     REQUIRE_FALSE(matches.empty());
     f.dialog.jump_to_result(matches.back().field);
     draw();  // First component control: Back to actions.
-    for (int i = 0; i < 9; ++i) {
+    // Disclosure headers participate in keyboard focus. Reach the actual Record control
+    // instead of assuming a fixed number of fields/buttons in the form.
+    bool reached_record = false;
+    for (int i = 0; i < 32; ++i) {
+        reached_record = std::ranges::any_of(nodes, [](const auto& node) {
+            return node.role == core::AccessibleRole::button && node.name == "Record shortcut" &&
+                   node.focused;
+        });
+        if (reached_record)
+            break;
         f.dialog.key({.keysym = XKB_KEY_Tab, .text = {}});
         draw();
     }
-    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});  // Record shortcut.
+    REQUIRE(reached_record);
+    f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
     draw();
+    draw();  // settle any scroll adjustment caused by the recording prompt
+    REQUIRE(recording_prompt());
+    if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
+        std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        std::ofstream file{
+            std::filesystem::path{output} / ("action-recording-" + std::to_string(width) + ".ppm"),
+            std::ios::binary};
+        file << "P6\n" << width << ' ' << height << "\n255\n";
+        for (int y = height - 1; y >= 0; --y)
+            for (int x = 0; x < width; ++x)
+                file.write(reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4), 3);
+    }
     f.dialog.key({.keysym = XKB_KEY_Escape, .text = {}});  // Cancel, don't close Settings.
     CHECK(f.dialog.is_open());
     CHECK(f.applied == 0);
     draw();
+    CHECK_FALSE(recording_prompt());
     f.dialog.key({.keysym = XKB_KEY_Return, .text = {}});
     f.dialog.key({.keysym = XKB_KEY_s, .text = {}, .modifiers = {.ctrl = true}});
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
