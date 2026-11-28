@@ -379,8 +379,7 @@ void GridView::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme:
                 cursor == i ? &motion_bounds_.visual : nullptr);
             draw_entry_status(
                 renderer, palette, entry,
-                {x + cell_width_ - kStatusWidth - kCellInset, y + kCellInset, kStatusWidth, 18},
-                style.text);
+                {x + cell_width_ - kStatusWidth - kCellInset, y + kCellInset, kStatusWidth, 18});
             if (cursor == i)
                 motion_bounds_.visual.clip = motion_bounds_.visual.bounds.intersect(area_);
             if (edit_ != nullptr && edit_->holds(*folder_, entry)) {

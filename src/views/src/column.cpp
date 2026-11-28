@@ -117,7 +117,7 @@ void Column::draw(ui::Renderer& renderer, const ui::Rect& bounds, const theme::P
         }
         if (entry.decoration && name_right - name_x >= kStatusWidth + 16) {
             draw_entry_status(renderer, palette, entry,
-                              {name_right - kStatusWidth, y, kStatusWidth, size_.row}, style.text);
+                              {name_right - kStatusWidth, y, kStatusWidth, size_.row});
             name_right -= kStatusWidth;
         }
         if (edit != nullptr && edit->holds(*folder_, entry)) {

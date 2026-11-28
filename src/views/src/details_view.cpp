@@ -677,7 +677,7 @@ void DetailsView::draw(ui::Renderer& renderer, const ui::Rect& bounds,
         const bool status = entry.decoration && name_right - name_x >= kStatusWidth + 16;
         if (status)
             draw_entry_status(renderer, palette, entry,
-                              {name_right - kStatusWidth, y, kStatusWidth, size_.row}, style.text);
+                              {name_right - kStatusWidth, y, kStatusWidth, size_.row});
         const float name_room = name_right - name_x - (status ? kStatusWidth : 0);
         if (edit_ != nullptr && edit_->holds(*owner, entry)) {
             const auto room = ui::Rect{name_x - ui::TextField::kPadding, y + 3.0F,

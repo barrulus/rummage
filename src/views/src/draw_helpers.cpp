@@ -146,20 +146,25 @@ void draw_item_visual(ui::Renderer& renderer, ui::IconSet& icons, const theme::P
 }
 
 void draw_entry_status(ui::Renderer& renderer, const theme::Palette& palette,
-                       const fs::Entry& entry, ui::Rect lane, ui::Color foreground) {
+                       const fs::Entry& entry, ui::Rect lane) {
     if (!entry.decoration || lane.width <= 0)
         return;
-    // A reserved lane, never an overlay on the icon or filename. Use a neutral background
-    // and contrast-correct text; the letter also conveys state without relying on colour.
-    const auto background = palette.surface;
-    const auto ink = entry.decoration->severity >= 3 ? palette.error : foreground;
-    const float font = 10;
-    const float width = std::min(lane.width, 22.0F);
-    const ui::Rect badge{lane.x + (lane.width - width) / 2, lane.y + (lane.height - 16) / 2, width,
-                         16};
-    renderer.draw_box(badge, {.fill = background, .radius = ui::Corners::all(3)});
-    renderer.draw_text(entry.decoration->badge, badge.x + 2, badge.y + 1, font,
-                       theme::readable_foreground(ink, background), width - 4, ui::Ellipsis::end);
+    // Every status gets the same opaque, outlined badge, including narrow letters such as I.
+    // Its own foreground stays readable when the filename is selected or dimmed.
+    const auto background = palette.surface_container_highest.with_alpha(1.0F);
+    const auto ink = entry.decoration->severity >= 3 ? palette.error : palette.on_surface;
+    const float font = 12;
+    const float width = std::min(lane.width, 24.0F);
+    const ui::Rect badge{lane.x + (lane.width - width) / 2, lane.y + (lane.height - 18) / 2, width,
+                         18};
+    renderer.draw_box(badge, {.fill = background,
+                              .radius = ui::Corners::all(3),
+                              .border_width = 1,
+                              .border = palette.outline.with_alpha(1.0F)});
+    const float room = std::max(1.0F, width - 4);
+    const float label_width = std::min(text_width(renderer, entry.decoration->badge, font), room);
+    renderer.draw_text(entry.decoration->badge, badge.x + (width - label_width) / 2, badge.y + 1,
+                       font, theme::readable_foreground(ink, background), room, ui::Ellipsis::end);
 }
 
 float text_width(ui::Renderer& renderer, std::string_view text, float size) {
