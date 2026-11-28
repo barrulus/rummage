@@ -29,18 +29,25 @@ Use the shared runner instead of reconstructing a subset of CI commands:
 ```sh
 # Fast workflow/script lint, CI tooling tests and documentation checks; allows edits.
 python3 scripts/ci/preflight.py lint
-# Commit intended files first, then run the test gate without packaging.
-python3 scripts/ci/preflight.py lint tests
+# Commit intended files first, then run the website and test gates without packaging.
+python3 scripts/ci/preflight.py lint website tests
 # Tests first, then Nix package and installed checks.
-python3 scripts/ci/preflight.py lint tests nix
-# All six build environments, including fresh native-package installation.
+python3 scripts/ci/preflight.py lint website tests nix
+# Website and all six build environments, including fresh native-package installation.
 python3 scripts/ci/preflight.py all
 # Reproduce one native job, or select several explicitly.
 python3 scripts/ci/preflight.py void
 python3 scripts/ci/preflight.py deb rpm arch tumbleweed
 ```
 
-With no targets, the runner selects `all`. Nix supplies the lint tools from the
+With no targets, the runner selects `all`, including the generated website gate
+before application builds. The `website` target shares `scripts/ci/website.sh`
+with CI: it downloads and verifies the pinned Linux x86_64 Hugo release, builds
+the site and checks generated links, pages and assets. It needs Bash, curl,
+sha256sum, tar/gzip, mktemp, realpath and Python 3.11+, but not Nix or Docker.
+Use `bash scripts/ci/website.sh` to check website edits before committing.
+
+Nix supplies the lint tools from the
 locked nixpkgs input. Native targets require Nix to assemble pinned renderer sources, a working Docker daemon and the host
 tools listed below. Build targets reject dirty or untracked files, because a Nix
 flake can omit untracked source and the native builders export `git archive HEAD`.
