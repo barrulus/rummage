@@ -1602,14 +1602,14 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool compact_retry = narrow && valid_ && !write_error_.empty();
     if (discard_prompt_ || compact_retry)
         frame = fit(104);
-    const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
-                               : !error_.empty()          ? "Changes need attention"
-                               : busy_                    ? (valid_ ? "Saving…" : "Loading…")
-                               : has_drafts()             ? "Editing…"
-                               : language_restart_required_
-                                   ? i18n::mark("Saved — restart Rummage to apply language")
-                               : saved_ ? "Saved"
-                                        : "Changes save automatically";
+    const std::string_view status = !read_only_reason_.empty() ? "Read-only configuration"
+                                    : !error_.empty()          ? "Changes need attention"
+                                    : busy_                    ? (valid_ ? "Saving…" : "Loading…")
+                                    : has_drafts()             ? "Editing…"
+                                    : language_restart_required_
+                                        ? i18n::mark("Saved — restart Rummage to apply language")
+                                    : saved_ ? "Saved"
+                                             : "Changes save automatically";
     const float title_width = text_width(renderer, i18n::tr("Settings"), 18);
     const float desired_status_width =
         text_width(renderer, i18n::tr(status),
