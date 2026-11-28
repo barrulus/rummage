@@ -69,6 +69,9 @@ void SettingsEditors::reset(const core::Config& config, bool editable) {
     shortcut_problems_ = configure_shortcuts(config_.keybindings, config_.actions, false);
     editable_ = editable;
     action_.reset();
+    expanded_groups_.clear();
+    collapsed_search_groups_.clear();
+    shown_query_.clear();
     fresh_ = false;
     target_.clear();
     recording_.clear();
@@ -378,6 +381,13 @@ void SettingsEditors::activate(Control control) {
     switch (control.operation) {
         case Operation::field:
             break;
+        case Operation::toggle_group:
+            if (search_.text().empty()) {
+                expanded_groups_[control.value] = !expanded_groups_[control.value];
+            } else if (!collapsed_search_groups_.erase(control.value)) {
+                collapsed_search_groups_.insert(control.value);
+            }
+            break;
         case Operation::select_command:
             target_ = control.value;
             recording_.clear();
@@ -530,6 +540,18 @@ bool SettingsEditors::key(const ui::KeyEvent& event) {
         }
         return false;
     }
+    if (control.operation == Operation::toggle_group &&
+        (event.keysym == XKB_KEY_Left || event.keysym == XKB_KEY_Right)) {
+        const bool expanded = event.keysym == XKB_KEY_Right;
+        if (search_.text().empty())
+            expanded_groups_[control.value] = expanded;
+        else if (expanded)
+            collapsed_search_groups_.erase(control.value);
+        else
+            collapsed_search_groups_.insert(control.value);
+        redraw_();
+        return true;
+    }
     if (event.keysym == XKB_KEY_Return || event.keysym == XKB_KEY_KP_Enter) {
         if (control.field)
             commit_form();
@@ -628,16 +650,29 @@ std::string SettingsEditors::copy_selection(bool cut) {
 
 void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
                            const theme::Palette& palette) {
+    const auto previous_body = body_;
     body_ = body;
+    if (shown_query_ != search_.text()) {
+        shown_query_ = search_.text();
+        collapsed_search_groups_.clear();
+        scroll_.jump_to(0);
+    }
     std::optional<Control> focused_control;
     if (focus_ >= 0 && static_cast<std::size_t>(focus_) < controls_.size())
         focused_control = controls_[static_cast<std::size_t>(focus_)];
     controls_.clear();
     scrollbar_.layout(body);
     renderer.push_clip(body);
-    const float x = body.x + 8;
-    const float width = std::max(1.0F, body.width - 30);
-    float y = body.y + 8 - scroll_.offset();
+    const float x = body.x + 12;
+    const float width = std::max(1.0F, body.width - 36);
+    const float drawn_offset = scroll_.offset();
+    float y = body.y + 8 - drawn_offset;
+    const auto accent = theme::readable_foreground(palette.primary, palette.surface_container_high);
+    const auto matches_focus = [&](const Control& control) {
+        return focused_control && control.operation == focused_control->operation &&
+               control.field == focused_control->field && control.value == focused_control->value &&
+               control.index == focused_control->index;
+    };
     const auto text = [&](std::string_view value, bool dim = false) {
         while (!value.empty()) {
             std::size_t length = value.size();
@@ -651,27 +686,94 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
             }
             renderer.draw_text(value.substr(0, length), x, y, 12,
                                dim ? palette.on_surface_variant : palette.on_surface, width);
-            y += 23;
+            y += 20;
             value.remove_prefix(length);
             while (value.starts_with(' '))
                 value.remove_prefix(1);
         }
     };
-    const auto button = [&](std::string_view label, Operation operation, std::string value = "",
-                            bool mutates = true, std::size_t index = 0) {
-        const ui::Rect rect{x, y, width, 32};
-        const bool focused = focus_ == static_cast<int>(controls_.size());
-        draw_dialog_button(renderer, rect, palette, label, focused);
+    const auto button_at = [&](std::string_view label, ui::Rect rect, Operation operation,
+                               std::string value = "", bool mutates = true, std::size_t index = 0) {
+        Control control{rect, operation, nullptr, std::move(value), index, mutates};
+        draw_dialog_button(renderer, rect, palette, label, matches_focus(control));
         if (mutates && !editable_)
             renderer.fill_rect(rect, palette.surface.with_alpha(0.45F));
-        controls_.push_back({rect, operation, nullptr, std::move(value), index, mutates});
-        y += 38;
+        controls_.push_back(std::move(control));
     };
-    const auto field = [&](std::string_view label, ui::TextField& input, bool mutates = true) {
+    const auto button = [&](std::string_view label, Operation operation, std::string value = "",
+                            bool mutates = true, std::size_t index = 0) {
+        const float measured =
+            renderer.fonts().layout(label, 13, renderer.scale()).width / renderer.scale() + 28;
+        button_at(label, {x, y, std::min(width, std::max(100.0F, measured)), 32}, operation,
+                  std::move(value), mutates, index);
+        y += 40;
+    };
+    const auto group = [&](std::string id, std::string_view label, bool initially_open) {
+        auto [position, inserted] = expanded_groups_.try_emplace(id, initially_open);
+        static_cast<void>(inserted);
+        const bool expanded =
+            search_.text().empty() ? position->second : !collapsed_search_groups_.contains(id);
+        y += 6;
+        std::vector<std::string_view> lines;
+        auto remaining = label;
+        while (!remaining.empty()) {
+            auto length = remaining.size();
+            while (
+                renderer.fonts().layout(remaining.substr(0, length), 13, renderer.scale()).width /
+                    renderer.scale() >
+                std::max(1.0F, width - 32)) {
+                const auto space = remaining.rfind(' ', length - 1);
+                if (space == std::string_view::npos || space == 0)
+                    break;
+                length = space;
+            }
+            lines.push_back(remaining.substr(0, length));
+            remaining.remove_prefix(length);
+            while (remaining.starts_with(' '))
+                remaining.remove_prefix(1);
+        }
+        const float height = std::max(36.0F, 18.0F + 18.0F * static_cast<float>(lines.size()));
+        const ui::Rect rect{x, y, width, height};
+        Control control{rect, Operation::toggle_group, nullptr, id, 0, false};
+        renderer.draw_box(rect, {.fill = palette.surface_container_high,
+                                 .radius = {},
+                                 .border_width = matches_focus(control) ? 1.0F : 0.0F,
+                                 .border = palette.primary});
+        renderer.fill_rect({x, rect.bottom() - 1, width, 1}, palette.outline_variant);
+        renderer.draw_text(expanded ? "▾" : "▸", x + 4, y + 9, 13, accent);
+        float line_y = y + 9;
+        for (const auto line : lines) {
+            renderer.draw_text(line, x + 24, line_y, 13, palette.on_surface,
+                               std::max(1.0F, width - 32));
+            line_y += 18;
+        }
+        core::AccessibleNode node;
+        node.id = "settings-group:" + id;
+        node.name = label;
+        node.role = core::AccessibleRole::button;
+        node.focused = matches_focus(control);
+        node.checkable = true;
+        node.checked = expanded;
+        renderer.accessible(std::move(node), rect);
+        controls_.push_back(std::move(control));
+        y += height + 6;
+        return expanded;
+    };
+    const auto field = [&](std::string_view label, ui::TextField& input, bool mutates = true,
+                           std::optional<std::size_t> argument = {}) {
         input.set_accessible_name(std::string{label});
-        text(label);
-        const ui::Rect rect{x, y, width, 32};
-        const bool focused = focus_ == static_cast<int>(controls_.size());
+        const bool aligned = width >= 540 && &input != &search_;
+        const float label_width = aligned ? std::min(180.0F, width * 0.28F) : 0;
+        if (aligned)
+            renderer.draw_text(label, x, y + 8, 13, palette.on_surface, label_width - 12);
+        else
+            text(label);
+        const float remove_width = argument ? 32.0F : 0;
+        const ui::Rect rect{x + label_width, y,
+                            std::max(1.0F, width - label_width - remove_width - (argument ? 8 : 0)),
+                            32};
+        Control control{rect, Operation::field, &input, {}, 0, mutates};
+        const bool focused = matches_focus(control);
         input.draw(renderer, rect, 13,
                    {palette.surface_container_low, focused ? palette.on_surface : palette.outline,
                     palette.on_surface,
@@ -679,25 +781,96 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
                     focused ? palette.on_surface : palette.on_surface.with_alpha(0)});
         if (mutates && !editable_)
             renderer.fill_rect(rect, palette.surface.with_alpha(0.45F));
-        controls_.push_back({rect, Operation::field, &input, {}, 0, mutates});
+        controls_.push_back(std::move(control));
+        if (argument) {
+            const ui::Rect remove{x + width - remove_width, y, remove_width, 32};
+            // The compact glyph has the full action name in the semantic tree.
+            Control remove_control{remove, Operation::remove_argument, nullptr, {}, *argument,
+                                   true};
+            core::AccessibleNode node;
+            node.id = "remove-argument:" + std::to_string(*argument);
+            node.name = i18n::tr("Remove argument");
+            node.role = core::AccessibleRole::button;
+            node.focused = matches_focus(remove_control);
+            node.enabled = editable_;
+            renderer.accessible(std::move(node), remove);
+            renderer.draw_box(remove, {.fill = palette.surface_container_highest,
+                                       .radius = ui::Corners::all(4),
+                                       .border_width = matches_focus(remove_control) ? 1.0F : 0.0F,
+                                       .border = palette.primary});
+            renderer.draw_text("−", remove.x + 10, remove.y + 5, 16, palette.on_surface);
+            if (!editable_)
+                renderer.fill_rect(remove, palette.surface.with_alpha(0.45F));
+            controls_.push_back(std::move(remove_control));
+        }
+        y += 42;
+    };
+    const auto chord = [&](const std::string& target) {
+        if (const auto found = config_.keybindings.find(target); found != config_.keybindings.end())
+            return found->second.empty() ? std::string{i18n::tr("Disabled")}
+                                         : i18n::keys(found->second);
+        if (const auto entry = default_shortcut(target); entry && !entry->keys.empty())
+            return i18n::keys(entry->keys);
+        return std::string{"—"};
+    };
+    const auto row = [&](std::string_view label, std::string_view value, std::string_view detail,
+                         Operation operation, const std::string& target) {
+        const bool narrow = width < 420;
+        const float row_height = narrow || !detail.empty() ? 50.0F : 32.0F;
+        const ui::Rect rect{x, y, width, row_height};
+        Control control{rect, operation, nullptr, target, 0, false};
+        if (matches_focus(control))
+            renderer.draw_box(rect, {.fill = palette.surface_container_highest,
+                                     .radius = {},
+                                     .border_width = 1,
+                                     .border = palette.primary});
+        const float key_width = std::min(210.0F, width * 0.33F);
+        renderer.draw_text(value, x + 24, y + 7, 13, accent,
+                           std::max(1.0F, narrow ? width - 36 : key_width - 36));
+        renderer.draw_text(label, narrow ? x + 24 : x + key_width, y + (narrow ? 28 : 7), 13,
+                           palette.on_surface,
+                           std::max(1.0F, narrow ? width - 36 : width - key_width - 12));
+        if (!narrow && !detail.empty())
+            renderer.draw_text(detail, x + key_width, y + 28, 11, palette.on_surface_variant,
+                               std::max(1.0F, width - key_width - 12));
+        core::AccessibleNode node;
+        node.id = "settings-row:" + target;
+        node.name = label;
+        node.description = std::string{value} + (detail.empty() ? "" : " · " + std::string{detail});
+        node.role = core::AccessibleRole::list_item;
+        node.focused = matches_focus(control);
+        renderer.accessible(std::move(node), rect);
+        controls_.push_back(std::move(control));
+        y += row_height;
+    };
+    const auto buttons = [&](const std::vector<std::pair<std::string_view, Operation>>& items,
+                             const std::string& target = "") {
+        float left = x;
+        for (const auto& [label, operation] : items) {
+            const float measured =
+                renderer.fonts().layout(label, 13, renderer.scale()).width / renderer.scale() + 28;
+            const float size = std::min(width, std::max(100.0F, measured));
+            if (left != x && left + size > x + width) {
+                left = x;
+                y += 40;
+            }
+            button_at(label, {left, y, size, 32}, operation, target);
+            left += size + 8;
+        }
         y += 40;
     };
     const auto binding = [&](const std::string& target) {
-        const auto found = config_.keybindings.find(target);
-        const std::string value = found == config_.keybindings.end()
-                                      ? std::string{i18n::tr("Default")}
-                                  : found->second.empty() ? std::string{i18n::tr("Disabled")}
-                                                          : i18n::keys(found->second);
-        text(i18n::trf("Shortcut: {}", value));
-        button(i18n::tr("Record shortcut"), Operation::record, target);
-        button(i18n::tr("Reset shortcut to default"), Operation::reset, target);
-        button(i18n::tr("Disable shortcut"), Operation::disable, target);
+        text(i18n::trf("Shortcut: {}", chord(target)));
+        buttons({{i18n::tr("Record shortcut"), Operation::record},
+                 {i18n::tr("Reset shortcut to default"), Operation::reset},
+                 {i18n::tr("Disable shortcut"), Operation::disable}},
+                target);
+        y += 8;
     };
-    if (!recording_.empty()) {
+    if (!recording_.empty())
         text(i18n::tr("Press a shortcut now. Escape cancels."));
-    } else if (!pending_chord_.empty()) {
+    else if (!pending_chord_.empty())
         text(i18n::trf("Not saved: {}", i18n::keys(pending_chord_)));
-    }
     if (!error_.empty())
         text(error_);
     if (has_drafts())
@@ -707,28 +880,68 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
             if (problem != error_)
                 text(problem);
         if (!target_.empty()) {
-            text(target_);
+            auto label = target_;
+            for (const auto& [name, candidate] : commands())
+                if (name == target_)
+                    label = candidate;
+            if (const auto entry = default_shortcut(target_);
+                entry && !target_.starts_with("action:"))
+                label = i18n::tr(entry->action);
+            text(label);
+            y += 8;
             binding(target_);
             button(i18n::tr("Back to commands"), Operation::back, {}, false);
         } else {
             field(i18n::tr("Search commands"), search_, false);
-            for (const auto& [name, label] : commands(search_.text()))
-                button(label, Operation::select_command, name, false);
-            field(i18n::tr("Folder shortcut path"), folder_);
-            text(i18n::tr("Use an absolute path or ~/folder"), true);
-            button(i18n::tr("Record folder shortcut"), Operation::add_folder);
+
+            struct CommandRow {
+                std::string target, label, group;
+            };
+
+            std::vector<CommandRow> rows;
+            std::vector<std::string> groups;
+            for (const auto& [name, label] : commands(search_.text())) {
+                const auto entry = default_shortcut(name);
+                std::string category = entry                     ? std::string{entry->group}
+                                       : name.starts_with("go:") ? "Folders"
+                                                                 : "Actions";
+                if (std::ranges::find(groups, category) == groups.end())
+                    groups.push_back(category);
+                rows.push_back({name,
+                                entry && !name.starts_with("action:")
+                                    ? std::string{i18n::tr(entry->action)}
+                                    : label,
+                                std::move(category)});
+            }
+            for (const auto& category : groups)
+                if (group("shortcuts:" + category, i18n::tr(category), false))
+                    for (const auto& item : rows)
+                        if (item.group == category)
+                            row(item.label, chord(item.target), {}, Operation::select_command,
+                                item.target);
+            if (group("folder-shortcuts", i18n::tr("Folder shortcut path"), false)) {
+                field(i18n::tr("Folder shortcut path"), folder_);
+                text(i18n::tr("Use an absolute path or ~/folder"), true);
+                button(i18n::tr("Record folder shortcut"), Operation::add_folder);
+            }
         }
     } else if (!action_) {
         field(i18n::tr("Search actions"), search_, false);
         button(i18n::tr("Add action"), Operation::add_action);
         const auto needle = lower(search_.text());
-        for (const auto& action : config_.actions) {
-            if (lower(action.label).find(needle) == std::string::npos &&
-                lower(action.id).find(needle) == std::string::npos)
+        for (const bool external : {true, false}) {
+            std::vector<const core::Action*> rows;
+            for (const auto& action : config_.actions)
+                if ((action.kind == core::Action::Kind::external) == external &&
+                    (lower(action.label).find(needle) != std::string::npos ||
+                     lower(action.id).find(needle) != std::string::npos))
+                    rows.push_back(&action);
+            if (rows.empty() || !group(external ? "program-actions" : "builtin-actions",
+                                       external ? i18n::tr("Program") : i18n::tr("Built-in"), true))
                 continue;
-            button(action.label + " · " + action.id, Operation::select_action, action.id, false);
-            if (!action.enabled)
-                text(i18n::tr("Disabled"), true);
+            for (const auto* action : rows)
+                row(action->label, action->enabled ? i18n::tr("Enabled") : i18n::tr("Disabled"),
+                    action->id, Operation::select_action, action->id);
         }
         if (config_.actions.empty())
             text(i18n::tr("No custom actions yet"), true);
@@ -739,64 +952,81 @@ void SettingsEditors::draw(ui::Renderer& renderer, const ui::Rect& body,
         else
             text(i18n::trf("Action ID: {}", action_->id), true);
         field(i18n::tr("Menu label"), label_);
-        if (action_->kind == core::Action::Kind::external) {
+        if (action_->kind == core::Action::Kind::external &&
+            group("action-program", i18n::tr("Program and arguments"), true)) {
             field(i18n::tr("Program"), program_);
             text(i18n::tr("Arguments are literal values, without shell expansion."), true);
-            for (std::size_t i = 0; i < arguments_.size(); ++i) {
-                field(i18n::trf("Argument {}", i + 1), arguments_[i]);
-                button(i18n::tr("Remove argument"), Operation::remove_argument, {}, true, i);
-            }
+            for (std::size_t i = 0; i < arguments_.size(); ++i)
+                field(i18n::trf("Argument {}", i + 1), arguments_[i], true, i);
             button(i18n::tr("Add argument"), Operation::add_argument);
-            text(i18n::tr("Use each placeholder as a whole argument:"), true);
-            text(i18n::tr("{file}: one selected file"), true);
-            text(i18n::tr("{files}: one or more selected files"), true);
-            text(i18n::tr("{directory}: the current folder"), true);
-            text(i18n::tr("{destination}: the chosen destination"), true);
+            if (group("argument-help", i18n::tr("Use each placeholder as a whole argument:"),
+                      false)) {
+                text(i18n::tr("{file}: one selected file"), true);
+                text(i18n::tr("{files}: one or more selected files"), true);
+                text(i18n::tr("{directory}: the current folder"), true);
+                text(i18n::tr("{destination}: the chosen destination"), true);
+            }
         }
-        std::string_view selection;
-        switch (action_->selection) {
-            case core::Action::Selection::one:
-                selection = i18n::tr("Selection: one item");
-                break;
-            case core::Action::Selection::many:
-                selection = i18n::tr("Selection: one or more items");
-                break;
-            case core::Action::Selection::background:
-                selection = i18n::tr("Selection: folder background");
-                break;
-            case core::Action::Selection::any:
-                selection = i18n::tr("Selection: any");
-                break;
+        if (group("action-availability", i18n::tr("Availability"), true)) {
+            std::string_view selection;
+            switch (action_->selection) {
+                case core::Action::Selection::one:
+                    selection = i18n::tr("Selection: one item");
+                    break;
+                case core::Action::Selection::many:
+                    selection = i18n::tr("Selection: one or more items");
+                    break;
+                case core::Action::Selection::background:
+                    selection = i18n::tr("Selection: folder background");
+                    break;
+                case core::Action::Selection::any:
+                    selection = i18n::tr("Selection: any");
+                    break;
+            }
+            std::vector<std::pair<std::string_view, Operation>> availability{
+                {selection, Operation::selection}};
+            if (action_->kind == core::Action::Kind::external) {
+                const auto destination = action_->destination;
+                availability.emplace_back(destination == core::Action::Destination::none
+                                              ? i18n::tr("Destination picker: none")
+                                          : destination == core::Action::Destination::file
+                                              ? i18n::tr("Destination picker: file")
+                                              : i18n::tr("Destination picker: folder"),
+                                          Operation::destination);
+            }
+            availability.emplace_back(action_->enabled ? i18n::tr("Enabled") : i18n::tr("Disabled"),
+                                      Operation::enabled);
+            buttons(availability);
         }
-        button(selection, Operation::selection);
-        if (action_->kind == core::Action::Kind::external) {
-            const auto destination = action_->destination;
-            button(destination == core::Action::Destination::none
-                       ? i18n::tr("Destination picker: none")
-                   : destination == core::Action::Destination::file
-                       ? i18n::tr("Destination picker: file")
-                       : i18n::tr("Destination picker: folder"),
-                   Operation::destination);
-        }
-        button(action_->enabled ? i18n::tr("Enabled") : i18n::tr("Disabled"), Operation::enabled);
-        if (!fresh_)
-            binding("action:" + action_->id);
-        else
+        if (!fresh_) {
+            if (group("action-shortcut", i18n::tr("Keyboard shortcuts"), true))
+                binding("action:" + action_->id);
+        } else {
             text(i18n::tr("Complete the ID, label and program to save this action."), true);
+        }
     }
+    focus_ = -1;
     if (focused_control) {
-        const auto found = std::ranges::find_if(controls_, [&](const Control& control) {
-            return control.operation == focused_control->operation &&
-                   control.field == focused_control->field &&
-                   control.value == focused_control->value &&
-                   control.index == focused_control->index;
-        });
-        focus_ = found == controls_.end()
-                     ? -1
-                     : static_cast<int>(std::distance(controls_.begin(), found));
+        const auto found = std::ranges::find_if(controls_, matches_focus);
+        if (found != controls_.end())
+            focus_ = static_cast<int>(std::distance(controls_.begin(), found));
     }
-    const float content = y + scroll_.offset() - body.y;
+    const float content = y + drawn_offset - body.y;
     scroll_.set_extent(content, body.height);
+    if (focus_ >= 0 && focused_control) {
+        const auto& rect = controls_[static_cast<std::size_t>(focus_)].bounds;
+        const float top = rect.y - body.y + drawn_offset;
+        const float previous_top = focused_control->bounds.y - previous_body.y + layout_offset_;
+        const bool moved = top != previous_top || rect.height != focused_control->bounds.height ||
+                           previous_body.width != body.width || previous_body.height != body.height;
+        if (moved && top < scroll_.offset())
+            scroll_.jump_to(top);
+        else if (moved && top + rect.height > scroll_.offset() + body.height)
+            scroll_.jump_to(top + rect.height - body.height);
+    }
+    layout_offset_ = drawn_offset;
+    if (scroll_.offset() != drawn_offset)
+        redraw_();
     renderer.pop_clip();
     renderer.fill_rect(scrollbar_.thumb(scroll_), palette.outline);
 }

@@ -1,8 +1,10 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "rummage/core/config.hpp"
@@ -69,6 +71,7 @@ public:
 private:
     enum class Operation {
         field,
+        toggle_group,
         select_command,
         record,
         reset,
@@ -117,6 +120,10 @@ private:
     ui::TextField search_, folder_, id_, label_, program_;
     std::vector<ui::TextField> arguments_;
     std::vector<Control> controls_;
+    std::map<std::string, bool> expanded_groups_;
+    std::unordered_set<std::string> collapsed_search_groups_;
+    std::string shown_query_;
+    float layout_offset_{0};
     int focus_{-1};
     ui::Rect body_;
     ui::Scroller scroll_;

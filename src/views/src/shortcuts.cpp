@@ -1139,6 +1139,12 @@ std::vector<std::string> configure_shortcuts(const std::map<std::string, std::st
     return errors;
 }
 
+std::optional<Shortcut> default_shortcut(std::string_view target) {
+    if (const auto index = binding_index(target))
+        return kShortcuts[*index];
+    return std::nullopt;
+}
+
 std::vector<std::pair<std::string, std::string>> binding_settings() {
     std::vector<std::pair<std::string, std::string>> result;
     for (const auto* name : {"edit_path",

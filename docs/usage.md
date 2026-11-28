@@ -272,6 +272,14 @@ commands and preview/sidebar visibility. One shared **Settings** cog sits at the
 right beside shortcut help; Settings also remains in the View menu. Pane commands also
 remain in the right-click menu and command palette, with configurable shortcuts.
 
+**Settings → Keyboard shortcuts** groups commands like the shortcut help: expand a
+heading to compare current keys and commands, then select a row to record, reset or
+disable its binding. Tab moves through controls; Enter or Space toggles a focused
+heading, and Left/Right collapses or expands it. Search reveals matching groups
+without changing their expansion state from before the search. **Settings → Actions** uses the same
+grouped layout, with argument removal beside each argument and form sections that
+can be collapsed while editing.
+
 In **Settings → Appearance**, set **Preview placement** to **Below Places** to
 share the sidebar with the active pane's preview. Drag the horizontal divider to
 adjust the space; double-click to reset it. Places and preview scroll independently,

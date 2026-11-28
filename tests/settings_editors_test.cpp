@@ -1,5 +1,6 @@
 #include "rummage/views/settings_editors.hpp"
 
+#include <algorithm>
 #include <array>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -263,15 +264,18 @@ argv = ["tool", "{file}"]
     CHECK(fixture.editor.copy_selection(true) == "Inspect");
     draw();
     CHECK(fixture.editor.has_drafts());
-    REQUIRE(tab());  // program, even though a new diagnostic/discard row appeared
+    REQUIRE(tab());  // program group, even though a new diagnostic/discard row appeared
+    REQUIRE(tab());  // program
     all();
     CHECK(fixture.editor.copy_selection() == "tool");
     CHECK(fixture.writes == 0);
+    REQUIRE(tab(true));  // program group
     REQUIRE(tab(true));  // label
     all();
     fixture.editor.paste("New label");
     draw();
     REQUIRE(tab());  // commit complete edit; retain focus when draft row disappears
+    REQUIRE(tab());  // program
     all();
     CHECK(fixture.editor.copy_selection() == "tool");
     CHECK(fixture.writes == 1);
@@ -319,6 +323,7 @@ TEST_CASE("settings editor saves a new action only after its required fields are
     CHECK(fixture.writes == 0);
     fixture.editor.paste("New action");
     draw();
+    tab();  // program group
     tab();  // program
     CHECK(fixture.writes == 0);
     fixture.editor.paste("literal-program");
@@ -340,13 +345,16 @@ TEST_CASE("settings editor back navigation cancels recording before command sear
     EditorFixture fixture;
     fixture.editor.focus_shortcut("copy");
     fixture.editor.record_shortcut("copy");
+    ui::AccessibleFrame frame;
     renderer.begin_frame(400, 500, 1, {});
     fixture.editor.draw(renderer, {0, 0, 400, 500}, {});
     renderer.end_frame();
-    // Prompt + target + current shortcut, then Record / Reset / Disable / Back.
+    const auto back =
+        std::ranges::find(frame.nodes, "Back to commands", &core::AccessibleNode::name);
+    REQUIRE(back != frame.nodes.end());
     fixture.editor.pointer({.kind = ui::PointerEvent::Kind::press,
-                            .x = 30,
-                            .y = 205,
+                            .x = static_cast<float>(back->bounds.x + back->bounds.width / 2),
+                            .y = static_cast<float>(back->bounds.y + back->bounds.height / 2),
                             .button = ui::PointerButton::left});
     CHECK_FALSE(fixture.editor.recording());
     CHECK(fixture.writes == 0);
@@ -376,8 +384,164 @@ TEST_CASE("settings editor selected text retains contrast with explicit light ac
     fixture.editor.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
     draw();
     std::array<unsigned char, 4> pixel{};
-    glReadPixels(14, 459, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+    REQUIRE(fixture.editor.input_field() != nullptr);
+    const auto bounds = fixture.editor.input_field()->bounds();
+    glReadPixels(static_cast<int>(bounds.x + 7), 500 - static_cast<int>(bounds.y + 16), 1, 1,
+                 GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
     const ui::Color selected{static_cast<float>(pixel[0]) / 255, static_cast<float>(pixel[1]) / 255,
                              static_cast<float>(pixel[2]) / 255, 1};
     CHECK(theme::contrast(selected, palette.on_surface) >= 4.45F);  // 8-bit rounding tolerance.
+}
+
+TEST_CASE("settings editor groups shortcuts without changing active bindings") {
+    ui::Offscreen surface{900, 750};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    REQUIRE(views::configure_shortcuts({}).empty());
+    const auto original = views::keys_for(views::Command::copy);
+    EditorFixture fixture{"[keybindings]\ncopy = \"Super+F12\"\n"};
+    std::vector<core::AccessibleNode> nodes;
+    const auto draw = [&] {
+        ui::AccessibleFrame frame;
+        renderer.begin_frame(900, 750, 1, {});
+        fixture.editor.draw(renderer, {0, 0, 900, 750}, {});
+        renderer.end_frame();
+        nodes = frame.nodes;
+    };
+    const auto find = [&](std::string_view id) {
+        return std::ranges::find(nodes, id, &core::AccessibleNode::id);
+    };
+    draw();
+    CHECK(find("settings-row:copy") == nodes.end());
+    auto files = find("settings-group:shortcuts:Files");
+    REQUIRE(files != nodes.end());
+    CHECK_FALSE(files->checked);
+    fixture.editor.pointer({.kind = ui::PointerEvent::Kind::press,
+                            .x = static_cast<float>(files->bounds.x + 40),
+                            .y = static_cast<float>(files->bounds.y + 15),
+                            .button = ui::PointerButton::left});
+    draw();
+    auto copy = find("settings-row:copy");
+    REQUIRE(copy != nodes.end());
+    CHECK(copy->description == "Super+F12");
+    CHECK(views::keys_for(views::Command::copy) == original);
+    CHECK(fixture.writes == 0);
+    REQUIRE(fixture.editor.key({.keysym = XKB_KEY_Left, .text = {}}));
+    draw();
+    CHECK(find("settings-row:copy") == nodes.end());
+
+    // Search temporarily opens matching groups, without replacing the saved expansion state.
+    fixture.editor.enter_focus();
+    fixture.editor.paste("copy");
+    draw();
+    REQUIRE(find("settings-row:copy") != nodes.end());
+    fixture.editor.key({.keysym = XKB_KEY_a, .text = {}, .modifiers = {.ctrl = true}});
+    CHECK(fixture.editor.copy_selection(true) == "copy");
+    draw();
+    CHECK(find("settings-row:copy") == nodes.end());
+    CHECK(fixture.writes == 0);
+
+    const auto general = find("settings-group:shortcuts:General");
+    REQUIRE(general != nodes.end());
+    fixture.editor.pointer({.kind = ui::PointerEvent::Kind::press,
+                            .x = static_cast<float>(general->bounds.x + 40),
+                            .y = static_cast<float>(general->bounds.y + 15),
+                            .button = ui::PointerButton::left});
+    draw();
+    fixture.editor.pointer(
+        {.kind = ui::PointerEvent::Kind::scroll, .x = 300, .y = 400, .wheel_y = 20});
+    draw();
+    CHECK(find("settings-group:shortcuts:General") == nodes.end());
+    // Wheel scrolling must not jump back to the still-focused group header.
+    draw();
+    CHECK(find("settings-group:shortcuts:General") == nodes.end());
+}
+
+TEST_CASE("settings editor aligns action arguments and removes only the chosen argument") {
+    ui::Offscreen surface{900, 750};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    EditorFixture fixture{R"([[actions]]
+id = "inspect"
+label = "Inspect"
+argv = ["tool", "{file}", "literal argument"]
+)"};
+    fixture.editor.set_page(views::SettingsEditors::Page::actions);
+    std::vector<core::AccessibleNode> nodes;
+    const auto draw = [&] {
+        ui::AccessibleFrame frame;
+        renderer.begin_frame(900, 750, 1, {});
+        fixture.editor.draw(renderer, {0, 0, 900, 750}, {});
+        renderer.end_frame();
+        nodes = frame.nodes;
+    };
+    const auto find = [&](std::string_view id) {
+        return std::ranges::find(nodes, id, &core::AccessibleNode::id);
+    };
+    draw();
+    REQUIRE(find("settings-row:inspect") != nodes.end());
+    CHECK(find("settings-row:inspect")->description == "Enabled · inspect");
+    REQUIRE(fixture.editor.select_action("inspect"));
+    draw();
+    const auto argument = std::ranges::find_if(nodes, [](const auto& node) {
+        return node.name == "Argument 1" && node.role == core::AccessibleRole::entry;
+    });
+    REQUIRE(argument != nodes.end());
+    const auto remove = find("remove-argument:0");
+    REQUIRE(remove != nodes.end());
+    CHECK(argument->bounds.y == remove->bounds.y);
+    CHECK(argument->bounds.x + argument->bounds.width < remove->bounds.x);
+    CHECK(remove->bounds.x + remove->bounds.width <= 900);
+    fixture.editor.pointer({.kind = ui::PointerEvent::Kind::press,
+                            .x = static_cast<float>(remove->bounds.x + 15),
+                            .y = static_cast<float>(remove->bounds.y + 15),
+                            .button = ui::PointerButton::left});
+    const auto saved = core::parse_config(fixture.text, "test");
+    REQUIRE(saved.config.actions.size() == 1);
+    CHECK(saved.config.actions.front().argv ==
+          std::vector<std::string>{"tool", "literal argument"});
+    CHECK(fixture.writes == 1);
+}
+
+TEST_CASE("settings editor narrow action form reveals complete shortcut buttons by keyboard") {
+    ui::Offscreen surface{320, 260};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    EditorFixture fixture{R"([[actions]]
+id = "inspect"
+label = "Inspect"
+argv = ["tool", "{file}"]
+)"};
+    fixture.editor.set_page(views::SettingsEditors::Page::actions);
+    REQUIRE(fixture.editor.select_action("inspect"));
+    std::vector<core::AccessibleNode> nodes;
+    const auto draw = [&] {
+        ui::AccessibleFrame frame;
+        renderer.begin_frame(320, 260, 1, {});
+        fixture.editor.draw(renderer, {0, 0, 320, 260}, {});
+        renderer.end_frame();
+        nodes = frame.nodes;
+    };
+    draw();
+    fixture.editor.enter_focus();
+    bool reached = false;
+    for (int step = 0; step < 30; ++step) {
+        draw();
+        draw();  // layout changes can request a second frame after adjusting the scroll extent
+        const auto disable = std::ranges::find_if(nodes, [](const auto& node) {
+            return node.name == "Disable shortcut" && node.focused;
+        });
+        if (disable != nodes.end()) {
+            CHECK(disable->bounds.height == 32);
+            CHECK(disable->bounds.y >= 0);
+            CHECK(disable->bounds.y + disable->bounds.height <= 260);
+            REQUIRE(fixture.editor.key({.keysym = XKB_KEY_Return, .text = {}}));
+            reached = true;
+            break;
+        }
+        REQUIRE(fixture.editor.key({.keysym = XKB_KEY_Tab, .text = {}}));
+    }
+    REQUIRE(reached);
+    CHECK(fixture.writes == 1);
+    CHECK(core::parse_config(fixture.text, "test").config.keybindings.at("action:inspect").empty());
 }

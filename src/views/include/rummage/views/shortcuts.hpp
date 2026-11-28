@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -135,6 +136,8 @@ struct Shortcut {
     bool apply = true);
 // Configurable built-in names and their user-facing labels.
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> binding_settings();
+// Stable presentation metadata, independent of current overrides or validation errors.
+[[nodiscard]] std::optional<Shortcut> default_shortcut(std::string_view target);
 [[nodiscard]] ui::KeyEvent view_key_event(const ui::KeyEvent& event);
 
 // Every shortcut, in the overlay's order. The browser runs its commands from here and passes a
