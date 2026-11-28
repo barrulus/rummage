@@ -151,7 +151,8 @@ Folder::~Folder() {
     *alive_ = false;
     media_job_.cancel();
     status_job_.cancel();
-    status_ticker_->remove(status_subscription_);
+    if (status_ticker_)
+        status_ticker_->remove(status_subscription_);
 }
 
 void Folder::notify_visible_range(std::size_t first, std::size_t last_exclusive) const {
