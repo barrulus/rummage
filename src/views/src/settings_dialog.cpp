@@ -26,6 +26,19 @@ constexpr std::array kSections{
 constexpr std::array kMenuContexts{"Common layout", "Files and folders", "Folder background",
                                    "Trash", "Sidebar"};
 constexpr int kEffects = 5, kShortcuts = 2, kActions = 3;
+
+// Existing shortcut errors belong to Keyboard shortcuts. They must not reject an
+// unrelated edit; changes to bindings/actions still validate the complete shortcut set.
+bool edits_shortcuts(const std::vector<core::ConfigEdit>& edits, const core::Config& before,
+                     const core::Config& after) {
+    return before.keybindings != after.keybindings ||
+           before.actions.size() != after.actions.size() ||
+           std::ranges::any_of(edits, [](const core::ConfigEdit& edit) {
+               return edit.table == "keybindings" || edit.table == "actions" ||
+                      edit.table.starts_with("actions[");
+           });
+}
+
 constexpr std::size_t kBackgroundSlot = core::kMotionEvents.size();
 constexpr std::size_t kSelectionSlot = kBackgroundSlot + 1;
 constexpr std::array kEffectSlots{
@@ -380,10 +393,12 @@ std::string SettingsDialog::apply_edits(const std::vector<core::ConfigEdit>& edi
     auto parsed = core::parse_config(changed.text, path_.string());
     if (!parsed.validation_errors.empty())
         return parsed.validation_errors.front();
-    const auto problems =
-        configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
-    if (!problems.empty())
-        return problems.front();
+    if (edits_shortcuts(edits, accepted_config_.config, parsed.config)) {
+        const auto problems =
+            configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
+        if (!problems.empty())
+            return problems.front();
+    }
     staged_ = std::move(changed.text);
     accepted_config_ = std::move(parsed);
     refresh_values(edits);
@@ -711,7 +726,7 @@ void SettingsDialog::commit(std::size_t index) {
         const auto parsed = core::parse_config(changed_text.text, path_.string());
         if (!parsed.validation_errors.empty())
             problem = parsed.validation_errors.front();
-        else {
+        else if (edits_shortcuts(edits, accepted_config_.config, parsed.config)) {
             const auto problems =
                 configure_shortcuts(parsed.config.keybindings, parsed.config.actions, false);
             if (!problems.empty())

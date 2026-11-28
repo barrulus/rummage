@@ -530,7 +530,8 @@ TEST_CASE("settings: ignored options preserve working pages and survive edits") 
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     REQUIRE(f.dialog.error().empty());
     const auto text = core::read_text_file(f.path).text;
-    CHECK(text.find("future_appearance_option = true # keep for another version") != std::string::npos);
+    CHECK(text.find("future_appearance_option = true # keep for another version") !=
+          std::string::npos);
     CHECK(text.find("custom_option = 'preserve me'") != std::string::npos);
     CHECK(core::load_config(f.path).config.appearance.color_scheme == "light");
     CHECK(f.applied > 0);
@@ -1279,6 +1280,85 @@ TEST_CASE("settings: the full translated reset button is clickable") {
                       .button = ui::PointerButton::left});
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(core::load_config(f.path).config.startup.mode == core::Config{}.startup.mode);
+}
+
+TEST_CASE("settings: existing shortcut conflicts do not block appearance edits or resets") {
+    Fixture f;
+    REQUIRE_FALSE(
+        core::write_file_atomically(f.path,
+                                    "[keybindings]\nnew_folder = 'Ctrl+n'\n[appearance]\n"
+                                    "background_opacity = 0.8\ntransparent_settings = true\n"));
+    f.open();
+    const auto original = core::load_config(f.path);
+    REQUIRE(original.validation_errors.empty());
+    REQUIRE_FALSE(views::configure_shortcuts(original.config.keybindings, {}, false).empty());
+
+    // Text-field commit must not attach a pre-existing shortcut error to Appearance.
+    REQUIRE(f.dialog.edit("appearance", "background_opacity", "0.4"));
+    REQUIRE(f.dialog.edit("appearance", "transparent_settings", "false"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    CHECK(core::load_config(f.path).config.appearance.background_opacity == 0.4F);
+    CHECK_FALSE(core::load_config(f.path).config.appearance.transparent_settings);
+    CHECK(core::load_config(f.path).config.keybindings.at("new_folder") == "Ctrl+n");
+    if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
+        namespace ui = rummage::ui;
+        ui::Offscreen surface{960, 800};
+        ui::FontSystem fonts;
+        ui::Renderer renderer{fonts};
+        ui::IconSet icons{fonts};
+        for (const auto& [query, name] :
+             {std::pair{"appearance.background_opacity", "inherited-conflict-appearance"},
+              std::pair{"keybindings.new_folder", "inherited-conflict-keyboard"}}) {
+            f.focus(query);
+            renderer.begin_frame(960, 800, 1, {});
+            f.dialog.draw(renderer, {0, 0, 960, 800}, rummage::theme::Palette{}, icons, true);
+            renderer.end_frame();
+            std::vector<unsigned char> pixels(960 * 800 * 4);
+            glReadPixels(0, 0, 960, 800, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            std::ofstream file{std::filesystem::path{output} / (std::string{name} + ".ppm"),
+                               std::ios::binary};
+            file << "P6\n960 800\n255\n";
+            for (int y = 799; y >= 0; --y)
+                for (int x = 0; x < 960; ++x)
+                    file.write(reinterpret_cast<const char*>(pixels.data() + (y * 960 + x) * 4), 3);
+        }
+    }
+
+    // The logical-edit and reset paths must follow the same validation policy.
+    REQUIRE(f.dialog.apply_edits({{"appearance", "transparent_settings", "true"}}).empty());
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.appearance.transparent_settings);
+    REQUIRE(f.dialog.reset_setting("appearance", "background_opacity"));
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE(f.dialog.reset_setting("appearance", "transparent_settings"));
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.appearance.background_opacity == 1.0F);
+    CHECK_FALSE(core::load_config(f.path).config.appearance.transparent_settings);
+    REQUIRE(f.dialog.error().empty());
+    f.dialog.close();
+    REQUIRE_FALSE(f.dialog.is_open());
+    f.open();
+
+    // A malformed known value still fails even though shortcut validation is unrelated.
+    CHECK_FALSE(f.dialog.apply_edits({{"appearance", "background_opacity", "'invalid'"}}).empty());
+    CHECK(core::load_config(f.path).config.appearance.background_opacity == 1.0F);
+
+    // Editing shortcuts still rejects conflicts, then permits correcting the old one.
+    CHECK_FALSE(f.dialog.apply_edits({{"keybindings", "new_folder", "'Ctrl+q'"}}).empty());
+    CHECK(core::load_config(f.path).config.keybindings.at("new_folder") == "Ctrl+n");
+    REQUIRE(f.dialog.edit("keybindings", "new_folder", "Ctrl+q"));
+    f.dialog.save();
+    CHECK(f.dialog.error().find("conflicts") != std::string::npos);
+    CHECK(core::load_config(f.path).config.keybindings.at("new_folder") == "Ctrl+n");
+    REQUIRE(f.dialog.edit("keybindings", "new_folder", "Ctrl+Alt+n"));
+    f.dialog.save();
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    REQUIRE_MESSAGE(f.dialog.error().empty(), f.dialog.error());
+    CHECK(core::load_config(f.path).config.keybindings.at("new_folder") == "Ctrl+Alt+n");
+    REQUIRE(views::configure_shortcuts(core::load_config(f.path).config.keybindings, {}, false)
+                .empty());
 }
 
 TEST_CASE("settings: transparency can be toggled, persisted, and reset") {

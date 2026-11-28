@@ -37,6 +37,11 @@ public:
 
     [[nodiscard]] const std::string& error() const noexcept { return error_; }
 
+    // Problems already present in the accepted config are informational, not unsaved edits.
+    [[nodiscard]] const std::vector<std::string>& shortcut_problems() const noexcept {
+        return shortcut_problems_;
+    }
+
     // Model operations are also used by keyboard, pointer and regression tests.
     [[nodiscard]] std::vector<std::pair<std::string, std::string>> commands(
         std::string_view query = {}) const;
@@ -99,6 +104,7 @@ private:
     std::string recording_;
     std::string pending_chord_;
     std::string error_;
+    std::vector<std::string> shortcut_problems_;
     std::optional<core::Action> action_;
     bool fresh_{false};
     ui::TextField search_, folder_, id_, label_, program_;
