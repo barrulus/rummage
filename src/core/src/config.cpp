@@ -539,7 +539,11 @@ void read_document(const toml::table& root, Reader& reader, ConfigResult& result
         } else if (key.str() == "appearance") {
             reader.read_section(
                 node, "appearance",
-                {{"background_opacity",
+                {{"transparent_settings",
+                  [&](const toml::node& value, const std::string& path) {
+                      reader.read_bool(value, path, config.appearance.transparent_settings);
+                  }},
+                 {"background_opacity",
                   [&](const toml::node& value, const std::string& path) {
                       reader.read_opacity(value, path, config.appearance.background_opacity);
                   }},

@@ -514,7 +514,7 @@ TEST_CASE("settings: invalid fields and incomplete drafts do not block independe
 TEST_CASE("settings: ignored options preserve working pages and survive edits") {
     Fixture f;
     const std::string original =
-        "[appearance]\ntransparent_settings = true # keep for another version\n"
+        "[appearance]\nfuture_appearance_option = true # keep for another version\n"
         "color_scheme = 'dark'\n[future_settings]\ncustom_option = 'preserve me'\n";
     REQUIRE_FALSE(core::write_file_atomically(f.path, original));
     f.open();
@@ -530,7 +530,7 @@ TEST_CASE("settings: ignored options preserve working pages and survive edits") 
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     REQUIRE(f.dialog.error().empty());
     const auto text = core::read_text_file(f.path).text;
-    CHECK(text.find("transparent_settings = true # keep for another version") != std::string::npos);
+    CHECK(text.find("future_appearance_option = true # keep for another version") != std::string::npos);
     CHECK(text.find("custom_option = 'preserve me'") != std::string::npos);
     CHECK(core::load_config(f.path).config.appearance.color_scheme == "light");
     CHECK(f.applied > 0);
@@ -543,7 +543,7 @@ TEST_CASE("settings: ignored options preserve working pages and survive edits") 
 TEST_CASE("settings: ignored options do not hide invalid known settings") {
     Fixture f;
     const std::string original =
-        "[appearance]\ntransparent_settings = true\n[font]\nsize = 'broken'\n";
+        "[appearance]\nfuture_appearance_option = true\n[font]\nsize = 'broken'\n";
     REQUIRE_FALSE(core::write_file_atomically(f.path, original));
     f.dialog.open(f.path, [] {}, [](const core::ConfigResult&) {});
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
@@ -612,7 +612,7 @@ TEST_CASE("settings: translated compact navigation preserves keyboard editing an
     rummage::i18n::set_language("de");
     Fixture f;
     REQUIRE_FALSE(core::write_file_atomically(
-        f.path, "[appearance]\ntransparent_settings = true # another version's option\n"));
+        f.path, "[appearance]\nfuture_appearance_option = true # another version's option\n"));
     f.open();
     ui::Offscreen surface{960, 700};
     ui::FontSystem fonts;
@@ -1279,4 +1279,62 @@ TEST_CASE("settings: the full translated reset button is clickable") {
                       .button = ui::PointerButton::left});
     REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
     CHECK(core::load_config(f.path).config.startup.mode == core::Config{}.startup.mode);
+}
+
+TEST_CASE("settings: transparency can be toggled, persisted, and reset") {
+    Fixture f;
+    f.open();
+    f.focus("Transparent Settings");
+    f.dialog.key({.keysym = XKB_KEY_space, .text = {}});
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK(core::load_config(f.path).config.appearance.transparent_settings);
+    REQUIRE(f.dialog.reset_setting("appearance", "transparent_settings"));
+    REQUIRE(settle(f.loop, [&] { return !f.dialog.busy(); }));
+    CHECK_FALSE(core::load_config(f.path).config.appearance.transparent_settings);
+}
+
+TEST_CASE("settings: separate window fills resized content and preserves background alpha") {
+    namespace ui = rummage::ui;
+    Fixture f;
+    f.open();
+    ui::Offscreen surface{1200, 1000};
+    ui::FontSystem fonts;
+    ui::Renderer renderer{fonts};
+    ui::IconSet icons{fonts};
+    const rummage::theme::Palette palette;
+    for (const auto size :
+         {ui::Rect{0, 0, 880, 740}, ui::Rect{0, 0, 1200, 1000}, ui::Rect{0, 0, 400, 360}}) {
+        const int width = static_cast<int>(size.width), height = static_cast<int>(size.height);
+        for (const float opacity : {1.0F, 0.4F, 0.0F}) {
+            renderer.begin_frame(width, height, 1, palette.surface, opacity);
+            f.dialog.draw(renderer, size, palette, icons, true);
+            renderer.end_frame();
+            std::vector<unsigned char> pixels(static_cast<std::size_t>(width * height * 4));
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            // All four corners belong to Settings, without a surrounding scrim or margin.
+            for (const auto point : {std::pair{2, 2}, std::pair{width - 3, 2},
+                                     std::pair{2, height - 3}, std::pair{width - 3, height - 3}}) {
+                const auto offset =
+                    static_cast<std::size_t>((point.second * width + point.first) * 4);
+                CHECK(pixels[offset + 3] == doctest::Approx(opacity * 255).epsilon(0.01));
+                CHECK(pixels[offset] ==
+                      doctest::Approx(palette.surface_container_high.r * opacity * 255)
+                          .epsilon(0.06));
+            }
+            // The Close button stays solid, even with a fully transparent background.
+            const auto button =
+                static_cast<std::size_t>((height - 1 - (height - 28)) * width + width - 50) * 4;
+            CHECK(pixels[button + 3] == 255);
+            if (const char* output = std::getenv("RUMMAGE_SETTINGS_FRAMES")) {
+                const auto name =
+                    "window-" + std::to_string(width) + "-" + std::to_string(opacity) + ".ppm";
+                std::ofstream file{std::filesystem::path{output} / name, std::ios::binary};
+                file << "P6\n" << width << ' ' << height << "\n255\n";
+                for (int y = height - 1; y >= 0; --y)
+                    for (int x = 0; x < width; ++x)
+                        file.write(
+                            reinterpret_cast<const char*>(pixels.data() + (y * width + x) * 4), 3);
+            }
+        }
+    }
 }

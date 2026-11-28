@@ -14,6 +14,11 @@ DialogFrame DialogFrame::fit(const ui::Rect& window, float width, float height,
     height = std::min(height, std::max(0.0F, window.height - 2 * margin));
     const ui::Rect card{window.x + (window.width - width) / 2,
                         window.y + (window.height - height) / 2, width, height};
+    return fill(card, footer_height);
+}
+
+DialogFrame DialogFrame::fill(const ui::Rect& card, float footer_height) {
+    const auto width = card.width, height = card.height;
     const float header = std::min(60.0F, height);
     footer_height = std::min(footer_height, height - header);
     return {card,
@@ -23,8 +28,12 @@ DialogFrame DialogFrame::fit(const ui::Rect& window, float width, float height,
 }
 
 void DialogFrame::draw(ui::Renderer& renderer, const ui::Rect& window,
-                       const theme::Palette& palette, std::string_view title) const {
-    draw_dialog_surface(renderer, window, card, palette);
+                       const theme::Palette& palette, std::string_view title,
+                       bool window_content) const {
+    if (window_content)
+        renderer.fill_background(card, palette.surface_container_high);
+    else
+        draw_dialog_surface(renderer, window, card, palette);
     renderer.draw_text(title, header.x + 20, header.y + 18, 18, palette.on_surface,
                        std::max(1.0F, header.width - 40));
     renderer.fill_rect({card.x + 1, header.bottom(), std::max(0.0F, card.width - 2), 1},

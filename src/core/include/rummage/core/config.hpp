@@ -78,6 +78,7 @@ struct Config {
     };
 
     struct Appearance {
+        bool transparent_settings{false};       // Settings follows background opacity when enabled
         float background_opacity{1.0F};         // background only; foreground content stays solid
         std::string palette_source{"auto"};     // auto, desktop, file, builtin, kde
         std::string color_scheme{"system"};     // system (selected source's mode), light, dark

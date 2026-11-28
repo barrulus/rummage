@@ -257,6 +257,9 @@ void SettingsDialog::populate(const core::ConfigResult& loaded) {
     add(1, "Theme", "appearance", "background_opacity", "Background opacity",
         "0 is transparent · 1 is opaque", std::format("{:g}", config.appearance.background_opacity),
         true, {}, Number{0, 1, 0.05F});
+    add(1, "Theme", "appearance", "transparent_settings", i18n::mark("Transparent Settings"),
+        i18n::mark("Use background opacity for Settings; text and controls stay solid"),
+        config.appearance.transparent_settings ? "true" : "false", true, {"true", "false"});
     add(1, "Layout", "appearance", "preview_position", "Preview placement",
         "Position of the docked preview", config.appearance.preview_position, false,
         {"right", "sidebar"});
@@ -1534,18 +1537,22 @@ void SettingsDialog::pointer(const ui::PointerEvent& event) {
 }
 
 void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
-                          const theme::Palette& palette, ui::IconSet& icons) {
+                          const theme::Palette& palette, ui::IconSet& icons, bool window_content) {
     if (!open_)
         return;
     refresh_editability();
     editors_.sync(accepted_config_.config, editable());
     menus_.sync(accepted_config_.config, editable());
     preview_drawn_ = false;
-    auto frame = DialogFrame::fit(bounds, 880, 740);
+    const auto fit = [&](float footer = 56.0F) {
+        return window_content ? DialogFrame::fill(bounds, footer)
+                              : DialogFrame::fit(bounds, 880, 740, footer);
+    };
+    auto frame = fit();
     const bool narrow = frame.card.width < 640;
     const bool compact_retry = narrow && valid_ && !write_error_.empty();
     if (discard_prompt_ || compact_retry)
-        frame = DialogFrame::fit(bounds, 880, 740, 104);
+        frame = fit(104);
     const std::string status = !read_only_reason_.empty() ? "Read-only configuration"
                                : !error_.empty()          ? "Changes need attention"
                                : busy_                    ? (valid_ ? "Saving…" : "Loading…")
@@ -1577,7 +1584,13 @@ void SettingsDialog::draw(ui::Renderer& renderer, const ui::Rect& bounds,
     const bool resized =
         frame.card.width != last_card_.width || frame.card.height != last_card_.height;
     last_card_ = frame.card;
-    frame.draw(renderer, bounds, palette, i18n::tr("Settings"));
+    auto surface_palette = palette;
+    const auto& appearance = accepted_config_.config.appearance;
+    // Embedded Settings blends over the browser; a separate window replaces its base
+    // background through fill_background, using the host window opacity.
+    if (!window_content && appearance.transparent_settings)
+        surface_palette.surface_container_high.a *= appearance.background_opacity;
+    frame.draw(renderer, bounds, surface_palette, i18n::tr("Settings"), window_content);
     renderer.push_clip(frame.card);
     buttons_.clear();
     const auto button = [&](std::string id, std::string_view label, ui::Rect rect,

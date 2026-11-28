@@ -228,6 +228,7 @@ void check_defaults(const Config& config) {
     CHECK(config.keyboard.wrap == defaults.keyboard.wrap);
     CHECK(config.status_bar.text_size == defaults.status_bar.text_size);
     CHECK(config.appearance.background_opacity == defaults.appearance.background_opacity);
+    CHECK(config.appearance.transparent_settings == defaults.appearance.transparent_settings);
     CHECK(config.appearance.palette_source == defaults.appearance.palette_source);
     CHECK(config.appearance.color_scheme == defaults.appearance.color_scheme);
     CHECK(config.font.family == defaults.font.family);
@@ -704,7 +705,7 @@ TEST_CASE("preview settings independently disable shipped helpers") {
 
 TEST_CASE("config validation: ignored unknown settings are nonblocking and remain reported") {
     const auto result = parse(R"([appearance]
-transparent_settings = true
+future_appearance_option = true
 [icon.places]
 future_place = "folder"
 [future_section]
@@ -712,7 +713,7 @@ new_option = true
 )");
     REQUIRE(result.from_file);
     REQUIRE(result.problems.size() == 3);
-    CHECK(contains(result.problems[0], "appearance.transparent_settings"));
+    CHECK(contains(result.problems[0], "appearance.future_appearance_option"));
     CHECK(contains(result.problems[1], "icon.places.future_place"));
     CHECK(contains(result.problems[2], "future_section"));
     CHECK(result.validation_errors.empty());
@@ -726,7 +727,7 @@ double_click_ms = "fast"
 future_option = true
 double_click_distance = 99
 [appearance]
-transparent_settings = true
+future_appearance_option = true
 [font]
 family = 12
 )");
@@ -752,5 +753,19 @@ TEST_CASE("config validation: ignored invalid values and unknown action fields s
         const auto result = parse(text);
         REQUIRE_FALSE(result.problems.empty());
         CHECK(result.validation_errors == result.problems);
+    }
+}
+
+TEST_CASE("config: Settings transparency requires a boolean and defaults to opaque") {
+    CHECK_FALSE(parse("").config.appearance.transparent_settings);
+    for (const auto value : {"true", "false"}) {
+        const auto result = parse(std::string{"[appearance]\ntransparent_settings = "} + value);
+        REQUIRE(result.problems.empty());
+        CHECK(result.config.appearance.transparent_settings == (std::string_view{value} == "true"));
+    }
+    for (const auto value : {"1", "0.5", "'true'", "[]"}) {
+        const auto result = parse(std::string{"[appearance]\ntransparent_settings = "} + value);
+        CHECK_FALSE(result.problems.empty());
+        CHECK_FALSE(result.config.appearance.transparent_settings);
     }
 }
