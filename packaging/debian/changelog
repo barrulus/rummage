@@ -1,3 +1,10 @@
+rummage (0.7.0-1) unstable; urgency=medium
+
+  * Add the native Photo Library, albums, sources and saved searches.
+  * Bundle previews in the base package; Photo Library is the sole optional add-on.
+
+ -- rummage fork maintainers <barrulus@users.noreply.github.com>  Sat, 28 Nov 2026 00:37:14 +0000
+
 rummage (0.6.1-1) unstable; urgency=medium
 
   * Bump source and package versions to 0.6.1.

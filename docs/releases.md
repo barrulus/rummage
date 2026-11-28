@@ -2,12 +2,34 @@
 
 [Documentation](README.md) · [Current features](features.md) · [Installation](install.md)
 
-rummage is a fork of Nordend. The current source version is 0.6.1; the source
+rummage is a fork of Nordend. The current source version is 0.7.0; the source
 commit identifies development builds more precisely than that number.
 The development download tag is a moving snapshot, not a new upstream release.
 See [installation](install.md#development-downloads) for package/source identity.
 
-## 0.6.1 — in development
+## 0.7.0 — in development
+
+The optional [Photo Library](photo-library.md) brings sources, albums with photo
+covers, saved searches, annotations and duplicate review into the existing browser.
+Collections use native pickers, clipboard actions, Properties, Grid and Gallery,
+with continuous loading and selections scoped to the collection being viewed.
+Original photos remain in their existing folders.
+
+Image, video and PDF previews are included in the base application. `rummage-photos`
+is the sole optional add-on; older separate preview packages are replaced on upgrade.
+See [installation](install.md#photo-library-add-on) for setup.
+
+Catalog updates, thumbnail scheduling and allocator cleanup reduce repeated work
+and improve browsing over remote mounts. Background photo diagnostics go to the
+system journal. Source reconnection preserves verified identities; remote filesystems
+that regenerate file identities still have [recovery limits](photo-library.md#sources-and-background-work).
+Content-hash-based recovery is not included.
+
+Ctrl+Q closes the current window. Native folder pickers keep working after the
+running executable is replaced. Settings tolerate unknown options, and inherited
+shortcut conflicts no longer block unrelated appearance changes.
+
+## 0.6.1
 
 Fixed a Wayland deadlock that could freeze the window when opening Settings or
 redrawing after background work completes.
