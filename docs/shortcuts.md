@@ -27,7 +27,7 @@ a shortcut's meaning follows the focused control.
 | No default | Show/hide file extensions | `toggle_extensions` |
 | Ctrl+D | Bookmark current folder | `add_bookmark` |
 | Ctrl+K | Command palette | `command_palette` |
-| Ctrl+L | Go to a folder or server | `go_to` |
+| Ctrl+L | Go to a folder or server; Tab/Shift+Tab complete paths, Ctrl+Tab focuses the sidebar checkbox | `go_to` |
 | Ctrl+Shift+F | Filter filenames in the view | `filter_names` |
 | Ctrl+F | Find files under current folder | `find_files` |
 | Space | Quick Look | `quick_look` |

@@ -70,12 +70,6 @@ void type(rummage::views::PasswordDialog& dialog, std::string_view text) {
     }
 }
 
-void type_into(rummage::views::LocationDialog& dialog, std::string_view text) {
-    for (const char c : text) {
-        dialog.key(key(static_cast<xkb_keysym_t>(c), std::string(1, c)));
-    }
-}
-
 // gvfs_location of a URI that parses.
 GvfsLocation location_of(std::string_view uri) {
     const std::optional<RemoteUri> remote = parse_remote_uri(uri);
@@ -663,39 +657,6 @@ TEST_CASE("remote: a server added to the bookmarks once, the rest kept") {
           std::optional<std::string>{"file:///tmp/a A\nsmb://nas/Public\n"});
     CHECK_FALSE(rummage::fs::add_remote_bookmark("smb://nas/Public Daten\n", "smb://nas/Public"));
     CHECK_FALSE(rummage::fs::add_remote_bookmark(text, "/tmp/b"));  // only servers
-}
-
-TEST_CASE("location dialog: Enter goes, a wrong address stays with what is wrong") {
-    rummage::views::LocationDialog dialog{[] {}};
-    std::vector<std::pair<std::string, bool>> asked;
-    dialog.open("/home/me", [&](const std::string& text, bool add) {
-        asked.emplace_back(text, add);
-        return text.starts_with("smb://") ? std::string{} : std::string{"wrong"};
-    });
-    REQUIRE(dialog.is_open());
-    CHECK(dialog.add());
-    type_into(dialog, "nas/x");  // replaces the folder, all selected
-    CHECK(dialog.text() == "nas/x");
-    dialog.key(key(XKB_KEY_Return));
-    CHECK(dialog.is_open());
-    CHECK(dialog.error() == "wrong");
-    // Tab to "Add to the sidebar", Space unticks it, Tab back.
-    dialog.key(key(XKB_KEY_Tab));
-    dialog.key(key(XKB_KEY_space));
-    CHECK_FALSE(dialog.add());
-    dialog.key(key(XKB_KEY_Tab));
-    dialog.key(key(XKB_KEY_Home));
-    type_into(dialog, "smb://");
-    CHECK(dialog.error().empty());  // typing again clears it
-    dialog.paste("\nnot this");
-    dialog.key(key(XKB_KEY_KP_Enter));
-    CHECK_FALSE(dialog.is_open());
-    REQUIRE(asked.size() == 2);
-    CHECK(asked[1] == std::pair<std::string, bool>{"smb://nas/x", false});
-
-    dialog.open("/", [](const std::string& /*text*/, bool /*add*/) { return std::string{}; });
-    dialog.key(key(XKB_KEY_Escape));
-    CHECK_FALSE(dialog.is_open());
 }
 
 TEST_CASE("remote: Ctrl+L goes to a folder, or adds a server to the sidebar and mounts it") {

@@ -1,10 +1,14 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "rummage/core/i18n.hpp"
+#include "rummage/core/worker_pool.hpp"
 #include "rummage/theme/palette.hpp"
 #include "rummage/ui/geometry.hpp"
 #include "rummage/ui/renderer.hpp"
@@ -25,10 +29,12 @@ public:
     // (the card stays open and shows it), or empty: it went there and the card closes.
     using Go = std::function<std::string(const std::string& text, bool add)>;
 
-    explicit LocationDialog(std::function<void()> redraw);
+    explicit LocationDialog(std::function<void()> redraw, core::WorkerPool* pool = nullptr);
+
+    ~LocationDialog() { completion_job_.cancel(); }
 
     // text: where the field starts (the folder shown), all of it selected.
-    void open(std::string text, Go go);
+    void open(std::string text, Go go, std::filesystem::path home = {});
 
     void close();
 
@@ -40,7 +46,8 @@ public:
 
     [[nodiscard]] bool add() const noexcept { return add_; }
 
-    // Every key while open: true. Tab moves between the line and "Add to the sidebar".
+    // Every key while open: true. Tab/Shift+Tab complete paths; Ctrl+Tab moves between
+    // the line and "Add to the sidebar".
     bool key(const ui::KeyEvent& event);
 
     // Ctrl+V: text into the line (its first line).
@@ -67,12 +74,24 @@ private:
 
     [[nodiscard]] Target target_at(float x, float y) const;
     void submit();
+    void complete(bool reverse);
+    void invalidate_completion();
+    void choose_completion();
+
+    core::WorkerPool* pool_;
+    core::CancelToken completion_job_;
+    std::filesystem::path current_;
+    std::filesystem::path home_;
+    std::vector<std::string> completions_;
+    std::string completed_text_;
+    std::ptrdiff_t completion_index_{0};
+    bool completing_{false};
 
     std::function<void()> redraw_;
     Go go_;
     ui::TextField field_;
     std::string error_;
-    bool add_{true};
+    bool add_{false};
     bool on_toggle_{false};  // the keys go to the toggle, not the line
     ui::Rect toggle_{};      // as last drawn
     ui::Rect cancel_{};

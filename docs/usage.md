@@ -538,8 +538,11 @@ the bookmark. Without a running gvfs the status bar says so.
 **Ctrl+L** opens a card for one location: a folder (`/data`, `~/Pictures`,
 `file://…`) or a server (`smb://server/share`, `sftp://user@host/path`,
 `ftp://host`, `davs://host/path`, or a Windows share `\\server\share`). A server
-is added to the sidebar unless unticked, then mounted. An invalid address keeps
-the card open with the reason. Remote paths are resolved within the server's root.
+is mounted without adding a bookmark unless you check **Add a server to the sidebar**.
+Tab and Shift+Tab complete and cycle local paths, as in the breadcrumb. Ctrl+Tab
+moves between the location field and the sidebar checkbox; Space toggles the checkbox.
+An invalid address keeps the card open with the reason. Remote paths are resolved
+within the server's root.
 
 ## Sidebar zoom and properties
 

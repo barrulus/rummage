@@ -80,7 +80,7 @@ Browser::Browser(core::EventLoop& loop, core::WorkerPool& pool, fs::DirectoryWat
       confirm_{redraw},
       password_{redraw},
       mount_password_{redraw},
-      location_{redraw},
+      location_{redraw, &pool},
       batch_rename_{redraw},
       errors_{redraw, [this](std::string text) { copy_text(std::move(text)); }},
       extension_output_{redraw, [this](std::string text) { copy_text(std::move(text)); },
@@ -6652,8 +6652,10 @@ void Browser::open_mounted_folder(const std::shared_ptr<Folder>& origin,
 
 void Browser::open_location() {
     const std::shared_ptr<Folder> shown = current_folder();
-    location_.open(shown ? shown->path().string() : std::string{},
-                   [this](const std::string& text, bool add) { return go_to(text, add); });
+    location_.open(
+        shown ? shown->path().string() : std::string{},
+        [this](const std::string& text, bool add) { return go_to(text, add); },
+        place_sources_.home);
 }
 
 std::string Browser::go_to(std::string_view text, bool add) {

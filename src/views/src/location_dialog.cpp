@@ -6,6 +6,7 @@
 
 #include "draw_helpers.hpp"
 #include "rummage/core/i18n.hpp"
+#include "rummage/fs/path_completion.hpp"
 
 namespace rummage::views {
 namespace {
@@ -24,9 +25,14 @@ constexpr float kButtonWidth = 116.0F;
 
 }  // namespace
 
-LocationDialog::LocationDialog(std::function<void()> redraw) : redraw_{std::move(redraw)} {}
+LocationDialog::LocationDialog(std::function<void()> redraw, core::WorkerPool* pool)
+    : pool_{pool}, redraw_{std::move(redraw)} {}
 
-void LocationDialog::open(std::string text, Go go) {
+void LocationDialog::open(std::string text, Go go, std::filesystem::path home) {
+    invalidate_completion();
+    current_ = text;
+    home_ = std::move(home);
+    add_ = false;
     go_ = std::move(go);
     field_.set_text(std::move(text));
     field_.select_all();
@@ -38,6 +44,7 @@ void LocationDialog::open(std::string text, Go go) {
 
 void LocationDialog::close() {
     if (go_) {
+        invalidate_completion();
         go_ = nullptr;
         redraw_();
     }
@@ -47,6 +54,7 @@ void LocationDialog::submit() {
     if (!go_) {
         return;
     }
+    invalidate_completion();
     // go_ may open another card or close this one: keep it until it answered.
     const Go go = go_;
     std::string error = go(field_.text(), add_);
@@ -73,8 +81,13 @@ bool LocationDialog::key(const ui::KeyEvent& event) {
             return true;
         case XKB_KEY_Tab:
         case XKB_KEY_ISO_Left_Tab:
-            on_toggle_ = !on_toggle_;
-            redraw_();
+            if (event.modifiers.ctrl || on_toggle_) {
+                invalidate_completion();
+                on_toggle_ = !on_toggle_;
+                redraw_();
+            } else if (!event.modifiers.alt && !event.modifiers.super) {
+                complete(event.modifiers.shift || event.keysym == XKB_KEY_ISO_Left_Tab);
+            }
             return true;
         default:
             break;
@@ -87,6 +100,7 @@ bool LocationDialog::key(const ui::KeyEvent& event) {
         return true;
     }
     if (field_.key(event)) {
+        invalidate_completion();
         error_.clear();  // typing again: what was wrong may be right now
         redraw_();
     }
@@ -99,6 +113,7 @@ std::string LocationDialog::copy_selection(bool cut) {
     auto& field = field_;
     auto text = cut ? field.cut() : field.selected_text();
     if (cut && !text.empty()) {
+        invalidate_completion();
         error_.clear();
         redraw_();
     }
@@ -111,10 +126,66 @@ void LocationDialog::paste(std::string_view text) {
     }
     text = text.substr(0, text.find_first_of("\r\n"));
     if (!text.empty()) {
+        invalidate_completion();
         field_.insert(text);
         error_.clear();
         redraw_();
     }
+}
+
+void LocationDialog::invalidate_completion() {
+    completion_job_.cancel();
+    completing_ = false;
+    completions_.clear();
+    completed_text_.clear();
+}
+
+void LocationDialog::choose_completion() {
+    if (completions_.empty())
+        return;
+    const auto count = static_cast<std::ptrdiff_t>(completions_.size());
+    completion_index_ = (completion_index_ % count + count) % count;
+    completed_text_ = completions_[static_cast<std::size_t>(completion_index_)];
+    field_.select_all();
+    field_.insert(completed_text_);
+    error_.clear();
+    redraw_();
+}
+
+void LocationDialog::complete(bool reverse) {
+    if (!pool_)
+        return;
+    if (completing_) {
+        completion_index_ += reverse ? -1 : 1;
+        return;
+    }
+    if (completions_.size() > 1 && completed_text_ == field_.text()) {
+        completion_index_ += reverse ? -1 : 1;
+        choose_completion();
+        return;
+    }
+    invalidate_completion();
+    completing_ = true;
+    completion_index_ = reverse ? -1 : 0;
+    const auto text = field_.text();
+    completion_job_ = pool_->submit(
+        core::Priority::visible,
+        [text, current = current_, home = home_](const core::CancelToken& token) {
+            return fs::complete_path(text, current, home, token);
+        },
+        [this, text](fs::PathMatches result) {
+            completing_ = false;
+            if (!is_open() || text != field_.text())
+                return;
+            completions_ = std::move(result.paths);
+            if (completions_.empty()) {
+                error_ = result.error.empty() ? std::string{i18n::tr("No matching paths")}
+                                              : result.error;
+                redraw_();
+            } else {
+                choose_completion();
+            }
+        });
 }
 
 LocationDialog::Target LocationDialog::target_at(float x, float y) const {
@@ -153,6 +224,7 @@ void LocationDialog::pointer(const ui::PointerEvent& event) {
     }
     switch (over) {
         case Target::add:
+            invalidate_completion();
             add_ = !add_;
             on_toggle_ = true;
             redraw_();
@@ -167,6 +239,7 @@ void LocationDialog::pointer(const ui::PointerEvent& event) {
             break;
     }
     if (field_at(event.x, event.y)) {
+        invalidate_completion();
         on_toggle_ = false;
         field_.pointer(event);
         redraw_();
