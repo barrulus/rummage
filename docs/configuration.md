@@ -192,6 +192,13 @@ are remembered in `state.toml`. Places and bookmarks start with their subfolders
 collapsed each session. Use **View → Sidebar** to restore hidden
 entries or reset organization.
 
+**Settings → Appearance → Layout → Expandable sidebar folders** controls folder
+expansion in Places, Bookmarks and mounted devices. It is enabled by default and
+applies immediately. Turning it off collapses folder branches and removes their
+expansion arrows; folders still open when selected. Sidebar folder discovery and
+branch watches stop until it is enabled again. Photo Library groups, including
+Albums and Saved searches, remain expandable.
+
 Optional `config.toml` lists override remembered order or hidden entries at startup
 and when these configuration lists change. Omit them to use the interactive saved
 state; an explicit empty list clears that list. Interactive changes still work
@@ -199,6 +206,7 @@ until the next startup or configuration-list change.
 
 ```toml
 [sidebar]
+expand_folders = true
 order = ["place:home", "separator:0:0", "place:downloads"]
 hidden = ["place:music"]
 ```

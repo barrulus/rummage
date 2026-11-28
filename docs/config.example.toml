@@ -22,6 +22,9 @@ language = "system"
 # Bookmarks: path:/absolute/path or uri:sftp://server/path.
 # Separators: separator:SECTION:ID (0 Places, 1 Bookmarks, 2 Devices).
 [sidebar]
+# Allow folder expansion in Places, Bookmarks and mounted devices. Applies live.
+# Photo Library groups remain expandable when this is false.
+expand_folders = true
 # order = ["place:home", "separator:0:0", "place:downloads"]
 # hidden = ["place:music"]
 

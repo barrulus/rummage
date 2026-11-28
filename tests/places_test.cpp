@@ -565,6 +565,65 @@ TEST_CASE("sidebar: tree loads only expanded folders and watches changes without
     CHECK(sidebar.places().empty());
 }
 
+TEST_CASE("sidebar: folder expansion can be disabled live without disabling ordinary navigation") {
+    TempDir dir;
+    fs::create_directories(dir.path / "branch" / "nested");
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    std::size_t opened = 0;
+    rummage::views::Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {},
+                                    [&](const Place&) { ++opened; }};
+    sidebar.enable_tree(loop, pool, watcher, rummage::fs::MimeDatabase::load());
+    sidebar.set_expand_folders(false);
+    sidebar.set_places({{.label = "Root", .path = dir.path, .icon = "folder"}});
+    rummage::ui::Offscreen gl{220, 350};
+    rummage::ui::FontSystem fonts;
+    rummage::ui::Renderer renderer{fonts};
+    rummage::ui::IconSet icons{fonts};
+    const auto draw = [&] {
+        renderer.begin_frame(220, 350, 1, {});
+        sidebar.draw(renderer, {0, 0, 220, 350}, {}, icons, {}, Browser::Clock::now());
+        renderer.end_frame();
+    };
+    draw();
+    CHECK_FALSE(sidebar.loading());  // Drawing disabled folders must not start probes.
+    CHECK_FALSE(sidebar.expandable(0));
+    sidebar.toggle_folder(dir.path);
+    sidebar.set_focused(true);
+    CHECK(sidebar.key(key(XKB_KEY_Right)));
+    CHECK(sidebar.places().size() == 1);
+    CHECK_FALSE(sidebar.loading());
+    CHECK(sidebar.key(key(XKB_KEY_Return)));
+    CHECK(opened == 1);
+    const auto rect = sidebar.place_icon_rect(dir.path);
+    REQUIRE(rect);
+    sidebar.pointer({.kind = rummage::ui::PointerEvent::Kind::press,
+                     .x = 12,
+                     .y = rect->y + 12,
+                     .button = rummage::ui::PointerButton::left}, Browser::Clock::now());
+    CHECK(opened == 2);  // The former disclosure area opens the folder normally.
+
+    sidebar.set_expand_folders(true);
+    draw();
+    REQUIRE(run_until(loop, [&] { return sidebar.expandable(0); }));
+    sidebar.toggle_folder(dir.path);
+    REQUIRE(run_until(loop, [&] { return sidebar.places().size() == 2; }));
+    sidebar.toggle_folder(dir.path / "branch");
+    REQUIRE(run_until(loop, [&] { return sidebar.places().size() == 3; }));
+    draw();  // Include child probes in the work that disabling must cancel.
+    sidebar.set_expand_folders(false);
+    CHECK(sidebar.places().size() == 1);
+    CHECK_FALSE(sidebar.loading());
+    draw();
+    CHECK_FALSE(sidebar.loading());
+    CHECK_FALSE(sidebar.expandable(0));
+    sidebar.set_expand_folders(true);
+    CHECK(sidebar.places().size() == 1);  // Re-enabling starts with collapsed folders.
+    sidebar.toggle_folder(dir.path);
+    REQUIRE(run_until(loop, [&] { return sidebar.places().size() == 2; }));
+}
+
 TEST_CASE("sidebar: separators drag within their section and headers collapse without opening") {
     rummage::ui::Offscreen gl{220, 350};
     rummage::ui::FontSystem fonts;
@@ -752,6 +811,8 @@ TEST_CASE("sidebar: logical groups expand recursively with stable URI keys and p
     Sidebar sidebar{[] {}, [](rummage::ui::CursorShape) {},
                     [&](const Place& place) { opened = place.uri; }};
     sidebar.enable_tree(loop, pool, watcher, rummage::fs::MimeDatabase::load());
+    // Photo Library groups remain expandable even when filesystem folders are flat.
+    sidebar.set_expand_folders(false);
     const Place root{
         .label = "Photo Library", .path = {}, .icon = "photo", .uri = "rummage:photos"};
     const Place albums{

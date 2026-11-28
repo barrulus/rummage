@@ -97,6 +97,7 @@ struct Config {
     };
 
     struct Sidebar {
+        bool expand_folders{true};  // Places, Bookmarks and mounted devices can show subfolders
         // Explicit lists override remembered organization at startup or on config reload.
         std::optional<std::vector<std::string>> order;
         std::optional<std::vector<std::string>> hidden;

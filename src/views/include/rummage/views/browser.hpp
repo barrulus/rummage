@@ -323,6 +323,7 @@ public:
     [[nodiscard]] const std::string& type_jump_prefix() const { return type_jump_prefix_; }
 
     void set_sidebar_config(const core::Config::Sidebar& config) {
+        sidebar_.set_expand_folders(config.expand_folders);
         sidebar_.set_organization(config.order.value_or(sidebar_.order()),
                                   config.hidden.value_or(sidebar_.hidden()), sidebar_.collapsed());
     }
