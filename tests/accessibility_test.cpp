@@ -6,6 +6,7 @@
 #include <future>
 #include <iostream>
 #include <sdbus-c++/sdbus-c++.h>
+#include <string_view>
 #include <thread>
 
 #include "rummage/platform/accessibility.hpp"
@@ -20,7 +21,7 @@ void require(bool good, const char* message) {
 }
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
     try {
         const auto* address = std::getenv("DBUS_SESSION_BUS_ADDRESS");
         require(address != nullptr, "Run under dbus-run-session");
@@ -41,6 +42,19 @@ int main() {
         registry->enterEventLoopAsync();
         rummage::core::EventLoop loop;
         rummage::platform::Accessibility bridge{loop};
+        if (argc > 1 && std::string_view{argv[1]} == "--ready-before-handler") {
+            // Registration may finish in the constructor's bus pump. Force that ordering
+            // instead of relying on the registry thread winning a scheduling race.
+            const auto poll = loop.add_timer(1ms, 1ms, [&] {
+                if (bridge.active())
+                    loop.quit();
+            });
+            const auto timeout = loop.add_timer(3s, 0ms, [&] { loop.quit(2); });
+            const int result = loop.run();
+            loop.remove(poll);
+            loop.remove(timeout);
+            require(result == 0 && bridge.active(), "Bridge did not become ready");
+        }
         std::atomic<bool> edited{}, invalidated{};
         std::atomic<int> replacement_actions{};
         bridge.set_ready_handler([&] {
