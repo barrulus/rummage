@@ -143,6 +143,89 @@ TEST_CASE("photo workspace: ordinary browser and picker remain inert until expli
     CHECK(std::filesystem::exists(catalog));
 }
 
+TEST_CASE("photo workspace: switching from native search preserves both collection identities") {
+    const rummage::test::TempDir directory;
+    const rummage::test::ScopedEnv data{"XDG_DATA_HOME", (directory.path / "data").string()};
+    const rummage::test::ScopedEnv module{"RUMMAGE_PHOTOS_LIBRARY", RUMMAGE_PHOTOS_TEST_MODULE};
+    const auto source = directory.path / "Pictures";
+    fixture(source / "first" / "same.png");
+    fixture(source / "second" / "same.png");
+    rummage::photos::Client catalog;
+    REQUIRE(catalog.request({{"op", "add_source"}, {"path", source.string()}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "work"}, {"budget", 32}}).value("ok", false));
+    REQUIRE(catalog.request({{"op", "background_control"}, {"paused", true}}).value("ok", false));
+    EventLoop loop;
+    rummage::core::WorkerPool pool{loop, 2};
+    rummage::fs::DirectoryWatcher watcher{loop};
+    Browser browser{loop, pool, watcher, rummage::fs::MimeDatabase::load(), [] {}, [](auto) {}};
+    browser.open(source);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    browser.open_search_results(source, "*.png", false);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    const auto search_tab = browser.active_tab();
+    const auto search_folder = browser.picker_folder();
+    REQUIRE(search_folder->is_search());
+    CHECK_FALSE(search_folder->is_external_collection());
+    REQUIRE(search_folder->entries().size() == 2);
+    search_folder->set_cursor(1);
+    const auto selected_search = search_folder->selected_names();
+    const auto selected_path = search_folder->path_of(*search_folder->cursor_entry());
+    CHECK_FALSE(browser.has_overlay());
+
+    browser.open_photo_library();
+    REQUIRE(browser.showing_photos());
+    auto* library = browser.photo_library();
+    REQUIRE(library);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading() && library->rows().size() == 2; }));
+    const auto photo_tab = browser.active_tab();
+    const auto photo_folder = library->folder();
+    REQUIRE(photo_folder->is_external_collection());
+    CHECK_FALSE(photo_folder->is_search());
+    REQUIRE(photo_folder->entries().size() == 2);
+    CHECK(photo_folder->entries()[0].name == photo_folder->entries()[1].name);
+    CHECK(photo_folder->entries()[0].key() != photo_folder->entries()[1].key());
+    photo_folder->set_cursor(1);
+    const auto selected_photo = library->selected_ids();
+    REQUIRE(selected_photo.size() == 1);
+
+    // The former global search-close path discarded this tab's live search on opening Photos.
+    browser.select_tab(search_tab);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    CHECK(browser.searching_results());
+    CHECK(browser.picker_folder() == search_folder);
+    CHECK(browser.name_filter() == "*.png");
+    CHECK(search_folder->selected_names() == selected_search);
+    REQUIRE(search_folder->cursor_entry());
+    CHECK(search_folder->path_of(*search_folder->cursor_entry()) == selected_path);
+    browser.select_tab(photo_tab);
+    REQUIRE(browser.showing_photos());
+    CHECK(browser.picker_folder() == photo_folder);
+    CHECK(library->selected_ids() == selected_photo);
+
+    // An implicit search focuses Photo Library's native query; an explicit filesystem scope
+    // gets a separate ordinary search tab without converting or clearing either collection.
+    const auto tabs = browser.tab_count();
+    browser.open_search_results();
+    CHECK(browser.showing_photos());
+    CHECK(browser.filtering());
+    CHECK(browser.tab_count() == tabs);
+    CHECK_FALSE(browser.searching_results());
+    browser.open_search_results(source, "name:same.png", false);
+    REQUIRE(settle_photos(loop, [&] { return !browser.loading(); }));
+    CHECK_FALSE(browser.showing_photos());
+    CHECK(browser.searching_results());
+    CHECK(browser.tab_count() == tabs + 1);
+    REQUIRE(browser.picker_folder()->entries().size() == 2);
+    browser.select_tab(photo_tab);
+    REQUIRE(browser.showing_photos());
+    CHECK(browser.picker_folder() == photo_folder);
+    CHECK(library->selected_ids() == selected_photo);
+    browser.select_tab(search_tab);
+    CHECK(browser.searching_results());
+    CHECK(browser.picker_folder() == search_folder);
+    CHECK(search_folder->selected_names() == selected_search);
+}
+
 TEST_CASE(
     "photo workspace: real collection Folder keeps equal filenames distinct and query state "
     "stable") {

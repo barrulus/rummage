@@ -558,6 +558,8 @@ TEST_CASE("native search: columns enter result folders and return to the result 
     REQUIRE(f.settle());
     const auto folder = f.browser.picker_folder();
     REQUIRE(folder->is_search());
+    CHECK(folder->is_collection());
+    CHECK_FALSE(folder->is_external_collection());
     REQUIRE(folder->entries().size() == 1);
     CHECK(folder->path_of(folder->entries()[0]) == f.a / "photos");
     f.select_result(0);
@@ -567,6 +569,8 @@ TEST_CASE("native search: columns enter result folders and return to the result 
     CHECK(f.browser.searching_results());
     CHECK(f.browser.mode() == Browser::Mode::columns);
     CHECK(f.browser.picker_folder()->path() == f.a / "photos");
+    CHECK_FALSE(f.browser.picker_folder()->is_collection());
+    CHECK(f.browser.columns().root_folder() == folder);
     REQUIRE(f.press(key(XKB_KEY_Left)));
     REQUIRE(f.settle());
     CHECK(f.browser.searching_results());

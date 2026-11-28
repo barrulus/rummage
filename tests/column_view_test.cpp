@@ -523,6 +523,9 @@ TEST_CASE("collection folder: duplicate filenames retain independent stable sele
     second.size = 20;
     folder->replace_collection({first, second}, "Photos", 1000);
     CHECK(folder->is_collection());
+    CHECK(folder->is_external_collection());
+    CHECK_FALSE(folder->is_search());
+    CHECK_FALSE(folder->is_recent());
     CHECK(folder->path().empty());
     CHECK_FALSE(folder->model().loading());
     CHECK(folder->model().path().empty());
