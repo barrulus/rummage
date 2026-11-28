@@ -57,7 +57,12 @@
 stdenv.mkDerivation {
   pname = "rummage";
   version = "0.7.0";
-  outputs = [ "out" ] ++ lib.optional withPhotos "photos" ++ lib.optional withFont "font" ++ lib.optional withModel "model";
+  outputs = [
+    "out"
+  ]
+  ++ lib.optional withPhotos "photos"
+  ++ lib.optional withFont "font"
+  ++ lib.optional withModel "model";
 
   src = lib.fileset.toSource {
     root = ../.;
@@ -76,7 +81,10 @@ stdenv.mkDerivation {
         ../tests/svg_compare.hpp
         ../third_party
       ]
-      ++ lib.optionals withTests [ ../tests ../scripts/ci/check-model.py ]
+      ++ lib.optionals withTests [
+        ../tests
+        ../scripts/ci/check-model.py
+      ]
     );
   };
 
